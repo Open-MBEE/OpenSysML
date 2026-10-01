@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
-	"syscall"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -82,10 +83,7 @@ func TestConvertedNotationParses(t *testing.T) {
 
 // textOnlyFixtures are the models whose graph the mapping cannot write back
 // without its source text, by the refusal it must keep reporting for them.
-var textOnlyFixtures = map[string]string{
-	"action_nodes":               "this expression states no notation and no structure",
-	"payload_declaration_bodies": "it has no sysx:endForm",
-}
+var textOnlyFixtures = map[string]string{}
 
 // TestRoundTripIsLossless is the fidelity contract: converting the notation a
 // graph produced back to a graph gives the same graph. Notation and RDF say the
@@ -120,6 +118,12 @@ func TestRoundTripIsLossless(t *testing.T) {
 				var unsupported *export.UnsupportedError
 				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), textOnly) {
 					t.Fatalf("the mapping alone should still refuse %s (%s), got: %v", name, textOnly, err)
+				}
+				return
+			}
+			if name == "payload_declaration_bodies" {
+				if _, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML); err != nil {
+					t.Fatalf("the mapping alone should infer flow end forms: %v", err)
 				}
 				return
 			}
@@ -216,9 +220,9 @@ func TestWrittenReferencesResolveWhereWritten(t *testing.T) {
 		"sysml:type elmt:Shadowing__Frame",
 		"sysml:type elmt:Shadowing__Frame__Frame",
 		"sysml:type elmt:Shadowing__Field",
-		"sysml:targetFeature elmt:Shadowing__Packet__payload",
-		"sysml:referent elmt:Shadowing__payload",
-		"sysml:importedNamespace elmt:Shadowing__Lib__Cell",
+		"sysml:chainingFeature elmt:Shadowing__Bus__wrapped, elmt:Shadowing__Packet__payload",
+		"sysml:referencedFeature elmt:Shadowing__payload",
+		"sysml:importedMembership elmt:Shadowing__Lib__Cell_om",
 		"sysml:importedNamespace elmt:Shadowing__Lib",
 		"sysml:type elmt:Shadowing__Lib__Cell",
 		"sysml:type elmt:Shadowing__Consumer__Lib__Cell",
@@ -290,7 +294,7 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if want := "sysx:typeArgument elmt:P__T ."; !strings.Contains(string(graph), want) {
+	if want := "sysx:typeArgument elmt:P__T"; !strings.Contains(string(graph), want) {
 		t.Fatalf("graph does not record %q\n%s", want, graph)
 	}
 	notation := structuralRoundTrip(t, "cast_type", graph)
@@ -298,7 +302,19 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 		t.Errorf("notation does not write %q\n%s", want, notation)
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T .", "sysx:typeArgument elmt:P__H__T .")
+	// The collapsed sysx:typeArgument and the typed parameter's FeatureTyping
+	// name the type twice; relinking only one of them is a disagreement.
+	collapsedOnly := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
+	refusedAsUnsupported(t, "cast_type", collapsedOnly, "its sysx:typeArgument names P::H::T and its typed parameter names P::T")
+	relinkedGraph := collapsedOnly
+	for _, property := range []string{"type", "general", "target"} {
+		relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", property, "elmt:P__T", "elmt:P__H__T")
+	}
+	relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", "relatedElement",
+		"expr:P__H__v_pvalue_pin0, elmt:P__T", "expr:P__H__v_pvalue_pin0, elmt:P__H__T")
+	relinkedGraph = relinked(t, relinkedGraph,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__T\"}]"`,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__H__T\"}]"`)
 	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
@@ -425,6 +441,28 @@ func relinked(t *testing.T, graph []byte, link, to string) []byte {
 	return []byte(strings.Replace(string(graph), link, to, 1))
 }
 
+func relinkedProperty(t *testing.T, graph []byte, subject, property, from, to string) []byte {
+	t.Helper()
+	blocks := strings.Split(string(graph), "\n\n")
+	needle := "sysml:" + property + " " + from
+	replacement := "sysml:" + property + " " + to
+	found := 0
+	for i, block := range blocks {
+		if !strings.Contains(block, subject+"\n") {
+			continue
+		}
+		if strings.Count(block, needle) != 1 {
+			continue
+		}
+		blocks[i] = strings.Replace(block, needle, replacement, 1)
+		found++
+	}
+	if found != 1 {
+		t.Fatalf("subject %q has property %q %d times, want once\n%s", subject, property, found, graph)
+	}
+	return []byte(strings.Join(blocks, "\n\n"))
+}
+
 // refusedAsUnsupported requires a graph to be refused rather than written as
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
@@ -454,7 +492,10 @@ func TestChainReachingAUsageNamedByAChainWritesItsEffectiveName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{"sysml:targetFeature elmt:P__generator___400", "sysml:targetFeature elmt:P__train__engine___400"} {
+	for _, want := range []string{
+		"sysml:chainingFeature elmt:P__generator, elmt:P__generator___400",
+		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine___400",
+	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
 		}
@@ -488,7 +529,7 @@ func TestSpellingsAreCheckedBesideEachOther(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if want := "sysml:importedNamespace elmt:ImportTest__Pkg2__Pkg21__Pkg211__P211"; !strings.Contains(string(graph), want) {
+	if want := "sysml:importedMembership elmt:ImportTest__Pkg2__Pkg21__Pkg211__P211_om"; !strings.Contains(string(graph), want) {
 		t.Fatalf("graph does not link %q\n%s", want, graph)
 	}
 	notation := structuralRoundTrip(t, "imports", graph)
@@ -515,7 +556,10 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{"sysml:targetFeature elmt:P__A__x", "sysml:targetFeature elmt:P__B__x"} {
+	for _, want := range []string{
+		"sysml:targetFeature elmt:P__A__x",
+		"sysml:chainingFeature elmt:P__b, elmt:P__B__x",
+	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
 		}
@@ -524,14 +568,26 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	structural := withoutTriples(t, graph, "sysx:sourceText")
 	// The value's chain `a.x` relinked to B::x is written `a.B::x`, as is the
 	// connector's first end, whether or not the notation is kept with the graph.
-	value := "    sysml:argument expr:P__v_pvalue_pa0 ;\n    sysml:targetFeature elmt:P__A__x ."
-	relinkedValue := relinked(t, structural, value, strings.Replace(value, "A__x", "B__x", 1))
+	relinkedValue := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	// The membership the edge materializes carries the same member.
+	relinkedValue = relinkedProperty(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(relinkedValue)); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
-	end := "    sysml:argument expr:P___406_pend0_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
 	for name, g := range map[string][]byte{"structure": structural, "notation": graph} {
-		back, err := convert.Convert("chain-"+name+".ttl", relinked(t, g, end, strings.Replace(end, "A__x", "B__x", 1)), convert.FormatTurtle, convert.FormatSysML)
+		relinkedEnd := relinkedProperty(t, g, "expr:P___406_pend0_pchain", "chainingFeature", "elmt:P__a, elmt:P__A__x", "elmt:P__a, elmt:P__B__x")
+		relinkedEnd = []byte(strings.Replace(string(relinkedEnd),
+			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__A__x\"}]"`,
+			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__B__x\"}]"`, 1))
+		// The FeatureChaining owning the target link names the same feature.
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "chainingFeature", "elmt:P__A__x", "elmt:P__B__x")
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "target", "elmt:P__A__x", "elmt:P__B__x")
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "relatedElement",
+			"expr:P___406_pend0_pchain, elmt:P__A__x", "expr:P___406_pend0_pchain, elmt:P__B__x")
+		relinkedEnd = []byte(strings.Replace(string(relinkedEnd),
+			`json:relatedElement "[{\"@id\":\"P___406_pend0_pchain\"},{\"@id\":\"P__A__x\"}]"`,
+			`json:relatedElement "[{\"@id\":\"P___406_pend0_pchain\"},{\"@id\":\"P__B__x\"}]"`, 1))
+		back, err := convert.Convert("chain-"+name+".ttl", relinkedEnd, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation (%s): %v", name, err)
 		}
@@ -540,18 +596,20 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 		}
 	}
 	// A target no chain from a can name — the package itself — is refused.
-	refusedAsUnsupported(t, "chain-package", relinked(t, structural, value, strings.Replace(value, "P__A__x", "P", 1)),
+	packageTarget := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P")
+	packageTarget = relinkedProperty(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P")
+	refusedAsUnsupported(t, "chain-package", packageTarget,
 		"no spelling of the segment reads as the element the graph names from the operand")
 	// The sum repeats `a.x`: the occurrence still reaching A::x must not vouch
 	// for the one relinked to B::x, which is spelled to reach its own element.
-	second := "    sysml:argument expr:P__w_pvalue_pa1_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
-	repeated := relinked(t, structural, second, strings.Replace(second, "A__x", "B__x", 1))
+	repeated := relinkedProperty(t, structural, "expr:P__w_pvalue_pa1", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	repeated = relinkedProperty(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(repeated)); !strings.Contains(back, "attribute w = a.x + a.B::x;") {
 		t.Errorf("each repeated chain should be spelled for its own element\n%s", back)
 	}
 	// Both relinked, neither occurrence reads as A::x any more.
-	first := "    sysml:argument expr:P__w_pvalue_pa0_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
-	both := relinked(t, repeated, first, strings.Replace(first, "A__x", "B__x", 1))
+	both := relinkedProperty(t, repeated, "expr:P__w_pvalue_pa0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	both = relinkedProperty(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(both)); !strings.Contains(back, "attribute w = a.B::x + a.B::x;") {
 		t.Errorf("both relinked chains should be spelled qualified\n%s", back)
 	}
@@ -579,6 +637,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	// w's value is v's chain: its root, linked to P::a, is spelled to reach it
 	// from both declarations, so both state A::x.
 	shared := relinked(t, structural, "sysml:value expr:P__H__w_pvalue ;", "sysml:value expr:P__v_pvalue ;")
+	shared = relinkedProperty(t, shared, "expr:P__H__w_pvalue_om", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	back, err := convert.Convert("shared.ttl", shared, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, shared)
@@ -597,6 +656,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	}
 	// The same with w's chain shared into v, so the qualifying owner is the other one.
 	shared = relinked(t, structural, "sysml:value expr:P__v_pvalue ;", "sysml:value expr:P__H__w_pvalue ;")
+	shared = relinkedProperty(t, shared, "expr:P__v_pvalue_om", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	byName = relinked(t, shared, "sysml:referent elmt:P__H__a ;", `sysml:referent "a" ;`)
 	if back := toNotation(t, byName); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("v should reach B::x through a qualified segment\n%s", back)
@@ -622,8 +682,8 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 	}
 	structuralRoundTrip(t, "initial", graph)
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	const link = "sysml:sourceFeature elmt:P__Outer__inner__s2"
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s1"),
+	const link = "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__inner__s2"
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s1"),
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
@@ -632,7 +692,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural = withoutTriples(t, graph, "sysx:sourceText")
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s2"),
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s2"),
 		"`first s2` does not name P::Outer::s2 in the body it is written in")
 }
 
@@ -1127,6 +1187,32 @@ func TestShortKindKeywordSurvivesTheRoundTrip(t *testing.T) {
 	}
 }
 
+// A case metaclass alone, with no recorded keyword (as another tool's graph
+// states it), reconstructs the grammar's `analysis def` and `analysis`, not
+// the two-word display name, which the parser reads as a plain case.
+func TestCaseKeywordsReconstructFromTheMetaclassAlone(t *testing.T) {
+	src := "package P {\n\tverification def V;\n\tanalysis def A;\n\tanalysis a : A;\n\tverification v : V;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:declaredKeyword"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"verification def V;", "analysis def A;", "analysis a : A;", "verification v : V;"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("`%s` did not come back from the metaclass:\n%s", want, back)
+		}
+	}
+	if strings.Contains(string(back), " case") {
+		t.Errorf("a two-word kind was written:\n%s", back)
+	}
+}
+
 // A `#M` prefix is an owned metadata usage linked to its definition; the head
 // comes back from the graph alone, a `$::`/short-name type as its declared name.
 func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
@@ -1265,45 +1351,54 @@ func TestNegatedInvariantComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A prefix annotation is identified by its position after the body members,
-// so a body member named as that position is refused rather than merged with
-// it; a member named as another position is no collision.
-func TestPrefixCollidingWithAPositionNamedMemberIsReported(t *testing.T) {
+// A prefix annotation's positional identity stays distinct from a member
+// whose name spells that same position.
+func TestPrefixAndPositionNamedMemberConvertDistinctly(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@1';\n\t}\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("expected an unsupported error, got %v", err)
-	}
-	for _, want := range []string{"the prefix annotation at m.sysml:3:2", "identified by its position as P::Car::@1, which a body member is named"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("expected %q in error:\n%s", want, err.Error())
-		}
-	}
-
-	src = "package P {\n\tmetadata def Safety;\n\t#Safety part def Car {\n\t\tpart '@0';\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::Car::'@1'"`, `sysml:qualifiedName "P::Car::@1"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v", err)
 	}
-	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@0';\n    }") {
+	if !strings.Contains(string(back), "#Safety part def Car {\n        part '@1';\n    }") {
 		t.Errorf("the prefix and the member should both come back:\n%s", back)
 	}
 }
 
-// A metadata usage is owned through an OwningMembership even when a
-// relationship owns it, so a client reaches it the way it reaches any member.
+// A usage's prefix metadata is owned through an OwningMembership
+// (SysML-textual-bnf PrefixMetadataMember); a dependency's is the annotating
+// element of an Annotation the dependency owns (PrefixMetadataAnnotation).
 func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n\trequirement def R {\n\t\tsubject #Safety s : Car;\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, owner := range []string{"P___402", "P__R__s"} {
+	annotation, metadata := "elmt:P___402___400_an", "elmt:P___402___400"
+	for _, want := range []string{
+		annotation + "\n    a sysml:Annotation ;",
+		"sysml:annotatingElement " + metadata,
+		"sysml:annotatedElement elmt:P___402",
+		"sysml:ownedAnnotation " + annotation,
+		"sysml:owningRelationship " + annotation,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph does not state %q:\n%s", want, turtle)
+		}
+	}
+	if strings.Contains(string(turtle), annotation+"\n    a sysml:OwningMembership ;") {
+		t.Errorf("the dependency's metadata is owned through a membership:\n%s", turtle)
+	}
+	// The subject is a usage, whose prefix is a member through a membership.
+	for _, owner := range []string{"P__R__s"} {
 		member, membership := "elmt:"+owner+"___400", "elmt:"+owner+"___400_om"
 		for _, want := range []string{
 			membership + "\n    a sysml:OwningMembership ;",
@@ -1317,7 +1412,7 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 				t.Errorf("the graph does not state %q:\n%s", want, turtle)
 			}
 		}
-		for _, reject := range []string{"sysml:memberElement " + member + " ;\n    sysml:ownedMemberFeature", "sysml:membershipOwningNamespace elmt:" + owner} {
+		for _, reject := range []string{"sysml:memberElement " + member + " ;\n    sysml:ownedMemberFeature", "sysml:membershipOwningNamespace elmt:P___402"} {
 			if strings.Contains(string(turtle), reject) {
 				t.Errorf("a relationship is no namespace, yet the graph states %q:\n%s", reject, turtle)
 			}
@@ -1331,6 +1426,25 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 		if !strings.Contains(string(back), head) {
 			t.Errorf("the head should come back as written:\n%s", back)
 		}
+	}
+}
+
+// A dependency's prefix annotates the dependency; an Annotation it owns that
+// names another element is refused rather than written as its prefix.
+func TestDependencyPrefixAnnotatingAnotherElementIsRefused(t *testing.T) {
+	src := "package P {\n\tmetadata def Safety;\n\tpart def Car;\n\t#Safety dependency from P to Car;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	stated := "sysml:annotatedElement elmt:P___402 ."
+	if !strings.Contains(string(turtle), stated) {
+		t.Fatalf("the graph no longer states %q:\n%s", stated, turtle)
+	}
+	moved := strings.Replace(string(turtle), stated, "sysml:annotatedElement elmt:P__Car .", 1)
+	back, err := convert.Convert("m.ttl", []byte(moved), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "annotates") {
+		t.Errorf("an annotation of another element came back as the dependency's prefix (%v):\n%s", err, back)
 	}
 }
 
@@ -1483,7 +1597,7 @@ func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
 	const typing = "    sysml:type elmt:P__M ;\n"
 	typings := strings.Split(structural, typing)
-	if len(typings) != 4 {
+	if len(typings) != 7 {
 		t.Fatalf("expected three metadata usages typed by M in the graph:\n%s", structural)
 	}
 	if _, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML); err != nil {
@@ -1528,7 +1642,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
 	const typing = "    sysml:type elmt:P__M ;\n"
 	typings := strings.Split(structural, typing)
-	if len(typings) != 4 {
+	if len(typings) != 7 {
 		t.Fatalf("expected three metadata usages typed by M in the graph:\n%s", structural)
 	}
 	retyped := func(i int, object string) string {
@@ -1745,7 +1859,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	}
 	// `require C;` reads as an inline condition naming C; the reference form is
 	// what a graph states through sysml:references.
-	const inline = `sysx:condition expr:P__R___402_pcondition .`
+	const inline = `sysx:condition expr:P__R___402_pcondition`
 	if !strings.Contains(structural, inline) {
 		t.Fatalf("the inline require member was not found in the graph:\n%s", structural)
 	}
@@ -1757,7 +1871,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 		{"bodied assume", strings.Replace(structural, declared, assert, 1), "assume"},
 		{"bodyless require", secondDeclared, "require"},
 		{"inline require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+inline, 1), "require"},
-		{"reference-form require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+`sysml:references elmt:P__C .`, 1), "require"},
+		{"reference-form require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+`sysml:references elmt:P__C`, 1), "require"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.edited == structural {
@@ -1797,7 +1911,7 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
-	const require, assert = `sysx:condition expr:P__R___400_pcondition .`, `sysx:condition expr:P__q___400_pcondition .`
+	const require, assert = `sysx:condition expr:P__R___400_pcondition`, `sysx:condition expr:P__q___400_pcondition`
 	for _, inline := range []string{require, assert} {
 		if !strings.Contains(structural, inline) {
 			t.Fatalf("%s was not found in the graph:\n%s", inline, structural)
@@ -2035,6 +2149,68 @@ func TestSuccessionRoundTripsInEveryBody(t *testing.T) {
 	}
 }
 
+func TestActionSuccessionSourceMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    private import ScalarValues::*;
+    action def A {
+        action a;
+        then [0..1] action b;
+        [2] then c { action nested; }
+        action c;
+    }
+    action def B {
+        out result : Integer = 0;
+        assign result := 1;
+        [1] then done;
+    }
+    action def C {
+        out result : Integer = 0;
+        assign result := 1;
+        [0..1] then done;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "multiplicity.sysml", src)
+	wantFragments(t, back,
+		"then [0..1] action b;",
+		"[2] then c {",
+		"[1] then done;",
+		"[0..1] then done;",
+	)
+}
+
+// `then [m] b;` writes the target end's crossing multiplicity, the same end
+// `succession first a then [m] b;` states: the graph carries it on the target
+// connector end, beside a source multiplicity when both are written, and writes
+// the form back from the ends alone.
+func TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    action def A {
+        action a;
+        action b;
+        action c;
+        action d;
+        then [0..1] b;
+        then [1] c { action nested; }
+        [1] then [0..1] d;
+        then [0..1] done;
+    }
+    action def B {
+        action a;
+        [1] then [2] done;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "target_multiplicity.sysml", src)
+	wantFragments(t, back,
+		"then [0..1] b;",
+		"then [1] c {",
+		"[1] then [0..1] d;",
+		"then [0..1] done;",
+		"[1] then [2] done;",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.
@@ -2091,15 +2267,35 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 	}
 }
 
-// A qualified name identifies an element, so two members of one namespace
-// sharing a name would merge into a single subject.
-func TestDuplicateNameIsUnsupported(t *testing.T) {
+// Two members of one namespace sharing a name convert as separate elements:
+// the first keeps the qualified name, the later is identified by its position.
+func TestDuplicateNameConverts(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def A;\n}"
-	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-	var unsupported *export.UnsupportedError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a duplicate name, got %v", err)
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("a duplicate name was refused: %v", err)
 	}
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the Turtle lacks %s:\n%s", want, out)
+		}
+	}
+}
+
+// A member named the positional name a duplicate of its sibling takes converts
+// with a distinct identity for the name and the position.
+func TestPositionalNameCollisionConverts(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::'@2'"`, `sysml:qualifiedName "P::@2"`} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("Turtle lacks %s:\n%s", want, turtle)
+		}
+	}
+	structuralRoundTrip(t, "positional-name-collision.sysml", turtle)
 }
 
 // Ownership that forms a cycle leaves no root to print from, which would
@@ -2185,11 +2381,23 @@ func TestVerbatimHeadsRoundTrip(t *testing.T) {
 	}
 }
 
+// sourceRangeProperties place a declaration in its document.
+var sourceRangeProperties = []string{"sysx:sourceLine", "sysx:sourceColumn", "sysx:sourceEndLine", "sysx:sourceEndColumn"}
+
 // withoutTriples writes the graph again without the named property, given with
 // its prefix: the head is then rebuilt from the mapping rather than read back
 // from the text it was written as, the shape a graph from another tool has.
+//
+// A declaration's source range is layout with its text: removing
+// sysx:sourceText removes the range it occupies too, since notation written
+// back from the graph places each declaration elsewhere.
 func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 	t.Helper()
+	if property == "sysx:sourceText" {
+		for _, position := range sourceRangeProperties {
+			turtle = withoutTriples(t, turtle, position)
+		}
+	}
 	var blocks []string
 	for _, block := range strings.Split(string(turtle), "\n\n") {
 		var kept []string
@@ -2274,10 +2482,10 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	}
 	graph := string(turtle)
 	for _, triple := range []string{
-		"sysx:relatedFeature expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
-		"expr:P__Car___402_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"a\" ;",
-		"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:lowerBound expr:P__Car___402_pend0_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend0_pupperBound .",
-		"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:lowerBound expr:P__Car___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend1_pupperBound .",
+		"sysml:connectorEnd expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
+		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
+		"sysml:referencedFeature elmt:P__Car__a ;\n    sysml:subsettedFeature elmt:P__Car__a ;\n    sysml:general elmt:P__Car__a ;\n    sysml:target elmt:P__Car__a ;",
+		"sysml:referencedFeature elmt:P__Car__b ;\n    sysml:subsettedFeature elmt:P__Car__b ;\n    sysml:general elmt:P__Car__b ;\n    sysml:target elmt:P__Car__b ;",
 		"expr:P__Car___402_pend0_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",
 		"expr:P__Car___402_pend1_pupperBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"1\" ;",
 	} {
@@ -2285,7 +2493,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			t.Errorf("the graph should state %q:\n%s", triple, graph)
 		}
 	}
-	for _, legacy := range []string{"sysml:value expr:", "sysml:references", "_pvalue"} {
+	for _, legacy := range []string{"sysml:value expr:", "_pvalue"} {
 		if strings.Contains(graph, legacy) {
 			t.Errorf("a binding's ends are connector ends, not a reference and a value (%s):\n%s", legacy, graph)
 		}
@@ -2307,7 +2515,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 // A KerML connector written without `of`/`first` has no declaration, so a leading
 // multiplicity is the first end's: bounds on the end node, not the connector.
 func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
-	const endNodes = "sysx:relatedFeature expr:P__C___402_pend0, expr:P__C___402_pend1 ;"
+	const endNodes = "sysml:connectorEnd expr:P__C___402_pend0, expr:P__C___402_pend1 ;"
 	cases := []struct {
 		// head is the connector as written; bare is how it reads without bounds.
 		head, bare string
@@ -2320,8 +2528,11 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			head: "binding [1] a = [0..1] b;",
 			bare: "binding a = b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
-				"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:lowerBound expr:P__C___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
+				"sysml:referencedFeature elmt:P__C__a",
+				"sysml:upperBound expr:P__C___402_pend0_pupperBound",
+				"sysml:referencedFeature elmt:P__C__b",
+				"sysml:lowerBound expr:P__C___402_pend1_plowerBound",
+				"sysml:upperBound expr:P__C___402_pend1_pupperBound",
 				"expr:P__C___402_pend0_pupperBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"1\" ;",
 				"expr:P__C___402_pend1_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",
 			},
@@ -2330,26 +2541,29 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			head: "binding [1] a = b;",
 			bare: "binding a = b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
+				"sysml:referencedFeature elmt:P__C__a",
+				"sysml:upperBound expr:P__C___402_pend0_pupperBound",
 			},
 		},
 		{
 			head: "succession [1] a then [*] b;",
 			bare: "succession a then b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
-				"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
+				"sysml:referencedFeature elmt:P__C__a",
+				"sysml:upperBound expr:P__C___402_pend0_pupperBound",
+				"sysml:referencedFeature elmt:P__C__b",
+				"sysml:upperBound expr:P__C___402_pend1_pupperBound",
 				"expr:P__C___402_pend1_pupperBound\n    a sysml:LiteralInfinity ;\n    sysx:sourceText \"*\" ;",
 			},
 		},
 		{
 			head:        "binding [1] of a = b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound ;\n    sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysml:connectorEnd"},
 			onConnector: true,
 		},
 		{
 			head:        "succession [1] first a then b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound ;\n    sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysml:connectorEnd"},
 			onConnector: true,
 		},
 	}
@@ -2422,8 +2636,9 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 		"sysml:declaredName \"coupling\" ;",
 		"sysx:memberIndex \"0\"^^xsd:integer ;\n    sysml:owningNamespace elmt:R89__Ctx__seam ;",
 		"sysml:ownedMember elmt:R89__Ctx__seam__coupling ;",
-		"sysml:ownedFeature elmt:R89__Ctx__seam__coupling ;",
-		"sysml:ownedMembership elmt:R89__Ctx__seam__coupling_om ;",
+		"sysml:ownedFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
+		"sysml:ownedMembership ",
+		"elmt:R89__Ctx__seam__coupling_om",
 		"elmt:R89__Ctx__seam__coupling_om\n    a sysml:FeatureMembership ;",
 		"sysx:sourceText \"        interface seam connect w.outp to r.inp {\\n\" ;",
 	} {
@@ -2501,35 +2716,62 @@ func TestEmptyTransitionBlocksComeBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A transition graph written before members were linked as effect or body
-// owns the effect alone, with sysx:hasBody recording its braces. Such a graph
-// still reads as the effect it was, braced or not.
+// A transition graph from an older mapping — one that owned the effect alone,
+// with sysx:hasBody recording its braces, or one that linked the effect's
+// members but wrote a braced effect as its statements under sysx:bracedEffect —
+// still reads an unbraced effect as the effect it was. A braced one is refused:
+// the braces declare an anonymous action that owns the statements, which the
+// older graphs do not hold.
 func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
-	// Each effect with the canonical notation it is written back as.
-	effects := map[string][2]string{
-		"unbraced": {"do action stop : Warm", "transition first s1 do action stop : Warm then s2;"},
-		"braced":   {"do { action stop : Warm; }", "transition first s1 do {\n            action stop : Warm;\n        } then s2;"},
-	}
-	for name, effect := range effects {
-		effect, want := effect[0], effect[1]
-		t.Run(name, func(t *testing.T) {
-			src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 " + effect + " then s2;\n\t}\n}"
-			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
-			}
-			for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:effectMember", "sysx:bodyMember"} {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2;\n\t}\n}"
+	const hasEffect = `sysx:hasEffect "true"^^xsd:boolean`
+	graph := func(t *testing.T, without []string, replacement string) string {
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("to turtle: %v", err)
+		}
+		for _, property := range append([]string{"sysx:sourceText", "sysx:sourceTail"}, without...) {
+			turtle = withoutTriples(t, turtle, property)
+		}
+		if !strings.Contains(string(turtle), hasEffect) {
+			t.Fatalf("the effect is not the one the test rewrites:\n%s", turtle)
+		}
+		// The older mapping owned the effect through a plain FeatureMembership.
+		if len(without) > 0 {
+			for _, property := range []string{"sysml:kind", "sysml:transitionFeature", "sysml:effectAction"} {
 				turtle = withoutTriples(t, turtle, property)
 			}
-			legacy := strings.ReplaceAll(string(turtle), "sysx:bracedEffect ", "sysx:hasBody ")
-			if !strings.Contains(legacy, "sysx:hasBody") {
-				t.Fatalf("the legacy shape needs sysx:hasBody for the effect's braces:\n%s", legacy)
+			turtle = []byte(strings.ReplaceAll(string(turtle), "a sysml:TransitionFeatureMembership ;", "a sysml:FeatureMembership ;"))
+		}
+		return strings.ReplaceAll(string(turtle), hasEffect, replacement)
+	}
+	unlinked := []string{"sysx:effectMember", "sysx:bodyMember"}
+	shapes := map[string]struct {
+		graph  string
+		braced bool
+	}{
+		"unlinked unbraced": {graph(t, unlinked, `sysx:hasBody "false"^^xsd:boolean`), false},
+		"unlinked braced":   {graph(t, unlinked, `sysx:hasBody "true"^^xsd:boolean`), true},
+		"linked unbraced":   {graph(t, nil, `sysx:bracedEffect "false"^^xsd:boolean`), false},
+		"linked braced":     {graph(t, nil, `sysx:bracedEffect "true"^^xsd:boolean`), true},
+	}
+	for name, shape := range shapes {
+		t.Run(name, func(t *testing.T) {
+			back, err := convert.Convert("m.ttl", []byte(shape.graph), convert.FormatTurtle, convert.FormatSysML)
+			if shape.braced {
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) {
+					t.Fatalf("got %v, want an UnsupportedError", err)
+				}
+				if !strings.Contains(err.Error(), "P__M___402") || !strings.Contains(err.Error(), "anonymous action") {
+					t.Errorf("the error does not name the transition and its braced effect: %v", err)
+				}
+				return
 			}
-			back, err := convert.Convert("m.ttl", []byte(legacy), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
-			if !strings.Contains(string(back), want) {
+			if want := "transition first s1 do action stop : Warm then s2;"; !strings.Contains(string(back), want) {
 				t.Errorf("the effect did not come back as one:\n%s", back)
 			}
 			if strings.Contains(string(back), "then s2 {") {
@@ -2539,11 +2781,130 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 	}
 }
 
+// A transition's effect is owned through a TransitionFeatureMembership of kind
+// `effect` (SysML 8.3.16.13): the normative membership alone places the action
+// as the effect, and a collapsed link that contradicts it is refused.
+func TestTransitionEffectMembershipIsNormative(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2 {\n\t\t\taction tidy : Warm;\n\t\t}\n\t}\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	if !strings.Contains(string(turtle), "a sysml:TransitionFeatureMembership ;") ||
+		!strings.Contains(string(turtle), `sysml:kind "effect" ;`) {
+		t.Fatalf("the effect is not owned by an effect membership:\n%s", turtle)
+	}
+	t.Run("normative only", func(t *testing.T) {
+		graph := turtle
+		for _, property := range []string{"sysx:effectMember", "sysx:bodyMember", "sysx:hasEffect"} {
+			graph = withoutTriples(t, graph, property)
+		}
+		back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("back to notation: %v", err)
+		}
+		if want := "transition first s1 do action stop : Warm then s2 {\n            action tidy : Warm;\n        }"; !strings.Contains(string(back), want) {
+			t.Errorf("expected %q in:\n%s", want, back)
+		}
+	})
+	t.Run("contradicting link refused", func(t *testing.T) {
+		graph := strings.ReplaceAll(string(turtle), "sysx:effectMember elmt:P__M___402__stop", "sysx:bodyMember elmt:P__M___402__stop")
+		if graph == string(turtle) {
+			t.Fatalf("the effect link is not the one the test rewrites:\n%s", turtle)
+		}
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "effect membership") {
+			t.Fatalf("got %v, want a refusal naming the effect membership", err)
+		}
+	})
+}
+
+// A state subaction's kind is the membership's sysml:kind, as SysML v2's
+// StateSubactionMembership states it; the collapsed sysx:subactionKind is
+// written beside. Either alone reads; the two disagreeing is refused.
+func TestSubactionKindNormativeAndCollapsed(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1 {\n\t\t\texit action stop : Warm;\n\t\t}\n\t}\n}"
+	const collapsed = `sysx:subactionKind "exit" ;`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	if !strings.Contains(string(turtle), `sysml:kind "exit" ;`) || !strings.Contains(string(turtle), collapsed) {
+		t.Fatalf("the subaction does not state its kind both ways:\n%s", turtle)
+	}
+	for name, graph := range map[string][]byte{
+		"normative only": withoutTriples(t, turtle, "sysx:subactionKind"),
+		"collapsed only": withoutTriples(t, turtle, "sysml:kind"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(back), "exit action stop : Warm;") {
+				t.Errorf("the exit subaction was lost:\n%s", back)
+			}
+		})
+	}
+	t.Run("disagreement refused", func(t *testing.T) {
+		graph := strings.Replace(string(turtle), collapsed, `sysx:subactionKind "entry" ;`, 1)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "cannot both hold") {
+			t.Fatalf("got %v, want a refusal naming the two kinds", err)
+		}
+	})
+}
+
+// A state subaction graph from an older mapping recorded its braces with
+// sysx:hasBody and owned the block's statements itself. An unbraced one still
+// reads as the action it performs; a braced one is refused, since the braces
+// declare an anonymous action that owns the statements, which the graph lacks.
+func TestLegacyBracedSubactionsAreRefused(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1 {\n\t\t\tentry action stop : Warm;\n\t\t}\n\t}\n}"
+	const kind = `sysx:subactionKind "entry" ;`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	if !strings.Contains(string(turtle), kind) {
+		t.Fatalf("the subaction is not the one the test rewrites:\n%s", turtle)
+	}
+	for name, braced := range map[string]bool{"unbraced": false, "braced": true} {
+		t.Run(name, func(t *testing.T) {
+			graph := strings.Replace(string(turtle), kind, fmt.Sprintf("%s\n    sysx:hasBody \"%t\"^^xsd:boolean ;", kind, braced), 1)
+			back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+			if braced {
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) {
+					t.Fatalf("got %v, want an UnsupportedError", err)
+				}
+				if !strings.Contains(err.Error(), "P__M__s1___400") || !strings.Contains(err.Error(), "anonymous action") {
+					t.Errorf("the error does not name the subaction and its braced block: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if want := "entry action stop : Warm;"; !strings.Contains(string(back), want) {
+				t.Errorf("the subaction did not come back as the action it performs:\n%s", back)
+			}
+		})
+	}
+}
+
 // The effect and body links of a transition must partition its members: a graph
 // whose links are missing, doubled or dangling is refused rather than have an
 // action silently moved after the target.
 func TestInconsistentTransitionLinksAreRefused(t *testing.T) {
-	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do { action stop : Warm; } then s2 { action tidy : Warm; }\n\t}\n}"
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2 { action tidy : Warm; }\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
@@ -2708,8 +3069,7 @@ func TestEndFormsSurviveIrregularLayout(t *testing.T) {
 	}
 }
 
-// A graph that relates ends but states no form for them is refused: the ends
-// alone do not say which keyword and notation the head was written in.
+// A graph that relates standard ends can infer the head form from its metaclass.
 func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 	src := "package P {\n\tpart def Car {\n\t\tpart left;\n\t\tpart right;\n\t\tconnect left to right;\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
@@ -2717,12 +3077,12 @@ func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:endForm")
-	_, err = convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
-	if err == nil {
-		t.Fatal("a head whose form the graph does not state should be reported")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("standard ends should infer the form: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sysx:endForm") {
-		t.Errorf("the report should name the property it needs: %v", err)
+	if !strings.Contains(string(back), "connect left to right;") {
+		t.Errorf("unexpected notation from inferred form:\n%s", back)
 	}
 }
 
@@ -2904,6 +3264,17 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 }
 
 // Every element IRI in the convert fixtures is the encoding of the qualified
+// materializedSuffixID is the naming convention of the relationship elements
+// the collapsed head properties imply: the `<S>_ft<i>`/`_sc<i>`/`_ss<i>`/`_sp<i>`/`_rd<i>`/`_rs<i>` relationships,
+// the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
+// the succession a transition owns (`_succession`), the referent memberships an
+// expression's referent edge restates, and a
+// filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_om)?$|_fp(_im|_efm)?$|_an$`)
+
+// materializedExprID is the same convention inside an expression node's id.
+var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
+
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("testdata", "convert", "*.golden.ttl"))
@@ -2920,11 +3291,26 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", path, err)
 		}
 		for _, subject := range graph.Subjects() {
+			// A library element the graph names keeps the normative id the
+			// references to it carry; its name is checked against the library.
+			if export.LibraryReference(graph, subject) {
+				continue
+			}
+			if strings.HasPrefix(subject.Value, rdf.Expression) && strings.HasSuffix(subject.Value, "_om") {
+				if _, ok := graph.Object(subject, rdf.SysML+"memberElement"); !ok {
+					t.Errorf("%s: expression membership %s has no member", path, subject.Value)
+				}
+				continue
+			}
 			if strings.HasPrefix(subject.Value, rdf.Expression) {
 				// An expression node is named for the element and slot it
 				// belongs to, not by a qualified name of its own.
 				id := strings.TrimPrefix(subject.Value, rdf.Expression)
 				owner, positions, ok := rdf.DecodeExpressionNodeID(id)
+				// A node under a minted id is named by convention, like its owner.
+				if !ok && materializedExprID.MatchString(id) {
+					continue
+				}
 				if !ok || owner == "" || len(positions) == 0 {
 					t.Errorf("%s: expression %s is not named for an element", path, subject.Value)
 				}
@@ -2937,6 +3323,12 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 				if !ok || owned.Value != rdf.Element+rdf.EncodeElementID(member) {
 					t.Errorf("%s: membership %s does not own %q", path, subject.Value, member)
 				}
+				continue
+			}
+			// A relationship element the collapsed properties imply is named by
+			// suffix convention — `<S>_ft0`, `_rs`, `_subject`, `_conjugated`,
+			// `_pc` — not by a qualified name, like the memberships' members.
+			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
 			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
@@ -2964,6 +3356,7 @@ func TestFormatDetection(t *testing.T) {
 		"Model.xmi":        convert.FormatXMI,
 		"Model.uml":        convert.FormatXMI,
 		"Model.mdzip":      convert.FormatXMI,
+		"model.json":       convert.FormatAPIJSON,
 	}
 	for path, want := range cases {
 		got, err := convert.FormatOfPath(path)
@@ -2974,13 +3367,13 @@ func TestFormatDetection(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", path, got, want)
 		}
 	}
-	if _, err := convert.FormatOfPath("model.json"); err == nil {
+	if _, err := convert.FormatOfPath("model.bak"); err == nil {
 		t.Error("expected an error for an unknown extension")
 	}
 	if _, err := convert.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
-	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml", "mdzip"} {
+	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "api-json", "json", "xmi", "uml", "mdzip"} {
 		if _, err := convert.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}
@@ -3001,7 +3394,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
+	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML, migrate.Options{})
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
@@ -3019,7 +3412,7 @@ func TestConvertFromXMI(t *testing.T) {
 		t.Errorf("Convert from XMI differs from Migrate: %v", err)
 	}
 
-	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle)
+	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle, migrate.Options{})
 	if err != nil {
 		t.Fatalf("Migrate to Turtle: %v", err)
 	}
@@ -3035,7 +3428,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatSysML, convert.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("writing XMI: got %v, want a NotWritableError", err)
 	}
-	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI, migrate.Options{}); !errors.As(err, &notWritable) {
 		t.Errorf("migrating to XMI: got %v, want a NotWritableError", err)
 	}
 	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatXMI, convert.FormatSysML); err == nil {
@@ -3254,6 +3647,37 @@ func TestWriteFileNamesTheMissingDirectory(t *testing.T) {
 	}
 }
 
+// A destination whose name fills a 255-byte path component is still written
+// atomically: the temporary file beside it takes a shorter name.
+func TestWriteFileFitsALongName(t *testing.T) {
+	dir := t.TempDir()
+	name := strings.Repeat("ä", 124) + "a.sysml"
+	if len(name) != 255 {
+		t.Fatalf("name is %d bytes, want 255", len(name))
+	}
+	path := filepath.Join(dir, name)
+	if _, err := export.WriteFile(path, []byte("package P;\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := export.WriteFile(path, []byte("package Q;\n")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "package Q;\n" {
+		t.Errorf("content = %q", data)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("leftover files in %s: %v", dir, entries)
+	}
+}
+
 // The REPL's tolerant save writes notation it could not fully parse and reports
 // the syntax errors; every other direction still refuses.
 func TestConvertTolerant(t *testing.T) {
@@ -3289,36 +3713,6 @@ func TestWriteFileKeepsExistingPermissions(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got != 0o600 {
 		t.Errorf("mode = %o, want 600", got)
-	}
-}
-
-// A pipe or a device is a stream, not a file with contents to protect, so it is
-// written as it stands rather than replaced by a rename.
-func TestWriteFileWritesThroughAPipe(t *testing.T) {
-	fifo := filepath.Join(t.TempDir(), "pipe.sysml")
-	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
-		t.Skipf("mkfifo: %v", err)
-	}
-	read := make(chan string, 1)
-	go func() {
-		data, err := os.ReadFile(fifo)
-		if err != nil {
-			t.Error(err)
-		}
-		read <- string(data)
-	}()
-	replaced, err := export.WriteFile(fifo, []byte("package Q;\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if replaced {
-		t.Error("a pipe is not an existing file that was replaced")
-	}
-	if got := <-read; got != "package Q;\n" {
-		t.Errorf("read %q from the pipe", got)
-	}
-	if info, err := os.Stat(fifo); err != nil || info.Mode()&os.ModeNamedPipe == 0 {
-		t.Errorf("the pipe was replaced by a regular file (%v)", err)
 	}
 }
 
@@ -3418,13 +3812,13 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 	for _, want := range []string{
 		"sysml:type elmt:OtherPkg__BudgetLedger ;",
 		"sysml:type elmt:OtherPkg__Tempo ;",
-		"sysml:referent elmt:OtherPkg__Tempo__operative .",
+		"sysml:referent elmt:OtherPkg__Tempo__operative",
 		"sysml:references elmt:OtherPkg__spare ;",
-		"sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size .",
+		"sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size",
 		"sysml:redefines elmt:R90__G2__x ;",
-		"sysml:targetFeature elmt:R90__Done__done .",
+		"sysml:target elmt:R90__Done__done",
 		`sysml:type "Elsewhere::Missing" ;`,
-		"sysx:typeArgument elmt:Meta__Safety .",
+		"sysx:typeArgument elmt:Meta__Safety",
 		"sysml:type elmt:Meta__Tagged ;",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -3443,7 +3837,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"part : Inner::Wheel redefines w;",
 		"transition idle then Done::done;",
 		"part unresolved : Elsewhere::Missing;",
-		"public import Meta::* [(@ Safety)];",
+		"public import Meta::*[@Safety];",
 		"attribute other : Tagged;",
 	} {
 		if !strings.Contains(back, want) {
@@ -3479,18 +3873,20 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 	}
 	graph := string(turtle)
 	for _, want := range []string{
-		"sysx:relatedFeature expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
-		"expr:Corpus__Vehicle___406_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"eng\" ;\n    sysml:elementId \"Corpus__Vehicle___406_pend0\" ;\n    sysml:referent elmt:Corpus__Vehicle__eng ;",
-		"expr:Corpus__Vehicle___407_pend0\n    a sysml:FeatureChainExpression ;\n    sysx:sourceText \"a.x\" ;",
-		"sysml:targetFeature elmt:Corpus__A__x ;\n    sysx:endIndex \"0\"^^xsd:integer ;\n    sysx:endName \"a\" .",
-		"sysml:referent elmt:Corpus__Vehicle__transitionLink ;\n    sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound ;",
+		"sysml:connectorEnd expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
+		"expr:Corpus__Vehicle___406_pend0\n    a sysml:ReferenceUsage ;",
+		"sysml:referencedFeature elmt:Corpus__Vehicle__eng",
+		"expr:Corpus__Vehicle___407_pend0\n    a sysml:ReferenceUsage ;",
+		"sysml:chainingFeature elmt:Corpus__Vehicle__a, elmt:Corpus__A__x",
+		"sysml:referencedFeature elmt:Corpus__Vehicle__transitionLink",
+		"sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound",
 	} {
 		if !strings.Contains(graph, want) {
 			t.Errorf("the graph should carry %q\n%s", want, graph)
 		}
 	}
 	for _, name := range []string{"eng", "a", "transitionLink"} {
-		if strings.Contains(graph, "elmt:Corpus__Vehicle__"+name+"\n    a sysml:ConnectorAsUsage ;") {
+		if strings.Contains(graph, "elmt:Corpus__Vehicle__"+name+"\n    a sysml:Connector ;") {
 			t.Errorf("the connector took the end %s as its name\n%s", name, graph)
 		}
 	}
@@ -3543,6 +3939,32 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 		if !strings.Contains(back, want) {
 			t.Errorf("the notation should read %q\n%s", want, back)
 		}
+	}
+}
+
+func TestNaryConnectorEndsDoNotStateBinaryEndpoints(t *testing.T) {
+	src := `package P {
+	part def Car {
+		part eng;
+		part trans;
+		part wheels;
+		connect (eng, trans, wheels);
+	}
+}
+`
+	turtle, err := convert.Convert("nary.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	if !strings.Contains(graph, `sysx:endForm "nary"`) {
+		t.Fatalf("the n-ary connector should state its form:\n%s", graph)
+	}
+	if strings.Contains(graph, "sysml:sourceFeature") || strings.Contains(graph, "sysml:targetFeature") {
+		t.Fatalf("an n-ary connector must not state binary endpoint predicates:\n%s", graph)
+	}
+	if !strings.Contains(graph, "sysml:relatedFeature elmt:P__Car__eng, elmt:P__Car__trans, elmt:P__Car__wheels") {
+		t.Fatalf("the n-ary connector should retain all related features:\n%s", graph)
 	}
 }
 
@@ -3603,15 +4025,16 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
 		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
-		"sysml:targetFeature elmt:Machines__Lamp__on__light__bright .",
-		"sysml:targetFeature elmt:Machines__Lamp__on__heat__hot .",
-		"sysml:sourceFeature elmt:Machines__Lamp__on__heat__hot ;",
+		"sysml:target elmt:Machines__Lamp__on__light__bright .",
+		"sysml:target elmt:Machines__Lamp__on__heat__hot .",
+		"sysml:source elmt:Machines__Lamp__on__heat__hot ;",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)
 		}
 	}
-	if strings.Contains(turtle, `sysml:sourceFeature "`) || strings.Contains(turtle, `sysml:targetFeature "`) {
+	if strings.Contains(turtle, `sysml:source "`) || strings.Contains(turtle, `sysml:target "`) ||
+		strings.Contains(turtle, `sysml:sourceFeature "`) || strings.Contains(turtle, `sysml:targetFeature "`) {
 		t.Errorf("every endpoint names a vertex of the machine, so none should stay a literal\n%s", turtle)
 	}
 	backFromTheGraphAlone(t, turtle)
@@ -3623,9 +4046,9 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 func TestBodyParametersShadowOnlyInsideTheirBody(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "body_scopes.sysml"))
 	for _, want := range []string{
-		`sysml:referent "limit" .`,
-		`sysml:referent "Gauge" .`,
-		"sysml:referent elmt:Lib__limit .",
+		`sysml:referent "limit"`,
+		`sysml:referent "Gauge"`,
+		"sysml:referent elmt:Lib__limit",
 		"sysml:type elmt:Lib__Gauge ;",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -3646,7 +4069,8 @@ func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	}
 	out := map[rdf.Triple]bool{}
 	for _, triple := range g.Triples() {
-		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") {
+		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") ||
+			export.IsSourceRangeProperty(triple.Predicate.Value) {
 			continue
 		}
 		out[triple] = true
@@ -3661,7 +4085,7 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	// A body declaring its parameter is written from its notation alone, so
 	// that fixture is checked in the graph only.
 	body := toTurtle(t, filepath.Join("testdata", "convert", "shadowing_body.sysml"))
-	if want := "sysml:referent elmt:ShadowBody__Sensor__readings ."; !strings.Contains(body, want) {
+	if want := "sysml:referent elmt:ShadowBody__Sensor__readings"; !strings.Contains(body, want) {
 		t.Errorf("the graph should carry %q\n%s", want, body)
 	}
 	if wrong := "sysml:referent elmt:ShadowBody__Sensor__value"; strings.Contains(body, wrong) {
@@ -3674,9 +4098,10 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "shadowing_parameters.sysml"))
 	for _, want := range []string{
 		`sysml:referent "value" ;`,
-		`sysml:referent "value" .`,
-		`sysml:referent "w" ;`,
-		"sysml:referent elmt:Shadows__Sweep__items .",
+		`sysml:referent "value"`,
+		// A trigger's payload is a parameter of the transition's trigger action.
+		"sysml:referent elmt:Shadows__Governor___405___40trigger__w",
+		"sysml:referent elmt:Shadows__Sweep__items",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)
@@ -3710,9 +4135,9 @@ func TestShadowingParametersStayNames(t *testing.T) {
 func TestChainMembersAreQualifiedOnlyWhereTheirNameReadsAsAnother(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "chain_scopes.sysml"))
 	for _, want := range []string{
-		"sysml:targetFeature elmt:Gen__G1__x .",
-		"sysml:targetFeature elmt:Gen__G2__x .",
-		"sysml:targetFeature elmt:Gen__G1__y .",
+		"sysml:targetFeature elmt:Gen__G1__x",
+		"sysml:targetFeature elmt:Gen__G2__x",
+		"sysml:targetFeature elmt:Gen__G1__y",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)

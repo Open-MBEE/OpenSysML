@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -42,6 +43,12 @@ type ObjectBehavior struct {
 	State *StateExecutor
 	// Action is the action the object performs, nil for an exhibited machine.
 	Action *ActionExecutor
+	// Err is the error a performed action bound by the object's type failed with,
+	// recorded rather than failing the object's creation.
+	Err error
+	// typeBound marks the behavior bound by the object's type at materialization
+	// or restart, rather than started by an explicit `perform obj.beh.start`.
+	typeBound bool
 }
 
 // Describe names the behavior and the object running it, for diagnostics.
@@ -120,6 +127,9 @@ func (ctx *Context) BehaviorNamed(inst *Instance, name string) (*ObjectBehavior,
 // under that member or one redefinition makes the same feature: a start reached twice, or
 // a classifier renaming a running behavior, attaches nothing.
 func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool {
+	if inFlight, ok := ctx.attachingBehaviors[inst]; ok && inFlight[member] {
+		return true
+	}
 	for _, b := range inst.behaviors {
 		if b.member == member {
 			return true
@@ -133,6 +143,23 @@ func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool 
 		}
 	}
 	return false
+}
+
+// attachBehavior marks member's behavior on inst as under way, so an
+// initialization re-scanning the object's types does not attach it again;
+// behaviorAttached clears the mark when the attach ends, kept or failed.
+func (ctx *Context) attachBehavior(inst *Instance, member *symbols.Symbol) {
+	if ctx.attachingBehaviors == nil {
+		ctx.attachingBehaviors = make(map[*Instance]map[*symbols.Symbol]bool)
+	}
+	if ctx.attachingBehaviors[inst] == nil {
+		ctx.attachingBehaviors[inst] = make(map[*symbols.Symbol]bool)
+	}
+	ctx.attachingBehaviors[inst][member] = true
+}
+
+func (ctx *Context) behaviorAttached(inst *Instance, member *symbols.Symbol) {
+	delete(ctx.attachingBehaviors[inst], member)
 }
 
 // ExhibitedState returns the machine the object exhibits, and false when it
@@ -371,7 +398,7 @@ func (ctx *Context) forgetValuesNaming(abandoned map[int64]bool) {
 				continue
 			}
 			fv.Value, fv.Values = Value{}, Value{}
-			fv.Materialized, fv.Written = false, false
+			fv.Materialized, fv.Written, fv.intrinsic = false, false, false
 			ctx.invalidateDependents(fv)
 		}
 	}
@@ -424,16 +451,17 @@ func namesAbandonedObject(val Value, abandoned map[int64]bool) bool {
 	return false
 }
 
-// forgetMessagesTo drops the messages addressed to an abandoned object, which
-// nothing can consume once the object holding its consumers is gone.
+// forgetMessagesTo drops the messages addressed to an abandoned or destroyed object, or routed
+// to such a port, which nothing can consume once the object holding its consumers is gone.
 func (ctx *Context) forgetMessagesTo(abandoned map[int64]bool) {
 	kept := make([]Message, 0, len(ctx.messages))
 	for _, msg := range ctx.messages {
-		if !abandoned[msg.Object] {
+		if !abandoned[msg.Object] && !abandoned[msg.PortID] {
 			kept = append(kept, msg)
 		}
 	}
 	ctx.messages = kept
+	ctx.bus.cuts++
 }
 
 // restartClassifierBehaviors gives every object a fresh execution of the
@@ -474,6 +502,80 @@ func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
 	return ctx.runAttachedBehaviors()
 }
 
+// storing is a store under way and the journal of the hold it reached, nil until it reaches one.
+// One that gathers takes the stores under it as its own, running what they start once all are done.
+type storing struct {
+	commit, rollback func()
+	gathers          bool
+}
+
+// storedBeforeStarting runs store, a write or materialization, with the behaviors the hold it
+// reaches starts (an object classified by the feature holding it) attached but not run until the
+// value is stored, then runs them, so one reading the feature reads the object it started for. The
+// hold's journal (beginHoldJournal) stays open over their run: a start that fails undoes the hold
+// and the store, leaving what the store evaluated. Once kept, the older behaviors it woke answer;
+// one of them failing is reported as its own, with the store kept.
+func (ctx *Context) storedBeforeStarting(store func() error) error {
+	return ctx.stored(store, false)
+}
+
+// storedTogether is storedBeforeStarting over several stores, the writes of a constructor's
+// arguments: the behaviors any of them starts run once every one has stored its value.
+func (ctx *Context) storedTogether(store func() error) error {
+	return ctx.stored(store, true)
+}
+
+func (ctx *Context) stored(store func() error, gathers bool) error {
+	if n := len(ctx.storing); n > 0 && ctx.storing[n-1].gathers {
+		return store()
+	}
+	defer ctx.beginRun()()
+	defer ctx.holdDrivenWork()()
+	s := &storing{gathers: gathers}
+	ctx.storing = append(ctx.storing, s)
+	endBoundary := ctx.beginRunBoundary()
+	err := store()
+	if err == nil {
+		err = ctx.runAttachedBehaviors()
+	}
+	endBoundary()
+	ctx.storing = ctx.storing[:len(ctx.storing)-1]
+	if err != nil {
+		if s.rollback != nil {
+			s.rollback()
+		}
+		return err
+	}
+	if s.commit != nil {
+		s.commit()
+	}
+	return ctx.runAttachedBehaviors()
+}
+
+// beginHoldJournal is beginJournal for a hold on a feature value: under a store, a hold only
+// attaches the behaviors it starts, and the journal of the first is left to the store to close
+// once it has run them (a later hold's journal is nested in it).
+func (ctx *Context) beginHoldJournal() (commit, rollback func()) {
+	commit, rollback = ctx.beginJournal()
+	n := len(ctx.storing)
+	if n == 0 {
+		return commit, rollback
+	}
+	ctx.behaviorRunDepth++
+	s := ctx.storing[n-1]
+	if s.commit != nil {
+		keep, undo := commit, rollback
+		return func() { ctx.behaviorRunDepth--; keep() }, func() { ctx.behaviorRunDepth--; undo() }
+	}
+	s.commit, s.rollback = commit, rollback
+	undo := rollback
+	return func() { ctx.behaviorRunDepth-- }, func() {
+		ctx.behaviorRunDepth--
+		s.commit, s.rollback = nil, nil
+		undo()
+	}
+}
+
 // materializeBehavingParts materializes the required composite parts of an
 // object whose type runs behaviors, so the object runs to quiescence as a whole
 // when it is created rather than part by part in the order its parts are first
@@ -508,7 +610,7 @@ func (ctx *Context) behavingParts(typeSym *symbols.Symbol) []int {
 	features := ctx.FeaturesOf(typeSym)
 	parts := []int{}
 	for i := range features {
-		if !ctx.model.semantics.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
+		if !ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
 			parts = append(parts, i)
 		}
 	}
@@ -556,7 +658,7 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 		if runs {
 			break
 		}
-		if ctx.model.semantics.IsConnectorUsage(features[i].Symbol) {
+		if ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) {
 			continue
 		}
 		if composite := ctx.requiredPartType(&features[i]); composite != nil && ctx.runsBehaviors(composite, visiting) {
@@ -579,38 +681,95 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			if ctx.trace != nil {
 				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 			}
+			ctx.attachBehavior(inst, decl.member)
 			behavior, err := ctx.attachClassifierBehavior(inst, decl)
+			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
-				return err
+				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
+					if behavior != nil {
+						behavior.leaveClock()
+					}
+					return err
+				}
+				ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
 			}
+			behavior.typeBound = true
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
+			ctx.behaviorsAttached++
 			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+			ctx.workChanged()
 		}
 	}
 
 	return ctx.runAttachedBehaviors()
 }
 
+// workChanged counts a change that can leave an attached behavior holding work:
+// a message posted, the clock moved, an event queued, an executor run or left.
+func (ctx *Context) workChanged() { ctx.work++ }
+
+// quiescence is the memo a full behavior scan leaves when it finds every
+// attached behavior idle: the work and write marks it holds under, and whether
+// the scan read the objects' data, so writes since then invalidate it.
+type quiescence struct {
+	at        uint64
+	writes    uint64
+	readsData bool
+}
+
+// holds reports whether the memo still answers: taken, and nothing it depends
+// on moved since, the objects' data counting only where the scan read it.
+func (q quiescence) holds(ctx *Context) bool {
+	return q.at != 0 && q.at == ctx.work && (!q.readsData || q.writes == ctx.writes)
+}
+
+// setClock moves the shared clock, the work due on it moving with it.
+func (ctx *Context) setClock(now float64) {
+	ctx.clock.now = now
+	ctx.workChanged()
+}
+
 // holdDrivenWork marks, at an outermost start, the behaviors already holding
 // work: a driver put it in flight, so the start leaves it to that driver. Once
 // the start returns, the behaviors it attached are as their start left them.
 func (ctx *Context) holdDrivenWork() func() {
-	if ctx.behaviorRunDepth > 0 || ctx.heldBehaviors != nil {
+	if ctx.behaviorRunDepth > 0 || ctx.holdingDriven {
 		return func() { /* an outer start already holds them */ }
 	}
-	held := make(map[*ObjectBehavior]bool)
-	ctx.behaviorRunDepth++
-	for _, behavior := range ctx.objectBehaviors {
-		if behavior.hasPendingWork() {
-			held[behavior] = true
+	var held map[*ObjectBehavior]bool
+	if ctx.quiescent.holds(ctx) {
+		// Nothing woke a behavior since a full scan found them all idle.
+	} else if len(ctx.objectBehaviors) == 0 {
+		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
+	} else {
+		memo := &pendingMemo{}
+		saved := ctx.polling
+		ctx.polling = memo
+		ctx.behaviorRunDepth++
+		for _, behavior := range ctx.objectBehaviors {
+			if behavior.hasPendingWork() {
+				if held == nil {
+					held = map[*ObjectBehavior]bool{}
+				}
+				held[behavior] = true
+			}
+		}
+		ctx.behaviorRunDepth--
+		ctx.polling = saved
+		if saved != nil && memo.readsData {
+			saved.readsData = true
+		}
+		if len(held) == 0 {
+			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 		}
 	}
-	ctx.behaviorRunDepth--
 	ctx.heldBehaviors = held
+	ctx.holdingDriven = true
 	attached := len(ctx.objectBehaviors)
 	return func() {
+		ctx.holdingDriven = false
 		ctx.heldBehaviors = nil
 		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
 			behavior.settle()
@@ -696,6 +855,35 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	}
 	ctx.objectBehaviors = behaviorsExcept(ctx.objectBehaviors, dropped)
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
+	ctx.workChanged()
+}
+
+// recordsFailure reports whether an error of a behavior is recorded on the
+// performance rather than failing what ran it: an unbound input of a performed
+// action the object's type bound.
+func recordsFailure(b *ObjectBehavior, err error) bool {
+	return b != nil && b.typeBound && b.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter)
+}
+
+// failBehavior records a failure that ends the behavior for good, through the
+// journal, so a snapshot restore or a rolled-back creation undoes the record.
+func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
+	prior := b.Err
+	ctx.noteProbeUndo(func() { b.Err = prior })
+	b.Err = err
+}
+
+// endFailedPerformance records a failure recordsFailure admits, ending the life
+// the performance's occurrence began — unless it failed before beginning — and
+// the work it left paused, all through the journal so a restore undoes them.
+func (ctx *Context) endFailedPerformance(b *ObjectBehavior, err error) {
+	ctx.failBehavior(b, err)
+	if b.Action != nil && b.Action.occurrence != nil {
+		if life := ctx.lives[b.Action.occurrence.ID]; life.began != 0 {
+			ctx.endPerformanceLife(b.Action.occurrence)
+		}
+	}
+	b.leaveClock()
 }
 
 // leaveClock releases the behavior's execution, ending the work it left paused
@@ -739,7 +927,12 @@ func (ctx *Context) drainObjectBehaviors() error {
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 		if err := behavior.run(); err != nil {
-			return fmt.Errorf("%s: %w", behavior.Describe(), err)
+			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+			if recordsFailure(behavior, err) {
+				ctx.endFailedPerformance(behavior, wrapped)
+				continue
+			}
+			return wrapped
 		}
 	}
 }
@@ -755,15 +948,43 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 		first = min(boundary.pending, len(ctx.pendingBehaviors))
 		attached = min(boundary.behaviors, len(ctx.objectBehaviors))
 	}
-	if first < len(ctx.pendingBehaviors) {
+	// A behavior ended before its first run (its object destroyed) has no run to take.
+	for first < len(ctx.pendingBehaviors) {
 		behavior := ctx.pendingBehaviors[first]
 		ctx.pendingBehaviors = slices.Delete(ctx.pendingBehaviors, first, first+1)
-		return behavior, true
-	}
-	for _, behavior := range ctx.objectBehaviors[attached:] {
-		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
+		if !behavior.completed() {
 			return behavior, true
 		}
+	}
+	// A context a full scan found idle, unchanged since, holds no runnable behavior.
+	if ctx.quiescent.holds(ctx) {
+		return nil, false
+	}
+	if attached >= len(ctx.objectBehaviors) {
+		// Every behavior pending is already held by a driver, or there are none.
+		if attached == 0 && len(ctx.heldBehaviors) == 0 {
+			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
+		}
+		return nil, false
+	}
+	memo := &pendingMemo{}
+	saved := ctx.polling
+	ctx.polling = memo
+	for _, behavior := range ctx.objectBehaviors[attached:] {
+		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
+			ctx.polling = saved
+			if saved != nil && memo.readsData {
+				saved.readsData = true
+			}
+			return behavior, true
+		}
+	}
+	ctx.polling = saved
+	if saved != nil && memo.readsData {
+		saved.readsData = true
+	}
+	if attached == 0 && len(ctx.heldBehaviors) == 0 {
+		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 	}
 	return nil, false
 }
@@ -774,6 +995,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 // is not work materialization waits for, and an execution that reached its end
 // takes no step whatever is left addressed to it.
 func (b *ObjectBehavior) hasPendingWork() bool {
+	if b.Err != nil {
+		return false
+	}
 	switch {
 	case b.State != nil:
 		return !b.State.State().Ended() && (b.State.HasDueEvent() || b.State.HasPendingSignal())
@@ -828,8 +1052,10 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			begin = (*ActionExecutor).initialize
 		}
 		if err := ctx.startAction(exec, begin); err != nil {
-			exec.Release()
-			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			// A performed action that fails to start is returned with the error
+			// for a type-bound start to record; an explicit start fails it.
+			behavior.Action = exec
+			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		behavior.Action = exec
 	default:
@@ -895,10 +1121,13 @@ func (ctx *Context) performanceOccurrence(
 		return nil, fmt.Errorf("%w: object #%d has no feature for %s %s",
 			sentinel, inst.ID, decl.behavior.Kind, decl.behavior.Name)
 	}
-	fv, err := inst.GetFeatureValue(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
-			sentinel, name, inst.ID, err)
+	// A held occurrence is taken as it stands, so a destroyed object's binding still resolves.
+	if fv.HeldValue().Kind == ValInvalid {
+		var err error
+		if fv, err = inst.GetFeatureValue(ctx, name); err != nil {
+			return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
+				sentinel, name, inst.ID, err)
+		}
 	}
 	if fv.HeldValue().Kind == ValInvalid {
 		occurrence, err := ctx.materialize(behavior, 0, inst, name)
@@ -956,7 +1185,8 @@ func (ctx *Context) classifierBehaviorSymbol(decl classifierBehaviorDecl) (*symb
 
 // classifierBehaviorChain resolves the bindings from a binding declaration to the
 // element holding the body it runs: the declaration first, then what each names in
-// turn, ending at the one stating a body.
+// turn, ending at the one stating a body — or at a performed action or exhibited
+// state naming no element, which is the body itself (SysML v2 §8.3.16–8.3.17).
 func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*symbols.Symbol, error) {
 	sym := decl.member
 	chain := []*symbols.Symbol{sym}
@@ -970,11 +1200,16 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 		}
 		next := ctx.namedBehavior(sym)
 		if next == nil || next == sym {
-			// A declaration naming nothing that holds a body is not executable:
-			// the type binds a behavior no element states.
 			if sym != decl.member {
 				return chain, nil
 			}
+			// An exhibit/perform naming nothing is its own body: eventOccurrence is
+			// the usage itself when there is no ownedReferenceSubsetting (§8.3.16).
+			if !decl.behavior.NamesBehavior {
+				return chain, nil
+			}
+			// A declaration naming nothing that holds a body is not executable:
+			// the type binds a behavior no element states.
 			return nil, fmt.Errorf("%w: %s %s of %s names no behavior body",
 				ErrUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member))
 		}
@@ -1106,7 +1341,16 @@ func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, n
 		return false
 	}
 	sym, ok := ctx.lookupName(scope, name)
-	if !ok || sym == nil {
+	if !ok {
+		return false
+	}
+	return performerHoldsFeature(ctx, self, sym)
+}
+
+// performerHoldsFeature reports whether a resolved feature is one the object
+// performing the behavior holds under any of its types.
+func performerHoldsFeature(ctx *Context, self *Instance, sym *symbols.Symbol) bool {
+	if ctx == nil || self == nil || sym == nil {
 		return false
 	}
 	for _, typ := range self.types() {

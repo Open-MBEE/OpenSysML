@@ -15,8 +15,13 @@ within these records and means nothing outside this repository.
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
+  suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
   pilot implementation, advisory
+- **[Spec-vs-pilot gap register](spec-pilot-gap-register.md)** — places where OpenSysML's
+  behaviour rests on the pilot or on no clause, ranked by modeler impact, with the question each
+  puts to the specification authors
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
   execution surface reaches, and which behavior rows it can adjudicate
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
@@ -52,6 +57,14 @@ within these records and means nothing outside this repository.
   usage fed by a `flow` is SysML v2's spelling of concurrent per-element performance, adjudicated
   against the specifications, the library, the corpora and the pilot, and closed: the iterative
   form is `for`, the parallel form is not SysML v2
+- **[Bitwise complement](bitwise-complement.md)** — whether the unary `~` has a meaning a runtime
+  can give it, adjudicated against the specification, the Kernel Function Library, the corpora
+  and the pinned pilot, and closed abstract-only: the runtime keeps its typed refusal and the
+  checker warns on every use
+- **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
+  or exception propagation, adjudicated against the specifications, the library, the corpora and
+  the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a
+  result routed by `decide`, or a failure signal accepted beside the work and a `terminate`
 - **[Exact-rational evaluation](exact-rational-evaluation.md)** — whether the evaluator should
   compute `Real`/`Rational` arithmetic exactly rather than in binary64, adjudicated against the
   pinned pilot and the specification text, and declined
@@ -66,9 +79,13 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
-- **[Performance: 0.8.0 against 0.7.0](performance-release-0.8-vs-0.7.0.md)** — the release-gate
-  measurement of the 0.8 line against the previous release: every benchmark on both revisions,
+- **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
+  `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
+  spell standard, conforming SysML v2
+- **[Performance: 0.9.1 against 0.9.0](performance-release-0.9.1-vs-0.9.0.md)** — the release-gate
+  measurement of the 0.9.1 line against the previous release: every benchmark on both revisions,
   whole-binary scaling, and each regression fixed or priced; the
+  [0.8.0 against 0.7.0](performance-release-0.8-vs-0.7.0.md),
   [0.6 against 0.4.2](performance-release-0.6-vs-0.4.2.md) and
   [0.5 against 0.4.3](performance-release-0.5-vs-0.4.3.md) records precede it
 - **[Roadmap](roadmap.md)** — the known gaps, in the order they should be picked up

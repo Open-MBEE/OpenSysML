@@ -1,0 +1,55 @@
+# SysML v1 to v2 migration report: table_homonyms.xmi
+# exported by Example UML Tool
+# migrated 38 element(s): 23 mapped, 6 approximated, 9 unmapped (6 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (9)
+«InstanceTable»	<Diagram>	_tbl_no_diagram	(base_Diagram _no_such_diagram names no diagram of the document)
+«InstanceTable» Diagram	Shop::Ambiguous Scope	_tbl_ambiguous	(the scope _shared names 2 module elements (http://example.com/modules/Warehouse.xmi#_shared, http://example.com/modules/Storefront.xmi#_shared))
+«InstanceTable» Diagram	Shop::Bad Sort	_tbl_bad_sort	(sort "IColumn:_prop_price^Sideways": not in the form <column>^Asc|Desc; sort "price": not in the form <column>^Asc|Desc)
+«DependencyMatrix» Diagram	Shop::Broken Matrix	_mx_broken	(the unnamed criterion is malformed: not well-formed XML: xmi: XML syntax error on line 4: unexpected EOF)
+«InstanceTable» Diagram	Shop::Dangling Scope	_tbl_dangling	(the scope _nowhere resolves to no element)
+«RelationMap» Diagram	Shop::Deep Map	_map_deep	(depth "deep": not a non-negative integer)
+«DiagramTable» Diagram	Shop::Ghost Column	_tbl_ghost_column	(none of the table's columns reads what a query can; the column IColumn:_no_such_property is omitted: the column IColumn:_no_such_property names no property of the document)
+«InstanceTable» Diagram	Shop::No Classifier	_tbl_no_classifier	(the instance table names no classifier)
+«DependencyMatrix» Diagram	Shop::Orphan Matrix	_mx_orphan	(MatrixFilter: no filter application names the diagram)
+
+## approximated (6)
+Diagram	Shop::Ambiguous Scope	_diag_ambiguous	-> Shop::'Ambiguous Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::Dangling Scope	_diag_dangling	-> Shop::'Dangling Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::No Classifier	_diag_no_classifier	-> Shop::'No Classifier'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::Orphan Matrix	_diag_orphan_matrix	-> Shop::'Orphan Matrix'	(a Dependency Matrix written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Property	Shop::Report::a	_prop_report_a	-> Shop::Report::a	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Warehouse.xmi#_shared lives outside the document and is not written)
+Property	Shop::Report::b	_prop_report_b	-> Shop::Report::b	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Storefront.xmi#_shared lives outside the document and is not written)
+
+## mapped (23)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Shop	_pkg_shop	-> Shop
+Profile	Shop Profile	_shop_profile	-> 'Shop Profile'
+Stereotype	Shop Profile::Document	_st_shop_document	-> 'Shop Profile'::Document
+Stereotype	Shop Profile::InstanceTable	_st_shop_instances	-> 'Shop Profile'::InstanceTable
+Property	Shop Profile::InstanceTable::scope	_st_shop_instances_scope	-> 'Shop Profile'::InstanceTable::scope
+Stereotype	Shop Profile::TableStructure	_st_shop_table	-> 'Shop Profile'::TableStructure
+Property	Shop Profile::TableStructure::rows	_st_shop_table_rows	-> 'Shop Profile'::TableStructure::rows
+Diagram	Shop::Bad Sort	_diag_bad_sort	-> Shop::'Bad Sort'	(a SysML Instance Table written as a view rendered asElementTable)
+Diagram	Shop::Broken Matrix	_diag_broken_matrix	-> Shop::'Broken Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+«Block» Class	Shop::Catalog	_blk_catalog	-> Shop::Catalog
+«RelationMap» Diagram	Shop::Catalog Map	_map_catalog	-> part def Shop::'Catalog Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Catalog Map Rows')
+Diagram	Shop::Catalog Map	_diag_catalog_map	-> Shop::'Catalog Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Diagram	Shop::Catalog Table	_diag_shop_table	-> Shop::'Catalog Table'	(a SysML Instance Table written as a view rendered asElementTable)
+Property	Shop::Catalog::price	_prop_price	-> Shop::Catalog::price
+Diagram	Shop::Custom Table	_diag_custom_table	-> Shop::'Custom Table'	(a Generic Table written as a view rendered asElementTable)
+Diagram	Shop::Deep Map	_diag_deep_map	-> Shop::'Deep Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Diagram	Shop::Ghost Column	_diag_ghost_column	-> Shop::'Ghost Column'	(a Generic Table written as a view rendered asElementTable)
+«Block» Class	Shop::Ledger	_blk_ledger	-> Shop::Ledger
+«Block» Class	Shop::Report	_blk_report	-> Shop::Report	(«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Shop::SeasonalCatalog	_blk_seasonal	-> Shop::SeasonalCatalog
+InstanceSpecification	Shop::c1	_inst_c1	-> Shop::c1
+Slot	Shop::c1::<Slot>	_slot_c1_price	-> Shop::c1::price
+
+## skipped (6)
+Extension	Shop Profile::<Extension>	_ext_shop_table	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Shop Profile::<Extension>	_ext_shop_instances	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Shop Profile::<Extension>	_ext_shop_document	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Shop Profile::Document::base_Class	_st_shop_document_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Shop Profile::InstanceTable::base_Class	_st_shop_instances_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Shop Profile::TableStructure::base_Class	_st_shop_table_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

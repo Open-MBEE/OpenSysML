@@ -32,7 +32,17 @@ const (
 	// FormatXMI is SysML v1 as UML XMI 2.5.1, the OMG SysML profile applied, or
 	// a .mdzip archive holding it. It is an input format only.
 	FormatXMI
+	// FormatAPIJSON is the OMG SysML v2 API element form: JSON objects with
+	// "@type", "@id" and the metamodel properties as keys, over the same graph
+	// the Turtle mapping builds.
+	FormatAPIJSON
+	// FormatFMU is a Functional Mock-up Unit: a zip archive whose
+	// modelDescription.xml imports as a calc def computed by the `fmi` tool.
+	// It is input only.
+	FormatFMU
 )
+
+const sysmlExt = ".sysml"
 
 func (f Format) String() string {
 	switch f {
@@ -40,30 +50,37 @@ func (f Format) String() string {
 		return "ttl"
 	case FormatXMI:
 		return "xmi"
+	case FormatAPIJSON:
+		return "api-json"
+	case FormatFMU:
+		return "fmu"
 	}
 	return "sysml"
 }
 
 // Writable reports whether models can be written in the format.
 func (f Format) Writable() bool {
-	return f != FormatXMI
+	return f != FormatXMI && f != FormatFMU
 }
 
 // formatNames are the names accepted on the command line for each format.
 var formatNames = map[string]Format{
-	"sysml":  FormatSysML,
-	"kerml":  FormatSysML,
-	"text":   FormatSysML,
-	"ttl":    FormatTurtle,
-	"turtle": FormatTurtle,
-	"rdf":    FormatTurtle,
-	"xmi":    FormatXMI,
-	"uml":    FormatXMI,
-	"mdzip":  FormatXMI,
+	"sysml":    FormatSysML,
+	"kerml":    FormatSysML,
+	"text":     FormatSysML,
+	"ttl":      FormatTurtle,
+	"turtle":   FormatTurtle,
+	"rdf":      FormatTurtle,
+	"xmi":      FormatXMI,
+	"uml":      FormatXMI,
+	"mdzip":    FormatXMI,
+	"api-json": FormatAPIJSON,
+	"json":     FormatAPIJSON,
+	"fmu":      FormatFMU,
 }
 
 // FormatList is the wording every surface lists the format names in.
-const FormatList = "sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip (input only)"
+const FormatList = "sysml, kerml, ttl, turtle, rdf, api-json, fmu or xmi/uml/mdzip (input only)"
 
 // FormatNames returns every name ParseFormat accepts, sorted.
 func FormatNames() []string {
@@ -87,7 +104,7 @@ func ParseFormat(name string) (Format, error) {
 type NotWritableError struct{ Format Format }
 
 func (e *NotWritableError) Error() string {
-	return fmt.Sprintf("cannot write %s: SysML v1 XMI is read and migrated, never written; convert to sysml or ttl", e.Format)
+	return fmt.Sprintf("cannot write %s: it is read and imported, never written; convert to sysml or ttl", e.Format)
 }
 
 // UnknownFormatError reports that a path does not say which format to write.
@@ -103,7 +120,7 @@ type UnknownFormatError struct {
 }
 
 func (e *UnknownFormatError) Error() string {
-	reason := "expected .sysml, .kerml or .ttl"
+	reason := "expected .sysml, .kerml, .ttl or .json"
 	if e.NoExtension {
 		reason = "it has no extension"
 	}
@@ -116,7 +133,7 @@ func (e *UnknownFormatError) Error() string {
 
 // ExtensionAdvice is the remedy every surface shares: the file name says which
 // format to write. A surface with a format flag names it alongside this.
-const ExtensionAdvice = "name the file with a .sysml, .kerml or .ttl extension"
+const ExtensionAdvice = "name the file with a .sysml, .kerml, .ttl, .json or .fmu extension"
 
 // Advise returns err with the surface's remedy attached when it is an
 // *UnknownFormatError, and unchanged otherwise.
@@ -134,10 +151,14 @@ func Advise(err error, advice string) error {
 // remedy the calling surface offers.
 func FormatOfPath(path string) (Format, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".sysml", ".kerml":
+	case sysmlExt, ".kerml":
 		return FormatSysML, nil
 	case ".ttl", ".turtle":
 		return FormatTurtle, nil
+	case ".json":
+		return FormatAPIJSON, nil
+	case ".fmu":
+		return FormatFMU, nil
 	case ".xmi", ".uml", ".mdzip":
 		return FormatXMI, nil
 	case "":
@@ -165,6 +186,14 @@ func (e *SyntaxError) Error() string {
 	return fmt.Sprintf("%s: %d syntax error(s):\n  %s", e.Name, len(e.Messages), strings.Join(e.Messages, "\n  "))
 }
 
+// Options carries the conversion settings a caller may change from their
+// defaults.
+type Options struct {
+	// ID is the form derived element ids are written in; the zero value is
+	// qualified-name-derived ids.
+	ID export.IDForm
+}
+
 // Convert reads data in the from format and writes it in the to format. name is
 // used in diagnostics and needs no relation to a file on disk.
 //
@@ -173,7 +202,43 @@ func (e *SyntaxError) Error() string {
 // from broken input does not hold the declarations it could not read, and a
 // graph built from it would be quietly missing them.
 func Convert(name string, data []byte, from, to Format) ([]byte, error) {
-	out, _, err := convert(name, data, from, to, false)
+	return ConvertWith(name, data, from, to, Options{})
+}
+
+// Input is one named document of a model converted as a whole.
+type Input struct {
+	Name string
+	Data []byte
+}
+
+// ConvertModel converts the notation of several documents, one model, to one
+// graph written in to (Turtle or the API's JSON element form): a reference
+// from one document to an element another declares links it, as within one
+// document. A document that does not parse fails the conversion.
+func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
+	if to != FormatTurtle && to != FormatAPIJSON {
+		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
+	}
+	documents := make([]export.ModelDocument, 0, len(inputs))
+	for _, input := range inputs {
+		file := source.New(input.Name, input.Data)
+		p := parser.New(file)
+		root := p.ParseFile()
+		if err := syntaxError(input.Name, file, p); err != nil {
+			return nil, err
+		}
+		documents = append(documents, export.ModelDocument{File: file, Root: root})
+	}
+	graph, err := export.ModelToRDFWith(documents, opts.ID)
+	if err != nil {
+		return nil, err
+	}
+	return FromGraph(graph, to)
+}
+
+// ConvertWith is Convert under non-default options.
+func ConvertWith(name string, data []byte, from, to Format, opts Options) ([]byte, error) {
+	out, _, err := convert(name, data, from, to, false, opts)
 	return out, err
 }
 
@@ -187,7 +252,12 @@ func Convert(name string, data []byte, from, to Format) ([]byte, error) {
 // declarations the parser could not read would be silently missing, so a broken
 // model is still rejected.
 func ConvertTolerant(name string, data []byte, from, to Format) ([]byte, *SyntaxError, error) {
-	return convert(name, data, from, to, true)
+	return ConvertTolerantWith(name, data, from, to, Options{})
+}
+
+// ConvertTolerantWith is ConvertTolerant under non-default options.
+func ConvertTolerantWith(name string, data []byte, from, to Format, opts Options) ([]byte, *SyntaxError, error) {
+	return convert(name, data, from, to, true, opts)
 }
 
 // ErrNoNotation reports an element no notation can be written for: one the
@@ -210,7 +280,7 @@ func SysMLElement(file *source.SourceFile, span source.Span) ([]byte, *SyntaxErr
 	if text == "" {
 		return nil, nil, ErrNoNotation
 	}
-	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true)
+	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true, Options{})
 }
 
 // trimTrailingTrivia cuts source at its last token that is neither whitespace
@@ -233,31 +303,37 @@ type Migration struct {
 	Output  []byte
 	Report  *migrate.Report
 	Results *simresults.Results
+	// Files are the attached image files the migration wrote for its document
+	// Image blocks, by the relative path they belong under; a caller writes
+	// them beside Output, empty when none was attached.
+	Files map[string][]byte
 }
 
-// Migrate reads a SysML v1 model in XMI and writes it in the to format.
-func Migrate(name string, data []byte, to Format) (*Migration, error) {
+// Migrate reads a SysML v1 model in XMI and writes it in the to format. opts
+// carries the migration's augments: an MTIP export whose diagram records lay
+// out the views the migration writes.
+func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migration, error) {
 	if !to.Writable() {
 		return nil, &NotWritableError{Format: to}
 	}
-	result, err := migrate.Migrate(name, data)
+	result, err := migrate.MigrateOptions(name, data, opts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	out, _, err := convert(name+".sysml", result.Notation, FormatSysML, to, false)
+	out, _, err := convert(name+sysmlExt, result.Notation, FormatSysML, to, false, Options{})
 	if err != nil {
 		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
 	}
-	return &Migration{Output: out, Report: result.Report, Results: result.Results}, nil
+	return &Migration{Output: out, Report: result.Report, Results: result.Results, Files: result.Files}, nil
 }
 
-func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool) ([]byte, *SyntaxError, error) {
+func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {
 	switch {
 	case !to.Writable():
 		return nil, nil, &NotWritableError{Format: to}
 
 	case from == FormatXMI:
-		m, err := Migrate(name, data, to)
+		m, err := Migrate(name, data, to, migrate.Options{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -276,40 +352,91 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return out, syntax, nil
 
 	case from == FormatSysML && to == FormatTurtle:
-		graph, err := SysMLToRDF(name, data)
+		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
 			return nil, nil, err
 		}
 		return rdf.WriteTurtle(graph), nil, nil
 
-	case from == FormatTurtle && to == FormatSysML:
-		graph, err := rdf.ParseTurtle(data)
+	case from == FormatSysML && to == FormatAPIJSON:
+		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
-			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
+			return nil, nil, err
 		}
-		out, err := export.ToSysML(graph)
+		out, err := export.WriteAPIJSON(graph)
 		return out, nil, err
 
+	case from == FormatAPIJSON:
+		// The input is the API element form; api-json to api-json normalizes it
+		// as Turtle to Turtle does.
+		graph, err := readAPIJSON(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, err := FromGraph(graph, to)
+		return out, nil, err
+
+	case from == FormatFMU:
+		notation, err := fmuToNotation(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, syntax, err := convert(name+sysmlExt, notation, FormatSysML, to, tolerateSyntaxErrors, opts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("the imported notation could not be written: %w", err)
+		}
+		return out, syntax, nil
+
 	default:
-		// Turtle to Turtle: read and rewrite, which normalizes the document
-		// and reports anything the reader cannot represent.
+		// The input is a graph: Turtle parsed, or one read from a repository.
 		graph, err := rdf.ParseTurtle(data)
 		if err != nil {
 			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
 		}
-		return rdf.WriteTurtle(graph), nil, nil
+		out, err := FromGraph(graph, to)
+		return out, nil, err
 	}
+}
+
+// FromGraph writes a graph in the to format, so a graph that did not come
+// from a Turtle file — a repository branch read as RDF — converts alike.
+func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
+	switch {
+	case to == FormatSysML:
+		return export.ToSysML(graph)
+	case to == FormatTurtle:
+		return rdf.WriteTurtle(graph), nil
+	case to == FormatAPIJSON:
+		return export.WriteAPIJSON(graph)
+	default:
+		return nil, &NotWritableError{Format: to}
+	}
+}
+
+// readAPIJSON parses the API element form, reporting a malformed document as a
+// syntax error of the input the way a Turtle parse failure is.
+func readAPIJSON(name string, data []byte) (*rdf.Graph, error) {
+	graph, err := export.ReadAPIJSON(data)
+	if err != nil {
+		return nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
+	}
+	return graph, nil
 }
 
 // SysMLToRDF parses SysML notation and converts it to a graph.
 func SysMLToRDF(name string, data []byte) (*rdf.Graph, error) {
+	return sysmlToRDFWith(name, data, export.IDQualifiedName)
+}
+
+// sysmlToRDFWith is SysMLToRDF under a non-default id form.
+func sysmlToRDFWith(name string, data []byte, form export.IDForm) (*rdf.Graph, error) {
 	file := source.New(name, data)
 	p := parser.New(file)
 	root := p.ParseFile()
 	if err := syntaxError(name, file, p); err != nil {
 		return nil, err
 	}
-	return export.ToRDF(file, root)
+	return export.ToRDFWith(file, root, form)
 }
 
 // checkSyntax reports the notation's syntax errors, if any.
@@ -323,14 +450,21 @@ func checkSyntax(name string, data []byte) *SyntaxError {
 // syntaxError turns a parse's diagnostics into a SyntaxError, or nil when the
 // input parsed clean.
 func syntaxError(name string, file *source.SourceFile, p *parser.Parser) *SyntaxError {
-	if len(p.Diagnostics) == 0 {
+	return SyntaxErrorOf(name, file, p.Diagnostics)
+}
+
+// SyntaxErrorOf reports a document's parser diagnostics as a SyntaxError, or
+// nil when there are none: a graph built from a tree the parser could not read
+// whole would silently miss what it skipped.
+func SyntaxErrorOf(name string, file *source.SourceFile, diags []parser.Diagnostic) *SyntaxError {
+	if len(diags) == 0 {
 		return nil
 	}
 	lines := file.Lines()
-	messages := make([]string, 0, len(p.Diagnostics))
-	for _, diag := range p.Diagnostics {
+	messages := make([]string, 0, len(diags))
+	for _, diag := range diags {
 		pos := lines.PosAt(diag.Span.Offset)
 		messages = append(messages, fmt.Sprintf("%d:%d: %s", pos.Line, pos.Col, diag.Message))
 	}
-	return &SyntaxError{Name: name, Messages: messages, Diags: p.Diagnostics, File: file}
+	return &SyntaxError{Name: name, Messages: messages, Diags: diags, File: file}
 }

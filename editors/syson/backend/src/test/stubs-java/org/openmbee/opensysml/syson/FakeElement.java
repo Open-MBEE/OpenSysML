@@ -36,7 +36,7 @@ public class FakeElement extends MinimalEObjectImpl.Container implements Element
         return this;
     }
     @Override public String getDeclaredName() { return declaredName; }
-    @Override public String getName() { return declaredName; }
+    @Override public String getName() { return getDeclaredName(); }
     @Override public String getQualifiedName() { return qualifiedName; }
     @Override public String getElementId() { return elementId; }
     @Override public boolean isIsLibraryElement() { return library; }

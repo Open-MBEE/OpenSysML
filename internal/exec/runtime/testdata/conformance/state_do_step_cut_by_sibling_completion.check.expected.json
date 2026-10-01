@@ -1,0 +1,16 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"a b r1(entry) \"",
+			"\"a r1(entry) \"",
+			"\"a r1(entry) b \"",
+			"\"r1(entry) \"",
+			"\"r1(entry) a \"",
+			"\"r1(entry) a b \""
+		]
+	},
+	"agreed": {
+		"finalState": "stopped"
+	}
+}

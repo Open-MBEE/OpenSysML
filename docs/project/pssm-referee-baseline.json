@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-19",
-    "develop": "b36c7c0f0fd8069a11df862b185eb2b101478fb7"
+    "recorded": "2026-09-28",
+    "develop": "074aceb8882dc43b0ba576cfa214cf612b36c7ca"
   },
   "buckets": {
-    "differs-by-design": 1,
-    "fail": 13,
-    "not-expressible": 38,
-    "pass": 51
+    "differs-by-design": 5,
+    "fail": 12,
+    "not-expressible": 34,
+    "pass": 52
   },
   "tests": [
     {
@@ -225,7 +225,7 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
-      "runs": 18
+      "runs": 28
     },
     {
       "name": "Transition 019",
@@ -502,11 +502,17 @@
     {
       "name": "Event 017 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1; behavior parameter S1.S1.1; behavior parameter S1.S1.1; behavior parameter S1.S1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "reached": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "runs": 3
     },
     {
       "name": "Event 018",
@@ -524,47 +530,69 @@
     {
       "name": "Event 019 A",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "tester trace this.testable.trace(\"End\")"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)::Call(op)::End::S2(entry)"
+      ],
+      "reached": [
+        "S1(exit)::Call(op)::End::S2(entry)"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1; behavior parameter S2"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "reached": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 C",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1; behavior parameter S1.S1.1; behavior parameter S1.S1.1.S1.1.1; behavior parameter S1.S1.1.S1.1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "reached": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 D",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "operation result T2; tester trace this.testable.trace(formatParameterValue(false, this.testable.op()))"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)::T2(effect)[out=output]::[out=output]::S2(exit)"
+      ],
+      "reached": [
+        "S1(entry)::T2(effect)[out=output]::[out=output]::S2(exit)"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 E",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1.1(entry)[in=true][in=true][out=true][out=true]::S2.1.1(entry)[in=true][in=true][out=false][out=false]::[out=false][out=false]",
+        "S2.1.1(entry)[in=true][in=true][out=false][out=false]::S1.1(entry)[in=true][in=true][out=true][out=true]::[out=true][out=true]"
+      ],
+      "reached": [
+        "S1.1(entry)[in=true][in=true][out=true][out=true]::S2.1.1(entry)[in=true][in=true][out=false][out=false]::[out=false][out=false]",
+        "S2.1.1(entry)[in=true][in=true][out=false][out=false]::S1.1(entry)[in=true][in=true][out=true][out=true]::[out=true][out=true]"
+      ],
+      "runs": 4
     },
     {
       "name": "Entering 004",
@@ -794,7 +822,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "behavior parameter S1; entry point EntryPoint1; behavior parameter S1.S1.1; behavior parameter S1.S1.2; local transition T1.1; local transition T1.2"
+        "entry point EntryPoint1; local transition T1.1; local transition T1.2"
       ]
     },
     {
@@ -872,7 +900,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone001_Test; exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"
+        "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {
@@ -881,17 +909,23 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone002_Test; exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2"
+        "exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {
       "name": "Standalone 003",
       "area": "Standalone",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "standalone state machine Standalone003_Test; behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1.1(entry)[in=true][in=true][out=true][out=true]::S2.1.1(entry)[in=true][in=true][out=false][out=false]::[out=false][out=false]",
+        "S2.1.1(entry)[in=true][in=true][out=false][out=false]::S1.1(entry)[in=true][in=true][out=true][out=true]::[out=true][out=true]"
+      ],
+      "reached": [
+        "S1.1(entry)[in=true][in=true][out=true][out=true]::S2.1.1(entry)[in=true][in=true][out=false][out=false]::[out=false][out=false]",
+        "S2.1.1(entry)[in=true][in=true][out=false][out=false]::S1.1(entry)[in=true][in=true][out=true][out=true]::[out=true][out=true]"
+      ],
+      "runs": 4
     },
     {
       "name": "Fork 001",
@@ -998,10 +1032,7 @@
       "name": "Terminate 002",
       "area": "Terminate",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
@@ -1010,12 +1041,13 @@
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
       "reached": [
+        "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)",
         "S1(entry)::S2.1(entry)::S1.1(entry)",
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
-      "runs": 4
+      "runs": 5
     },
     {
       "name": "Terminate 003",
@@ -1048,20 +1080,27 @@
     {
       "name": "Deferred 001",
       "area": "Deferred",
-      "class": "extension",
-      "bucket": "pass",
+      "class": "standard",
+      "row": "SM6",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S1(exit)::S2(entry)::T5(effect)::S3(entry)",
+        "admitted trace not reached: S1(exit)::S2(entry)::T4(effect)::S3(entry)",
+        "reports on SM6 (Order of a kept signal's replay against occurrences already pooled): differs because v2 differs"
+      ],
       "expected": [
         "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
       ],
       "reached": [
-        "S1(exit)::S2(entry)::T4(effect)::S3(entry)"
+        "S1(exit)::S2(entry)::T5(effect)::S3(entry)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Deferred 002",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "bucket": "pass",
       "expected": [
         "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
@@ -1069,117 +1108,114 @@
       "reached": [
         "S1(exit)::T4(effect)::S2(entry)::T6(effect)::S3(entry)"
       ],
-      "runs": 1
+      "runs": 2
     },
     {
       "name": "Deferred 003",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
       ],
       "reached": [
-        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::T1.2(effect)::S1.2(exit)::T1.3(effect)"
+        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)"
       ],
-      "runs": 1
+      "runs": 6
     },
     {
       "name": "Deferred 004 A",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::S1(exit)::T4(effect)",
+        "admitted trace not reached: S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
       ],
       "reached": [
-        "S1.1(exit)::T1.2(effect)::S2.1(exit)::T2.2(effect)::S1(exit)::T4(effect)"
+        "S2.1(exit)::T2.2(effect)::S1.1(exit)::T1.2(effect)::S1(exit)::T4(effect)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Deferred 004 B",
       "area": "Deferred",
-      "class": "extension",
+      "class": "standard",
       "row": "SM7",
-      "rowKind": "differs, v2 silent",
-      "bucket": "pass",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: S2.1(exit)::T2.2(effect)::S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S1(exit)",
+        "admitted trace not reached: S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)",
+        "reports on SM7 (Deferral against a transition elsewhere in the configuration): differs because v2 differs"
+      ],
       "expected": [
         "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
       ],
       "reached": [
-        "S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S2.1(exit)::T2.2(effect)::S1(exit)"
+        "S2.1(exit)::T2.2(effect)::S1.1.1(exit)::T1.1.2(effect)::S1.1(exit)::S1(exit)"
       ],
-      "runs": 4
+      "runs": 20
     },
     {
       "name": "Deferred 005",
       "area": "Deferred",
-      "class": "extension",
-      "bucket": "pass",
+      "class": "standard",
+      "row": "SM6",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "reached a trace the suite does not admit: T3(effect)::S2(entry)",
+        "admitted trace not reached: T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)",
+        "reports on SM6 (Order of a kept signal's replay against occurrences already pooled): differs because v2 differs"
+      ],
       "expected": [
         "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
       ],
       "reached": [
-        "T3(effect)::S2(entry)::T4(effect)::S2(entry)::T5(effect)::S2(entry)"
+        "T3(effect)::S2(entry)"
       ],
-      "runs": 1
+      "runs": 9
     },
     {
       "name": "Deferred 006 A",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "pass",
-      "expected": [
-        "S2(doActivity-AnotherSignal)"
-      ],
-      "reached": [
-        "S2(doActivity-AnotherSignal)"
-      ],
-      "runs": 1
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "deferral in a state left by an unguarded completion transition S2"
+      ]
     },
     {
       "name": "Deferred 006 B",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "differs-by-design",
+      "class": "not-expressible",
+      "bucket": "not-expressible",
       "reasons": [
-        "admitted trace not reached: S2(doActivityPartI)::S2(doActivityPartII)",
-        "reports on SM15 (A do activity and the machine competing for one occurrence): differs because v2 differs"
-      ],
-      "expected": [
-        "",
-        "S2(doActivityPartI)::S2(doActivityPartII)"
-      ],
-      "reached": [
-        ""
-      ],
-      "runs": 1
+        "deferral in a state left by an unguarded completion transition S2"
+      ]
     },
     {
       "name": "Deferred 006 C",
       "area": "Deferred",
-      "class": "extension",
-      "row": "SM15",
-      "rowKind": "differs because v2 differs",
-      "bucket": "pass",
-      "expected": [
-        "S1.1(doActivity)::S1.2(doActivity)",
-        "S1.2(doActivity)::S1.1(doActivity)"
-      ],
-      "reached": [
-        "S1.1(doActivity)::S1.2(doActivity)",
-        "S1.2(doActivity)::S1.1(doActivity)"
-      ],
-      "runs": 24
+      "class": "not-expressible",
+      "bucket": "not-expressible",
+      "reasons": [
+        "deferral in a state left by an unguarded completion transition S1.S1.1"
+      ]
     },
     {
       "name": "Deferred 007",
@@ -1187,7 +1223,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "operation result T4; tester trace this.testable.trace(formatParameterValue(false, this.testable.op(true)))"
+        "deferred call S1"
       ]
     },
     {

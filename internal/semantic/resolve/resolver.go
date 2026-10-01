@@ -72,6 +72,12 @@ type modeMemoKey struct {
 	borrowedOut bool
 }
 
+// importVisit is one search of an import edge for a name: see Resolver.importVisits.
+type importVisit struct {
+	target, from *symbols.Scope
+	name         string
+}
+
 type filteredMemoKey struct {
 	qn               *ast.QualifiedName
 	decl             ast.Node
@@ -114,13 +120,25 @@ type Resolver struct {
 	imports          map[ast.Node][]*ast.Import
 	importStack      map[*ast.Import]bool
 	resolvingImports map[*ast.Import]bool
-	Diagnostics      []Diagnostic
+	// importVisits are the import edges already searched for a name by the
+	// imported-member lookup in progress, and importDepth is its nesting:
+	// namespaces importing one another in a cycle are searched once per
+	// lookup, not once per path through the cycle, as the excluded set of
+	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
+	// A lookup made aside or for a filter condition starts with a set of its
+	// own (see freshImportVisits).
+	importVisits map[importVisit]bool
+	importDepth  int
+	Diagnostics  []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
 	quiet int
 	// inCondition is nonzero while a filter condition's own names are resolved,
 	// which the condition does not filter.
 	inCondition int
+	// columnChains is nonzero while a Column's expression argument resolves:
+	// a chain there may be a member path on the row, not a document reference.
+	columnChains int
 	// allVisible is nonzero while the target of an `import all` (or of an
 	// expose) is resolved, which reaches every membership, not the visible ones.
 	allVisible int
@@ -139,6 +157,13 @@ type Resolver struct {
 	// implicitParams are the anonymous members of a scope that may be named by
 	// an implicit redefinition, collected once per scope: see implicitParameters.
 	implicitParams map[*symbols.Scope][]*symbols.Symbol
+	// importTargets are the namespaces imports resolved to, one per import.
+	// Only a hit is kept (a miss may only mean sibling imports were suspended),
+	// and never one found while a filter condition resolves (InCondition);
+	// the OMG pilot likewise resolves an import's target once, as a linked
+	// cross-reference. Without it, resolving each of n sibling imports searched
+	// the others' unresolved targets in every order (issue #636).
+	importTargets map[*ast.Import]resolution
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -202,7 +227,7 @@ func (r *Resolver) MemoSize() int {
 	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions)
+		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets)
 }
 
 // New creates a resolver over the given index.
@@ -229,6 +254,8 @@ func New(idx *symbols.Index) *Resolver {
 		viewFiltersInProgress: map[*symbols.Scope]bool{},
 		payloads:              map[*symbols.Scope]map[string]*symbols.Symbol{},
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
+		importTargets:         map[*ast.Import]resolution{},
+		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
@@ -303,12 +330,18 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 }
 
 // resolveInitial binds `first x` to the member of the body x names, if any:
-// lowering starts the flow there instead of at the node (see lower).
+// lowering starts the flow there instead of at the node (see lower). A name no
+// declared member bears reaches an inherited one, so `first start` links the
+// start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
 	if n.Name() == "" {
 		return
 	}
-	if sym, ok := memberPastLabels(scope, n.Name()); ok {
+	sym, ok := memberPastLabels(scope, n.Name())
+	if !ok {
+		sym, ok = r.lookupContributedMember(scope.Owner(), n.Name(), nil)
+	}
+	if ok {
 		journalNew(r, r.initials, n, n)
 		r.initials[n] = sym
 	}
@@ -384,7 +417,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 	if sym.Scope == nil {
 		return nil, false
 	}
-	for _, imp := range r.importsOf(sym.Scope.Node()) {
+	for _, imp := range r.scopeImports(sym.Scope) {
 		if r.resolvingImports[imp] {
 			continue
 		}
@@ -622,6 +655,19 @@ func (r *Resolver) analyzing() string {
 func (r *Resolver) aside(f func()) {
 	r.quiet++
 	defer func() { r.quiet-- }()
+	r.freshImportVisits(f)
+}
+
+// freshImportVisits runs f as a lookup of its own: the import edges the
+// enclosing imported-member search has already visited must not cut it short.
+func (r *Resolver) freshImportVisits(f func()) {
+	if r.importDepth == 0 {
+		f()
+		return
+	}
+	visits, depth := r.importVisits, r.importDepth
+	r.importVisits, r.importDepth = map[importVisit]bool{}, 0
+	defer func() { r.importVisits, r.importDepth = visits, depth }()
 	f()
 }
 
@@ -745,7 +791,7 @@ func (r *Resolver) memoizeFeatureChain(scope *symbols.Scope, fc *ast.FeatureChai
 func (r *Resolver) InCondition(f func()) {
 	r.inCondition++
 	defer func() { r.inCondition-- }()
-	f()
+	r.freshImportVisits(f)
 }
 
 func spanOf(n ast.Node) source.Span {

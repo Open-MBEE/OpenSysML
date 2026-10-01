@@ -284,8 +284,9 @@ func syncStatePath(model string, apply bool) (string, error) {
 	return reposync.StatePath(model), nil
 }
 
-// loadSyncGraph reads a graph for the sync: Turtle as-is, notation converted
-// through the identity-carrying RDF mapping.
+// loadSyncGraph reads a graph for the sync: Turtle as-is, the API's element
+// form parsed back to its triples, notation converted through the
+// identity-carrying RDF mapping.
 func loadSyncGraph(path string) (*rdf.Graph, error) {
 	format, err := convert.FormatOfPath(path)
 	if err != nil {
@@ -298,6 +299,8 @@ func loadSyncGraph(path string) (*rdf.Graph, error) {
 	switch format {
 	case convert.FormatTurtle:
 		return rdf.ParseTurtle(data)
+	case convert.FormatAPIJSON:
+		return export.ReadAPIJSON(data)
 	case convert.FormatXMI:
 		return nil, fmt.Errorf("%s is SysML v1 XMI, which a sync cannot read; migrate it first with `sysml %s -convert sysml -o model.sysml`", path, path)
 	}

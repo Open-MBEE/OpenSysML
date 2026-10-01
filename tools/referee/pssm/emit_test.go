@@ -62,6 +62,78 @@ func TestEmitStandard(t *testing.T) {
 	}
 }
 
+func TestEmitTransitionTargetInEnclosingRegion(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xOuter" name="Outer">
+            <region xmi:type="uml:Region" xmi:id="xOuterRegion" name="R1">
+              <subvertex xmi:type="uml:State" xmi:id="xInner" name="Inner">
+                <region xmi:type="uml:Region" xmi:id="xInnerRegion" name="R1">
+                  <subvertex xmi:type="uml:State" xmi:id="xA" name="A"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInnerToH" source="xA" target="xH">
+                    <trigger xmi:type="uml:Trigger" xmi:id="xInnerToHTrigger" event="evContinue"/>
+                  </transition>
+                </region>
+              </subvertex>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xH" name="H" kind="deepHistory"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xOuterToH" source="xOuter" target="xH"/>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"transition first Outer_Inner.Outer_Inner_A accept Continue then Outer_H;",
+		"transition first Outer then Outer.Outer_H;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
+func TestEmitTransitionFromOrthogonalRegionUsesScopedPaths(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xOuter" name="Outer">
+            <region xmi:type="uml:Region" xmi:id="xOuterRegion" name="R1">
+              <subvertex xmi:type="uml:State" xmi:id="xParallel" name="Parallel">
+                <region xmi:type="uml:Region" xmi:id="xRegion1" name="Region1">
+                  <subvertex xmi:type="uml:Pseudostate" xmi:id="xInitial1" name="I"/>
+                  <subvertex xmi:type="uml:State" xmi:id="xA" name="A"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInitialToA" source="xInitial1" target="xA"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xAToJoin" source="xA" target="xJoin"/>
+                </region>
+                <region xmi:type="uml:Region" xmi:id="xRegion2" name="Region2">
+                  <subvertex xmi:type="uml:Pseudostate" xmi:id="xInitial2" name="I"/>
+                  <subvertex xmi:type="uml:State" xmi:id="xB" name="B"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xInitialToB" source="xInitial2" target="xB"/>
+                  <transition xmi:type="uml:Transition" xmi:id="xBToJoin" source="xB" target="xJoin"/>
+                </region>
+              </subvertex>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xJoin" name="J" kind="join"/>
+              <transition xmi:type="uml:Transition" xmi:id="xJoinToSibling" source="xJoin" target="xSibling"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="xSibling" name="Sibling"/>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"transition first Outer_Parallel.'Outer.Parallel/Region1'.Outer_Parallel_A then Outer_J;",
+		"transition first Outer_Parallel.'Outer.Parallel/Region2'.Outer_Parallel_B then Outer_J;",
+		"transition first Outer.Outer_J then Sibling;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
 // TestEmitInitialIntoPseudostate pins the rewrite of an initial transition
 // into a junction: the region starts in a helper state whose completion
 // transition reaches the junction, and the model lowers clean.
@@ -286,11 +358,24 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 		t.Errorf("writing another class's feature: err = %v", err)
 	}
 
-	unread := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
-		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`, "", 1)
-	_, err = emitWithTarget(t, factoryTarget(unread))
+	onSelf := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`,
+		`<node xmi:type="uml:ReadSelfAction" xmi:id="fSelf"><result xmi:type="uml:OutputPin" xmi:id="fSelfOut"/></node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fSelfOut" target="fWriteObj"/>`, 1)
+	_, err = emitWithTarget(t, factoryTarget(onSelf))
 	if !errors.As(err, &te) || !strings.Contains(err.Error(), "is not a literal initialization of the new instance") {
 		t.Errorf("writing something other than the instance: err = %v", err)
+	}
+
+	// A write whose object pin nothing feeds never fires (fUML), so it initializes nothing.
+	unread := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`, "", 1)
+	m, err = emitWithTarget(t, factoryTarget(unread))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, "attribute value : Integer;") {
+		t.Errorf("a write nothing feeds left a value:\n%s", m.Text)
 	}
 
 	// A nested class's own `value` shares the name, not the identity.
@@ -370,6 +455,66 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 	}
 }
 
+// markOperation is a target operation `mark(s : String)` whose method traces
+// the given segment: a literal, or the parameter itself when segment is "s".
+func markOperation(id, segment string) string {
+	source := id + `ValOut`
+	value := `<node xmi:type="uml:ValueSpecificationAction" xmi:id="` + id + `Val">
+          <result xmi:type="uml:OutputPin" xmi:id="` + id + `ValOut"/>
+          <value xmi:type="uml:LiteralString" xmi:id="` + id + `Lit" value="` + segment + `"/>
+        </node>`
+	if segment == "s" {
+		source = id + `ParamNode`
+		value = `<node xmi:type="uml:ActivityParameterNode" xmi:id="` + id + `ParamNode" parameter="` + id + `MethodP"/>`
+	}
+	return `<ownedOperation xmi:type="uml:Operation" xmi:id="` + id + `" name="mark" method="` + id + `Method">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `P" name="s">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="` + id + `Method" name="mark$method" specification="` + id + `">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `MethodP" name="s">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+        <node xmi:type="uml:ReadSelfAction" xmi:id="` + id + `Self"><result xmi:type="uml:OutputPin" xmi:id="` + id + `SelfOut"/></node>
+        ` + value + `
+        <node xmi:type="uml:CallOperationAction" xmi:id="` + id + `Trace" operation="opTrace">
+          <target xmi:type="uml:InputPin" xmi:id="` + id + `TraceTarget"/>
+          <argument xmi:type="uml:InputPin" xmi:id="` + id + `TraceArg"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + id + `E1" source="` + id + `SelfOut" target="` + id + `TraceTarget"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + id + `E2" source="` + source + `" target="` + id + `TraceArg"/>
+      </ownedBehavior>`
+}
+
+// TestEmitCallSelectsOperationByIdentity pins that a call inlines the method
+// of the operation it names, not the first operation sharing its name and arity.
+func TestEmitCallSelectsOperationByIdentity(t *testing.T) {
+	target := `<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>
+      ` + markOperation("opMarkFirst", "first") + `
+      ` + markOperation("opMarkSecond", "s")
+	entry := strings.Replace(traceCall("entry", "xS1entry", "second"), `operation="opTrace"`, `operation="opMarkSecond"`, 1)
+	src := strings.NewReplacer(
+		`<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>`, target,
+		traceCall("entry", "xS1entry", "S1(entry)"), entry,
+	).Replace(machineSuite("", ""))
+	s := readFixture(t, src)
+	noDiagnostics(t, s)
+	if len(s.Tests) != 1 {
+		t.Fatalf("tests = %d", len(s.Tests))
+	}
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, `"second"`) || strings.Contains(m.Text, `"first"`) {
+		t.Errorf("the call inlined the wrong overload:\n%s", m.Text)
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
 // TestEmitRejects pins the typed error for constructs with no translation.
 func TestEmitRejects(t *testing.T) {
 	cases := []struct {
@@ -392,6 +537,88 @@ func TestEmitRejects(t *testing.T) {
 			var te *TranslateError
 			if !errors.As(err, &te) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err = %v, want TranslateError containing %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// TestEmitSharesABufferAmongTriggersDeferringOneSignal keeps a signal two
+// triggers of a state defer in one buffer with one accept loop: a loop per
+// trigger would keep each occurrence twice and declare its actions twice.
+func TestEmitSharesABufferAmongTriggersDeferringOneSignal(t *testing.T) {
+	m, err := emitFixture(t, "", `
+          <subvertex xmi:type="uml:State" xmi:id="xD" name="D">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt1" event="evData"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt2" event="evData"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xD">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for want, n := range map[string]int{
+		"attribute deferred : IntegerData[*] ordered;": 1,
+		"action receive ":           1,
+		"action keep ":              1,
+		"accept kept : IntegerData": 1,
+	} {
+		if got := strings.Count(m.Text, want); got != n {
+			t.Errorf("model has %d of %q, want %d:\n%s", got, want, n, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
+// A kept signal named as the encoding names one of its own members — `kept`,
+// the payload an accept loop binds, or `buffer`, the do action keeping it — is
+// not hidden by that member: the made-up name steps aside, so the encoding's
+// references to the signal still name it.
+func TestEmitKeptSignalNamedAsAnEncodingMember(t *testing.T) {
+	for signal, wants := range map[string][]string{
+		"kept": {
+			"attribute deferred : kept[*] ordered;",
+			"action receive accept kept_2 : kept;",
+			"assign deferred := SequenceFunctions::including(deferred, receive.kept_2);",
+			"for kept_2 in deferred { send kept_2 to self; }",
+		},
+		"buffer": {
+			"attribute deferred : buffer[*] ordered;",
+			"do action buffer_2 {",
+			"action receive accept kept : buffer;",
+		},
+	} {
+		t.Run(signal, func(t *testing.T) {
+			src := machineSuite("", `
+          <subvertex xmi:type="uml:State" xmi:id="xD" name="D">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt" event="evNamed"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xD">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`)
+			src = strings.Replace(src, fixtureEvents, fixtureEvents+`  <packagedElement xmi:type="uml:SignalEvent" xmi:id="evNamed" name="NamedEvent" signal="sigNamed"/>
+`, 1)
+			src = strings.Replace(src, `<packagedElement xmi:type="uml:Signal" xmi:id="sigStart" name="Start"/>`,
+				`<packagedElement xmi:type="uml:Signal" xmi:id="sigStart" name="Start"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="sigNamed" name="`+signal+`"/>`, 1)
+			s := readFixture(t, src)
+			noDiagnostics(t, s)
+			if len(s.Tests) != 1 {
+				t.Fatalf("tests = %d", len(s.Tests))
+			}
+			m, err := Emit(s, s.Tests[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range wants {
+				if !strings.Contains(m.Text, want) {
+					t.Errorf("model lacks %q:\n%s", want, m.Text)
+				}
+			}
+			if problems := Validate(m); len(problems) > 0 {
+				t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
 			}
 		})
 	}

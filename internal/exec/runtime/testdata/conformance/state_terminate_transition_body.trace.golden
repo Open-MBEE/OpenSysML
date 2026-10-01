@@ -1,0 +1,8 @@
+exit: s
+stmt assign n
+  eval literal 1 -> 1
+stmt terminate
+terminate anonymous state behavior: no token dropped
+terminate anonymous state behavior: ended before it began
+enter: t
+transition: s -> t

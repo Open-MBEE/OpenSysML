@@ -26,7 +26,7 @@ var update = flag.Bool("update", false, "rewrite the graphs goldens in testdata"
 // graphsFixture holds every shape the lowered graphs carry: a flow with a fork,
 // a join, a guarded decision, a nested body performing another action, and a
 // machine with orthogonal regions, entry/do/exit behaviors, a call-triggered
-// guarded transition with an effect and a deferred trigger; and a flow whose
+// guarded transition with an effect; and a flow whose
 // decision weights its successions.
 const graphsFixture = `package test {
 	private import ScalarValues::*;
@@ -81,8 +81,8 @@ const graphsFixture = `package test {
 	}
 
 	action def Bump {
-		in i : Integer;
-		out doubled : Integer;
+		in i : Integer[1];
+		out doubled : Integer[1];
 
 		first start;
 		action compute { assign doubled := i * 2; }
@@ -127,8 +127,14 @@ const graphsFixture = `package test {
 // and returns a runtime model over it with the document registered.
 func graphsModel(t *testing.T) (*runtime.Model, *symbols.Index) {
 	t.Helper()
+	return graphsModelOf(t, graphsFixture)
+}
+
+// graphsModelOf is graphsModel over the given fixture text.
+func graphsModelOf(t *testing.T, fixture string) (*runtime.Model, *symbols.Index) {
+	t.Helper()
 	const path = "graphs.sysml"
-	sf := source.New(path, []byte(graphsFixture))
+	sf := source.New(path, []byte(fixture))
 	p := parser.New(sf)
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -455,6 +461,46 @@ func TestGraphsActionCarriesTheEdgeProbabilities(t *testing.T) {
 			if e.Probability != nil {
 				t.Errorf("%s: edge %d->%d carries a probability the model does not state", a.Name, e.Source, e.Target)
 			}
+		}
+	}
+}
+
+// A flow is exported with its kind, so an engine tells a streaming `flow` from a
+// `succession flow` the way the runtime does.
+func TestGraphsActionCarriesTheFlowKind(t *testing.T) {
+	model, idx := graphsModelOf(t, `package test {
+	private import ScalarValues::*;
+
+	action stream {
+		action producer { out value : Integer; assign value := 1; }
+		action consumer { in value : Integer[1]; }
+		action last { in value : Integer[1]; }
+
+		succession first start then producer;
+		succession first producer then consumer;
+		succession first consumer then last;
+		succession first last then done;
+
+		flow producer.value to consumer.value;
+		succession flow producer.value to last.value;
+	}
+}
+`)
+	g, data := exportGraphs(t, model, idx, "test::stream")
+	if len(g.Actions) != 1 || g.Actions[0].Error != "" {
+		t.Fatalf("actions %+v, want the subject lowered", g.Actions)
+	}
+	stream := g.Actions[0]
+	kinds := map[string]string{}
+	for _, f := range stream.Flows {
+		kinds[stream.Nodes[f.Target].Name] = f.Kind
+	}
+	if want := map[string]string{"consumer": "streaming", "last": "succession"}; !maps.Equal(kinds, want) {
+		t.Errorf("flow kinds %v, want %v", kinds, want)
+	}
+	for _, want := range []string{`"kind":"streaming"`, `"kind":"succession"`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("marshalled form lacks %s", want)
 		}
 	}
 }

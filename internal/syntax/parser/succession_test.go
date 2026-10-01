@@ -69,6 +69,11 @@ func TestMemberAttachedThenDesugars(t *testing.T) {
 			[]string{"b->a"},
 		},
 		{
+			"a then-prefixed if body is an action node member",
+			"action def A { first start; then if true { assign x := 1; } }",
+			[]string{"start->@if"},
+		},
+		{
 			"the short state form is named, so it is sequenced",
 			"state def S { state a; then state b; }",
 			[]string{"a->b"},
@@ -123,6 +128,76 @@ func TestMemberAttachedThenDesugars(t *testing.T) {
 	}
 }
 
+// The multiplicities a `then` succession may carry (SysML.xtext:887 EmptySuccession,
+// 1703-1706 TargetSuccession, 994 ConnectorEnd): `[m]` before `then`, or after it
+// ahead of a member the keyword declares, is the source end's; `[m]` ahead of a
+// reference is the target end's crossing multiplicity, as in `succession first a
+// then [m] b;`. Both may be written on one succession.
+func TestSuccessionEndMultiplicityForms(t *testing.T) {
+	tests := []struct {
+		name, body, source, target string
+		hasBody                    bool
+	}{
+		{"source before member", "then [0..1] action b;", "[0..1]", "", false},
+		{"source before then", "[*] then b;", "[*]", "", false},
+		{"source before then with body", "[1] then b { action c; }", "[1]", "", true},
+		{"source before then done", "[0..1] then done;", "[0..1]", "", false},
+		{"target reference", "then [0..1] b;", "", "[0..1]", false},
+		{"target reference with body", "then [1] b { action c; }", "", "[1]", true},
+		{"target done", "then [0..1] done;", "", "[0..1]", false},
+		{"target done with body", "then [0..1] done { doc /* d */ }", "", "[0..1]", true},
+		{"both ends", "[1] then [0..1] b;", "[1]", "[0..1]", false},
+		{"both ends with body", "[1] then [0..1] b { action c; }", "[1]", "[0..1]", true},
+		{"both ends done", "[1] then [0..1] done;", "[1]", "[0..1]", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := "action def A { action a; action b; " + tt.body + " }"
+			p := New(source.New("multiplicity.sysml", []byte(src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			var edges []*ast.SuccessionEdge
+			for _, member := range root.Members {
+				membership, ok := member.(*ast.Membership)
+				if !ok {
+					continue
+				}
+				definition, ok := membership.Member.(*ast.Definition)
+				if !ok {
+					continue
+				}
+				for _, member := range definition.Members {
+					if edge, ok := member.(*ast.SuccessionEdge); ok {
+						edges = append(edges, edge)
+					}
+				}
+			}
+			if len(edges) != 1 {
+				t.Fatalf("parsed %d succession edges, want one:\n%s", len(edges), ast.Dump(root))
+			}
+			edge := edges[0]
+			if got := multiplicityText(p, edge.SourceMultiplicity); got != tt.source {
+				t.Errorf("source multiplicity = %q, want %q", got, tt.source)
+			}
+			if got := multiplicityText(p, edge.TargetMultiplicity); got != tt.target {
+				t.Errorf("target multiplicity = %q, want %q", got, tt.target)
+			}
+			if edge.HasBody != tt.hasBody {
+				t.Errorf("HasBody = %t, want %t", edge.HasBody, tt.hasBody)
+			}
+		})
+	}
+}
+
+func multiplicityText(p *Parser, m *ast.Multiplicity) string {
+	if m == nil {
+		return ""
+	}
+	return p.src.Text(m.Span())
+}
+
 // A positional `then` sequences from the nearest feature before it (SysML v2
 // §7.17.4; the pilot's UsageUtil.getPreviousFeature): a member that is not a
 // feature — documentation, a comment, an import, an alias, a nested definition
@@ -165,9 +240,9 @@ func TestThenSequencesFromTheNearestFeatureBefore(t *testing.T) {
 	}
 }
 
-// A state's deferral declares no feature, so a `then` after it sequences from the state before.
-func TestThenSequencesPastADeferral(t *testing.T) {
-	edges, p := parseSuccessions(t, "state def S { state a; defer Ping; then state b; }")
+// A comment in a state body declares no feature, so a `then` after it sequences from the state before.
+func TestThenSequencesPastAStateBodyComment(t *testing.T) {
+	edges, p := parseSuccessions(t, "state def S { state a; comment /* a precedes b */ then state b; }")
 	if len(p.Diagnostics) != 0 {
 		t.Fatalf("unexpected diagnostics: %v", p.Diagnostics)
 	}
@@ -450,5 +525,134 @@ func TestSuppliedSuccessionEndsAreMarkedImplied(t *testing.T) {
 	if !edges[1].SourceImplied || !edges[1].TargetImplied {
 		t.Errorf("a member-attached `then` has source implied=%t target implied=%t, want both",
 			edges[1].SourceImplied, edges[1].TargetImplied)
+	}
+}
+
+// A `then` target that a bracketed multiplicity precedes may name a declared
+// member whose name is also a node word, as `then fork;` does: the succession
+// references that member with a target multiplicity and declares no node of the
+// keyword's kind. A node word followed by a body still declares the node.
+func TestThenTargetMultiplicityReferencesADeclaredNodeWordMember(t *testing.T) {
+	tests := []struct {
+		name, src, target, node string
+	}{
+		{"fork", "action def A { action a; action fork; then [0..1] fork; }", `target="fork"`, "ForkNode"},
+		{"done", "action def A { action a; action done; then [0..1] done; }", `target="done"`, "FinalNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.target) || !strings.Contains(dump, "(TargetMultiplicity") {
+				t.Errorf("the succession does not reference %s with a target multiplicity:\n%s", tt.target, dump)
+			}
+			if strings.Contains(dump, tt.node) {
+				t.Errorf("a %s was declared for the referenced member:\n%s", tt.node, dump)
+			}
+		})
+	}
+}
+
+// A control-node keyword followed by a body declares an anonymous node with that
+// body whether or not a member shares the keyword's name (SysML.xtext:1664 MergeNode,
+// 1682 ForkNode: `'fork' UsageDeclaration? ActionBody`); a multiplicity ahead of
+// it is then the source end's, as for any member-attached `then`.
+func TestThenNodeKeywordWithABodyDeclaresTheNode(t *testing.T) {
+	tests := []struct {
+		name, src, node string
+	}{
+		{"fork", "action def A { action fork; action a; then fork { action child; } }", "ForkNode"},
+		{"fork after multiplicity", "action def A { action fork; action a; then [1] fork { action child; } }", "ForkNode"},
+		{"merge after multiplicity", "action def A { action merge; action a; then [0..1] merge { doc /* d */ } }", "MergeNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, tt.node) {
+				t.Errorf("no %s was declared:\n%s", tt.node, dump)
+			}
+			if strings.Contains(dump, "(TargetMultiplicity") || strings.Contains(dump, `target="`+strings.ToLower(tt.node[:4])) {
+				t.Errorf("the `then` was read as a reference to the member sharing the keyword's name:\n%s", dump)
+			}
+		})
+	}
+}
+
+// A control-node keyword followed by a name declares a node of that kind with
+// that name whether or not a member shares the keyword's name: the keyword
+// takes a UsageDeclaration (SysML.xtext:1664-1682) and names no ConnectorEnd
+// (SysML.xtext:1703 TargetSuccession), so only the bare `then fork;` can
+// reference the member. A multiplicity ahead of it is then the source end's.
+func TestThenNodeKeywordWithANameDeclaresTheNode(t *testing.T) {
+	tests := []struct {
+		name, src, node string
+	}{
+		{"fork", "action def A { action fork; action a; then fork F; }", "ForkNode"},
+		{"join", "action def A { action join; action a; then join F; }", "JoinNode"},
+		{"merge", "action def A { action merge; action a; then merge F; }", "MergeNode"},
+		{"decide", "action def A { action decide; action a; then decide F; }", "DecisionNode"},
+		{"fork after multiplicity", "action def A { action fork; action a; then [0..1] fork F; }", "ForkNode"},
+		{"fork with a short name", "action def A { action fork; action a; then fork <f> F; }", "ForkNode"},
+		{"fork named with a body", "action def A { action fork; action a; then fork F { action child; } }", "ForkNode"},
+		{"quoted member", "action def A { action 'fork'; action a; then fork F; }", "ForkNode"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(tt.src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, "("+tt.node+" name=\"F\"") {
+				t.Errorf("no %s named F was declared:\n%s", tt.node, dump)
+			}
+			if strings.Contains(dump, "(TargetMultiplicity") || strings.Contains(dump, `target="`+strings.ToLower(tt.node[:4])) {
+				t.Errorf("the `then` was read as a reference to the member sharing the keyword's name:\n%s", dump)
+			}
+		})
+	}
+}
+
+// Beside a member named after the keyword, `then fork F;` and its multiplicity
+// and body forms declare the node and the edge they declare in a body with no
+// such member; only the bare `then fork;` reads differently, referencing the member.
+func TestThenNamedNodeDeclarationIsTheSameBesideADeclaredMember(t *testing.T) {
+	const flow = "action a; then fork F; then [0..1] join J; then merge M { doc /* m */ } then decide D { action inner; } then fork <g> G;"
+	bodyDump := func(t *testing.T, src string) string {
+		t.Helper()
+		p := New(source.New("a.sysml", []byte(src)))
+		root := p.ParseFile()
+		if len(p.Diagnostics) != 0 {
+			t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+		}
+		def := root.Members[0].(*ast.Membership).Member.(*ast.Definition)
+		var b strings.Builder
+		for _, m := range def.Members {
+			if u, ok := memberNode(m).(*ast.Usage); ok && actionNodeKeywords[u.Ident.Name] {
+				continue
+			}
+			b.WriteString(ast.Dump(m))
+		}
+		return b.String()
+	}
+	without := bodyDump(t, "action def A { "+flow+" }")
+	with := bodyDump(t, "action def A { action fork; action join; action merge; action decide; "+flow+" }")
+	if with != without {
+		t.Errorf("the members declared beside `action fork;` (and the other node words) differ from those declared without:\n--- without\n%s\n--- with\n%s", without, with)
+	}
+	for _, want := range []string{`(ForkNode name="F"`, `(JoinNode name="J"`, `(MergeNode name="M"`, `(DecisionNode name="D"`, `(ForkNode name="G"`} {
+		if !strings.Contains(without, want) {
+			t.Errorf("no %s declared:\n%s", want, without)
+		}
 	}
 }

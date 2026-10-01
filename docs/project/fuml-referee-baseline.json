@@ -8,33 +8,43 @@
     "libraryDigest": "7e8bae518398fd44d788e9c1145c7a0754bde5935c1e6127fec9878e8e2da8b7",
     "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
     "activities": 55,
-    "recorded": "2026-09-16",
-    "develop": "80cfc98d2b9d79430edc7856a8d770bf50183f13"
+    "recorded": "2026-09-21",
+    "develop": "e6e49c3d3e2dc55bb31b391a8d8de73266f3eeee"
   },
   "buckets": {
     "differs-by-design": 4,
     "fail": 0,
-    "not-expressible": 36,
-    "pass": 15
+    "not-expressible": 28,
+    "pass": 23
   },
   "activities": [
     {
       "name": "TestGeneralizationAssembly",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(Specific): CreateObjectAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "expected": [
+        "result = Specific#1{x = -; y = -}"
+      ],
+      "reached": [
+        "result = Specific#1{x = -; y = -}"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
     },
     {
       "name": "TestClassWriterReader",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "expected": [
+        "x = 999"
+      ],
+      "reached": [
+        "x = 999"
+      ],
+      "runs": 2,
+      "status": "complete (2 runs)"
     },
     {
       "name": "Copier",
@@ -103,10 +113,15 @@
       "name": "TestClassObjectCreator",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(TestClass): CreateObjectAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "expected": [
+        "result = TestClass#1{x = -; y = -}"
+      ],
+      "reached": [
+        "result = TestClass#1{x = -; y = -}"
+      ],
+      "runs": 1,
+      "status": "complete (1 runs)"
     },
     {
       "name": "HelloWorld",
@@ -141,7 +156,8 @@
       "bucket": "differs-by-design",
       "reasons": [
         "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): TestBooleanFunctions.Call(Not) fired 2 times, TestBooleanFunctions.Call(And) fired 4 times, TestBooleanFunctions.Call(Or) fired 4 times, TestBooleanFunctions.Call(Implies) fired 4 times, TestBooleanFunctions.Call(Xor) fired 4 times",
-        "run error: execute action: flow from argumentData1 to And.x: node Call(And): assignment to And.x: multiplicity violation: 4 value(s) bound to a feature with multiplicity upper bound 1"
+        "run error: execute action: invoke action fuml::GenerateBooleanTestData: execute action: flow from argumentData1 to And.x: node Call(And): assignment to And.x: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1",
+        "run error: execute action: invoke action fuml::GenerateBooleanTestData: execute action: flow from argumentData2 to And.y: node Call(And): assignment to And.y: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
       ],
       "expected": [
         "NotResult = false, true",
@@ -298,10 +314,15 @@
       "name": "TestClassAttributeWriter",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Add(y): AddStructuralFeatureValueAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "expected": [
+        "objectOut = TestClass#1{x = 0; y = 0, 0}"
+      ],
+      "reached": [
+        "objectOut = TestClass#1{x = 0; y = 0, 0}"
+      ],
+      "runs": 6,
+      "status": "complete (6 runs)"
     },
     {
       "name": "ForkJoin",
@@ -401,10 +422,15 @@
       "name": "TestClassAttributeValueRemover",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Add(y)-1: AddStructuralFeatureValueAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "expected": [
+        "objectOut = TestClass#1{x = 0; y = 2, 0}"
+      ],
+      "reached": [
+        "objectOut = TestClass#1{x = 0; y = 2, 0}"
+      ],
+      "runs": 18,
+      "status": "complete (18 runs)"
     },
     {
       "name": "TestAssociationEndWriterReader",
@@ -428,9 +454,9 @@
       "name": "ActiveClassBehavior",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
+      "bucket": "pass",
       "reasons": [
-        "not yet translated: activity: an owned behavior of a class is not translated by the pilot emitter"
+        "started by ActiveClassBehaviorSender, which is pass"
       ]
     },
     {
@@ -439,26 +465,30 @@
       "class": "expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "not yet translated: Accept(TestSignal): AcceptEventAction is not translated by the pilot emitter"
+        "not yet translated: ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object"
       ]
     },
     {
       "name": "TestSpecializedSignalSend",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(TestSignalReceiver): CreateObjectAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "reached": [
+        ""
+      ],
+      "runs": 5,
+      "status": "complete (5 runs)"
     },
     {
       "name": "ActiveClassBehaviorSender",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(ActiveClass): CreateObjectAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "reached": [
+        ""
+      ],
+      "runs": 6,
+      "status": "complete (6 runs)"
     },
     {
       "name": "NodeEnabler",

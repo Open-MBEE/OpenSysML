@@ -248,4 +248,15 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   org.openmbee.opensysml.proto.DiagnosticOrBuilder getDiagnosticsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The probability of the linearizations reaching this outcome, as explore
+   * computes it; a lower bound when the exploration is incomplete.
+   * </pre>
+   *
+   * <code>double probability = 8 [json_name = "probability"];</code>
+   * @return The probability.
+   */
+  double getProbability();
 }

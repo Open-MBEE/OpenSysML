@@ -48,7 +48,7 @@ func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
 // is rather than leaving the reader to parse the notation back out of a literal.
 func TestActionNodeMetaclasses(t *testing.T) {
 	for _, want := range []string{
-		"sysx:InitialNode", "sysx:FinalNode",
+		"sysml:Membership", "sysx:declaredKeyword \"first\"", "sysx:declaredKeyword \"done\"",
 		"sysml:ForkNode", "sysml:JoinNode", "sysml:MergeNode", "sysml:DecisionNode",
 		"sysml:AssignmentActionUsage", "sysml:SendActionUsage",
 		"sysml:TerminateActionUsage", "sysml:SuccessionAsUsage",
@@ -66,7 +66,7 @@ func TestLoopAndConditionalMetaclasses(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "loops_conditionals.sysml"))
 	for _, want := range []string{
 		"sysml:WhileLoopActionUsage", "sysml:ForLoopActionUsage", "sysml:IfActionUsage",
-		"sysx:IfBranch", "sysx:whileCondition", "sysx:untilCondition",
+		"sysx:branchKind \"then\"", "sysml:ParameterMembership", "sysx:whileCondition", "sysx:untilCondition",
 		"sysx:loopVariable", "sysx:collection",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -81,9 +81,10 @@ func TestStateMachineMetaclasses(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "state_machine.sysml"))
 	for _, want := range []string{
 		"sysml:StateUsage", "sysml:StateSubactionMembership", "sysml:TransitionUsage",
-		"sysx:Pseudostate", "sysx:DeferMember",
-		"sysx:subactionKind", "sysx:trigger", "sysx:guard",
-		"sysml:sourceFeature", "sysml:targetFeature",
+		"sysx:Pseudostate",
+		"sysx:subactionKind", "sysml:triggerAction", "sysml:AcceptActionUsage",
+		"sysml:payloadParameter", `sysml:kind "trigger"`, "sysx:guard",
+		"sysml:source", "sysml:target",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %s:\n%s", want, turtle)
@@ -153,8 +154,6 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"anonymous action":     "entry action {\n            perform Warm;\n        }",
 		"do action":            "do action running : Warm;",
 		"exit action":          "exit perform Warm;",
-		"defer":                "defer sig;",
-		"defer several":        "defer sig, other;",
 		"choice":               "choice pick;",
 		"junction":             "junction meet;",
 		"fork pseudostate":     "fork split;",
@@ -166,7 +165,7 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"nested transition":    "state working {\n            state a;\n            transition first a then a;\n        }",
 		"nested substates":     "state working {\n            state first_gear;\n            state second_gear;\n        }",
 		"nested regions":       "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
-		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            defer sig;\n            state deeper;\n        }",
+		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
 		"unordered subactions": "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
 		"transition first":     "transition first idle then idle;",
 		"named transition":     "transition go first idle then idle;",
@@ -293,6 +292,21 @@ func TestThenSequencesFromTheNameAnUnnamedUsageAnswersTo(t *testing.T) {
 	}
 }
 
+func TestThenBeforeUnnamedAssignmentRoundTrips(t *testing.T) {
+	src := "package P {\n    action A {\n        attribute x : Integer;\n        action a;\n        then assign x := 1;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s--- got ---\n%s", src, back)
+	}
+}
+
 // A `then` after `first start;` sequences from the member `start` names, the
 // one the initial node links to, so the graph reads back unchanged.
 func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
@@ -302,9 +316,12 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	const start = "sysml:sourceFeature elmt:P__drive___400"
-	if n := strings.Count(string(turtle), start); n != 2 {
-		t.Fatalf("the initial node and the then after it should both state %s, found %d:\n%s", start, n, turtle)
+	// `first start;` is a Membership of the start; the `then` after it
+	// sequences from that same member.
+	for _, want := range []string{"sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__drive___400", "sysml:sourceFeature elmt:P__drive___400"} {
+		if n := strings.Count(string(turtle), want); n != 1 {
+			t.Fatalf("the initial node and the then after it should state %s once, found %d:\n%s", want, n, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -348,7 +365,8 @@ func TestNamedTerminateUsageWithoutHasBodyKeepsItsName(t *testing.T) {
 
 // The `first` end of an action body's `first a then b;` is the source of that
 // succession, linked to the member it names; the one-ended `first start;`
-// beside it carries the start it marks. Both read back unchanged.
+// beside it links the start the action inherits from the library, under the
+// normative id of Actions::Action::start. Both read back unchanged.
 func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
 		"        first start;\n        first a then b;\n        succession first a then b;\n    }\n}\n"
@@ -356,14 +374,17 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 1 {
-		t.Fatalf("`first a then b` should link a as its source once, found %d:\n%s", n, turtle)
+	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 2 {
+		t.Fatalf("`first a then b` should link a as its source twice, found %d:\n%s", n, turtle)
 	}
-	if !strings.Contains(string(turtle), "sysml:referent elmt:P__A__a") {
+	if !strings.Contains(string(turtle), "sysml:referencedFeature elmt:P__A__a") {
 		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
 	}
-	if !strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
-		t.Fatalf("`first start;` should carry the start it marks by name:\n%s", turtle)
+	if !strings.Contains(string(turtle), "sysml:memberElement <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>") {
+		t.Fatalf("`first start;` should link the start the action inherits:\n%s", turtle)
+	}
+	if strings.Contains(string(turtle), `sysml:memberElement "start"`) {
+		t.Fatalf("`first start;` should not carry its start as text:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -371,6 +392,145 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	}
 	if string(back) != src {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// A member-attached `then done;` is one SuccessionAsUsage (SysML.xtext
+// TargetSuccessionMember): its target end's ReferenceSubsetting reaches the
+// library's Actions::Action::done, the same end `succession first x then done;`
+// states outright — not a Membership the end would reference, which
+// ReferenceSubsetting cannot target.
+func TestThenDoneIsOneSuccessionToLibraryDone(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        first start;\n" +
+		"        then action a : Step;\n        then done;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	done := "<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>"
+	if strings.Contains(graph, "sysml:memberElement "+done) {
+		t.Errorf("`then done;` should state no Membership of the library's done:\n%s", graph)
+	}
+	if n := strings.Count(graph, "a sysml:SuccessionAsUsage ;"); n != 2 {
+		t.Errorf("want the two `then` successions alone, found %d SuccessionAsUsage:\n%s", n, graph)
+	}
+	for _, want := range []string{
+		"sysml:targetFeature " + done,
+		"sysml:referencedFeature " + done,
+		`sysx:endForm "then"`,
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the `then done` succession should state %s:\n%s", want, graph)
+		}
+	}
+	if strings.Contains(graph, "sysx:targetMember") {
+		t.Errorf("`then done;` has no member to target: it is an end of the succession:\n%s", graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// The previous shape's output — a `done` Membership the succession targets
+// through sysx:targetMember — still reads back as `then done;`.
+func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
+	turtle, err := os.ReadFile(filepath.Join("testdata", "superseded", "then_done_membership.ttl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("old.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("the superseded shape should still convert: %v", err)
+	}
+	// The fixture's bodies carry the earlier exporter's surrounding spaces, which KerML keeps, so its notation differs from the canonical golden only in those bodies.
+	checkGolden(t, filepath.Join("testdata", "superseded", "then_done_membership.golden.sysml"), back)
+}
+
+func TestTransitionEndpointRepresentationsAgreeWhenEqual(t *testing.T) {
+	src := `package P {
+	state def M {
+		state s1;
+		state s2;
+		transition first s1 then s2;
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	transition := strings.Index(graph, "a sysml:TransitionUsage ;")
+	if transition < 0 {
+		t.Fatalf("the graph has no TransitionUsage:\n%s", graph)
+	}
+	const marker = "sysml:target "
+	relative := strings.Index(graph[transition:], marker)
+	if relative < 0 {
+		t.Fatalf("the graph has no standard transition target:\n%s", turtle)
+	}
+	start := transition + relative
+	end := strings.Index(graph[start:], " ;")
+	if end < 0 {
+		t.Fatalf("the transition target has no Turtle terminator:\n%s", turtle)
+	}
+	target := strings.TrimSpace(graph[start+len(marker) : start+end])
+	needle := marker + target + " ;"
+	position := transition + strings.Index(graph[transition:], needle)
+	equal := string(turtle)[:position] +
+		needle + "\n    sysml:targetFeature " + target + " ;" +
+		string(turtle)[position+len(needle):]
+	if _, err := convert.Convert("m.ttl", withoutSourceText(t, []byte(equal)), convert.FormatTurtle, convert.FormatSysML); err != nil {
+		t.Fatalf("equal standard and legacy endpoints should import: %v\n%s", err, equal)
+	}
+}
+
+func TestTransitionEndpointRepresentationsDisagreeAreRefused(t *testing.T) {
+	src := `package P {
+	state def M {
+		state s1;
+		state s2;
+		transition first s1 then s2;
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	transition := strings.Index(graph, "a sysml:TransitionUsage ;")
+	if transition < 0 {
+		t.Fatalf("the graph has no TransitionUsage:\n%s", graph)
+	}
+	const marker = "sysml:target "
+	relative := strings.Index(graph[transition:], marker)
+	if relative < 0 {
+		t.Fatalf("the graph has no standard transition target:\n%s", graph)
+	}
+	start := transition + relative
+	end := strings.Index(graph[start:], " ;")
+	if end < 0 {
+		t.Fatalf("the transition target has no Turtle terminator:\n%s", graph)
+	}
+	target := strings.TrimSpace(graph[start+len(marker) : start+end])
+	needle := marker + target + " ;"
+	position := transition + strings.Index(graph[transition:], needle)
+	disagreeing := graph[:position] +
+		needle + "\n    sysml:targetFeature elmt:P__M__s1 ;" +
+		graph[position+len(needle):]
+	_, err = convert.Convert("m.ttl", withoutSourceText(t, []byte(disagreeing)), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("want an UnsupportedError for disagreeing transition endpoints, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "sourceFeature") && !strings.Contains(err.Error(), "targetFeature") {
+		t.Fatalf("error should identify the legacy endpoint: %v", err)
 	}
 }
 
@@ -466,13 +626,10 @@ func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:referent elmt:P__M__outer__inner ;"); n != 2 {
+	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
 		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
 	}
-	if n := strings.Count(string(turtle), "sysml:targetFeature elmt:P__M__outer__inner__deep ;"); n != 2 {
-		t.Errorf("want both chained ends linked to the deep state, found %d:\n%s", n, turtle)
-	}
-	if strings.Contains(string(turtle), `sysml:referent "`) {
+	if strings.Contains(string(turtle), `sysml:chainingFeature "`) {
 		t.Errorf("no end segment should be carried as text:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
@@ -593,10 +750,10 @@ func TestThenIsRefusedWhenTheGraphSequencesFromANonFeature(t *testing.T) {
 	}
 }
 
-// A state's deferral is no feature: a `then` after it sequences from the state
-// before, and a graph that sequences from the deferral itself is refused.
-func TestThenIsRefusedWhenTheGraphSequencesFromADeferral(t *testing.T) {
-	src := "package P {\n    state def S {\n        state x;\n        state a;\n        defer Ping;\n        then state b;\n    }\n}\n"
+// A comment in a state body is no feature: a `then` after it sequences from the
+// state before, and a graph that sequences from the comment itself is refused.
+func TestThenIsRefusedWhenTheGraphSequencesFromAStateBodyComment(t *testing.T) {
+	src := "package P {\n    state def S {\n        state x;\n        state a;\n        comment /* a precedes b */\n        then state b;\n    }\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
@@ -613,8 +770,8 @@ func TestThenIsRefusedWhenTheGraphSequencesFromADeferral(t *testing.T) {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
 	for name, source := range map[string]string{
-		"an earlier state":            "elmt:P__S__x",
-		"the deferral written before": "elmt:P__S___402",
+		"an earlier state":           "elmt:P__S__x",
+		"the comment written before": "elmt:P__S___402",
 	} {
 		t.Run(name, func(t *testing.T) {
 			checkThenIsRefusedWithSource(t, turtle, stated, source)

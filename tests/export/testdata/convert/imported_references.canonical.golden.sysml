@@ -54,9 +54,9 @@ package Meta {
     part def Plain;
 }
 package Filtered {
-    public import Meta::* [(@ Safety)];
+    public import Meta::*[@Safety];
     part def C {
         attribute other : Tagged;
-        filter (@ Safety);
+        filter @Safety;
     }
 }

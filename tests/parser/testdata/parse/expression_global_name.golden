@@ -1,0 +1,25 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Package name="DocumentQueries" library=false standard=false))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Q"
+          (Relationship kind="specializes" target=$::DocumentQueries::Query
+            (*ast.QualifiedName))
+          (InvocationExpr type="$::DocumentQueries::Named"
+            (NamedArg name="qualifiedName"
+              (LiteralString value="\"P\"")))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="R"
+          (Relationship kind="specializes" target=$::DocumentQueries::Query
+            (*ast.QualifiedName))
+          (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (InvocationExpr type="$::DocumentQueries::Named"
+              (NamedArg name="qualifiedName"
+                (LiteralString value="\"P\""))))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (OperatorExpr operator="+"
+            (FeatureReference name="$::P::y")
+            (LiteralInteger value="1")))))))

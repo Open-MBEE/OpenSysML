@@ -29,7 +29,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 		case r.model.IsConnectorUsage(elem):
 			stated.addConnector(elem)
 		case occurrenceContainer(elem), lifelineLike(elem):
-			for _, participant := range lifelinesOf(elem) {
+			for _, participant := range r.lifelinesOf(elem) {
 				if lifelines[participant] != nil {
 					continue
 				}
@@ -37,8 +37,8 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 				if participant != elem {
 					name = localName(participant)
 				}
-				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name,
-					Type: declType(participant), Origin: symbolOrigin(participant)}
+				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
+					Type: declType(participant), Typings: r.declTypings(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}
@@ -62,10 +62,10 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 // an interaction declares in its body, else the element itself when it declares
 // none. The container is not a lifeline of its own interaction, and neither is
 // behavior it performs, which a sequence rendering shows as messages instead.
-func lifelinesOf(elem *symbols.Symbol) []*symbols.Symbol {
+func (r *Renderer) lifelinesOf(elem *symbols.Symbol) []*symbols.Symbol {
 	if occurrenceContainer(elem) {
 		var participants []*symbols.Symbol
-		for _, member := range containedMembers(elem) {
+		for _, member := range r.containedMembers(elem) {
 			if lifelineLike(member) && !behaviorLike(member) {
 				participants = append(participants, member)
 			}
@@ -137,7 +137,7 @@ func (r *Renderer) collectInteractions(sym *symbols.Symbol, into *interactions, 
 	}
 	visited[sym] = true
 	r.addSuccessionEdges(sym, into)
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		switch {
 		case isFlowUsage(member):
 			into.addFlow(member)
@@ -164,7 +164,7 @@ func (r *Renderer) statesFlow(sym *symbols.Symbol, depth int) bool {
 	if sym == nil || depth >= maxTreeDepth {
 		return false
 	}
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		if isFlowUsage(member) || r.statesFlow(member, depth+1) {
 			return true
 		}
@@ -218,7 +218,7 @@ func (r *Renderer) edgeEnd(owner *symbols.Symbol, name *ast.QualifiedName, membe
 		}
 		return nil
 	}
-	for _, candidate := range containedMembers(owner) {
+	for _, candidate := range r.containedMembers(owner) {
 		if member != nil && candidate.Decl == member {
 			return candidate
 		}

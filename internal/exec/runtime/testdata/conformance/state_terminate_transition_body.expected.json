@@ -1,0 +1,9 @@
+{
+    "type": "state",
+    "trace": true,
+    "finalState": "t",
+    "stateVisits": ["s", "t"],
+    "outputs": {
+        "n": { "type": "Integer", "value": 1 }
+    }
+}

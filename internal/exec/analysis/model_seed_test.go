@@ -38,8 +38,14 @@ type drawing struct {
 
 func parseDrawing(t *testing.T) *drawing {
 	t.Helper()
+	return parseDrawingText(t, drawingModel)
+}
+
+// parseDrawingText is parseDrawing over another model text with a `test` package.
+func parseDrawingText(t *testing.T, text string) *drawing {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "drawing.sysml")
-	sf := source.New(path, []byte(drawingModel))
+	sf := source.New(path, []byte(text))
 	p := parser.New(sf)
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {

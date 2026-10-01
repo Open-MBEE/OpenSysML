@@ -413,7 +413,8 @@ type Usage struct {
 	Kind     UsageKind
 	// Keyword is the kind keyword as written. Several synonyms map to one Kind
 	// (`datatype`, `feature` and `attribute` all give UsageAttribute), so it is
-	// kept to tell those spellings apart.
+	// kept to tell those spellings apart. Empty where none was written: the
+	// anonymous action of a braced `entry { … }` or transition `do { … }`.
 	Keyword string
 	// PrefixKeyword is the keyword written ahead of the kind keyword to qualify
 	// it rather than to name the declaration: the `assert` of

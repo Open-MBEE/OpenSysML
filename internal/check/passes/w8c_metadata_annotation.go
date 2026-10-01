@@ -32,7 +32,10 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 	if rootScope == nil {
 		return nil
 	}
-	c := &metadataAnnotationChecker{model: ctx.Model()}
+	c := &metadataAnnotationChecker{
+		model:      ctx.Model(),
+		runDecided: !ctx.Options.Conformance.IsStrict(),
+	}
 	if c.model == nil {
 		return nil
 	}
@@ -45,8 +48,9 @@ func (MetadataAnnotationPass) Run(ctx *Context, name string, root *ast.RootNames
 }
 
 type metadataAnnotationChecker struct {
-	model *semantics.Model
-	diags []diag.Diagnostic
+	model      *semantics.Model
+	runDecided bool
+	diags      []diag.Diagnostic
 }
 
 // checkSymbol checks each annotation of sym's declaration. The annotated element
@@ -73,28 +77,13 @@ func (c *metadataAnnotationChecker) checkAnnotations(scope *symbols.Scope, decl 
 			c.reportCannotAnnotate(a.Node.Span(), metaclass)
 		}
 		c.checkBody(scope, a.Node)
-		c.checkNested(scope, a.Node)
 	}
 	for _, a := range semantics.MetadataAnnotationsAboutOthers(decl) {
 		for _, metaclass := range c.model.AboutAnnotatedElementViolations(scope, a.Node.Type, a.Node.About) {
 			c.reportCannotAnnotate(a.Node.Span(), metaclass)
 		}
 		c.checkBody(scope, a.Node)
-		c.checkNested(scope, a.Node)
 	}
-}
-
-// checkNested checks what an unnamed annotation's body declares: annotations of
-// the annotation itself, and the symbols the walk does not reach.
-func (c *metadataAnnotationChecker) checkNested(scope *symbols.Scope, prefix *ast.PrefixMetadata) {
-	body := kit.UnnamedMetadataBody(scope, prefix)
-	if body == nil {
-		return
-	}
-	c.checkAnnotations(body, prefix, func(typeRef *ast.QualifiedName) (string, bool) {
-		return c.model.OwnerAnnotatedElementViolation(body, typeRef)
-	})
-	kit.ForEachBodySymbol(body, c.checkSymbol)
 }
 
 // checkMetadataUsage checks what `metadata m : M about x;` may annotate, or, with
@@ -158,7 +147,7 @@ func (c *metadataAnnotationChecker) checkBody(scope *symbols.Scope, prefix *ast.
 			Source:   "constraint",
 		})
 	}
-	for _, value := range c.model.MetadataBodyInevaluableValues(scope, prefix) {
+	for _, value := range c.model.MetadataBodyInevaluableValues(scope, prefix, c.runDecided) {
 		c.diags = append(c.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     metadataValueSpan(prefix.Body, value),

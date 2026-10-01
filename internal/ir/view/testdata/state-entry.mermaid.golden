@@ -1,6 +1,6 @@
 %% MachineViews::thermostat — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "Machines::Thermostat<br>«state def»" as n0 {
+  state "Thermostat<br>«state def»" as n0 {
     state "heating<br>«state»" as n1
     state "idle<br>«state»" as n2 {
       state "drying<br>«state»" as n3

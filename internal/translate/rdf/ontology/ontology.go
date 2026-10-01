@@ -43,6 +43,9 @@ type Property struct {
 	Kind PropertyKind
 	// Range is the declared rdfs:range IRI, empty when none is declared.
 	Range string
+	// Many reports an unbounded upper multiplicity (ecore upperBound -1):
+	// the API JSON shape is an array.
+	Many bool
 }
 
 // Class is one metaclass and its named rdfs:subClassOf parents; the anonymous
@@ -92,6 +95,42 @@ func LookupClass(name string) (Class, bool) {
 	index()
 	c, ok := classesByName[name]
 	return c, ok
+}
+
+// PropertyOf returns the declaration of an unqualified property name whose
+// defining metaclass is metaclass or one of its ancestors; when several
+// declarations qualify, the one declared on the most specific class. It
+// reports false when no declaration qualifies.
+func PropertyOf(metaclass, name string) (Property, bool) {
+	var best Property
+	found := false
+	for _, p := range LookupProperty(name) {
+		if !IsAncestorOrSelf(metaclass, p.DefiningClass) {
+			continue
+		}
+		if found && IsAncestorOrSelf(best.DefiningClass, p.DefiningClass) {
+			continue
+		}
+		best = p
+		found = true
+	}
+	return best, found
+}
+
+// ManyAgreed reports whether every declaration of an unqualified property name
+// agrees on Many, and that agreed value; it reports no agreement when the name
+// is undeclared or the declarations disagree.
+func ManyAgreed(name string) (many, agreed bool) {
+	decls := LookupProperty(name)
+	if len(decls) == 0 {
+		return false, false
+	}
+	for _, p := range decls[1:] {
+		if p.Many != decls[0].Many {
+			return false, false
+		}
+	}
+	return decls[0].Many, true
 }
 
 // AmbiguousNames returns the unqualified names more than one metaclass declares.

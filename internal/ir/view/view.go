@@ -125,6 +125,8 @@ type Renderer struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	text     SourceText
+	// treeDepthBound overrides the containment depth bound when set; tests only.
+	treeDepthBound int
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -145,6 +147,8 @@ const (
 	EdgeSuccession
 	// EdgeFlow is a flow of a payload between action nodes.
 	EdgeFlow
+	// EdgeBinding is a binding equating two features.
+	EdgeBinding
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -158,6 +162,8 @@ func (k EdgeKind) String() string {
 		return "succession"
 	case EdgeFlow:
 		return "flow"
+	case EdgeBinding:
+		return "binding"
 	}
 	return "edge"
 }
@@ -175,14 +181,30 @@ type Node struct {
 	// Name is the element's name: qualified for a node the view exposes, simple
 	// for one nested in it. It is empty for an anonymous element.
 	Name string
+	// NameSynthesized marks a name the model did not give: a migration made it up, or
+	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
+	NameSynthesized bool
+	// StandIn marks a node a migration made up that stands for no element of its
+	// source, so no diagram symbol is at it: a join it wrote several edges through.
+	StandIn bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
+	// Typings are the qualified names of the elements Type resolves to, in its
+	// order; a member of one is drawn as the type's own. Empty when none resolves.
+	Typings []string
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
+	// Text is what heads a node whose name is not shown, in place of its kind:
+	// the literal a value specification's result is bound to, the event an
+	// accept waits for, the message a send sends. Empty when its kind heads it.
+	Text string
 	// Children are the nodes nested in this one.
 	Children []*Node
+	// Ports are the features drawn on the node's border, an action's pins, which
+	// an edge may end at instead of the node itself.
+	Ports []Port
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
@@ -192,6 +214,46 @@ type Node struct {
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
+	// Style is how the element is drawn, from the Style annotation colouring it
+	// in this view; nil leaves the look to the drawing style.
+	Style *Style
+}
+
+// Port is a feature drawn on a node's border: an input or output pin of an
+// action, which an object flow ends at.
+type Port struct {
+	// ID identifies the port within its rendering, and is what an edge names.
+	ID string
+	// Name is the pin's name, as the notation writes it.
+	Name string
+	// Direction is the pin's direction: `in`, `out` or `inout`.
+	Direction PortDirection
+	// Origin is where the pin was declared, the zero Origin for one with no
+	// locatable declaration.
+	Origin Origin
+}
+
+// PortDirection is which way a port's values flow.
+type PortDirection int
+
+const (
+	// PortIn takes values in.
+	PortIn PortDirection = iota
+	// PortOut gives values out.
+	PortOut
+	// PortInOut does both.
+	PortInOut
+)
+
+// String writes a port direction as the notation does.
+func (d PortDirection) String() string {
+	switch d {
+	case PortOut:
+		return "out"
+	case PortInOut:
+		return "inout"
+	}
+	return "in"
 }
 
 // Edge joins two nodes of a rendering.
@@ -199,16 +261,29 @@ type Edge struct {
 	// From and To are node IDs.
 	From string
 	To   string
+	// FromPort and ToPort are the IDs of the ports of From and To the edge ends
+	// at, empty where it ends at the node itself.
+	FromPort string
+	ToPort   string
 	// Label is what the edge carries: a connector's name, a transition's
-	// trigger, guard and effect, a succession's guard. It may be empty.
+	// trigger, guard and effect, a succession's guard, a flow's pins. It may be empty.
 	Label string
-	Kind  EdgeKind
+	// Name is the edge's own name, for a writer whose drawing shows the rest
+	// of its Label another way; empty for one anonymous or named by a migration.
+	Name string
+	Kind EdgeKind
 	// Origin is where the connection, transition, succession or flow was
 	// declared, the zero Origin for one with no locatable declaration.
 	Origin Origin
 	// Route is the waypoints the edge follows, from the Route annotation of the
 	// element it was declared as; empty leaves the routing to the writer.
 	Route []Point
+	// Style is how the edge is drawn, from the Style annotation colouring it;
+	// nil leaves the look to the drawing style.
+	Style *Style
+	// openFrom and openTo mark a route that stops short of that end, at the
+	// place of a node elided from between them; the drawing leads it on.
+	openFrom, openTo bool
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,
@@ -238,6 +313,12 @@ type Rendering struct {
 	// Canvas is the drawing surface the view states, nil for a view stating
 	// none.
 	Canvas *Canvas
+	// Notes are the note boxes drawn on the canvas, anchored to a node or free,
+	// in the order the nodes they annotate are drawn, free ones last.
+	Notes []Note
+	// Pictures are the pictures drawn on the canvas, in the order the view
+	// states them; a later one is drawn over an earlier one it overlaps.
+	Pictures []Picture
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -248,9 +329,17 @@ type Rendering struct {
 	drawn *Drawn
 }
 
-// Empty reports whether the rendering has nothing to show.
+// Empty reports whether the rendering has nothing to show: no node, edge,
+// row or picture.
 func (r *Rendering) Empty() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0
+}
+
+// Positioned reports whether a Layout or Route places some node of a
+// graph-shaped rendering, or a Picture is drawn on it at stated bounds, so
+// the DOT form draws it where the diagram states.
+func (r *Rendering) Positioned() bool {
+	return r != nil && r.Kind.SupportsForm(FormDot) && (placeRendering(r).positioned())
 }
 
 // Render renders view in the kind it states, defaulting to a tree when it
@@ -293,6 +382,10 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		r.notesOf(view, view, "", out)
+		r.picturesOf(view, out)
+	case KindTable, KindSequence:
+		r.undrawnPicturesOf(view, out)
 	}
 	return out, nil
 }
@@ -527,6 +620,18 @@ func declKind(sym *symbols.Symbol) string {
 // `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
 	return typingOf(semantics.RelationshipsOf(sym))
+}
+
+// declTypings are the qualified names, as the notation writes them, of the
+// elements a usage's declared typings resolve to.
+func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
+	var names []string
+	for _, typ := range r.model.DeclaredTypes(sym) {
+		if name := r.notationName(typ); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // nodeType is the type a usage lowered into a behavior graph is declared with

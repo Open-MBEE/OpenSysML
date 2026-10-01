@@ -92,12 +92,46 @@ func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, err
 	return result, nil
 }
 
+// depthLimit is a maxDepth argument: so many levels, or unbounded when the
+// argument is null or omitted.
+type depthLimit struct {
+	bounded bool
+	levels  int64
+}
+
+// reached reports whether a row at depth is not to be walked past.
+func (d depthLimit) reached(depth int64) bool { return d.bounded && depth >= d.levels }
+
+// depthArgument reads an operation's maxDepth: a non-negative integer, or
+// unbounded when null or omitted.
+func (e *executor) depthArgument(expression queryplan.Expression) (depthLimit, error) {
+	if !hasArgument(expression, "maxDepth") {
+		return depthLimit{}, nil
+	}
+	value, err := e.argument(expression, "maxDepth")
+	if err != nil {
+		return depthLimit{}, err
+	}
+	switch len(value.values) {
+	case 0:
+		return depthLimit{}, nil
+	case 1:
+	default:
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", strconv.Itoa(len(value.values)))
+	}
+	levels, ok := value.values[0].Integer()
+	if !ok || levels < 0 {
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", string(value.values[0].Kind()))
+	}
+	return depthLimit{bounded: true, levels: levels}, nil
+}
+
 func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequence, error) {
 	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -115,7 +149,7 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owned, err := e.ownedRows(expression, next.row)
@@ -143,7 +177,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -161,7 +195,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owner, ok := e.ownerRow(next.row)
@@ -182,53 +216,73 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	return result, nil
 }
 
+// typeTest is one resolved name WhereType keeps rows conforming to.
+type typeTest struct {
+	name           string
+	target         *symbols.Symbol
+	classification string
+}
+
 func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence, error) {
 	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	typeName, err := e.stringArgument(expression, "type")
+	typeNames, err := e.stringsArgument(expression, "type")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(typeName)
-	classification := typeName
-	if target != nil {
-		classification = symbols.FQNOf(target)
+	if len(typeNames) == 0 {
+		return sequence{}, e.invalidArgument(expression, "type", "0")
+	}
+	tests := make([]typeTest, len(typeNames))
+	matched := make([]bool, len(typeNames))
+	for i, typeName := range typeNames {
+		tests[i] = typeTest{name: typeName, target: e.resolveType(typeName), classification: typeName}
+		if tests[i].target != nil {
+			tests[i].classification = symbols.FQNOf(tests[i].target)
+		}
 	}
 	result := filtered(source)
 	for i, value := range source.values {
-		if _, _, isObject := value.Object(); isObject {
-			if e.objectIsA(value, typeName, target) {
+		for j, test := range tests {
+			if e.valueIsA(value, test) {
+				matched[j] = true
 				appendSelected(&result, source, i)
+				break
 			}
-			continue
-		}
-		sym := value.Declaration()
-		if sym == nil {
-			continue
-		}
-		matches := query.MetamodelTypeNameOf(sym) == typeName
-		if target != nil {
-			matches = matches ||
-				e.context.Model.MetaclassConforms(sym, classification) ||
-				symbols.SameElement(sym, target) ||
-				e.context.Model.Conforms(sym, target)
-		}
-		if matches {
-			appendSelected(&result, source, i)
 		}
 	}
-	if target == nil && len(result.values) == 0 && !query.IsMetamodelTypeName(typeName) {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    typeName,
-			Origin:    expression.Origin(),
+	for j, test := range tests {
+		if test.target == nil && !matched[j] && !query.IsMetamodelTypeName(test.name) {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    test.name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	return result, nil
+}
+
+// valueIsA reports whether a row is an object or declaration of the type.
+func (e *executor) valueIsA(value Value, test typeTest) bool {
+	if _, _, isObject := value.Object(); isObject {
+		return e.objectIsA(value, test.name, test.target)
+	}
+	sym := value.Declaration()
+	if sym == nil {
+		return false
+	}
+	if query.MetamodelTypeNameOf(sym) == test.name {
+		return true
+	}
+	return test.target != nil &&
+		(e.context.Model.MetaclassConforms(sym, test.classification) ||
+			symbols.SameElement(sym, test.target) ||
+			e.context.Model.Conforms(sym, test.target))
 }
 
 func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (sequence, error) {
@@ -236,18 +290,23 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 	if err != nil {
 		return sequence{}, err
 	}
-	name, err := e.stringArgument(expression, "metadata")
+	names, err := e.stringsArgument(expression, "metadata")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(name)
-	if target == nil {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    name,
-			Origin:    expression.Origin(),
+	if len(names) == 0 {
+		return sequence{}, e.invalidArgument(expression, "metadata", "0")
+	}
+	targets := make([]*symbols.Symbol, len(names))
+	for i, name := range names {
+		if targets[i] = e.resolveClassification(name); targets[i] == nil {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	result := filtered(source)
@@ -257,9 +316,10 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 			types := e.context.Index.LookupQualified(annotation.TypeFQN)
 			matches := false
 			for _, actual := range types {
-				if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
-					matches = true
-					break
+				for _, target := range targets {
+					if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
+						matches = true
+					}
 				}
 			}
 			if matches {
@@ -350,7 +410,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		known = known || present
 		for _, actual := range values {
-			match, compareErr := compareValue(actual, operator, expected)
+			match, compareErr := e.compareValue(actual, operator, expected)
 			if compareErr != nil {
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -405,6 +465,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	type sortable struct {
 		value Value
 		cells []Cell
+		depth int64
 		key   Value
 		set   bool
 	}
@@ -419,6 +480,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		}
 		known = known || present
 		items[i].value = value
+		items[i].depth = source.depthAt(i)
 		if i < len(source.cells) {
 			items[i].cells = cloneCells(source.cells[i])
 		}
@@ -480,9 +542,15 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		return sequence{}, e.invalidOrder(expression, property, sortKeys[0], sortKeys[1])
 	}
 	result := sequence{columns: append([]Column(nil), source.columns...)}
+	if len(source.depths) > 0 {
+		result.depths = make([]int64, 0, len(items))
+	}
 	for _, item := range items {
 		result.values = append(result.values, item.value)
 		result.cells = append(result.cells, item.cells)
+		if result.depths != nil {
+			result.depths = append(result.depths, item.depth)
+		}
 	}
 	return result, nil
 }
@@ -556,6 +624,7 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		values:  append([]Value(nil), source.values...),
 		columns: make([]Column, total),
 		cells:   make([][]Cell, len(source.values)),
+		depths:  append([]int64(nil), source.depths...),
 	}
 	known := make([]bool, len(properties))
 	for i, property := range properties {
@@ -604,8 +673,26 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 
 // propertyValues reads a property of a row: of the session for an object row,
 // of the check, state or trace record for a verdict, state or event row, of
-// the model for an element row.
+// the model for an element row. A dotted name reads a declared feature of that
+// own name first, falling back to the member path.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
+	values, present, err := e.propertyValuesBeforeMemberPath(row, property)
+	if present || err != nil {
+		return values, present, err
+	}
+	sym, isElement := row.Element()
+	if !isElement {
+		return nil, false, nil
+	}
+	segments, ok := parseMemberPath(property)
+	if !ok || len(segments) <= 1 {
+		return nil, false, nil
+	}
+	values, present, _, err = e.memberPathValues(sym, segments)
+	return values, present, err
+}
+
+func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		return e.objectPropertyValues(row, property)
 	}
@@ -626,22 +713,31 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
-			result = append(result, typedPropertyValue(property, value, sym))
+			result = append(result, e.typedPropertyValue(property, value, sym))
 		}
 		return result, true, nil
 	}
-	return e.declaredFeatureValues(sym, property)
+	if values, present, err := e.declaredFeatureValues(sym, property); present || err != nil {
+		return values, present, err
+	}
+	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
+		return values, present, err
+	}
+	return nil, false, nil
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
 func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
-	values, present := e.context.Model.DeclaredFeatureValues(sym, property)
+	values, present, err := e.context.Model.DeclaredFeatureValues(sym, property)
+	if err != nil {
+		return nil, false, err
+	}
 	if !present {
 		return nil, false, nil
 	}
 	result := make([]Value, 0, len(values))
 	for _, value := range values {
-		converted, ok := filterValue(value, sym)
+		converted, ok := e.filterValue(value, sym)
 		if !ok {
 			if value.Kind == symbols.FilterValueEmpty {
 				continue
@@ -669,7 +765,9 @@ func isQueryableProperty(property string) bool {
 		query.PropertyQualifiedName,
 		query.PropertyOwner,
 		query.PropertyElementType,
+		query.PropertyGeneral,
 		query.PropertyIsAbstract,
+		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper:
 		return true
@@ -678,10 +776,16 @@ func isQueryableProperty(property string) bool {
 	}
 }
 
-func typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
+func (e *executor) typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
-	case query.PropertyIsAbstract:
+	case query.PropertyGeneral:
+		// A general is the element itself, so it prints and links by name.
+		if targets := e.context.Index.LookupQualified(value); len(targets) == 1 {
+			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin())
+		}
+		result = StringValue(value)
+	case query.PropertyIsAbstract, query.PropertyIsIndividual:
 		boolean, _ := strconv.ParseBool(value)
 		result = BooleanValue(boolean)
 	case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper:
@@ -697,7 +801,15 @@ func typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	return valueAt(result, ElementValue(sym).Origin())
 }
 
-func filterValue(value symbols.FilterValue, sym *symbols.Symbol) (Value, bool) {
+// filterValue converts one bound value to a cell value: a reference to an
+// element of the model becomes that element, so the cell prints its name and
+// links; a reference the model does not resolve keeps the name as written.
+func (e *executor) filterValue(value symbols.FilterValue, sym *symbols.Symbol) (Value, bool) {
+	if value.Kind == symbols.FilterValueRef {
+		if targets := e.context.Index.LookupQualified(value.RefFQN); len(targets) == 1 {
+			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin()), true
+		}
+	}
 	var result Value
 	switch value.Kind {
 	case symbols.FilterValueBool:
@@ -784,6 +896,16 @@ type comparisonError struct{}
 
 func (*comparisonError) Error() string { return "unsupported comparison" }
 
+// compareValue compares one value as WhereFeature does: an element by the name
+// a cell prints it by, or by its qualified name when the value written is
+// qualified.
+func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
+	if _, ok := actual.Element(); ok && !strings.Contains(expected, "::") {
+		return compareText(e.valueText(actual), operator, expected)
+	}
+	return compareValue(actual, operator, expected)
+}
+
 func compareValue(actual Value, operator, expected string) (bool, error) {
 	switch actual.Kind() {
 	case ValueString:
@@ -814,7 +936,6 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 		magnitude, _ := actual.Magnitude()
 		return compareValue(magnitude, operator, expected)
 	case ValueElement:
-		// An element compares as the qualified name a cell prints it by.
 		sym, _ := actual.Element()
 		return compareText(symbols.FQNOf(sym), operator, expected)
 	default:
@@ -969,6 +1090,19 @@ func numericKind(kind ValueKind) bool {
 	return kind == ValueInteger || kind == ValueReal || kind == ValueInfinity
 }
 
+// resolveType resolves a type a filter names: a qualified name as the element
+// written, a simple name as the metaclass of that name, else as the one element
+// of the model bearing it.
+func (e *executor) resolveType(name string) *symbols.Symbol {
+	if strings.Contains(name, "::") {
+		return e.resolveClassification(name)
+	}
+	if meta := e.context.Model.Metaclass(name); meta != nil {
+		return meta
+	}
+	return e.resolveClassification(name)
+}
+
 func (e *executor) resolveClassification(name string) *symbols.Symbol {
 	if matches := e.context.Index.LookupQualified(name); len(matches) == 1 {
 		return matches[0]
@@ -995,10 +1129,34 @@ func filtered(source sequence) sequence {
 	return sequence{columns: append([]Column(nil), source.columns...)}
 }
 
+// appendSelected appends row index of source to result; once either side
+// nests, result keeps a depth for every row, flat rows at 0.
 func appendSelected(result *sequence, source sequence, index int) {
 	result.values = append(result.values, source.values[index])
 	if index < len(source.cells) {
 		result.cells = append(result.cells, cloneCells(source.cells[index]))
+	}
+	if len(source.depths) == 0 && len(result.depths) == 0 {
+		return
+	}
+	for len(result.depths) < len(result.values)-1 {
+		result.depths = append(result.depths, 0)
+	}
+	result.depths = append(result.depths, source.depthAt(index))
+	relevel(result.depths)
+}
+
+// relevel lowers the last depth so a row whose ancestors a filter dropped
+// nests under the row before it: a depth never exceeds the previous one by
+// more than a level.
+func relevel(depths []int64) {
+	last := len(depths) - 1
+	var limit int64
+	if last > 0 {
+		limit = depths[last-1] + 1
+	}
+	if depths[last] > limit {
+		depths[last] = limit
 	}
 }
 

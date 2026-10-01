@@ -114,11 +114,13 @@ func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
 }
 
-// atPaletteArgument reports whether the word being typed is %render's third
-// argument after a form that takes a palette: the palette to fill from.
+// atPaletteArgument reports whether the word being typed is %render's third or
+// fourth argument after a form that takes a palette: the palette to fill from
+// or the style to draw in.
 func atPaletteArgument(head string) bool {
 	args := typedArgs(head)
-	return !inUnfinishedName(head) && argumentIndex(head) == 3 && len(args) > 2 && view.Form(args[2]).TakesPalette()
+	index := argumentIndex(head)
+	return !inUnfinishedName(head) && (index == 3 || index == 4) && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the
@@ -473,10 +475,20 @@ func (s *Session) objectTypeOf(feat *runtime.EffectiveFeature) *symbols.Symbol {
 	if typ := s.rtCtx.CompositeTypeOf(feat); typ != nil {
 		return typ
 	}
-	if s.rtCtx.Semantics().IsConnectorUsage(feat.Symbol) {
+	if s.rtCtx.Semantics().IsConnectorObjectUsage(feat.Symbol) {
 		return feat.Symbol
 	}
 	return nil
+}
+
+// impliedCollection reports whether the feature of shape named name is a
+// collection populated only through subsetting implied by nesting, which
+// completion does not offer as a path of its own.
+func (s *Session) impliedCollection(shape objectShape, name string) bool {
+	if shape.inst != nil {
+		return s.rtCtx.ImpliedCollection(shape.inst, name)
+	}
+	return s.rtCtx.ImpliedCollectionOfType(shape.typ, name)
 }
 
 // featureNamed is the effective feature called name, or nil.
@@ -512,7 +524,10 @@ func (s *Session) featureCompletions(shape objectShape, prefix, partial string) 
 	features := s.rtCtx.FeaturesOf(shape.typ)
 	for i := range features {
 		feat := &features[i]
-		if feat.Name == "" || !s.holdsObjects(shape, feat) {
+		// An implied collection is offered only once materialized, when its
+		// elements — possibly written into it directly — are resolvable.
+		impliedUnread := s.impliedCollection(shape, feat.Name) && heldFeatureValue(shape.inst, feat.Name) == nil
+		if feat.Name == "" || impliedUnread || !s.holdsObjects(shape, feat) {
 			continue
 		}
 		name := prefix + source.NameText(feat.Name)

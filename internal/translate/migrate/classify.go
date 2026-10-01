@@ -30,13 +30,23 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
+	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
+	catUseCaseDef
+	// catView is a v1 «View», written as a view usage: only a usage exposes
+	// elements and satisfies a viewpoint in standard v2.
+	catView
+	// catViewpoint is a v1 «Viewpoint», written as a viewpoint usage a view satisfies.
+	catViewpoint
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
 	catSimConfig
 	// catValue is an instance of a value type: an attribute usage holding its
 	// slot values, since an individual cannot specialize an attribute def.
 	catValue
-	// catLibrary marks profile and bundled-library content that is not migrated.
+	// catMetadataDef is a user profile's stereotype, written as a metadata def.
+	catMetadataDef
+	// catLibrary marks standard-profile, bundled-library and modeling-tool
+	// content that is not migrated.
 	catLibrary
 	// catUnmapped marks a classifier this migration has no v2 form for.
 	catUnmapped
@@ -73,10 +83,55 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
+	case catUseCaseDef:
+		return "use case def"
+	case catView:
+		return "view"
+	case catViewpoint:
+		return "viewpoint"
 	case catSimConfig:
 		return "action def"
 	case catValue:
 		return "attribute"
+	case catMetadataDef:
+		return "metadata def"
+	}
+	return ""
+}
+
+// metaclass is the qualified name of the SysML metaclass a definition of
+// category c is an instance of; "" for a category that is not a definition
+// (an individual's follows its classifier: migration.metaclassOf).
+func (c category) metaclass() string {
+	switch c {
+	case catPartDef:
+		return "SysML::PartDefinition"
+	case catPortDef:
+		return "SysML::PortDefinition"
+	case catAttributeDef:
+		return "SysML::AttributeDefinition"
+	case catEnumDef:
+		return "SysML::EnumerationDefinition"
+	case catConstraintDef:
+		return "SysML::ConstraintDefinition"
+	case catRequirementDef:
+		return "SysML::RequirementDefinition"
+	case catConnectionDef:
+		return "SysML::ConnectionDefinition"
+	case catVerificationDef:
+		return "SysML::VerificationCaseDefinition"
+	case catItemDef:
+		return "SysML::ItemDefinition"
+	case catActionDef, catSimConfig:
+		return "SysML::ActionDefinition"
+	case catCalcDef:
+		return "SysML::CalculationDefinition"
+	case catStateDef:
+		return "SysML::StateDefinition"
+	case catUseCaseDef:
+		return "SysML::UseCaseDefinition"
+	case catMetadataDef:
+		return "SysML::MetadataDefinition"
 	}
 	return ""
 }
@@ -110,25 +165,21 @@ var hostScalars = map[string]string{
 	"boolean": "Boolean",
 }
 
-// libraryRoots are the names of the SysML and UML profile and model library
+// libraryRoots are the names of the SysML, UML and fUML profile and model library
 // packages an export carries alongside the user's model.
 var libraryRoots = map[string]bool{
-	"SysML":                true,
-	"StandardProfile":      true,
-	"UML Standard Profile": true,
-	"QUDV":                 true,
-	"ISO-80000":            true,
-	"SI Definitions":       true,
-	"SIDefinitions":        true,
-	"PrimitiveTypes":       true,
-	"PrimitiveValueTypes":  true,
-	"Libraries":            true,
-}
-
-// isStandard reports whether s comes from a standard profile rather than a
-// user's own, whose same-named stereotypes carry no SysML meaning.
-func isStandard(s *sysmlv1.Stereotype) bool {
-	return isStandardNamespace(s.Namespace)
+	"SysML":                    true,
+	"StandardProfile":          true,
+	"UML Standard Profile":     true,
+	"QUDV":                     true,
+	"ISO-80000":                true,
+	"SI Definitions":           true,
+	"SIDefinitions":            true,
+	"PrimitiveTypes":           true,
+	"PrimitiveValueTypes":      true,
+	"Libraries":                true,
+	"FoundationalModelLibrary": true,
+	"fUML_Library":             true,
 }
 
 // isStandardNamespace matches, by host and path, the OMG SysML and UML profiles,
@@ -162,32 +213,72 @@ func isMagicDrawCustomization(ns string) bool {
 		strings.HasPrefix(strings.ToLower(u.Path), "/spec/customization/")
 }
 
-// stereo returns e's application of the named standard-profile stereotype, or nil.
-func stereo(e *sysmlv1.Element, name string) *sysmlv1.Stereotype {
-	for _, s := range e.Stereotypes {
-		if s.Name == name && isStandard(s) {
-			return s
-		}
+// The analysis patterns of MagicDraw's SysML customization module, which its simulation
+// toolkit fills: a block inherits MonteCarloAnalysis and binds Mean to the value it analyses.
+const (
+	magicDrawCustomizationModule = "md customization for sysml.mdzip"
+	analysisPatternsPackage      = "analysis patterns"
+	monteCarloAnalysisBlock      = "MonteCarloAnalysis"
+	monteCarloRuns               = "N"
+	monteCarloMean               = "Mean"
+	monteCarloDeviation          = "Deviation"
+	monteCarloOutOfSpec          = "OutOfSpec"
+)
+
+// analysisPatternPath is the path under the module's analysis patterns of the element
+// a proxy stands for ("MonteCarloAnalysis::Mean"); "" for a proxy of anything else.
+func analysisPatternPath(e *sysmlv1.Element) string {
+	if e == nil || !e.IsProxy() {
+		return ""
 	}
-	return nil
+	doc := e.Href
+	if i := strings.IndexByte(doc, '#'); i >= 0 {
+		doc = doc[:i]
+	}
+	if i := strings.LastIndexAny(doc, "/\\"); i >= 0 {
+		doc = doc[i+1:]
+	}
+	if !strings.EqualFold(strings.ReplaceAll(doc, "_", " "), magicDrawCustomizationModule) {
+		return ""
+	}
+	marker := "::" + analysisPatternsPackage + "::"
+	i := strings.Index(e.QualifiedName, marker)
+	if i < 0 {
+		return ""
+	}
+	return e.QualifiedName[i+len(marker):]
 }
 
-// has reports whether any of the named standard-profile stereotypes applies to e.
-func has(e *sysmlv1.Element, names ...string) bool {
-	for _, n := range names {
-		if stereo(e, n) != nil {
-			return true
-		}
+// isMonteCarloAnalysis reports whether e is a proxy for the module's MonteCarloAnalysis block.
+func isMonteCarloAnalysis(e *sysmlv1.Element) bool {
+	return analysisPatternPath(e) == monteCarloAnalysisBlock
+}
+
+// monteCarloFeature names the MonteCarloAnalysis feature e is a proxy for, "" for none.
+func monteCarloFeature(e *sysmlv1.Element) string {
+	path := analysisPatternPath(e)
+	prefix := monteCarloAnalysisBlock + "::"
+	if !strings.HasPrefix(path, prefix) || strings.Contains(path[len(prefix):], "::") {
+		return ""
 	}
-	return false
+	return path[len(prefix):]
 }
 
 // isLibrary reports whether e sits in profile or bundled-library content: a
-// profile, a package the model marks as a library or auxiliary resource, or a
-// document root with a library name that sits beside the user's Model.
+// standard or modeling-tool profile (a user's profile is migrated, see
+// userProfile, however the tool marks it: its stereotypes' applications carry
+// the user's data), a package the model marks as a library or auxiliary
+// resource, or a document root with a library name that sits beside the
+// user's Model.
 func (m *migration) isLibrary(e *sysmlv1.Element) bool {
 	for cur := e; cur != nil; cur = cur.Parent {
-		if cur.Type == "Profile" || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
+		if cur.Type == "Profile" {
+			if !m.userProfile(cur) {
+				return true
+			}
+			continue
+		}
+		if has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
 			return true
 		}
 		if cur.Parent == nil && cur.Type != "Model" && libraryRoots[cur.Name] && m.besideUserModel(cur) {
@@ -385,33 +476,23 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catNone, ""
 	}
 	if m.isLibrary(e) {
-		return catLibrary, ""
+		return catLibrary, m.libraryReason(e)
+	}
+	if reason := toolContent(e); reason != "" {
+		return catLibrary, reason
 	}
 	switch e.Type {
-	case "Model", "Package":
-		return catPackage, ""
-	case "Profile":
-		return catLibrary, ""
-	case "Class", "Component":
-		switch {
-		case simulationConfig(e) != nil:
-			return catSimConfig, ""
-		case has(e, requirementStereotypes...):
-			return catRequirementDef, ""
-		case has(e, "ConstraintBlock"):
-			return catConstraintDef, ""
-		case has(e, "InterfaceBlock"):
-			return catPortDef, ""
-		case has(e, "Block"):
-			return catPartDef, ""
-		case has(e, "Stakeholder"):
-			return catPartDef, "a v1 «Stakeholder» is written as a part def"
-		case has(e, "View"):
-			return catUnmapped, "views are not migrated yet"
-		case has(e, "Viewpoint"):
-			return catUnmapped, "viewpoints are not migrated yet"
+	case "Model", "Package", "Profile":
+		if has(e, "View") && (e.Type != "Model" || e.Parent != nil) {
+			return catView, "a «View» package is written as a view usage holding its members"
 		}
-		return catPartDef, "a plain UML class without «Block» is written as a part def"
+		return catPackage, ""
+	case "Stereotype":
+		return catMetadataDef, ""
+	case "Extension":
+		return catLibrary, "an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element"
+	case "Class", "Component":
+		return classifyClass(e)
 	case "Actor":
 		return catPartDef, "a UML actor is written as a part def"
 	case "AssociationClass":
@@ -432,32 +513,10 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Interface":
 		return catPortDef, "a UML interface is written as a port def"
 	case "InstanceSpecification":
-		if has(e, "Unit", "QuantityKind") {
-			return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
-		}
-		if len(m.classifiersOf(e)) == 0 {
-			return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
-		}
-		occurrences, values, note := m.instanceClassifiers(e)
-		switch {
-		case len(occurrences) == 0 && len(values) == 0:
-			return catUnmapped, note
-		case len(occurrences) == 0:
-			return catValue, note
-		}
-		for _, v := range values {
-			note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
-		}
-		return catIndividualDef, note
+		return m.classifyInstance(e)
 	case "Activity", "OpaqueBehavior", "Interaction", "StateMachine", "FunctionBehavior":
 		if has(e, "TestCase") {
-			if e.Type == "Interaction" {
-				if _, note := m.scenario(e, m.subjectName(e)); note != "" {
-					return catVerificationDef, "the test case's scenario is not migrated: " + note + "; only its verified requirements are"
-				}
-				return catVerificationDef, ""
-			}
-			return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
+			return m.classifyTestCase(e)
 		}
 		return m.classifyBehavior(e)
 	case "Operation":
@@ -465,13 +524,71 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Reception":
 		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
-		return catUnmapped, "use cases are not migrated yet"
+		return catUseCaseDef, ""
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
 	case "DurationObservation", "TimeObservation":
 		return catUnmapped, m.strayObservation(e)
 	}
 	return catUnmapped, "no v2 form for a UML " + e.Type
+}
+
+// classifyClass decides the definition a UML class or component becomes by
+// the SysML v1 stereotype it carries.
+func classifyClass(e *sysmlv1.Element) (category, string) {
+	switch {
+	case simulationConfig(e) != nil:
+		return catSimConfig, ""
+	case has(e, requirementStereotypes...):
+		return catRequirementDef, ""
+	case has(e, "ConstraintBlock"):
+		return catConstraintDef, ""
+	case has(e, "InterfaceBlock"):
+		return catPortDef, ""
+	case has(e, "Block"):
+		return catPartDef, ""
+	case has(e, "Stakeholder"):
+		return catPartDef, "a v1 «Stakeholder» is written as a part def"
+	case has(e, "View") || e.DocGenView():
+		return catView, ""
+	case has(e, "Viewpoint"):
+		return catViewpoint, ""
+	}
+	return catPartDef, "a plain UML class without «Block» is written as a part def"
+}
+
+// classifyInstance decides whether an instance specification becomes an
+// individual def, a value, or nothing.
+func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
+	if has(e, "Unit", "QuantityKind") {
+		return catUnmapped, "units and quantity kinds are not migrated; use the SI and ISQ libraries"
+	}
+	if len(m.classifiersOf(e)) == 0 {
+		return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
+	}
+	occurrences, values, note := m.instanceClassifiers(e)
+	switch {
+	case len(occurrences) == 0 && len(values) == 0:
+		return catUnmapped, note
+	case len(occurrences) == 0:
+		return catValue, note
+	}
+	for _, v := range values {
+		note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
+	}
+	return catIndividualDef, note
+}
+
+// classifyTestCase decides a «TestCase» behavior: a verification def, whose
+// scenario is migrated only from an interaction the writer can read.
+func (m *migration) classifyTestCase(e *sysmlv1.Element) (category, string) {
+	if e.Type != "Interaction" {
+		return catVerificationDef, "the test case's behavior is not migrated; only its verified requirements are"
+	}
+	if _, note := m.scenario(e, m.subjectName(e)); note != "" {
+		return catVerificationDef, "the test case's scenario is not migrated: " + note + "; only its verified requirements are"
+	}
+	return catVerificationDef, ""
 }
 
 // kindOf names the v1 element as its author saw it: its classifying
@@ -528,6 +645,8 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
+		case cc == catView, cc == catViewpoint:
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)
 		}

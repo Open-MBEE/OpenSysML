@@ -68,6 +68,42 @@ pub struct Verdict {
     /// and for every other RPC.
     #[prost(string, tag="14")]
     pub instance_path: ::prost::alloc::string::String,
+    /// The question the verdict answers: "evaluate" for an evaluation, "holds"
+    /// for a claim proved over every free assignment, "satisfiable" for one
+    /// satisfying assignment. Reported as the "verification_questions" capability.
+    #[prost(string, tag="15")]
+    pub question: ::prost::alloc::string::String,
+    /// What the question was answered: "holds", "violated" or "undecided" for
+    /// an evaluation or a holds question (undecided names `error` carrying the
+    /// reason), "satisfiable" or "unsatisfiable" for a satisfiable question.
+    /// `holds` is true iff status is "holds" or "satisfiable".
+    #[prost(string, tag="16")]
+    pub status: ::prost::alloc::string::String,
+    /// The assignment witnessing a "violated" holds answer or a "satisfiable"
+    /// satisfiable one: the query's free variables, in query order. Never set
+    /// for an undecided answer. Reported as the "verification_questions" capability.
+    #[prost(message, repeated, tag="17")]
+    pub witness: ::prost::alloc::vec::Vec<WitnessAssignment>,
+}
+/// WitnessAssignment is one free variable's value in a witnessed assignment:
+/// the assignment the solver found, replayed by the evaluator.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WitnessAssignment {
+    /// The variable's feature, as a qualified name with chain steps appended
+    /// with '.'.
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// The value the evaluator replayed: a bool, an int, a real as the float64
+    /// of the exact rational, an enum literal.
+    #[prost(message, optional, tag="2")]
+    pub value: ::core::option::Option<Value>,
+    /// The base units a magnitude is expressed in; empty when dimensionless.
+    #[prost(string, tag="3")]
+    pub unit: ::prost::alloc::string::String,
+    /// The solver's exact value as text: a rational for a real, the literal's
+    /// name for an enum.
+    #[prost(string, tag="4")]
+    pub exact: ::prost::alloc::string::String,
 }
 /// Bound is one limit an engine ran under, as its plan names it: a count, or
 /// milliseconds for a time, and whether the run stopped at it.
@@ -107,6 +143,14 @@ pub struct VerifyConstraintRequest {
     /// An unknown name is INVALID_ARGUMENT. Reported as the "engines" capability.
     #[prost(string, tag="4")]
     pub engine: ::prost::alloc::string::String,
+    /// The question asked: "evaluate" (unset, today's behavior) evaluates the
+    /// declared values; "holds" asks whether the claim holds over every
+    /// assignment of the free features; "satisfiable" asks whether one
+    /// assignment satisfies it. Anything else is INVALID_ARGUMENT. The two
+    /// solver questions are reported as the "verification_questions" capability
+    /// and need an SMT solver.
+    #[prost(string, tag="5")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerifyConstraintResponse carries the verdict; its engine, strength and bounds
 /// are on the verdict.
@@ -141,6 +185,9 @@ pub struct VerifyRequirementRequest {
     /// The engine the question is put to; see VerifyConstraintRequest.engine.
     #[prost(string, tag="4")]
     pub engine: ::prost::alloc::string::String,
+    /// The question asked; see VerifyConstraintRequest.question.
+    #[prost(string, tag="5")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerificationVerdict is what the body of a verification case answered when it
 /// ran: the VerdictKind its return bound, which is a separate answer from whether
@@ -198,6 +245,9 @@ pub struct VerifySatisfactionRequest {
     /// The engine every assertion is put to; see VerifyConstraintRequest.engine.
     #[prost(string, tag="3")]
     pub engine: ::prost::alloc::string::String,
+    /// The question every assertion is put to; see VerifyConstraintRequest.question.
+    #[prost(string, tag="4")]
+    pub question: ::prost::alloc::string::String,
 }
 /// VerifySatisfactionResponse carries one verdict per assertion evaluated, in
 /// declaration order. No assertion at all is an empty list, not an error.
@@ -477,6 +527,10 @@ pub struct Outcome {
     /// one run.
     #[prost(message, repeated, tag="7")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// The probability of the linearizations reaching this outcome, as explore
+    /// computes it; a lower bound when the exploration is incomplete.
+    #[prost(double, tag="8")]
+    pub probability: f64,
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
@@ -497,6 +551,10 @@ pub struct ExplorationStatus {
     pub runs_budget: i32,
     #[prost(int32, tag="5")]
     pub depth_budget: i32,
+    /// True when the outcomes' probabilities are lower bounds: a budget kept some
+    /// linearizations unexplored.
+    #[prost(bool, tag="6")]
+    pub probabilities_lower_bound: bool,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -538,8 +596,11 @@ pub struct EngineInfo {
     /// "sampler". The fields below are empty for a built-in engine.
     #[prost(string, tag="9")]
     pub kind: ::prost::alloc::string::String,
-    /// How the engine is spoken to: "-" for one built in, "object" for a tool's
-    /// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+    /// How the engine is spoken to: "-" for one built in; for a tool, "object"
+    /// for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+    /// invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+    /// when the reply block reads another format (the format alone when the entry
+    /// has no invocation); "<transport>/<protocol>" for an engine entry.
     #[prost(string, tag="10")]
     pub protocol: ::prost::alloc::string::String,
     /// The manifest entry the engine was registered from, the command it resolved
@@ -823,6 +884,12 @@ pub struct ExecuteActionResponse {
     /// at` the action waited on. Populated under the "final_time" capability.
     #[prost(double, tag="6")]
     pub final_time: f64,
+    /// The attributes the object named by performer_symbol_id holds when the run
+    /// ends, keyed as an explored outcome's `outputs` key them (`this.level`);
+    /// `outputs` stays the output parameters alone. Empty without a performer and
+    /// under an explore schedule, whose outcomes carry them.
+    #[prost(map="string, message", tag="7")]
+    pub performer_attributes: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -880,12 +947,15 @@ pub struct ExecuteStateResponse {
 /// change the answer; a file_path is read afresh and content is carried inline.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConvertRequest {
-    /// "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-    /// file_path's extension, and is notation for a model_hash, since that is what
-    /// parse reads; inline content has neither, so it must say.
+    /// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
+    /// "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
+    /// v2 and never written. Empty infers from file_path's extension, and is
+    /// notation for a model_hash, since that is what parse reads; inline content
+    /// has neither, so it must say.
     #[prost(string, tag="3")]
     pub from_format: ::prost::alloc::string::String,
-    /// Format to write, named as in from_format. Empty is rejected.
+    /// Format to write, named as in from_format; the v1 names are refused, since
+    /// a v2 model has no v1 form. Empty is rejected.
     #[prost(string, tag="4")]
     pub to_format: ::prost::alloc::string::String,
     /// Write notation back out even when the parser could not read all of it,
@@ -894,6 +964,14 @@ pub struct ConvertRequest {
     /// go missing silently.
     #[prost(bool, tag="5")]
     pub tolerate_syntax_errors: bool,
+    /// How derived element ids are spelled when notation is written as a graph
+    /// ("ttl" or "api-json"), as `sysml -id` does: "qualified" (the default, each
+    /// derived from its qualified name) or "uuid" (name-based uuids under each root
+    /// package, the library convention). Declared and normative ids are unchanged.
+    /// Empty is "qualified"; any other value, or one given for another direction,
+    /// is INVALID_ARGUMENT.
+    #[prost(string, tag="7")]
+    pub id_form: ::prost::alloc::string::String,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -927,10 +1005,12 @@ pub struct ConvertResponse {
     /// the conversion.
     #[prost(message, repeated, tag="5")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
-    /// Set when either format is RDF, whose mapping is experimental: it covers
-    /// model structure and the behavior its bodies state, refuses what it cannot
-    /// write back, and its vocabulary may change without a compatibility path.
-    /// Notation to notation is stable and leaves this unset.
+    /// Set when either format is RDF or the API's JSON element form, whose
+    /// mapping is experimental: it covers model structure and the behavior its
+    /// bodies state, refuses what it cannot write back, and its vocabulary may
+    /// change without a compatibility path. Also set when the source is SysML v1,
+    /// whose migration is experimental in the same sense. Notation to notation is
+    /// stable and leaves this unset.
     #[prost(bool, tag="6")]
     pub experimental: bool,
     /// What is experimental about the conversion, in the wording every surface
@@ -970,14 +1050,14 @@ pub struct ApplyEditsRequest {
     pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
 pub mod edit_operation {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Operation {
         #[prost(message, tag="1")]
         SetValue(super::SetValueEdit),
@@ -989,6 +1069,30 @@ pub mod edit_operation {
         Delete(super::DeleteEdit),
         #[prost(message, tag="5")]
         Move(super::MoveEdit),
+        #[prost(message, tag="6")]
+        AddConnection(super::AddConnectionEdit),
+        #[prost(message, tag="7")]
+        AddSatisfy(super::AddSatisfyEdit),
+        #[prost(message, tag="8")]
+        AddRequirementConstraint(super::AddRequirementConstraintEdit),
+        #[prost(message, tag="9")]
+        AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="10")]
+        AddImport(super::AddImportEdit),
+        #[prost(message, tag="11")]
+        AddDocumentation(super::AddDocumentationEdit),
+        #[prost(message, tag="12")]
+        AddVerify(super::AddVerifyEdit),
+        #[prost(message, tag="13")]
+        AddMetadata(super::AddMetadataEdit),
+        #[prost(message, tag="14")]
+        AddSequence(super::AddSequenceEdit),
+        #[prost(message, tag="15")]
+        AddMetadataPrefix(super::AddMetadataPrefixEdit),
+        #[prost(message, tag="16")]
+        AddComment(super::AddCommentEdit),
+        #[prost(message, tag="18")]
+        AddNote(super::AddNoteEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1015,6 +1119,302 @@ pub struct AddMemberEdit {
     /// Optional specialization targets for a definition.
     #[prost(string, repeated, tag="7")]
     pub specializes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the declaration is abstract.
+    #[prost(bool, tag="8")]
+    pub is_abstract: bool,
+    /// Optional redefinition targets for a usage.
+    #[prost(string, repeated, tag="9")]
+    pub redefines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the value uses the default assignment keyword.
+    #[prost(bool, tag="10")]
+    pub is_default: bool,
+    /// Optional usage direction: "in", "out" or "inout".
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+    /// Metadata types annotating the new member.
+    #[prost(string, repeated, tag="14")]
+    pub metadata_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional documentation body, as plain text, written as the declaration's
+    /// first body member `doc /* ... */` that reads back as exactly this text.
+    #[prost(string, tag="12")]
+    pub doc: ::prost::alloc::string::String,
+    /// Optional body expression. For constraints, it is the condition; for calc,
+    /// case, analysis, verification, and use-case kinds, it is the result
+    /// expression. It is written inside `{ ... }`, distinct from value, which
+    /// writes `= ...`.
+    #[prost(string, tag="13")]
+    pub body_expression: ::prost::alloc::string::String,
+}
+/// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddSatisfyEdit {
+    /// Body receiving the usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+    /// Optional satisfying feature reference.
+    #[prost(string, tag="3")]
+    pub satisfying_feature: ::prost::alloc::string::String,
+    /// Whether the usage is asserted.
+    #[prost(bool, tag="4")]
+    pub is_asserted: bool,
+    /// Whether the usage is negated.
+    #[prost(bool, tag="5")]
+    pub is_negated: bool,
+}
+/// AddRequirementConstraintEdit inserts a require or assume constraint.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddRequirementConstraintEdit {
+    /// Requirement-like namespace receiving the constraint.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Constraint kind: "require" or "assume".
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// Constraint expression, written as notation.
+    #[prost(string, tag="3")]
+    pub expression: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="4")]
+    pub name: ::prost::alloc::string::String,
+}
+/// AddTransitionEdit inserts a transition usage, or an entry transition, into a state body.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddTransitionEdit {
+    /// State body receiving the transition.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Optional transition name.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// Source feature reference; empty only for an entry transition.
+    #[prost(string, tag="3")]
+    pub source: ::prost::alloc::string::String,
+    /// Target feature reference.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    /// Optional text after `accept`.
+    #[prost(string, tag="5")]
+    pub trigger: ::prost::alloc::string::String,
+    /// Optional boolean expression after `if`.
+    #[prost(string, tag="6")]
+    pub guard: ::prost::alloc::string::String,
+    /// Optional effect text after `do`.
+    #[prost(string, tag="7")]
+    pub effect: ::prost::alloc::string::String,
+    /// Write `entry; then <target>;` instead of a regular transition.
+    #[prost(bool, tag="8")]
+    pub initial: bool,
+}
+/// AddVerifyEdit inserts a requirement verification into a verification case.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddVerifyEdit {
+    /// Verification case or objective receiving the verification.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+}
+/// MetadataFeatureValue binds one metadata feature to a value expression.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MetadataFeatureValue {
+    /// Feature reference to bind.
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// Value expression, written as notation.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// AddMetadataEdit inserts a metadata usage.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddMetadataEdit {
+    /// Namespace or body receiving the metadata usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Metadata definition reference.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
+    /// Optional declared name for the usage.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional references the metadata usage is about.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Feature values in written order.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<MetadataFeatureValue>,
+    /// Write shorthand `@` notation instead of `metadata`.
+    #[prost(bool, tag="6")]
+    pub shorthand: bool,
+}
+/// AddMetadataPrefixEdit annotates an existing declaration with prefix metadata.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddMetadataPrefixEdit {
+    /// Declaration to annotate, by its qualified name.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Metadata definition reference to add as a prefix.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
+}
+/// AddImportEdit inserts an import declaration into a namespace body or the document root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddImportEdit {
+    /// Namespace FQN receiving the import; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// "private", "public" or "protected"; empty writes "private".
+    #[prost(string, tag="2")]
+    pub visibility: ::prost::alloc::string::String,
+    /// Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
+    #[prost(string, tag="3")]
+    pub target: ::prost::alloc::string::String,
+    /// Write "::**" to import recursively.
+    #[prost(bool, tag="4")]
+    pub is_recursive: bool,
+    /// Write "import all" to import non-public members too.
+    #[prost(bool, tag="5")]
+    pub is_import_all: bool,
+    /// Filter conditions, each written as "\[<expression>\]".
+    #[prost(string, repeated, tag="6")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+/// existing declaration, opening a body for one ended by `;`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddDocumentationEdit {
+    /// Fully qualified name of the documented declaration.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Documentation body, as plain text that Documentation::body reads back
+    /// exactly, whitespace included; it may not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the documentation.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="4")]
+    pub locale: ::prost::alloc::string::String,
+    /// Rewrite the one documentation target already owns instead of refusing.
+    #[prost(bool, tag="5")]
+    pub replace: bool,
+}
+/// AddCommentEdit inserts `comment \[name\] [about a, b] \[locale "..."\] /* ... */`
+/// where a new member of owner goes.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddCommentEdit {
+    /// Namespace FQN receiving the comment; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Comment body, as plain text that Comment::body reads back exactly; it may
+    /// not contain `*/` or a carriage return.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the comment.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional annotated elements, each a qualified name written after `about`.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="5")]
+    pub locale: ::prost::alloc::string::String,
+}
+/// AddNoteEdit writes the line note `// text` on its own line above a declaration.
+/// A note is lexical trivia, not a model element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddNoteEdit {
+    /// Fully qualified name of the declaration the note precedes.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Note text, one line: it may not contain a line break.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+}
+/// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddSequenceEdit {
+    /// Action body receiving the member.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Sequence keyword: "first", "then", "if", "else", or empty for a plain member.
+    /// These action-body forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode,
+    /// 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode; formal/2026-03-02.
+    #[prost(string, tag="2")]
+    pub keyword: ::prost::alloc::string::String,
+    /// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
+    /// declares a member instead.
+    #[prost(string, tag="3")]
+    pub r#ref: ::prost::alloc::string::String,
+    /// Body item kind, including action, perform action, state, merge, decide,
+    /// join, fork, accept, send, assign, if, while, loop, for or terminate.
+    #[prost(string, tag="4")]
+    pub member_kind: ::prost::alloc::string::String,
+    /// Optional declared name of the `then`-declared member.
+    #[prost(string, tag="5")]
+    pub member_name: ::prost::alloc::string::String,
+    /// Optional typing target of the `then`-declared member.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
+    /// Optional name of the body member the new member follows.
+    #[prost(string, tag="7")]
+    pub after: ::prost::alloc::string::String,
+    /// Condition or guard expression for if and while.
+    #[prost(string, tag="8")]
+    pub condition: ::prost::alloc::string::String,
+    /// Payload, assigned value, collection or terminated occurrence.
+    #[prost(string, tag="9")]
+    pub value: ::prost::alloc::string::String,
+    /// Assigned feature or send receiver.
+    #[prost(string, tag="10")]
+    pub target: ::prost::alloc::string::String,
+    /// Port expression for accept or send.
+    #[prost(string, tag="11")]
+    pub via: ::prost::alloc::string::String,
+    /// Optional loop termination condition.
+    #[prost(string, tag="12")]
+    pub until: ::prost::alloc::string::String,
+    /// Nested action-body items.
+    #[prost(message, repeated, tag="13")]
+    pub body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Nested items of the if's else branch; an empty list means no else branch.
+    /// An explicit empty `else { }` is not authorable; it performs nothing and is equivalent to omitting it.
+    #[prost(message, repeated, tag="14")]
+    pub else_body: ::prost::alloc::vec::Vec<AddSequenceEdit>,
+    /// Source-end multiplicity, written as bracketed notation, only with "then".
+    /// SysML.xtext:878, 887, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02.
+    #[prost(string, tag="15")]
+    pub multiplicity: ::prost::alloc::string::String,
+    /// Payload name for accept or loop variable for for.
+    #[prost(string, tag="16")]
+    pub parameter: ::prost::alloc::string::String,
+}
+/// AddConnectionEdit inserts a usage whose ends connect two features.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddConnectionEdit {
+    /// Namespace FQN receiving the usage; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Usage kind: SysML connection, interface, allocation, binding, flow,
+    /// succession or transition; KerML connector, binding, flow or succession.
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// First feature reference resolved from the owner.
+    #[prost(string, tag="3")]
+    pub from_end: ::prost::alloc::string::String,
+    /// Second feature reference resolved from the owner.
+    #[prost(string, tag="4")]
+    pub to_end: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="5")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional typing target, legal only for typed connection kinds.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
 }
 /// DeleteEdit removes a declaration and its owned trivia.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2229,6 +2629,8 @@ pub enum FailureReason {
     WrongKind = 2,
     /// several objects carry the element; name one as the subject
     AmbiguousSubject = 3,
+    /// an engine was asked but decided nothing
+    Undecided = 4,
 }
 impl FailureReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2241,6 +2643,7 @@ impl FailureReason {
             Self::Evaluation => "FAILURE_REASON_EVALUATION",
             Self::WrongKind => "FAILURE_REASON_WRONG_KIND",
             Self::AmbiguousSubject => "FAILURE_REASON_AMBIGUOUS_SUBJECT",
+            Self::Undecided => "FAILURE_REASON_UNDECIDED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2250,6 +2653,7 @@ impl FailureReason {
             "FAILURE_REASON_EVALUATION" => Some(Self::Evaluation),
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
+            "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
             _ => None,
         }
     }

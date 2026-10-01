@@ -470,7 +470,7 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 	subject, label := inv.subject(), inv.label()
 	ctx := s.planContext()
 	free := s.checker.frees()
-	modelSeed, draws := s.askedModelSeed(), s.draws
+	modelSeed, draws, step := s.askedModelSeed(), s.draws, s.clockStep
 	s.state.Unlock()
 	answered, err := s.engines.Check(ctx, analysis.Request{
 		Model:     model,
@@ -478,6 +478,7 @@ func (s *Session) checkVerdict(inv *freshInvocation, policy runtime.SchedulePoli
 		Schedule:  policy,
 		ModelSeed: modelSeed,
 		Draws:     draws,
+		ClockStep: step,
 		Budget:    budget,
 		Selection: selection,
 	}, kind, free, asks.check, asks.holds, asks.run)
@@ -615,7 +616,11 @@ func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()))
 	}
 	for i, violation := range report.Violations {
-		v.Lines = append(v.Lines, "  violation: "+violation.String()+witnessPath(checked.Violations, i))
+		mass := runtime.FormatWeight(violation.Mass)
+		if report.MassBounded {
+			mass = "≥ " + mass
+		}
+		v.Lines = append(v.Lines, "  violation: "+violation.String()+" (probability "+mass+")"+witnessPath(checked.Violations, i))
 	}
 	for i, d := range report.Divergent {
 		v.Lines = append(v.Lines, "  divergent: "+d.String())

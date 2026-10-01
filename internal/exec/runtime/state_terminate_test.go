@@ -7,9 +7,12 @@ import (
 )
 
 // TestTerminatedMachineHoldsNoPendingWork: a transition to a terminate action
-// nested in a composite state leaves the other region's timer, the event it still
-// defers and the change condition it watched with nothing to act on, so the ended
-// machine holds none of them.
+// nested in a composite state leaves the other region's timer and the change
+// condition it watched with nothing to act on, so the ended machine holds
+// neither. The signal `a` keeps through the standard deferred-signal encoding
+// (an accept loop filling an ordered buffer the exit action sends to self) is
+// resent by the exit action of `a`, which the transition to `stop` leaves as any
+// transition leaves its source; the ended machine then has no one to take it.
 func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		private import SI::*;
@@ -22,12 +25,24 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 			state busy parallel {
 				state r1 {
 					entry; then a;
-					state a { defer Later; }
+					state a {
+						item deferred : Later[*] ordered;
+						do action buffer {
+							first start then receive;
+							action receive accept kept : Later;
+							then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+							then receive;
+						}
+						exit action flush {
+							for kept in deferred { send kept to self; }
+							then action clear { assign deferred := (); }
+						}
+					}
 					transition first a accept Abort then stop;
 				}
 				state r2 {
 					entry; then b;
-					state b { defer Later; }
+					state b;
 					transition first b accept after 10 [s] then c;
 					transition first b accept when level > 0 then c;
 					state c;
@@ -40,14 +55,16 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec.SendSignal("Later", nil)
+	if err := exec.Enqueue(QueuedEvent{Signal: "Later"}); err != nil {
+		t.Fatalf("queue Later: %v", err)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("keep Later: %v", err)
+	}
+	if got := sequenceLen(exec.StateData()["busy.r1.a.deferred"]); got != 1 {
+		t.Fatalf("deferred = %s; want the Later event kept by a", FormatValue(exec.StateData()["busy.r1.a.deferred"]))
+	}
 	exec.SendSignal("Abort", nil)
-	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("dispatch Later: %v", err)
-	}
-	if got := exec.DeferredEvents(); len(got) != 1 {
-		t.Fatalf("deferred = %v; want the Later event held by a", got)
-	}
 	if fired, err := exec.PollChangeEvents(); err != nil || fired {
 		t.Fatalf("poll = %v, %v; want nothing fired with level at 0", fired, err)
 	}
@@ -66,14 +83,58 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	if got := exec.EventQueue().Events(); len(got) != 0 {
 		t.Errorf("queue = %v after termination; want empty", got)
 	}
-	if got := exec.DeferredEvents(); len(got) != 0 {
-		t.Errorf("deferred = %v after termination; want none", got)
+	if got := ctx.PendingMessages(); len(got) != 1 || got[0].SignalType != "Later" {
+		t.Errorf("on the bus = %v after termination; want the Later that a's exit action resent, untaken", got)
 	}
 	if _, waiting := exec.NextWait(); waiting {
 		t.Errorf("NextWait() reports a timer on a terminated machine")
 	}
 	if got := exec.ChangeWaits(); len(got) != 0 {
 		t.Errorf("ChangeWaits() = %v after termination; want none", got)
+	}
+}
+
+func TestTerminatedMachineDropsHeldEntry(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		item def Start;
+		item def Go;
+		state Machine parallel {
+			attribute hits : Integer = 0;
+			state left {
+				entry; then start;
+				state start;
+				state work {
+					attribute :>> runToCompletionScope default = self;
+					entry action { send new Go() to Machine; } then step;
+					state step;
+				}
+				transition first start accept Start then work;
+			}
+			state right {
+				entry; then idle;
+				state idle;
+				transition first idle accept Go then stop;
+				action stop terminate;
+			}
+		}
+	}`))
+	exec, err := ctx.CreateStateExecutor(findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Start", nil)
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if exec.State() != StateTerminated {
+		t.Fatalf("state = %v; want Terminated", exec.State())
+	}
+	if exec.HoldsEntry() {
+		t.Error("HoldsEntry() = true after termination")
+	}
+	if exec.HasPendingWork() {
+		t.Error("HasPendingWork() = true after termination")
 	}
 }
 
@@ -127,4 +188,13 @@ func TestChangeTriggeredTerminationHoldsNoWaits(t *testing.T) {
 	if exec.HasPendingWork() {
 		t.Errorf("HasPendingWork() = true on a terminated machine")
 	}
+}
+
+// sequenceLen is the number of elements of a sequence-valued feature, 0 for an
+// unset or empty one.
+func sequenceLen(v Value) int {
+	if seq := v.Sequence(); seq != nil {
+		return len(seq.Elements())
+	}
+	return 0
 }

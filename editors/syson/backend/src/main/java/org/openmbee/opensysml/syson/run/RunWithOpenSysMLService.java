@@ -61,15 +61,31 @@ public class RunWithOpenSysMLService {
         ExportedProject project = exporter.export(context);
         IndexedElement selected = project.index().byElement(target).orElse(null);
         if (selected == null) {
-            RunResult result = RunResult.failure("", input.operation(), "", "selected element has no qualified name in the export");
-            store.put(context.getId(), result);
-            return result;
+            IndexedElement enclosing = project.index().enclosing(target).orElse(null);
+            if (enclosing != null && (input.operation() == RunOperation.VERIFY_SATISFACTION
+                    || input.operation() == RunOperation.VALIDATE_INSTANCE)) {
+                selected = enclosing;
+            } else {
+                String message = enclosing == null
+                        ? "selected element has no qualified name in the export"
+                        : "selected element has no qualified name in the export; select its enclosing element "
+                                + enclosing.qualifiedName();
+                RunResult result = RunResult.failure("", input.operation(), "", message);
+                store.put(context.getId(), result);
+                return result;
+            }
         }
         String targetName = selected.qualifiedName();
+        final IndexedElement selectedElement = selected;
         List<DiagnosticMapper.Mapped> mappedDiagnostics = new ArrayList<>();
-        List<RunDiagnostic> exportDiagnostics = project.messages().stream()
-                .map(message -> new RunDiagnostic(message.level().name().toLowerCase(), message.message(), "", null, null,
-                        targetName, selected.elementId(), selected.siriusId()))
+        List<RunResult.MappedDiagnostic> exportDiagnostics = project.messages().stream()
+                .map(message -> {
+                    IndexedElement at = project.index().firstElementIdIn(message.message())
+                            .orElse(selectedElement);
+                    RunDiagnostic diagnostic = new RunDiagnostic(message.level().name().toLowerCase(),
+                            message.message(), "", null, null, at.qualifiedName(), at.elementId(), at.siriusId());
+                    return new RunResult.MappedDiagnostic(diagnostic, at.element());
+                })
                 .toList();
         try {
             Model model = connection.parseSources(project.documents());
@@ -85,13 +101,12 @@ public class RunWithOpenSysMLService {
             RunDiagnostic diagnostic = new RunDiagnostic("error", exception.getMessage(), "", null, null, targetName,
                     selected.elementId(), selected.siriusId());
             List<RunResult.MappedDiagnostic> resultDiagnostics = new ArrayList<>();
-            exportDiagnostics.forEach(value -> resultDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+            resultDiagnostics.addAll(exportDiagnostics);
             mappedDiagnostics.forEach(value -> resultDiagnostics.add(
                     new RunResult.MappedDiagnostic(value.diagnostic(), value.element())));
             resultDiagnostics.add(new RunResult.MappedDiagnostic(diagnostic, selected.element()));
-            RunResult result = new RunResult("", input.operation(), targetName, false, null, null, null, List.of(),
-                    List.of(), null, List.of(), List.of(), List.of(),
-                    resultDiagnostics);
+            RunResult result = RunResult.builder().modelHash("").operation(input.operation()).target(targetName)
+                    .mappedDiagnostics(resultDiagnostics).build();
             store.put(context.getId(), result);
             return result;
         }
@@ -126,8 +141,7 @@ public class RunWithOpenSysMLService {
             case VERIFY_REQUIREMENT -> ResultParts.verification(input.subject() == null ? model.verifyRequirement(target)
                     : model.verifyRequirement(target, input.subject()), project);
             case VERIFY_SATISFACTION -> ResultParts.satisfaction(
-                    input.subject() == null ? model.verifySatisfaction(target) : model.verifySatisfaction(input.subject()),
-                    project);
+                    model.verifySatisfaction(input.subject() == null ? target : input.subject()), project);
             case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments(model, input)), project);
             case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,
                     new AnalysisOptions(Optional.ofNullable(input.subject()), arguments(model, input),
@@ -148,18 +162,23 @@ public class RunWithOpenSysMLService {
     }
 
     private RunResult result(String hash, RunWithOpenSysMLInput input, String target, ResultParts parts,
-            List<DiagnosticMapper.Mapped> mapped, List<RunDiagnostic> exportDiagnostics) {
+            List<DiagnosticMapper.Mapped> mapped, List<RunResult.MappedDiagnostic> exportDiagnostics) {
         List<RunResult.MappedDiagnostic> mappedDiagnostics = new ArrayList<>();
-        exportDiagnostics.forEach(value -> mappedDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+        mappedDiagnostics.addAll(exportDiagnostics);
         mapped.forEach(value -> {
             mappedDiagnostics.add(new RunResult.MappedDiagnostic(value.diagnostic(), value.element()));
         });
-        return new RunResult(hash, input.operation(), target, parts.ok, parts.verdict, parts.schedule, parts.finalTime,
-                parts.outputs, parts.trace, parts.resultText, parts.outcomes, parts.verdicts, parts.instances,
-                mappedDiagnostics);
+        return RunResult.builder().modelHash(hash).operation(input.operation()).target(target).ok(parts.ok)
+                .verdict(parts.verdict).schedule(parts.schedule).finalTime(parts.finalTime).outputs(parts.outputs)
+                .trace(parts.trace).resultText(parts.resultText).outcomes(parts.outcomes).verdicts(parts.verdicts)
+                .instances(parts.instances).mappedDiagnostics(mappedDiagnostics).build();
     }
 
     static final class ResultParts {
+        private static final String HOLDS = "holds";
+        private static final String VIOLATED = "violated";
+        private static final String UNDECIDED = "undecided";
+
         private final ExportedProject project;
         private boolean ok = true;
         private String verdict;
@@ -244,9 +263,7 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts verification(Verification result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = result.verdict().decided()
-                    ? (result.verdict().holds() ? "holds" : "violated")
-                    : "undecided";
+            p.verdict = verdictLabel(result.verdict().decided(), result.verdict().holds(), HOLDS, VIOLATED);
             p.diagnostics = result.diagnostics();
             p.verdicts = List.of(p.verdict(result.verdict()));
             p.instances = p.instances(result.instances());
@@ -255,8 +272,8 @@ public class RunWithOpenSysMLService {
         static ResultParts satisfaction(Satisfaction result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
-            p.verdict = result.verdicts().stream().anyMatch(verdict -> !verdict.decided())
-                    ? "undecided" : result.holds() ? "pass" : "fail";
+            p.verdict = verdictLabel(result.verdicts().stream().allMatch(Verdict::decided),
+                    result.holds(), "pass", "fail");
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;
@@ -270,8 +287,8 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts analysis(Analysis result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = result.verdicts().stream().anyMatch(verdict -> !verdict.decided())
-                    ? "undecided" : result.holds() ? "holds" : "violated";
+            p.verdict = verdictLabel(result.verdicts().stream().allMatch(Verdict::decided),
+                    result.holds(), HOLDS, VIOLATED);
             p.outputs = values(result.outputs());
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
             p.diagnostics = result.diagnostics();
@@ -281,12 +298,19 @@ public class RunWithOpenSysMLService {
         static ResultParts validation(org.openmbee.opensysml.Validation result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
-            p.verdict = result.summary().decided()
-                    ? (result.holds() ? "holds" : "violated") : "undecided";
+            p.verdict = verdictLabel(result.summary().decided(), result.holds(), HOLDS, VIOLATED);
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;
         }
+        // verdictLabel is the summary word a decided verdict writes.
+        static String verdictLabel(boolean decided, boolean holds, String holdsLabel, String failsLabel) {
+            if (!decided) {
+                return UNDECIDED;
+            }
+            return holds ? holdsLabel : failsLabel;
+        }
+
         static List<RunNamedValue> values(Map<String, Value> values) {
             return values.entrySet().stream()
                     .map(entry -> new RunNamedValue(entry.getKey(), ValueText.render(entry.getValue())))

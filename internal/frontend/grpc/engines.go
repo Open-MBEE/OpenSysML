@@ -99,6 +99,7 @@ func performOn[T any](ctx context.Context, s *Service, rt *runtime.Context, sele
 		Schedule:  schedule,
 		ModelSeed: analysis.ModelSeedOf(rt),
 		Draws:     analysis.DrawsOf(rt),
+		ClockStep: analysis.ClockStepOf(rt),
 		Budget:    analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate, s.jobs),
 		Selection: selection,
 	}, call, answer)
@@ -146,6 +147,12 @@ func callerGone(ctx context.Context, err error) error {
 // heldAnswer is what a behavior run established: the values it left, or nothing.
 func heldAnswer(held map[string]runtime.Value, err error) analysis.Answer {
 	return analysis.ValuesAnswer(analysis.ValuesOf(held), err)
+}
+
+// actionRun is what one action run left: its outputs and its performer's attributes.
+type actionRun struct {
+	outputs   map[string]runtime.Value
+	performer map[string]runtime.Value
 }
 
 // stateRun is what one state machine run left: its final data and the states it visited.

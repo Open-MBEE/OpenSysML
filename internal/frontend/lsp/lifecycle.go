@@ -12,7 +12,8 @@ import (
 func (s *Server) Initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	s.setFolders(initializeFolders(params))
 	if params != nil {
-		s.applyConformanceSettings(params.InitializationOptions)
+		s.applyConformanceSettings(ctx, params.InitializationOptions)
+		s.applyLintSettings(ctx, params.InitializationOptions)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
@@ -56,6 +57,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				CrossDocumentCapability:   true,
 				RenderPaletteCapability:   true,
 				RenderFormsCapability:     renderFormNames(),
+				RenderStylesCapability:    renderStyleNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{

@@ -60,17 +60,14 @@ func (c *metadataTypeChecker) checkSymbol(sym *symbols.Symbol) {
 }
 
 // checkAnnotations checks the type of each annotation written on decl, read in
-// scope, and of everything an unnamed annotation's body declares in turn.
+// scope. An annotation's body is the usage's own scope, which the symbol walk
+// visits as it does any other member.
 func (c *metadataTypeChecker) checkAnnotations(scope *symbols.Scope, decl ast.Node) {
 	if scope == nil {
 		return
 	}
 	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
 		c.check(scope, a.Node.Type, a.Node.Span(), true)
-		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
-			c.checkAnnotations(body, a.Node)
-			kit.ForEachBodySymbol(body, c.checkSymbol)
-		}
 	}
 }
 

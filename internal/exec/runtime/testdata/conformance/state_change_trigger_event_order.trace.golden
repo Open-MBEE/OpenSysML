@@ -21,10 +21,11 @@ stmt assign log
     eval literal 2 -> 2
   eval operator + -> 12
 enter: C (entry action)
-stmt assign log
-      eval feature log -> 12
-      eval literal 10 -> 10
-    eval operator * -> 120
-    eval literal 3 -> 3
-  eval operator + -> 123
+stmt action body
+  stmt assign log
+        eval feature log -> 12
+        eval literal 10 -> 10
+      eval operator * -> 120
+      eval literal 3 -> 3
+    eval operator + -> 123
 transition: B -> C (event: accept Go)

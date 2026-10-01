@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::Fleet",
+  "objects": [
+    {"path": "car", "finalState": "waiting"},
+    {"path": "second", "finalState": "heard"}
+  ]
+}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
@@ -458,6 +459,40 @@ func TestMintingIsExplicit(t *testing.T) {
 	}
 }
 
+// A relationship element the encoder derives from a side table — the
+// FeatureTyping a `: T` materializes, a Subclassification a `:>` materializes —
+// is owned by the element it restates, and notation can never address it, so
+// minting it an id would mint one nothing can declare.
+func TestMintingSkipsDerivedSatellites(t *testing.T) {
+	repository := graphOf(t, scoped(vehicle))
+	local := graphOf(t, scoped(vehicle+`	part def Car :> Vehicle {
+		part wheel : Vehicle;
+	}
+`))
+	set, err := reposync.Diff(local, repository, reposync.Options{
+		MintIDs: true,
+		NewID:   func() (string, error) { return "minted-uuid-1", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mintedOwner := false
+	for _, change := range set.Changes {
+		if change.MintedID == "" {
+			continue
+		}
+		if export.DerivedSatellite(change.Metaclass) {
+			t.Errorf("the derived %s %s was minted an id", change.Metaclass, change.ID)
+		}
+		if change.ID == "P__Car" {
+			mintedOwner = true
+		}
+	}
+	if !mintedOwner {
+		t.Errorf("the satellite's owner element was not minted:\n%s", set.Text())
+	}
+}
+
 func TestWriteBackDeclaresMintedIDs(t *testing.T) {
 	local := graphOf(t, scoped(vehicle+`	part def Wheel;
 `))
@@ -752,6 +787,51 @@ func TestUserElementWithLibraryIDIsDeclaredNotNormative(t *testing.T) {
 		}
 		if change := creates[0]; !change.Declared || change.Normative || change.MintedID != "" {
 			t.Errorf("%s on %s: declared %v normative %v minted %q; want a declared id", c.id, c.qname, change.Declared, change.Normative, change.MintedID)
+		}
+	}
+}
+
+// A dependency owns its `#Tag` prefix through an Annotation whose id derives
+// from the metadata usage's (`_an`, as a membership's is `_om`). A prefix has
+// no body to declare an id in, so sync mints neither of them one: minted, the
+// next export would move both back to the ids their positions give them.
+func TestDependencyPrefixIsNotMinted(t *testing.T) {
+	repository := graphOf(t, scoped(vehicle))
+	local := graphOf(t, scoped(vehicle+`	metadata def Tag;
+	part def Car;
+	#Tag dependency from Car to Vehicle;
+	#Tag part c : Car;
+`))
+	next := 0
+	set, err := reposync.Diff(local, repository, reposync.Options{
+		MintIDs: true,
+		NewID: func() (string, error) {
+			next++
+			return fmt.Sprintf("00000000-0000-4000-8000-%012d", next), nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, change := range set.Changes {
+		seen[change.Metaclass] = true
+		if (change.Metaclass == "Annotation" || change.Metaclass == "MetadataUsage") && change.MintedID != "" {
+			t.Errorf("the %s %s was minted an id", change.Metaclass, change.ID)
+		}
+	}
+	if !seen["Annotation"] || !seen["MetadataUsage"] || !seen["Dependency"] {
+		t.Fatalf("the creates lack the prefixes:\n%s", set.Text())
+	}
+	// Everything minted is written back and exported again at the same id.
+	back, err := convert.Convert("m.ttl", rdf.WriteTurtle(writeBack(t, local, set.Mints())), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("read the rewritten graph back: %v", err)
+	}
+	again := graphOf(t, string(back))
+	for old, minted := range set.Mints() {
+		if _, ok := again.Object(rdf.ElementIRIForID(minted), rdf.RDFType); !ok {
+			t.Errorf("%s, minted %s, is not at that id after write-back:\n%s", old, minted, back)
 		}
 	}
 }

@@ -1,0 +1,12 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);T3(effect);S2(entry);\"",
+			"\"B1(exit);T22(effect);A1(exit);T12(effect);S1(exit);T3(effect);S2(entry);\""
+		]
+	},
+	"agreed": {
+		"finalState": "S2"
+	}
+}

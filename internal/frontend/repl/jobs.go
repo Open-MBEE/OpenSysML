@@ -12,16 +12,25 @@ func (s *Session) Jobs() int {
 	return s.jobs
 }
 
-// SetJobs sets how many runs of one plan go concurrently from here on. The held
-// context, its objects and the debuggers keep going: jobs bound a plan's runs,
-// not the session's context. A value below one is a typed error.
+// SetJobs sets how many runs of one plan go concurrently from here on, and how
+// many files of one load are parsed and analyzed at once. The held context, its
+// objects and the debuggers keep going: jobs bound a plan's runs, not the
+// session's context. A value below one is a typed error.
 func (s *Session) SetJobs(jobs int) error {
 	if jobs <= 0 {
 		return &analysis.JobsError{Source: "%jobs", Value: fmt.Sprint(jobs)}
 	}
 	defer s.enter()()
-	s.jobs = jobs
+	s.setJobs(jobs)
 	return nil
+}
+
+// setJobs records a positive job count and sizes the workspace's pool to match.
+func (s *Session) setJobs(jobs int) {
+	s.jobs = jobs
+	if err := s.ws.SetWorkers(jobs); err != nil {
+		panic(err) // unreachable: jobs is positive
+	}
 }
 
 // doJobs shows the jobs setting, or sets it when a count is given.
@@ -31,7 +40,7 @@ func (s *Session) doJobs(args []string) []string {
 		if err != nil {
 			return []string{errPrefix + err.Error()}
 		}
-		s.jobs = jobs
+		s.setJobs(jobs)
 	}
 	return []string{fmt.Sprintf("jobs: %d", s.jobs)}
 }

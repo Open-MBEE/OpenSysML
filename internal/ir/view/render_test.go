@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -209,9 +210,8 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 }
 
-// A machine the runtime refuses is refused by the state rendering too, its
-// redefinitions resolved as the runtime resolves them: an alias of the
-// library's run-to-completion feature is reported, not drawn as if it ran.
+// A machine with a non-ancestor run-to-completion scope is refused by state
+// rendering too, using the same lowered scope resolution as the runtime.
 func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
 	rendering := render(t, "state-refused.sysml", "MachineViews::relaxedStates")
 	if len(rendering.Roots) != 0 {
@@ -220,7 +220,7 @@ func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
 	if len(rendering.Notices) != 1 {
 		t.Fatalf("notices = %v, want one refusing the machine", rendering.Notices)
 	}
-	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "isRunToCompletion", "= false"} {
+	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "runToCompletionScope", "neither the state itself"} {
 		if !strings.Contains(rendering.Notices[0], want) {
 			t.Errorf("notice = %q, want %q named", rendering.Notices[0], want)
 		}
@@ -355,13 +355,13 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 // apart from its notes, and every form writes the type after the name.
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	cases := []struct {
-		view, name, kind, typ, detail string
+		view, name, label, kind, typ, detail string
 	}{
-		{"TypedViews::cycleView", "Typed::run", "action", "Cycle", ""},
-		{"TypedViews::cycleView", "warm", "action", "Warm", ""},
-		{"TypedViews::cycleView", "start", "initial", "", ""},
-		{"TypedViews::boilerView", "heating", "state", "Heating", ""},
-		{"TypedViews::boilerView", "idle", "state", "", "initial"},
+		{"TypedViews::cycleView", "Typed::run", "run", "action", "Cycle", ""},
+		{"TypedViews::cycleView", "warm", "warm", "action", "Warm", ""},
+		{"TypedViews::cycleView", "start", "start", "initial", "", ""},
+		{"TypedViews::boilerView", "heating", "heating", "state", "Heating", ""},
+		{"TypedViews::boilerView", "idle", "idle", "state", "", "initial"},
 	}
 	for _, tc := range cases {
 		rendering := render(t, "typed-behavior.sysml", tc.view)
@@ -373,10 +373,10 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		if tc.typ == "" {
 			continue
 		}
-		head := tc.name + " : " + tc.typ
-		if text := rendering.Text(); !strings.Contains(text, tc.kind+" "+head) {
+		if text, head := rendering.Text(), tc.name+" : "+tc.typ; !strings.Contains(text, tc.kind+" "+head) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
+		head := tc.label + " : " + tc.typ
 		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
 			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
 		}
@@ -392,7 +392,8 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 
 // A declared type is spelled as the notation does: a conjugated port typing
 // keeps its `~`, a name that is not a basic one its quotes, a global name its
-// `$::` root, and a usage typed by several types lists them all.
+// `$::` root, and a usage typed by several types lists them all. A diagram
+// heads each type by the name it ends in, the `~` and the quotes kept.
 func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
 	cases := map[string]string{
@@ -414,6 +415,29 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	mermaid := rendering.Mermaid()
+	for _, want := range []string{
+		"[\"Rig<br>«part def»\"]", "[\"plug : ~Link<br>«port»\"]", "[\"base : Mount, Cart<br>«part»\"]",
+		"[\"root : Mount<br>«part»\"]", "[\"mirrored : ~'Frame *rail*'<br>«port»\"]",
+	} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+		}
+	}
+	// Beside the spelling, a node carries the qualified names its typings
+	// resolve to; a feature chain names no element and resolves to none.
+	typings := map[string][]string{
+		"plug":     {"Spelled::Link"},
+		"rail":     {"Spelled::'Frame *rail*'"},
+		"base":     {"Spelled::Mount", "Spelled::Cart"},
+		"root":     {"Spelled::Mount"},
+		"mirrored": nil,
+	}
+	for name, want := range typings {
+		if node := findNode(t, rendering.Roots, name); !slices.Equal(node.Typings, want) {
+			t.Errorf("node %s: typings %q, want %q", name, node.Typings, want)
 		}
 	}
 	// An anonymous connection or message is labeled by its type, spelled once.
@@ -650,8 +674,26 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
-	if got, want := mermaidLabel(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+	if got, want := (labeller{}).mermaid(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
 		t.Errorf("mermaidLabel = %q, want %q", got, want)
+	}
+}
+
+// A state transition's label follows an unquoted colon, where Mermaid reads
+// `::` as its class marker: a qualified trigger is written with entity colons.
+func TestMermaidTransitionLabelsEscapeColons(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindState,
+		Roots: []*Node{{ID: "a", Kind: "state", Name: "idle"}, {ID: "b", Kind: "state", Name: "busy"}},
+		Edges: []Edge{{From: "a", To: "b", Label: "accept Signals::'Go Now'; [x : T]"}}}
+	mermaid := rendering.Mermaid()
+	want := "  a --> b : accept Signals#58;#58;'Go Now'#59; [x #58; T]\n"
+	if !strings.Contains(mermaid, want) {
+		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+	}
+	for _, line := range strings.Split(mermaid, "\n") {
+		if _, label, ok := strings.Cut(line, " : "); ok && strings.Contains(label, "::") {
+			t.Errorf("transition label carries a bare `::`: %q", line)
+		}
 	}
 }
 
@@ -705,4 +747,90 @@ func checkGolden(t *testing.T, path, got string) {
 	if got != string(want) {
 		t.Errorf("%s differs\n--- want ---\n%s\n--- got ---\n%s", path, want, got)
 	}
+}
+
+// TestMermaidLimits checks the limits every chart fits under are sized to the
+// largest, not fixed at Mermaid's defaults, so no chart of a model under the
+// ceilings is refused, and never raised past the ceilings.
+func TestMermaidLimits(t *testing.T) {
+	small := "flowchart LR\n  a --> b"
+	large := "flowchart LR\n" + strings.Repeat("  n --> n\n", 1000) + strings.Repeat("x", 60000)
+	textSize, edges := MermaidLimits(small)
+	if textSize <= len(small) || textSize > 100 || edges <= 1 || edges > 10 {
+		t.Errorf("a two-line chart gets limits %d, %d, not ones sized to it", textSize, edges)
+	}
+	textSize, edges = MermaidLimits(small, large, small)
+	if textSize <= len(large) || edges <= 1000 {
+		t.Errorf("limits %d, %d do not fit a chart of %d bytes and 1000 edges", textSize, edges, len(large))
+	}
+	if !MermaidFits(small) || !MermaidFits(large) {
+		t.Errorf("a chart under the ceilings does not fit")
+	}
+	if textSize, edges = MermaidLimits(); textSize != 0 || edges != 0 {
+		t.Errorf("no chart gets limits %d, %d", textSize, edges)
+	}
+	manyEdges := "flowchart LR\n" + strings.Repeat("  n --> n\n", MermaidEdgeCeiling)
+	longText := "flowchart LR\n  a[\"" + strings.Repeat("x", MermaidTextCeiling) + "\"]"
+	if MermaidFits(manyEdges) || MermaidFits(longText) {
+		t.Errorf("a chart past a ceiling fits")
+	}
+	if textSize, edges = MermaidLimits(manyEdges, longText); textSize != MermaidTextCeiling || edges != MermaidEdgeCeiling {
+		t.Errorf("limits %d, %d are raised past the ceilings %d, %d", textSize, edges, MermaidTextCeiling, MermaidEdgeCeiling)
+	}
+}
+
+// TestMermaidSizeCountsEdges checks a chart's edge count is the edges it
+// declares, not its lines: a chart of many nodes, comments and labels spelling
+// an arrow fits under the edge ceiling, and a rendering of each kind is sized
+// to the edges it draws.
+func TestMermaidSizeCountsEdges(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n")
+	b.WriteString("%% a --> b is not an edge in a comment\nflowchart TD\n  subgraph s [\"a ->> b\"]\n    direction TD\n")
+	for i := 0; i < MermaidEdgeCeiling; i++ {
+		fmt.Fprintf(&b, "    n%d[\"n%d --> n%d\"]\n", i, i, i+1)
+	}
+	b.WriteString("  end\n  n0 --> n1\n  n1 ---|\"a --- b\"| n2\n")
+	if textSize, edges := MermaidSize(b.String()); edges != 3 || textSize != b.Len()+1 {
+		t.Errorf("a chart of two edges and %d node lines is sized %d characters, %d edges", MermaidEdgeCeiling, textSize, edges)
+	}
+	if !MermaidFits(b.String()) {
+		t.Errorf("a chart of two edges does not fit for its node lines")
+	}
+	if _, edges := MermaidSize("sequenceDiagram\n  participant a as a-#gt;#gt;b\n  a->>b: x\n  b->>a:"); edges != 3 {
+		t.Errorf("a sequence diagram of two messages is sized %d edges", edges)
+	}
+	if _, edges := MermaidSize("stateDiagram-v2\n  state \"a --> b\" as a\n  [*] --> a\n  a --> b : go --> now"); edges != 3 {
+		t.Errorf("a state diagram of two transitions is sized %d edges", edges)
+	}
+	for _, tc := range []struct{ file, view string }{
+		{"tree.sysml", "VehicleViews::vehicleView"},
+		{"interconnection.sysml", "PlantViews::loopView"},
+		{"state-entry.sysml", "MachineViews::thermostat"},
+		{"action.sysml", "FlowViews::driveView"},
+		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+	} {
+		rendering := render(t, tc.file, tc.view)
+		drawn := len(rendering.Edges)
+		if rendering.Kind == KindTree {
+			for _, root := range rendering.Roots {
+				drawn += containmentEdges(root)
+			}
+		}
+		if drawn == 0 {
+			t.Errorf("%s draws no edge", tc.view)
+		}
+		if _, edges := MermaidSize(rendering.Mermaid()); edges != drawn+1 {
+			t.Errorf("%s draws %d edges and is sized %d, want one past the edges:\n%s", tc.view, drawn, edges, rendering.Mermaid())
+		}
+	}
+}
+
+// containmentEdges counts the edges a tree draws from node down to what it contains.
+func containmentEdges(node *Node) int {
+	n := len(node.Children)
+	for _, child := range node.Children {
+		n += containmentEdges(child)
+	}
+	return n
 }

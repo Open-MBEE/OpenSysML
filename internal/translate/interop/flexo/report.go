@@ -35,10 +35,12 @@ type ElementStat struct {
 }
 
 // SideReport is one direction of the comparison: the graph this project loads,
-// or the same model committed through the service's own JSON path.
+// the reference model committed through the service's own JSON path, or the
+// API's element form committed the same way.
 type SideReport struct {
-	Name          string // "graph-load" or "json-commit"
+	Name          string // "graph-load", "json-commit" or "api-json-commit"
 	Accepted      bool   // the service took the payload
+	Refusal       string // why the service refused it, when it did
 	Commits       int    // commits the project has after the write
 	Written       int    // elements in the payload
 	Listed        int    // written elements the listing returned
@@ -61,13 +63,22 @@ type GraphStats struct {
 	ByNamespace []PropertyStat // one entry per prefix, Written holding its triple count
 }
 
+// APIJSONStats describes the API element form the writer emitted for the same
+// graph: how many element objects the commit post carried, and how large.
+type APIJSONStats struct {
+	Elements int
+	Bytes    int
+}
+
 // Report is a whole run.
 type Report struct {
-	Fixture   string
-	Graph     GraphStats
-	Load      SideReport
-	Reference SideReport
-	Findings  []string
+	Fixture      string
+	Graph        GraphStats
+	APIJSONStats APIJSONStats
+	Load         SideReport
+	Reference    SideReport
+	APIJSON      SideReport
+	Findings     []string
 }
 
 // Text renders the report as the expectation file: sections of tab-separated
@@ -81,8 +92,10 @@ func (r *Report) Text(header string) string {
 	for _, ns := range r.Graph.ByNamespace {
 		fmt.Fprintf(&b, "triples.%s\t%d\n", ns.Property, ns.Written)
 	}
+	fmt.Fprintf(&b, "\n[api-json]\nelements\t%d\nbytes\t%d\n", r.APIJSONStats.Elements, r.APIJSONStats.Bytes)
 	r.Load.write(&b)
 	r.Reference.write(&b)
+	r.APIJSON.write(&b)
 
 	b.WriteString("\n[findings]\n")
 	for _, finding := range r.Findings {
@@ -94,10 +107,14 @@ func (r *Report) Text(header string) string {
 // write renders one side: its totals, then a line per property and a line per
 // element.
 func (s *SideReport) write(b *strings.Builder) {
-	fmt.Fprintf(b, "\n[%s]\naccepted\t%s\ncommits\t%d\nelements.written\t%d\nelements.listed\t%d\n"+
+	fmt.Fprintf(b, "\n[%s]\naccepted\t%s\n", s.Name, yesNo(s.Accepted))
+	if s.Refusal != "" {
+		fmt.Fprintf(b, "refusal\t%s\n", s.Refusal)
+	}
+	fmt.Fprintf(b, "commits\t%d\nelements.written\t%d\nelements.listed\t%d\n"+
 		"elements.unexpected\t%d\nlisting.responses\t%d\nlisting.paging-ignored\t%s\n"+
 		"elements.readable-directly\t%d\nroots.reported\t%d\nroots.in-model\t%d\n",
-		s.Name, yesNo(s.Accepted), s.Commits, s.Written, s.Listed, s.Extra, s.Pages,
+		s.Commits, s.Written, s.Listed, s.Extra, s.Pages,
 		yesNo(s.IgnoredPaging), s.Direct, s.Roots, s.RootsInModel)
 
 	fmt.Fprintf(b, "\n[%s.properties]\n", s.Name)

@@ -1,0 +1,35 @@
+{
+  "type": "instance",
+  "instantiate": "test::Casting",
+  "libraries": true,
+  "slots": {
+    "block.isSolid": {"type": "Boolean", "value": false},
+    "block.voids": {"type": "Instance"},
+    "block.voids.height": {"type": "Quantity", "value": 3, "unit": "m"},
+    "block.voids.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "block.voids.base.edges": {"type": "Instance"},
+    "block.voids.af.edges": {"type": "Instance"},
+    "block.voids.be": {"error": "binding end cannot be resolved \"cf.edges\": feature edges not found"},
+    "block.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "block.tf.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "block.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "block.tf.vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]}
+  }
+}

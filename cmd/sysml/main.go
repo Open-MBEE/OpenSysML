@@ -10,8 +10,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/chzyer/readline"
-
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
@@ -20,6 +18,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // errPrefix names the tool in the messages it writes to stderr.
@@ -32,20 +31,6 @@ var (
 	BuildTime = "unknown"
 	GoVersion = "unknown"
 )
-
-type rlReader struct{ rl *readline.Instance }
-
-func (r *rlReader) ReadLine(prompt string) (string, error) {
-	r.rl.SetPrompt(prompt)
-	line, err := r.rl.Readline()
-	if err == readline.ErrInterrupt { // Ctrl-C clears line (continue REPL)
-		return "", nil
-	}
-	if err == io.EOF { // Ctrl-D exits REPL
-		return "", io.EOF
-	}
-	return line, err
-}
 
 // sessionCompleter completes prompt input from the session: meta commands,
 // declared and library names, and file paths after %load and %save.
@@ -121,12 +106,17 @@ var (
 	queryText        string
 	outputPath       string
 	fromFormat       string
+	idForm           string
 	migrationReport  string
 	migrationResults string
+	layoutPath       string
+	imageBaseURL     string
 	renderView       string
 	renderAllDir     string
 	renderForm       string
 	renderPalette    string
+	renderUnplaced   string
+	renderStyle      string
 	renderDoc        string
 	renderDocsDir    string
 	docForm          string
@@ -135,6 +125,7 @@ var (
 	pdfTitlePage     bool
 	pdfTOC           bool
 	pdfNumbering     bool
+	docNumberFigures bool
 	htmlCSS          stringSlice
 	htmlNoCSS        bool
 	htmlShowCSS      bool
@@ -143,6 +134,8 @@ var (
 	htmlMath         string
 	htmlTheme        string
 	strictMode       bool
+	disabledLints    lintList
+	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
 	compileTarget    string
@@ -181,7 +174,7 @@ func resolveEngines() error {
 }
 
 // jobs is how many runs of one plan go concurrently: -jobs when given, else
-// OPENSYSML_JOBS, else one per CPU; read once at startup.
+// OPENSYSML_JOBS, else one per CPU the memory available allows; read once at startup.
 var jobs = analysis.DefaultJobs()
 
 // jobsSetting is -jobs as written, rejected where it is parsed so a value below one is
@@ -384,6 +377,14 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT or PlantUML with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-unplaced places the unplaced nodes of a positioned DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
+	if renderStyle != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-style is the drawing style of a DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
+		return 2
+	}
 
 	// The default stylesheet is asked for on its own; it needs no model, and
 	// writing it is the whole run, so it cannot stand in for another.
@@ -397,7 +398,7 @@ func runCLI() int {
 			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
-		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet itself; the document and stylesheet options shape a rendered document, not the sheet")
 			return 2
 		case fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
@@ -412,7 +413,7 @@ func runCLI() int {
 	}
 
 	if renderDoc == "" && renderDocsDir == "" &&
-		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
+		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
 	}
@@ -445,6 +446,26 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
 		return 2
 	}
+	if idForm != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")
+		return 2
+	}
+	if layoutPath != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -layout model_mtip.xml`")
+		return 2
+	}
+	if flagGiven("record-into") && len(modelChecks.records) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
+	if flagGiven("record-into") && modelChecks.recordInto == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into needs a package name; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
+	if flagGiven("layout") && layoutPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout is empty; name the MTIP export to lay the migrated views out from")
+		return 2
+	}
 	if flagGiven("compare-results") && modelChecks.compare == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -compare-results is empty; name the JSON file -migration-results wrote")
 		return 2
@@ -469,6 +490,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -compile needs -o to name the executable (or the source file, with -source)")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runCompile(args); err != nil {
 			return fail(err)
 		}
@@ -488,7 +512,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || renderStyle != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -500,8 +524,12 @@ func runCLI() int {
 		}
 		return runSyncDiff(args)
 	}
-	if syncBase != "" || syncState != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
-		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-state, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+	if syncBase != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+		return 2
+	}
+	if syncState != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-state applies to -sync-diff, -sync-apply, or a -convert that reads or pushes a repository branch")
 		return 2
 	}
 
@@ -529,10 +557,11 @@ func runCLI() int {
 		if status := resolveRunBounds(); status != 0 {
 			return status
 		}
-		if err := runRenderDocuments(args); err != nil {
+		status, err := runRenderDocuments(args)
+		if err != nil {
 			return fail(err)
 		}
-		return exitHolds
+		return status
 	}
 
 	if renderAllDir != "" {
@@ -553,6 +582,9 @@ func runCLI() int {
 			return refuse(modelChecks,
 				"-render-all writes views out and decides nothing about the model; check it in its own run")
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runRenderAll(args); err != nil {
 			return fail(err)
 		}
@@ -564,7 +596,7 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert and -query are mutually exclusive")
 			return 2
 		}
-		if modelChecks.requested() {
+		if modelChecks.requested() && !modelChecks.recordsOnly() {
 			return refuse(modelChecks,
 				"-convert writes the model out and decides nothing about it; check it in its own run")
 		}
@@ -572,10 +604,16 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert, -render and -render-document each write a document out; ask for one per run")
 			return 2
 		}
-		if err := runConvert(args); err != nil {
-			return fail(err)
+		if modelChecks.recordsOnly() {
+			if message := modelChecks.boundsMisuse(); message != "" {
+				fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+				return 2
+			}
+			if status := resolveRunBounds(); status != 0 {
+				return status
+			}
 		}
-		return exitHolds
+		return runConvertExit(args)
 	}
 
 	for _, path := range args {
@@ -590,6 +628,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -query cannot be combined with checks, -eval, -render, -render-document, -output or -from")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		return runQuery(args, queryText)
 	}
 
@@ -602,6 +643,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -render and -render-document each write a document out; ask for one per run")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runRender(args); err != nil {
 			return fail(err)
 		}
@@ -613,11 +657,14 @@ func runCLI() int {
 		case modelChecks.jsonOut && !modelChecks.checksOnly():
 			fmt.Fprintln(os.Stderr, "sysml: -render-document writes a document, not JSON; -json reports checks")
 			return 2
-		case modelChecks.requested() && !modelChecks.instantiatesOnly():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly() && !modelChecks.recordsOnly():
 			return refuse(modelChecks,
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-document cannot be combined with -eval or -from")
+			return 2
+		case modelChecks.recordsOnly() && modelChecks.boundsMisuse() != "":
+			fmt.Fprintf(os.Stderr, "sysml: %s\n", modelChecks.boundsMisuse())
 			return 2
 		}
 		if status := resolveRunBounds(); status != 0 {
@@ -666,6 +713,7 @@ func resolveRunBounds() int {
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
 	sess := repl.NewSession()
+	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
@@ -694,6 +742,11 @@ func newSession() *repl.Session {
 		sess.SetModelSeed(modelChecks.seed.value)
 	}
 	sess.SetDraws(modelChecks.draws.value)
+	if err := sess.SetClockStep(modelChecks.clockStep.value); err != nil {
+		// Unreachable: -clock-step was validated when parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	if err := sess.SetEngine(engine.text); err != nil {
 		// Unreachable: the selection was validated against the same engines when parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
@@ -704,7 +757,21 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
-	sess.SetConformanceMode(diag.ConformanceModeOf(strictMode))
+	if err := sess.SetConformanceMode(diag.ConformanceModeOf(strictMode)); err != nil {
+		// Unreachable: a session that has loaded nothing holds no recorded document.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetDisabledLints(disabledLints); err != nil {
+		// Unreachable: the codes were validated as the flag was parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	cache, err := libs.OpenRecordCache(noRecordCache)
+	if err != nil && !quietMode {
+		fmt.Fprintf(os.Stderr, "%s record cache unavailable, holding every file loaded: %v\n", errPrefix, err)
+	}
+	sess.SetRecordCache(cache)
 	sess.SetRenderWidth(terminalWidth())
 	return sess
 }
@@ -715,17 +782,11 @@ func newSession() *repl.Session {
 // prompt that opens is where it gets fixed.
 func runInteractiveWithFiles(files []string) int {
 	sess := newSession()
-	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "sysml> ",
-		HistoryFile:     historyPath(),
-		AutoComplete:    &sessionCompleter{sess: sess},
-		InterruptPrompt: "^C",
-		EOFPrompt:       "bye",
-	})
+	input, closeInput, err := newLineInput(sess)
 	if err != nil {
 		return fail(err)
 	}
-	defer rl.Close()
+	defer func() { _ = closeInput() }()
 
 	loaded, err := loadFiles(sess, files)
 	if err != nil {
@@ -734,7 +795,7 @@ func runInteractiveWithFiles(files []string) int {
 	terminal := atTerminal()
 
 	fmt.Println("SysML v2 REPL — %help for commands, Ctrl-D to exit")
-	if err := repl.Loop(&rlReader{rl: rl}, os.Stdout, sess); err != nil {
+	if err := repl.Loop(input, os.Stdout, sess); err != nil {
 		return fail(err)
 	}
 	return sessionStatus(loaded, terminal, sess.MaterializationFailures())

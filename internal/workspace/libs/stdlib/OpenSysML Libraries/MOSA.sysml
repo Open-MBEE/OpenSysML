@@ -86,7 +86,7 @@ library package MOSA {
 		software;
 	}
 
-	interface def ModularSystemInterface :> Interface {
+	abstract interface def ModularSystemInterface :> Interface {
 		doc /* A ModularSystemInterface is a shared boundary between major systems, major system
 		 * components or modular systems, defined by physical, logical and functional characteristics
 		 * such as electrical, mechanical, fluidic, optical, radio-frequency, data, networking or
@@ -300,7 +300,7 @@ library package MOSA {
 
 	view def ModularDecompositionView :> BrowserView {
 		doc /* Tree of the major system platform, its major system components and their modular systems. */
-		satisfy ModularDesignViewpoint;
+		satisfy requirement modularDesignViewpoint : ModularDesignViewpoint;
 		filter @MajorSystemPlatformMetadata or @MajorSystemComponentMetadata or @ModularSystemMetadata;
 		render asTreeDiagram;
 	}
@@ -308,49 +308,49 @@ library package MOSA {
 	view def ModularInterfaceView :> InterconnectionView {
 		doc /* Interconnection diagram of the major system components and modular systems with the modular
 		 * system interfaces between them. */
-		satisfy ModularInterfaceViewpoint;
+		satisfy requirement modularInterfaceViewpoint : ModularInterfaceViewpoint;
 		filter @MajorSystemPlatformMetadata or @MajorSystemComponentMetadata or @ModularSystemMetadata or @ModularSystemInterfaceMetadata;
 		render asInterconnectionDiagram;
 	}
 
 	view def InterfaceRegisterView :> GridView {
 		doc /* Table of the modular system interfaces. */
-		satisfy ModularInterfaceViewpoint;
+		satisfy requirement modularInterfaceViewpoint : ModularInterfaceViewpoint;
 		filter @ModularSystemInterfaceMetadata;
 		render asElementTable;
 	}
 
 	view def StandardsView :> GridView {
 		doc /* Table of the standards the model names, consensus-based or not. */
-		satisfy ModularInterfaceViewpoint;
+		satisfy requirement modularInterfaceViewpoint : ModularInterfaceViewpoint;
 		filter @StandardMetadata or @ConsensusStandardMetadata;
 		render asElementTable;
 	}
 
 	view def ProprietaryElementsView :> GridView {
 		doc /* Table of the elements marked proprietary. */
-		satisfy TechnicalDataViewpoint;
+		satisfy requirement technicalDataViewpoint : TechnicalDataViewpoint;
 		filter @Proprietary;
 		render asElementTable;
 	}
 
 	view def DataRightsView :> GridView {
 		doc /* Table of the elements whose data rights are recorded. */
-		satisfy TechnicalDataViewpoint;
+		satisfy requirement technicalDataViewpoint : TechnicalDataViewpoint;
 		filter @DataRights;
 		render asElementTable;
 	}
 
 	view def MOSARequirementsView :> GridView {
 		doc /* Table of the MOSA objectives and the modularity and interface requirements. */
-		satisfy ConformanceViewpoint;
+		satisfy requirement conformanceViewpoint : ConformanceViewpoint;
 		filter @MOSAObjectiveMetadata or @ModularityRequirementMetadata or @InterfaceRequirementMetadata;
 		render asElementTable;
 	}
 
 	view def ConformanceView :> GridView {
 		doc /* Table of the elements carrying a conformance assessment. */
-		satisfy ConformanceViewpoint;
+		satisfy requirement conformanceViewpoint : ConformanceViewpoint;
 		filter @MOSAConformance;
 		render asElementTable;
 	}
@@ -363,7 +363,7 @@ library package MOSA {
 		 * that conforms to ModularSystemInterface, whether it carries the keyword itself or is typed by
 		 * a definition that does. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		WhereType(
 			source = Descendants(source = root, maxDepth = depth),
 			type = "MOSA::ModularSystemInterface"
@@ -373,7 +373,7 @@ library package MOSA {
 	calc def InterfaceRegister :> Query {
 		doc /* One row per modular system interface below root: name, type, characteristics and documentation. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		Project(
 			source = ModularSystemInterfaces(root = root, depth = depth),
 			properties = ("name", "type", "characteristics", "documentation")
@@ -383,7 +383,7 @@ library package MOSA {
 	calc def Standards :> Query {
 		doc /* The standards declared below root: every item that conforms to Standard. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		WhereType(
 			source = Descendants(source = root, maxDepth = depth),
 			type = "MOSA::Standard"
@@ -393,7 +393,7 @@ library package MOSA {
 	calc def StandardsRegister :> Query {
 		doc /* One row per standard below root: name, organisation, identifier, version and registry entry. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		Project(
 			source = Standards(root = root, depth = depth),
 			properties = ("name", "organization", "identifier", "version", "registry")
@@ -403,7 +403,7 @@ library package MOSA {
 	calc def ProprietaryElements :> Query {
 		doc /* The elements below root marked proprietary. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		WhereMetadata(
 			source = Descendants(source = root, maxDepth = depth),
 			'metadata' = "MOSA::Proprietary"
@@ -413,7 +413,7 @@ library package MOSA {
 	calc def ProprietaryRegister :> Query {
 		doc /* One row per proprietary element below root: name, type and documentation. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		Project(
 			source = ProprietaryElements(root = root, depth = depth),
 			properties = ("name", "type", "documentation")
@@ -423,7 +423,7 @@ library package MOSA {
 	calc def DataRightsRegister :> Query {
 		doc /* One row per element below root whose data rights are recorded: name, type and documentation. */
 		in root : Element;
-		in depth : Integer = 16;
+		in depth : Integer default 16;
 		Project(
 			source = WhereMetadata(
 				source = Descendants(source = root, maxDepth = depth),
@@ -480,7 +480,7 @@ library package MOSA {
 	metadata def <technicalStandard> StandardMetadata :> SemanticMetadata {
 		:> annotatedElement : SysML::ItemDefinition;
 		:> annotatedElement : SysML::ItemUsage;
-		:>> baseType = standards meta SysML::Usage;
+		:>> baseType default = standards meta SysML::Usage;
 	}
 
 	metadata def <consensusStandard> ConsensusStandardMetadata :> StandardMetadata {

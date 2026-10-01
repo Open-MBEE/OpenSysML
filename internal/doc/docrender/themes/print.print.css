@@ -1,0 +1,17 @@
+/* print: the print companion, laid over the PDF backend's print sheet so the
+   theme's compact 11pt Times text and heading scale reach paper. */
+@layer opensysml-print-theme {
+  .sysml-document {
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", serif;
+    --sysml-font-heading: "Times New Roman", Times, "Liberation Serif", serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", monospace;
+    --sysml-font-size: 11pt;
+    --sysml-line-height: 1.4;
+    --sysml-space: 0.8rem;
+    --sysml-title-font-size: 1.8em;
+    --sysml-heading-font-size: 1.8em;
+    --sysml-subheading-font-size: 1.3em;
+    --sysml-subsubheading-font-size: 1.1em;
+    --sysml-title-page-height: 80vh;
+  }
+}

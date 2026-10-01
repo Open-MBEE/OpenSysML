@@ -15,7 +15,7 @@ import (
 func TestEvaluateRunsEachRequestOnAWorkerOfItsOwn(t *testing.T) {
 	const model = `
 package Demo {
-  calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
+  calc def Twice { in x : ScalarValues::Real[1]; return : ScalarValues::Real = x * 2.0; }
   part def Vehicle {
     attribute mass = 1500.0;
     part engine { attribute power = 100.0; }
@@ -95,7 +95,7 @@ package Demo {
 func TestWorkerHandedOnDoesNotRetainRequestExpressions(t *testing.T) {
 	const model = `
 package Demo {
-  calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
+  calc def Twice { in x : ScalarValues::Real[1]; return : ScalarValues::Real = x * 2.0; }
   part def Vehicle {
     attribute mass = 1500.0;
     part engine { attribute power = 100.0; }
@@ -159,7 +159,7 @@ package Demo {
 func TestEvaluateSelectsInvocationsOnEachWorker(t *testing.T) {
 	const model = `
 package Demo {
-  calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
+  calc def Twice { in x : ScalarValues::Real[1]; return : ScalarValues::Real = x * 2.0; }
   part def Vehicle {
     attribute mass = 1500.0;
     attribute doubled = Twice(mass);
@@ -204,7 +204,7 @@ package Demo {
 	if got := worker.Semantics().MemoSize(); got != 0 {
 		t.Fatalf("a new worker starts with %d selections, want none", got)
 	}
-	rt, release := srv.newRuntime(cached)
+	rt, release := srv.newRuntime(context.Background(), cached)
 	defer release()
 	warm := rt.Semantics().MemoSize()
 	if warm == 0 {

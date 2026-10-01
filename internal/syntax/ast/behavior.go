@@ -47,6 +47,7 @@ type FinalNode struct {
 // ForkNode splits execution into concurrent flows (1 incoming → N outgoing).
 type ForkNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	// Members and HasBody carry the body every ControlNode may declare
@@ -59,6 +60,7 @@ type ForkNode struct {
 // JoinNode synchronizes concurrent flows (N incoming → 1 outgoing).
 type JoinNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -68,6 +70,7 @@ type JoinNode struct {
 // MergeNode merges alternative flows (N incoming → 1 outgoing, each arrival passes).
 type MergeNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -77,6 +80,7 @@ type MergeNode struct {
 // DecisionNode is a conditional branch point (1 incoming → N guarded outgoing).
 type DecisionNode struct {
 	NodeBase
+	Prefixes []*PrefixMetadata
 	Name     string
 	NameSpan source.Span // span of Name, empty for an unnamed node
 	Members  []Node      // body members, as on ForkNode
@@ -247,14 +251,10 @@ const StartFeature = "start"
 // StateNode represents a state in a state machine (simple, composite, or orthogonal).
 type StateNode struct {
 	NodeBase
-	Name  string
-	Entry []Node // entry behaviors (action sequence)
-	Do    []Node // do action (ongoing action)
-	Exit  []Node // exit behaviors (action sequence)
-	// Defer names the events the state defers while it is active: an event no
-	// transition of the active configuration handles is retained instead of
-	// dropped, and delivered again once no active state defers it.
-	Defer     []Node
+	Name      string
+	Entry     []Node         // entry behaviors (action sequence)
+	Do        []Node         // do action (ongoing action)
+	Exit      []Node         // exit behaviors (action sequence)
 	Substates []Node         // nested states (hierarchical)
 	Regions   []*StateRegion // orthogonal regions (parallel)
 }
@@ -316,6 +316,16 @@ type SuccessionEdge struct {
 	NodeBase
 	Source *QualifiedName // source action node
 	Target *QualifiedName // target action node
+	// SourceMultiplicity is the source-end multiplicity of an action succession
+	// (SysML.xtext:878, 887, 1703; formal/2026-03-02): the `[m]` written before
+	// `then` (`[m] then b;`), or after it ahead of the member a member-attached
+	// `then` declares (`then [m] action b;`).
+	SourceMultiplicity *Multiplicity
+	// TargetMultiplicity is the crossing multiplicity written ahead of the
+	// target a `then` references (`then [m] b;`, SysML.xtext:1705
+	// TargetSuccession, whose ConnectorEnd takes one): the same end
+	// `succession first a then [m] b;` states.
+	TargetMultiplicity *Multiplicity
 	// SourceMember and TargetMember are the members a member-attached `then`
 	// (SysML.xtext EmptySuccessionMember) sequences when the member declares no
 	// name a reference could use — `then send fullyCharged() to self;`, `then
@@ -694,31 +704,29 @@ func DeclNamingFeature(decl Node) *Relationship {
 // Phase C4: State Body Members
 
 // EntryMember represents entry behavior in a state body.
-// Syntax: entry { <actions> }
+// Syntax: entry <action>; — `entry action a;`, `entry assign x := 1;`,
+// `entry a;` or `entry { … }` (SysML.xtext StateActionUsage).
+//
+// Actions holds the one action the subaction performs, or nothing for `entry;`.
+// A braced block is one anonymous action usage whose Members are the block's
+// items and whose Keyword is empty, as no `action` keyword was written.
 type EntryMember struct {
 	NodeBase
-	Actions []Node // action sequence
+	Actions []Node
 }
 
 // DoMember represents an ongoing do action in a state body.
-// Syntax: do { <actions> }
+// Syntax: do <action>; — see EntryMember for the forms Actions holds.
 type DoMember struct {
 	NodeBase
-	Actions []Node // action sequence
+	Actions []Node
 }
 
 // ExitMember represents exit behavior in a state body.
-// Syntax: exit { <actions> }
+// Syntax: exit <action>; — see EntryMember for the forms Actions holds.
 type ExitMember struct {
 	NodeBase
-	Actions []Node // action sequence
-}
-
-// DeferMember represents the events a state defers while it is active.
-// Syntax: defer <event> [, <event>]* ;
-type DeferMember struct {
-	NodeBase
-	Triggers []Node // deferred triggers, in declaration order
+	Actions []Node
 }
 
 // SubstateMember represents a nested state declaration.
@@ -746,9 +754,12 @@ type TransitionMember struct {
 	// TriggerSpan spans the accepter the trigger keyword introduces
 	// (`accept A`), which is the element the accepter rules are about.
 	TriggerSpan source.Span
-	Guard       Node   // optional guard expression
-	Effect      []Node // optional effect actions
-	HasEffect   bool   // a `do` was written, even one whose braces hold nothing
+	Guard       Node // optional guard expression
+	// Effect holds the one action the `do` performs (SysML.xtext
+	// EffectBehaviorUsage): a declaration, a statement, or for `do { … }` the
+	// anonymous action usage whose Members are the block's items.
+	Effect    []Node
+	HasEffect bool // a `do` was written, even one whose braces hold nothing
 	// Via is the port the trigger's message must arrive at
 	// (`accept :> ping via commPort`), nil when the trigger named none.
 	Via *QualifiedName

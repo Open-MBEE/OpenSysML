@@ -16,7 +16,7 @@ public final class PathSelector {
     try {
       Class.forName(SERVICE, false, PathSelector.class.getClassLoader());
       return true;
-    } catch (Throwable ignored) {
+    } catch (ClassNotFoundException | LinkageError absent) {
       return false;
     }
   }

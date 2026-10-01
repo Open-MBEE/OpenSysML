@@ -5,11 +5,13 @@ exit: ready
 choice fork split: next split->building(effect), split->checking(effect) (unordered; took split->building(effect) first)
 enter: working
 enter: building (entry action)
-stmt assign leftDone
-  eval literal 1 -> 1
+stmt action body
+  stmt assign leftDone
+    eval literal 1 -> 1
 enter: checking (entry action)
-stmt assign rightDone
-  eval literal 1 -> 1
+stmt action body
+  stmt assign rightDone
+    eval literal 1 -> 1
 transition: ready -> split
 choice join sync: states building, checking react (unordered; took building first)
 exit: building

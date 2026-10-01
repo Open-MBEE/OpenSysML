@@ -19,6 +19,11 @@ func (p *Parser) ParseExpression() ast.Node {
 	return p.parseConditional()
 }
 
+// ParseMultiplicity parses one multiplicity beginning with `[` (SysML.xtext:878, 887; formal/2026-03-02).
+func (p *Parser) ParseMultiplicity() *ast.Multiplicity {
+	return p.parseMultiplicity()
+}
+
 // parseConditional parses `if cond ? then else else` or falls through.
 func (p *Parser) parseConditional() ast.Node {
 	if p.atKeyword("if") {
@@ -185,9 +190,18 @@ func (p *Parser) parseUnary() ast.Node {
 		return p.parsePrimary()
 	}
 	p.advance() // prefix operator
+	// Reserve the slot before the operand so nested `~~x` records in source order.
+	slot := -1
+	if op == ast.OpBitNot {
+		slot = len(p.undefinedOps)
+		p.undefinedOps = append(p.undefinedOps, nil)
+	}
 	operand := p.parseUnary()
 	e := &ast.OperatorExpr{Operator: op, Operands: []ast.Node{operand}}
 	e.NodeSpan = p.spanFrom(start)
+	if slot >= 0 {
+		p.undefinedOps[slot] = e
+	}
 	return e
 }
 
@@ -226,6 +240,7 @@ func metadataAccessRef(expr ast.Node) *ast.QualifiedName {
 func (p *Parser) atExprStart() bool {
 	t := p.peek()
 	return p.atName() ||
+		p.atGlobalName() ||
 		t.Kind == lexer.Decimal ||
 		t.Kind == lexer.Real ||
 		t.Kind == lexer.String ||
@@ -420,8 +435,8 @@ func (p *Parser) parseBase() ast.Node {
 		e.NodeSpan = p.spanFrom(start)
 		return setBase(e)
 
-	case p.atName(), p.at(lexer.Keyword):
-		// Parse qualified name or keyword-as-name
+	case p.atName(), p.atGlobalName(), p.at(lexer.Keyword):
+		// Parse qualified name (`$::`-rooted included) or keyword-as-name
 		var qn *ast.QualifiedName
 		if p.at(lexer.Keyword) {
 			// Keywords can be used as feature references (e.g., `excluding(do)`)
@@ -624,6 +639,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	b := &ast.BodyExpr{}
 
 	// A body may open with documentation, a member of the body like its features.
+	p.memberStart()
 	if p.atKeyword("doc") {
 		b.Members = append(b.Members, p.parseDocumentation(p.peek().Span.Offset))
 	}
@@ -637,6 +653,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 
 	if hasShorthandParam {
 		// Parse single param without "in" keyword
+		p.memberStart()
 		var paramType *ast.QualifiedName
 		var paramMult *ast.Multiplicity
 
@@ -662,6 +679,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	for p.atKeyword("in") || p.atBodyExprMember() {
 		// A body expression is a calculation body, so it may declare features of
 		// its own between its parameters and its result.
+		p.memberStart()
 		if !p.atKeyword("in") {
 			before := p.peek().Span.Offset
 			b.Members = append(b.Members, p.parseBodyMember())
@@ -703,7 +721,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 			// A parameter may specialize a feature instead of naming a type
 			// (`in p :> ISQ::mass`), which is how a filter names the feature its
 			// elements redefine.
-			paramRels := p.parseRelationships(true)
+			paramRels := p.parseRelationships(declFeature)
 			if _, ok := p.accept(lexer.Eq); ok {
 				paramValue = p.ParseExpression()
 			}
@@ -712,7 +730,10 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				p.advance() // {
 				leave := p.pushBodyContext(bodyOther)
 				for !p.at(lexer.RBrace) && !p.atEOF() {
-					paramMembers = append(paramMembers, p.parseBodyMember())
+					p.memberStart()
+					pm := p.parseBodyMember()
+					p.markAttached(pm)
+					paramMembers = append(paramMembers, pm)
 				}
 				leave()
 				p.expect(lexer.RBrace, "expected '}'")
@@ -734,7 +755,9 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 	}
 	if !p.at(lexer.RBrace) {
+		p.memberStart()
 		b.Result = p.ParseExpression()
+		p.resultEnd()
 	}
 	p.expect(lexer.RBrace, "expected '}'")
 	b.NodeSpan = p.spanFrom(start)

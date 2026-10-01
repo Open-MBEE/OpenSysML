@@ -22,7 +22,12 @@ from opensysml.typefacts import (
     SymbolFacts,
     TypeFacts,
 )
-from opensysml.capabilities import MissingCapabilityError, ServerInfo
+from opensysml.capabilities import (
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
+    MissingCapabilityError,
+    ServerInfo,
+)
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
@@ -33,17 +38,20 @@ from opensysml.verdict import (
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
+from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
+from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
     DocumentVerdict, ElementRef, INFINITY, ObjectRef,
 )
 from opensysml.conversion import (
-    FORMAT_SYSML, FORMAT_TURTLE, Conversion, ExperimentalFeatureWarning,
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
+    ExperimentalFeatureWarning,
     format_of_path, is_experimental,
 )
-from opensysml.edit import AppliedEdit, EditedDocument, EditResult, Editor
+from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
@@ -67,14 +75,16 @@ __all__ = [
     "UNSET", "UnsetType", "Undetermined",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
-    "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
+    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
+    "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
-    "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
+    "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome",
+    "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
+    "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
@@ -86,13 +96,14 @@ __all__ = [
     "MoveReferencedError", "ReferencedElsewhereError",
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
+    "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "StaleServiceError",
     "SymbolNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "connect", "convert",
+    "load", "loads", "parse_sources", "connect", "convert",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",
@@ -155,6 +166,45 @@ def loads(content, host='localhost', port=None, language=None, strict=False,
     return connection.load_from_content(
         content, strict=strict, language=language,
         strict_conformance=strict_conformance
+    )
+
+
+def parse_sources(documents, host='localhost', port=None, strict=False,
+                  strict_conformance=False):
+    """Parse several documents as one model using the default connection.
+
+    Each document is a path, a ``(name, content)`` pair of inline source, or a
+    :class:`SourceDocument`; an import from one document into another resolves
+    and diagnostics name the document they came from. See
+    :meth:`Connection.parse_sources`.
+
+    Args:
+        documents (Sequence): The documents, in order
+        host (str): Service hostname, or a ``host:port`` address
+        port (int, optional): Service port (default: 50051)
+        strict (bool): Refuse a model the service reported errors for, rather
+            than returning one whose lookups fail later
+        strict_conformance (bool): Ask whether the documents are conforming
+            SysML v2: notation only OpenSysML accepts is an error, not a warning
+
+    Returns:
+        Model: The model of all the documents
+
+    Raises:
+        ValueError: If there are no documents or two share a name
+        MissingCapabilityError: If the service predates ``parse_sources``
+        ModelFileNotFoundError: If the service cannot read a file
+        ModelError: If the documents could not be parsed as a model, or if
+            strict and the model has error diagnostics
+        ConnectionError: If the service is unreachable
+    """
+    connection = (
+        _get_default_connection()
+        if host == 'localhost' and port is None
+        else _get_default_connection(host, port)
+    )
+    return connection.parse_sources(
+        documents, strict=strict, strict_conformance=strict_conformance
     )
 
 
@@ -234,14 +284,16 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
     """Write a model out in another format (module-level convenience).
 
     Args:
-        to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle' or 'rdf'
+        to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
+            'api-json' or 'json'
         file_path (str, optional): Path the service reads the source from
         content (str, optional): Source carried inline
         model_hash (str, optional): Hash of a loaded model, whose parsed source
             is converted
-        from_format (str, optional): Format to read the source as; inferred from
-            file_path's extension when omitted, notation for a model_hash, and
-            required for inline content
+        from_format (str, optional): Format to read the source as, one of the
+            to_format names or 'xmi', 'uml' or 'mdzip' for a SysML v1 model to
+            migrate; inferred from file_path's extension when omitted, notation
+            for a model_hash, and required for inline content
         tolerate_syntax_errors (bool): Write notation back out even when the
             parser could not read all of it
         host (str): Service hostname, or a ``host:port`` address
@@ -252,7 +304,9 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
 
     Warns:
         ExperimentalFeatureWarning: If either format is RDF, whose mapping is
-            experimental — see ``docs/reference/rdf-mapping.md``
+            experimental (see ``docs/reference/rdf-mapping.md``), or the source
+            is SysML v1, whose migration is experimental too (see
+            ``docs/reference/sysml-v1-migration.md``)
 
     Example:
         >>> import opensysml

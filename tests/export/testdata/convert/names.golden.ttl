@@ -8,23 +8,31 @@
 elmt:Named
     a sysml:Package ;
     sysml:qualifiedName "Named" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Named" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
     sysml:declaredName "Named" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Named__Vehicle, elmt:Named__Car, elmt:Named__Mass ;
-    sysml:ownedMembership elmt:Named__Vehicle_om, elmt:Named__Car_om, elmt:Named__Mass_om ;
-    sysml:ownedRelationship elmt:Named__Vehicle_om, elmt:Named__Car_om, elmt:Named__Mass_om ;
+    sysml:ownedMember elmt:Named__Vehicle, elmt:Named__Mass ;
+    sysml:ownedMembership elmt:Named__Vehicle_om, elmt:Named__Car, elmt:Named__Mass_om ;
+    sysml:ownedRelationship elmt:Named__Vehicle_om, elmt:Named__Car, elmt:Named__Mass_om ;
     sysx:sourceText "package Named {\n" ;
     sysx:sourceTail "}\n" ;
-    json:ownedMember "[{\"@id\":\"Named__Vehicle\"},{\"@id\":\"Named__Car\"},{\"@id\":\"Named__Mass\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car_om\"},{\"@id\":\"Named__Mass_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car_om\"},{\"@id\":\"Named__Mass_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Named__Vehicle\"},{\"@id\":\"Named__Mass\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car\"},{\"@id\":\"Named__Mass_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car\"},{\"@id\":\"Named__Mass_om\"}]" .
 
 elmt:Named__Vehicle
     a sysml:PartDefinition ;
     sysml:qualifiedName "Named::Vehicle" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Named__Vehicle" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
@@ -47,32 +55,31 @@ elmt:Named__Vehicle_om
     sysml:membershipOwningNamespace elmt:Named .
 
 elmt:Named__Car
-    a sysx:Alias ;
+    a sysml:Membership ;
     sysml:qualifiedName "Named::Car" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
     sysml:elementId "Named__Car" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;
     sysml:owner elmt:Named ;
-    sysml:owningRelationship elmt:Named__Car_om ;
-    sysml:owningMembership elmt:Named__Car_om ;
-    sysml:declaredName "Car" ;
-    sysml:aliasedElement elmt:Named__Vehicle ;
+    sysml:owningRelatedElement elmt:Named ;
+    sysml:membershipOwningNamespace elmt:Named ;
+    sysx:declaredKeyword "alias" ;
+    sysml:memberName "Car" ;
+    sysml:memberElement elmt:Named__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    alias Car for Vehicle;\n" .
-
-elmt:Named__Car_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Named__Car_om" ;
-    sysml:owner elmt:Named ;
-    sysml:memberElement elmt:Named__Car ;
-    sysml:ownedMemberElement elmt:Named__Car ;
-    sysml:ownedRelatedElement elmt:Named__Car ;
-    sysml:owningRelatedElement elmt:Named ;
-    sysml:membershipOwningNamespace elmt:Named .
 
 elmt:Named__Mass
     a sysml:AttributeDefinition ;
     sysml:qualifiedName "Named::Mass" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "28"^^xsd:integer ;
     sysml:elementId "Named__Mass" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Named ;

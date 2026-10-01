@@ -20,10 +20,19 @@ package Obj {
 		}
 
 		action bumpBy {
-			in n;
+			in n[1];
 			first apply;
 			action apply {
 				assign count := count + n;
+			}
+		}
+
+		attribute label = "";
+		action setLabel {
+			in text;
+			first apply;
+			action apply {
+				assign label := text;
 			}
 		}
 	}

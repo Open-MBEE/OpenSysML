@@ -40,12 +40,14 @@ type Model struct {
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
 	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
 	primTypes     map[*symbols.Symbol]PrimType
 	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
 	params        map[*symbols.Symbol]behaviorParameters
 	invocations   map[invocationKey]*InvocationSelection
 	arguments     ArgumentTyper // the checker's argument typing, nil when no checker runs
 	sourceText    source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile    source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -53,11 +55,21 @@ type Model struct {
 	ends       map[*symbols.Symbol][]connectorEnd
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
+	// referential memoizes a parameter's referentiality (see shape.go).
+	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// implicitSubsettings memoizes the owner feature each nested usage implicitly
+	// subsets (see nested.go).
+	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
+	// computingUsageBase breaks implicitUsageBaseFeature ->
+	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
+	// collectContributors -> implicitUsageBaseFeature recursion.
+	computingUsageBase map[*symbols.Symbol]bool
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
+	portFeatures   map[*symbols.Symbol][]PortFeature    // PortFeatures by port type
 
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
@@ -77,12 +89,16 @@ type Model struct {
 	filterVerdicts map[filterKey]filterVerdict
 	filterTypes    map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
-	aboutAnnots    map[*symbols.Symbol][]annotation
+	// metadataDefaults memoizes the values each metadata type declares for its features.
+	metadataDefaults map[*symbols.Symbol]map[string][]symbols.FilterValue
+	aboutAnnots      map[*symbols.Symbol][]annotation
 	// aboutByDecl keys the same annotations by the declaration of the element
 	// annotated, reaching them from a re-indexed twin of that symbol.
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutShared is the about index shared with other models, nil when m builds its own.
+	aboutShared *AboutIndex
 	// docGathers holds what the workspace-wide indexes are built from, per
 	// document (gather.go); nil until first needed.
 	docGathers map[string]*docGather
@@ -107,6 +123,8 @@ type Model struct {
 	computingRedefinedFeatures int
 	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
 	unique map[*symbols.Symbol]bool
+	// paramRanges memoizes EffectiveParameterRange (see multiplicity.go).
+	paramRanges map[*symbols.Symbol]Range
 	// ctorSlots memoizes each type's constructible features (see shape.go).
 	ctorSlots map[*symbols.Symbol]constructorSlots
 	// members and shapes memoize MembersOf and ShapeFeatures once the member
@@ -132,25 +150,30 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
 
-		provisionalSupers: make(map[*symbols.Symbol]bool),
-		computingSupers:   make(map[*symbols.Symbol]int),
-		valuing:           make(map[*symbols.Symbol]bool),
-		referenced:        make(map[*symbols.Symbol]*symbols.Symbol),
-		resolvingRef:      make(map[*symbols.Symbol]bool),
-		memberSources:     make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:       make(map[*symbols.Symbol][]lookupSource),
-		contributed:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		primTypes:         make(map[*symbols.Symbol]PrimType),
-		params:            make(map[*symbols.Symbol]behaviorParameters),
-		invocations:       make(map[invocationKey]*InvocationSelection),
-		typingArgs:        make(map[*ast.InvocationExpr]bool),
-		composed:          make(map[composedKey][]*symbols.Symbol),
-		ends:              make(map[*symbols.Symbol][]connectorEnd),
-		subtracting:       make(map[*symbols.Symbol]bool),
-		implicitBase:      make(map[*symbols.Symbol][]*symbols.Symbol),
+		provisionalSupers:   make(map[*symbols.Symbol]bool),
+		computingSupers:     make(map[*symbols.Symbol]int),
+		valuing:             make(map[*symbols.Symbol]bool),
+		referenced:          make(map[*symbols.Symbol]*symbols.Symbol),
+		resolvingRef:        make(map[*symbols.Symbol]bool),
+		memberSources:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
+		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
+		primTypes:           make(map[*symbols.Symbol]PrimType),
+		params:              make(map[*symbols.Symbol]behaviorParameters),
+		invocations:         make(map[invocationKey]*InvocationSelection),
+		typingArgs:          make(map[*ast.InvocationExpr]bool),
+		composed:            make(map[composedKey][]*symbols.Symbol),
+		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		subtracting:         make(map[*symbols.Symbol]bool),
+		referential:         make(map[*symbols.Symbol]bool),
+		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingUsageBase:  make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
+		portFeatures:   make(map[*symbols.Symbol][]PortFeature),
 		unitTerms:      make(map[*symbols.Symbol]UnitTerm),
 		reducingUnit:   make(map[*symbols.Symbol]bool),
 
@@ -158,12 +181,13 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		dimensioning: make(map[*symbols.Symbol]bool),
 		libSymbols:   make(map[string]*symbols.Symbol),
 
-		filterPreds:    make(map[ast.Node]*symbols.FilterPredicate),
-		filterVerdicts: make(map[filterKey]filterVerdict),
-		filterTypes:    make(map[string]*symbols.Symbol),
-		annotations:    make(map[*symbols.Symbol][]annotation),
-		layoutSites:    make(map[*symbols.Symbol][]*LayoutSite),
-		declSymbols:    make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
+		filterPreds:      make(map[ast.Node]*symbols.FilterPredicate),
+		filterVerdicts:   make(map[filterKey]filterVerdict),
+		filterTypes:      make(map[string]*symbols.Symbol),
+		annotations:      make(map[*symbols.Symbol][]annotation),
+		metadataDefaults: make(map[*symbols.Symbol]map[string][]symbols.FilterValue),
+		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),
+		declSymbols:      make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingRedefined:    make(map[*symbols.Symbol]int),
@@ -173,6 +197,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
+		paramRanges:           make(map[*symbols.Symbol]Range),
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),
@@ -289,7 +314,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	m.directSupers[sym] = nil
 	m.computingSupers[sym] = m.resolver.Enter()
 	defer delete(m.computingSupers, sym)
-	if sym.Facts != nil && sym.Facts.Supers != nil {
+	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
 		out := m.recordedSupertypes(sym)
 		m.directSupers[sym] = out
 		m.resolver.Leave()
@@ -511,28 +536,55 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// RecordedRelationshipTargets restores what the relationships of one kind a
+// recorded symbol's declaration wrote resolved to, dropping those that resolved
+// to nothing.
+func (m *Model) RecordedRelationshipTargets(sym *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, ref := range sym.RecordedRelationships(kind) {
+		if target := m.recordedElement(ref); target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // recordedSupertypes resolves the supertype edges installed for a library
 // symbol, which the same derivation over its declaration produced when they were
 // recorded. An edge naming nothing in this index is dropped, as an unresolved
 // declared target is.
 func (m *Model) recordedSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.recordedElements(sym, sym.Facts.Supers)
+}
+
+// recordedElements restores the elements a fact names by fully-qualified name,
+// resolving aliases through and dropping sym itself and duplicates.
+func (m *Model) recordedElements(sym *symbols.Symbol, refs []symbols.ElementRef) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	for _, fqn := range sym.Facts.Supers {
-		for _, target := range m.resolver.Index().LookupQualified(fqn) {
-			if target == nil {
-				continue
-			}
-			resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
-			if !aliasOK || resolved == sym || seen[resolved] {
-				break
-			}
-			seen[resolved] = true
-			out = append(out, resolved)
-			break
+	for _, ref := range refs {
+		target := m.recordedElement(ref)
+		if target == nil || target == sym || seen[target] {
+			continue
 		}
+		seen[target] = true
+		out = append(out, target)
 	}
 	return out
+}
+
+// recordedElement restores the element a fact names, or nil when the name no
+// longer declares one.
+func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
+	target := m.resolver.Index().Element(ref)
+	if target == nil {
+		return nil
+	}
+	resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
+	if !aliasOK {
+		return nil
+	}
+	return resolved
 }
 
 // SupertypesProvisional reports whether sym's supertypes were last derived while
@@ -940,6 +992,17 @@ func (m *Model) composedOperands(
 
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
+	if sym.Recorded() {
+		for _, target := range m.RecordedRelationshipTargets(sym, kind) {
+			if target == sym || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, target)
+		}
+		m.composed[key] = out
+		return out
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue

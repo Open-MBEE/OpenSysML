@@ -141,24 +141,27 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"assign setPoint := setPoint2;",
 		"then Heating;",
 		"transition first Off accept setPoint2 : SetPoint",
-		"assign this.sets := this.sets + 1;",
+		"assign context.sets := context.sets + 1;",
 		"transition first Heating accept setPoint2 : SetPoint",
 		"do action Retarget {",
 		"first start then keep;",
 		"action keep {",
 		"first keep then count;",
 		"state Heating {",
-		"in target : ScalarValues::Real = setPoint.level;",
-		"in keep : ScalarValues::Boolean = setPoint.hold;",
-		"assign this.last := target;",
+		"in target : ScalarValues::Real[1] = setPoint.level;",
+		"in keep : ScalarValues::Boolean[1] = setPoint.hold;",
+		"assign context.last := target;",
 		"do action Run {",
-		"in level : ScalarValues::Real = setPoint.level;",
-		"in hold : ScalarValues::Boolean = setPoint.hold;",
-		"action warm : Warm;",
+		"in level : ScalarValues::Real[1] = setPoint.level;",
+		"in hold : ScalarValues::Boolean[1] = setPoint.hold;",
+		"action warm : Warm { in l[1]; in h[1]; in ref :>> context = Ctl::context; }",
 		"bind warm.l = level;",
 		"bind warm.h = hold;",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "heater.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 	if !strings.Contains(string(r.Notation), "then warm;") {
 		t.Errorf("no succession reaches the call whose inputs the signal values:\n%s", r.Notation)
@@ -270,9 +273,9 @@ func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
 	r := migrateDocument(t, dimmerMachine, dimmerApplications)
 	for _, line := range []string{
 		"item fine : Fine;",
-		"in keep : ScalarValues::Boolean = fine.hold;",
-		"in target : ScalarValues::Real = fine.level;",
-		"assign this.last := target;",
+		"in keep : ScalarValues::Boolean[1] = fine.hold;",
+		"in target : ScalarValues::Real[1] = fine.level;",
+		"assign context.last := target;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -346,7 +349,8 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 	for _, line := range []string{
 		"item warning : Warning;",
 		"state Ready {",
-		"entry action : Handle { in level = warning.level; }",
+		"entry action : Handle { in level[1] = warning.level; in ref :>> context = Watch::context; }",
+		"exhibit state watch : Watch { in ref :>> context = this; }",
 		"/* do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own */",
 	} {
 		wantLine(t, r.Notation, line)
@@ -360,8 +364,12 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 	}
 
 	s := session(t, r)
-	meta(t, s, "%instantiate Monitor")
-	meta(t, s, "%state Monitor::Watch")
+	if out := meta(t, s, "%instantiate Monitor"); strings.Contains(out, "error:") {
+		t.Fatalf("%%instantiate Monitor: %s", out)
+	}
+	if out := meta(t, s, "%state Monitor::Watch"); strings.Contains(out, "error:") {
+		t.Fatalf("%%state Monitor::Watch: %s", out)
+	}
 	if out := meta(t, s, "%send Warning(level=2.5)"); !strings.Contains(out, "transition Idle -> Ready fires on it") {
 		t.Errorf("%%send Warning: %s", out)
 	}
@@ -429,8 +437,8 @@ const gaugeApplications = `
 // reads the accepted signal's attribute and writes its value back.
 func TestReferencedStateBehaviorsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, gaugeMachine, gaugeApplications)
-	wantLine(t, r.Notation, "entry action : Adjust { inout value = level.value; }")
-	wantNoLine(t, r.Notation, "{ in value = level.value; }")
+	wantLine(t, r.Notation, "entry action : Adjust { inout value[1] = level.value; in ref :>> context = Track::context; }")
+	wantNoLine(t, r.Notation, "{ in value[1] = level.value; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

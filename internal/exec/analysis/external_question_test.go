@@ -123,6 +123,31 @@ func TestWireQuestionCarriesTheDrawPolicy(t *testing.T) {
 	}
 }
 
+// A question on a stepped clock writes the step on the wire as clockStep; one on the
+// continuous clock writes none, and a held context's step is what its question carries.
+func TestWireQuestionCarriesTheClockStep(t *testing.T) {
+	f := parseFixture(t)
+	ctx := f.context(t)
+	perform := func(*runtime.Context) (Answer, error) { return Answer{Claim: ClaimHolds}, nil }
+	q := Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), ClockStep: 0.25, Perform: perform}
+	if line := wired(t, Held(ctx), q); !strings.Contains(line, `"clockStep":0.25`) {
+		t.Fatalf("the host wrote %s, want it to carry the clock step", line)
+	}
+	q.ClockStep = 0
+	if line := wired(t, Held(ctx), q); strings.Contains(line, "clockStep") {
+		t.Fatalf("the host wrote %s for a continuous clock, want no clockStep", line)
+	}
+	if got := ClockStepOf(nil); got != 0 {
+		t.Fatalf("no context steps by %v, want a continuous clock", got)
+	}
+	if err := ctx.SetClockStep(0.5); err != nil {
+		t.Fatal(err)
+	}
+	if got := ClockStepOf(ctx); got != 0.5 {
+		t.Fatalf("the held context steps by %v, want 0.5", got)
+	}
+}
+
 // The model seed a held context was given is the one its question carries, and the
 // registry hands a request's seed to the question it asks.
 func TestModelSeedOfAContextAndARequest(t *testing.T) {

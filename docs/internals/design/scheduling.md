@@ -23,7 +23,7 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the nine:
+unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
@@ -33,6 +33,7 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the nine:
 | `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
 | `ChoiceRegionOrder` | `dispatchInOrder`, drawn on the front of `state_unit_front.go` (`on <event>`); `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the next unit — a source's exit, a segment's effect, a target's entry — of each firing one occurrence selected across regions, by source in declaration order; the one performed first is taken, and the entries and exits a firing nests are drawn on its front — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
 | `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
+| `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
 | `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
@@ -63,6 +64,17 @@ broadcast of a queued event and the polling of change triggers (`state_change_tr
 through it. The choice is labelled by the occurrence dispatched, not by the trigger of whichever
 region was drawn first, so the label is the same under every policy.
 
+An entry-step choice is recorded as `entry at t=<instant>` when a state entry cascade has been
+held by a non-default run-to-completion scope and a dispatch is due at the same clock instant.
+The alternatives list the free dispatch first, when one exists, followed by the held entries
+that can resume. A dispatch whose transition owner lies within a held scope is not offered as
+free; tied events are filtered to the free alternatives, and a dispatch with no free alternative
+does not appear. Fixed policies select the first alternative, so they dispatch before a held
+entry when that dispatch is free. Exploration snapshots the entry boundary and enumerates each
+alternative; replay parses the `entry at t=` location and applies the recorded pick. Once the
+selected dispatch or held entry settles, ordinary transition, region-entry and exit choice
+points continue as usual.
+
 A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its guards once the
 incoming segments' effects have run, so which branches are enabled can depend on those effects,
 and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
@@ -79,11 +91,8 @@ what those guards read (`TestExploreStaticJunctionBranches`,
 `state_junction_beyond_a_draw_read_once`). A history's default transition through such a
 junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
-Two things that look like openings are determined and are never recorded. Deferral: a state in the
-active configuration that defers the occurrence dispatched holds it back from every enabled
-transition except one sourced by that state or by a state nested in it (`deferralOutranks`); the
-occurrence is deferred, or consumed by the nested transition, by rule, with nothing for the policy
-to draw. A composite state's completion: once its do behavior and every one of its regions have
+One thing that looks like an opening is determined and is never recorded. A composite state's
+completion: once its do behavior and every one of its regions have
 ended, its nil-trigger transitions are queued as completion events at the current instant, ordered
 as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
 (`completeIfDone` → `scheduleCompletedComposites`).
@@ -203,12 +212,7 @@ Every element above has a test surface, documented for authors in
   without `outcomes` is not explored, on the expectation that it has one reachable outcome; when
   exploring it shows more, the fix is to derive its admissible set in the oracle and list it, not
   to pin the policy. A `schedule` pin of `reverse` says the case's result is one linearization,
-  kept only until its admissible set is derived or the bug it pins is fixed. One case is pinned
-  the other way round: `state_do_action_loop_timed_exit` states the fixed policies' one result,
-  a whole `do` round then the dispatch, which `explore` and `check` — stepping the `do` flow one
-  token at a time and dispatching between tokens — do not yet reach; it gains `outcomes` when
-  that interleaving becomes a recorded choice
-  ([region-order scheduling](region-order-scheduling.md)).
+  kept only until its admissible set is derived or the bug it pins is fixed.
 - `TestExecutionTrace` checks a case's `.trace.golden` under the default policy and, for a case
   with `outcomes`, a `<case>.<policy>.trace.golden` under each sweep policy; a `.trace.order`
   states the partial order — `a < b` per line — a trace must respect, checked beside the golden

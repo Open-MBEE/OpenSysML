@@ -8,6 +8,10 @@
 elmt:Chains
     a sysml:Package ;
     sysml:qualifiedName "Chains" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
     sysml:elementId "Chains" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysx:sourceLanguage "sysml" ;
@@ -25,13 +29,17 @@ elmt:Chains
 elmt:Chains___400
     a sysml:Comment ;
     sysml:qualifiedName "Chains::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "61"^^xsd:integer ;
     sysml:elementId "Chains___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
     sysml:owner elmt:Chains ;
     sysml:owningRelationship elmt:Chains___400_om ;
     sysml:owningMembership elmt:Chains___400_om ;
-    sysml:body " a comment with no name and no about clause " ;
+    sysml:body "a comment with no name and no about clause " ;
     sysx:sourceText "    comment /* a comment with no name and no about clause */\n" .
 
 elmt:Chains___400_om
@@ -47,6 +55,10 @@ elmt:Chains___400_om
 elmt:Chains__V
     a sysml:PartDefinition ;
     sysml:qualifiedName "Chains::V" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
     sysml:elementId "Chains__V" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -76,6 +88,10 @@ elmt:Chains__V_om
 elmt:Chains__V__e
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::V::e" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "4"^^xsd:integer ;
+    sysx:sourceEndColumn "20"^^xsd:integer ;
     sysml:elementId "Chains__V__e" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains__V ;
@@ -85,6 +101,9 @@ elmt:Chains__V__e
     sysml:declaredName "e" ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Chains__V__e_ft0 ;
+    sysml:ownedSpecialization elmt:Chains__V__e_ft0 ;
+    sysml:ownedRelationship elmt:Chains__V__e_ft0 ;
     sysx:sourceText "        part e : V;\n" .
 
 elmt:Chains__V__e_om
@@ -102,6 +121,10 @@ elmt:Chains__V__e_om
 elmt:Chains__v
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::v" ;
+    sysx:sourceLine "6"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Chains__v" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -111,6 +134,9 @@ elmt:Chains__v
     sysml:declaredName "v" ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Chains__v_ft0 ;
+    sysml:ownedSpecialization elmt:Chains__v_ft0 ;
+    sysml:ownedRelationship elmt:Chains__v_ft0 ;
     sysx:sourceText "    part v : V;\n" .
 
 elmt:Chains__v_om
@@ -126,6 +152,10 @@ elmt:Chains__v_om
 elmt:Chains__c
     a sysml:PartUsage ;
     sysml:qualifiedName "Chains::c" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "7"^^xsd:integer ;
+    sysx:sourceEndColumn "22"^^xsd:integer ;
     sysml:elementId "Chains__c" ;
     sysx:memberIndex "3"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -136,6 +166,9 @@ elmt:Chains__c
     sysml:isChain "true"^^xsd:boolean ;
     sysml:type elmt:Chains__V ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Chains__c_ft0 ;
+    sysml:ownedSpecialization elmt:Chains__c_ft0 ;
+    sysml:ownedRelationship elmt:Chains__c_ft0 ;
     sysx:sourceText "    part chain c : V;\n" .
 
 elmt:Chains__c_om
@@ -151,6 +184,10 @@ elmt:Chains__c_om
 elmt:Chains__Named
     a sysml:Comment ;
     sysml:qualifiedName "Chains::Named" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "61"^^xsd:integer ;
     sysml:elementId "Chains__Named" ;
     sysx:memberIndex "4"^^xsd:integer ;
     sysml:owningNamespace elmt:Chains ;
@@ -159,7 +196,7 @@ elmt:Chains__Named
     sysml:owningMembership elmt:Chains__Named_om ;
     sysml:declaredName "Named" ;
     sysml:annotatedElement elmt:Chains__V ;
-    sysml:body " a comment that is identified " ;
+    sysml:body "a comment that is identified " ;
     sysx:sourceText "    comment Named about V /* a comment that is identified */\n" .
 
 elmt:Chains__Named_om
@@ -171,3 +208,48 @@ elmt:Chains__Named_om
     sysml:ownedRelatedElement elmt:Chains__Named ;
     sysml:owningRelatedElement elmt:Chains ;
     sysml:membershipOwningNamespace elmt:Chains .
+
+elmt:Chains__V__e_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Chains__V__e_ft0" ;
+    sysml:typedFeature elmt:Chains__V__e ;
+    sysml:owningFeature elmt:Chains__V__e ;
+    sysml:specific elmt:Chains__V__e ;
+    sysml:source elmt:Chains__V__e ;
+    sysml:owningRelatedElement elmt:Chains__V__e ;
+    sysml:type elmt:Chains__V ;
+    sysml:general elmt:Chains__V ;
+    sysml:target elmt:Chains__V ;
+    sysml:owner elmt:Chains__V__e ;
+    sysml:relatedElement elmt:Chains__V__e, elmt:Chains__V ;
+    json:relatedElement "[{\"@id\":\"Chains__V__e\"},{\"@id\":\"Chains__V\"}]" .
+
+elmt:Chains__v_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Chains__v_ft0" ;
+    sysml:typedFeature elmt:Chains__v ;
+    sysml:owningFeature elmt:Chains__v ;
+    sysml:specific elmt:Chains__v ;
+    sysml:source elmt:Chains__v ;
+    sysml:owningRelatedElement elmt:Chains__v ;
+    sysml:type elmt:Chains__V ;
+    sysml:general elmt:Chains__V ;
+    sysml:target elmt:Chains__V ;
+    sysml:owner elmt:Chains__v ;
+    sysml:relatedElement elmt:Chains__v, elmt:Chains__V ;
+    json:relatedElement "[{\"@id\":\"Chains__v\"},{\"@id\":\"Chains__V\"}]" .
+
+elmt:Chains__c_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Chains__c_ft0" ;
+    sysml:typedFeature elmt:Chains__c ;
+    sysml:owningFeature elmt:Chains__c ;
+    sysml:specific elmt:Chains__c ;
+    sysml:source elmt:Chains__c ;
+    sysml:owningRelatedElement elmt:Chains__c ;
+    sysml:type elmt:Chains__V ;
+    sysml:general elmt:Chains__V ;
+    sysml:target elmt:Chains__V ;
+    sysml:owner elmt:Chains__c ;
+    sysml:relatedElement elmt:Chains__c, elmt:Chains__V ;
+    json:relatedElement "[{\"@id\":\"Chains__c\"},{\"@id\":\"Chains__V\"}]" .

@@ -28,7 +28,13 @@ directory here with its own build.
   call sequence and phased plan are in
   [`docs/internals/design/syson-plugin.md`](../docs/internals/design/syson-plugin.md).
 
-No code lives here for [OpenCode](https://opencode.ai): the checkout's
-[`opencode.json`](../opencode.json) declares `sysml-lsp` to it, and the same block in a user's
-global configuration enables the server for every project; see
-[the guide](../docs/guide/08-editors.md#opencode).
+## Versions
+
+The editors carry the core version — `0.9.1` now — the same lockstep the clients
+follow, even though nothing publishes them. `check_version.py --editors` checks
+every manifest (the two package.json files and their locks, the Cameo and SysON
+poms and their children's `<parent><version>`), and a release fails early when
+one disagrees. The client references the editors build against —
+`opensysml.client.version` in the Cameo pom and the `opensysml`
+dependency in the SysON backend pom — are pinned to `client/java/pom.xml` the
+same way.

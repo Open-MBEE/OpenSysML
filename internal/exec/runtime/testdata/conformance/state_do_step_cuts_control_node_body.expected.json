@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {
+      "signal": "Stop"
+    }
+  ],
+  "outcomes": [
+    {"finalState": "idle", "outputs": {"count": {"type": "Integer", "value": 1000}}},
+    {"finalState": "idle", "outputs": {"count": {"type": "Integer", "value": 1001}}},
+    {"finalState": "idle", "outputs": {"count": {"type": "Integer", "value": 1011}}},
+    {"finalState": "idle", "outputs": {"count": {"type": "Integer", "value": 1101}}},
+    {"finalState": "idle", "outputs": {"count": {"type": "Integer", "value": 1111}}}
+  ],
+  "admissible": "A do step and a dispatch due at one instant: which goes first is open"
+}

@@ -87,6 +87,25 @@ It was the first of the two bridges, and since F6 the SysML side works the same 
 resource set per root, diagnostics printed relative to the corpus root, no ordering to emulate
 and no basename batching.
 
+The SysML bridge also reads `.kerml` files — named on the command line or found by walking a
+directory — into the same resource set, and validates each file with its own language's
+validator, looked up from the resource's URI: a `.kerml` file gets the pilot's
+`KerMLResourceValidator`, exactly as `validate-kerml` gives it (over `kerml-examples` the two
+bridges print identical diagnostics). That is what a model checked together with the OpenSysML
+libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
+KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
+as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
+behavior or a behavioral feature`. Pass the whole library directory:
+
+```bash
+build/pilot-sysml-validator/validate-sysml-batch model.sysml \
+    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+```
+
+This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
+`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
+source digest in its provenance moved.
+
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
 repeated runs are byte-identical.
@@ -209,18 +228,18 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 378 files)
+## Results (pilot `2026-08`, 380 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 43 | 30 | 13 | 1171 | 4 | 2 | 7 | 1165 |
+| `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **378** | **347** | **79** | **1226** | **38** | **3** | **38** | **1185** |
+| **Total** | **380** | **345** | **80** | **1656** | **38** | **2** | **40** | **1616** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -245,7 +264,7 @@ fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **17** — of which seven, the `Behaviors.kerml` advisory and the six
+reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) — of which six, the
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
@@ -620,23 +639,25 @@ what it reports.
 One invocation-argument policy now applies at a bare call and at an invocation heading a feature
 chain alike: an argument past the last input parameter is an error both implementations report
 (`Must correspond to one input parameter of the invoked type` on the pilot's side), and a
-default-less input left unbound is the advisory `unbound-parameter` — a warning in every
-conformance mode — that the pilot does not report at all. Before this round the omission was an
-error at a bare call and unreported at a chain head, so `A()` and `A().y` against
-`behavior A { in x; … }` were judged differently. KerML 1.0 §8.3.4.8.8 lists no
+default-less input whose effective parameter range requires a value, when left unbound, is the
+advisory `unbound-parameter` — a warning in every conformance mode — that the pilot does not report
+at all. A bare parameter has effective range `[0..*]` and may be omitted without that warning.
+Before this round the omission was an error at a bare call and unreported at a chain head; the
+current advisory applies to required inputs at either form. KerML 1.0 §8.3.4.8.8 lists no
 `InvocationExpression` constraint on the count of arguments, the pinned validators are silent on
 every omission form (positional, named, `[1]`, `[1..*]`, calc, behavior, constructor, chain head)
 and the pinned evaluator forms and evaluates the call; the transcript is in
 [omg-issues.md](omg-issues.md#an-invocation-leaving-an-input-parameter-unbound-validates-clean-pilot-2026-07).
 
-The advisory reaches one file of the reference corpora, `kerml-examples/Simple Tests/Behaviors.kerml`,
-line 14: `var z = A().y;` — formerly exempt as a chain head — leaves `A`'s `in x` unbound,
-which the pilot's `validate-kerml` accepts and its `ParsingTests_Behaviors.kerml.xt` declares
-error-free. It is **ours, one-sided by design**: an advisory that the call cannot be evaluated,
-which the runtime confirms with `ErrUnboundParameter`, on a file that is nonetheless well formed.
-It is recorded in the pilot-corpora ratchet (`Behaviors.kerml` 0 → 1) and here, and it moves no
-Xpect row: the suite carries no `// ERROR` for the line and we report a warning, so the Xpect
-harness is 1268 agree / 57 disagree before and after, the 57 being the pre-existing rows.
+At the previous baseline, the advisory reached `kerml-examples/Simple Tests/Behaviors.kerml`, line
+14: `var z = A().y;` left `A`'s bare `in x` unbound, which the pilot's `validate-kerml` accepts and
+its `ParsingTests_Behaviors.kerml.xt` declares error-free. With the effective parameter range
+applied, that bare input is optional, so the line no longer draws the advisory and is absent from
+the current differential baseline. An omitted explicitly required input still draws the warning:
+the runtime-showcase `RocketEquation` inputs now declare `[1]`, so its documented warning remains.
+The historical warning moved no Xpect row: the suite carried no `// ERROR` for the line and the
+warning was advisory, so the Xpect harness remained 1268 agree / 57 disagree, the 57 being
+pre-existing rows.
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -791,9 +812,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1185** |
-| pilot diagnostics | 123 | **1226** |
-| severity-only | 9 | **3** |
+| only pilot | 82 | **1616** |
+| pilot diagnostics | 123 | **1656** |
+| severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -919,13 +940,12 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
+`units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 547 `kind-mismatch`, 589 `unresolved-reference` — of which
+`examples` 6 syntax, 29 `unmapped`, 673 `kind-mismatch`, 888 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -1016,21 +1036,20 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
-| only pilot | **1185** |
-| pilot diagnostics | **1226** |
-| severity-only | **3** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 40 / 80** |
+| only pilot | **1616** |
+| pilot diagnostics | **1656** |
+| severity-only | **2** |
 | unmapped, our side | **34** |
-| kerml-examples: only ours | **10** |
-| pilot-examples: only ours | **7** |
-| examples: only pilot | **1165** |
+| kerml-examples: only ours | **9** |
+| pilot-examples: only ours | **11** |
+| examples: only pilot | **1596** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
-only-pilot, with 49 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 10 is a syntax or `kind-mismatch` diagnostic — the notation
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
+only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
+72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 9 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
-are gone. What is left is K5's three specialization cycles, the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory), the two operator errors of the
+are gone. What is left is K5's three specialization cycles, the two operator errors of the
 [collection-body element typing round](#collection-body-element-typing-round) and the four
 operator diagnostics of the [bare feature-reference typing round](#bare-feature-reference-typing-round),
 all adjudicated. The class tables below
@@ -1167,6 +1186,20 @@ root, 368 → **369** overall, and pilot diagnostics 632 → **636** / only pilo
 of them the `kind-mismatch` rows adjudicated below where a `calc def` is passed as an argument.
 Nothing else moves: the file draws no diagnostic from this implementation, so `fully agreeing`,
 `only ours` and `agreed` stay where the analysis walkthrough left them.
+
+### Analysis results recording round
+
+`examples/analysis-results-demo/lander-results.sysml` is one file added to the `examples` root:
+files 43 → **44** on the root, 378 → **379** overall, and pilot diagnostics 1226 → **1623** /
+only pilot 1185 → **1582** — 397 diagnostics in 289 reported rows: 192 `unresolved-reference`
+(counted 273), 87 `kind-mismatch` (counted 114) and 10 `unmapped`, all inside the file's
+`Records` and `Reporting` packages. Every row is a construct the pinned artifact has no support
+for: the document-query calls (`Project`, `OrderBy`, `WhereType`, `WhereFeature`,
+`WhereMetadata`, `Verdicts`, `Descendants`), the `@AnalysisRecords::RecordedRun` metadata
+annotations and specializations of the `AnalysisRecords` library defs, and the run-record part
+usages' quoted `'objective'`/`'subject'` names and `ref part :>>`/`part :>>` redefinitions. The
+file draws no diagnostic from this implementation — it validates clean — so `fully agreeing`,
+`only ours`, `agreed` and `severity-only` all stay where the expressions walkthrough left them.
 
 ## Adjudications
 
@@ -2675,10 +2708,10 @@ one.
 | # | Follow-up |
 |---|---|
 | ~~F1~~ | **Done.** Keyword-as-name for `on` and `var`. The scope came from the pilot's grammars rather than the failing files: `on` is a literal in none of `KerML.xtext`, `SysML.xtext` or `Expr.xtext` — the premise that it is a trigger keyword (`accept ... on ...`) was wrong — and `var` is a literal only in `KerML.xtext` `BasicFeaturePrefix` (`isVariable ?= 'var'`). Both are now contextual, like `point`. |
-| ~~F8~~ | **Done.** None of `choice`, `decision`, `deep`, `defer`, `done`, `final`, `history`, `initial`, `junction`, `region`, `shallow` is a literal in any pinned grammar, so all eleven are unreserved and matched contextually where our notation needs them ([conformance-audit.md](../reference/grammar/conformance-audit.md)). `done` now resolves as the library name it is in five files of the normative library; `TestStdlibReservedKeywordNames` no longer pins it. The state-machine notation of [grammar/README.md](../reference/grammar/README.md) that used those words still parses, now under the F3 warning. |
+| ~~F8~~ | **Done.** None of `choice`, `decision`, `deep`, `done`, `final`, `history`, `initial`, `junction`, `region`, `shallow` is a literal in any pinned grammar, so all ten are unreserved and matched contextually where our notation needs them ([conformance-audit.md](../reference/grammar/conformance-audit.md)). `done` now resolves as the library name it is in five files of the normative library; `TestStdlibReservedKeywordNames` no longer pins it. The state-machine notation of [grammar/README.md](../reference/grammar/README.md) that used those words still parses, now under the F3 warning. |
 | ~~F9~~ | **Done** (#382). A second list of contextual words now feeds the VS Code grammars and the LSP keyword completion, so `point`, `chain`, `on` and `var` are highlighted and completed without being reserved by the lexer. Contextual keywords are neither highlighted nor completed: the VS Code grammars and the LSP keyword completion are generated from `lexer.Keywords()`, which `point`, `chain`, `on` and `var` are deliberately absent from. `var` is real KerML notation, so a second list of contextual words for those two surfaces would restore it without reserving it. |
 | ~~F2~~ | **Done.** A bare `import` (no visibility) is non-conforming: the pilot's grammars make the indicator mandatory — `fragment ImportPrefix returns SysML::Import : visibility = VisibilityIndicator 'import' ...` with no `?`, unlike the sibling `MemberPrefix` (`KerML.xtext:169-172`, `SysML.xtext:241-244`) — and all 574 imports across the 254 OMG-authored corpus files carry one. Decision: **warn, not error** (`passes/import_visibility.go`, `LevelSyntax`, code `syntax/import-visibility`, spanned on the `import` keyword). The form is unambiguous to parse, so hard-failing would reject existing models over notation; the warning surfaces the non-conformance without gating the higher tiers. `expose` is exempt — the pilot grammar gives it implicit `protected` visibility (`SysML.xtext:2366-2372`). Our own fixtures now write an explicit visibility, with `testdata/passes/import_no_visibility.sysml` kept to lock the warning in. |
-| ~~F3~~ | **Done.** Audited in [conformance-audit.md](../reference/grammar/conformance-audit.md): `namespace` is a literal in `KerML.xtext` only (`:125`) and a `.sysml` root admits package members only (`SysML.xtext:38`), so **both** body forms are the defect, not the semicolon one — the wording in P2 above was wrong. `region`, `choice`, `junction`, the history forms, `entry`/`exit point`, `defer`, and the `initial`/`final`/`decision` spellings have no production either. Decision: **warn, not error**, as F2 did — `passes/nonstandard_notation.go`, `LevelSyntax`, codes `nonstandard-notation` and `kerml-notation`, spanned on the word. The notation stays parsed, so existing models keep working; `namespace` stays silent in `.kerml`, where it is legal. `TestStdlibHasNoNonstandardNotation` locks in that no OMG-authored library file draws either warning. |
+| ~~F3~~ | **Done.** Audited in [conformance-audit.md](../reference/grammar/conformance-audit.md): `namespace` is a literal in `KerML.xtext` only (`:125`) and a `.sysml` root admits package members only (`SysML.xtext:38`), so **both** body forms are the defect, not the semicolon one — the wording in P2 above was wrong. `region`, `choice`, `junction`, the history forms, `entry`/`exit point`, the since-removed `defer` member, and the `initial`/`final`/`decision` spellings have no production either. Decision: **warn, not error**, as F2 did — `passes/nonstandard_notation.go`, `LevelSyntax`, codes `nonstandard-notation` and `kerml-notation`, spanned on the word. The notation stays parsed, so existing models keep working; `namespace` stays silent in `.kerml`, where it is legal. `TestStdlibHasNoNonstandardNotation` locks in that no OMG-authored library file draws either warning. |
 | ~~F4~~ | **Done.** The pilot has no specialization-cycle check at `2026-05`: `KerMLValidator.checkSpecialization` implements only `validateSpecializationSpecificNotConjugated`, no message constant in either validator concerns cycles, and the pilot accepts self-, two- and three-element cycles with zero diagnostics on otherwise-empty probe files. Our diagnostic stays, and stays `unmapped` — the finding is one-sided and no coarse category describes it. See [Specialization cycles (F4)](#specialization-cycles-f4). |
 | ~~F5~~ | **Done.** The nine P6 diagnostics are adjudicated per diagnostic above: 5 downstream of P2, 2 a real gap (flow ends), 2 downstream of unresolved references both sides report. It spawned F20–F23, one per pilot rule, since all four rules are real whatever their diagnostics in *our* fixtures turned out to be. |
 | ~~F20~~ | **Done**, and the reopening condition was met by finding *where* we were silent rather than by re-attempting the predicate. `canAccess` over featuring types was already implemented (`passes/w8c_feature_reference.go`, `LevelConstraint`), but it only saw a usage's *value* expression, so eight constructs both implementations parse identically had the pilot reporting and us silent: a reference through the owning type's namespace (`P::Q::n`) written in a `constraint def` body, an `assert constraint` body, a `calc` `return` or a `calc` body's implicit (last-expression) result, a transition guard, a `require`/`assume` constraint, and an `assign` value. Confirmed one by one against the pinned validator. The check now walks those bodies, and a body-written reference is accessible when its own declaration features the target — the trap the reverted attempt fell into, since a body reaches its own type's features, inherited and redefined ones included, and a dot path (`s.mass`, `q.n`) reaches a nested one. Training corpus clean, no pilot-corpora row moved, pilot-diff unchanged (the reproducers are not corpus constructs, as the row predicted). Element-filter conditions are covered too — a `filter` member and an import's `[...]` clause — with the candidate element as the featuring context rather than an enclosing declaration: the pilot reports exactly when the referent is a feature of a *user-declared* type and never when it is library-declared, because its rule only runs where the referent has featuring types and a library feature it never transformed has none. So `filter R::M::a` is reported while `filter Element::name == "System" and not Type::isAbstract`, `filter (as Safety).isMandatory` and `filter @Safety` stay clean, which is what keeps `kerml-examples/Simple Tests/Filtering.kerml` valid. Both sides of that boundary were confirmed one by one against the pinned validator: a user `metaclass` feature, one whose metaclass specializes `Element`, a user `struct`, a user type specializing `Occurrence` and a `part def` attribute are all reported; five library referents (metaclass and not) and dot notation on a cast are all clean. A chain written in a filter draws this message rather than the referent one, which is what the pilot does on `filter M::a.b` — though our type tier reports every chain-shaped condition as not model-level evaluable first, so that mapping is unobservable through the CLI today. Where our type tier already errors on the condition — not Boolean, not model-level evaluable — the constraint tier stays suppressed, so those shapes remain only-pilot rows. Training corpus clean, no pilot-corpora row moved, pilot-diff aggregate unchanged. `validateSubsettingFeaturingTypes` (`Must be an accessible feature (use dot notation for nesting)`). Earlier: **attempted and reverted** (#376) for training-corpus false positives. |
@@ -2826,7 +2859,7 @@ adjudicated toward the specification rather than the referee:
   sides. The specification asks for the result's type, which for a feature reference is the
   referent's wherever it is owned;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
-  holds the report, approved for filing.
+  holds the report, filed as [Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803).
 - **`**` and `^` keep an Integer whole only under a Natural exponent.** The pilot's
   `isIntegerOperator` lists both alongside `+`, `-`, `*` and `%`, so `2 ** n` with `n : Integer`
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer
@@ -2908,6 +2941,18 @@ unchanged at 366 files, 338 fully agreeing, 43 agreed, 20 only ours, 302 only th
 the Xpect baseline is left alone; a sweep of `examples/`, `testdata/` and the bundled library
 with both binaries produces identical diagnostics. The 8 only-ours rejection cases are the
 control-node successions the pilot leaves as `TODO`s; the three new cases are both-reject.
+
+### Nested-redefinition chain evaluation
+
+A chain redefinition written as a member of a type or usage — `attribute :>> mid.leaf.value = 99.0;`
+— is spec semantics, not an extension: the chain parses to a feature hosting the chain
+(`semantics/nested_redefinition.go` `NestedRedefinitionsOf`,
+`runtime/nested_redefinition.go`), and the host is redefinable, so the redefinition applies
+below every composite feature the chain walks, exactly as the nested-body form does. The pinned
+pilot accepts the notation but reads the original value — a pilot-evaluator gap, not a
+divergence to report — so the pass reports nothing for a plain chain, and only a chain crossing
+a `ref`, port or subject is an error (`redefinition-through-reference`). The differential
+baseline did not move.
 
 ## Current branch movement and adjudications
 

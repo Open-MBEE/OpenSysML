@@ -1,1 +1,0 @@
-- **Buf configuration now lives in `api/proto/`, and the manual pages now live in `packaging/man/man1/`.**

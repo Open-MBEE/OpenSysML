@@ -3,7 +3,6 @@ package pssm
 import (
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -24,11 +23,7 @@ func Validate(m *Model) []string {
 	if len(syms) != 1 {
 		return append(problems, fmt.Sprintf("%s: %d symbols named", m.Qualified, len(syms)))
 	}
-	scope := syms[0].Scope
-	if scope == nil {
-		scope = syms[0].OwnerScope
-	}
-	if _, err := lower.ToStateGraph(syms[0].Decl, scope); err != nil {
+	if _, err := ws.StateGraph(syms[0]); err != nil {
 		problems = append(problems, "lower: "+err.Error())
 	}
 	return problems

@@ -13,7 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...]; the seed is left out under %draws min, max or average"
+const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...] | %runs <n> [<seed>] <analysis>[(<args>)] [<object>]; the seed is left out under %draws min, max or average"
 
 // ClockObservable names the observable every run of a Monte Carlo reports
 // beside the action's features: the simulation clock when the action completed.
@@ -24,11 +24,16 @@ const ClockObservable = "clock"
 var ErrRunsReplay = errors.New("a Monte Carlo runs under a driving schedule, not a replay")
 
 // doRuns carries out %runs at the prompt: the number of runs, the seed their seeds
-// derive from — left out under a fixed %draws policy — the action, then the observables.
+// derive from — left out under a fixed %draws policy — the action, then the observables;
+// or, in the action's place, a Simulation::MonteCarlo analysis case with its arguments.
 func (s *Session) doRuns(tail string) ([]string, bool, error) {
 	count, seed, rest, err := splitRunsTail(tail, s.draws.Fixed())
 	if err != nil {
 		return []string{errPrefix + err.Error(), runsUsage}, false, nil
+	}
+	if s.namesAnalysisCase(rest) {
+		inv, _ := splitAnalysisArgs(rest)
+		return s.withTrace(s.monteCarloVerdict(inv, count, seed)).Lines, false, nil
 	}
 	fields := splitQueryArgs(rest)
 	if len(fields) == 0 {
@@ -87,7 +92,7 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observ
 	if inv == nil {
 		return unresolved[0]
 	}
-	answered, table, err := s.runsTable(inv, count, seed, observables, s.draws)
+	answered, table, err := s.runsTable(inv, count, seed, observables, s.draws, s.clockStep, false)
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}
@@ -103,11 +108,12 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observ
 	}, answered)
 }
 
-// runsTable makes the runs of a Monte Carlo of the invocation under the draw policy
-// and returns their table with the plan that answered, nil for a refusal made before
-// any engine ran. A seedless Monte Carlo under the random policy is refused: its
-// draws would have no source.
-func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy) (*analysis.Plan, runtime.SweepTable, error) {
+// runsTable makes the runs of a Monte Carlo of the invocation under the draw policy,
+// on a clock stepping by step, and returns their table with the plan that answered, nil
+// for a refusal made before any engine ran. A seedless Monte Carlo under the random
+// policy is refused: its draws would have no source. A caller reading only the
+// numbers and traces the runs produced sets release, and no row keeps its context.
+func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy, step float64, release bool) (*analysis.Plan, runtime.SweepTable, error) {
 	if _, replaying := s.drivenSchedule().Replay(); replaying {
 		return nil, runtime.SweepTable{}, ErrRunsReplay
 	}
@@ -136,13 +142,13 @@ func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, obs
 		}
 		outcome, err := inv.run(rt)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return runtime.SweepRunResult{ReleaseContext: release}, err
 		}
-		return runtime.SweepRunResult{Outputs: observe(rt, outcome, observables)}, nil
+		return runtime.SweepRunResult{Outputs: observe(rt, outcome, observables), ReleaseContext: release}, nil
 	}
 	model := s.freshModel()
 	s.state.Unlock()
-	answered, err := s.sweep(inv.subject(), model, plan, run, draws)
+	answered, err := s.sweep(inv.subject(), model, plan, run, draws, step)
 	s.state.Lock()
 	if err != nil {
 		return &answered, runtime.SweepTable{}, err

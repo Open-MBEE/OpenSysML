@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import org.openmbee.opensysml.cameo.identity.ElementTree;
 import org.openmbee.opensysml.cameo.identity.IdentityIndex;
 import org.openmbee.opensysml.cameo.identity.QualifiedNames;
@@ -32,7 +33,7 @@ public final class CameoElements {
     return ElementTree.index(root, Element::getOwnedElement, CameoElements::modelElement);
   }
 
-  public static String nameWalk(Object element, Function<Object, Object> owner, Function<Object, String> name) {
+  public static String nameWalk(Object element, UnaryOperator<Object> owner, Function<Object, String> name) {
     List<String> names = new ArrayList<>();
     Object current = element;
     while (current != null) {

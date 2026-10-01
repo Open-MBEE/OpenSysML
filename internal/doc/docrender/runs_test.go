@@ -274,7 +274,7 @@ func TestMarkdownPaddedCaption(t *testing.T) {
 			t.Errorf("Markdown carries a caption's padding %q\n%s", literal, got)
 		}
 	}
-	if captions := Captions(document); !reflect.DeepEqual(captions, []string{"Masses", "Volumes", "Areas", "Details"}) {
+	if captions := Captions(document, false); !reflect.DeepEqual(captions, []string{"Masses", "Volumes", "Areas", "Details"}) {
 		t.Errorf("Captions = %q, want the non-blank captions trimmed", captions)
 	}
 }

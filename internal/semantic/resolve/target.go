@@ -18,6 +18,62 @@ func (r *Resolver) ResolveTarget(scope *symbols.Scope, target ast.Node) (*symbol
 	return r.resolveTarget(scope, target, nil)
 }
 
+func (r *Resolver) resolveVia(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+	if qn == nil {
+		return nil, false
+	}
+	headEnd := len(qn.Parts)
+	for i, part := range qn.Parts {
+		if part.Chained {
+			headEnd = i
+			break
+		}
+	}
+	if headEnd == len(qn.Parts) {
+		return r.ResolveQualified(scope, qn)
+	}
+	if headEnd == 0 {
+		return nil, false
+	}
+	head := &ast.QualifiedName{
+		NodeBase: qn.NodeBase,
+		Global:   qn.Global,
+		Parts:    append([]ast.NameSegment(nil), qn.Parts[:headEnd]...),
+	}
+	member := &ast.QualifiedName{
+		NodeBase: qn.NodeBase,
+		Parts:    append([]ast.NameSegment(nil), qn.Parts[headEnd:]...),
+	}
+	headRef := &ast.FeatureReference{NodeBase: qn.NodeBase, Name: head}
+	chain := &ast.FeatureChainExpr{
+		NodeBase: qn.NodeBase,
+		Operand:  headRef,
+		Member:   member,
+	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
+	r.Enter()
+	var target *symbols.Symbol
+	if operand := r.getOperandSymbol(scope, headRef); operand != nil {
+		target = r.resolveMemberChain(r.chainedFrom(scope, operand), member, chain)
+	}
+	settled := r.Leave()
+	for i := range head.Parts {
+		if name, ok := r.PartName(head, i); ok {
+			r.resolvedPart(qn, i, name)
+		}
+	}
+	for i := range member.Parts {
+		if name, ok := r.PartName(member, i); ok {
+			r.resolvedPart(qn, headEnd+i, name)
+		}
+	}
+	if settled && (target != nil || r.quiet == 0) && r.allVisible == 0 {
+		r.memoize(qn, resolution{sym: target, ok: target != nil})
+	}
+	return target, target != nil
+}
+
 // resolveTarget is ResolveTarget with an optional reference filter, which
 // applies to the leading segment of the target only: the rest of a feature
 // chain is looked up in the preceding segment, not in the enclosing scope.
@@ -43,7 +99,7 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 		if !ok || t.Member == nil {
 			return nil, false
 		}
-		return r.memberChain(owner, t.Member, t)
+		return r.memberChain(r.chainedFrom(scope, owner), t.Member, t)
 	default:
 		return nil, false
 	}
@@ -97,11 +153,35 @@ func (f *refFilter) hides(sym *symbols.Symbol) bool {
 	if f.namingTarget == nil {
 		return false
 	}
-	if sym.NamingTarget == f.namingTarget {
+	if sym.NamingTarget == f.namingTarget || triggerParameterHeaderNames(sym, f.namingTarget) {
 		return true
 	}
 	if f.hideBorrowedName && namedByReference(sym) && sym.Name == f.targetName {
 		return true
+	}
+	return false
+}
+
+// triggerParameterHeaderNames reports whether target is in the header of sym, a
+// transition trigger's parameter (`accept s3 : s3`), which never names itself.
+func triggerParameterHeaderNames(sym *symbols.Symbol, target ast.Node) bool {
+	if sym.OwnerScope == nil {
+		return false
+	}
+	if _, ok := sym.OwnerScope.Node().(*ast.TransitionMember); !ok {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel == nil {
+			continue
+		}
+		if rel.Target == target || ast.AsQualifiedName(rel.Target) == target {
+			return true
+		}
 	}
 	return false
 }
@@ -255,6 +335,19 @@ func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node
 	return r.resolveTarget(scope, target, referenceFilter(decl, target))
 }
 
+// ProbeRedefinitionTarget is ResolveRedefinitionTarget for a semantic query:
+// what a feature inherits is asked while other names resolve, some of them
+// imports whose members are suspended meanwhile. A miss there is not the
+// redefinition's to report or remember; the document walk resolves it itself.
+func (r *Resolver) ProbeRedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+	var (
+		sym *symbols.Symbol
+		ok  bool
+	)
+	r.aside(func() { sym, ok = r.ResolveRedefinitionTarget(scope, decl, target) })
+	return sym, ok
+}
+
 // Reference describes one occurrence of a name to resolve on its own, outside a
 // document walk: which scope it is written in, the declaration that refers to it
 // when it is a reference subsetting's target, and the feature chain it is the
@@ -263,6 +356,9 @@ func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node
 type Reference struct {
 	Scope *symbols.Scope
 	QN    *ast.QualifiedName
+	// Via marks a relationship route, whose chained segments resolve from its
+	// leading name rather than as namespace qualifiers.
+	Via bool
 	// Referrer owns the reference subsetting QN is the target of, if any.
 	Referrer ast.Node
 	// Chain is set when QN is the member of a feature chain, whose segments are
@@ -370,6 +466,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		r.InCondition(func() { sym, ok = r.ResolveReference(ref) })
 		return sym, ok
 	}
+	if ref.Via {
+		return r.resolveVia(ref.Scope, ref.QN)
+	}
 	if ref.Chain != nil {
 		if ref.Endpoint {
 			return r.ResolveEndpointRef(ref.Scope, ref.spelledChain())
@@ -413,6 +512,7 @@ func (r *Resolver) resolveChainSegment(ref Reference, hide *refFilter) (*symbols
 	if !ok {
 		return nil, false
 	}
+	owner = r.chainedFrom(ref.Scope, owner)
 	// A qualified segment the owner has no member for reads outward, as
 	// resolveFeatureChain does.
 	if len(ref.QN.Parts) > 1 {

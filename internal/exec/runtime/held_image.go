@@ -87,9 +87,12 @@ type imagedObject struct {
 	anonymous    []int64
 	keptAnon     []keptAnonymous
 	keptConn     []keptConnector
+	nested       []pendingRedefinition
 }
 
 // imagedFeature is one feature value by value, with every name the object reads it under.
+// shared lists what the shape's derivation of a declared value read, when on record,
+// and owed marks one taken from the shape before materializing all of that.
 type imagedFeature struct {
 	names          []string
 	feature        EffectiveFeature
@@ -97,8 +100,13 @@ type imagedFeature struct {
 	materialized   bool
 	written        bool
 	bindingDerived bool
+	assumed        bool
+	intrinsic      bool
+	shared         [][]string
+	owed           bool
 	dependents     []imagedFeatureRef
 	reads          []imagedFeatureRef
+	readsLives     bool // derived from the lives: which objects there are, and when each began and ended
 }
 
 // imagedFeatureRef names a feature value of the image: an object's, by position.
@@ -324,6 +332,7 @@ func (t *imaging) object(inst *Instance) error {
 		ends:      slices.Clone(inst.Ends),
 		anonymous: slices.Clone(inst.anonymous),
 		keptAnon:  slices.Clone(inst.keptAnonymous),
+		nested:    clonePendingRedefinitions(inst.nested),
 	}
 	if inst.owner != nil {
 		obj.owner = inst.owner.ID
@@ -335,6 +344,10 @@ func (t *imaging) object(inst *Instance) error {
 	}
 	for _, id := range obj.anonymous {
 		t.reach(id)
+	}
+	owed := make(map[*FeatureValue]*sharedDefault, len(inst.owed))
+	for _, o := range inst.owed {
+		owed[o.fv] = o.shared
 	}
 	index := make(map[*FeatureValue]int)
 	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
@@ -356,9 +369,17 @@ func (t *imaging) object(inst *Instance) error {
 		f := imagedFeature{
 			names: []string{name}, value: fv.Value, values: fv.Values,
 			materialized: fv.Materialized, written: fv.Written, bindingDerived: fv.BindingDerived,
+			assumed: fv.Assumed, intrinsic: fv.intrinsic,
 		}
 		if fv.Feature != nil {
 			f.feature = *fv.Feature
+		}
+		if o, ok := owed[fv]; ok && fv.declared() {
+			f.shared, f.owed = o.paths, true
+		} else if fv.declared() && len(fv.reads) != 0 {
+			if shared, ok := ctx.sharedRecordOf(inst, fv); ok {
+				f.shared = shared.paths
+			}
 		}
 		obj.features = append(obj.features, f)
 	}
@@ -470,6 +491,7 @@ func (t *imaging) finish() {
 			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
 			img.objects[i].features[j].dependents = t.edges(fv.dependents)
 			img.objects[i].features[j].reads = t.edges(fv.reads)
+			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
 		}
 	}
 	// A usage's occurrences are imaged whole: an image holding some of them holds none.
@@ -556,6 +578,7 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
 		mark.rollBack(dst)
+		m.unrecord()
 		return err
 	}
 	return nil
@@ -624,6 +647,7 @@ type materializeMark struct {
 	activations, runs int64
 	clock             float64
 	clockRun          *runState
+	readLives         []*FeatureValue
 }
 
 func (ctx *Context) materializeMark() materializeMark {
@@ -632,6 +656,7 @@ func (ctx *Context) materializeMark() materializeMark {
 		nextID: ctx.ids.next, tookHigh: ctx.took.high, ids: ctx.ids,
 		activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
+		readLives: slices.Clone(ctx.lifetimes.dependents),
 	}
 }
 
@@ -645,16 +670,18 @@ func (mark materializeMark) rollBack(ctx *Context) {
 		ctx.ids.release(ctx, mark.nextID)
 	}
 	ctx.activations, ctx.runs = mark.activations, mark.runs
-	ctx.clock.now = mark.clock
+	ctx.setClock(mark.clock)
 	ctx.clockRun.state = mark.clockRun
+	ctx.lifetimes.dependents = mark.readLives
 }
 
 // materializing builds one context's objects for an image.
 type materializing struct {
-	dst  *Context
-	img  *HeldImage
-	made map[int64]*Instance
-	runs []*runState
+	dst      *Context
+	img      *HeldImage
+	made     map[int64]*Instance
+	runs     []*runState
+	recorded []sharedKey
 }
 
 // bring answers the object made here for an imaged identity.
@@ -696,6 +723,7 @@ func (m *materializing) run() error {
 			explicit:      obj.explicit, ownerFeature: obj.ownerFeature,
 			anonymous:     slices.Clone(obj.anonymous),
 			keptAnonymous: slices.Clone(obj.keptAnon),
+			nested:        clonePendingRedefinitions(obj.nested),
 		}
 		dst.registerInstance(inst)
 		dst.claimID(obj.id)
@@ -711,10 +739,13 @@ func (m *materializing) run() error {
 	}
 	for _, obj := range img.objects {
 		m.edges(obj)
+		m.records(obj)
 	}
+	// The objects made are lives of dst: what derived from the lives, imaged or dst's own, derives again.
+	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
-	dst.clock.now = img.clock
+	dst.setClock(img.clock)
 	for _, run := range img.runStates {
 		m.runs = append(m.runs, m.runState(run))
 	}
@@ -736,6 +767,8 @@ func (m *materializing) run() error {
 	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
+	dst.bus.posts += uint64(len(messages))
+	dst.workChanged()
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
 	}
@@ -763,6 +796,7 @@ func (m *materializing) object(obj imagedObject) error {
 		fv := &FeatureValue{
 			Feature:      m.feature(inst, f.feature),
 			Materialized: f.materialized, Written: f.written, BindingDerived: f.bindingDerived,
+			Assumed: f.assumed, intrinsic: f.intrinsic,
 		}
 		var err error
 		if fv.Value, err = m.value(f.value); err != nil {
@@ -793,6 +827,8 @@ func (m *materializing) object(obj imagedObject) error {
 
 // feature is dst's declaration of an imaged feature: the one of the object's types
 // declaring the same symbol, so dst's own shape tables answer for it, else a copy.
+// A feature the source adjusted — a chain governing its bound value marks it
+// and clears the declared one — is not the canonical's, and restores as imaged.
 func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFeature {
 	if f.Symbol == nil && f.Name == "" {
 		return nil
@@ -800,7 +836,11 @@ func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFe
 	for _, typ := range inst.types() {
 		features := m.dst.FeaturesOf(typ)
 		for i := range features {
-			if features[i].Symbol == f.Symbol && features[i].Name == f.Name && features[i].OwnerType == f.OwnerType {
+			if features[i].Symbol != f.Symbol || features[i].Name != f.Name || features[i].OwnerType != f.OwnerType {
+				continue
+			}
+			if features[i].GovernedByChain == f.GovernedByChain &&
+				(features[i].DefaultValue == nil) == (f.DefaultValue == nil) {
 				return &features[i]
 			}
 		}
@@ -810,7 +850,7 @@ func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFe
 }
 
 // edges links the feature values of one object made to the ones they read and
-// that read them, within the image.
+// that read them, within the image, and to dst's lives where they read the lives.
 func (m *materializing) edges(obj imagedObject) {
 	inst := m.made[obj.id]
 	for _, f := range obj.features {
@@ -821,6 +861,43 @@ func (m *materializing) edges(obj imagedObject) {
 		for _, ref := range f.reads {
 			fv.reads = append(fv.reads, m.featureAt(ref))
 		}
+		if f.readsLives {
+			fv.reads = append(fv.reads, &m.dst.lifetimes)
+			m.dst.lifetimes.dependents = append(m.dst.lifetimes.dependents, fv)
+		}
+	}
+}
+
+// records puts on dst's shared table what the imaged values' derivations read, so the
+// object's shape shares them on, and owes again what a value taken from it left unmaterialized.
+func (m *materializing) records(obj imagedObject) {
+	inst := m.made[obj.id]
+	shape := m.dst.shapeOf(inst)
+	for _, f := range obj.features {
+		if f.shared == nil {
+			continue
+		}
+		fv := inst.FeatureValues[f.names[0]]
+		shared := &sharedDefault{value: fv.Value, paths: f.shared}
+		if shape != nil {
+			key := sharedKey{shape: shape, feature: fv.Feature}
+			if prior, ok := m.dst.sharedDefaults[key]; ok {
+				shared = prior
+			} else {
+				m.dst.sharedDefaults[key] = shared
+				m.recorded = append(m.recorded, key)
+			}
+		}
+		if f.owed {
+			inst.owed = append(inst.owed, owedDefault{fv: fv, shared: shared})
+		}
+	}
+}
+
+// unrecord takes off dst's shared table the records a failed materialization put there.
+func (m *materializing) unrecord() {
+	for _, key := range m.recorded {
+		delete(m.dst.sharedDefaults, key)
 	}
 }
 

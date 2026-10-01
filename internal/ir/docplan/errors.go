@@ -51,6 +51,8 @@ const (
 	ErrorInvalidRefTarget        ErrorKind = "invalid-ref-target"
 	ErrorAmbiguousRefTarget      ErrorKind = "ambiguous-ref-target"
 	ErrorUnknownGroupColumn      ErrorKind = "unknown-group-column"
+	ErrorInvalidColumnWidths     ErrorKind = "invalid-column-widths"
+	ErrorInvalidColumnLabels     ErrorKind = "invalid-column-labels"
 	ErrorColumnRunWithoutQuery   ErrorKind = "column-run-without-query"
 	ErrorConflictingColumnRuns   ErrorKind = "conflicting-column-runs"
 	ErrorMissingRunColumn        ErrorKind = "missing-run-column"
@@ -59,6 +61,7 @@ const (
 	ErrorMissingDefinitionColumn ErrorKind = "missing-definition-column"
 	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
 	ErrorMissingFormulaSource    ErrorKind = "missing-formula-source"
+	ErrorMissingImageLocation    ErrorKind = "missing-image-location"
 )
 
 // Error is a typed document-planning failure with its source location.
@@ -197,6 +200,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s reference %s must target a named content block of a document, or another document itself, got %s", e.Document, e.Content, e.Actual)
 	case ErrorUnknownGroupColumn:
 		return fmt.Sprintf("document %s table %s groups by %q, which its query does not project", e.Document, e.Content, e.Actual)
+	case ErrorInvalidColumnWidths:
+		return fmt.Sprintf("document %s table %s attribute columnWidths must be a sequence of non-negative integer literals", e.Document, e.Content)
+	case ErrorInvalidColumnLabels:
+		return fmt.Sprintf("document %s table %s attribute columnLabels must be a sequence of string literals", e.Document, e.Content)
 	case ErrorColumnRunWithoutQuery:
 		return fmt.Sprintf("document %s paragraph %s declares column runs but no query", e.Document, e.Content)
 	case ErrorConflictingColumnRuns:
@@ -213,6 +220,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s definitions %s names %s column %q, which query %s does not project", e.Document, e.Content, e.Parameter, e.Actual, e.Query)
 	case ErrorMissingFormulaSource:
 		return fmt.Sprintf("document %s formula %s states no LaTeX source", e.Document, e.Content)
+	case ErrorMissingImageLocation:
+		return fmt.Sprintf("document %s image %s states no location", e.Document, e.Content)
 	default:
 		return fmt.Sprintf("document planning failed for %s", e.Document)
 	}

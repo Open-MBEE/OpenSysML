@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "finalState": "S2",
+  "outputs": {
+    "log": {"type": "String", "value": "S111(exit);S11(exit);T12(effect);S1(exit);T3(effect);S2(entry);"}
+  }
+}

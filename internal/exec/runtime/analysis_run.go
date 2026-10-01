@@ -44,6 +44,7 @@ func (ctx *Context) subjectParameter(
 	sym := memberSymbol(DeclScope(link), member)
 	param := calcParameter{
 		Name: subject.Name, Default: subject.Value, Owner: link, IsSubject: true,
+		Sym:  sym,
 		Decl: ctx.calcMemberDeclOf(link, sym, subject.Name),
 	}
 	at := -1
@@ -221,6 +222,13 @@ type AnalysisEvaluation struct {
 	Tied     bool
 }
 
+// InputBinding is the value one input parameter of a case was bound to for a
+// run: its argument, or the default its declaration evaluated to.
+type InputBinding struct {
+	Name  string
+	Value Value
+}
+
 // AnalysisResult is what one run of an analysis case produced: its output
 // values in declaration order, and the verdict of each objective and assertion.
 type AnalysisResult struct {
@@ -230,6 +238,10 @@ type AnalysisResult struct {
 	// Subject is the object the case ran on — supplied, bound by the usage or
 	// taken from the enclosing case; nil for a case declaring no subject.
 	Subject *Instance
+
+	// Inputs are the values the run bound the case's input parameters to, in
+	// declaration order, the subject parameter excluded: what the body ran with.
+	Inputs []InputBinding
 
 	// Outputs are the case's out and return parameters, in declaration order;
 	// a value the body returned into an unnamed result is named "result".
@@ -254,7 +266,10 @@ type AnalysisResult struct {
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
-	_, result, err := ctx.runCase(sym, args, scope, self)
+	run, result, err := ctx.runCase(sym, args, scope, self)
+	// The run's occurrence lives until its last reader is done, and nothing
+	// downstream of RunAnalysis reads the run, so its end is here.
+	defer run.endOccurrence(ctx)
 	return result, err
 }
 
@@ -289,9 +304,10 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	if asUsage {
 		run, err = ctx.calcUsageRun(reader, sym)
 	} else {
-		run, err = ctx.analysisRun(shape, reader, calcArgs)
+		run, err = ctx.analysisRun(shape, reader, calcArgs, false)
 	}
 	if err != nil {
+		err = ctx.monteCarloUnconcluded(sym, err)
 		result := AnalysisResult{Case: shape.Name, Evaluations: log.evaluations(Value{}, false)}
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		return nil, result, err
@@ -299,10 +315,12 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 
 	// The outputs computed before one failed stay reported; the verdicts and the
 	// pick do not, since the case established neither.
-	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx)}
+	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx), Inputs: run.inputs()}
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {
+		run.endOccurrence(ctx)
+		err = ctx.monteCarloUnconcluded(sym, err)
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		result.Evaluations = log.evaluations(Value{}, false)
 		return nil, result, err
@@ -341,27 +359,19 @@ func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope,
 
 // analysisRun binds a case's parameters from the shaped arguments and runs its
 // body once, unmemoized: arguments make it an invocation of its own, not the
-// evaluation the case's outputs answer from when read as features.
-func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs) (*calcRun, error) {
-	if err := ctx.enterCalc(shape.Name); err != nil {
-		return nil, err
-	}
-	defer ctx.leaveCalc()
-
+// evaluation the case's outputs answer from when read as features. deferResults
+// leaves the results ending the body for a Monte Carlo to evaluate over its sample.
+func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs, deferResults bool) (*calcRun, error) {
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
 	}
-	leave, err := ctx.enterCalcUsage(shape, key)
+	start, err := ctx.startCalcUsage(shape, key, reader, calcArgs)
 	if err != nil {
 		return nil, err
 	}
-	defer leave()
-	ec, nested, env, err := ctx.bindCalcUsage(shape, reader, calcArgs)
-	if err != nil {
-		return nil, err
-	}
-	return ctx.runCalcUsage(shape, ec, nested, env, reader)
+	start.deferResults = deferResults
+	return ctx.runCalcUsage(start)
 }
 
 // analysisArgs spells the run's arguments as bindings by parameter name: the
@@ -688,7 +698,9 @@ func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, con
 // bindingsFrame is the run's bindings as a frame the case owns, so a condition reads
 // its features by qualified name (`MassCase::result`) and its steps' pins (`step.out`).
 func (run *calcRun) bindingsFrame(ctx *Context) frame {
-	return frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
+	f := frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
+	f.write = calcFeatureWriter(ctx, run.shape, run.occurrence)
+	return f
 }
 
 // bindings are the values a run bound, by name: its parameters and locals, and

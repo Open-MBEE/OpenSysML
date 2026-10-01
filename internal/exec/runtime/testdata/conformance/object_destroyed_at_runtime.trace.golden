@@ -1,0 +1,86 @@
+materialize: Fleet #1
+start: performed action cycle of #1
+materialize: cycle #2
+run: performed action cycle of #1
+step 1: token 1@make
+stmt assign cars
+    enter calc OccurrenceFunctions::addNew
+      eval feature cars -> ()
+        eval literal 1 -> 1
+materialize: Car #3
+start: exhibited state machine running of #3
+materialize: running #4
+enter: idle
+      eval construct Car -> instance#3
+      bind group = () [argument]
+      bind occ = instance#3 [argument]
+create: Car #3
+    exit calc OccurrenceFunctions::addNew -> (instance#3)
+  eval invoke addNew -> (instance#3)
+stmt assign cars
+    enter calc OccurrenceFunctions::addNew
+      eval feature cars -> (instance#3)
+        eval literal 2 -> 2
+materialize: Car #5
+start: exhibited state machine running of #5
+materialize: running #6
+enter: idle
+      eval construct Car -> instance#5
+      bind group = (instance#3) [argument]
+      bind occ = instance#5 [argument]
+create: Car #5
+    exit calc OccurrenceFunctions::addNew -> (instance#3, instance#5)
+  eval invoke addNew -> (instance#3, instance#5)
+stmt assign spare
+    eval feature cars -> (instance#3, instance#5)
+    eval literal 2 -> 2
+  eval index -> instance#5
+stmt assign extentBefore
+    enter calc SequenceFunctions::size
+      eval operator all -> (instance#3, instance#5)
+      bind seq = (instance#3, instance#5) [argument]
+    exit calc SequenceFunctions::size -> 2
+  eval invoke size -> 2
+step 2: token 1@scrap
+stmt assign sameObject
+      enter calc OccurrenceFunctions::destroy
+        eval feature spare -> instance#5
+        bind occ = instance#5 [argument]
+destroy: Car #5
+destroy: running #6
+terminated with occurrence: running
+      exit calc OccurrenceFunctions::destroy -> instance#5
+    eval invoke destroy -> instance#5
+      eval feature cars -> (instance#3, instance#5)
+      eval literal 2 -> 2
+    eval index -> instance#5
+  eval operator === -> true
+stmt assign extentAfter
+    enter calc SequenceFunctions::size
+      eval operator all -> (instance#3)
+      bind seq = (instance#3) [argument]
+    exit calc SequenceFunctions::size -> 1
+  eval invoke size -> 1
+stmt assign heldAfter
+    enter calc SequenceFunctions::size
+      eval feature cars -> (instance#3, instance#5)
+      bind seq = (instance#3, instance#5) [argument]
+    exit calc SequenceFunctions::size -> 2
+  eval invoke size -> 2
+stmt assign spareAlive
+    enter calc OccurrenceFunctions::isDuring
+      eval feature spare -> instance#5
+      bind occ = instance#5 [argument]
+    exit calc OccurrenceFunctions::isDuring -> false
+  eval invoke isDuring -> false
+stmt assign firstAlive
+    enter calc OccurrenceFunctions::isDuring
+        eval feature cars -> (instance#3, instance#5)
+        eval literal 1 -> 1
+      eval index -> instance#3
+      bind occ = instance#3 [argument]
+    exit calc OccurrenceFunctions::isDuring -> true
+  eval invoke isDuring -> true
+step 3: token 1@done
+step 4: no active tokens
+run: exhibited state machine running of #3

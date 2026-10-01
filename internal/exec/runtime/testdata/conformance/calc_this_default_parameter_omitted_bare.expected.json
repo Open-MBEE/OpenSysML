@@ -1,0 +1,6 @@
+{
+	"type": "calc",
+	"evaluate": "test::Pair",
+	"libraries": true,
+	"result": {"type": "Integer", "value": 0}
+}

@@ -3,11 +3,12 @@ part def Motor {
     attribute speed : ScalarValues::Real default = 0.0;
     port cmd : MotorCmd;
     action def Spin {
-        in rpm : ScalarValues::Real;
+        in ref context : Motor[1];
+        in rpm : ScalarValues::Real[1];
         first start then 'set speed';
         action 'set speed' {
-            in value;
-            assign this.speed := value;
+            in value[1];
+            assign context.speed := value;
         }
         bind 'set speed'.value = rpm;
     }
@@ -22,23 +23,23 @@ part def Drive {
     bind p = motor.cmd;
     bind split = motor.cmd;
     bind split = spare.cmd;
-    action def Run {
+    action run {
         first start then thirty;
         action thirty {
-            out result = 30.0;
+            out result[1] = 30.0;
         }
         first thirty then 'spin over p';
         perform action 'spin over p' ::> motor.spin;
         first 'spin over p' then 'read motor';
         action 'read motor' {
-            out result = this.motor;
+            out result[1] = motor;
         }
         first 'read motor' then 'fork';
         fork 'fork';
         first 'fork' then forty;
         first 'fork' then 'join';
         action forty {
-            out result = 40.0;
+            out result[1] = 40.0;
         }
         first forty then 'join';
         join 'join';
@@ -48,23 +49,27 @@ part def Drive {
         action final terminate;
         flow thirty.result to 'spin over p'.rpm;
         flow forty.result to 'spin over cmd'.rpm;
+        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
+        metadata MigrationMetadata::StandIn about 'fork', 'join';
     }
-    action def Stray {
+    action stray {
         first start then 'fork';
         fork 'fork';
         first 'fork' then five;
         first 'fork' then six;
         action five {
-            out result = 5.0;
+            out result[1] = 5.0;
         }
         first five then 'spin over loose';
         action 'spin over loose' : Motor::Spin;
         action six {
-            out result = 6.0;
+            out result[1] = 6.0;
         }
         first six then 'spin over split';
         action 'spin over split' : Motor::Spin;
         flow five.result to 'spin over loose'.rpm;
         flow six.result to 'spin over split'.rpm;
+        metadata MigrationMetadata::SynthesizedName about 'fork';
+        metadata MigrationMetadata::StandIn about 'fork';
     }
 }

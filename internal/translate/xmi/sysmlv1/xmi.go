@@ -21,6 +21,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
@@ -54,6 +55,9 @@ type Element struct {
 	Children []*Element
 	// Stereotypes are the stereotype applications whose base is this element.
 	Stereotypes []*Stereotype
+	// AttachedStream is the archive entry holding the element's attached file,
+	// "" when none.
+	AttachedStream string
 	// refs are child reference elements (xmi:idref or href) by role.
 	refs map[string][]string
 }
@@ -62,17 +66,30 @@ type Element struct {
 // whose base_* attribute names the element it extends.
 type Stereotype struct {
 	ID string
-	// Name is the stereotype's local name, such as "Block" or "Requirement".
+	// Name is the stereotype's local name, such as "Block" or "Requirement": the
+	// model name of a resolved Definition, else the XML name the tool wrote.
 	Name string
 	// Namespace is the XML namespace the profile was serialized under.
 	Namespace string
 	// BaseID is the value of the base_* attribute; Base resolves it.
 	BaseID string
 	Base   *Element
+	// Definition is the uml:Stereotype the application instantiates, when a
+	// document read defines it and the application can be traced to it: through
+	// the tool's stereotypesHREFS table, or by name within the profile the
+	// application's XML namespace denotes. Nil otherwise.
+	Definition *Element
+	// Generals are every stereotype Definition specializes, transitively:
+	// Model.Ancestors of the definition, so proxies stand for those defined
+	// outside the documents read. Empty without a Definition.
+	Generals []*Element
 	// Tags holds the tagged values: attributes other than xmi:* and base_*, and
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
 	Tags map[string][]string
+	// attrValues counts, per tag, the leading Tags values that came from an
+	// attribute rather than a child element.
+	attrValues map[string]int
 }
 
 // Tag returns the first value of a tag, or "".
@@ -83,13 +100,17 @@ func (s *Stereotype) Tag(name string) string {
 	return ""
 }
 
-// IDs returns the ids a reference-valued tag lists, one per value when the
-// tool wrote child elements and split on whitespace when it wrote an IDREFS
-// attribute.
+// IDs returns the ids a reference-valued tag lists: an IDREFS attribute split
+// on whitespace, a child element's idref or href kept whole, since an href
+// into another archive entry may contain spaces.
 func (s *Stereotype) IDs(name string) []string {
 	var ids []string
-	for _, v := range s.Tags[name] {
-		ids = append(ids, strings.Fields(v)...)
+	for i, v := range s.Tags[name] {
+		if i < s.attrValues[name] {
+			ids = append(ids, strings.Fields(v)...)
+		} else {
+			ids = append(ids, v)
+		}
 	}
 	return ids
 }
@@ -104,17 +125,47 @@ type Model struct {
 	Exporter string
 	// Extensions are the tool-private xmi:Extension blocks that were skipped.
 	Extensions []Extension
-	byID       map[string]*Element
-	proxies    map[string]*Element
+	// Diagrams are the diagrams read out of those blocks, in document order.
+	Diagrams []Diagram
+	// Tables are the table, matrix and relation map definitions read out of
+	// the tool profile applications, in document order.
+	Tables []*Table
+	// Documents are the MDK DocGen documents, in document order.
+	Documents []*DocGenDocument
+	// StrayParagraphs are collaborator paragraphs no document's view shows.
+	StrayParagraphs []*DocGenParagraph
+	byID            map[string]*Element
+	proxies         map[string]*Element
+	// fragments lists the proxies whose hrefs share a fragment, in first-seen
+	// order; a bare fragment resolves only while one proxy carries it.
+	fragments       map[string][]*Element
+	stereotypeNames map[string]stereotypeName
+	// moduleStereotypes are the stereotypes the archive's module snapshots
+	// declare, by id, for resolving ids the stereotype table does not name.
+	moduleStereotypes map[string]moduleStereotype
+	clients           map[*Element][]*Element
+	// stereotypeHrefs are the definitions a tool's stereotypesHREFS table
+	// names for applied stereotypes, by namespace and name.
+	stereotypeHrefs map[stereotypeKey]string
+	ancestors       map[*Element][]*Element
+	// entries are the archive's entries by name, for reading attachments;
+	// nil when the model was not read from an archive.
+	entries map[string]*zip.File
 }
 
-// Extension records one skipped xmi:Extension: who wrote it and what it held.
+// stereotypeKey identifies an applied stereotype by the namespace it is
+// serialized under and its local name.
+type stereotypeKey struct{ namespace, name string }
+
+// Extension records one skipped xmi:Extension: who wrote it and what it held,
+// less the ElementValue operands read into the model (see adoptValues).
 type Extension struct {
 	// Extender is the tool named by the block's extender attribute.
 	Extender string
 	// Owner is the element the block sits in; nil at the document root.
 	Owner *Element
-	// Elements are the xmi:type and name of every typed element inside, e.g. "uml:Diagram Vehicle BDD".
+	// Elements are the xmi:type and name of every typed element inside, the
+	// diagrams excepted, which Model.Diagrams holds.
 	Elements []ExtensionElement
 }
 
@@ -137,7 +188,7 @@ func (m *Model) Lookup(id string) *Element {
 // child elements of that name carrying xmi:idref or href. Unresolvable ids are
 // dropped (Unresolved lists them); an href yields a proxy element.
 func (m *Model) Refs(e *Element, role string) []*Element {
-	ids := e.refIDs(role)
+	ids := e.RefIDs(role)
 	out := make([]*Element, 0, len(ids))
 	for _, id := range ids {
 		if target := m.Lookup(id); target != nil {
@@ -151,7 +202,7 @@ func (m *Model) Refs(e *Element, role string) []*Element {
 // defines, so a caller can tell a complete reference list from a dangling one.
 func (m *Model) Unresolved(e *Element, role string) []string {
 	var out []string
-	for _, id := range e.refIDs(role) {
+	for _, id := range e.RefIDs(role) {
 		if m.Lookup(id) == nil {
 			out = append(out, id)
 		}
@@ -159,8 +210,10 @@ func (m *Model) Unresolved(e *Element, role string) []string {
 	return out
 }
 
-// refIDs lists the raw ids a role of e refers to, attribute ids first.
-func (e *Element) refIDs(role string) []string {
+// RefIDs lists the raw ids a role of e refers to, attribute ids first: xmi:ids
+// within the document, or the hrefs of elements other documents hold, kept as
+// written even once such an href resolves to a bundled copy of its element.
+func (e *Element) RefIDs(role string) []string {
 	var ids []string
 	if v, ok := e.Attrs[role]; ok {
 		ids = append(ids, strings.Fields(v)...)
@@ -209,6 +262,60 @@ func (e *Element) HasStereotype(names ...string) bool {
 
 // IsProxy reports whether e stands for an element of another document.
 func (e *Element) IsProxy() bool { return e.Href != "" }
+
+// HrefOwnerName reads the name a proxy's href fragment spells for its owner:
+// SysML.xmi#SysML.AbstractRequirement.id is owned by AbstractRequirement.
+func (e *Element) HrefOwnerName() string {
+	frag := e.Href[strings.LastIndexByte(e.Href, '#')+1:]
+	i := strings.LastIndexByte(frag, '.')
+	if !e.IsProxy() || i < 0 {
+		return ""
+	}
+	return fragmentName(frag[:i])
+}
+
+// Generals returns the classifiers e directly specializes through its
+// generalizations: elements of the documents read, or proxies for others.
+func (m *Model) Generals(e *Element) []*Element {
+	var out []*Element
+	for _, g := range e.Owned("generalization") {
+		out = append(out, m.Refs(g, "general")...)
+	}
+	return out
+}
+
+// UnresolvedGenerals lists the ids of generals of e no document read defines.
+func (m *Model) UnresolvedGenerals(e *Element) []string {
+	var out []string
+	for _, g := range e.Owned("generalization") {
+		out = append(out, m.Unresolved(g, "general")...)
+	}
+	return out
+}
+
+// Ancestors returns every classifier e specializes, transitively, nearest
+// first and each once, in-document elements and proxies alike. e itself is
+// among them exactly when its generalizations cycle back to it.
+func (m *Model) Ancestors(e *Element) []*Element {
+	if a, ok := m.ancestors[e]; ok {
+		return a
+	}
+	seen := map[*Element]bool{}
+	var out []*Element
+	queue := m.Generals(e)
+	for len(queue) > 0 {
+		g := queue[0]
+		queue = queue[1:]
+		if seen[g] {
+			continue
+		}
+		seen[g] = true
+		out = append(out, g)
+		queue = append(queue, m.Generals(g)...)
+	}
+	m.ancestors[e] = out
+	return out
+}
 
 // Path returns the names from the root to e, for diagnostics; anonymous
 // elements contribute their type in angle brackets.
@@ -277,13 +384,17 @@ func documentEntry(name string) bool {
 // in an archive that has none, every XMI document among its .xmi/.xml/.uml
 // files; other XML there is metadata and is left alone.
 func parseArchive(zr *zip.Reader) (*Model, error) {
-	var project, documents []*zip.File
+	var project, modules, documents []*zip.File
 	names := make([]string, 0, len(zr.File))
+	entries := make(map[string]*zip.File, len(zr.File))
 	for _, f := range zr.File {
 		names = append(names, f.Name)
+		entries[f.Name] = f
 		switch {
 		case projectEntry(f.Name):
 			project = append(project, f)
+		case moduleEntry(f.Name):
+			modules = append(modules, f)
 		case documentEntry(f.Name):
 			documents = append(documents, f)
 		}
@@ -296,6 +407,13 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 				return nil, err
 			}
 			read++
+		}
+		for _, f := range modules {
+			content, err := readEntry(f)
+			if err != nil {
+				return nil, err
+			}
+			m.indexModule(content)
 		}
 	} else {
 		for _, f := range documents {
@@ -313,6 +431,8 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 		sort.Strings(names)
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
 	}
+	m.readStreams(entries)
+	m.entries = entries
 	model, err := m.finish()
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)
@@ -320,24 +440,61 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 	return model, nil
 }
 
-// parseEntry reads one archive entry as an XMI document.
-func (m *Model) parseEntry(f *zip.File) error {
+// Attachment returns the archive entry named name read in full; false when
+// the model was not read from an archive or names no such entry.
+func (m *Model) Attachment(name string) ([]byte, bool) {
+	if m.entries == nil {
+		return nil, false
+	}
+	f := m.entries[name]
+	if f == nil {
+		return nil, false
+	}
+	data, err := readEntry(f)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// AttachmentNames lists the archive's entries by name; empty when the model
+// was not read from an archive.
+func (m *Model) AttachmentNames() []string {
+	names := make([]string, 0, len(m.entries))
+	for name := range m.entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// readEntry reads one archive entry within the size bound.
+func readEntry(f *zip.File) ([]byte, error) {
 	if f.UncompressedSize64 > maxEntrySize {
-		return fmt.Errorf("archive entry %s: %d bytes exceeds the %d byte limit", f.Name, f.UncompressedSize64, maxEntrySize)
+		return nil, fmt.Errorf("archive entry %s: %d bytes exceeds the %d byte limit", f.Name, f.UncompressedSize64, maxEntrySize)
 	}
 	rc, err := f.Open()
 	if err != nil {
-		return fmt.Errorf("archive entry %s: %w", f.Name, err)
+		return nil, fmt.Errorf("archive entry %s: %w", f.Name, err)
 	}
 	content, err := io.ReadAll(io.LimitReader(rc, maxEntrySize+1))
 	if cerr := rc.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return fmt.Errorf("archive entry %s: %w", f.Name, err)
+		return nil, fmt.Errorf("archive entry %s: %w", f.Name, err)
 	}
 	if len(content) > maxEntrySize {
-		return fmt.Errorf("archive entry %s: exceeds the %d byte limit", f.Name, maxEntrySize)
+		return nil, fmt.Errorf("archive entry %s: exceeds the %d byte limit", f.Name, maxEntrySize)
+	}
+	return content, nil
+}
+
+// parseEntry reads one archive entry as an XMI document.
+func (m *Model) parseEntry(f *zip.File) error {
+	content, err := readEntry(f)
+	if err != nil {
+		return err
 	}
 	if err := m.parseDocument(content); err != nil {
 		return fmt.Errorf("archive entry %s: %w", f.Name, err)
@@ -346,7 +503,10 @@ func (m *Model) parseEntry(f *zip.File) error {
 }
 
 func newModel() *Model {
-	return &Model{byID: map[string]*Element{}, proxies: map[string]*Element{}}
+	return &Model{
+		byID: map[string]*Element{}, proxies: map[string]*Element{}, fragments: map[string][]*Element{},
+		stereotypeHrefs: map[stereotypeKey]string{}, ancestors: map[*Element][]*Element{},
+	}
 }
 
 // local returns the local part of an "prefix:name" value.
@@ -457,18 +617,93 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		}
 	case "Extension":
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
-		for _, child := range raw.Descendants() {
-			if child.Type != "" {
-				ext.Elements = append(ext.Elements, ExtensionElement{
-					ID: child.ID, Type: child.Type, Name: child.Name(),
-				})
-			}
-			if ref != nil && child.Tag == "referenceExtension" {
-				m.describeReference(ref, child)
-			}
+		adopted := m.adoptValues(raw, owner, ref)
+		m.extensionContent(raw, &ext, ref, adopted)
+		if owner != nil && owner.AttachedStream == "" {
+			owner.AttachedStream = attachedStream(raw)
 		}
 		m.Extensions = append(m.Extensions, ext)
 	}
+}
+
+// attachedStream is the streamContentID an ATTACHED_FILE extension carries:
+// the archive entry the element's attached file is stored under.
+func attachedStream(raw *xmi.Element) string {
+	mark := false
+	for _, d := range raw.Descendants() {
+		if strings.Contains(d.Tag, "ATTACHED_FILE") || d.Attr("source") == "ATTACHED_FILE" {
+			mark = true
+			break
+		}
+	}
+	if !mark {
+		return ""
+	}
+	for _, d := range raw.Descendants() {
+		if local(d.Tag) == "contents" && d.Attr("streamContentID") != "" {
+			return d.Attr("streamContentID")
+		}
+	}
+	return ""
+}
+
+// extensionContent records what an extension block holds, in document order:
+// a diagram as a Diagram, any other typed element not adopted into the model,
+// a diagram's own included, as skipped.
+func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element, adopted map[*xmi.Element]bool) {
+	for _, child := range raw.Children {
+		if adopted[child] {
+			continue
+		}
+		if child.Tag == "stereotypesHREFS" {
+			m.indexStereotypes(child)
+			continue
+		}
+		if isDiagram(child) {
+			m.diagram(child, ext)
+			m.extensionContent(child, ext, ref, adopted)
+			continue
+		}
+		if child.Type != "" {
+			ext.Elements = append(ext.Elements, ExtensionElement{
+				ID: child.ID, Type: child.Type, Name: child.Name(),
+			})
+		}
+		if ref != nil && child.Tag == "referenceExtension" {
+			m.describeReference(ref, child)
+		}
+		m.extensionContent(child, ext, ref, adopted)
+	}
+}
+
+// adoptValues reads the ElementValue operands of an Expression that a tool keeps in an
+// extension block, under any wrappers but not inside a diagram or a reference, as the
+// owner's elements, in document order. It returns those adopted; the rest stays metadata.
+func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
+	adopted := map[*xmi.Element]bool{}
+	if owner == nil || ref != nil || (owner.Type != "Expression" && owner.Type != "StringExpression") {
+		return adopted
+	}
+	var walk func(*xmi.Element)
+	walk = func(block *xmi.Element) {
+		for _, child := range block.Children {
+			switch {
+			case isDiagram(child) || child.Tag == "referenceExtension":
+			case child.Tag == "operand" && local(child.Type) == "ElementValue":
+				e := m.newElement(child, owner)
+				owner.Children = append(owner.Children, e)
+				m.children(child, e, nil)
+				adopted[child] = true
+				for _, d := range child.Descendants() {
+					adopted[d] = true
+				}
+			default:
+				walk(child)
+			}
+		}
+	}
+	walk(raw)
+	return adopted
 }
 
 func (m *Model) describeReference(ref *Element, raw *xmi.Element) {
@@ -498,7 +733,7 @@ func stereotypeText(raw *xmi.Element) string {
 
 func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 	s := &Stereotype{
-		ID: raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{},
+		ID: raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{}, attrValues: map[string]int{},
 	}
 	for name, value := range raw.Attrs {
 		switch {
@@ -506,6 +741,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 			s.BaseID = value
 		default:
 			s.Tags[name] = append(s.Tags[name], value)
+			s.attrValues[name]++
 		}
 	}
 	for _, child := range raw.Children {
@@ -559,6 +795,7 @@ func (m *Model) proxy(href string) *Element {
 	p := &Element{ID: href, Href: href, Attrs: map[string]string{}, refs: map[string][]string{}}
 	if i := strings.LastIndexByte(href, '#'); i >= 0 {
 		p.Name = fragmentName(href[i+1:])
+		m.fragments[href[i+1:]] = append(m.fragments[href[i+1:]], p)
 	}
 	m.proxies[href] = p
 	return p
@@ -566,14 +803,26 @@ func (m *Model) proxy(href string) *Element {
 
 // fragmentName reads the element name an href fragment spells, or "" when the
 // fragment is a generated id: PrimitiveTypes.xmi#Real names Real, and so does
-// SysML.xmi#SysML_dataType.Real, whose dotted path ends in the name.
+// SysML.xmi#SysML_dataType.Real, whose dotted path ends in the name, and
+// Papyrus's SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block,
+// whose last path step ends in the name after its metaclass and role.
 func fragmentName(frag string) string {
 	if looksLikeName(frag) {
 		return frag
 	}
-	if i := strings.LastIndexByte(frag, '.'); i >= 0 && !strings.HasPrefix(frag, "_") {
-		if last := frag[i+1:]; looksLikeName(last) {
+	if strings.HasPrefix(frag, "_") {
+		return ""
+	}
+	last := frag
+	if i := strings.LastIndexByte(frag, '.'); i >= 0 {
+		last = frag[i+1:]
+		if looksLikeName(last) {
 			return last
+		}
+	}
+	if i := strings.LastIndexByte(last, '_'); i >= 0 && strings.Contains(frag, ".") {
+		if name := last[i+1:]; looksLikeName(name) {
+			return name
 		}
 	}
 	return ""
@@ -594,9 +843,9 @@ func looksLikeName(s string) bool {
 	return true
 }
 
-// link resolves each stereotype application to its base element. An
-// application of an element outside the documents read (a proxy) is kept
-// unresolved, since nothing in the model is extended by it.
+// link resolves each stereotype application to its base element and to the
+// stereotype defining it. An application of an element outside the documents
+// read (a proxy) is kept unresolved, since nothing in the model is extended by it.
 func (m *Model) link() {
 	for _, s := range m.Stereotypes {
 		if base, ok := m.byID[s.BaseID]; ok {
@@ -613,4 +862,134 @@ func (m *Model) link() {
 			}
 		}
 	}
+	m.bindModuleProfiles()
+	m.linkDiagrams()
+	defs := m.stereotypeDefinitions()
+	for _, s := range m.Stereotypes {
+		if s.Definition = m.definitionOf(s, defs); s.Definition != nil {
+			s.Generals = m.Ancestors(s.Definition)
+			if s.Definition.Name != "" {
+				s.Name = s.Definition.Name
+			}
+		}
+	}
+	m.readTables()
+	m.readDocuments()
+}
+
+// stereotypeDefinitions lists every uml:Stereotype the documents read define.
+func (m *Model) stereotypeDefinitions() []*Element {
+	var defs []*Element
+	var walk func(*Element)
+	walk = func(e *Element) {
+		if e.Type == "Stereotype" {
+			defs = append(defs, e)
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, r := range m.Roots {
+		walk(r)
+	}
+	return defs
+}
+
+// definitionOf finds the stereotype an application instantiates: the one the
+// tool's stereotypesHREFS table names when it has one, else the single
+// definition of the same name whose owning profile the application's XML
+// namespace denotes. Nothing is guessed when neither settles it.
+func (m *Model) definitionOf(s *Stereotype, defs []*Element) *Element {
+	if href, ok := m.stereotypeHrefs[stereotypeKey{s.Namespace, s.Name}]; ok {
+		if i := strings.LastIndexByte(href, '#'); i >= 0 {
+			if d := m.byID[href[i+1:]]; d != nil && d.Type == "Stereotype" {
+				return d
+			}
+		}
+		return nil
+	}
+	var found *Element
+	for _, d := range defs {
+		if !SameName(d.Name, s.Name) || !denotes(s.Namespace, d) {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = d
+	}
+	return found
+}
+
+// denotes reports whether the XML namespace an application is serialized
+// under names a package owning definition d: by the package's URI, by the
+// nsURI of an Ecore annotation on it, or by the namespace's document name
+// spelling the package's name as a tool derives one from the other.
+func denotes(ns string, d *Element) bool {
+	doc := namespaceDocument(ns)
+	for p := d.Parent; p != nil; p = p.Parent {
+		switch p.Type {
+		case "Profile", "Package", "Model":
+		default:
+			continue
+		}
+		if p.Attrs["URI"] == ns || annotatedNamespace(p, ns) || (doc != "" && SameName(p.Name, doc)) {
+			return true
+		}
+	}
+	return false
+}
+
+// annotatedNamespace reports whether an Ecore annotation under package p
+// (Papyrus writes one per profile definition) declares the nsURI ns.
+func annotatedNamespace(p *Element, ns string) bool {
+	var found bool
+	var walk func(*Element)
+	walk = func(e *Element) {
+		if found || e.Attrs["nsURI"] == ns {
+			found = true
+			return
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, a := range p.Owned("eAnnotations") {
+		walk(a)
+	}
+	return found
+}
+
+// namespaceDocument is the last path segment of a namespace URI without its
+// model extension: MagicDraw derives it from the profile's name.
+func namespaceDocument(ns string) string {
+	doc := ns
+	if i := strings.IndexAny(doc, "#?"); i >= 0 {
+		doc = doc[:i]
+	}
+	doc = strings.TrimRight(doc, "/")
+	if i := strings.LastIndexByte(doc, '/'); i >= 0 {
+		doc = doc[i+1:]
+	}
+	for _, ext := range []string{".xmi", ".uml", ".xml"} {
+		if len(doc) > len(ext) && strings.EqualFold(doc[len(doc)-len(ext):], ext) {
+			return doc[:len(doc)-len(ext)]
+		}
+	}
+	return doc
+}
+
+// SameName compares names up to the characters a tool replaces to make an
+// XML name of a model name: case and everything but letters and digits.
+func SameName(a, b string) bool {
+	return foldName(a) == foldName(b)
+}
+
+func foldName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }

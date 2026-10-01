@@ -160,6 +160,22 @@ private static final long serialVersionUID = 0L;
     return depthBudget_;
   }
 
+  public static final int PROBABILITIES_LOWER_BOUND_FIELD_NUMBER = 6;
+  private boolean probabilitiesLowerBound_ = false;
+  /**
+   * <pre>
+   * True when the outcomes' probabilities are lower bounds: a budget kept some
+   * linearizations unexplored.
+   * </pre>
+   *
+   * <code>bool probabilities_lower_bound = 6 [json_name = "probabilitiesLowerBound"];</code>
+   * @return The probabilitiesLowerBound.
+   */
+  @java.lang.Override
+  public boolean getProbabilitiesLowerBound() {
+    return probabilitiesLowerBound_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -188,6 +204,9 @@ private static final long serialVersionUID = 0L;
     }
     if (depthBudget_ != 0) {
       output.writeInt32(5, depthBudget_);
+    }
+    if (probabilitiesLowerBound_ != false) {
+      output.writeBool(6, probabilitiesLowerBound_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -222,6 +241,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(5, depthBudget_);
     }
+    if (probabilitiesLowerBound_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(6, probabilitiesLowerBound_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -247,6 +270,8 @@ private static final long serialVersionUID = 0L;
         != other.getRunsBudget()) return false;
     if (getDepthBudget()
         != other.getDepthBudget()) return false;
+    if (getProbabilitiesLowerBound()
+        != other.getProbabilitiesLowerBound()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -271,6 +296,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getRunsBudget();
     hash = (37 * hash) + DEPTH_BUDGET_FIELD_NUMBER;
     hash = (53 * hash) + getDepthBudget();
+    hash = (37 * hash) + PROBABILITIES_LOWER_BOUND_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getProbabilitiesLowerBound());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -413,6 +441,7 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       runsBudget_ = 0;
       depthBudget_ = 0;
+      probabilitiesLowerBound_ = false;
       return this;
     }
 
@@ -462,6 +491,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.depthBudget_ = depthBudget_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.probabilitiesLowerBound_ = probabilitiesLowerBound_;
+      }
     }
 
     @java.lang.Override
@@ -497,6 +529,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDepthBudget() != 0) {
         setDepthBudget(other.getDepthBudget());
+      }
+      if (other.getProbabilitiesLowerBound() != false) {
+        setProbabilitiesLowerBound(other.getProbabilitiesLowerBound());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -550,6 +585,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 40
+            case 48: {
+              probabilitiesLowerBound_ = input.readBool();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -877,6 +917,53 @@ private static final long serialVersionUID = 0L;
     public Builder clearDepthBudget() {
       bitField0_ = (bitField0_ & ~0x00000010);
       depthBudget_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean probabilitiesLowerBound_ ;
+    /**
+     * <pre>
+     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * linearizations unexplored.
+     * </pre>
+     *
+     * <code>bool probabilities_lower_bound = 6 [json_name = "probabilitiesLowerBound"];</code>
+     * @return The probabilitiesLowerBound.
+     */
+    @java.lang.Override
+    public boolean getProbabilitiesLowerBound() {
+      return probabilitiesLowerBound_;
+    }
+    /**
+     * <pre>
+     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * linearizations unexplored.
+     * </pre>
+     *
+     * <code>bool probabilities_lower_bound = 6 [json_name = "probabilitiesLowerBound"];</code>
+     * @param value The probabilitiesLowerBound to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProbabilitiesLowerBound(boolean value) {
+
+      probabilitiesLowerBound_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when the outcomes' probabilities are lower bounds: a budget kept some
+     * linearizations unexplored.
+     * </pre>
+     *
+     * <code>bool probabilities_lower_bound = 6 [json_name = "probabilitiesLowerBound"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProbabilitiesLowerBound() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      probabilitiesLowerBound_ = false;
       onChanged();
       return this;
     }

@@ -137,8 +137,8 @@ func TestKeywordFirstRelationshipEndsAreOrdered(t *testing.T) {
 	}
 }
 
-// A relationship member states its own visibility, so the graph must carry the
-// keyword the wrapping membership used to hold.
+// A relationship member is owned through an OwningMembership, so the graph
+// must carry on that membership the keyword it wraps.
 func TestKeywordFirstRelationshipKeepsItsVisibility(t *testing.T) {
 	const src = `package P {
     classifier A;
@@ -147,7 +147,7 @@ func TestKeywordFirstRelationshipKeepsItsVisibility(t *testing.T) {
 }
 `
 	g := kermlTurtleOf(t, "visibility.kerml", src)
-	vis, ok := g.Lexical(rdf.IRI("urn:sysmlv2:element:P__Gen"), rdf.SysML+"visibility")
+	vis, ok := g.Lexical(rdf.IRI("urn:sysmlv2:element:P__Gen_om"), rdf.SysML+"visibility")
 	if !ok || vis != "private" {
 		t.Errorf("visibility = %q (present=%t), want private", vis, ok)
 	}

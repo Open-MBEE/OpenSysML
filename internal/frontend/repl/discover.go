@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -24,6 +25,7 @@ func (s *Session) browseIndex() *symbols.Index {
 	}
 	if s.idx == nil {
 		s.idx, s.libSource = model.NewIndexWithStdlib()
+		s.about = semantics.NewAboutIndex()
 	}
 	return s.idx
 }

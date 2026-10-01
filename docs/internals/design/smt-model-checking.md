@@ -357,7 +357,7 @@ solver answers and `explore` confirms.
 | Time triggers and change events of a state machine | not in this design | searched by the explicit checker, on one clock with the actions named beside it | *not covered* |
 | Signals to other objects' running machines | not in this design | explicit note stage 5 | *not covered: across objects* |
 | Liveness (`done` is eventually reached) | not a safety property; only deadlock within `k` | not asked | *not covered: liveness* — needs a cycle detection or a separate encoding, its own note |
-| Interruptible regions, expansion regions, streaming pins, and the other executor gaps | not executed by the runtime | not executed | the runtime's own typed refusal |
+| Executor behaviors outside the state-machine subset (streaming flows, resumable `do` bodies, dynamic objects) | outside the proposed SMT encoding's scope | not encoded | the runtime's own behavior remains covered by its execution tests |
 
 Every *not covered* row is a reported reason, never a pass; and every one has `explore` as the
 engine that can still show a violation exists on concrete inputs, which the report says.

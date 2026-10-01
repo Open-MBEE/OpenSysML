@@ -6,6 +6,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// signalArrives opens the note a duplicate acceptance route carries.
+const signalArrives = "the signal arrives at the "
+
 // arrivals indexes the signals reaching each port over the document's connectors and
 // inward delegations; v1 hands a signal at any port to the owner, v2 accepts it only `via` the port.
 type arrivals struct {
@@ -32,6 +35,14 @@ func (m *migration) arrivalIndex() *arrivals {
 		inward:  map[*sysmlv1.Element][]*sysmlv1.Element{},
 	}
 	m.arrived = idx
+	conveyed := m.portDelegations(idx)
+	idx.propagate(m, conveyed)
+	return idx
+}
+
+// portDelegations fills idx's peer and delegation edges from the port connectors and
+// lists, as port and signal pairs, the signals their item flows convey to an end port.
+func (m *migration) portDelegations(idx *arrivals) [][2]*sysmlv1.Element {
 	peers, outward, inward := idx.peers, idx.outward, idx.inward
 	var conveyed [][2]*sysmlv1.Element
 	for _, c := range m.connectors {
@@ -60,48 +71,61 @@ func (m *migration) arrivalIndex() *arrivals {
 			peers[p1] = append(peers[p1], p0)
 		}
 	}
-	sent := map[*sysmlv1.Element]map[*sysmlv1.Element]bool{}
-	var reach func(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element)
-	reach = func(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element) {
-		if into[p][sig] {
-			return
-		}
-		if into[p] == nil {
-			into[p] = map[*sysmlv1.Element]bool{}
-		}
-		into[p][sig] = true
-		for _, q := range inward[p] {
-			reach(into, q, sig)
-		}
-	}
-	var leave func(p, sig *sysmlv1.Element)
-	leave = func(p, sig *sysmlv1.Element) {
-		if sent[p][sig] {
-			return
-		}
-		if sent[p] == nil {
-			sent[p] = map[*sysmlv1.Element]bool{}
-		}
-		sent[p][sig] = true
-		for _, q := range peers[p] {
-			reach(idx.at, q, sig)
-		}
-		for _, q := range outward[p] {
-			leave(q, sig)
-		}
-	}
+	return conveyed
+}
+
+// propagate spreads the sends and declared arrivals through idx's delegations: a send
+// reaches a peer's arrival set and travels outward; declared and conveyed signals are carried.
+func (idx *arrivals) propagate(m *migration, conveyed [][2]*sysmlv1.Element) {
+	w := &arrivalWalk{idx: idx, sent: map[*sysmlv1.Element]map[*sysmlv1.Element]bool{}}
 	for _, send := range m.portSends {
-		leave(m.model.Ref(send, "onPort"), m.model.Ref(send, "signal"))
+		w.leave(m.model.Ref(send, "onPort"), m.model.Ref(send, "signal"))
 	}
 	for _, p := range m.ports {
 		for _, sig := range m.declaredArrivals(p) {
-			reach(idx.carried, p, sig)
+			w.reach(idx.carried, p, sig)
 		}
 	}
 	for _, pair := range conveyed {
-		reach(idx.carried, pair[0], pair[1])
+		w.reach(idx.carried, pair[0], pair[1])
 	}
-	return idx
+}
+
+// arrivalWalk carries the send set while a propagation walks the delegations.
+type arrivalWalk struct {
+	idx  *arrivals
+	sent map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+}
+
+// reach records sig arriving at p and follows inward delegations.
+func (w *arrivalWalk) reach(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element) {
+	if into[p][sig] {
+		return
+	}
+	if into[p] == nil {
+		into[p] = map[*sysmlv1.Element]bool{}
+	}
+	into[p][sig] = true
+	for _, q := range w.idx.inward[p] {
+		w.reach(into, q, sig)
+	}
+}
+
+// leave records sig sent from p, reaches its peers, and travels outward.
+func (w *arrivalWalk) leave(p, sig *sysmlv1.Element) {
+	if w.sent[p][sig] {
+		return
+	}
+	if w.sent[p] == nil {
+		w.sent[p] = map[*sysmlv1.Element]bool{}
+	}
+	w.sent[p][sig] = true
+	for _, q := range w.idx.peers[p] {
+		w.reach(w.idx.at, q, sig)
+	}
+	for _, q := range w.idx.outward[p] {
+		w.leave(q, sig)
+	}
 }
 
 // conveyedTo lists, as port and signal, the signals the item flows connector c realizes
@@ -135,34 +159,57 @@ func (m *migration) declaredArrivals(p *sysmlv1.Element) []*sysmlv1.Element {
 			return
 		}
 		seen[t] = true
-		for _, a := range t.Owned("ownedAttribute") {
-			fp := stereo(a, "FlowProperty")
-			if fp == nil {
-				continue
-			}
-			dir := fp.Tag("direction")
-			if dir == "in" && conjugated || dir == "out" && !conjugated {
-				continue
-			}
-			if sig := m.model.Ref(a, "type"); sig != nil && sig.Type == "Signal" {
-				out = append(out, sig)
-			}
-		}
+		out = append(out, m.flowSignals(t, conjugated)...)
 		if !conjugated {
-			for _, r := range t.Owned("ownedReception") {
-				if sig := m.model.Ref(r, "signal"); sig != nil {
-					out = append(out, sig)
-				}
-			}
-			for _, ir := range t.Owned("interfaceRealization") {
-				walk(m.model.Ref(ir, "contract"))
-			}
+			out = append(out, m.receptionSignals(t)...)
 		}
-		for _, g := range t.Owned("generalization") {
-			walk(m.model.Ref(g, "general"))
-		}
+		m.arrivalSupertypes(t, conjugated, walk)
 	}
 	walk(m.model.Ref(p, "type"))
+	return out
+}
+
+// receptionSignals lists the signals of t's owned receptions.
+func (m *migration) receptionSignals(t *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, r := range t.Owned("ownedReception") {
+		if sig := m.model.Ref(r, "signal"); sig != nil {
+			out = append(out, sig)
+		}
+	}
+	return out
+}
+
+// arrivalSupertypes walks t's realized interface contracts — unconjugated only —
+// and its general classifiers.
+func (m *migration) arrivalSupertypes(t *sysmlv1.Element, conjugated bool, walk func(*sysmlv1.Element)) {
+	if !conjugated {
+		for _, ir := range t.Owned("interfaceRealization") {
+			walk(m.model.Ref(ir, "contract"))
+		}
+	}
+	for _, g := range t.Owned("generalization") {
+		walk(m.model.Ref(g, "general"))
+	}
+}
+
+// flowSignals lists the signal types of t's flow properties that arrive when conjugation
+// reads as given: flowing in, or out when conjugated.
+func (m *migration) flowSignals(t *sysmlv1.Element, conjugated bool) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, a := range t.Owned("ownedAttribute") {
+		fp := stereo(a, "FlowProperty")
+		if fp == nil {
+			continue
+		}
+		dir := fp.Tag("direction")
+		if dir == "in" && conjugated || dir == "out" && !conjugated {
+			continue
+		}
+		if sig := m.model.Ref(a, "type"); sig != nil && sig.Type == "Signal" {
+			out = append(out, sig)
+		}
+	}
 	return out
 }
 
@@ -384,7 +431,7 @@ func (m *migration) portRoutes(tr, c, sig *sysmlv1.Element) (ports []*sysmlv1.El
 func (m *migration) arrivalRoutes(c, sig *sysmlv1.Element, what string) (ports []*sysmlv1.Element, info string) {
 	ports = m.arrivalPorts(c, sig)
 	if len(ports) > 0 {
-		info = "the signal arrives at the " + m.portNames(ports) + " over the document's connectors or declarations, so the " + what + " is also written accepting via each"
+		info = signalArrives + m.portNames(ports) + " over the document's connectors or declarations, so the " + what + " is also written accepting via each"
 	}
 	if open := m.openPorts(c, sig); len(open) > 0 {
 		info = joinNotes(info, "nothing in the document declares or sends a signal to the "+m.portNames(open)+", so one arriving there is not accepted")
@@ -406,15 +453,15 @@ func (m *migration) actionRoute(clause string, tr, c, b *sysmlv1.Element, via st
 			"an action accepts through one route, so of the "+m.portNames(ports)+" the trigger names only the first is written")
 	case len(ports) == 1:
 		return clause + " via " + via + writeName(m.nameFor(ports[0])), joinNotes(note,
-			"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
+			signalArrives+m.portNames(ports)+" over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
 	}
 	if paired := m.pairedPorts(ports, b); len(paired) == 1 {
 		return clause + " via " + via + writeName(m.nameFor(paired[0])), joinNotes(note,
-			"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it accepts via "+
+			signalArrives+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it accepts via "+
 				writeName(m.nameFor(paired[0]))+", the port joined to a block the behavior sends to, and one arriving at another port or sent to the object itself is not taken")
 	}
 	return clause, joinNotes(note,
-		"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it takes one sent to the object itself, and one arriving at a port is not taken")
+		signalArrives+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it takes one sent to the object itself, and one arriving at a port is not taken")
 }
 
 // portNames writes "port p" or "ports p, q" with the v2 names of the ports.

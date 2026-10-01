@@ -1,6 +1,9 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
 
 // frame is one level of local bindings an evaluation reads: a calc invocation's
 // parameter slots, a map of named values, or both.
@@ -16,6 +19,12 @@ type frame struct {
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
 	owner *calcShape
+	// write is the run's own write path for a feature the frame binds — checked
+	// against its declaration and mirrored or streamed the way the run's
+	// statements write it — nil where the frame is a snapshot or plain bindings,
+	// which a write lands in directly. f is the frame the write lands in, so a
+	// frame derived by withVars still writes its own bindings.
+	write func(f frame, name string, value Value) error
 	// performed is the action whose performance a snapshot copied its bindings from,
 	// so the copy still answers for a run of that action without the live perf.
 	performed *symbols.Symbol
@@ -25,6 +34,16 @@ type frame struct {
 	// merged are the behaviors whose runs' bindings the frame flattened into its
 	// own (flattenFrames), which it still answers for.
 	merged []*symbols.Symbol
+	// firing is the state machine firing the frame's values are read within, so
+	// `T.d` answers what the taken transition's trigger bound; nil outside a machine.
+	firing *firing
+}
+
+// firing is one transition being taken by a state machine, as the behaviors it
+// performs read it: the transition and the values its trigger bound, by name.
+type firing struct {
+	taken   *lower.Transition
+	payload map[string]Value
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -99,7 +118,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run, merged: f.merged}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -160,6 +179,22 @@ func (f frame) snapshot() frame {
 		out.aliases = make(map[string]string, len(f.aliases))
 		for name, alias := range f.aliases {
 			out.aliases[name] = alias
+		}
+	}
+	out.firing = f.firing.snapshot()
+	return out
+}
+
+// snapshot copies the firing and its payload into independent storage.
+func (f *firing) snapshot() *firing {
+	if f == nil {
+		return nil
+	}
+	out := &firing{taken: f.taken}
+	if len(f.payload) > 0 {
+		out.payload = make(map[string]Value, len(f.payload))
+		for name, value := range f.payload {
+			out.payload[name] = value
 		}
 	}
 	return out

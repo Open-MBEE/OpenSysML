@@ -221,6 +221,147 @@ func TestAnonymousConnectorIsMaterializedOnce(t *testing.T) {
 	}
 }
 
+func TestBindingConnectorIsAnObjectOfItsEnds(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			port def P;
+			part def A { port p : P; }
+			part def B { port q : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				binding bnd bind a.p = b.q;
+			}
+		}`)
+	port := fvInstance(t, ctx, inst, "a", "p")
+	peer := fvInstance(t, ctx, inst, "b", "q")
+	first := fvInstance(t, ctx, inst, "bnd")
+	second := fvInstance(t, ctx, inst, "bnd")
+	if len(first.Ends) != 2 {
+		t.Fatalf("binding has %d ends, want two", len(first.Ends))
+	}
+	if first.Ends[0].Value.Instance != port.ID || first.Ends[1].Value.Instance != peer.ID {
+		t.Errorf("binding ends = %v, want a.p (%d) and b.q (%d)", first.Ends, port.ID, peer.ID)
+	}
+	if first.ID != second.ID {
+		t.Errorf("binding read as objects %d then %d", first.ID, second.ID)
+	}
+}
+
+func TestAnonymousBindingAndFlowAreOwnedConnectors(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			port def P;
+			part def A { port p : P; }
+			part def B { port q : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				bind a.p = b.q;
+				flow a.p to b.q;
+				connect a.p to b.q;
+			}
+		}`)
+	port := fvInstance(t, ctx, inst, "a", "p")
+	peer := fvInstance(t, ctx, inst, "b", "q")
+	first, err := inst.OwnedConnectors(ctx)
+	if err != nil {
+		t.Fatalf("OwnedConnectors: %v", err)
+	}
+	second, err := inst.OwnedConnectors(ctx)
+	if err != nil {
+		t.Fatalf("OwnedConnectors again: %v", err)
+	}
+	if len(first) != 3 || len(second) != 3 {
+		t.Fatalf("owned connectors = %d then %d, want three", len(first), len(second))
+	}
+	for i, conn := range first {
+		if len(conn.Ends) != 2 {
+			t.Errorf("connector %d has %d ends, want two", i, len(conn.Ends))
+		}
+		if len(conn.Ends) == 2 &&
+			(conn.Ends[0].Value.Instance != port.ID || conn.Ends[1].Value.Instance != peer.ID) {
+			t.Errorf("connector %d ends = %v, want a.p (%d) and b.q (%d)",
+				i, conn.Ends, port.ID, peer.ID)
+		}
+		if conn.ID != second[i].ID {
+			t.Errorf("connector %d read as %d then %d", i, conn.ID, second[i].ID)
+		}
+	}
+}
+
+func TestFlowConnectorIsAnObjectOfItsEnds(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			item def Item;
+			port def P;
+			part def A { port p : P; }
+			part def B { port q : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				flow f of Item from a.p to b.q;
+			}
+		}`)
+	port := fvInstance(t, ctx, inst, "a", "p")
+	peer := fvInstance(t, ctx, inst, "b", "q")
+	flow := fvInstance(t, ctx, inst, "f")
+	if len(flow.Ends) != 2 {
+		t.Fatalf("flow has %d ends, want two", len(flow.Ends))
+	}
+	if got := fvInstance(t, ctx, flow, "source"); got.ID != port.ID {
+		t.Errorf("flow.source is object %d, want a.p (%d)", got.ID, port.ID)
+	}
+	if got := fvInstance(t, ctx, flow, "target"); got.ID != peer.ID {
+		t.Errorf("flow.target is object %d, want b.q (%d)", got.ID, peer.ID)
+	}
+}
+
+func TestBindingConnectorEndFollowsAFeatureChain(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			port def P;
+			part def Inner { port p : P; }
+			part def A { part sub : Inner; }
+			part def B { port q : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				binding bnd bind a.sub.p = b.q;
+			}
+		}`)
+	port := fvInstance(t, ctx, inst, "a", "sub", "p")
+	bnd := fvInstance(t, ctx, inst, "bnd")
+	if got := fvInstance(t, ctx, bnd, "source"); got.ID != port.ID {
+		t.Errorf("bnd.source is object %d, want a.sub.p (%d)", got.ID, port.ID)
+	}
+}
+
+func TestBindingConnectorEndsHoldBoundValues(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			part def A { attribute x : Integer = 3; }
+			part def B { attribute y : Integer = 3; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				bind a.x = b.y;
+			}
+		}`)
+	owned, err := inst.OwnedConnectors(ctx)
+	if err != nil {
+		t.Fatalf("OwnedConnectors: %v", err)
+	}
+	if len(owned) != 1 || len(owned[0].Ends) != 2 {
+		t.Fatalf("owned bindings = %v, want one two-ended binding", owned)
+	}
+	for i, end := range owned[0].Ends {
+		if end.Value.Kind != ValConst || end.Value.Const.Int != 3 {
+			t.Errorf("binding end %d = %s, want 3", i, FormatValue(end.Value))
+		}
+	}
+}
+
 const nestedSystem = `
 	package test {
 		private import ScalarValues::Real;

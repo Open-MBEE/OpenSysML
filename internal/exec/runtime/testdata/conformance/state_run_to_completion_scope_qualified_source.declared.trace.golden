@@ -1,0 +1,12 @@
+exit: start
+enter: work
+transition: start -> work
+enter: inner (entry action)
+stmt action body
+  stmt send
+materialize: Go #1
+choice entry at t=0.0: next dispatch accept Go, inner(entry) (unordered; took dispatch accept Go first)
+exit: inner
+exit: work
+enter: done
+transition: inner -> done (event: accept Go)

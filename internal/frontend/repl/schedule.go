@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // Schedule returns the policy runs started from here on resolve their choice
@@ -76,7 +77,7 @@ func (s *Session) setModelSeed(seed sessionSeed) {
 	}
 }
 
-// applyDraws gives ctx the session's model seed, or none, and its draw policy.
+// applyDraws gives ctx the session's model seed, or none, its draw policy and its clock step.
 func (s *Session) applyDraws(ctx *runtime.Context) {
 	if s.modelSeed.set {
 		ctx.SetModelSeed(s.modelSeed.value)
@@ -84,6 +85,7 @@ func (s *Session) applyDraws(ctx *runtime.Context) {
 		ctx.ClearModelSeed()
 	}
 	ctx.SetDrawPolicy(s.draws)
+	_ = ctx.SetClockStep(s.clockStep) // checked when the session took it
 }
 
 // askedModelSeed is the session's model seed as a question to the engines carries it.
@@ -110,6 +112,52 @@ func (s *Session) setDraws(policy runtime.DrawPolicy) {
 	if s.rtCtx != nil {
 		s.rtCtx.SetDrawPolicy(policy)
 	}
+}
+
+// ClockStep returns the step the clock of runs started from here on ticks by, in
+// seconds; 0 is a continuous clock.
+func (s *Session) ClockStep() float64 {
+	defer s.reading()()
+	return s.clockStep
+}
+
+// SetClockStep sets the clock step for runs started from here on, the debugger's
+// included: their waits come due at multiples of step seconds; 0 restores the
+// continuous clock. A step that is not a finite, non-negative number is runtime.ErrClockStep.
+func (s *Session) SetClockStep(step float64) error {
+	defer s.enter()()
+	return s.setClockStep(step)
+}
+
+func (s *Session) setClockStep(step float64) error {
+	if err := runtime.CheckClockStep(step); err != nil {
+		return err
+	}
+	s.clockStep = step
+	if s.rtCtx != nil {
+		_ = s.rtCtx.SetClockStep(step)
+	}
+	return nil
+}
+
+// doClockStep shows the clock step, or sets it when exactly one is named.
+func (s *Session) doClockStep(args []string) []string {
+	if len(args) > 1 {
+		return []string{"usage: %clock-step [<seconds>]"}
+	}
+	if len(args) > 0 {
+		step, err := runtime.ParseClockStep(args[0])
+		if err == nil {
+			err = s.setClockStep(step)
+		}
+		if err != nil {
+			return []string{errPrefix + err.Error()}
+		}
+	}
+	if s.clockStep == 0 {
+		return []string{"clock step: none (a continuous clock)"}
+	}
+	return []string{fmt.Sprintf("clock step: %s s", semantics.FormatReal(s.clockStep))}
 }
 
 // doDraws shows the draw policy, or sets it when exactly one is named.

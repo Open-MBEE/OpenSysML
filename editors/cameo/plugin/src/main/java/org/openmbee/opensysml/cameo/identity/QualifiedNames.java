@@ -10,7 +10,8 @@ public final class QualifiedNames {
     List<String> parts = new ArrayList<>();
     StringBuilder current = new StringBuilder();
     boolean quoted = false;
-    for (int i = 0; i < value.length(); i++) {
+    int i = 0;
+    while (i < value.length()) {
       char c = value.charAt(i);
       if (c == '\\' && i + 1 < value.length() && value.charAt(i + 1) == '\'') {
         current.append('\'');
@@ -24,6 +25,7 @@ public final class QualifiedNames {
       } else {
         current.append(c);
       }
+      i++;
     }
     parts.add(current.toString().trim());
     return join(parts);

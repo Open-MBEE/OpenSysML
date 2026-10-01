@@ -34,6 +34,8 @@ const (
 	moveDispatch
 	// moveDoStep runs one due do behavior of a state machine one unit.
 	moveDoStep
+	// moveEntry continues a held state entry.
+	moveEntry
 )
 
 func (k moveKind) String() string {
@@ -54,6 +56,8 @@ func (k moveKind) String() string {
 		return "dispatch"
 	case moveDoStep:
 		return "do"
+	case moveEntry:
+		return "entry"
 	}
 	return fmt.Sprintf("moveKind(%d)", int(k))
 }
@@ -65,9 +69,6 @@ type checkedExecutor interface {
 	// enabledMoves lists the moves of the executor's state, each with the picks
 	// naming it among its siblings.
 	enabledMoves() []enabledMove
-	// leftOut names the interleaving of the executor's state its moves leave out
-	// (NotEnumeratedDoRound), "" where they span every one.
-	leftOut() string
 	// stepOne makes one unit of the executor's work under the policy the run is
 	// under: the move the `check` policy scripts, or the one a replay's witness fixes.
 	stepOne() error
@@ -114,9 +115,6 @@ func (m enabledMove) sameUnit(o enabledMove) bool {
 func (m enabledMove) same(o enabledMove) bool {
 	return m.sameUnit(o) && slices.Equal(m.Picks, o.Picks)
 }
-
-// leftOut is "": an action's moves are every token able to act.
-func (e *ActionExecutor) leftOut() string { return "" }
 
 // enabledMoves lists the moves of the state in token-ID order, each with no pick
 // yet: the tokens able to act, and those whose parked wait fails as a typed error.
@@ -200,44 +198,48 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
 	}
+	if len(e.held) > 0 {
+		dispatch, free := e.dispatchFree(e.dueDispatch())
+		var moves []enabledMove
+		if free {
+			for _, move := range e.dispatchMoves(dispatch, true) {
+				move.Picks = slices.Concat([]int{0}, move.Picks)
+				moves = append(moves, move)
+			}
+		}
+		for i, item := range e.held {
+			picks := []int(nil)
+			if free || len(e.held) > 1 {
+				pick := i
+				if free {
+					pick++
+				}
+				picks = []int{pick}
+			}
+			moves = append(moves, enabledMove{Owner: e, Node: item.owner, Label: e.entryLabel(item.owner), Kind: moveEntry, Picks: picks})
+		}
+		return moves
+	}
 	dispatch := e.dueDispatch()
-	if e.roundDone && dispatch.due {
+	due := e.dueDoActions()
+	if len(due) == 0 {
 		return e.dispatchMoves(dispatch, false)
 	}
-	round := e.dueRound()
-	if len(round) == 0 {
-		return e.dispatchMoves(dispatch, false)
-	}
+	moves := e.doMoves(due, len(due) >= 2)
 	if !dispatch.acts {
-		return e.doMoves(round, len(round) >= 2)
+		return moves
 	}
-	moves := e.doMoves(round, true)
+	for i := range moves {
+		moves[i].Picks = slices.Concat([]int{0}, moves[i].Picks)
+	}
 	for _, m := range e.dispatchMoves(dispatch, true) {
-		m.Picks = slices.Concat([]int{len(round)}, m.Picks)
+		m.Picks = slices.Concat([]int{1}, m.Picks)
 		moves = append(moves, m)
 	}
 	return moves
 }
 
-// leftOut is NotEnumeratedDoRound where a dispatch is due while a stepped do behavior
-// can go on: a fixed policy moves each ready token first, a run no move of the checker makes.
-func (e *StateExecutor) leftOut() string {
-	defer e.ctx.beginExecutorRun(&e.driven)()
-	if e.state != StateRunning && e.state != StateSuspended {
-		return ""
-	}
-	if !e.dueDispatch().due {
-		return ""
-	}
-	for _, act := range e.doActions {
-		if act.run != nil && act.run.host.flow.leftStanding && act.due(e.ctx) {
-			return NotEnumeratedDoRound
-		}
-	}
-	return ""
-}
-
-// doMoves is one do-step move per due do action, picked by its index in the round
+// doMoves is one do-step move per due do action, picked by its index among them
 // where the unit draws an order among them.
 func (e *StateExecutor) doMoves(due []*doAction, picked bool) []enabledMove {
 	moves := make([]enabledMove, 0, len(due))
@@ -292,12 +294,6 @@ func (e *StateExecutor) stepOne() error {
 		return &CheckMoveError{Move: e.dueLabel(), Faced: "the machine had nothing to do"}
 	}
 	return nil
-}
-
-// rest leaves a machine with no move as oneUnit leaves one with nothing to do: the
-// dispatch its closed round owed was not there, so its next unit opens a round.
-func (e *StateExecutor) rest() {
-	e.roundDone = false
 }
 
 // incomplete is nil for a machine: one at rest in a configuration nothing wakes

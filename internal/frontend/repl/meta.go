@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -28,8 +27,9 @@ import (
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
-// when none is named, and the palette the DOT and PlantUML forms fill nodes from.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]"
+// when none is named, then the palette the DOT and PlantUML forms fill nodes
+// from and the drawing style the DOT form draws in, in either order.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -123,6 +123,8 @@ func opensName(sofar string, rest []rune) bool {
 const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
+	cmdRecord         = "%record"
+	cmdInvoke         = "%invoke"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
 	cmdRuns           = "%runs"
@@ -158,7 +160,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%clear", group: groupSession, desc: "reset the session"},
 	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element"},
-	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl RDF — experimental)"},
+	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)"},
 	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text"},
 	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
 	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
@@ -166,14 +168,17 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
+	{name: "%clock-step", group: groupSettings, args: "[<seconds>]", desc: "show or set the step the clock of runs started from here on ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (the default) is a continuous clock"},
 	{name: "%budget", group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 
 	{name: "%engines", group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
 	{name: "%engine", group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
+	{name: "%tool", group: groupEngines, args: "<case|action>[(<args>)] [<object>]", desc: "show what the external tool a case's or action's ToolExecution names would be given — manifest, executable, argv, environment, cwd, standard input, input file and reply mapping — with the model's current values, without starting the process; what the preview performed is discarded"},
 
 	{name: "%check-diverge", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
@@ -186,16 +191,17 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
 	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
-	{name: "%invoke", group: groupRuntime, args: "<object> <op> [<p>=<expr>]", desc: "invoke an operation of an object's type, performed by that object; an object is named, #<id>, or a path such as car.fl"},
+	{name: cmdInvoke, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
@@ -322,6 +328,9 @@ func metaOut(out []string, quit bool, err error) metaResult {
 // metaSessionCommand runs a session-level command, reporting whether the
 // line named one.
 func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, bool) {
+	if result, ok := s.metaCheckCommand(fields); ok {
+		return result, true
+	}
 	switch fields[0] {
 	case "%help":
 		return metaOut(helpText(), false, nil), true
@@ -349,7 +358,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doPrint(fields[1])), true
 	case "%save":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %save <file.sysml|file.ttl>"}, false, nil), true
+			return metaOut([]string{"usage: %save <file.sysml|file.ttl|file.json>"}, false, nil), true
 		}
 		return metaOut(s.doSave(nameText(fields[1]))), true
 	case "%verbosity":
@@ -366,12 +375,16 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doTrace(fields[1:]), false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%lint":
+		return metaOut(s.doLint(fields[1:]), false, nil), true
 	case "%schedule":
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%seed":
 		return metaOut(s.doSeed(fields[1:]), false, nil), true
 	case "%draws":
 		return metaOut(s.doDraws(fields[1:]), false, nil), true
+	case "%clock-step":
+		return metaOut(s.doClockStep(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":
@@ -380,18 +393,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngines(fields[1:]), false, nil), true
 	case "%engine":
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
-	case "%check-diverge":
-		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
-	case "%check-property":
-		return metaOut(s.doCheckProperty(fields[1:]), false, nil), true
-	case "%check-input":
-		return metaOut(s.doCheckInput(fields[1:]), false, nil), true
-	case "%check-assume":
-		return metaOut(s.doCheckAssume(fields[1:]), false, nil), true
-	case "%check-witness":
-		return metaOut(s.doCheckWitness(fields[1:]), false, nil), true
-	case "%check-bounds":
-		return metaOut(s.doCheckBounds(fields[1:]), false, nil), true
+	case "%tool":
+		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
 	case "%replay":
 		return metaOut(s.doReplay(fields[1:]), false, nil), true
 	case "%search":
@@ -414,6 +417,29 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	return metaResult{}, false
 }
 
+// metaCheckCommand answers the %check-* commands, reporting false for any
+// other line.
+func (s *Session) metaCheckCommand(fields []string) (metaResult, bool) {
+	var check func([]string) []string
+	switch fields[0] {
+	case "%check-diverge":
+		check = s.doCheckDiverge
+	case "%check-property":
+		check = s.doCheckProperty
+	case "%check-input":
+		check = s.doCheckInput
+	case "%check-assume":
+		check = s.doCheckAssume
+	case "%check-witness":
+		check = s.doCheckWitness
+	case "%check-bounds":
+		check = s.doCheckBounds
+	default:
+		return metaResult{}, false
+	}
+	return metaOut(check(fields[1:]), false, nil), true
+}
+
 // doTrace answers %trace: an argument switches tracing on or off, and the
 // reply states the setting in force.
 func (s *Session) doTrace(args []string) []string {
@@ -431,9 +457,10 @@ func (s *Session) doTrace(args []string) []string {
 }
 
 // metaRender reads the %render arguments — the name, an optional form and, for
-// a form that fills nodes, an optional palette — and renders the view they name.
+// a form that fills nodes, an optional palette and drawing style — and renders
+// the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 3 {
+	if len(args) < 1 || len(args) > 4 {
 		return []string{renderUsage}, false, nil
 	}
 	form := view.FormText
@@ -443,17 +470,28 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
 		}
 	}
-	var palette view.Palette
-	if len(args) == 3 {
+	var opts view.Options
+	for _, word := range args[min(2, len(args)):] {
+		if style, ok := view.ParseDrawingStyle(word); ok {
+			if opts.Style != "" {
+				return []string{renderUsage}, false, nil
+			}
+			opts.Style = style
+			continue
+		}
 		if !form.TakesPalette() {
 			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
-		var ok bool
-		if palette, ok = view.ParsePalette(args[2]); !ok {
-			return []string{(&view.UnknownPaletteError{Name: args[2]}).Error() + "; " + renderUsage}, false, nil
+		palette, ok := view.ParsePalette(word)
+		if !ok {
+			return []string{(&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage}, false, nil
 		}
+		if opts.Palette != "" {
+			return []string{renderUsage}, false, nil
+		}
+		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, palette)
+	return s.doRender(args[0], form, opts)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -493,6 +531,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{analysisUsage}, false, nil), true
 		}
 		return metaOut(s.doAnalysis(strings.TrimPrefix(strings.TrimSpace(line), cmdAnalysis))), true
+	case cmdRecord:
+		if len(fields) < 2 {
+			return metaOut([]string{recordUsage}, false, nil), true
+		}
+		return metaOut(s.doRecord(strings.TrimPrefix(strings.TrimSpace(line), cmdRecord))), true
 	case cmdSweep:
 		if len(fields) < 2 {
 			return metaOut([]string{sweepUsage}, false, nil), true
@@ -593,11 +636,12 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{"usage: %state <name> [<object>]"}, false, nil), true
 		}
 		return metaOut(s.doStateMachine(fields[1], fields[2:])), true
-	case "%invoke":
+	case cmdInvoke:
 		if len(fields) < 3 {
-			return metaOut([]string{"usage: %invoke <object> <operation> [<parameter>=<expression> ...]"}, false, nil), true
+			return metaOut([]string{"usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"}, false, nil), true
 		}
-		return metaOut(s.doInvoke(fields[1], fields[2], fields[3:])), true
+		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), cmdInvoke))
+		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
@@ -771,7 +815,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 
 // contextScope is the namespace a pinned context evaluates in: the element's own
 // scope, so its members are named without qualification, else the scope it was
-// declared in, searched through both session documents.
+// declared in, searched through every session document.
 func (s *Session) contextScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
@@ -825,14 +869,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		return literalResult, litErr
 	}
 
-	doc := s.ws.Document(docName)
+	declared := s.hasDeclarations()
 
 	// The library is indexed with or without session declarations, so a name it
 	// declares is answered from it; only compound expressions, handled below,
-	// need the session's own document.
+	// need the session's own documents.
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		if doc == nil || doc.Scope == nil {
+		if !declared {
 			return nil, s.errWithoutDeclarations(expr)
 		}
 		return nil, err
@@ -926,12 +970,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 
 	// A compound expression is evaluated in the session's own namespace; an empty
 	// session has none, so only the library answers there.
-	if doc == nil || doc.Scope == nil {
+	if !declared {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
-	// Complex expression with feature refs - inject into session context
-	tempSrc := s.joined() + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
+	// Complex expression with feature refs - parsed after the transcript, the
+	// loaded files masked out of it as they are out of the transcript document
+	typed, _ := s.transcript()
+	tempSrc := typed + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
 	p := parser.New(source.New("eval", []byte(tempSrc)))
 	root := p.ParseFile()
 
@@ -1347,6 +1393,15 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			return truncated(lines, "")
 		}
 		feat := of.Feature
+		// A collection populated only through subsetting implied by nesting is
+		// not a path of its own: its objects are listed under the declared
+		// features holding them, and reading it would manufacture them. An
+		// unread one shows as an unexpanded collection, as any feature the walk
+		// does not descend into does.
+		if w.ctx.ImpliedCollection(inst, of.Name) {
+			lines = w.emit(lines, w.impliedCollectionLine(inst, of, indent, depth))
+			continue
+		}
 		// A state or action holds no value either; what it has is a run, or none,
 		// which is listed under its own heading after the values.
 		if isBehaviorFeature(feat) {
@@ -1372,30 +1427,46 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			continue
 		}
 		lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
-		// The object's remaining features keep a line each; a nested expansion
-		// spends only what is left beyond them.
-		reserved := len(features) - i - 1
-		for _, nested := range nestedInstances(w.ctx, fv) {
-			if w.listing[nested.ID] {
-				continue
-			}
-			if w.budget <= reserved {
-				lines = w.truncate(lines, indent+"  ")
-				break
-			}
-			w.budget -= reserved
-			w.onPath[nested.Type] = true
-			w.listing[nested.ID] = true
-			lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
-			delete(w.listing, nested.ID)
-			delete(w.onPath, nested.Type)
-			w.budget += reserved
-		}
+		lines = w.expandNested(lines, fv, indent, depth, len(features)-i-1)
 	}
 	if w.budget <= 0 && len(behaviors) > 0 {
 		return truncated(lines, "")
 	}
 	return append(append(lines, w.behaviorLines(inst, behaviors, indent, depth)...), connectors...)
+}
+
+// impliedCollectionLine is the row of a collection populated only through
+// subsetting implied by nesting: its value when read, else unexpanded or empty.
+func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+	}
+	if held, elided := w.elided(of.Feature, depth); elided {
+		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
+	}
+	return fmt.Sprintf("%s%s = []", indent, of.Name)
+}
+
+// expandNested lists the objects a feature value holds beneath its row. The
+// object's reserved remaining features keep a line each; a nested expansion
+// spends only what is left beyond them.
+func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
+	for _, nested := range nestedInstances(w.ctx, fv) {
+		if w.listing[nested.ID] {
+			continue
+		}
+		if w.budget <= reserved {
+			return w.truncate(lines, indent+"  ")
+		}
+		w.budget -= reserved
+		w.onPath[nested.Type] = true
+		w.listing[nested.ID] = true
+		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		delete(w.listing, nested.ID)
+		delete(w.onPath, nested.Type)
+		w.budget += reserved
+	}
+	return lines
 }
 
 // isBehaviorFeature reports whether a feature is a state or action usage — a
@@ -1473,6 +1544,8 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return kind + ", not running"
 	}
 	switch {
+	case behavior.Err != nil:
+		return fmt.Sprintf("%s, failed: %s", behavior.Kind, behavior.Err)
 	case behavior.State != nil:
 		return fmt.Sprintf("%s, %s", behavior.Kind, machineStatus(behavior.State))
 	case behavior.Action != nil:
@@ -1828,8 +1901,7 @@ func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *a
 // calcSymbol resolves the calc %calc names. It is resolved before the runtime is
 // built, so a misspelling is reported as one whatever the session holds.
 func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, errors.New("no declarations loaded")
 	}
 	sym, _, lerr := s.lookupSymbolOfKinds(calcName, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
@@ -2024,10 +2096,13 @@ func splitArgs(text string) []string {
 // continuesExpr reports whether frag continues the expression buf holds rather
 // than starting the next argument: a unit or index bracket does, as does a
 // fragment that is no expression on its own or that follows an unfinished one
-// (`5 - 3` is one argument, `5 -3` is two).
+// (`5 - 3` is one argument, `5 -3` is two). A named argument always starts one.
 func continuesExpr(buf, frag string) bool {
 	if strings.HasPrefix(frag, "[") || strings.HasPrefix(frag, "#") {
 		return true
+	}
+	if isNamedArgument(frag) {
+		return false
 	}
 	if _, err := parseWholeExpr(frag); err != nil {
 		return true
@@ -2133,53 +2208,34 @@ func (s *Session) doConstraint(name string) ([]string, bool, error) {
 // promptScope is the namespace a prompt expression is evaluated in: the last
 // namespace the session declared, whose imports are then visible to it exactly
 // as they are to a member written there (KerML 8.2.3.5.3). A session that
-// declared no namespace evaluates at the document root. Both session documents
-// are read, in buffer order, so a namespace loaded from a .kerml file counts.
+// declared no namespace evaluates at the document root. Every session document
+// is read, in buffer order, so a namespace a loaded file declares counts.
 func (s *Session) promptScope() *symbols.Scope {
 	docs := s.sessionDocs()
 	if len(docs) == 0 {
 		return nil
 	}
-	type entry struct {
-		member ast.Node
-		scope  *symbols.Scope
-	}
-	var members []entry
-	for _, doc := range docs {
-		if doc.AST == nil || doc.Scope == nil {
-			continue
-		}
-		for _, m := range doc.AST.Members {
-			members = append(members, entry{m, doc.Scope})
+	var members []Member
+	for _, m := range s.sessionMembers() {
+		if m.scope != nil {
+			members = append(members, m)
 		}
 	}
-	sort.SliceStable(members, func(i, j int) bool {
-		return members[i].member.Span().Offset < members[j].member.Span().Offset
-	})
 	for i := len(members) - 1; i >= 0; i-- {
-		member := members[i].member
-		if mem, ok := member.(*ast.Membership); ok {
-			member = mem.Member
-		}
-		var ident ast.Identification
-		switch n := member.(type) {
-		case *ast.Package:
-			ident = n.Ident
-		case *ast.Namespace:
-			ident = n.Ident
-		default:
+		member := members[i].Summary
+		if member.Kind != "package" && member.Kind != "namespace" {
 			continue
 		}
-		name := ident.Name
+		name := member.Name
 		if name == "" {
-			name = ident.ShortName
+			name = member.ShortName
 		}
 		if sym, ok := members[i].scope.LookupLocal(name); ok && sym != nil && sym.Scope != nil {
 			return sym.Scope
 		}
 	}
 	// No namespace to work in: the root holding the last declaration, so a
-	// top-level member loaded from a .kerml file is still in reach.
+	// top-level member of the last loaded file is still in reach.
 	if len(members) > 0 {
 		return members[len(members)-1].scope
 	}
@@ -3083,6 +3139,12 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 	if fired {
 		return "Change event dispatched", nil
 	}
+	if exec.HoldsEntry() {
+		if err := exec.ProcessNextEvent(); err != nil {
+			return "", fmt.Errorf("entry processing failed: %w", err)
+		}
+		return "Entry step taken" + dispatchedEventNote(exec), nil
+	}
 	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
@@ -3105,7 +3167,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 }
 
 // doInvoke invokes an operation on an object, with the object as its performer.
-func (s *Session) doInvoke(name, operation string, args []string) ([]string, bool, error) {
+func (s *Session) doInvoke(name, operation, args string) ([]string, bool, error) {
 	lines, err := s.invokeOperation(name, operation, args)
 	if err != nil {
 		if errors.Is(err, errRuntimeInit) {
@@ -3117,11 +3179,11 @@ func (s *Session) doInvoke(name, operation string, args []string) ([]string, boo
 	return lines, false, nil
 }
 
-// invokeOperation binds the arguments written as `name=<expression>` and runs the
-// operation the object's type owns, performed by that object; the arguments are
-// parsed before the object is reached.
-func (s *Session) invokeOperation(name, operation string, args []string) ([]string, error) {
-	parsed, err := parseArguments(args)
+// invokeOperation binds the arguments, written positionally or as `name=<expression>`,
+// and runs the operation the object's type owns, performed by that object; the
+// arguments are parsed before the object is reached.
+func (s *Session) invokeOperation(name, operation, args string) ([]string, error) {
+	parsed, err := parseInvokeArguments(args)
 	if err != nil {
 		return nil, err
 	}
@@ -3133,11 +3195,18 @@ func (s *Session) invokeOperation(name, operation string, args []string) ([]stri
 	if rerr != nil {
 		return nil, rerr
 	}
-	bound, err := s.evalArguments(ctx, parsed)
-	if err != nil {
+	var bound runtime.OperationArguments
+	if bound.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
 		return nil, err
 	}
-	results, err := ctx.InvokeOperation(inst, operation, bound)
+	for i, arg := range parsed.positional {
+		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
+		if err != nil {
+			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
+		}
+		bound.Positional = append(bound.Positional, value)
+	}
+	results, err := ctx.InvokeOperationWith(inst, operation, bound)
 	if err != nil {
 		return nil, err
 	}
@@ -3156,6 +3225,62 @@ func (s *Session) invokeOperation(name, operation string, args []string) ([]stri
 type argument struct {
 	param string
 	node  ast.Node
+}
+
+// invokeArguments are %invoke's arguments parsed and not yet evaluated: the list is
+// positional or named, never both.
+type invokeArguments struct {
+	positional []argExpr
+	named      []argument
+}
+
+// parseInvokeArguments parses %invoke's argument list, each argument either a bare
+// expression or `<parameter>=<expression>`. A list mixing the two forms or naming
+// a parameter twice is refused here, before the object is reached.
+func parseInvokeArguments(text string) (invokeArguments, error) {
+	var args invokeArguments
+	for _, arg := range splitArgs(text) {
+		if isNamedArgument(arg) {
+			named, err := parseArguments([]string{arg})
+			if err != nil {
+				return invokeArguments{}, err
+			}
+			args.named = append(args.named, named...)
+			continue
+		}
+		expr, err := parseWholeExpr(arg)
+		if err != nil {
+			return invokeArguments{}, err
+		}
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+	}
+	if len(args.positional) > 0 && len(args.named) > 0 {
+		return invokeArguments{}, fmt.Errorf("%w: %d positional and %d named argument(s)",
+			runtime.ErrMixedArguments, len(args.positional), len(args.named))
+	}
+	for i, a := range args.named {
+		for _, b := range args.named[:i] {
+			if a.param == b.param {
+				return invokeArguments{}, fmt.Errorf("parameter %s is given more than one argument", a.param)
+			}
+		}
+	}
+	return args, nil
+}
+
+// splitInvokeLine cuts `%invoke`'s tail into the object, the operation and the
+// argument text as written, so a string literal keeps its quotes and spaces.
+func splitInvokeLine(tail string) (object, operation, args string) {
+	tail = strings.TrimSpace(tail)
+	cut := indexOutsideName(tail, " \t")
+	if cut < 0 {
+		return tail, "", ""
+	}
+	object, tail = tail[:cut], strings.TrimSpace(tail[cut:])
+	if cut = indexOutsideName(tail, " \t"); cut < 0 {
+		return object, tail, ""
+	}
+	return object, tail[:cut], strings.TrimSpace(tail[cut:])
 }
 
 // parseArguments takes apart and parses `name=<expression>` arguments.
@@ -3216,9 +3341,8 @@ func (s *Session) doEvents() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	deferred := exec.DeferredEvents()
 
-	if queue.Len() == 0 && len(signals) == 0 && len(deferred) == 0 {
+	if queue.Len() == 0 && len(signals) == 0 {
 		return []string{"Event queue empty"}, false, nil
 	}
 
@@ -3231,12 +3355,6 @@ func (s *Session) doEvents() ([]string, bool, error) {
 		out = append(out, fmt.Sprintf("Signals in flight: %d", len(signals)))
 		for _, msg := range signals {
 			out = append(out, "  "+signalText(msg))
-		}
-	}
-	if len(deferred) > 0 {
-		out = append(out, fmt.Sprintf("Deferred by the active state, held until it leaves: %d", len(deferred)))
-		for _, event := range deferred {
-			out = append(out, "  "+eventText(event))
 		}
 	}
 	return append(out, "Use %advance <time> to process next event"), false, nil

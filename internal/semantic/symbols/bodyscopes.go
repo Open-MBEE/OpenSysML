@@ -65,7 +65,7 @@ func newBodyExprScope(parent *Scope, body *ast.BodyExpr) *Scope {
 		// through NameSpan and jumps to DeclSpan.
 		scope.Define(p.Name, &Symbol{
 			Name:       p.Name,
-			Kind:       SymbolAttributeUsage,
+			Kind:       SymbolReferenceUsage,
 			Decl:       body,
 			DeclSpan:   p.Span,
 			NameSpan:   p.Span,
@@ -166,10 +166,6 @@ func (w ExprWalker) Decl(scope *Scope, decl ast.Node) {
 		w.Members(scope, d.Actions)
 	case *ast.ExitMember:
 		w.Members(scope, d.Actions)
-	case *ast.DeferMember:
-		for _, trigger := range d.Triggers {
-			w.Trigger(scope, trigger)
-		}
 	case *ast.StateNode:
 		body := nodeBodyScope(scope, d)
 		w.Members(body, d.Entry)
@@ -250,7 +246,7 @@ func triggerParameterDefiner(trigger ast.Node) func(*Scope) {
 			for _, param := range t.Parameters {
 				scope.Define(param.Text, &Symbol{
 					Name:       param.Text,
-					Kind:       SymbolAttributeUsage,
+					Kind:       SymbolReferenceUsage,
 					Decl:       t,
 					DeclSpan:   param.Span,
 					NameSpan:   param.Span,

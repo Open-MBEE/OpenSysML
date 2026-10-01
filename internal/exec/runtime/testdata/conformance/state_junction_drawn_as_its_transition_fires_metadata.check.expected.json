@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"finalState": ["a2+b1", "a2+left", "a2+right"], "route": ["0", "1", "2"]},
+	"agreed": {"armed": "false"}
+}

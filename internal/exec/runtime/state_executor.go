@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -38,6 +39,11 @@ type StateExecutor struct {
 
 	// Lowered graph (source of truth)
 	graph *lower.StateGraph
+	// acceptsAlong memoizes, per leaf state, the accept-triggered transitions out of it
+	// and its enclosing states, in the order a message is tried against them.
+	acceptsAlong map[*ast.StateNode][]*lower.Transition
+	// pending memoizes the machine's last poll of the bus for a message it takes.
+	pending pendingMemo
 
 	// State machine execution state
 	activeConfig *StateConfiguration // Active state configuration (simple or multi-region)
@@ -57,9 +63,10 @@ type StateExecutor struct {
 	// instead of the composite state's initial one.
 	history map[*ast.StateNode]*historyRecord
 
-	// deferred holds, in arrival order, the events an active state defers and no
-	// transition of the active configuration handled.
-	deferred []Event
+	// pendingCall is the synchronous Call the machine is running, if any.
+	pendingCall *pendingCall
+	// callTriggers memoizes the declared operations each call trigger names.
+	callTriggers map[*ast.CallEvent][]*symbols.Symbol
 	// lastDispatch is what became of the event the last step took off the queue,
 	// lastEventAt the instant it was dispatched at.
 	lastDispatch *Dispatch
@@ -86,11 +93,6 @@ type StateExecutor struct {
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
 	doActions []*doAction
-	// round is the do round under way when the machine runs one unit at a time: the
-	// do actions whose sweep it has still to finish; roundDone marks a round closed,
-	// its dispatch owed.
-	round     []*doAction
-	roundDone bool
 	// dispatchAmong narrows the events nextEvent draws among to those a step order
 	// drew ahead of a due do step: the tied events whose dispatch acts.
 	dispatchAmong []Event
@@ -128,6 +130,10 @@ type StateExecutor struct {
 	// firingEvent is the occurrence the transition being taken reacts to, for the
 	// other segments into a join it fires to bind their own trigger's arguments.
 	firingEvent *Event
+	// firingTrans is the transition being taken, within whose performance the
+	// exits, effect and entries it causes run and read what its trigger bound. It
+	// spans a compound transition: the segments past a pseudostate accept nothing.
+	firingTrans *lower.Transition
 
 	// leftAhead are the states a compound transition under way left before its
 	// choice was resolved; exitingAhead is set while it leaves them. Both live
@@ -142,6 +148,20 @@ type StateExecutor struct {
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
 	front *unitFront
+	// began are the do behaviors the move under way started, whose due steps its entry sites
+	// draw against the entries left; path is the draw along an entry path no front orders.
+	began []*doAction
+	path  pathDraw
+	// progress is what the unit under way counts its do steps against, nil between units.
+	progress *dueProgress
+	// held contains entry cascades paused at RTC boundaries.
+	held []heldEntry
+	// entering marks states entered during the current entry unit.
+	entering map[*ast.StateNode]bool
+	// enteringMachine marks an entry cascade that includes the machine.
+	enteringMachine bool
+	// activeAtEntry records states active before the current entry unit.
+	activeAtEntry map[*ast.StateNode]bool
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -158,6 +178,9 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
+	// firing is the transition that entered the state, whose payload the behavior
+	// reads for its whole run (`StatePerformance::incomingTransitionTrigger`).
+	firing *firing
 	// run is the behavior under way, paused between two statements or where its
 	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
@@ -249,7 +272,6 @@ func newStateExecutorOn(
 		stateVisits:        make([]string, 0),
 		stateStack:         make([]*ast.StateNode, 0),
 		history:            make(map[*ast.StateNode]*historyRecord),
-		deferred:           make([]Event, 0),
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
@@ -258,16 +280,37 @@ func newStateExecutorOn(
 		activeConfig: &StateConfiguration{
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
+		entering: make(map[*ast.StateNode]bool),
 	}
 	exec.driven.exec = exec
 	return exec
 }
 
-// initializeAttributes populates stateData from the exhibited occurrence, or
-// from declared defaults when the machine has no occurrence.
+// initializeAttributes populates stateData from the exhibited occurrence's
+// slots, else the declared defaults, each evaluated where it was declared.
 func (e *StateExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.graph.Attributes {
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
+			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
+			ec.pushFrame(e.dataFrame())
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.graph.Attributes {
+		if _, held := e.stateData[attr.Name]; held {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -275,25 +318,59 @@ func (e *StateExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.stateData[attr.Name] = value
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
-	defer ec.beginStep()()
-	for _, attr := range e.graph.Attributes {
 		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		value, err := ec.Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
 		}
 		e.stateData[attr.Name] = value
 	}
 
 	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a machine exhibited on an
+// object to that object, when the object is of the type the parameter declares, as the
+// action executor's does for a performance started on one.
+func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+		return false
+	}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.stateData[attr.Name] = value
+	return true
+}
+
+// dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`
+// written in a member the machine owns reads the binding the running machine gave it.
+func (e *StateExecutor) dataFrame() frame {
+	return frame{vars: e.stateData, performed: e.stateMachine}
 }
 
 // initializeStateAttributes gives every state that owns attributes its own
@@ -314,6 +391,9 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				scope = e.graph.Scope
 			}
 			ec := NewEvalContextIn(e.ctx, scope, e.self)
+			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
+			ec.pushFrame(e.dataFrame())
 			end := ec.beginStep()
 			value, err := ec.Eval(attr.Value)
 			end()
@@ -377,6 +457,53 @@ func (e *StateExecutor) declaresAttribute(name string) bool {
 	return false
 }
 
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a machine definition run directly denotes it, seeding it with
+// the values the machine's own attributes already hold; a run of a usage has
+// none of its own to make.
+func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.stateMachine.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.graph.Attributes {
+		if value, held := e.stateData[attr.Name]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
+}
+
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write; with none, or a name it does not declare, it leaves value untouched.
+func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
+}
+
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	if e.occurrence != nil {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
@@ -398,13 +525,39 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	return nil
 }
 
-// evalStepOf evaluates one expression of a step — a guard, a change condition, a
-// duration — in scope, in an activation of its own (see beginStep), with the
+// evalStepOf evaluates one expression of a step read ahead of any transition
+// performance — a change condition, a duration, an entry guard, a run-to-completion
+// value — in scope, in an activation of its own (see beginStep), with the
 // machine's data and the attributes of the state the step leaves shadowing it.
 func (e *StateExecutor) evalStepOf(owner ast.Node, node ast.Node, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(owner, nil, node, scope)
+}
+
+// evalTransitionStep evaluates a transition's guard or weight within the firing
+// it belongs to (see stepFiring), so `T.d` reads what the accepting segment bound.
+func (e *StateExecutor) evalTransitionStep(trans *lower.Transition, node ast.Node, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(trans.Source, e.stepFiring(trans), node, scope)
+}
+
+// stepFiring is the firing a step of trans is read within: trans's own, with the
+// arguments its trigger bound, when it leaves a state; the compound transition
+// under way when it is a segment past a pseudostate, which accepts nothing itself.
+func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
+	if _, segment := trans.Source.(*ast.PseudostateNode); segment {
+		return e.currentFiring()
+	}
+	return e.firingOf(trans)
+}
+
+// evalStepWithin evaluates a step's expression over the machine's data read
+// within f, nil for a step no transition performance carries.
+func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
-	ec.Push(e.stateData)
+	ec.thisOccurrence = e.materializeOccurrence
+	data := e.dataFrame()
+	data.firing = f
+	ec.pushFrame(data)
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
 			ec.Push(frame)
@@ -507,7 +660,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 		if trans.Trigger != nil {
 			continue
 		}
-		e.eventQueue.Push(Event{
+		e.enqueue(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime, // Use EventTime with nil trigger
 			Timestamp: e.ctx.clock.now,
@@ -522,44 +675,67 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 // completesAtEntry reports whether entering state as the end of an entry path queues
 // its completion at once: it has a completion transition and nothing below to enter.
 func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
-	if _, orthogonal := e.graph.CompositeStates[state]; orthogonal || len(e.graph.StartOf(state)) > 0 {
-		return false
-	}
-	return completionCount(e.graph.Transitions[state]) > 0
+	return !e.hasBody(state) && completionCount(e.graph.Transitions[state]) > 0
+}
+
+// hasBody reports whether state has substates to enter: orthogonal regions or a start.
+func (e *StateExecutor) hasBody(state *ast.StateNode) bool {
+	_, orthogonal := e.graph.CompositeStates[state]
+	return orthogonal || len(e.graph.StartOf(state)) > 0
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
 // of the state whose timer is not running yet, due at the clock's instant.
 func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
-	for _, trans := range e.graph.Transitions[state] {
-		if e.timerScheduled[trans] {
+	transitions := e.graph.Transitions[state]
+	// Transitions sharing a trigger spelling compete for one occurrence, so a
+	// group of equal time triggers arms a single timer drawn among by weight.
+	for _, group := range lower.TransitionGroups(state, transitions) {
+		scheduled := false
+		for _, index := range group {
+			scheduled = scheduled || e.timerScheduled[transitions[index]]
+		}
+		if scheduled {
 			continue
 		}
-		if trans.Trigger == nil {
+		first := transitions[group[0]]
+		if first.Trigger == nil {
 			continue // a completion transition, scheduled once the do behavior ends
-		} else if timeEvent, ok := trans.Trigger.(*ast.TimeEvent); ok {
-			if err := e.checkTimeTriggerType(trans, timeEvent); err != nil {
+		}
+		timeEvent, ok := first.Trigger.(*ast.TimeEvent)
+		if !ok {
+			continue
+		}
+		for _, index := range group {
+			trans := transitions[index]
+			member, _ := trans.Trigger.(*ast.TimeEvent)
+			if member == nil {
+				continue
+			}
+			if err := e.checkTimeTriggerType(trans, member); err != nil {
 				return err
 			}
-			// Evaluate duration expression in the scope the transition was written
-			// in, the machine's data shadowing it.
-			durationVal, err := e.evalStepOf(trans.Source, timeEvent.Duration, trans.Scope)
-			if err != nil {
-				return fmt.Errorf("eval time duration: %w", err)
-			}
-			due, err := e.ctx.dueInstant(timeEvent, durationVal, "time duration")
-			if err != nil {
-				return err
-			}
+		}
+		// Evaluate duration expression in the scope the transition was written
+		// in, the machine's data shadowing it.
+		durationVal, err := e.evalStepOf(first.Source, timeEvent.Duration, first.Scope)
+		if err != nil {
+			return fmt.Errorf("eval time duration: %w", err)
+		}
+		due, err := e.ctx.dueInstant(timeEvent, durationVal, "time duration")
+		if err != nil {
+			return err
+		}
 
-			e.eventQueue.Push(Event{
-				ID:        e.nextEventID,
-				Type:      EventTime,
-				Timestamp: due,
-				Payload:   trans,
-			})
-			e.nextEventID++
-			e.timerScheduled[trans] = true
+		e.enqueue(Event{
+			ID:        e.nextEventID,
+			Type:      EventTime,
+			Timestamp: due,
+			Payload:   first,
+		})
+		e.nextEventID++
+		for _, index := range group {
+			e.timerScheduled[transitions[index]] = true
 		}
 	}
 
@@ -578,9 +754,7 @@ func (e *StateExecutor) checkTimeTriggerType(trans *lower.Transition, t *ast.Tim
 }
 
 // processNextEvent pops and processes the next event from queue. It is one
-// run-to-completion step: the event is dispatched, and only once it has been
-// fully handled are events the new configuration no longer defers dispatched
-// again.
+// run-to-completion step.
 func (e *StateExecutor) processNextEvent() error {
 	if e.eventQueue.Len() == 0 {
 		return fmt.Errorf("no events to process")
@@ -592,7 +766,7 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
-	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
+	e.ctx.setClock(math.Max(e.ctx.clock.now, event.Timestamp))
 	e.lastEventAt = e.ctx.clock.now
 
 	e.markDispatch()
@@ -602,10 +776,7 @@ func (e *StateExecutor) processNextEvent() error {
 		return err
 	}
 	e.lastDispatch = &dispatch
-	if !dispatch.Deferred {
-		e.recordAccept(event, mark, at)
-	}
-	e.recallDeferredEvents()
+	e.recordAccept(event, mark, at)
 	e.pauseAtBreakpoint()
 	return nil
 }
@@ -737,13 +908,12 @@ func (e *StateExecutor) eventLabel(event Event) string {
 }
 
 // Dispatch is what became of an event a step took off the queue: a transition
-// fired on it, a state deferred it, or nothing was enabled for it and it was
-// dropped; Resumed names the states whose do behavior went on from an accept with it.
+// fired on it, or nothing was enabled for it and it was dropped; Resumed names
+// the states whose do behavior went on from an accept with it.
 type Dispatch struct {
-	Event    Event
-	Fired    bool
-	Deferred bool
-	Resumed  []string
+	Event   Event
+	Fired   bool
+	Resumed []string
 }
 
 // LastDispatch returns what became of the event the last ProcessNextEvent
@@ -848,23 +1018,39 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				return dispatch, nil
 			}
 			var notes []RunNote
+			var err error
 			if lowerTrans.Trigger == nil && sourceState != nil {
-				var err error
 				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
 					return dispatch, err
 				}
 			} else if lowerTrans.Trigger != nil {
-				// The timer selects its transition as a signal dispatch would: its
-				// guard holds and the join it may lead into is ready, or it fires nothing.
-				if enabled, err := e.transitionEnabled(lowerTrans, &event); err != nil || !enabled {
+				// The expiry is the one occurrence the trigger's group competes
+				// for: the weighted draw among the holding members picks it, as a
+				// signal dispatch would.
+				for _, groupMember := range e.graph.Transitions[sourceState] {
+					if sameTimerGroup(groupMember, lowerTrans) {
+						delete(e.timerScheduled, groupMember)
+					}
+				}
+				enabled, probeNotes, err := e.enabledTransitions(sourceState, &event)
+				if err != nil || len(enabled) == 0 {
 					return dispatch, err
 				}
+				notes = probeNotes
+				chosen, choiceNotes, err := e.chooseTransition(dispatchCandidate{
+					leaf: sourceState, source: sourceState,
+					enabled: enabled, notes: notes,
+				}, &event)
+				if err != nil || chosen == nil {
+					return dispatch, err
+				}
+				notes = choiceNotes
+				lowerTrans = chosen
 			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
-			var err error
 			dispatch.Fired, err = e.firingOn(&event, func() (bool, error) {
 				return e.resolveAndFire(sourceState, lowerTrans, notes)
 			})
@@ -897,7 +1083,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Target:  targetState,
 				Trigger: edge.Trigger,
 				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, lower.BehaviorBlock{Member: edge}, e.stateMachine.Scope, e.ctx.Resolver()),
+				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver()),
 			}
 			var err error
 			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: targetState})
@@ -912,83 +1098,14 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			return dispatch, err
 		}
 		dispatch.Fired, dispatch.Resumed = consumed, resumed
-		if !consumed && len(resumed) == 0 && e.defersEvent(&event) {
-			dispatch.Deferred = true
-			e.deferred = append(e.deferred, event)
-		}
 		return dispatch, nil
 	}
 }
 
-// defersEvent reports whether any state of the active configuration, or an
-// ancestor of one, defers this event. A composite state's deferral holds while
-// any of its substates is active.
-func (e *StateExecutor) defersEvent(event *Event) bool {
-	return len(e.deferringStates(event)) > 0
-}
-
-// deferringStates lists the states of the active configuration, each active leaf
-// and its ancestors, that defer this event; each is listed once.
-func (e *StateExecutor) deferringStates(event *Event) []*ast.StateNode {
-	var deferring []*ast.StateNode
-	asked := make(map[*ast.StateNode]bool)
-	for _, state := range e.activeStates() {
-		for _, ancestor := range e.getParentChain(state) {
-			if asked[ancestor] {
-				continue
-			}
-			asked[ancestor] = true
-			for _, trigger := range e.graph.Deferred[ancestor] {
-				if e.triggerMatches(trigger, e.graph.StateScopes[ancestor], event) {
-					deferring = append(deferring, ancestor)
-					break
-				}
-			}
-		}
-	}
-	return deferring
-}
-
-// deferralOutranks reports whether a deferring state of the configuration holds
-// the event back from the selected transitions: only a transition out of that
-// state, or out of a state nested in it, is nested deeply enough to override its
-// deferral, and every deferring state must be overridden for any of them to fire.
-func (e *StateExecutor) deferralOutranks(candidates []dispatchCandidate, event *Event) bool {
-	for _, deferring := range e.deferringStates(event) {
-		overridden := slices.ContainsFunc(candidates, func(candidate dispatchCandidate) bool {
-			return e.encloses(deferring, candidate.source)
-		})
-		if !overridden {
-			return true
-		}
-	}
-	return false
-}
-
-// recallDeferredEvents returns every deferred event the configuration reached by
-// the step just finished no longer defers to the event pool. A recalled event
-// keeps its ID, so it is dispatched ahead of whatever arrived while it was held
-// back, but not its original timestamp, which would move virtual time backwards.
-func (e *StateExecutor) recallDeferredEvents() {
-	if len(e.deferred) == 0 {
-		return
-	}
-	retained := make([]Event, 0, len(e.deferred))
-	for _, event := range e.deferred {
-		if e.defersEvent(&event) {
-			retained = append(retained, event)
-			continue
-		}
-		event.Timestamp = e.ctx.clock.now
-		e.eventQueue.Push(event)
-	}
-	e.deferred = retained
-}
-
 // broadcastEvent offers an event to the active configuration, reporting whether
 // any transition consumed it and the states whose do behavior went on with it.
-// An event nothing consumed is either deferred or dropped by the caller, so "a
-// transition fired" and "nothing happened" must not look alike here.
+// An event nothing consumed is dropped by the caller, so "a transition fired"
+// and "nothing happened" must not look alike here.
 //
 // Dispatch selects the transitions to take against the configuration and data the
 // event was taken off the queue for, so a state this event entered never reacts to
@@ -1050,7 +1167,11 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	saved := e.firingEvent
 	e.firingEvent = event
 	defer func() { e.firingEvent = saved }()
-	return fire()
+	fired, err := fire()
+	if fired {
+		e.callTaken(event)
+	}
+	return fired, err
 }
 
 // dispatchInOrder fires the candidates as queues of one front, drawing which firing's next
@@ -1145,19 +1266,10 @@ type dispatchCandidate struct {
 // innermost state with an enabled transition. A false guard does not consume
 // the event, so the walk carries on past it. Leaves in sibling regions of one
 // composite state select the same state, which the event still leaves only once.
-// A state that defers the event outranks every transition not nested in it: it
-// selects nothing, to defer the event, unless each deferring state is overridden.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	candidates, err := e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+	return e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
 		return e.enabledTransitions(source, event)
 	})
-	if err != nil {
-		return nil, err
-	}
-	if e.deferralOutranks(candidates, event) {
-		return nil, nil
-	}
-	return candidates, nil
 }
 
 // selectCandidates walks outward from every active leaf, asking enabled which
@@ -1204,7 +1316,11 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 		if e.losesToNestedTransition(candidates, candidate) {
 			continue
 		}
-		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
+		var err error
+		candidate.chosen, candidate.notes, err = e.chooseTransition(candidate, event)
+		if err != nil {
+			return nil, err
+		}
 		route, err := e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
@@ -1230,19 +1346,48 @@ func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (
 }
 
 // chooseTransition resolves which of the candidate's enabled transitions fires,
-// with the choice point it makes ahead of the candidate's notes.
-func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
+// with the choice point it makes ahead of the candidate's notes: a weighted
+// enabled set is drawn by the weights its transitions state, the trigger's
+// arguments bound for them as they are for a guard. event is nil for a
+// completion, a change poll or a route's branch.
+func (e *StateExecutor) chooseTransition(candidate dispatchCandidate, event *Event) (*lower.Transition, []RunNote, error) {
 	transitions := e.graph.Transitions[candidate.source]
 	notes := candidate.notes
 	pick := 0
+	// Weights are validated for a lone enabled transition too, even though it
+	// records no choice point and fires with probability 1.
+	weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled, event)
+	if err != nil {
+		return nil, nil, err
+	}
 	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
 		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
-		pick = e.ctx.scheduling().choose(choice, whereOf)
-		choice.Taken, choice.Where = pick, whereOf(pick)
+		pick, err = e.drawTransition(&choice, whereOf, weights)
+		if err != nil {
+			return nil, nil, err
+		}
 		choice.File, choice.Span = e.transitionLocation(candidate.source, transitions[candidate.enabled[pick]])
 		notes = append([]RunNote{choice}, notes...)
 	}
-	return transitions[candidate.enabled[pick]], notes
+	return transitions[candidate.enabled[pick]], notes, nil
+}
+
+// drawTransition resolves the choice point to the alternative taken: among the
+// enabled weights where the set is weighted, by the policy where it is not;
+// Where names the transition taken.
+func (e *StateExecutor) drawTransition(choice *ChoicePoint, whereOf func(i int) string, weights []float64) (int, error) {
+	if weights == nil {
+		pick := e.ctx.scheduling().choose(*choice, whereOf)
+		choice.Taken, choice.Where = pick, whereOf(pick)
+		return pick, nil
+	}
+	choice.Weights = weights
+	choice.Where = whereOf(0)
+	if err := e.ctx.scheduling().chooseWeighted(choice, whereOf); err != nil {
+		return 0, err
+	}
+	choice.Where = whereOf(choice.Taken)
+	return choice.Taken, nil
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
@@ -1405,13 +1550,19 @@ func lessPath(a, b []int) bool {
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
 // r is the transition's route as resolveRoute settled it.
 func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans, r)
 	}
 	return e.fireTransition(trans, r)
+}
+
+// taking puts the executor in the middle of taking trans, selected with notes,
+// and returns the function putting it back where it was.
+func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
+	savedTrans, savedNotes := e.firingTrans, e.firingNotes
+	e.firingTrans, e.firingNotes = trans, notes
+	return func() { e.firingTrans, e.firingNotes = savedTrans, savedNotes }
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -1424,9 +1575,7 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	if source != nil {
 		return e.fireFrom(source, trans, notes, r)
 	}
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	return e.fireTransition(trans, r)
 }
 
@@ -1445,7 +1594,21 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	}
 	transitions := e.graph.Transitions[source]
 	if completionCount(transitions) < 2 {
-		// Nothing to choose among: firing reads the one guard.
+		// Nothing to choose among: firing reads the one guard, and a lone
+		// weighted completion has its weight validated only once its guard holds.
+		if dispatched.Probability != nil {
+			ok, err := e.completionEnabled(dispatched)
+			if err != nil {
+				return nil, nil, fmt.Errorf("eval completion guard: %w", err)
+			}
+			if !ok {
+				drain()
+				return nil, nil, nil
+			}
+			if _, err := e.transitionWeights(source, transitions, []int{slices.Index(transitions, dispatched)}, nil); err != nil {
+				return nil, nil, err
+			}
+		}
 		drain()
 		return dispatched, nil, nil
 	}
@@ -1476,14 +1639,20 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		drain()
 		return nil, nil, nil
 	}
+	weights, err := e.transitionWeights(source, transitions, enabled, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	choice, ok := e.transitionChoice(source, transitions, enabled)
 	if !ok {
 		drain()
 		return transitions[enabled[0]], notes, nil
 	}
 	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
-	pick := e.ctx.scheduling().choose(choice, whereOf)
-	choice.Taken, choice.Where = pick, whereOf(pick)
+	pick, err := e.drawTransition(&choice, whereOf, weights)
+	if err != nil {
+		return nil, nil, err
+	}
 	choice.File, choice.Span = e.transitionLocation(source, transitions[enabled[pick]])
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return nil, nil, err
@@ -1636,6 +1805,127 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 	return ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}, true
 }
 
+// transitionWeights evaluates the weight each transition out of source states
+// for itself, read where its guard is, nil when none of the enabled is
+// weighted: an unweighted set draws as it always has. A weighted transition
+// enabled beside an unweighted one, an evaluated weight that is no probability,
+// a group whose weights do not sum to 1 or no enabled weight positive at all is
+// the typed error, mirroring what a decision reports. Every transition of a
+// group an enabled transition belongs to is weighed, not only the enabled.
+func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.Transition, enabled []int, event *Event) ([]float64, error) {
+	firstWeighted := -1
+	for _, pos := range enabled {
+		if transitions[pos].Probability != nil {
+			firstWeighted = pos
+			break
+		}
+	}
+	if firstWeighted < 0 {
+		return nil, nil
+	}
+	w := &weighing{e: e, source: source, transitions: transitions, event: event, firstWeighted: firstWeighted, evaluated: make(map[int]float64)}
+	// The whole distribution of a group is checked, as a decision's is: every
+	// member's weight is a probability and they sum to 1, the enabled or not.
+	for _, group := range lower.TransitionGroups(source, transitions) {
+		if !slices.ContainsFunc(group, func(pos int) bool { return slices.Contains(enabled, pos) }) {
+			continue
+		}
+		if err := w.weighGroup(group); err != nil {
+			return nil, err
+		}
+	}
+	weights := make([]float64, len(enabled))
+	for i, pos := range enabled {
+		if transitions[pos].Probability == nil {
+			return nil, w.unweighted(pos)
+		}
+		weights[i] = w.evaluated[pos]
+	}
+	if _, err := checkWeights(weightWhere(source, transitions, enabled[0]), weights); err != nil {
+		return nil, err
+	}
+	return weights, nil
+}
+
+// weighing evaluates the weights of the transitions out of one source.
+type weighing struct {
+	e             *StateExecutor
+	source        ast.Node
+	transitions   []*lower.Transition
+	event         *Event
+	firstWeighted int
+	evaluated     map[int]float64
+}
+
+func (w *weighing) where(pos int) string { return weightWhere(w.source, w.transitions, pos) }
+
+func (w *weighing) name(pos int) string { return transitionName(w.transitions, pos) }
+
+func (w *weighing) unweighted(pos int) error {
+	return fmt.Errorf("%w: %s: %s is unweighted while %s carries a weight",
+		ErrBranchWeights, w.where(pos), w.name(pos), w.name(w.firstWeighted))
+}
+
+// weighGroup evaluates every weight of a group and checks they sum to 1.
+func (w *weighing) weighGroup(group []int) error {
+	total := 0.0
+	for _, pos := range group {
+		if w.transitions[pos].Probability == nil {
+			return w.unweighted(pos)
+		}
+		weight, err := w.evalWeight(pos)
+		if err != nil {
+			return err
+		}
+		if !lower.WeightInRange(weight) {
+			return fmt.Errorf("%w: %s: weight of %s is %s, not a probability in [0, 1]",
+				ErrBranchWeights, w.where(pos), w.name(pos), FormatWeight(weight))
+		}
+		w.evaluated[pos] = weight
+		total += weight
+	}
+	if math.Abs(total-1) > lower.ProbabilityTolerance {
+		return fmt.Errorf("%w: %s: the weights of its transitions sum to %s, not 1.0",
+			ErrBranchWeights, w.where(group[0]), FormatWeight(total))
+	}
+	return nil
+}
+
+// evalWeight evaluates one transition's weight where its guard is, the
+// trigger's arguments bound from the event it reacts to.
+func (w *weighing) evalWeight(pos int) (float64, error) {
+	trans := w.transitions[pos]
+	if w.event != nil && trans.Trigger != nil {
+		unbind, err := w.e.bindTriggerArguments(trans, w.event)
+		defer unbind()
+		if err != nil {
+			return 0, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, w.where(pos), w.name(pos), err)
+		}
+	}
+	val, err := w.e.evalTransitionStep(trans, trans.Probability.Expr, trans.BodyScope)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %s: weight of %s: %v", ErrBranchWeights, w.where(pos), w.name(pos), err)
+	}
+	val = soleElement(val)
+	if val.Kind != ValConst || !val.Const.IsNumeric() {
+		return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
+			ErrBranchWeights, w.where(pos), w.name(pos), describeValue(val))
+	}
+	return asReal(val.Const), nil
+}
+
+// weightWhere names the state and the event the transition at pos reacts to,
+// or the pseudostate its branches leave, for a message about its weight.
+func weightWhere(source ast.Node, transitions []*lower.Transition, pos int) string {
+	switch s := source.(type) {
+	case *ast.StateNode:
+		return transitionWhere(s, transitions[pos])
+	case *ast.PseudostateNode:
+		return pseudostateWhere(s)
+	}
+	return "transitions"
+}
+
 // unevaluableTransition is the transition at position pos out of state, probed
 // once another was enabled, as the note that it cannot be evaluated.
 func (e *StateExecutor) unevaluableTransition(state *ast.StateNode, transitions []*lower.Transition, pos int, err error) UnevaluableGuard {
@@ -1684,52 +1974,48 @@ func (e *StateExecutor) transitionLocation(vertex ast.Node, trans *lower.Transit
 // them. It returns the function restoring the machine's data to what it held
 // before, for the caller to run when the transition does not fire.
 func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Event) (func(), error) {
-	if acceptEvent, ok := trans.Trigger.(*ast.AcceptEvent); ok {
-		return e.bindAcceptPayload(acceptEvent, event)
-	}
-
-	callEvent, ok := trans.Trigger.(*ast.CallEvent)
-	if !ok || len(callEvent.Parameters) == 0 {
+	if len(trans.Accepted) == 0 {
 		return func() { /* nothing was bound */ }, nil
 	}
-	unbind := e.restoreData(callEvent.Parameters)
+	unbind := e.restoreData(trans.Accepted)
+	if accept, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+		return unbind, e.bindAcceptPayload(trans.Accepted[0], accept, trans.Scope, event)
+	}
+	callEvent, ok := trans.Trigger.(*ast.CallEvent)
+	if !ok {
+		return unbind, fmt.Errorf("trigger binding %s: a %T trigger binds nothing", trans.Accepted[0], trans.Trigger)
+	}
 	call, ok := event.Payload.(Call)
 	if !ok {
 		return unbind, fmt.Errorf("call trigger %s: event carries %T, not an operation invocation",
 			ast.SimpleName(callEvent.Operation), event.Payload)
 	}
-	for _, param := range callEvent.Parameters {
-		value, ok := call.Args[param.Text]
+	for _, param := range trans.Accepted {
+		value, ok := call.Args[param]
 		if !ok {
 			return unbind, fmt.Errorf("call trigger %s: invocation carries no argument %q",
-				call.Operation, param.Text)
+				call.Operation, param)
 		}
-		e.bindData(param.Text, value)
+		e.bindData(param, value)
 	}
 	return unbind, nil
 }
 
 // bindAcceptPayload binds the name an accept gave its payload
 // (`accept msg : Warning`) to the value the accepted occurrence carries, for the
-// transition's guard and effect to read, and returns the function unbinding it.
-func (e *StateExecutor) bindAcceptPayload(acceptEvent *ast.AcceptEvent, event *Event) (func(), error) {
-	if acceptEvent.Payload == nil || acceptEvent.Payload.Ident.Name == "" {
-		return func() { /* nothing was bound */ }, nil
-	}
-	name := ast.NameSegment{Text: acceptEvent.Payload.Ident.Name}
-	unbind := e.restoreData([]ast.NameSegment{name})
+// transition's guard, effect and the behaviors its firing performs to read.
+func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, scope *symbols.Scope, event *Event) error {
 	msg, ok := event.Payload.(Message)
 	if !ok {
-		return unbind, fmt.Errorf("accept %s: event carries %T, not a message",
-			name.Text, event.Payload)
+		return fmt.Errorf("accept %s: event carries %T, not a message", name, event.Payload)
 	}
-	value, err := e.ctx.acceptedValue(&msg)
+	value, err := e.ctx.acceptedValueAs(&msg, ast.AsQualifiedName(accept.SignalType), scope)
 	if err != nil {
-		return unbind, fmt.Errorf("accept %s: %w", name.Text, err)
+		return fmt.Errorf("accept %s: %w", name, err)
 	}
 	event.Payload = msg
-	e.bindData(name.Text, value)
-	return unbind, nil
+	e.bindData(name, value)
+	return nil
 }
 
 // orAnonymousSignal names the signal a message carries for a diagnostic.
@@ -1742,12 +2028,12 @@ func orAnonymousSignal(signalType string) string {
 
 // restoreSharedData snapshots the named entries of the machine's data and returns
 // the function putting them back, deleting the ones that were not there before.
-func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
+func (e *StateExecutor) restoreSharedData(names []string) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
 	for _, name := range names {
-		value, ok := e.stateData[name.Text]
-		saved[name.Text], held[name.Text] = value, ok
+		value, ok := e.stateData[name]
+		saved[name], held[name] = value, ok
 	}
 	return func() {
 		for name, wasHeld := range held {
@@ -1758,6 +2044,16 @@ func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
 			}
 		}
 	}
+}
+
+// sameTimerGroup reports whether two transitions out of one source share a
+// trigger spelling, so a timer queued for one is the occurrence both compete
+// for. Completion transitions never share: each arms its own timer.
+func sameTimerGroup(a, b *lower.Transition) bool {
+	if _, timed := b.Trigger.(*ast.TimeEvent); !timed {
+		return false
+	}
+	return a.Source == b.Source && lower.TriggerKey(a) == lower.TriggerKey(b)
 }
 
 // matchesEvent checks if a transition matches the given event. Resolving the
@@ -1788,11 +2084,10 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 		return e.transitionReached(trans, msg)
 
 	case EventTime:
-		// Time events carry the specific transition in Payload
-		// If matchesEvent is called for time events (shouldn't normally happen),
-		// match if this transition is the one in the payload
+		// A timer expiry is the one occurrence its whole same-spelled group
+		// competes for: the payload names the group's first member.
 		if transPayload, ok := event.Payload.(*lower.Transition); ok {
-			return trans == transPayload, nil
+			return trans == transPayload || sameTimerGroup(trans, transPayload), nil
 		}
 		return false, nil
 
@@ -1801,9 +2096,8 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 	}
 }
 
-// triggerMatches reports whether a trigger reacts to an event, whether the
-// trigger belongs to a transition or to a state's deferred set. scope is where
-// the trigger was declared, in which the type it accepts resolves.
+// triggerMatches reports whether a transition's trigger reacts to an event.
+// scope is where the trigger was declared, in which the type it accepts resolves.
 func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, event *Event) bool {
 	switch event.Type {
 	case EventAccept:
@@ -1847,7 +2141,8 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 				return false
 			}
 		}
-		return true
+		// A call of a declared operation fires only the triggers naming that one.
+		return call.Declared == nil || slices.Contains(e.callTriggerOperations(callEvent), call.Declared)
 
 	case EventChange:
 		// Re-evaluate condition (pollChangeEvents is the primary driver); here we
@@ -1973,23 +2268,7 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 		return err
 	}
 
-	// Each region on the path activates its deepest entered state; a leaf in no
-	// region is the machine's single active state.
-	onPath := e.branchesTo(nil, leaf)
-	for region, state := range onPath {
-		e.activeConfig.regionStates[region] = state
-	}
-	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = leaf
-	}
-	e.stateStack = e.rootToLeaf(leaf)
-
-	// Schedule new events
-	if err := e.scheduleTransitionEvents(); err != nil {
-		return fmt.Errorf("schedule events: %w", err)
-	}
-
-	if err := e.completeIfDone(leaf); err != nil {
+	if err := e.settleEntered(leaf); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 
@@ -2063,13 +2342,13 @@ func (e *StateExecutor) abandonMachine() []string {
 	}
 	clear(e.doActions)
 	e.doActions = e.doActions[:0]
+	e.clearEntryState()
 	e.activeConfig.simpleState = nil
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.stateStack = nil
 	e.completionDue = false
-	// Nothing dispatches on an ended machine: what it queued or deferred is discarded.
+	// Nothing dispatches on an ended machine: what it queued is discarded.
 	e.eventQueue.Withdraw(func(Event) bool { return true })
-	e.deferred = e.deferred[:0]
 	clear(e.timerScheduled)
 	e.changeWaits = nil
 	e.machineExited = true
@@ -2212,6 +2491,11 @@ func (e *StateExecutor) stateCompleted(state *ast.StateNode) bool {
 	return !e.bodyRunning(state) || e.stateComplete(state)
 }
 
+// bodyAhead reports whether the move entering state has yet to enter its body.
+func (e *StateExecutor) bodyAhead(state *ast.StateNode) bool {
+	return e.entering[state] && e.hasBody(state) && !e.bodyRunning(state)
+}
+
 // bodyRunning reports whether a state nested in state is active.
 func (e *StateExecutor) bodyRunning(state *ast.StateNode) bool {
 	for _, active := range e.activeStates() {
@@ -2241,18 +2525,18 @@ func isSynchronizationTarget(target ast.Node) bool {
 // passesGuard reports whether a transition's guard allows it to fire. A nil
 // guard always passes. The guard resolves its names in the scope the transition
 // was written in, with the machine's data shadowing it, so a live value wins
-// over a same-named declaration.
+// over a same-named declaration; it is read within the transition's firing.
 func (e *StateExecutor) passesGuard(trans *lower.Transition) (bool, error) {
 	if trans == nil || trans.Guard == nil {
 		return true, nil
 	}
-	val, err := e.evalStepOf(trans.Source, trans.Guard, trans.BodyScope)
+	val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
 	if err != nil {
 		return false, fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("guard of %s must be boolean, got %v",
-			transitionDescription(trans), val.Kind)
+		return false, fmt.Errorf("%w: guard of %s must be boolean, got %s",
+			ErrTypeMismatch, transitionDescription(trans), describeOperand(val))
 	}
 	return val.Const.Bool, nil
 }
@@ -2415,13 +2699,13 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err != nil {
 		return err
 	}
+	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
+		return e.terminateAt(trans, fromName, r, r.effects(e.graph), e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
 	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
-	e.noteFired(r.segments...)
 	return e.enterBelow(trans, fromName, below, r.target, nil)
 }
 
@@ -2783,6 +3067,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 // arguments its own trigger takes from the occurrence bound; it is recorded as taken.
 func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
 	source := trans.Source.(*ast.StateNode)
+	defer e.taking(trans, e.firingNotes)()
 	if e.firingEvent != nil && trans.Trigger != nil {
 		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
 		if err != nil {
@@ -3050,6 +3335,9 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 		}
 		if stepped {
 			progress.unsettle()
+			if e.callReleased() {
+				return nil
+			}
 			continue
 		}
 		if atCurrentTime {
@@ -3137,7 +3425,7 @@ func (e *StateExecutor) dueWork() bool {
 	if !e.drivable() {
 		return false
 	}
-	return e.completionDue || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
+	return e.completionDue || len(e.held) > 0 || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
 }
 
 // watchesChange reports a change condition the active configuration waits on.
@@ -3179,78 +3467,85 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	return moved, err
 }
 
-// oneUnit runs one atomic unit at the current instant: the dispatch a closed round
-// owes, else one step of the round under way (stepRound); false when nothing was left.
+// oneUnit runs one atomic unit at the current instant: one token move of a due do
+// behavior, or the dispatch drawn against it (stepDue); the dispatch alone once no
+// do behavior is due; false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
+	defer e.counting(progress)()
+	e.resetEntering()
+	if len(e.held) > 0 {
+		return e.entryStep(progress)
+	}
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
-	if e.roundDone {
-		e.roundDone = false
-		if dispatched, err := e.dispatchOne(progress); err != nil || dispatched {
-			return dispatched, err
-		}
-	}
-	e.round = e.dueRound()
-	if len(e.round) == 0 {
+	due := e.dueDoActions()
+	if len(due) == 0 {
 		return e.dispatchOne(progress)
 	}
-	return e.stepRound(progress)
+	return e.stepDue(due, progress)
 }
 
-// dueRound lists the do actions the next step picks among: the round under way's
-// still registered, else a new round of the due ones, as runDoRound sweeps them.
-func (e *StateExecutor) dueRound() []*doAction {
-	round := slices.DeleteFunc(slices.Clone(e.round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
-	if len(round) > 0 {
-		return round
-	}
-	for _, act := range e.doActions {
-		if act.due(e.ctx) {
-			round = append(round, act)
+// dueDoActions lists the do actions due at the instant, in the order their states
+// were entered — as runDoRound sweeps them.
+func (e *StateExecutor) dueDoActions() []*doAction {
+	return e.dueAmong(e.doActions)
+}
+
+// dueAmong lists those of the do actions still registered and due at the instant.
+func (e *StateExecutor) dueAmong(acts []*doAction) []*doAction {
+	var due []*doAction
+	for _, act := range acts {
+		if act.due(e.ctx) && slices.Contains(e.doActions, act) {
+			due = append(due, act)
 		}
 	}
-	return round
+	return due
 }
 
-// stepRound runs one do action's step or, drawn against the steps under ChoiceStepOrder
-// while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
-func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
-	var next int
+// counting makes progress what the unit under way counts its do steps against.
+func (e *StateExecutor) counting(progress *dueProgress) func() {
+	prior := e.progress
+	e.progress = progress
+	return func() { e.progress = prior }
+}
+
+// countDoStep counts one token move of a do behavior against the run's do-step budget.
+func (e *StateExecutor) countDoStep() error {
+	e.progress.doSteps++
+	if e.progress.doSteps >= e.ctx.maxDoSteps {
+		return budgetExceeded(ErrDoStepLimitExceeded,
+			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
+				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	}
+	return nil
+}
+
+// stepDue moves one token of a due do behavior, drawn among the due ones, or — where
+// a dispatch that acts is due, drawn against the move under ChoiceStepOrder — dispatches.
+func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, error) {
 	if dispatch := e.dueDispatch(); dispatch.acts {
-		pick, err := e.chooseStepOrder(e.round, dispatch.step)
+		dispatchNow, err := e.chooseStepOrder(due, dispatch.step)
 		if err != nil {
 			return false, err
 		}
-		if pick == len(e.round) {
+		if dispatchNow {
 			e.dispatchAmong = dispatch.among
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
-		next = pick
-	} else {
-		pick, err := e.chooseDoAction(e.round)
-		if err != nil {
-			return false, err
-		}
-		next = pick
 	}
-	act := e.round[next]
-	e.round = slices.Delete(e.round, next, next+1)
-	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+	next, err := e.chooseDoAction(due)
+	if err != nil {
 		return false, err
 	}
-	progress.doSteps++
-	if progress.doSteps >= e.ctx.maxDoSteps {
-		return false, budgetExceeded(ErrDoStepLimitExceeded,
-			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
-				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+		return false, err
 	}
-	if len(e.round) == 0 {
-		e.roundDone = true
-		return true, e.settleDoActions()
+	if err := e.countDoStep(); err != nil {
+		return false, err
 	}
-	return true, nil
+	return true, e.settleDoActions()
 }
 
 // stepWherePrefix opens where a step order names its instant; dispatchTiedLabel is
@@ -3268,6 +3563,7 @@ type dueDispatch struct {
 	due   bool
 	label string  // the dispatch as dispatchOne makes it; dispatchTiedLabel over tied events
 	step  string  // the dispatch as a step order offers it: bare over the acting tied events, else one
+	event *Event  // the queued event at the head, when dispatching one
 	tied  []Event // the events tied at the head, the dispatch being the draw among them
 	among []Event // the tied events whose dispatch acts: what a step order draws among
 	acts  bool    // whether the dispatch takes its occurrence (eventActs)
@@ -3299,7 +3595,9 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		return d
 	}
 	head := queue.Peek()
-	return one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d := one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d.event = &head
+	return d
 }
 
 // actingEvents previews which of the events a dispatch now would take (eventActs), in
@@ -3317,7 +3615,7 @@ func (e *StateExecutor) actingEvents(events []Event) []Event {
 }
 
 // eventActs reports whether dispatching the event now would take it — fire a
-// transition or let a do behavior parked at an accept go on — not defer or drop it.
+// transition or let a do behavior parked at an accept go on — not drop it.
 func (e *StateExecutor) eventActs(event Event) (bool, error) {
 	if trans, ok := event.Payload.(*lower.Transition); ok && event.Type == EventTime {
 		source, _ := trans.Source.(*ast.StateNode)
@@ -3325,7 +3623,13 @@ func (e *StateExecutor) eventActs(event Event) (bool, error) {
 			return false, nil
 		}
 		if trans.Trigger != nil {
-			return e.transitionEnabled(trans, &event)
+			if source == nil {
+				return e.transitionEnabled(trans, &event)
+			}
+			// The expiry acts when any member of the payload's timer group
+			// holds, as dispatchEvent would draw among them.
+			enabled, _, err := e.enabledTransitions(source, &event)
+			return len(enabled) > 0, err
 		}
 		for _, completion := range e.graph.Transitions[source] {
 			if completion.Trigger != nil {
@@ -3358,30 +3662,31 @@ func (e *StateExecutor) changeLabel(trans *lower.Transition) string {
 	return transitionDescription(trans)
 }
 
-// chooseStepOrder draws what goes first under ChoiceStepOrder — `do <state>` per due
-// action in round order, then the dispatch — returning the index taken, len(due) for the dispatch.
-func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (int, error) {
-	alternatives := make([]string, 0, len(due)+1)
-	for _, name := range e.stateNames(statesOf(due)) {
-		alternatives = append(alternatives, "do "+name)
-	}
+// chooseStepOrder draws what goes first under ChoiceStepOrder — the move of a due do
+// behavior, or the dispatch — and reports whether the dispatch does.
+func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (bool, error) {
 	choice := ChoicePoint{
 		Kind:         ChoiceStepOrder,
 		Where:        stepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
-		Alternatives: append(alternatives, dispatch),
+		Alternatives: []string{doStepLabel(e.stateNames(statesOf(due))), dispatch},
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
-		return 0, err
+		return false, err
 	}
-	if choice.Taken < len(due) {
-		choice.Span = due[choice.Taken].state.Span()
+	if choice.Taken == 0 && len(due) == 1 {
+		choice.Span = due[0].state.Span()
 	}
 	e.noteChoice(choice)
-	return choice.Taken, nil
+	return choice.Taken == 1, nil
+}
+
+// doStepLabel names the move of one of the states' do behaviors as a step order's alternative.
+func doStepLabel(states []string) string {
+	return "do " + strings.Join(states, " or ")
 }
 
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
@@ -3429,6 +3734,10 @@ func (e *StateExecutor) runUnit(progress *dueProgress) (bool, error) {
 // runStep is one run-to-completion step (a do round, a risen change condition,
 // else the next due event); false when nothing was left to do at this instant.
 func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
+	e.resetEntering()
+	if len(e.held) > 0 {
+		return e.entryStep(progress)
+	}
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
@@ -3479,17 +3788,34 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 }
 
 // startDoAction registers a state's do behavior as running. Re-entering a
-// state restarts its do behavior rather than resuming the abandoned one.
+// state restarts its do behavior rather than resuming the abandoned one; the entry
+// site under way offers the behavior's due steps against the entries left in the move.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 	doBehaviors := e.behaviorsOf(state).Do
 	if len(doBehaviors) == 0 {
 		return
 	}
 	e.stopDoAction(state)
-	e.doActions = append(e.doActions, &doAction{
+	act := &doAction{
 		state:   state,
 		pending: append([]lower.StateBehavior(nil), doBehaviors...),
-	})
+		firing:  e.currentFiring(),
+	}
+	e.doActions = append(e.doActions, act)
+	e.began = append(e.began, act)
+	if e.inFront(ChoiceEntryOrder) {
+		e.front.offer(act)
+	}
+}
+
+// resumeEntering counts the running do behaviors of the states as begun by the move, which
+// goes on entering below them.
+func (e *StateExecutor) resumeEntering(states []*ast.StateNode) {
+	for _, act := range e.doActions {
+		if slices.Contains(states, act.state) && !slices.Contains(e.began, act) {
+			e.began = append(e.began, act)
+		}
+	}
 }
 
 // behaviorsOf returns the lowered entry, do and exit behaviors of a state, and
@@ -3569,8 +3895,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 }
 
 // stepDoAction performs one action of a do behavior: the behavior under way goes
-// on as told, else the next behavior begins. One a `terminate` ends takes the
-// rest of its block with it; the do behavior goes on with the next block's.
+// on as told, else the next behavior begins.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
 	e.moved = true
 	if e.trace() != nil {
@@ -3580,7 +3905,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	if run == nil {
 		behavior := act.pending[0]
 		act.pending = act.pending[1:]
-		if run = e.newDoRun(behavior); run == nil {
+		if run = e.newDoRun(behavior, act.firing); run == nil {
 			return nil
 		}
 		goOn = func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }
@@ -3590,22 +3915,19 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	if err != nil {
 		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
 	}
-	if act.run == nil && run.host.terminated {
-		act.pending = e.endBlockPending(act.pending, run.host.behavior.Block)
-	}
 	return nil
 }
 
 // doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
 // those parked at an accept for it, except in a state a transition chosen for it
-// leaves — the transition ending the state is the message's only taker there, as
-// the innermost enabled transition is among transitions, while one moving between
-// the state's own substates leaves its do behavior to go on. A port failing to
+// leaves or fires within — the transition is the message's only taker there, as
+// the innermost enabled transition is among transitions, so a do behavior of the
+// state whose substate takes the message does not take it too. A port failing to
 // resolve on the way is the error.
 func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandidate) ([]*doAction, error) {
 	var taking []*doAction
 	for _, act := range e.doActions {
-		if act.run == nil || e.leftByChosen(act.state, candidates) {
+		if act.run == nil || e.takenByChosen(act.state, candidates) {
 			continue
 		}
 		accepted, err := act.run.acceptsMessage(m)
@@ -3619,10 +3941,15 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 	return taking, nil
 }
 
-// leftByChosen reports whether firing the transition chosen for a candidate exits
-// the state, itself or a state enclosing it; a firing that would fail counts as one.
-func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
+// takenByChosen reports whether the transition chosen for a candidate takes the
+// message from the state's do behavior: it leaves the state, itself or a state
+// enclosing it, or fires out of the state or a state within it; a firing that
+// would fail counts as one.
+func (e *StateExecutor) takenByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
+		if e.isBelowOrEqual(candidate.source, state) {
+			return true
+		}
 		exited, ok := e.exitedBy(candidate)
 		if !ok {
 			return true
@@ -3796,10 +4123,11 @@ func (e *StateExecutor) settleDoActions() error {
 	}
 	e.doActions = kept
 
-	// A state completes once its do behavior has finished and its body, where
-	// it runs one, has reached `done`; completeIfDone schedules the latter case.
+	// A state completes once its do behavior has finished and its body, where it
+	// runs one, has reached `done`; completeIfDone schedules the latter case, and a
+	// body the move has yet to enter completes nothing.
 	for _, state := range finished {
-		if e.bodyRunning(state) && !e.stateComplete(state) {
+		if e.bodyAhead(state) || (e.bodyRunning(state) && !e.stateComplete(state)) {
 			continue
 		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
@@ -3856,15 +4184,21 @@ func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 	e.enqueueSignal(Message{SignalType: signalType, Payload: args})
 }
 
-// InvokeOperation injects a call event for the named operation. Transitions
-// triggered by that operation fire; transitions triggered by another do not.
+// InvokeOperation injects a call event for the named operation, as given and
+// bound to no declaration. Transitions triggered by that operation fire;
+// transitions triggered by another do not.
 func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value) {
+	e.queueCall(Call{Operation: operation, Args: args})
+}
+
+// queueCall queues a call event carrying the payload.
+func (e *StateExecutor) queueCall(payload Call) {
 	e.moved = true
-	e.eventQueue.Push(Event{
+	e.enqueue(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
 		Timestamp: e.ctx.clock.now,
-		Payload:   Call{Operation: operation, Args: args},
+		Payload:   payload,
 	})
 	e.nextEventID++
 }
@@ -3872,8 +4206,14 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
 	e.moved = true
-	e.eventQueue.Push(e.signalEvent(msg))
+	e.enqueue(e.signalEvent(msg))
 	e.nextEventID++
+}
+
+// enqueue queues ev as work the machine's next run takes.
+func (e *StateExecutor) enqueue(ev Event) {
+	e.eventQueue.Push(ev)
+	e.ctx.workChanged()
 }
 
 // signalEvent is the event enqueueSignal queues for a message in flight.
@@ -3915,7 +4255,7 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 
 // takesMessage reports whether this machine is the one to take a message in
 // flight: one it can react to, unless its guards would drop it while a sibling
-// machine of the same object would fire on or defer it.
+// machine of the same object would fire on it.
 func (e *StateExecutor) takesMessage(m Message) (bool, error) {
 	if reacts, err := e.reactsTo(m); err != nil || !reacts {
 		return reacts, err
@@ -3924,7 +4264,7 @@ func (e *StateExecutor) takesMessage(m Message) (bool, error) {
 }
 
 // yieldsTo reports whether a machine the performer also exhibits, one that
-// would fire on or defer the message where this one would only drop it, should
+// would fire on the message where this one would only drop it, should
 // take it instead. A guard error is left for the dispatch of the machine whose
 // guard it is to report: this machine takes the message when its own guard
 // fails, and leaves it when a sibling's does.
@@ -3933,6 +4273,7 @@ func (e *StateExecutor) yieldsTo(m Message) bool {
 	if len(siblings) == 0 {
 		return false
 	}
+	e.ctx.notePollReadsData()
 	if own, err := e.Decide(m); err != nil || own.Enabled() {
 		return false
 	}
@@ -3965,8 +4306,8 @@ func (e *StateExecutor) siblingsAccepting(m Message) []*StateExecutor {
 }
 
 // reactsTo reports whether a message in flight is one this machine would act on:
-// its configuration accepts or defers it, or a do behavior under way is parked at
-// an accept for it, which dispatching the message lets go on with it.
+// its configuration accepts it, or a do behavior under way is parked at an
+// accept for it, which dispatching the message lets go on with it.
 func (e *StateExecutor) reactsTo(m Message) (bool, error) {
 	if accepted, err := e.acceptableMessage(m); err != nil || accepted {
 		return accepted, err
@@ -3977,35 +4318,23 @@ func (e *StateExecutor) reactsTo(m Message) (bool, error) {
 
 // acceptableMessage reports whether a message in flight is one this machine can
 // react to now: a transition out of the active configuration accepts it (one
-// routed to a port only `via` that port), or the message reaches this machine —
-// addressed to it, or at a port of the object performing it — and a state of the
-// configuration defers it, to be held until a transition accepts it. Resolving
-// the port a `via` names may materialize it, which can fail.
+// routed to a port only `via` that port). Resolving the port a `via` names may
+// materialize it, which can fail.
 func (e *StateExecutor) acceptableMessage(m Message) (bool, error) {
-	if accepted, err := e.acceptsSignal(m); err != nil || accepted {
-		return accepted, err
-	}
-	return m.reaches(e.stateMachine.Name, m.Port, objectID(e.self)) && e.defersMessage(m), nil
-}
-
-// defersMessage reports whether the active configuration defers a message,
-// whatever route it came by, as a trigger naming no port takes it.
-func (e *StateExecutor) defersMessage(m Message) bool {
-	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
-	return e.defersEvent(&event)
+	return e.acceptsSignal(m)
 }
 
 // HasPendingSignal reports whether a signal this machine reacts to is in flight:
-// one its configuration accepts or defers, or a do behavior under way is parked at
-// an accept for. Such a signal is due now, unlike a queued event's timestamp: the
+// one its configuration accepts, or a do behavior under way is parked at an
+// accept for. Such a signal is due now, unlike a queued event's timestamp: the
 // next step delivers and dispatches it.
 func (e *StateExecutor) HasPendingSignal() bool {
 	return e.hasPendingSignal()
 }
 
 // AcceptsMessage reports whether the machine would take a message in flight: it
-// reaches this machine and triggers a transition out of an active state, is
-// deferred by one, or lets a do behavior parked at an accept go on. Whether a
+// reaches this machine and triggers a transition out of an active state, or lets
+// a do behavior parked at an accept go on. Whether a
 // transition fires is decided by its guard; see Decide. Resolving the port a
 // trigger accepts `via` may fail; a port it materializes on the way is discarded,
 // as everything the preview builds.
@@ -4015,7 +4344,7 @@ func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
 }
 
 // TakesMessage previews whether delivery would let this machine take the message:
-// it reacts to it and does not yield it to a sibling machine that would fire or defer.
+// it reacts to it and does not yield it to a sibling machine that would fire.
 func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
 	defer e.ctx.previewExecutorRun(&e.driven)()
 	e.preview(func() { takes, err = e.takesMessage(m) })
@@ -4023,7 +4352,7 @@ func (e *StateExecutor) TakesMessage(m Message) (takes bool, err error) {
 }
 
 // TriggeredBy previews whether a transition out of an active or enclosing state is
-// triggered by the message, whatever its guard; deferral and do behaviors aside.
+// triggered by the message, whatever its guard; do behaviors aside.
 func (e *StateExecutor) TriggeredBy(m Message) (triggered bool, err error) {
 	e.preview(func() { triggered, err = e.acceptsSignal(m) })
 	return triggered, err
@@ -4036,17 +4365,15 @@ func (e *StateExecutor) preview(fn func()) {
 }
 
 // Decision is what dispatching a message now would do: the transitions that
-// would fire on it, that the active state would defer it, or the do behaviors
-// parked at an accept it lets go on.
+// would fire on it, or the do behaviors parked at an accept it lets go on.
 type Decision struct {
-	Fires    []string
-	Deferred bool
-	Resumes  []string
+	Fires   []string
+	Resumes []string
 }
 
 // Enabled reports whether dispatching the message would do something with it.
 func (d Decision) Enabled() bool {
-	return len(d.Fires) > 0 || d.Deferred || len(d.Resumes) > 0
+	return len(d.Fires) > 0 || len(d.Resumes) > 0
 }
 
 // Decide decides a message as the step dispatching it would — the payload bound,
@@ -4105,9 +4432,6 @@ func (e *StateExecutor) decide(m Message) (Decision, []*lower.Transition, error)
 	for _, act := range taking {
 		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
 	}
-	if accepted && !decision.Enabled() {
-		decision.Deferred = e.defersEvent(&event)
-	}
 	return decision, transitions, nil
 }
 
@@ -4127,34 +4451,83 @@ func (e *StateExecutor) hasPendingSignal() bool {
 // pendingSignal is the message in flight deliverPendingSignal would take, the
 // first the machine takes; ok as hasPendingSignal, so a failing port counts.
 func (e *StateExecutor) pendingSignal() (Message, bool) {
-	for _, msg := range e.ctx.PendingMessages() {
+	if !e.driven.settled() {
+		// The machine, or a behavior under it, is mid-call: its state moves between polls.
+		e.pending.valid = false
+		return e.scanPending(nil, 0)
+	}
+	memo := &e.pending
+	if memo.holds(e) {
+		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			if memo.readsData {
+				e.ctx.notePollReadsData()
+			}
+			return memo.msg, memo.ok
+		}
+		// The bus only grew since a negative answer: the messages added are examined.
+		return e.scanPending(memo, memo.scanned)
+	}
+	memo.readsData = false
+	return e.scanPending(memo, 0)
+}
+
+// scanPending polls the bus from its from-th message for one the machine takes,
+// recording in memo, if any, the marks the answer holds under and what it read.
+func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool) {
+	if memo != nil {
+		memo.valid, memo.bus, memo.writes, memo.machine = true, e.ctx.bus, e.ctx.writes, e.driven.serial
+		memo.msg, memo.ok, memo.scanned = Message{}, false, from
+	}
+	saved := e.ctx.polling
+	e.ctx.polling = memo
+	defer func() {
+		e.ctx.polling = saved
+		// A poll within a poll reads for the poll enclosing it too.
+		if saved != nil && (memo == nil || memo.readsData) {
+			saved.readsData = true
+		}
+	}()
+	// The bus is read in place, as TakeMessage reads it: a probe may post or drop
+	// messages behind the one examined, and those are visited too.
+	for i := from; i < len(e.ctx.messages); i++ {
+		msg := e.ctx.messages[i]
+		if memo != nil {
+			memo.scanned = i + 1
+		}
 		if takes, err := e.takesMessage(msg); err != nil || takes {
+			if memo != nil {
+				memo.msg, memo.ok = msg, true
+			}
 			return msg, true
 		}
 	}
 	return Message{}, false
 }
 
+// holds reports whether the memo still answers for e: taken, and nothing it
+// depends on moved since, the objects' data counting only where the scan read it.
+func (memo *pendingMemo) holds(e *StateExecutor) bool {
+	return memo.valid && memo.machine == e.driven.serial && memo.bus.cuts == e.ctx.bus.cuts &&
+		(!memo.readsData || memo.writes == e.ctx.writes)
+}
+
 // acceptsSignal reports whether any transition out of the active configuration,
 // or out of a composite state enclosing it, is triggered by this signal.
 func (e *StateExecutor) acceptsSignal(msg Message) (bool, error) {
 	for _, leaf := range e.activeStates() {
-		for _, state := range e.getParentChain(leaf) {
-			if accepted, err := e.acceptsSignalFrom(state, msg); err != nil || accepted {
-				return accepted, err
-			}
+		if accepted, err := e.acceptsSignalAlong(leaf, msg); err != nil || accepted {
+			return accepted, err
 		}
 	}
 	return false, nil
 }
 
-// acceptsSignalFrom reports whether a transition out of one state is triggered
-// by this message's signal. Only a message of the right signal resolves the
-// transition's `via` port; a failure to do so is returned.
-func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bool, error) {
-	for _, trans := range e.graph.Transitions[state] {
-		accept, ok := trans.Trigger.(*ast.AcceptEvent)
-		if !ok || !e.triggerSignalMatches(accept, trans.Scope, msg) {
+// acceptsSignalAlong reports whether a transition out of a leaf state or a state
+// enclosing it is triggered by this message's signal. Only a message of the right
+// signal resolves the transition's `via` port; a failure to do so is returned.
+func (e *StateExecutor) acceptsSignalAlong(leaf *ast.StateNode, msg Message) (bool, error) {
+	for _, trans := range e.acceptTransitionsAlong(leaf) {
+		if !e.triggerSignalMatches(trans.Trigger.(*ast.AcceptEvent), trans.Scope, msg) {
 			continue
 		}
 		reaches, err := e.transitionReached(trans, msg)
@@ -4163,6 +4536,27 @@ func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bo
 		}
 	}
 	return false, nil
+}
+
+// acceptTransitionsAlong lists the accept-triggered transitions out of a leaf state
+// and, after them, out of each state enclosing it; the graph fixes the list.
+func (e *StateExecutor) acceptTransitionsAlong(leaf *ast.StateNode) []*lower.Transition {
+	if along, ok := e.acceptsAlong[leaf]; ok {
+		return along
+	}
+	var along []*lower.Transition
+	for _, state := range e.getParentChain(leaf) {
+		for _, trans := range e.graph.Transitions[state] {
+			if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+				along = append(along, trans)
+			}
+		}
+	}
+	if e.acceptsAlong == nil {
+		e.acceptsAlong = make(map[*ast.StateNode][]*lower.Transition)
+	}
+	e.acceptsAlong[leaf] = along
+	return along
 }
 
 // transitionReached reports whether a message arrives where a transition's
@@ -4190,7 +4584,8 @@ func (e *StateExecutor) triggerSignalMatches(accept *ast.AcceptEvent, scope *sym
 func (e *StateExecutor) triggerEval(scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
-	ec.Push(e.stateData)
+	ec.thisOccurrence = e.materializeOccurrence
+	ec.pushFrame(e.dataFrame())
 	return ec
 }
 
@@ -4212,7 +4607,10 @@ func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
+	defer e.counting(&dueProgress{})()
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
+	e.resetEntering()
+	e.enteringMachine = true
 
 	// A machine without orthogonal regions of its own starts in the state its
 	// body's entry transitions choose, then in that state's own start, and so on.
@@ -4223,33 +4621,8 @@ func (e *StateExecutor) initialize() (err error) {
 		if err := e.enterMachine(); err != nil {
 			return fmt.Errorf("enter state machine: %w", err)
 		}
-		start, err := e.startIn(nil)
-		if err != nil {
-			return err
-		}
-
-		e.setCurrentState(start)
 		e.state = StateRunning
-		e.stateStack = e.rootToLeaf(start)
-		for _, state := range e.stateStack {
-			if err := e.enterStateInto(state, nil, state == start); err != nil {
-				return fmt.Errorf("enter state %s: %w", state.Name, err)
-			}
-		}
-		leaf, err := e.enterStartOf(start)
-		if err != nil {
-			return err
-		}
-		e.stateStack = e.rootToLeaf(leaf)
-
-		if err := e.scheduleTransitionEvents(); err != nil {
-			return fmt.Errorf("schedule events: %w", err)
-		}
-		// An entry transition choosing `done` completes the machine as it starts.
-		if err := e.completeIfDone(leaf); err != nil {
-			return fmt.Errorf("complete state machine: %w", err)
-		}
-		return nil
+		return e.enterMachineStart()
 	}
 
 	if e.graph.Machine != nil {
@@ -4261,28 +4634,7 @@ func (e *StateExecutor) initialize() (err error) {
 	e.state = StateRunning
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = nil
-
-	// Enter the initial state of each of the machine's own regions, in declaration
-	// order: the order they are entered in is observable.
-	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
-		return err
-	}
-
-	// Schedule events for outgoing transitions in all regions
-	if err := e.scheduleTransitionEvents(); err != nil {
-		return fmt.Errorf("schedule events: %w", err)
-	}
-
-	// Every region starting in `done` completes the machine as it starts.
-	for _, region := range e.graph.TopRegions {
-		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
-			return fmt.Errorf("complete state machine: %w", err)
-		}
-		if e.state.Ended() {
-			break
-		}
-	}
-	return nil
+	return e.enterMachineRegions()
 }
 
 // enterMachine runs the machine's own entry behaviors and starts its do behavior.
@@ -4291,6 +4643,45 @@ func (e *StateExecutor) enterMachine() error {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	e.startDoAction(e.graph.Machine)
+	return nil
+}
+
+// enterMachineStart enters the machine body's serial start cascade.
+func (e *StateExecutor) enterMachineStart() error {
+	start, err := e.startIn(nil)
+	if err != nil {
+		return err
+	}
+	e.setCurrentState(start)
+	e.stateStack = e.rootToLeaf(start)
+	for _, state := range e.stateStack {
+		if err := e.enterStateInto(state, nil, state == start); err != nil {
+			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
+	}
+	leaf, err := e.enterStartOf(start)
+	if err != nil {
+		return err
+	}
+	return e.settleEntered(leaf)
+}
+
+// enterMachineRegions enters the machine's orthogonal top-level regions.
+func (e *StateExecutor) enterMachineRegions() error {
+	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
+		return err
+	}
+	if err := e.scheduleTransitionEvents(); err != nil {
+		return fmt.Errorf("schedule events: %w", err)
+	}
+	for _, region := range e.graph.TopRegions {
+		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
+			return fmt.Errorf("complete state machine: %w", err)
+		}
+		if e.state.Ended() {
+			break
+		}
+	}
 	return nil
 }
 
@@ -4371,7 +4762,17 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if _, orthogonal := e.graph.CompositeStates[leaf]; orthogonal {
 			return leaf, nil
 		}
+		if e.heldOwner(leaf) != nil {
+			return leaf, nil
+		}
 		if len(e.graph.StartOf(leaf)) > 0 {
+			held, err := e.holdEntry(leaf, nil, nil)
+			if err != nil {
+				return nil, err
+			}
+			if held {
+				return leaf, nil
+			}
 			if err := e.unitAhead(ChoiceEntryOrder, e.startHead(leaf, leaf)); err != nil {
 				return nil, err
 			}
@@ -4399,11 +4800,19 @@ func (e *StateExecutor) exitMachine() error {
 		return nil
 	}
 	e.machineExited = true
+	e.clearEntryState()
 	e.stopDoAction(e.graph.Machine)
 	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Exit); err != nil {
 		return fmt.Errorf("exit action: %w", err)
 	}
 	return nil
+}
+
+func (e *StateExecutor) clearEntryState() {
+	e.held = e.held[:0]
+	clear(e.entering)
+	e.enteringMachine = false
+	clear(e.activeAtEntry)
 }
 
 // descendantChain returns the states from ancestor's child down to leaf,
@@ -4445,15 +4854,21 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	if err := e.activateState(state); err != nil {
 		return err
 	}
+
+	// The do behavior runs while the state is active, from its entry on: alongside the
+	// entries of its substates and the do behaviors of the states active with it.
+	e.startDoAction(state)
+
 	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
+		if held, err := e.holdEntry(state, regions, branches); err != nil {
+			return err
+		} else if held {
+			return nil
+		}
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
 		}
 	}
-
-	// The do behavior runs while the state is active, interleaved with the do
-	// behaviors of the states active alongside it, rather than at entry.
-	e.startDoAction(state)
 
 	// The completion goes into the pool behind those queued by the entries performed
 	// before this one (PSSM §8.5.9); time triggers are scheduled once the move settles.
@@ -4485,8 +4900,24 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 	return nil
 }
 
+// resetEntering starts an entry unit and snapshots the configuration active before it.
+func (e *StateExecutor) resetEntering() {
+	e.entering = make(map[*ast.StateNode]bool)
+	e.enteringMachine = false
+	e.began, e.path = nil, pathDraw{}
+	e.activeAtEntry = make(map[*ast.StateNode]bool)
+	for _, active := range e.activeStates() {
+		for _, state := range e.getParentChain(active) {
+			e.activeAtEntry[state] = true
+		}
+	}
+}
+
 // performEntry records the entry of state and performs its entry behaviors.
 func (e *StateExecutor) performEntry(state *ast.StateNode) error {
+	if !e.activeAtEntry[state] {
+		e.entering[state] = true
+	}
 	// Change watches are created fresh per activation, so a condition that stayed
 	// true rises again; the firing transition keeps its latch so the entry it
 	// caused does not re-enable it.
@@ -4525,6 +4956,19 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	if state == nil {
 		return nil
 	}
+	e.held = slices.DeleteFunc(e.held, func(item heldEntry) bool {
+		if item.owner == state {
+			delete(e.entering, item.owner)
+			return true
+		}
+		for current := item.owner; current != nil; current = e.graph.ParentState[current] {
+			if current == state {
+				delete(e.entering, item.owner)
+				return true
+			}
+		}
+		return false
+	})
 
 	// A state's timers are destroyed when it is left: the event one already queued
 	// is withdrawn, so re-entering the state times a fresh interval.
@@ -4641,6 +5085,7 @@ func (e *StateExecutor) invokeNested(inv actionInvocation) error {
 		return err
 	}
 	for _, name := range slices.Sorted(maps.Keys(outputs)) {
+		e.recordCallOutput(name, outputs[name])
 		if err := e.writeStateValue(name, outputs[name]); err != nil {
 			return err
 		}
@@ -4851,13 +5296,6 @@ func (e *StateExecutor) EventQueue() *EventQueue {
 	return e.eventQueue
 }
 
-// DeferredEvents returns the events the active configuration holds deferred, in
-// the order they were deferred; they return to the queue once no active state
-// defers them.
-func (e *StateExecutor) DeferredEvents() []Event {
-	return append([]Event(nil), e.deferred...)
-}
-
 // CurrentTime returns the current instant of the clock this machine shares with
 // every executor of its context, in seconds.
 func (e *StateExecutor) CurrentTime() float64 {
@@ -4976,10 +5414,16 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
+	var progress dueProgress
+	defer e.counting(&progress)()
+	e.resetEntering()
+	if len(e.held) > 0 {
+		_, err := e.entryStep(&progress)
+		return err
+	}
 	if e.completionDue {
 		return e.completeMachine()
 	}
-	var progress dueProgress
 	for {
 		ran, err := e.runDoRound()
 		if err != nil {
@@ -5052,7 +5496,7 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
 }
 
 // RunDoRound advances every active state's do behavior by one action, without
@@ -5061,6 +5505,9 @@ func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
+	if len(e.held) > 0 {
+		return 0, nil
+	}
 	return e.runDoRound()
 }
 

@@ -27,4 +27,46 @@ standard library package DiagramLayout {
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
     }
+
+    metadata def Style {
+        doc /* How the annotated element is drawn: the colours of its fill,
+             * outline and text as "#RRGGBB", and the face, size in points and
+             * weight of its text. Each is optional; the drawing style supplies
+             * what is left unstated. */
+        attribute fill : ScalarValues::String[0..1];
+        attribute line : ScalarValues::String[0..1];
+        attribute text : ScalarValues::String[0..1];
+        attribute font : ScalarValues::String[0..1];
+        attribute fontSize : ScalarValues::Real[0..1];
+        attribute bold : ScalarValues::Boolean[0..1];
+        attribute italic : ScalarValues::Boolean[0..1];
+    }
+
+    metadata def Note {
+        doc /* A note drawn beside the annotated element and anchored to it,
+             * or free on the drawing surface when it annotates the view: its
+             * text, the top-left corner of its box and an optional fixed
+             * size, in the units of Layout. */
+        attribute text : ScalarValues::String;
+        attribute x : ScalarValues::Real;
+        attribute y : ScalarValues::Real;
+        attribute width : ScalarValues::Real[0..1];
+        attribute height : ScalarValues::Real[0..1];
+    }
+
+    metadata def Picture {
+        doc /* A picture drawn on the drawing surface of the view it annotates:
+             * the file it is read from, relative to the file the view is
+             * written in, the top-left corner and size of the box it fills,
+             * in the units of Layout, an optional alternative text, and
+             * whether it is drawn over the elements it overlaps rather than
+             * under them. */
+        attribute location : ScalarValues::String;
+        attribute x : ScalarValues::Real;
+        attribute y : ScalarValues::Real;
+        attribute width : ScalarValues::Real;
+        attribute height : ScalarValues::Real;
+        attribute alt : ScalarValues::String[0..1];
+        attribute above : ScalarValues::Boolean[0..1];
+    }
 }

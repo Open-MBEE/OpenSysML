@@ -1,0 +1,23 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="EngineCommand"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Engine"
+          (Membership visibility="default"
+            (Usage kind="action" name="rocketBoost" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="cmd" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=EngineCommand
+                    (*ast.QualifiedName))
+                  (FeatureChainExpr member="cmd"
+                    (FeatureReference name="engineControl"))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"))
+          (Membership visibility="default"
+            (Usage kind="port" name="engineControl" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="item" name="cmd" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=EngineCommand
+                    (*ast.QualifiedName)))))))))))

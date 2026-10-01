@@ -27,7 +27,7 @@ body composes the library's operations — `OwnedElements`, `Descendants`,
 [vocabulary](introduction.md#the-vocabulary) — into a relation over the model.
 It answers with **rows**: each row stands for an element, and `Project` gives
 the rows named, typed columns read from the element's properties or computed
-by a `Column(name, expression)`. The order of the rows is the model's
+by a `Column` using `expression`, `cell`, or `path`. The order of the rows is the model's
 declaration order until an `OrderBy` says otherwise, which is what makes a
 document regenerate byte-identically.
 
@@ -37,6 +37,17 @@ the relationships the model draws (`RelatedElements`). A derived value the
 declaration does not spell out is not there — a `WhereFeature` on `mass`
 reads the declared or redefined `mass`, not an expression's result — unless
 a `Column` computes it or the row is an [object row](#object-rows-and-verdict-rows).
+
+A feature the element does not declare itself but a member nested in it does
+is still reachable: a `properties`/`property` string or a `Column` expression
+spells it as a member path — `stat.runs`, `'Monte Carlo'.runs` — each segment
+a member of the element reached so far, own members first. A feature whose own
+name contains a period is read by that name first; the path is only the
+fallback. A row lacking a
+segment makes the path absent on that row alone, and a member holding more
+values than its multiplicity admits fails the column as a direct feature
+column does. See
+[Computed columns](query-cookbook.md#computed-columns).
 
 Rows live in one place: a document's `Table` or `List` renders them, and
 `%run-query`/`-run-query` print them. The [query cookbook](query-cookbook.md)
@@ -75,6 +86,18 @@ Over gRPC, `RunDocumentQuery` answers an object row in the `object` arm of
 `DocumentValue` and a verdict row in the `verdict` arm; see
 [Native document queries and rendering over gRPC](../reference/api.md#native-document-queries-and-rendering-over-grpc).
 
+A run `%record`/`-record-run` makes is **model** rows, not object rows: the
+record is written into the model as elements annotated
+`@AnalysisRecords::RecordedRun`, so `WhereMetadata` finds each one and
+`WhereFeature`/`Project`/`OrderBy` read the values it bound — `caseName`,
+`kind`, `iteration`, and a property per input and output. See
+[Recording analysis runs](recording-analysis-runs.md). A plain `-analysis`,
+`-sweep` or trade study still prints and discards its results, so a run that
+was not recorded leaves nothing a query can see;
+[the analysis-results demo](../../examples/analysis-results-demo/README.md)
+tables records in the same vocabulary, including records that flag themselves
+stale when the model moves.
+
 ## Runtime state and event queries
 
 Object rows tell you *what an object holds*; three more operations tell you
@@ -95,6 +118,11 @@ outside one) and `enclosing` the composite states active with it, outermost
 first; `WhereName` reads `name`, and the row answers the state declaration's
 own properties too. It prints as `lamp1.lp in on.run`. An object exhibiting
 no state machine is a typed `no-state-machine` error, not an empty row set.
+A machine that has terminated has no active state and so contributes no row,
+while a machine that has completed reports its final state. An object the run
+destroyed leaves the population — `Objects`, `InState` and element-named
+sources skip it, and `Events` still resolves its label — while a `source`
+naming only destroyed objects is a typed `object-destroyed` refusal.
 
 **`InState(name)`** is the inverse: the objects the session holds whose
 machine is in the state named — a leaf or a state enclosing one, by name or

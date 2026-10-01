@@ -34,20 +34,31 @@ const (
 	PropertyOwner = "owner"
 	// PropertyElementType is the resolved declared element type property.
 	PropertyElementType = "type"
+	// PropertyGeneral is the types a definition specializes or a usage is typed by,
+	// in declaration order.
+	PropertyGeneral = "general"
 	// PropertyIsAbstract is the abstractness property.
 	PropertyIsAbstract = "isAbstract"
+	// PropertyIsIndividual is the `individual` modifier of a definition or usage.
+	PropertyIsIndividual = "isIndividual"
 	// PropertyMultiplicityLower is the lower multiplicity bound property.
 	PropertyMultiplicityLower = "multiplicityLower"
 	// PropertyMultiplicityUpper is the upper multiplicity bound property.
 	PropertyMultiplicityUpper = "multiplicityUpper"
+	// PropertySatisfiedRequirement is the requirement a satisfy usage satisfies.
+	PropertySatisfiedRequirement = "satisfiedRequirement"
+	// PropertySatisfyingFeature is the feature a satisfy usage is by.
+	PropertySatisfyingFeature = "satisfyingFeature"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
 var propertyNames = []string{
 	PropertyID, PropertyType, PropertyName, PropertyDeclaredName,
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
-	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyElementType,
+	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
+	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
+	PropertySatisfiedRequirement, PropertySatisfyingFeature,
 }
 
 // PropertyNames returns the supported property names in stable order.

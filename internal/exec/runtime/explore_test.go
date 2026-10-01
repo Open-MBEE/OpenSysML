@@ -186,10 +186,10 @@ func TestExploreNoChoicePointsIsOneRun(t *testing.T) {
 func TestExploreRunsBudgetIsIncomplete(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
 	x := m.exploreAction(t, "explore:runs=1", "race")
-	if x.Complete() || x.Runs != 1 {
-		t.Fatalf("status %q, want incomplete after 1 run", x.Status())
+	if x.Complete() || x.Runs != 1 || !x.ProbabilitiesBounded() {
+		t.Fatalf("status %q, want incomplete after 1 run with bounded probabilities", x.Status())
 	}
-	if want := "incomplete: runs budget 1 hit after 1 runs"; x.Status() != want {
+	if want := "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds"; x.Status() != want {
 		t.Fatalf("status %q, want %q", x.Status(), want)
 	}
 	if len(x.Outcomes) != 1 {
@@ -200,10 +200,10 @@ func TestExploreRunsBudgetIsIncomplete(t *testing.T) {
 func TestExploreDepthZeroIsIncomplete(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
 	x := m.exploreAction(t, "explore:depth=0", "race")
-	if x.Complete() || x.Runs != 1 {
-		t.Fatalf("status %q, want incomplete after the one run that varied nothing", x.Status())
+	if x.Complete() || x.Runs != 1 || !x.ProbabilitiesBounded() {
+		t.Fatalf("status %q, want incomplete after the one run that varied nothing, with bounded probabilities", x.Status())
 	}
-	if want := "incomplete: depth budget 0 hit after 1 runs"; x.Status() != want {
+	if want := "incomplete: depth budget 0 hit after 1 runs; probabilities are lower bounds"; x.Status() != want {
 		t.Fatalf("status %q, want %q", x.Status(), want)
 	}
 }

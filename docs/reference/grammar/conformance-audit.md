@@ -31,7 +31,7 @@ own notation needs it, which is how `point`, `on` and `var` were already treated
 | `choice` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
 | `decision` | absent | absent | absent | unreserve; **an ordinary name only** — the action node spelled `decision` is no longer accepted, write `decide` |
 | `deep` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
-| `defer` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
+| `defer` | absent | absent | absent | unreserve; **an ordinary name only** — the `defer <event>;` state member was an OpenSysML extension, since removed (`defer-notation-removed`) |
 | `done` | absent | absent | absent | unreserve; **silent** — see "`done` is a library name, not notation" |
 | `final` | absent | absent | absent | unreserve; **an ordinary name only** — neither the action node nor the state marker spelled `final` is accepted, write `done` |
 | `history` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
@@ -107,20 +107,59 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 
 | Construct | Why it is not standard |
 |-----------|------------------------|
-| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
-| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
+| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind. Deprecated: write `#choice state <name>;` / `#junction state <name>;`, the `StateMachines` library's `ChoiceMetadata`/`JunctionMetadata` (with `private import StateMachines::*;`) — the warning names the replacement and a quick-fix rewrites the member and adds the import |
+| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
 
-Two further findings are about position rather than spelling: the construct is
-standard where a production allows it and an OpenSysML extension everywhere else, so
-the warning names the position, not the keyword.
+### Chain redefinitions — `redefinition-through-reference`
 
-| Construct | Where it is standard | Why it is not standard elsewhere |
-|-----------|----------------------|----------------------------------|
-| `assume <constraint>;`, `require <constraint>;` | a requirement, concern, viewpoint or objective body | `RequirementConstraintMember` (`SysML.xtext:2039`) is the only production that admits it |
-| a one-ended `first <node>;` | an action body | `InitialNodeMember` is reachable from `ActionBodyItem` alone (`:1376`), never from `DefinitionBodyItem` (`:516`); elsewhere a succession names both ends, `first <source> then <target>` |
+A redefinition target written as a feature chain of two or more segments,
+`:>> mid.leaf.value = 99.0;`, is standard KerML semantics: the chain-expression
+is itself a feature hosting the chain — its featuring type from the first
+segment and its featured type from the last (KerML 1.0 §7.3.4) — and the host
+feature is redefinable (§8.3.3.3). OpenSysML applies the redefining member
+below every composite feature the chain walks: every object of the type behaves
+as if the chain had been written as nested redefining usages
+(`part :>> mid { part :>> leaf { attribute :>> value = 99.0; } }`), carrying a
+declared value (`=` or `default =`), a declared type, a multiplicity and a body
+of its own. The pinned pilot evaluator accepts the notation but reads the
+original value — a pilot-evaluator gap, not a divergence the model is warned
+about (see the [pilot differential](../../project/pilot-differential.md)).
+
+Rules of the reading, in detail:
+
+- The shorthand ranks exactly as the nested-body form written in the same
+  body does: a nested-body redefinition declared by the chain's owner or
+  something specializing it wins; the child's type's own redefinition and
+  bodies in types the owner specializes lose.
+- Each chain applies below every object of the declaring type, including every
+  element of a multi-valued intermediate (`part wheels : Wheel[2];` then
+  `attribute :>> wheels.radius = 0.4;` redefines `radius` on each wheel).
+- A value the redefining member declares is evaluated in the declaring body's
+  scope, so `= factor * 2.0` reads the outer feature exactly as the nested-body
+  form does.
+- A valued chain below a feature bound to an existing object follows the
+  body's rule for an inherited value: one declared in a more specific body
+  governs the binding (a fresh object materializes below it and the bound one
+  keeps its own value), while one written in the same body as the binding is
+  rejected as a restating body is (`feature both valued and restated in a
+  body`). A chain declaring only a type or multiplicity conflicts with
+  nothing.
+- A chain walking through a reference — a `ref` usage, a port or a `subject` —
+  owns no object below the reference for the redefinition to land on. OpenSysML
+  reports `nested redefinition through reference <segment> has no owned object
+  to redefine on` as an error in every mode, and the redefinition is never
+  applied at runtime.
+- A chain whose target does not resolve declares no nested redefinition and is
+  reported by name resolution instead.
 
 ### Removed extension notation — no longer accepted
+
+Two positional allowances that used to be findings are parse errors now. An
+`assume`/`require` member belongs to `RequirementConstraintMember`
+(`SysML.xtext:2039`), which only a requirement, concern, viewpoint or objective
+body offers, and a one-ended `first <node>;` belongs to `InitialNodeMember`,
+which `ActionBodyItem` alone admits (`:1376`) — a succession anywhere else names
+both ends, `first <source> then <target>`.
 
 An inline condition introduced by a keyword (`assert <expression>;` or
 `assume <expression>;` in a constraint body, `assume <expression>;` or

@@ -41,7 +41,7 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "**Typed::Boiler**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
+state "**Boiler**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
   state "**idle**\n<size:10>//«state»//</size>\ninitial" as n1 <<state>> <<usage>>
   state "**heating : Heating**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>>
   [*] --> n1

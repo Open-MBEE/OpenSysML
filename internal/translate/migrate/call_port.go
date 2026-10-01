@@ -10,6 +10,12 @@ import (
 // portReceiver writes the operation usage a call over port performs: the part
 // the caller's connectors join to its own port, or the target object's port when
 // the port is the target's. The note says why the call is not written that way.
+
+// The note fragments the writer repeats.
+const (
+	performsUsage = "the call performs the usage "
+)
+
 func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note string, ok bool) {
 	if !a.m.written(port) {
 		return "", "the call runs in the caller's context: the port " + qualifiedName(port) + " it goes through has no v2 declaration", false
@@ -20,7 +26,7 @@ func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note st
 		if why != "" {
 			return "", "the call runs in the caller's context: " + why, false
 		}
-		return a.on(a.self(), path+"."+usage), "the call performs the usage " + usage + " of the part connected to the port " + a.m.nameFor(port), true
+		return a.on(a.self(), path+"."+usage), performsUsage + usage + " of the part connected to the port " + a.m.nameFor(port), true
 	}
 	obj, typ, found := a.objectOf(t)
 	switch {
@@ -33,7 +39,7 @@ func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note st
 	}
 	path := a.on(obj, writeName(a.m.nameFor(port)))
 	if pt := a.m.model.Ref(port, "type"); pt != nil && a.m.hasFeature(pt, op) {
-		return path + "." + usage, "the call performs the usage " + usage + " of the target's port " + path, true
+		return path + "." + usage, performsUsage + usage + " of the target's port " + path, true
 	}
 	if !a.m.hasFeature(typ, op) {
 		return "", "the call runs in the caller's context: neither the target " + obj + " nor its port " + a.m.nameFor(port) + " has the operation " + a.m.nameOf(op), false
@@ -41,7 +47,7 @@ func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note st
 	if obj == a.self() {
 		return a.on(obj, usage), "the target is " + obj + ", whose usage " + usage + " the call performs; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
 	}
-	return a.on(obj, usage), "the call performs the usage " + usage + " of the target " + obj + "; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
+	return a.on(obj, usage), performsUsage + usage + " of the target " + obj + "; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
 }
 
 // connectedReceiver follows the connectors of classifier c from its port to the

@@ -1,0 +1,28 @@
+# SysML v1 to v2 migration report: realized_interfaces.xmi
+# migrated 20 element(s): 10 mapped, 7 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (3)
+InterfaceRealization	Budget::<InterfaceRealization>	_budgetCmd	(a constraint def cannot specialize the port def the interface Bus::Command becomes)
+InterfaceRealization	Gateway::<InterfaceRealization>	_gwLost	(the realized interface is not in the document; 1 contract reference(s) resolve to nothing in the document (_lost))
+InterfaceRealization	Gateway::<InterfaceRealization>	_gwLib	(the realized interface http://www.example.org/libraries/Comms.xmi#_remoteIf is library content, which is not written)
+
+## approximated (7)
+Interface	Bus::Command	_command	-> Bus::Command	(a UML interface is written as a port def)
+Interface	Bus::Telemetry	_telemetry	-> Bus::Telemetry	(a UML interface is written as a port def)
+InterfaceRealization	Controller::<InterfaceRealization>	_ctlTel	-> Controller::telemetry	(the realization is carried by the port telemetry, which is typed by the interface's port def: a part def cannot specialize a port def)
+InterfaceRealization	Controller::<InterfaceRealization>	_ctlCmd	-> Controller::command	(the realization is written as a port typed by the interface's port def: a part def cannot specialize a port def)
+InterfaceRealization	Controller::<InterfaceRealization>	_ctlDiag	-> Controller::diagnostics	(the realization is written as a port typed by the interface's port def: a part def cannot specialize a port def)
+Interface	Controller::Diagnostics	_diagnostics	-> Controller::Diagnostics	(a UML interface is written as a port def)
+InterfaceRealization	Sensor::<InterfaceRealization>	_sensorTel	-> Sensor::telemetry	(the realization is written as a port typed by the interface's port def: a part def cannot specialize a port def)
+
+## mapped (10)
+«ConstraintBlock» Class	Budget	_budget	-> Budget
+Package	Bus	_bus	-> Bus
+Operation	Bus::Telemetry::Report	_report	-> Bus::Telemetry::Report	(its owner's usage report performs it, as a call on an object does)
+«Block» Class	Controller	_controller	-> Controller
+Port	Controller::telemetry	_telemetryPort	-> Controller::telemetry
+«InterfaceBlock» Class	FastTelemetry	_fast	-> FastTelemetry
+InterfaceRealization	FastTelemetry::<InterfaceRealization>	_fastTel	-> FastTelemetry	(written as a specialization of the interface's port def)
+«Block» Class	Gateway	_gateway	-> Gateway
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Sensor	_sensor	-> Sensor

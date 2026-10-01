@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.lsp.dev/protocol"
@@ -45,8 +46,12 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 	if err := validateNewName(params.NewName); err != nil {
 		return nil, err
 	}
-	if c := s.ws.RenameConflict(target.sym, target.name, params.NewName); c != nil {
-		return nil, c
+	conflict, err := s.ws.RenameConflict(target.sym, target.name, params.NewName)
+	if err != nil {
+		return nil, err
+	}
+	if conflict != nil {
+		return nil, conflict
 	}
 
 	changes := map[protocol.DocumentURI][]protocol.TextEdit{}
@@ -54,6 +59,7 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 	// shorthand redefinition (`part redefines x;`) is both the declaration and a
 	// reference at the same span, and clients reject overlapping edits.
 	edited := map[protocol.DocumentURI]map[source.Span]bool{}
+	posOf := map[string]positions{}
 	addEdit := func(docName string, content []byte, span source.Span) {
 		uri := nameToURI(docName)
 		if edited[uri] == nil {
@@ -63,8 +69,13 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 			return
 		}
 		edited[uri][span] = true
+		pos, ok := posOf[docName]
+		if !ok {
+			pos = positionsFor(content)
+			posOf[docName] = pos
+		}
 		changes[uri] = append(changes[uri], protocol.TextEdit{
-			Range:   spanToRange(content, span),
+			Range:   pos.rangeOf(span),
 			NewText: params.NewName,
 		})
 	}
@@ -75,7 +86,11 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 
 	// Every segment, in every document, that writes this name of target: an alias
 	// use is rewritten by renaming the alias and not by renaming its target.
-	for _, ref := range s.ws.NameReferencesTo(target.sym, target.name) {
+	refs, err := s.ws.NameReferencesTo(target.sym, target.name)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range refs {
 		addEdit(ref.Doc, ref.Content, ref.Span)
 	}
 	return &protocol.WorkspaceEdit{Changes: changes}, nil
@@ -83,7 +98,23 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 
 // renameTargetAt returns the name at pos and the span of that name as written
 // there (a declaration's long or short identifier, or one segment of a reference).
+// A name declared in a document held as its record is renamed from the tree:
+// the document is hydrated and the name found again among tree-backed symbols.
 func (s *Server) renameTargetAt(name string, pos protocol.Position) (renameTarget, source.Span, error) {
+	target, span, err := s.renameTargetHeld(name, pos)
+	var needs *symbols.NeedsHydration
+	if !errors.As(err, &needs) {
+		return target, span, err
+	}
+	if err := s.ws.Hydrate(needs.Doc); err != nil {
+		return renameTarget{}, source.Span{}, err
+	}
+	return s.renameTargetHeld(name, pos)
+}
+
+// renameTargetHeld is renameTargetAt over the documents as held, a
+// symbols.NeedsHydration naming a recorded declaration.
+func (s *Server) renameTargetHeld(name string, pos protocol.Position) (renameTarget, source.Span, error) {
 	doc := s.ws.Document(name)
 	if doc == nil || doc.Scope == nil {
 		return renameTarget{}, source.Span{}, fmt.Errorf("no document %q", name)
@@ -132,6 +163,9 @@ func (s *Server) renameable(sym *symbols.Symbol, name string, span source.Span) 
 		// Standard-library and other out-of-workspace declarations: renaming
 		// the references alone would break the model.
 		return renameTarget{}, source.Span{}, fmt.Errorf("cannot rename %q: declared outside the workspace", sym.Name)
+	}
+	if sym.Recorded() {
+		return renameTarget{}, source.Span{}, symbols.NeedsTree(sym, "renaming "+sym.Name)
 	}
 	target := renameTarget{sym: sym, name: name, declSpan: sym.NameSpan}
 	if name != sym.Name {

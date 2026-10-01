@@ -1,0 +1,17 @@
+exit: start
+enter: work (entry action)
+stmt action body
+  stmt send
+materialize: Go #1
+transition: start -> work
+choice entry at t=0.0: next dispatch accept Go, work(entry) (unordered; took work(entry) first)
+enter: step (entry action)
+stmt action body
+  stmt assign hits
+      eval feature hits -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+exit: step
+exit: work
+enter: done
+transition: step -> done (event: accept Go)

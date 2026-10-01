@@ -13,10 +13,20 @@
           (Membership visibility="default"
             (Usage kind="state" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (EntryMember
-                (*ast.AssignmentActionNode))
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (*ast.AssignmentActionNode))))
               (ExitMember
-                (*ast.AssignmentActionNode))))
-          (TransitionMember source="s" target="s" trigger="again"
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (*ast.AssignmentActionNode))))))
+          (TransitionMember source="s" target="s"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=again
+                (*ast.QualifiedName)))
             (*ast.AssignmentActionNode))
           (Membership visibility="default"
-            (TransitionMember source="s" target="s" name="sameEnds" trigger="stay")))))))
+            (TransitionMember source="s" target="s" name="sameEnds"
+              (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=stay
+                  (*ast.QualifiedName))))))))))

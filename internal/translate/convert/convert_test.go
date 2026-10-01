@@ -46,7 +46,7 @@ func TestConvertFromXMIComposesTheMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("migrate.Migrate: %v", err)
 	}
-	asNotation, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
+	asNotation, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML, migrate.Options{})
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
@@ -89,10 +89,37 @@ func TestEntryPointErrors(t *testing.T) {
 		t.Errorf("ConvertTolerant notation to notation = (%v, %v), want output with the syntax error alongside", tolerated, err)
 	}
 	var notWritable *convert.NotWritableError
-	if _, err := convert.Migrate("m.xmi", nil, convert.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := convert.Migrate("m.xmi", nil, convert.FormatXMI, migrate.Options{}); !errors.As(err, &notWritable) {
 		t.Errorf("Migrate to XMI = %v, want a NotWritableError", err)
 	}
 	if _, err := convert.ParseFormat("nosuchformat"); err == nil || !strings.Contains(err.Error(), "nosuchformat") {
 		t.Errorf("ParseFormat(nosuchformat) = %v, want an error naming it", err)
+	}
+}
+
+// FromGraph is the conversion a graph that was never parsed — one read from a
+// repository — gets, refusals to write included.
+func TestFromGraphWritesNotationAndTurtle(t *testing.T) {
+	graph, err := convert.SysMLToRDF("p.sysml", []byte("package P { part def Vehicle; }"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notation, err := convert.FromGraph(graph, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("FromGraph to sysml: %v", err)
+	}
+	if !strings.Contains(string(notation), "Vehicle") {
+		t.Errorf("the exported notation lost the element:\n%s", notation)
+	}
+	turtle, err := convert.FromGraph(graph, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("FromGraph to ttl: %v", err)
+	}
+	if string(turtle) != string(rdf.WriteTurtle(graph)) {
+		t.Errorf("FromGraph to ttl is not the graph's normalized document")
+	}
+	var notWritable *convert.NotWritableError
+	if _, err := convert.FromGraph(graph, convert.FormatXMI); !errors.As(err, &notWritable) {
+		t.Errorf("FromGraph to xmi = %v, want a NotWritableError", err)
 	}
 }

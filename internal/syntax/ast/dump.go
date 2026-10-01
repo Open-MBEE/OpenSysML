@@ -608,17 +608,14 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		if v.Via != nil {
 			fmt.Fprintf(b, ` via=%q`, qnString(v.Via))
 		}
-		// Braces holding nothing leave no child to show them by.
-		if v.HasEffect && len(v.Effect) == 0 {
-			b.WriteString(` emptyEffect=true`)
-		}
+		// Body braces holding nothing leave no child to show them by; an
+		// effect's braces are the anonymous action they declare, shown as its child.
 		if v.HasBody && len(v.Members) == 0 {
 			b.WriteString(` emptyBody=true`)
 		}
 		kids := make([]Node, 0, len(v.Effect)+2)
-		// A trigger written as a bare name — `accept 'Ground Station Ping'` —
-		// is the signal it names, which reads better beside the ends than as a
-		// nameless child.
+		// Keep bare-name injected-signal triggers written with `when` beside
+		// the ends; typed `accept` payload usages remain children.
 		if qn, ok := v.Trigger.(*QualifiedName); ok {
 			fmt.Fprintf(b, ` trigger=%q`, qnString(qn))
 		} else if v.Trigger != nil {
@@ -686,10 +683,6 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 	case *PseudostateNode:
 		fmt.Fprintf(b, `(PseudostateNode kind=%q name=%q)`, v.Kind.String(), v.Name)
 		return true
-	case *DeferMember:
-		b.WriteString(`(DeferMember`)
-		writeChildren(b, depth, v.Triggers)
-		return true
 	case *EntryMember:
 		b.WriteString(`(EntryMember`)
 		writeChildren(b, depth, v.Actions)
@@ -710,11 +703,19 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		// form or the parser desugared a member-attached keyword into it.
 		fmt.Fprintf(b, `(SuccessionEdge source=%q target=%q`,
 			successionEnd(v.Source, v.SourceMember), successionEnd(v.Target, v.TargetMember))
-		if len(v.Members) > 0 {
-			writeChildren(b, depth, v.Members)
-			return true
+		if v.SourceMultiplicity != nil {
+			b.WriteString("\n")
+			dumpNode(b, v.SourceMultiplicity, depth+1)
 		}
-		b.WriteString(`)`)
+		if v.TargetMultiplicity != nil {
+			// Labelled, since a target multiplicity beside a source one would
+			// otherwise read as a second source multiplicity.
+			b.WriteString("\n")
+			indent(b, depth+1)
+			b.WriteString(`(TargetMultiplicity`)
+			writeChildren(b, depth+1, []Node{v.TargetMultiplicity})
+		}
+		writeChildren(b, depth, v.Members)
 		return true
 	case *ControlFlowEdge:
 		// The branches of one decision differ only in their guard and in which
@@ -741,19 +742,19 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		return true
 	case *ForkNode:
 		fmt.Fprintf(b, `(ForkNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *JoinNode:
 		fmt.Fprintf(b, `(JoinNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *MergeNode:
 		fmt.Fprintf(b, `(MergeNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *DecisionNode:
 		fmt.Fprintf(b, `(DecisionNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *TerminateStatement:
 		b.WriteString(`(TerminateStatement`)

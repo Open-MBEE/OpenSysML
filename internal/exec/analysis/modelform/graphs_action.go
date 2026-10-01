@@ -104,9 +104,11 @@ type EdgeForm struct {
 	Decl        SpanForm  `json:"decl"`
 }
 
-// ObjectFlowForm is a data flow from a pin of Source to a pin of Target.
+// ObjectFlowForm is a data flow from a pin of Source to a pin of Target. Kind is
+// how it carries its values: "streaming" (a plain `flow`) or "succession".
 type ObjectFlowForm struct {
 	Name      string   `json:"name,omitempty"`
+	Kind      string   `json:"kind"`
 	Source    int      `json:"source"`
 	SourcePin string   `json:"sourcePin,omitempty"`
 	Target    int      `json:"target"`
@@ -231,10 +233,12 @@ type StatementForm struct {
 	Target       string    `json:"target,omitempty"`
 	TargetSymbol string    `json:"targetSymbol,omitempty"`
 	TargetPath   bool      `json:"targetPath,omitempty"`
+	TargetExpr   *ExprForm `json:"targetExpr,omitempty"`
 	Via          bool      `json:"via,omitempty"`
 	ViaSelf      bool      `json:"viaSelf,omitempty"`
 	Receiver     string    `json:"receiver,omitempty"`
 	ReceiverPath bool      `json:"receiverPath,omitempty"`
+	ReceiverExpr *ExprForm `json:"receiverExpr,omitempty"`
 	// assign, declare, declare usage
 	Name  string     `json:"name,omitempty"`
 	Chain *ChainForm `json:"chain,omitempty"`
@@ -404,6 +408,7 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		for _, flow := range graph.DataFlows[node] {
 			form.Flows = append(form.Flows, ObjectFlowForm{
 				Name:      flow.Name,
+				Kind:      flowKindForm(flow.Kind),
 				Source:    id,
 				SourcePin: flow.SourcePin,
 				Target:    ids.add(flow.Target),
@@ -557,6 +562,13 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 	switch s := s.(type) {
 	case lower.Send:
 		scope := orScope(s.Scope, enclosing)
+		var targetExpr, receiverExpr *ExprForm
+		if s.Target == "" && s.TargetExpr != nil {
+			targetExpr = x.expr(scope, s.TargetExpr)
+		}
+		if s.Receiver == "" && s.ReceiverExpr != nil {
+			receiverExpr = x.expr(scope, s.ReceiverExpr)
+		}
 		return StatementForm{
 			Kind:         "send",
 			Span:         x.span(scope, s.Message),
@@ -565,10 +577,12 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 			Target:       s.Target,
 			TargetSymbol: symbols.FQNOf(s.TargetSym),
 			TargetPath:   s.TargetPath,
+			TargetExpr:   targetExpr,
 			Via:          s.IsVia,
 			ViaSelf:      s.ViaSelf,
 			Receiver:     s.Receiver,
 			ReceiverPath: s.ReceiverPath,
+			ReceiverExpr: receiverExpr,
 		}, nil
 	case lower.Assign:
 		scope := orScope(s.Scope, enclosing)
@@ -844,4 +858,12 @@ func orScope(scope, enclosing *symbols.Scope) *symbols.Scope {
 		return scope
 	}
 	return enclosing
+}
+
+// flowKindForm spells a flow's kind in the form.
+func flowKindForm(kind lower.FlowKind) string {
+	if kind == lower.FlowSuccession {
+		return "succession"
+	}
+	return "streaming"
 }

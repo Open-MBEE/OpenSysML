@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- A sensor whose settling takes a random time; the tool's Monte Carlo
+         analysis of a block generalising it summarises that time over the runs. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor" classifierBehavior="_settle">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_time" name="settleTime">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_gain0" value="1.5"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_scale" name="scale">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_misses" name="misses">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_settle" name="Settle">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_start" name="start timer">
+          <language>JavaScript</language>
+          <body>settleTime = simtime;</body>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_wait" name="settle"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stop" name="stop timer">
+          <language>JavaScript</language>
+          <body>settleTime = simtime - settleTime;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_start"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_start" target="_wait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_wait" target="_stop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_stop" target="_final"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dc" name="settling">
+          <constrainedElement xmi:idref="_wait"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_di" min="_d1" max="_d2"/>
+        </ownedRule>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_te1">
+      <when xmi:type="uml:TimeExpression" xmi:id="_te1w">
+        <expr xmi:type="uml:Duration" xmi:id="_d1"><expr xmi:type="uml:LiteralString" xmi:id="_l1" value="2 s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_te2">
+      <when xmi:type="uml:TimeExpression" xmi:id="_te2w">
+        <expr xmi:type="uml:Duration" xmi:id="_d2"><expr xmi:type="uml:LiteralString" xmi:id="_l2" value="4 s"/></expr>
+      </when>
+    </packagedElement>
+
+    <!-- The pattern: a block generalising the customization module's MonteCarloAnalysis,
+         binding the analysed value to Mean and, for the spread, to Deviation. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Settling Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_sensor"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g2">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindMean">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMeanTime" role="_time"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMeanStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindDeviation">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindDeviationStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindDeviationTime" role="_time"/>
+      </ownedConnector>
+      <!-- A statistic the module's pattern does not have: refused by name. -->
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindMedian">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMedianTime" role="_time"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMedianStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcMedian">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Median" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <!-- A statistic bound to a String, which is no number: refused. -->
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindN">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindNLabel" role="_label"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindNStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <!-- A count bound to an Integer, which counts are values of. -->
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindOutOfSpec">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindOutOfSpecMisses" role="_misses"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindOutOfSpecStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <!-- An ordinary binding connector between two values of the block stays one. -->
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindGain">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindGainA" role="_gain"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindGainB" role="_scale"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_target" name="settling analysis" classifier="_analysis"/>
+
+    <!-- A block specializing the analysis inherits its bindings: it adds N and rebinds
+         OutOfSpec to a value of its own, keeping the inherited Mean and Deviation. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_retried" name="Retried Settling">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_analysis"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_retries" name="retries">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindRetriedN">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedNRetries" role="_retries"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedNStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindRetriedOutOfSpec">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedOutOfSpecRetries" role="_retries"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedOutOfSpecStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_retriedTarget" name="retried settling" classifier="_retried"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_retriedGroup" name="Retried Group"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_retriedResults" name="Retried Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_retriedSummary" name="retried settling of 3 runs" classifier="_retried">
+        <slot xmi:type="uml:Slot" xmi:id="_rTime" definingFeature="_time">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rTimeV" value="2.9"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_rNV" value="3"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rMeanV" value="2.9"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rDeviation">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rDeviationV" value="0.4"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rOutOfSpec">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_rOutOfSpecV" value="1"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
+    <!-- A block binding a statistic of an analysis it does not inherit: refused. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_stranger" name="Stranger">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindStranger">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindStrangerX" role="_x"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindStrangerStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_group" name="Settling Group"/>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_summary" name="settling of 5 runs" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_sTime" definingFeature="_time">
+          <value xmi:type="uml:LiteralReal" xmi:id="_sTimeV" value="3.1"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_sNV" value="5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_sMeanV" value="3.1"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sDeviation">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_sDeviationV" value="0.6"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sOutOfSpec">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_sOutOfSpecV" value="0"/>
+        </slot>
+        <!-- A statistic the pattern does not have, recorded anyway: refused by name. -->
+        <slot xmi:type="uml:Slot" xmi:id="_sMedian">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMedian">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Median" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_sMedianV" value="3.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_analysis"/>
+  <sysml:Block xmi:id="_s3" base_Class="_stranger"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bindMean"/>
+  <sysml:BindingConnector xmi:id="_s5" base_Connector="_bindDeviation"/>
+  <sysml:BindingConnector xmi:id="_s6" base_Connector="_bindMedian"/>
+  <sysml:BindingConnector xmi:id="_s7" base_Connector="_bindN"/>
+  <sysml:BindingConnector xmi:id="_s8" base_Connector="_bindGain"/>
+  <sysml:BindingConnector xmi:id="_s9" base_Connector="_bindStranger"/>
+  <sysml:BindingConnector xmi:id="_s10" base_Connector="_bindOutOfSpec"/>
+  <sysml:Block xmi:id="_s11" base_Class="_retried"/>
+  <sysml:BindingConnector xmi:id="_s12" base_Connector="_bindRetriedN"/>
+  <sysml:BindingConnector xmi:id="_s13" base_Connector="_bindRetriedOutOfSpec"/>
+  <SimulationProfile:SimulationConfig xmi:id="_c0" base_Class="_group"
+      executionTarget="_target" resultLocation="_results" numberOfRuns="5" durationSimulationMode="random" timeVariableName="simtime"/>
+  <SimulationProfile:SimulationConfig xmi:id="_c1" base_Class="_retriedGroup"
+      executionTarget="_retriedTarget" resultLocation="_retriedResults" numberOfRuns="3" durationSimulationMode="random" timeVariableName="simtime"/>
+</xmi:XMI>

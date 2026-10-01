@@ -44,6 +44,10 @@ type ActionGraph struct {
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
 
+	// incoming: node → the successions into it; computed on the first call of Incoming.
+	incoming     map[ast.Node][]ActionEdge
+	incomingOnce sync.Once
+
 	// Features: node → the parameters and attributes the node declares itself,
 	// in declaration order; each performance of the node holds its own values.
 	Features map[ast.Node][]Feature
@@ -62,8 +66,17 @@ type ActionGraph struct {
 	// completes only when that flow does (action_subflow.go).
 	Subflows map[ast.Node]*Subflow
 
+	// Enclosing and EnclosingNode are the graph and node a nested flow runs under,
+	// whose pins a write under the flow streams from; nil for the outermost flow.
+	Enclosing     *ActionGraph
+	EnclosingNode ast.Node
+
 	// InitialNode (required)
 	Initial ast.Node
+
+	// Invalid is the error a stated body's flow failed to lower with,
+	// reported at initialize().
+	Invalid error
 
 	// FinalNodes (may be multiple)
 	Finals []ast.Node
@@ -91,6 +104,20 @@ type ActionGraph struct {
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
+}
+
+// Incoming returns the successions into node, in the declaration order of the
+// nodes they leave. The result is shared: callers must not modify it.
+func (g *ActionGraph) Incoming(node ast.Node) []ActionEdge {
+	g.incomingOnce.Do(func() {
+		g.incoming = make(map[ast.Node][]ActionEdge)
+		for _, source := range g.Nodes {
+			for _, edge := range g.Edges[source] {
+				g.incoming[edge.Target] = append(g.incoming[edge.Target], edge)
+			}
+		}
+	})
+	return g.incoming[node]
 }
 
 // recordDeclaredIn records the scope of the body an inherited declaration was written in.
@@ -142,12 +169,14 @@ func (g *ActionGraph) Inherited() []Inherited {
 // ActionEdge is one succession out of a node: the node it leaves, the target it reaches, the
 // guard it carries and its declaration (nil when implicit). No two edges of a graph compare equal.
 // Probability is the weight its `@Probability` states, nil for an unweighted succession.
+// Name is the name the succession was declared with, "" for an anonymous one.
 type ActionEdge struct {
 	Source      ast.Node
 	Target      ast.Node
 	Guard       ast.Node
 	Decl        ast.Node
 	Probability *Probability
+	Name        string
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -176,6 +205,9 @@ type Send struct {
 	// TargetPath records that Target is a feature chain (`a.b`) reaching through
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
+	// TargetExpr is the receiver expression of an addressed send as written; the
+	// runtime evaluates it to objects where Target carries no name or path.
+	TargetExpr ast.Node
 	IsVia      bool
 	// ViaSelf records a via path written from `this`, whose root is a feature of
 	// the sender even where the behavior binds that name to another object.
@@ -183,6 +215,9 @@ type Send struct {
 	// Receiver is the name addressed by a routed send, empty when omitted.
 	Receiver     string
 	ReceiverPath bool
+	// ReceiverExpr is the `to` expression of a routed send, likewise evaluated to
+	// objects where Receiver carries no name the sender resolves.
+	ReceiverExpr ast.Node
 	Scope        *symbols.Scope // the scope the statement was declared in
 }
 
@@ -193,6 +228,13 @@ func (Send) statement() { /* marker: closed Statement set */ }
 // feature.
 type Assign struct {
 	Target string
+	// Qualified marks a namespace-qualified target (`Scope::azimuth`): it names
+	// the feature on the object its qualifier names, no host binding applies.
+	Qualified bool
+	// Owner is the qualifier's symbol (`Probe` in `Probe::count`) and Feature the
+	// feature it names; both are set only when Qualified is.
+	Owner   *symbols.Symbol
+	Feature *symbols.Symbol
 	// Chain is the chained target the assignment writes through (`s.reading`),
 	// nil when the target was a plain name the body's host binds.
 	Chain *AssignTarget
@@ -368,6 +410,9 @@ const (
 	EffectPerform EffectKind = iota
 	EffectAccept
 	EffectTerminate
+	// EffectStart is `perform obj.beh.start;`: the behavior the chain names begins on
+	// its object and runs on its own, the statement done once it has started.
+	EffectStart
 )
 
 func (k EffectKind) String() string {
@@ -378,22 +423,85 @@ func (k EffectKind) String() string {
 		return "accept"
 	case EffectTerminate:
 		return "terminate"
+	case EffectStart:
+		return "start"
 	default:
 		return "effect"
 	}
 }
 
 // Effect is a statement acting on the world outside the body — perform, accept,
-// terminate — lowered so a host rejecting it (a calculation) can say so.
+// terminate, start — lowered so a host rejecting it (a calculation) can say so.
 type Effect struct {
 	Kind  EffectKind
 	Node  ast.Node
 	Scope *symbols.Scope // the scope the statement was declared in
 	// Terminates says what a terminate ends; Target is the action node it names
-	// (TerminateNode), TargetExpr the target as written, nil for none.
+	// (TerminateNode), TargetExpr the target as written, nil for none. For a
+	// start, Target is the behavior started (`obj.beh`) and TargetExpr its `start`.
 	Terminates TerminateTarget
 	Target     ast.Node
 	TargetExpr ast.Node
+}
+
+// performEffect lowers a `perform`: one naming the `start` of a behavior held by
+// an object (`perform obj.beh.start`) starts it, any other performs what it names.
+func performEffect(node ast.Node, scope *symbols.Scope) Effect {
+	if started, ref, ok := startedBehavior(node, scope); ok {
+		return Effect{Kind: EffectStart, Node: node, Scope: scope, Target: started, TargetExpr: ref}
+	}
+	return Effect{Kind: EffectPerform, Node: node, Scope: scope}
+}
+
+// startedBehavior reports the behavior a perform starts: the operand of a
+// reference chain ending in the `start` shot every behavior has, the operand
+// itself a behavior an object holds where the scope can say what it names.
+func startedBehavior(node ast.Node, scope *symbols.Scope) (started, ref ast.Node, ok bool) {
+	var target ast.Node
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		target = n.ActionRef
+	case *ast.Usage:
+		for _, rel := range n.Relationships {
+			if rel != nil && rel.Kind == ast.RelReferences {
+				target = rel.Target
+				break
+			}
+		}
+	}
+	chain, isChain := target.(*ast.FeatureChainExpr)
+	if !isChain || chain.Member == nil || len(chain.Member.Parts) != 1 || chain.Member.Parts[0].Text != ast.StartFeature {
+		return nil, nil, false
+	}
+	switch chain.Operand.(type) {
+	case *ast.FeatureChainExpr, *ast.QualifiedName, *ast.FeatureReference:
+	default:
+		return nil, nil, false
+	}
+	if !namesStartableBehavior(chain.Operand, scope) {
+		return nil, nil, false
+	}
+	return chain.Operand, chain, true
+}
+
+// namesStartableBehavior reports whether the `start` of the feature a path names is
+// the shot every behavior has, not a `start` the feature's type declares itself; a
+// path the scope cannot follow is taken as written and left to the runtime to refuse.
+func namesStartableBehavior(operand ast.Node, scope *symbols.Scope) bool {
+	path := FeaturePath(operand)
+	if scope == nil || path == "" {
+		return true
+	}
+	segments := strings.Split(path, ".")
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
+	if !ok || sym == nil || sym.Decl == nil {
+		return true
+	}
+	if _, startable := StartableBehaviorOf(sym.Decl); startable {
+		return true
+	}
+	_, declared := resolve.FeatureSymbolInScope(scope, append(segments, ast.StartFeature))
+	return !declared
 }
 
 // TerminateTarget is what a terminate names, settled where it was written.
@@ -535,6 +643,12 @@ type Feature struct {
 	Scope     *symbols.Scope
 }
 
+// Output reports whether the feature is written back rather than read: an `out`
+// or `return` parameter.
+func (f Feature) Output() bool {
+	return f.Direction == ast.DirOut || f.IsResult
+}
+
 // PinBinding is a binding connector with an end at pin Pin of Node — or, where Path
 // is set, of the node Path reaches under it through the flows each owns (`leg.inner.v`:
 // Node leg, Path [inner], Pin v). Other is the other end as written; OtherNode,
@@ -551,11 +665,36 @@ type PinBinding struct {
 	// OtherFeature it names (`holder.inner.mark`); nil for a node's pin or a plain name.
 	OtherChain   *AssignTarget
 	OtherFeature string
-	Scope        *symbols.Scope // the scope the binding was written in
-	Decl         *ast.Usage
+	// OtherOwner is the qualifier's symbol when the other end was qualified
+	// (`Bench::level`), and OtherFeatureSym the feature it names.
+	OtherOwner      *symbols.Symbol
+	OtherFeatureSym *symbols.Symbol
+	Scope           *symbols.Scope // the scope the binding was written in
+	Decl            *ast.Usage
 	// FromValue marks the binding a pin's own value states (`inout n = ticks;`): the
 	// value is the pin's initial value alone when no feature around the node holds it.
 	FromValue bool
+}
+
+// FlowKind is how a data flow carries its values: streaming, as a `flow` is unless
+// designated otherwise (Flows::Flow), or as a succession flow (Flows::SuccessionFlow).
+type FlowKind int
+
+const (
+	// FlowStreaming delivers each value the source pin takes to the target's ongoing
+	// performances, or ahead of its next one while none is under way.
+	FlowStreaming FlowKind = iota
+	// FlowSuccession delivers the value the source pin holds once the source
+	// completes, and the target begins no sooner.
+	FlowSuccession
+)
+
+// String names the kind as the notation spells it.
+func (k FlowKind) String() string {
+	if k == FlowSuccession {
+		return "succession flow"
+	}
+	return "flow"
 }
 
 // ObjectFlow represents a data flow edge between pins.
@@ -567,6 +706,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// Kind is how the flow carries its values, as its declaration designated.
+	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
 	// reports where it comes from.
 	Decl ast.Node
@@ -586,25 +727,38 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	graph, members, err := collectActionNodes(actionDecl, scope, resolver)
+	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
+	}
+	graph, err := lowerActionFlow(members, scope, resolver)
+	if err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	graph, err := collectActionNodes(members, scope, resolver)
+	if err != nil {
+		return graph, err
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
-			return nil, err
+			return graph, err
 		}
 	}
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
-		return nil, err
+		return graph, err
 	}
 	if err := checkProbabilities(graph); err != nil {
-		return nil, err
+		return graph, err
 	}
 	recordBlockNodes(graph)
+	encloseBlockFlows(graph)
 	return graph, nil
 }
 
@@ -650,7 +804,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight)
+	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "")
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -712,6 +866,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		Guard:       n.Guard,
 		Decl:        n,
 		Probability: weight,
+		Name:        n.Name,
 	})
 	return nil
 }
@@ -734,6 +889,7 @@ func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      FlowStreaming,
 		Decl:      n,
 	})
 	return nil
@@ -788,7 +944,8 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	}
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
-	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight)
+	name, _ := ast.EffectiveName(n)
+	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight, name)
 }
 
 // lowerInheritedPinConnections lowers the bindings and flows the actions the
@@ -924,7 +1081,7 @@ func resolveFirstNode(graph *ActionGraph) error {
 
 // lowerSuccession adds the edge a succession states between the nodes its two
 // ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability) error {
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string) error {
 	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
 	if sourceNode == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
@@ -939,6 +1096,7 @@ func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.N
 		Guard:       guard,
 		Decl:        decl,
 		Probability: weight,
+		Name:        name,
 	})
 	return nil
 }
@@ -1064,7 +1222,17 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	var features []Feature
 	for _, member := range node.Members {
 		m, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !DeclaresNodeFeature(m) {
+		if !ok {
+			continue
+		}
+		if m.IsAccept {
+			// A message payload is the accept's output pin; `accept when/at/after` binds none.
+			if m.Value == nil && m.Ident.Name != "" {
+				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: scope})
+			}
+			continue
+		}
+		if !DeclaresNodeFeature(m) {
 			continue
 		}
 		name, _ := ast.EffectiveName(m)
@@ -1097,8 +1265,41 @@ func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) 
 	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin, FromValue: true}
 	if chain, feature, ok := assignTarget(pin.Value); ok {
 		binding.OtherChain, binding.OtherFeature = chain, feature
+		return binding, true
+	}
+	if feature, owner, sym, ok := qualifiedEndFeature(pin.Value, scope); ok {
+		binding.OtherFeature, binding.OtherOwner, binding.OtherFeatureSym = feature, owner, sym
 	}
 	return binding, true
+}
+
+// qualifiedEndFeature names the feature a qualified path ends in (`Bench::level`
+// ends in `level`), when the path resolves to one where it was written: it binds
+// the pin to that feature on the object the qualifier names, so the pin writes
+// back. A qualified name of another kind (`Mode::idle`) holds a value, not a
+// feature. The owner and feature symbols are the qualifier and what it names.
+func qualifiedEndFeature(node ast.Node, scope *symbols.Scope) (string, *symbols.Symbol, *symbols.Symbol, bool) {
+	if ref, ok := node.(*ast.FeatureReference); ok {
+		node = ref.Name
+	}
+	qn, ok := node.(*ast.QualifiedName)
+	if !ok || len(qn.Parts) < 2 {
+		return "", nil, nil, false
+	}
+	segments := make([]string, 0, len(qn.Parts))
+	for _, part := range qn.Parts {
+		if part.Text == "" {
+			return "", nil, nil, false
+		}
+		segments = append(segments, part.Text)
+	}
+	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok && sym != nil {
+		owner, named := resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+		if named && owner != nil && owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace {
+			return segments[len(segments)-1], owner, sym, true
+		}
+	}
+	return "", nil, nil, false
 }
 
 // DeclaresNodeFeature reports whether an action member is a parameter or attribute.
@@ -1160,61 +1361,9 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
-		// A target is either a chain through features (`alpha.inPort`) or a name in
-		// a namespace (`P::Driver`), which resolve differently. A `via` target names
-		// a port of the sender, rendered as connector ends are so the two match.
-		target, isPath := SendTarget(m.Target)
-		var targetSym *symbols.Symbol
-		var viaSelf bool
-		if m.IsVia {
-			target, viaSelf = ViaPortPath(m.Target)
-			isPath = true
-			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
-		}
-		message := m.Message
-		if message == nil {
-			message = SendPayload(m)
-		}
-		if message == nil {
-			return Unsupported{
-				Description: "a send declaring no message",
-				Node:        m,
-				Scope:       scope,
-			}
-		}
-		receiver, receiverPath := SendTarget(m.Receiver)
-		return Send{
-			Message:      message,
-			Target:       target,
-			TargetSym:    targetSym,
-			TargetPath:   isPath,
-			IsVia:        m.IsVia,
-			ViaSelf:      viaSelf,
-			Receiver:     receiver,
-			ReceiverPath: receiverPath,
-			Scope:        scope,
-		}
+		return lowerSend(m, scope)
 	case *ast.AssignmentActionNode:
-		// A chained target writes a feature of the object its chain reaches, so the
-		// whole walk is carried rather than truncated to the last segment.
-		if chain, feature, ok := assignTarget(m.Target); ok {
-			return Assign{Target: feature, Chain: chain, Value: m.Value, Node: m, Scope: scope}
-		}
-		// A namespace-qualified target names no object to write on: an assignment
-		// writes a feature of its target occurrence (Actions::AssignmentAction).
-		if qname := ast.AsQualifiedName(m.Target); qname != nil && len(qname.Parts) > 1 {
-			return Unsupported{
-				Description: "assignment to a qualified target",
-				Node:        m,
-				Scope:       scope,
-			}
-		}
-		return Assign{
-			Target: ast.SimpleName(m.Target),
-			Value:  m.Value,
-			Node:   m,
-			Scope:  scope,
-		}
+		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
 		return Loop{
 			Kind:       m.Kind,
@@ -1237,32 +1386,113 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		}
 		return lowered
 	case *ast.PerformActionNode:
-		return Effect{Kind: EffectPerform, Node: m, Scope: scope}
+		return performEffect(m, scope)
 	case *ast.TerminateStatement:
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		if m.IsTerminate {
-			return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
-		}
-		if stmt, ok := usageStatement(m, scope); ok {
-			return stmt
-		}
-		// The ActionBodyParameter a loop or branch body is written as is the block
-		// itself, so its members are the statements: a name it declares only scopes
-		// them (`loop action charging { … } until charging.done`).
-		if m.Kind == ast.UsageAction && m.IsBodyParameter {
-			return lowerBlock(m, m.Members, childScope(scope, m))
-		}
-		// An action usage naming the action it performs is a performed action, which
-		// the host executes or rejects as its own purity demands.
-		if m.Kind == ast.UsageAction && performsAction(m) {
-			return Effect{Kind: EffectPerform, Node: m, Scope: scope}
-		}
-		return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+		return lowerUsageStatement(m, scope)
 	default:
 		return Unsupported{Description: fmt.Sprintf("%T", member), Node: member, Scope: scope}
 	}
+}
+
+// lowerSend lowers a send. A target is either a chain through features
+// (`alpha.inPort`) or a name in a namespace (`P::Driver`), which resolve
+// differently. A `via` target names a port of the sender, rendered as connector
+// ends are so the two match.
+func lowerSend(m *ast.SendStatement, scope *symbols.Scope) Statement {
+	target, isPath := SendTarget(m.Target)
+	var targetSym *symbols.Symbol
+	var viaSelf bool
+	if m.IsVia {
+		target, viaSelf = ViaPortPath(m.Target)
+		isPath = true
+		targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
+	}
+	message := m.Message
+	if message == nil {
+		message = SendPayload(m)
+	}
+	if message == nil {
+		return Unsupported{
+			Description: "a send declaring no message",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
+	// `self` names the sending object, which is where a send addressing no one
+	// goes, so the two forms lower alike.
+	selfTarget := !isPath && target == "self"
+	if selfTarget {
+		target = ""
+	}
+	var targetExpr ast.Node
+	if !m.IsVia && !selfTarget {
+		targetExpr = m.Target
+	}
+	receiver, receiverPath := SendTarget(m.Receiver)
+	return Send{
+		Message:      message,
+		Target:       target,
+		TargetSym:    targetSym,
+		TargetPath:   isPath,
+		TargetExpr:   targetExpr,
+		IsVia:        m.IsVia,
+		ViaSelf:      viaSelf,
+		Receiver:     receiver,
+		ReceiverPath: receiverPath,
+		ReceiverExpr: m.Receiver,
+		Scope:        scope,
+	}
+}
+
+// lowerAssignment lowers an assignment. A chained target writes a feature of
+// the object its chain reaches, so the whole walk is carried rather than
+// truncated to the last segment; a namespace-qualified target names a feature
+// of the object performing the body: `Scope::azimuth` writes feature azimuth on it.
+func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statement {
+	if chain, feature, ok := assignTarget(m.Target); ok {
+		return Assign{Target: feature, Chain: chain, Value: m.Value, Node: m, Scope: scope}
+	}
+	if qname := ast.AsQualifiedName(m.Target); qname != nil && len(qname.Parts) > 1 {
+		if feature, owner, sym, ok := qualifiedEndFeature(m.Target, scope); ok {
+			return Assign{Target: feature, Qualified: true, Owner: owner, Feature: sym, Value: m.Value, Node: m, Scope: scope}
+		}
+		return Unsupported{
+			Description: "assignment to a qualified target",
+			Node:        m,
+			Scope:       scope,
+		}
+	}
+	return Assign{
+		Target: ast.SimpleName(m.Target),
+		Value:  m.Value,
+		Node:   m,
+		Scope:  scope,
+	}
+}
+
+// lowerUsageStatement lowers a usage in statement position. The
+// ActionBodyParameter a loop or branch body is written as is the block itself,
+// so its members are the statements: a name it declares only scopes them
+// (`loop action charging { … } until charging.done`). An action usage naming
+// the action it performs is a performed action, which the host executes or
+// rejects as its own purity demands.
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope) Statement {
+	if m.IsTerminate {
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+	}
+	if stmt, ok := usageStatement(m, scope); ok {
+		return stmt
+	}
+	if m.Kind == ast.UsageAction && m.IsBodyParameter {
+		return lowerBlock(m, m.Members, childScope(scope, m))
+	}
+	if m.Kind == ast.UsageAction && performsAction(m) {
+		return performEffect(m, scope)
+	}
+	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
 }
 
 // SendPayload returns the message a send with no argument carries: the value
@@ -1316,6 +1546,9 @@ func redefinedNames(u *ast.Usage) []string {
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
 func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+	if statesOwnFlow(members) {
+		return lowerStatedBlock(owner, members, scope)
+	}
 	if blockNeedsFlow(members) {
 		return Block{Node: owner, Scope: scope, Graph: lowerBlockFlow(members, scope, false)}
 	}
@@ -1690,11 +1923,16 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 		)
 	}
 
+	kind := FlowStreaming
+	if flow.IsSuccessionFlow() {
+		kind = FlowSuccession
+	}
 	return sourceNode, ObjectFlow{
 		Name:      name,
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      kind,
 		Decl:      flow,
 	}, nil
 }
@@ -1702,11 +1940,10 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 // succeedFlow adds the succession a `succession flow` also states: the target
 // starts once the source completes and the value has moved.
 func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
-	u, ok := flow.Decl.(*ast.Usage)
-	if !ok || !u.IsSuccessionFlow() {
+	if flow.Kind != FlowSuccession {
 		return
 	}
-	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: u})
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

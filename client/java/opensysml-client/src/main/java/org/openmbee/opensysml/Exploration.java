@@ -14,6 +14,8 @@ import java.util.List;
  *     it completed
  * @param runsBudget the most runs the search would make
  * @param depthBudget the most choice points one run would resolve
+ * @param probabilitiesLowerBound whether the outcomes' probabilities are lower bounds: a
+ *     budget kept some orders unexplored
  */
 public record Exploration(
     List<Outcome> outcomes,
@@ -21,7 +23,8 @@ public record Exploration(
     int runs,
     List<String> budgetsHit,
     int runsBudget,
-    int depthBudget) {
+    int depthBudget,
+    boolean probabilitiesLowerBound) {
 
   /**
    * Creates an exploration, copying its collections.
@@ -32,6 +35,7 @@ public record Exploration(
    * @param budgetsHit the budgets that ended it
    * @param runsBudget the run budget
    * @param depthBudget the depth budget
+   * @param probabilitiesLowerBound whether the probabilities are lower bounds
    */
   public Exploration {
     outcomes = List.copyOf(outcomes);
@@ -53,6 +57,10 @@ public record Exploration(
       int limit = budget.equals("depth") ? depthBudget : runsBudget;
       named.add(budget + " budget " + limit);
     }
-    return "incomplete: " + String.join(" and ", named) + " hit after " + runs + " runs";
+    return "incomplete: "
+        + String.join(" and ", named)
+        + " hit after "
+        + runs
+        + " runs; probabilities are lower bounds";
   }
 }

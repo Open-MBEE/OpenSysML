@@ -1,27 +1,35 @@
 # OpenSysML — Roadmap
 
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
-2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
-`v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
+2026-09-13), verified locally with Go 1.25.0. The newest tag on `Open-MBEE/OpenSysML` is the patch
+`v0.8.1` (`e0ea34616`, `Merge pull request #347 from Open-MBEE/release/0.8.1`, 2026-09-16), cut
+from `v0.8.0` by cherry-pick and carrying bug fixes alone, so it moves no item and `v0.8.0` stays
+the baseline the statuses are read against; before them `v0.7.0` (`e0fbfea5b`, 2026-09-09) and
+`v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch `develop` (`857dd48b0`, #517) carries
+216 pull requests past `v0.8.0` (#364 folded `v0.8.1` back into it) and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
-having moved it — #267, #289 and #293 (Q2), #263 (A7), #286 (the release fold-back), #291
-(the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
-randomness beside A3), #300 and #316 (the large-model design and its first step, under
-"Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
-installer wizard), #304 (the errata overlay over the bundled library, under "Upstream
-follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated (#295,
-#297, #311, #313–#315, #317, #318, #322, #326, #336, #342; Track E) — and the pull requests open
-against `develop` at this baseline are named where they touch a roadmap item.
+having moved it — #267, #289 and #293 (Q2), #359 (Q1's page and Q3), #263 (A7), #286 (the release
+fold-back), #291 (the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #466 and
+#479 (a braced state block as one action), #362 (E2), #465 (E4), #468 (dynamic objects), #344
+(modeled randomness beside A3), #356 (W3's rasterization and export), #358 (the PDF path onto the
+HTML backend, under "Proposed"), #300 and #316 (the large-model design and its first step, under
+"Proposed"), #319, #321, #334 and #413 (the fUML referee for actions and its emitter, under
+"Proposed"), #350 (R4's installer wizard), #304 (the errata overlay over the bundled library, under
+"Upstream follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated
+(#295, #297, #311, #313–#315, #317, #318, #322, #326, #336, #342, #384, #438, #486, #490, #513;
+Track E) — and
+the pull requests open against `develop` at this baseline are named where they touch a roadmap
+item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
-> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`) that other records, the known-violations inventory
+> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`, `D13`) that other records, the known-violations inventory
 > and the ontology package's README cross-reference; `L` names the library items, `N` the native
 > compilation track, `R` the release follow-through, `W` the diagram output formats a view
 > rendering is written in, `F` the executor defects the conformance gate carried as
 > known failures (closed), `S` the multiple-valid-executions work the executor needed before
-> Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
+> Track E (landed), `E` the behavior-execution semantics of the runtime; every item is now landed or
+> closed by design record, and this section records how each was decided, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
 > modeled elements to external data and services, `M` the embedded target, and `P` the package
@@ -36,9 +44,10 @@ Read `AGENTS.md` first; it governs everything below.
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.8.0` is the newest tag on `Open-MBEE/OpenSysML` (`238aed650`, 2026-09-13), after `v0.7.0`
-(`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The tag's CircleCI `release`
-workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
+`v0.8.0` (`238aed650`, 2026-09-13) follows `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0`
+(`30f103bb9`, 2026-09-07); `v0.8.1` (`e0ea34616`, 2026-09-16) is the patch cut from it, whose
+`CHANGELOG.md` **0.8.1** section lists the fixes it carries and nothing else. `v0.8.0`'s
+CircleCI `release` workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
 the Homebrew bundles, the cosign-signed manifest and — for the second release running — the
 Windows installer `opensysml-0.8.0-windows-amd64.msi` (R4). The Python client's `opensysml-v0.5.0`
 tag points at the same commit and PyPI serves `opensysml` 0.5.0 from it — its `release-python`
@@ -46,7 +55,8 @@ workflow failed twice in `Go coverage profile` and passed when rerun, so the pos
 `docs/project/releasing.md` are all met and nothing of the release step is left.
 `CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
 section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds the
-fragments of the pull requests merged after the tag alone, #286 having carried the fold back.
+fragments of the pull requests merged after the tags alone, #286 and #364 having carried the
+fold-backs of `v0.8.0` and `v0.8.1`.
 Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
 prerelease `nightly` (#284), so an item landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
@@ -209,6 +219,7 @@ before re-recording anything.
 | Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
 | Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
 | RDF corpus round trip | 353 of 353 models stable, none refused [346] |
+| API element form corpus round trip | 354 of 356 models stable, 2 respelled reals, none refused |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -233,10 +244,12 @@ goldens, 493 runtime robustness cases, 21 gRPC conformance and 8 gRPC robustness
 ASTs and 252 negative subtests; the growth over the table is fixtures landed after the tag, all
 unreleased. The robustness cases are counted across the `TestRuntimeRobustness*` and
 `TestGRPCRobustness*` functions since #345 registered them per feature, so the table's
-single-function figure and the block's are the same census under two spellings. The census,
-rejection-oracle and RDF round-trip rows follow the committed baselines; none of the three moved
-between `074f9c4b7` and the tag, the census did not move since `v0.7.0`, and the other two grew
-with the corpus and the baseline between `v0.7.0` and `074f9c4b7` (bracketed above).
+single-function figure and the block's are the same census under two spellings. The rejection-
+oracle row follows the committed baselines and did not move between `074f9c4b7` and the tag. At
+`develop`'s head, the validation census has moved to **163 of 217 reported —
+157 faithful, 6 approximate, 0 not implemented, 1 deliberate, 53 unknown**, and the RDF corpus
+round trip has moved to **356 of 356 models stable**. The API element-form round trip at the
+same head is **354 of 356 models stable**, with 2 graph-diff cases.
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -312,12 +325,16 @@ proof.
 
 ## R2 — the Node, Java and Rust clients are unpublished
 
-Each has its release workflow (`client-node-v*` to npm, `opensysml-java-v*` to Maven Central,
-`opensysml-rust-v*` to crates.io) and a worked example the tests run, and none has ever been
-tagged. The Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
-namespace, so nothing blocks Maven Central but the account. npm and crates.io need a publisher
-token in CI; Maven Central needs the Sonatype account and a signing key. These are account gates
-like R4, not engineering.
+Each has a publish path and a worked example the tests run, and none has ever been
+published: all three now ship from the core `v*` tag's `release`
+workflow (`publish-npm`, with a granular npm token already in the `npm` context;
+`publish-maven`, with its credentials already in the `Maven Central` context;
+`publish-crates`, with the crates.io token in the `crates.io` context, all
+restricted to a security group). The
+Java package name already moved to `org.openmbee.opensysml`, the DNS-verified
+namespace; what remains before a first publish is the `org.openmbee` namespace
+verification and the public key on a keyserver, if not yet done. These are
+account gates like R4, not engineering.
 
 ## R3 — Homebrew: install it on a real Mac
 
@@ -505,6 +522,25 @@ specializes them, and `Integrate`, the two event definitions and `StateSpaceDyna
 have no body of their own to run), and `AnalysisTooling` declares nothing callable. Nothing is
 left in the track; a verdict that moves is adjudicated in the change that moves it.
 
+## L8 — the Geometry domain library's derived shapes (landed, unreleased)
+
+`ShapeItems` defines a shape's faces, edges and vertices through `bind` connectors with
+multiplicities, and what those determine now evaluates. A `Box` answers `faces` (six), the
+per-face `edges` (four each, with `length`/`width`), `edges` (twenty-four) and the per-face
+`vertices` (eight); a `Cylinder` or `Cone` answers `faces` (three or two) and each `Disc`'s
+`edges`, the ellipse; a `Cylinder` nested as a `Box`'s `voids` answers the same and makes `isSolid`
+false. What made the curved shapes fail was the runtime reading `binding [1] bind [0..*]
+base.edges = [0..*] be` as a whole binding, so `be [2]` was bound to the one edge and every read
+through it was `ErrMultiplicityViolation`; a connector's own multiplicity is the number of links
+it declares, so that binding is partial — it relates the disc's edge to some value of `be` — and
+`runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
+`Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
+gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
+binding pins to a member, are `ErrBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
+`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
+and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+`ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
+
 ---
 
 # Track N — native compilation
@@ -583,7 +619,7 @@ Saving and SysML ↔ RDF Turtle conversion landed (`internal/translate/rdf`,
 `internal/translate/export`, `%save`, `sysml -convert`, `-sync-diff`); see
 [the RDF mapping](../reference/rdf-mapping.md).
 
-The RDF direction ships **experimental**, because of D1, D2 and D7 below: its vocabulary
+The RDF direction ships **experimental**, because of D1 and D2 below: its vocabulary
 may change without a compatibility path, and the one triplestore interop measured — Flexo — still
 drops what those items carry. Every surface says so (`convert.ExperimentalNotice`), and promoting
 it to stable is re-measuring the harness once those land, not a documentation change.
@@ -652,20 +688,21 @@ what the service's own commit path stores for the same model. It measures the ga
 asserting the fix, so every item below shows up as movement in
 `internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
-What the current recording measures, for the identity-carrying fixture: **49 of 49 elements
-listed and 369 of 452 properties delivered** on the graph-load side, against 33 of 33 and 158 of
-158 for the same model posted through the service's own commit path; 9 of 49 read as roots, and 9
-have no owner in the model; every element is readable directly by id; no subject of the graph is
-outside the element namespace. **Every standard property is delivered, the 14 multi-valued ones
-included** — `ownedMember`, `ownedMembership`, `ownedRelationship` (3/3 each), `ownedFeature`,
-`ownedFeatureMembership` (2/2 each), `specializes` (1/1) — since D3.4 landed. The 83 lost
-properties are one thing:
+What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
+listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
+158 for the same model posted through the service's own commit path; 1 of 59 reads as a root, and
+1 has no owner in the model (expression nodes and connector ends are owned elements now); every
+element is readable directly by id; no subject of the graph is outside the element namespace.
+**Every standard property is delivered, the 26 multi-valued ones included** — `connectorEnd`,
+`ownedEndFeature`, `chainingFeature`, `relatedElement`, `ownedRelationship` (6/6), `ownedMembership`
+(4/4), `ownedFeature`, `ownedFeatureMembership`, `ownedMember` (3/3 each), `specializes` (1/1) —
+since D3.4 landed. The 77 lost properties are one thing:
 
-- **10 property keys in `sysx:`** — `sourceText`, `sourceTail`, `sourceLanguage`, `hasBody`,
-  `memberIndex`, `argumentIndex`, `declaredKeyword`, `endForm`, `endIndex`, `relatedFeature` —
-  dropped unread. That is the D1/D2 residue below, and it is the reason the expression trees and
-  end structure the mapping now writes do not survive the hop. (The one multi-valued property
-  still lost, `relatedFeature` on 0/1, is among them.)
+- **The remaining loss is annotation vocabulary in `sysx:`** — seven predicates: source text and
+  tail, notation spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and
+  member order. `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear,
+  because operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
+  annotations are intentionally documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array
 whole as a JSON annotation literal alongside the typed triples; the graph now carries the same
@@ -685,81 +722,95 @@ either spelling or both and refuses a graph whose two spellings disagree, and `r
 the literal in step when it mints ids. Re-recorded against the live stack, the multi-valued
 standard properties went from 0 of 14 to 14 of 14 delivered, and the total from 355/424 to 369/452
 (the denominator moved with the source-text properties the mapping added since the previous
-recording; the one multi-valued property still lost is `sysx:relatedFeature`, D1/D2 residue).
+recording); the recording after D1 and D2 is 505/582, with the standard expression and end
+structure delivered in full and the remaining source and ordering limitations recorded in D1 and
+D2.
 
-## D1 — expression trees are standard in shape, non-standard in vocabulary
+## D1 — expression trees have standard ownership and operand vocabulary (done)
+
+**Landed in #509.**
 
 Every expression-valued position — a feature value, a multiplicity bound, a guard, a filter, a
 condition, a send payload — is now a **tree of typed nodes** in the `expr:` namespace
 (`rdf-mapping.md` § Expressions): standard metaclasses (`OperatorExpression`,
-`FeatureReferenceExpression`, `LiteralRational`, …), `sysml:argument` and `sysml:referent`
-linking operands and referents, a deterministic per-position id every node states in
-`sysml:elementId`, and a decoder that reads a foreign tree from its structure alone. SPARQL can
-see inside a value now; "every part whose mass exceeds 1000" is expressible.
+`FeatureReferenceExpression`, `LiteralRational`, …), roots owned through
+`OwningMembership`/`FeatureValue`, and operands owned through `ParameterMembership`, an `in`
+`Feature` and its `FeatureValue`. The encoder writes `sysml:operator`, and a decoder reads a
+foreign tree from its structure alone, without requiring `sysx:sourceText`. SPARQL can see inside
+a value now; "every part whose mass exceeds 1000" is expressible.
 
-What remains is what the Flexo hop still loses and the metamodel still does not recognise:
+What remains:
 
-- the operator, the operand order and the source text ride in `sysx:` (`sysx:operator`,
-  `sysx:argumentIndex`, `sysx:sourceText`), so after the hop a tree keeps its nodes and loses
-  their meaning. The metamodel spells the operator `OperatorExpression::operator` and orders
-  arguments through `ownedFeatureMembership`s; emit those;
-- a node is not a model element — no `qualifiedName`, no ownership, reachable only from the
-  position that holds it — where the abstract syntax makes an expression a `Feature` owned through
-  a `FeatureMembership`. Writing expressions as owned elements is the same materialization D3.3
-  did for ownership, and it is what the ontology gate's `value` → `FeatureValue` findings (D8) are
-  waiting on;
+- named-argument redefinition remains represented by `sysx:argumentName`, because the metamodel
+  has no notation-level name on an argument occurrence;
+- source spelling and expression-body ordering remain annotations where the metamodel has no
+  corresponding property; and
 - ~~an expression standing as a body member~~ — done: a calc's trailing result expression is a
   `ResultExpressionMembership` owning the expression (#815, #835,
   [rdf-mapping.md § Result expressions](../reference/rdf-mapping.md#result-expressions)), and no
   file in the ratchet is refused for an expression.
 
-## D2 — end bindings are structure, but in `sysx:`
+## D2 — end bindings use standard connector ownership (done)
 
-`connect`, `bind`, `flow`, `succession`, `transition`, `accept` and `satisfy` now state their ends
-as structure beside the verbatim head — one expression node per end under `sysx:relatedFeature`
-with `sysx:endIndex`/`sysx:endRole`, and `sysx:endForm` naming the notation the ends are written
-in — so a graph from another tool converts to notation with no text at all, and a succession
-carries both its ends including the unnamed member a `then` sequences (`rdf-mapping.md`
-§ End-binding heads). The form is stated only when rebuilding it reproduces the head exactly;
-heads that state more than their ends (a multiplicity, a `references` clause, an inline payload
-declaration, a body) stay text-only and are reported, not guessed, when the text is absent.
+**Landed in #509.**
 
-What remains: the vocabulary is ours, so the hop drops it (`endForm`, `endIndex`,
-`relatedFeature` are three of the eight lost keys). The metamodel's shape is
-`Connector::connectorEnd` — end features owned through `EndFeatureMembership`s — with
-`sourceFeature`/`targetFeature` over them, the same `Connector_sourceFeature`/`targetFeature`
-domain findings the ontology gate records for transitions (D8). Emitting those is an
-encoder/decoder change, not a parser one; the ends are already in hand. The ends that are not a
-basic name (`drive vehicle`, `1stGear`) convert since #814 by quoting them in the head text; a real
-end triple would name the element by IRI and need no quoting, which is the same change.
+`connect`, `bind`, `flow`, `succession` and related heads now state their ends through
+`sysml:connectorEnd`, `EndFeatureMembership` and end `ReferenceUsage`s marked with
+`sysml:isEnd`, whose targets use owned `ReferenceSubsetting` relationships. Chained targets use an owned `Feature` and ordered
+`sysml:chainingFeature`; binary connectors additionally carry `sysml:sourceFeature` and
+`sysml:targetFeature`, while `sysml:relatedFeature` identifies related features at every arity.
+`TransitionUsage` endpoints use `sysml:source` and `sysml:target`. The decoder still accepts the
+earlier `sysx:` end shape and legacy transition predicates.
 
-## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract
+What remains:
+
+- non-name end targets are retained as typed `sysx:Expression` literals rather than being
+  fabricated as feature IRIs; and
+- the `ReferenceSubsetting` relationship is emitted for end targets, while
+  `sysml:references` remains accepted only for importing interim graphs.
+
+## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract (done)
 
 The reader turns a resource-valued object into `{"@id": …}` and a literal into a string, so a
 property the API defines as a reference has to be an element IRI in the graph. `imports.golden.ttl`
-shows both halves of this gap: `sysml:importedNamespace "ISQ"` is a string where the API expects
-a reference, and the metaclass is `sysml:Import`, which is abstract in KerML — the API's own
+showed both halves of this gap: `sysml:importedNamespace "ISQ"` was a string where the API expects
+a reference, and the metaclass was `sysml:Import`, which is abstract in KerML — the API's own
 elements are `NamespaceImport` or `MembershipImport`.
 
-The reference-vs-literal half is mechanized against the OWL ontology (D8):
-`TestGoldenGraphsMatchOntology` (`internal/translate/export`) checks every SysML-namespace triple in
-the 54 golden graphs against the metamodel's declared domain and range, finds **412 triples in 79
-distinct metaclass/property violations** at this baseline (the count grew with the fixtures the
-metadata, result-expression, reference and anonymous-declaration work added, not with new kinds of
-disagreement), and
-every one is inventoried key-by-key with a reason in
-`internal/translate/export/testdata/ontology-known-violations.txt`, so any *new* disagreement fails the
-build. The object-property-carrying-a-literal group is this item's own bug: `type` on
-`AttributeUsage`, `ReferenceUsage` and `PartUsage`, `sourceFeature` on `SuccessionAsUsage` and
-`sysx:InitialNode`, `referent` on `FeatureReferenceExpression` where the referent resolves outside
-the graph, and `targetFeature` on `FeatureChainExpression`. #827 and #855 narrowed the *decoder*
-side — a name written back re-resolves to the element the graph named, through imports and
-aliases — but the encoder still writes the name as a literal, which is what this item is. Identity is stable (D3.1), so each is
-mechanical: resolve the name and emit the IRI, and fall back to the literal only where the
-referent is outside the graph, as feature references already do. The abstract-metaclass half is
-not mechanizable from the ontology: `SysML.owl` records no ecore abstractness (see D8), so nothing
-in the suite catches `sysml:Import` being abstract, and that audit against the API's own element
-list stays manual.
+**Landed.** A reference-valued property links the element its name resolves to, wherever that
+element has an identity: an element of the graph by its own id, and a standard library element by
+its normative id (D12) whether or not the library is in the graph — `attribute mass : MassValue`
+links `<urn:sysmlv2:element:9cd0e404-…>`, an implied `first start then a` links the `start`
+the action inherits from `Actions::Action`, and `import ISQ::MassValue` is a
+`sysml:MembershipImport` whose `sysml:importedMembership` is the normative owning membership,
+the metamodel's range. The converted properties are `type` on every usage, `importedNamespace`
+(now on `NamespaceImport` only) and `importedMembership`, `sourceFeature` on `SuccessionAsUsage`
+and `sysx:InitialNode`, `referent`, `targetFeature` and `function`. The literal is kept only for
+a name that resolves to nothing the model declares (`attribute t : Missing::Kind`,
+`->collect` without `ControlFunctions` in scope) and for a body parameter, which is no element of
+the graph. The decoder reads both forms — a link or the legacy literal — and spells a link back
+by the shortest name that resolves to that element from where it is written, so a graph from an
+older release still converts and gains the links on its next hop.
+
+Measured against the OWL ontology (D8) by `TestGoldenGraphsMatchOntology` (`tests/export`),
+which checks every SysML-namespace triple in the 58 golden graphs against the metamodel's
+declared domain and range: **464 triples in 79 distinct metaclass/property violations** before,
+**411 triples in 76** after, with `domain-mismatch Import importedNamespace` and
+`literal-for-object-property … sourceFeature` on `SuccessionAsUsage` and `sysx:InitialNode` off
+the inventory in `tests/export/testdata/ontology-known-violations.txt`. The `type`, `referent`,
+`function` and `targetFeature` keys stay listed for the fixtures' unresolvable names and body
+parameters above; the parameters go when D1/D2 make expression bodies elements of the graph.
+
+The abstract-metaclass half is not mechanizable from the ontology: `SysML.owl` records no ecore
+abstractness (see D8), so every metaclass the encoder writes (`kinds.go` and the constants in
+`rdf_out.go`/`rdf_expr.go`) was checked by hand against the abstract classes of the pilot's
+`SysML.ecore` and `kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`,
+`Import`, `InstantiationExpression`, `LoopActionUsage`, `Relationship`. Two were written:
+`Import`, now `NamespaceImport` / `MembershipImport` and, for an `expose`, `NamespaceExpose` /
+`MembershipExpose` in place of an `sysx:isExpose` flag, and `ConnectorAsUsage` for a KerML
+`connector`, now `Connector`. The decoder still accepts both abstract classes from older graphs.
+The ratchets did not move: every model under `examples/` still round-trips, and the Flexo hop
+still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
 ## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology
 
@@ -821,7 +872,7 @@ the modules exist. Conformance beyond that is gated on D1 and D2 rather than on 
 has no place in the ontology, so an ontology-profile graph is conformant only as far as those
 have landed, and the profile's documentation should say so.
 
-## D9 — Flexo as a place models live, not only a place graphs are tested
+## D9 — Flexo as a place models live, not only a place graphs are tested (done)
 
 What exists at the baseline, all landed: `-sync-diff <repo.ttl | endpoint>` computes an
 identity-keyed change set between the model and a repository branch, reading the branch through
@@ -833,23 +884,33 @@ converted graph into a Layer 1 branch by `PUT` and measures what the service rea
 directions are refereed against the live stack, and both are element-keyed, which is what identity
 bought.
 
-What is missing is the round trip a modeller expects from a repository, and each piece is small
+The round trip a modeller expects from a repository is now in place; each piece landed small
 now that D3.4 is in:
 
-1. **Read a branch as notation.** `-sync-diff` reads a branch to compare it; nothing converts a
-   branch to `.sysml`. `sysml -convert sysml -from <endpoint or flexo:// URL>` is the decoder D3.4
-   completed, applied to the graph the service serves, and `-sync-state` already knows the branch
-   and the last commit.
-2. **Push a whole graph.** The harness's `PUT .../branches/{branch}/graph` with the ETag
-   precondition and `?message=` is the fast path for a first load or a re-baseline, where the
-   element-wise commit of `-sync-apply` is the wrong shape. Expose it as the write half of the
-   same flag, with the token from `flexo.EnvToken` as today.
+1. **Read a branch as notation** — landed. `sysml <branch-url> -convert sysml` (or `ttl`)
+   reads a Flexo MMS project branch as its head commit's RDF graph — the read `-sync-diff`
+   makes — and converts it through `convert.FromGraph`. The URL is the SysML v2 branch
+   resource (`http(s)://host[:port][/base]/projects/{p}/branches/{b}`) or the
+   `flexo://{p}/{b}` shorthand for the configured endpoint, parsed by
+   `flexo.ParseBranchURL`; the head commit is recorded in the sync state
+   (`-sync-state`, or `<output>.sync.json` beside `-o`).
+2. **Push a whole graph** — landed. `sysml model.sysml -convert ttl -o <branch-url>`
+   replaces the branch's model graph through Layer 1's `PUT .../branches/{b}/graph`
+   (`flexo.PutGraph`, conditioned on the branch etag `flexo.BranchETag` reads; the
+   harness's unconditional load stays as `LoadTurtle`), and `flexo.Repository.Push`
+   refuses a moved head — one the sync state's last-seen commit does not name, or one
+   that answers the write's `If-Match` with 412 — as `StaleBranchError` with nothing
+   written. The commit Layer 1 makes is recorded in `<model>.sync.json`; the token is
+   `flexo.EnvToken` as today.
 3. **What survives the hop.** D2 and D1 decide how much of a pushed model the read path gets
-   back; the harness's 369 of 452 is the number to move, and it is re-measured, not asserted,
-   after each.
+   back; the harness's figure is re-measured, not asserted, after each. Re-recorded with the
+   branch read and push in place: graph-load delivers 505 of 582 properties (59 of 59 elements
+   listed), the 77 undelivered all in the `sysx:` extension namespace, and the element-wise
+   apply now carries the `FeatureValue` memberships the standard vocabulary writes (17 of 17
+   elements read back on the initial commit).
 
-Nothing here is a new subsystem; the order is D9.1 → D9.2, and D9.3 is the RDF track's existing
-order applied to this use.
+Nothing here was a new subsystem; the order was D9.1 → D9.2, and D9.3 is the RDF track's
+existing order applied to this use.
 
 ## D10 — write-through from a view-only project to the projects it shows
 
@@ -890,28 +951,58 @@ The gate is the live-stack harness (`TestFlexoInterop`) with a two-project fixtu
 project over two owned projects, an edit through the view lands as one commit in each owner and
 nothing in the view project, the filter-violating edit and the variant mismatch are refused before
 any write, and a re-run finds nothing to change. Depends on D9.1 (reading a branch as notation,
-which is how the view project materializes what it exposes) and sits after D9.2 in the track
-order; independent of D1/D2, since it moves whole elements by id and never inspects their
-vocabulary.
+which is how the view project materializes what it exposes). D9.1 and D9.2 are landed; independent
+of D1/D2, since it moves whole elements by id and never inspects their vocabulary.
 
-## D11 — the SysML v2 API element form as a `Convert` format
+## D11 — the SysML v2 API element form as a `Convert` format (done)
 
-`Convert` writes notation, `text` and Turtle, and reads the same three. The OMG SysML v2 API's
-own element form — JSON objects with `@type`, `@id` and the metamodel's properties as keys — is
-read today only as a *measurement*: `flexo.Elements` and `flexo.ElementByID` fetch what the
-Flexo API serves after a Turtle load, so the harness can say what survived. Nothing produces
-that form from a parsed model, and nothing parses it into one. A framework that wants the
+Before this item `Convert` wrote notation, `text` and Turtle, and read the same three. The OMG
+SysML v2 API's own element form — JSON objects with `@type`, `@id` and the metamodel's properties
+as keys — was read only as a *measurement*: `flexo.Elements` and `flexo.ElementByID` fetched what
+the Flexo API serves after a Turtle load, so the harness could say what survived. Nothing produced
+that form from a parsed model, and nothing parsed it into one. A framework that wants the
 normalized abstract syntax without an RDF store in the middle — a tool exchanging elements over
-the standard API, a client comparing two implementations element by element — has no format to
-ask for. Adding `api-json` to `Convert`, both directions, is the RDF mapping with a different
-serializer: the graph the `ttl` path builds already carries the metaclass and the properties, so
-the emitter walks it and the reader is `rdf_in.go`'s inverse over JSON. Reference-valued
-properties are `@id` objects, which is D7's question answered a second time, and the collection
-annotations D3.4 settled decide array-versus-object. Gate it as the RDF path is gated: a round-trip
-ratchet over `examples/`, and the live-stack harness posting the emitted elements to the Flexo API
-instead of a graph, reporting what that path keeps that the Turtle one loses or vice versa. After
-D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
-have a choice of representation.
+the standard API, a client comparing two implementations element by element — had no format to
+ask for.
+
+What landed:
+
+1. **The format.** `api-json` (alias `json`, extension `.json`) is a `Convert` format in both
+   directions, on every surface that names formats: `sysml -convert`/`-from`, `%save model.json`,
+   the service's `Convert` and the clients that name its formats (the Go and Python clients
+   carry the constant, the rest pass the name through). It is the RDF mapping
+   with a different serializer, not a second mapping: `export.WriteAPIJSON` walks the graph
+   `ToRDF` builds — the metaclass as `@type`, the id as `@id`, `sysml:` properties as bare keys,
+   `sysx:` ones with their prefix, IRIs as `{"@id": …}` spelled as the collection annotations
+   spell them, the annotated collections (D3.4) as arrays, typed literals as JSON scalars — and
+   `export.ReadAPIJSON` is `rdf_in.go`'s inverse over JSON, rebuilding the same triples and the
+   same annotations, so `sysml`, `ttl` and `api-json` convert among themselves through one graph
+   and the JSON of a model reads back to the Turtle of it triple for triple. What the mapping
+   does not state is refused on both sides — an unannotated repeated property, a real JSON cannot
+   spell, a document whose objects lack `@id` or `@type` or use a prefix the mapping does not
+   define — rather than dropped. Reference-valued properties are `@id` objects, D7's question
+   answered a second time; expression nodes are elements of the form with the ids the `expr:`
+   IRIs already had, and the reader tells them from elements by that id grammar. Documented in
+   [the RDF mapping](../reference/rdf-mapping.md), *The API element form*.
+2. **The ratchet.** `TestCorpusAPIJSONRoundTrip` pins notation → `api-json` → notation →
+   `api-json` per file over every model under `examples/`, sharing the Turtle gate's walk,
+   verdicts and policy ([rdf-corpus-roundtrip.md](rdf-corpus-roundtrip.md)); CI runs both. The
+   baseline is 354 of 356 `stable`, the other two `graph-diff` because JSON respells a `.1` real
+   as `0.1` — the one place the two forms' verdicts differ. Adjudicating it found and fixed two
+   reader defects at their root: a name literal on a property the encoder never writes expression
+   text on was read as expression text, and a real spelled `.1` was refused rather than respelled.
+3. **The live measurement.** `TestFlexoInterop` gained an `api-json-commit` side that posts the
+   emitted elements to the Flexo API's own commit endpoint as `DataVersion` payloads, beside the
+   Turtle graph-load and the hand-written JSON commit, and reports what each keeps. The service
+   accepts the form wholesale: all 59 elements of the reference fixture are listed and readable
+   by id, and the 505 properties it delivers are exactly the 505 the graph-load path delivers —
+   no property survives one path and not the other. The 77 lost on both are the `sysx:`
+   properties the service's reader ignores.
+
+One reading is decided by the graph rather than the standard and is recorded as such: a
+collection of one member is written as an object, since the graph carries no multiplicity and the
+annotation that marks a collection is written from its second member; the standard API serves
+every multi-valued property as an array, and the reader accepts both.
 
 ## D12 — the normative element ids of the standard library (done)
 
@@ -971,6 +1062,53 @@ What landed:
 
 Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
 reader compares our library ids to its own.
+
+## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice
+
+`-convert` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
+`.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle with an
+element-by-element report; see [the migration reference](../reference/sysml-v1-migration.md) and
+[guide chapter 11](../guide/11-migrating-from-sysml-v1.md). The mapping covers structure, ports
+and connectors, requirements, constraints, instances, allocations, user profiles, and behavior:
+activities run as `action def`s and state machines as `state def`s under the chapter 6
+debuggers, operations and receptions are the actions their owner performs, opaque JavaScript and
+English bodies are translated within the subset the reference lists, and a tool's run
+configurations migrate with the results it stored (`-migration-results`, `-compare-results`,
+`-clock-step`). Over the TMT model five elements in six map or are approximated; the unmapped
+rest is dominated by absolute and unparseable time events, call actions that call no behavior,
+simulation verdicts stored in constraint slots, and views. It still ships **experimental**, and
+lifting that is closing the items below and then measuring, not a documentation change. Each is
+its own pull request:
+
+1. **Units and quantity kinds.** `«Unit»` and `«QuantityKind»` instance specifications, and the
+   `unit`/`quantityKind` tags of a `«ValueType»`, are reported as unmapped and left as comments;
+   the value type is written over `ScalarValues::Real`. Map a value type whose unit resolves to a
+   known SI or ISQ symbol onto `ISQ` quantity values with `SI` units (`attribute def Mass :>
+   ISQ::MassValue`, defaults as `1200 [SI::kg]`), and keep the comment for a unit that does not
+   resolve. L5's unit canonicalization supplies the symbol table.
+2. **The report and the results over gRPC and in the clients.** The report and the results
+   sidecar exist only where the CLI writes them; `Convert` answers the migrated content, the
+   canonical format names and the experimental notice, nothing more. Add the report to
+   `ConvertResponse` as a repeated entry message with the fields of the JSON form (id, kind,
+   name, verdict, target, note), populated only when the source is v1, and surface it as a
+   `Conversion` attribute in the Python and Go clients, so a program can gate on verdicts as a
+   script gates on the `.json` report. Node, Java and Rust read the field from the generated code
+   without a wrapper, as they do the notice. A Track I change to the wire contract in the same
+   pull request.
+3. **Stable identity for a re-migration.** The v1 `xmi:id` is kept only in the report; the
+   notation carries no ids, so migrating a model twice produces two unrelated v2 models, and an
+   edit made in v2 cannot be matched against a later v1 export. With
+   [element identity annotations](element-identity-annotations.md), write the `xmi:id` as the
+   element's identity, so a re-migration can be diffed against the edited model rather than
+   replacing it. Gated on D3's identity work.
+4. **Stable, then measured.** With 1–3 landed, re-run the TMT measurement the reference quotes
+   and pin the per-verdict counts as the corpus ratchet pins round trips; the mapping's forms
+   become subject to the compatibility path that lifting the experimental notice promises, and
+   the notice is removed from every surface at once (`convert.IsExperimental`, the Python warning,
+   the Go `Conversion`).
+
+Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
+not the migration.
 
 ---
 
@@ -1122,45 +1260,40 @@ afresh after each move, and `complete` covers every interleaving at body granula
 sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
 granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
+The track's last mile: the open picks carry the odds
+a model states. `Stochastic::Probability` weights a transition the way it already weighted a
+decision's succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated
+by `explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
+dispatch, so innermost-wins still resolves before any weighting. And where the table once
+stopped at the set, `explore` now reports each outcome's probability — a linearization carrying
+the product of its picks' shares, a weighted pick's stated weight's share and an unweighted
+choice's uniform `1/n`, `≥`-marked while the search is incomplete — and `check` the probability
+mass of the paths reaching each violation (`mass` beside `massLowerBound` in the JSON report,
+`Outcome.probability` / `ExplorationStatus.probabilities_lower_bound` on the wire, and an
+optional `probability` per `outcomes` entry in the conformance schema, exercised by the weighted
+transition fixture).
+
 ---
 
 # Track E — behavior execution
 
 The runtime executes actions, state machines, calculations and constraints against the lowered
-IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`), and
-`docs/project/spec-compliance.md` § "What We Don't (Yet) Support" lists what it does not
-execute: interruptible regions, expansion regions, streaming pins, protocol state machines,
-operation invocation with positional arguments, and routing a send to a second object of one
-usage; a `terminate` inside a body is refused by the runtime with a typed error and appears in no
-list. The behavior-execution review after `v0.4.3` found nothing missing beyond those, and this
-track records each as work with a stated scope, dependency order and acceptance gate rather than
-as a bullet or an error message alone. **Eligible: the next executor track.** The condition was
-"after F and S have landed and a release has shipped with them"; F and S landed (#116, #120,
-#110, #123, #125, #134) and `v0.7.0` shipped them, `v0.8.0` followed, and nothing else waits in
-front of E. No conformance fixture or trace golden exercises any of the seven items, and each
-has a typed refusal or a documented limitation in place of a wrong result. The executor loops E
-edits are now the ones F fixed and S instrumented and parameterized, and since #136 they also run
-on A5's shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`at`
-parking a token in an action body, `due order` as a choice point), so every E item is written
-against a named scheduling policy and a shared clock, not an implicit order. Each item below ends
-with what would move it forward; until that happens, the honest status is the "not supported"
-bullet or the refusal. E8–E10 are the three findings about the runtime's own conformance in
-`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8 is open,
-E9 and E10 landed with the change set that decided the note's open decisions.
+IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`). The behavior-execution
+items were once listed as unsupported or approximate; on this tree E1, E2, E4, E6, E7, E8, E9
+and E10 are landed, while E3 and E5 are closed by design record, as is the compliance mapping's
+last UML-referenced action item, exception handlers. The landed items have conformance
+fixtures under `internal/exec/runtime/testdata/conformance/`, trace goldens, and robustness coverage;
+the design closures are recorded in
+[expansion-regions.md](expansion-regions.md), [protocol-state-machines.md](protocol-state-machines.md)
+and [exception-handlers.md](exception-handlers.md).
+The track records how each item was decided against the SysML v2 notation, the Kernel Semantic
+Library, the Systems Library and the available execution evidence.
 
-Two things about the list's own terms. First, four of the seven items — interruptible regions,
-expansion regions, streaming pins, protocol state machines — are UML 2.5.1 concepts that SysML v2
-(`formal/2026-03-02`) does not carry as notation: its actions (§7.17) spell termination,
-acceptance, loops and flows directly and its states (§7.18) have no protocol variant. Each of
-those items therefore starts by naming the SysML v2 spelling it corresponds to, and the target is
-that spelling's semantics in the Kernel Semantic Library and the Systems Library, never the UML
-feature by name. Second, the proof for every item is the four-layer contract of `AGENTS.md`
-§5.2 — a conformance fixture (`.sysml` + `.expected.json` under
-`internal/exec/runtime/testdata/conformance/`), a trace golden where ordering matters
-(`TestExecutionTrace`, `-update-traces`), a robustness case in `robustness_test.go` for the
-failure mode, and the row in `spec-compliance.md` moving out of the "not supported" list — and
-every item is self-assessed, since the pinned pilot evaluates expressions and executes no action
-or state machine ([pilot-execution-referee.md](pilot-execution-referee.md)).
+The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region,
+protocol-state-machine or exception-handler notation, while its actions and states provide the
+corresponding `for`, flow, acceptance, `terminate` and exhibited-state-machine forms. The proof
+for landed execution items follows the four-layer contract in `AGENTS.md` §5.2, with the pinned
+pilot used for expression-level adjudication rather than action or state execution.
 
 **Landed ahead of E1–E7**, all merged: the one structural finding of the review
 — nested action nodes shared the enclosing action's flat feature space, so `p.v` and `q.v`
@@ -1193,9 +1326,11 @@ unit, a conditional `when`) instead of running them (#833, #871); `send` argumen
 and `send new Def(args)` constructs the message it sends (#838, #875); and a message through a
 binding connector at a boundary port routes in both directions (#839).
 
-Since the tag, on `develop`, eight state-executor fixes adjudicated in the PSSM referee
+Since the tag, on `develop`, the state-executor fixes adjudicated in the PSSM referee
 ([pssm-referee.md](pssm-referee.md)) moved its baseline from 36 `pass` / 23 `fail` /
-39 `not-expressible` at the tag to 45 `pass` / 15 `fail` / 38 `not-expressible`, the 3
+39 `not-expressible` / 3 `terminate-gap` / 2 `differs-by-design` at the tag to 56 `pass` /
+13 `fail` / 33 `not-expressible` / 1 `differs-by-design` of the suite's 103 tests, pinned in
+`docs/project/pssm-referee-baseline.json`. The first eight moved it to 45 `pass`, the 3
 `terminate-gap` tests (E1's) and 2 `differs-by-design` unchanged: a fork may enter orthogonal
 regions that have no initial state (#297); a transition from a substate into its enclosing
 composite does not re-enter it (#311); several completion transitions out of one state are one
@@ -1203,13 +1338,35 @@ choice point (#313); a junction with several enabled branches draws one as a cho
 (#318); a join runs the effect of every incoming segment, their order a region-order choice
 (#317); a transition into a history pseudostate restores the configuration it is leaving (#295);
 the referee's translation carries the values a test's constructor writes (#314) and refuses a
-guard whose behavior acts on the model rather than dropping the call (#315). #322 (a join's
-segments fire with their own trigger bound, and a refused join is undone whole) is open against
-`develop`. E1 then landed: the referee translates the terminate pseudostate, its `terminate-gap`
-bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
-2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
-region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
-17 `fail` are their measurement on the state side.
+guard whose behavior acts on the model rather than dropping the call (#315); a join's segments
+fire with their own trigger bound, and a refused join is undone whole (#322). E1 then landed:
+the referee translates the terminate pseudostate, its `terminate-gap` bucket is retired, and the
+baseline was 46 `pass` / 17 `fail` / 38 `not-expressible` / 2 `differs-by-design` — *Terminate
+003* passes, *Terminate 001* and *002* failed on the region-entry order the open finding then
+covered. The region-order choice points closed that finding (#384, then #438 and #513): the
+order orthogonal regions are entered, exited and branch in, and a due `do` step against the
+dispatch due at the same instant, are recorded choice points the fixed policies resolve one way
+and `check`, `replay` and `explore` enumerate, which moved the baseline to 51 `pass` / 13 `fail`
+/ 38 `not-expressible` / 1 `differs-by-design` and *Terminate 001* into `pass`; the referee's
+own translation then moved five `not-expressible` rows into `pass` — the driver performs the
+tester's steps in the tester's order, a synchronous call returns the operation's outputs and a
+standalone state machine reads as the target class (#486); an entry, do or effect behavior's
+parameters bind to the triggering event's data and a behavior producing the operation's result
+is an `action def` with `out` parameters (#490) — giving the 56 / 13 / 33 / 1 above. The
+do-step draw is at the grain of one token move of the do flow (#513) but is drawn only once a
+region-entry move has settled, so a due `do` step is not yet drawn against a sibling region's
+remaining entry units — the one reason *Terminate 002* keeps, which #525 (open against
+`develop`) addresses ([region-order-scheduling.md](../internals/design/region-order-scheduling.md)).
+Every remaining `fail` is attributed in [pssm-referee.md](pssm-referee.md): five to a *differs,
+v2 silent* row of the alignment note; seven to a finding of the record — *Terminate 002*'s one
+missing trace, the
+runtime's last open gap there; *Entering 010*, *Entering 011* and *Junction 005* a translation
+limit; *Transition 017*, *History 001-C* and *History 002-B* defects of the suite recorded in
+[omg-issues.md](omg-issues.md) — and *Exiting 002* to a defect of the suite alone. The
+object-model item E7 waits on also landed: a run creates
+objects by `new T(…)` and destroys them by `destroy`, a context holds several objects of one
+usage, and a destroyed object is released from `all T` with the behaviors it performed
+terminated (below, *Dynamic object creation and destruction*).
 
 ## E1 — `terminate` in a body (landed)
 
@@ -1240,7 +1397,13 @@ every action or state executor running on it (`Context.endOccurrence`, `endBehav
 executor whose performer ended between two of its runs ends as terminated at its next,
 `performerEnded`). *States* (`runtime/state_statements.go`, `state_route.go` `terminateAt`,
 `state_executor.go` `terminateMachine`): a `terminate;` in an `entry`, `do` or `exit` body ends
-that behavior at the statement, the state stays active and dispatch goes on; a transition whose
+that behavior at the statement, the state stays active and dispatch goes on — and since #466 and
+#479 a braced `entry { … }`, `do { … }`, `exit { … }` or transition `do { … }` block is the one
+anonymous action usage SysML.xtext reads it as (the same tree as `entry action { … }`), so the
+`terminate;` ends the whole block rather than the one statement it was written in, a declaration
+inside the block is local to it, a `do` block still runs one statement a round, and the RDF
+mapping writes the block as that nested `ActionUsage` (a Turtle graph in the older
+statement-by-statement shape is refused as unsupported); a transition whose
 target is a terminate action usage (`accept Abort then stop; action stop terminate;`, §7.18.3)
 exits its source and runs its effect, then ends the machine's performance with no further exit,
 the running do behaviors abandoned (`abandonMachine`) and no state active — reached directly or
@@ -1266,39 +1429,19 @@ succession leads to "monitorCriticalActivity" or to "criticalActivity"` — wher
 unsequenced nested actions start concurrently when their container does. That is a flow-start
 item, not a terminate one, and it is what the example waits on.
 
-## E2 — interrupting an ongoing performance ("interruptible regions")
+## E2 — interrupting an ongoing performance ("interruptible regions") (landed)
 
-**Today.** SysML v2 has no interruptible-region notation; what UML models with one is spelled in
-SysML v2 as an `accept` followed by a `terminate` in a forked branch (§7.17.10's
-`MonitoredActivity`: "Terminates `performCriticalActivity` even if `monitorCriticalActivity` is
-still ongoing"), or as a transition leaving a state whose `do` is running (§7.18.3: "If the
-source state has a do action that is still being performed, that is interrupted."). The action
-half is E1 and landed. The state half runs, with one documented approximation
-(`spec-compliance.md` § Known Limitations, *Runtime*): an inline `do` body is one action, so
-`runDoRound` advances it as a unit and an outgoing transition interrupts it only between rounds,
-never between its statements; the one-action-per-statement `do { … }` form is the interruptible
-spelling. There is no refusal here — the approximation is a documented ordering, not an error.
+**Landed.** An inline `do` body pauses after each statement, so a transition leaving the state
+after `s1` leaves later statements such as `s2` and `s3` unrun. The body remains resumable through
+loops, nested blocks and branches, and its trace and conformance fixtures cover the interruption.
+Fixed scheduling policies finish a do round before they dispatch; under `check`, `replay` and
+`explore` the dispatch is drawn against each token move of the body, so the round-first run is
+one of the interleavings enumerated.
 
-**Target.** §7.18.3's transition semantics, step 1: the source state's do action, "if it is
-still being performed, is interrupted" when the transition is triggered — `StatePerformance::do`
-is a `step` of the state's performance, and the `StateTransitionPerformance` that leaves it is
-keyed on its `accept` step and `transitionLink` (`StatePerformances.kerml`,
-`TransitionPerformances.kerml`) — so the do behavior's remaining statements do not run once the
-trigger is accepted, whether the body was written as one action or several. For actions, the
-target is E1's: the terminate ends the performance whatever else it has in flight.
-
-**Work.** After E1: make an inline `do` body resumable between statements so a round can leave it
-mid-body (the statement hosts already run a body statement at a time through `stmtEnv` frames;
-what is missing is a do behavior that yields after each statement rather than after the whole
-inline body), and drop the pending statements when the state exits. Depends on E1 for the shared
-notion of ending an ongoing performance; nothing depends on it.
-
-**Proof.** Conformance and a trace golden for a `do` body of three statements interrupted by a
-signal after the first; the existing do-interruption fixtures unchanged; the Known Limitations
-bullet removed and the `entry`/`do`/`exit` row in the State Machine map re-stated.
-**Prioritize when** a model's result depends on a `do` body being interrupted between two of its
-statements — until then the documented spelling (`do { … }` as one action per statement) gives
-the same result.
+**Before it landed.** SysML v2 has no interruptible-region notation; the corresponding state
+semantics interrupt a still-running `do` action when a transition leaves the state. The runtime
+formerly advanced an inline body as one action and interrupted only between rounds, so the work,
+target and proof were to add statement-boundary resumption and drop pending statements on exit.
 
 ## E3 — concurrent per-element performance ("expansion regions") (closed)
 
@@ -1334,71 +1477,94 @@ or a later specification revision re-adjudicates the record. No other item depen
 
 ## E4 — streaming flows ("streaming pins")
 
-**Today.** A `flow` between two action parameters executes as a *succession* flow: the value
-at the source pin is moved to the target pin when the source node completes
-(`runtime/action_executor.go` `applyDataFlows`, called from the node-completion paths), so the
-target reads it when its own token arrives. SysML v2 §7.16 draws the distinction the runtime does
-not: "the input and output parameters are streaming unless designated as succession flows" — a
-streaming `flow` "can be ongoing while both the source and target action are being performed",
-while a `succession flow` "cannot begin until the source completes". The parser keeps the
-distinction (`ast.Usage.IsSuccessionFlow`, used by the control-node succession rule), but
-`lower.ObjectFlow` carries no kind and no position refuses anything — both spellings run, both as
-the succession reading. That is a wrong
-result only for a model whose target reads before its source completes, and no conformance
-fixture writes one.
+**Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
+`succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
+and output parameters are streaming unless designated as succession flows" — a streaming `flow`
+"can be ongoing while both the source and target action are being performed", while a
+`succession flow` "cannot begin until the source completes" (`Flows::Flow :> Message,
+FlowTransfer`; `Flows::SuccessionFlow :> Flow, FlowTransferBefore`). The parser had kept the
+distinction (`ast.Usage.IsSuccessionFlow`) and the lowering lost it: `lower.ObjectFlow` now
+carries it as `Kind` (`FlowStreaming`, the default, or `FlowSuccession`), `lowerFlow` sets it and
+`succeedFlow` reads it for the succession edge a `succession flow` also states, so the runtime
+re-derives nothing from the declaration.
 
-**Target.** `Flows::Flow :> Message, FlowTransfer` for a streaming flow and
-`Flows::SuccessionFlow :> Flow, FlowTransferBefore` for the succession form (`Systems
-Library/Flows.sysml`, `Kernel Semantic Library/Transfers.kerml`): a streaming flow transfers each
-value the source parameter takes while both performances are ongoing; a succession flow transfers
-after the source completes. What runs today is the second, applied to both.
+*Streaming* (`runtime/action_frame.go` `streamFrom`, `streamFlow`): each write to the source
+pin — an assignment in the source's body, a nested node's output carried back into it — is
+carried at once along the streaming flows out of the node to the pin of every ongoing
+performance of the target, found by E1's `ongoing`; a target that reads its pin between two
+writes sees each. A value written while no performance of the target is under way waits at the
+target's pin as a flow's value always has (`pending`), and a further write from the same source
+performance replaces it (`stage`, `actionFrame.staged`), so a target that begins after the
+source reads the pin as the source left it; the writes of distinct source performances wait one
+per target performance, oldest first, so a stream inside a loop body — the value of one pass
+taken by that pass's target — and fork/join around the two nodes all read what was written for them.
+The source completing carries nothing more for a pin it streamed (`actionFrame.streamed`), so
+no value arrives twice; a source that completes with the pin never written is `ErrFlowSource`.
+A write after the target's last performance ended reaches no performance: it waits, the target's
+next performance takes it (`takeDeliveries`), and the enclosing performance completing with it
+still waiting is `ErrStreamUnreceived` (`actionFrame.unreceived`, `checkStreamsReceived`); a
+stream to a pin the ongoing target does not declare is `ErrNodePin` at the write. *Succession*
+(`runtime/action_executor.go` `applyDataFlows` → `deliverFlow`): unchanged — the value the pin
+holds at completion moves, and the target begins after the source.
 
-**Work.** Carry the kind from the AST (`ast.Usage.IsSuccessionFlow`) through
-`lower.ObjectFlow` to the executor; keep the succession behavior for the `succession flow`
-spelling; for a plain `flow`, deliver on each write to the source parameter while the target is
-ongoing, which needs a node to be readable while it still holds a token — the same notion of an
-ongoing performance E1 and E2 introduce. Depends on E1 for that notion; E3's parallel form, had
-it had a standard spelling, would have fed it — its record closed without one, so nothing feeds
-it but a producer's own writes.
+**Proof.** `lower/action_flow_kind_test.go` (the kind follows the spelling; only the succession
+kind orders); conformance `action_flow_streaming_producer_consumer` (a producer loop writing 1, 2,
+3 beside a consumer loop reading each: total 6) with its trace golden showing the writes and
+reads interleaved, `action_flow_succession_producer_consumer` (the same nodes in sequence: the
+consumer reads 3 three times, total 9) with its trace golden, `action_flow_streaming_before_target_begins`,
+`action_flow_streaming_in_loop_body`; `robustness_streaming_flow_test.go` (a source that never
+writes, a target over before its source wrote, a stream to an undeclared pin). The
+`spec-compliance.md` Actions map's object-flow row is split by kind and the compliance row records the two flow kinds.
 
-**Proof.** Conformance: a producer loop writing three values to an `out` streamed to a consumer
-that accumulates them, with the `succession flow` variant of the same model receiving only the
-last; a trace golden for the interleaving; robustness for a stream whose source never writes.
-`spec-compliance.md`: the Actions map's object-flow rows split by kind and the bullet leaves the
-list. **Prioritize when** a model's result differs between the two readings — a consumer that
-reads before its producer completes.
+**What it leaves.** A source whose body writes its pin several times before any target
+performance is under way leaves the target the pin's value — its latest write — as a target
+performing beside each write would read; only a target performance under way sees every write.
+E3's parallel form, when it has a spelling, decides the streaming consumer of its elements with it.
 
 ## E5 — protocol state machines (design record landed)
 
-**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
-stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
-state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
-§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
-`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
-on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
-starts with the exhibiting object and fires in the declared order on a part with
-`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
-What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
-static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
+**Closed by its design record:** protocol state machines are not a SysML v2 construct; reception
+ordering is an ordinary exhibited state machine. The record establishes that the legal order of
+receptions on a port or part is expressed with `accept … via <port>` and runs on the exhibiting
+object. Ordering operation calls, post-conditions, `ProtocolConformance` and static sequence
+checking have no SysML v2 spelling and are not OpenSysML gaps.
 
 **What it leaves.** The order the machine declares is enforced only for events a debugger injects
 directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
 the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
-state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+state does not accept is not dropped: it waits on the context-wide bus and is taken by
 the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
 had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
 **port definition** runs and answers the debugger's messages to the port object, but does not
-take a model's messages routed to that port. The follow-up specified in the record: a message
-addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
-a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
-takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
-No IR change; proof fixtures written in the record; two routing points to settle first.
-**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
-definition's machine at all.
+take a model's messages routed to that port.
 
-## E6 — operation invocation with positional arguments
+**Optional follow-up (not a spec gap).** A future opt-in policy may make a refused model arrival a
+typed error and align port-definition routing with the direct-injection path.
 
-**Today.** `Context.InvokeOperation(inst, name, args map[string]Value)`
+## E6 — operation invocation with positional arguments (landed)
+
+**Landed.** `Context.InvokeOperationWith(inst, name, OperationArguments{Positional, Named})`
+(`runtime/invoke_operation.go`) takes the ordered list; `InvokeOperation` keeps the named map and
+delegates to it. A positional list binds to the operation's effective input parameters —
+`semantics.Model.SignatureParametersOf`, the `in`/`inout` parameters `signatureOf` gives an
+invocation expression in signature order, `out` and result excluded — so a trailing defaulted
+parameter may be omitted, an `inout` parameter takes a position and comes back as a result, and an
+`out` parameter takes none. Among same-named members, `operationOf` selects through
+`semantics.Model.SelectAmongArguments`, the overload selection the expression evaluator uses, in
+its `PerformsOperation` mode — every behavior admitted alike, an expression's preference for a
+calc set aside — so two calcs of one name are told apart by arity, an action and a calc of one
+name by the arguments' types, and a list none takes is refused. A surplus is
+`ErrOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
+the two forms is `ErrMixedArguments`, and a required parameter left unbound is still
+`ErrUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`
+pairs (`repl/meta.go` `parseInvokeArguments`), refusing a mixed list and a parameter named twice
+before the object is reached. Proof: `runtime/classifier_behavior_test.go`
+`TestInvokeOperationWithPositionalArguments`, `runtime/robustness_positional_invoke_test.go`,
+`repl/classifier_behavior_test.go` `TestInvokeBindsPositionalArguments` and
+`TestInvokeReportsItsFailureModes`; the bullet left the compliance list. The gRPC surface exposes
+no operation invocation, so nothing there changed.
+
+**Before it landed.** `Context.InvokeOperation(inst, name, args map[string]Value)`
 (`runtime/invoke_operation.go`) runs a member of an object's type with the object as performer,
 whichever behavior the member is — an action through `ExecuteActionPerformedBy`, a calc through
 the calc invocation with the object as its featuring object, a constraint through condition
@@ -1410,123 +1576,88 @@ form only. Arguments bind by name and only by name: `operationInputs` takes a ma
 `in`/`inout` parameter by its name and refuses a missing one (`ErrUnboundParameter: parameter …
 has no argument and no default`) and an unknown one (`ErrUnboundParameter: … is no input
 parameter of operation …`). The REPL's `%invoke <object> <op> [<p>=<expr>]` (`repl/meta.go`
-`operationArguments`) refuses an argument not written `<parameter>=<expression>`. There is no
-positional form on either surface, and no refusal specific to one — the row says so: "no
-invocation surface expresses positional operation arguments". An operation call *written in a
-model* is an `InvocationExpression` and is bound by the expression machinery, where positional
-arguments already work (`runtime/invoke_calc.go` `bindCalcParameter`; for a performed action,
-`runtime/invoke_action.go` `bindArguments` binds `inv.args` in parameter order and refuses a
-surplus with `action … takes N input parameter(s), got M argument(s)`).
+`operationArguments`) formerly required named arguments, while model invocation expressions already
+supported positional binding. The target was to expose the same positional-or-named choice through
+the API and REPL, never mixing the two forms; the implementation and proof then added the ordered
+API list, bare REPL expressions, mixed-list and surplus-argument diagnostics.
 
-**Target.** KerML 1.0 §8.2.5.8.3 gives an invocation's `ArgumentList` as either a
-`PositionalArgumentList` or a `NamedArgumentList`, never a mix, and §8.4.4.9.5 binds a positional
-list to the behavior's parameters in declaration order (`feature a redefines F::a = e1; feature b
-redefines F::b = e2; …`) — as `bindArguments` and `bindCalcParameter` already do for a call in the
-model. The API and the REPL should offer the same two forms, so `%invoke rover1 drive 10 20` binds
-`10` and `20` to the first two `in` parameters, a list mixing the two forms is refused, and a
-surplus is refused with the same arity error.
+## Dynamic object creation and destruction (landed)
 
-**Work.** Small and self-contained: an ordered argument list on `InvokeOperation` (or a second
-entry point) sharing `bindArguments`'s rules, and `%invoke` accepting a list of bare expressions
-in place of its `<p>=<expr>` pairs. Depends on nothing; nothing depends on it.
+**Landed** in one change set. Before it an object was materialized once, from its declaration,
+and nothing destroyed it: `new T(…)` built a message-shaped value for `send`, an object written
+into a feature was classified by it but owned by nothing, `destroy` refused an object whose state
+machine was under way (`ErrOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
+object created while a behavior runs is a first-class occurrence of the run
+(`runtime/signal.go` `evalConstructor` → `EvalContext.constructObject`): it has an identity of its own,
+begins its life where it is made, is classified by the type it is created as, and starts the
+behaviors its type exhibits or performs as an object materialized from a declaration does. The
+spellings are the specifications': KerML §7.4.9's instantiation expression `new T(args)`, in any
+expression position — an assignment, a feature value, an argument, `send new Data(…)` — and the
+library's `create`/`addNew`/`addNewAt`; SysML v2 defines no other textual constructor for an
+occurrence of a definition, and the compliance record says so. Writing an object into a feature
+holds it (`runtime/classify.go` `holdWritten`, from `SetFeatureValue`): the feature's type
+classifies it and, where the feature is composite and the object owns no whole yet, the object
+becomes a portion of the owner, so `assign cars := (cars, new Car(n))` in a loop leaves the fleet
+holding one car per iteration, each a distinct object `all Car`, feature chains, `%features`,
+`isDuring`/`istype` and routing reach. `destroy` (`runtime/lifetimes.go`) ends the occurrence and
+its portions, terminates the state machine it exhibits and the actions it performs where they
+stand (`occurrence_terminate.go` `endBehaviorsWith`), and releases it from the extent
+(`extent.go` `objectsOf`); a feature still naming it keeps the value and reading through it is
+`ErrOccurrenceDestroyed`, the library declaring `destroy` over the occurrence and not over what
+refers to it. Under `explore` creation and destruction are ordinary moves — identities are
+allotted in run order, so every linearization of two creating branches reaches one outcome and a
+destroy racing a read reaches exactly two — and a snapshot carries created objects, a destroyed
+one with its behaviors terminated. Proof: conformance `object_created_by_constructor` and
+`object_destroyed_at_runtime` with trace goldens, `robustness_object_lifecycle_test.go`
+`TestRuntimeRobustnessObjectLifecycle`, `TestDestroyEndsTheMachinePerformed`; the compliance
+record's *Dynamic object creation* row and its `create`/`destroy` row, and the "not supported"
+bullet gone.
 
-**Proof.** `runtime/classifier_behavior_test.go` and `repl/classifier_behavior_test.go` gain the
-positional, mixed and surplus cases; `robustness_test.go` the arity failure; the bullet leaves the
-list. **Prioritize when** a REPL or API user asks for it — it is the smallest item in the track
-and the one most likely to be done on demand.
+**What it leaves.** The RDF mapping is of the model and exports no run's objects. E7, the send
+side, has landed (below).
 
-## E7 — an addressed send to a second object of one usage
+## E7 — an addressed send to a second object of one usage (landed)
 
-**Today.** A `send … to <target>` resolves its target through `runtime/signal.go`
-`resolveAddresses` → `featureAddresses` → `addressOwner`: a name that is a feature of the sending
-object (or of an object holding it) reaches that feature's value, and otherwise the shortest prefix
-naming an occurrence usage that `occursOnce` reaches *the* occurrence this context holds for it
-(`ctx.occurrenceOf(sym)`, `runtime/instance.go`). A `via` send follows the connections
-(`runtime/routing.go`, `signal.go` `postVia`) to the object at the other end. In both forms the
-object reached is the one this context materialized as the usage's occurrence; a second object
-instantiated of that same usage is a different object, which a send addressed to the usage does
-not reach. There is no refusal: the send reaches the held occurrence, and
-`spec-compliance.md` § Known Limitations (*Standard behavioral notation*) documents it.
+**Landed.** `lower.Send` carries the `to` expression (`TargetExpr`, `ReceiverExpr`) beside the
+name it reduces to; a target that is neither a name nor a feature chain — `cars#(2)`,
+`garage.cars#(2)`, `new Car()` — is evaluated in the sending performance
+(`runtime/signal.go` `valuedTargetAddresses`, `receiverObjects`) and the message is addressed to
+the identity of every live object it yields, while a plain name still resolves by usage as before.
+In the `via` form a `to` that names no receiving node of the sender is evaluated the same way and
+the routed copies are kept only where they reach one of those objects (`routedReceiverObjects`).
+A receiver yielding no object or a data value is `ErrSendTargetNotObject`, a destroyed one
+`ErrOccurrenceDestroyed`, a routed receiver no connection reaches `ErrUnreachableSendReceiver`.
+Proof: conformance `send_to_second_object_of_usage` and `send_via_to_second_object_of_usage` with
+trace goldens, `send_to_object_held_in_feature`, `send_to_object_through_chain`,
+`signal_test.go` `TestSendToConstructedObjectReachesIt`,
+`robustness_send_to_object_identity_test.go` `TestRuntimeRobustnessSendToObjectIdentity`; the
+compliance record's send rows updated, the Known Limitations bullet and the "not supported" bullet
+gone.
 
-**Target.** §7.17.7: a `SendAction` has three input parameters — the payload, a *sender*
-occurrence (`via`) and a *receiver* occurrence (`to`) — and "the behavior of a `SendAction` is to
-transfer the payload from the sender to the receiver"; the receiver is a value the `to` expression
-(or a flow or binding into the `receiver` parameter) supplies, and the message is a
-`MessageTransfer` between those two occurrences (`Transfers.kerml`). So a send whose receiver
-expression yields a particular object reaches that object, whichever usage it was instantiated
-from.
+**Before it landed.** A send formerly resolved a named usage to the one occurrence held by the
+context, so a second object of that usage was unreachable through the usage name. The target,
+work and proof were to evaluate the receiver by value, address the resulting identity, and pin
+the second object's acceptance with conformance and trace coverage.
 
-**Work.** Address by value rather than by usage: evaluate the `to` expression to an object
-reference and post to that object's identity (`objectID`), with the by-usage resolution kept for a
-target that is a name. That is only meaningful once a context can hold more than one object of one
-usage, which is the "dynamic object creation/destruction" bullet beside this one in the compliance
-list and outside this track: an object materialized by `new` or held in a feature the sender
-reads. Depends on that object-model item; independent of E1–E6.
+## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions (landed)
 
-**Proof.** Conformance: two objects of one usage, a send addressed to the second, only the second's
-accept fires (with the `via` form of the same model); a trace golden; robustness for a target
-expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
-supported" bullet both leave. **Prioritize when** the object-model item lands, since without it
-there is no second object to address.
+**Landed.** Effective values and scopes are lowered into `StateGraph`; the state executor applies
+held-entry boundaries, exposes the `entry step` choice point, and carries it through checking,
+exploration, replay and snapshots. Conformance fixtures cover state, scoped and machine
+redefinitions, with default twins preserving the default path; the two remaining invalid cases
+are typed refusals for a missing occurrence scope and a scope that is not an ancestor of the
+redefining state.
 
-## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
+**Known limitations.** Fork/shared-path `enterLazily` entries are not split. The boundary applies
+only to entry cascades; exit and effect sequences are unchanged. A parallel region owner stays
+active during an intra-region transition, so its entry behavior does not re-run.
 
-**Today.** `Kernel Semantic Library/Occurrences.kerml` declares, on every `Occurrence`,
-`isRunToCompletion: Boolean [1] default true` — "determines whether transition performances might
-happen during state entry performances within the run to completion scope" — and
-`runToCompletionScope: Occurrence [1] default self`, and `StatePerformances.kerml` redefines both
-on `StatePerformance` (`default this.isRunToCompletion`, `default this.runToCompletionScope`) with
-the invariant that under `isRunToCompletion` every `TransitionPerformance` within the scope
-precedes or follows the state's `entry`. The runtime implements the defaults and only the
-defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatches one occurrence
-per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
-the end before the step returns, so no transition fires during an entry; the scope is always the
-whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
-feature to anything else — narrowing the scope to one composite, or switching run-to-completion
-off so that a transition may fire while a sibling's entry is still performing — is refused when
-the machine is lowered: `lower/run_to_completion.go` `refuseRunToCompletionRedefinitions` judges
-the redefinition each body makes effective (its own, or the one it inherits from a specialized
-definition, the target resolved to its library symbol so an alias is caught) and returns the typed
-`lower.RunToCompletionRedefinition`, an `ErrUnsupportedStateContent` naming the feature, the
-declaring state and the value written, for `false`, for a scope other than the machine itself, and
-for a value it cannot verify restates the default. A redefinition restating the default (`= true`,
-`= self` on the machine) runs. Before that, such a model was run under the defaults with no
-diagnostic. The lowered `StateGraph` still carries neither feature; the precise-semantics
-alignment note records the refusal, and the remaining gap, against its SM1 row.
-
-**Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
-scope means the library no longer orders transition performances within that scope against
-entry performances, so the executor may — and under `explore` must — interleave a dispatch with
-an ongoing entry there; `runToCompletionScope` names the occurrence within which the ordering
-holds, so a scope narrower than the machine leaves transitions outside it free to fire while a
-state inside it is entering. A redefinition that names no occurrence, or a scope that is not an
-ancestor of the redefining state, is a typed error.
-
-**Work.** Lower both features per state into the `StateGraph` (the value expression, or the
-inherited default), resolved through the same redefinition walk `lower/state_graph.go` uses for
-entry transitions; give the state executor a per-scope step boundary in place of the single
-`runStep` one — a dispatch that arrives while an entry is performing is held at the boundary of
-the innermost enclosing scope with `isRunToCompletion` true, and taken as a move where it is
-false — and record the interleaving as a choice point (`scheduling.md`) so `explore` enumerates
-it and `seed:<n>` replays it. The default configuration must run every existing fixture and
-trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
-
-**Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
-`_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
-`_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
-`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and
-the state rendering (`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`)
-show the same message. The implementation adds:
-conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
-itself accepts, pinning that the transition fires during the entry where the default holds it
-until after; a narrowed scope with a sibling region's transition firing during the scoped state's
-entry; the default unchanged. A trace golden for the interleaving order. Robustness: a scope that
-is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
-file:function in place of the refusal; the alignment note's SM1 row and its finding move to
-agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
-today — or when the model checker, which searches a machine's transitions, region orders, event
-and due orders but takes run-to-completion as the library fixes it, needs the interleaving as a
-move.
+**Before it landed.** The library defaults held all entry transitions to the end of the machine
+entry cascade, and redefinitions of `isRunToCompletion` or `runToCompletionScope` were rejected.
+The target was to lower effective values and ancestor scopes into `StateGraph`, expose free versus
+held dispatch as an `entry` choice point, and retain typed refusals for missing or non-ancestor
+scopes. The proof covered default twins, state/scoped/machine redefinitions, invalid scopes, and
+the resulting exploration and replay behavior.
 
 ## E9 — a composite state's completion fires its own completion transition (landed)
 
@@ -1569,6 +1700,27 @@ then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
 `robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
 kept its outcome.
 
+## Exception handlers (closed)
+
+**Closed** by its design record, [exception-handlers.md](exception-handlers.md): **not a SysML v2
+construct.** The compliance mapping had carried UML's `RaiseExceptionAction`/`ExceptionHandler`
+as "spec exists, needs exception propagation", the last UML-referenced action item still
+presented as implementable. The record finds no spelling for raising, catching or propagating in
+SysML v2 §7.17 (the action kinds are `send`, `accept`, `assign`, `terminate`, `if`, the loops and
+the control nodes), no metaclass in §8.3.17 or the reflective `SysML.sysml` metamodel, no base
+type in `Actions.sysml`, and in KerML a `Performance` that ends but never fails
+(`Performances.kerml`); no OMG corpus model writes one, and the pinned pilot's `SysML.ecore` (175
+classes) has no such class — which is also why the [fUML referee](fuml-referee.md) files fUML's
+exception model `not-expressible`. The need is met by constructs the runtime already executes: a
+step reports its failure on an `out` parameter and a `decide` routes on it, or the step `send`s a
+failure signal to an `accept` forked beside it whose branch `terminate`s the work — §7.17.10's
+`MonitoredActivity` — both run to completion under `bin/sysml` in the record; a failure the model
+does not spell is a typed error at the boundary (`ErrDivisionByZero`, `ErrAcceptDeadlock`,
+`ErrTerminateTarget`, …), never a panic, and an `error` verdict under a verification case.
+No AST, IR or runtime change follows; the behavior guide's *Terminate* section teaches the
+by-signal shape. A later SysML v2 revision adding an action kind for exceptions reopens the item
+with a spelling to implement.
+
 ---
 
 # Track X — expression forms the evaluator did not reach
@@ -1593,10 +1745,13 @@ arithmetic as the scalar (X2, for a feature's own value), 0.7.0 closed five more
 quantities (X7's value half, #121) and the static type of a collection body (X8's typing half,
 #112) — and 0.8.0 closed X2's chain-read half (#164), evaluated the `meta` cast (#212) and typed
 a bare feature reference, an untyped collection body and an argument of unknown type statically
-(#174, #213, #241). What follows is
+(#174, #213, #241), and the last operator the
+evaluator refused outright — the unary `~` — was adjudicated abstract-only rather than given a
+value, KerML 1.0 §8.2.5.8.1 marking it undefined and the checker now warning on its use
+([bitwise-complement.md](bitwise-complement.md)). What follows is
 measured against `runtime/eval.go` and `bin/sysml` at this baseline: each landed item is stated
-with what it leaves, and what is still open in the track is X7's RDF literal form and native
-layout, and X8's two harness halves.
+with what it leaves, and what is still open in the track is X7's native layout, and X8's
+two harness halves.
 
 ## X1 — constructors: `new Pt(1, 2)` as a value (landed)
 
@@ -1698,7 +1853,7 @@ compilation refuses a calc that binds or applies a function value with a typed e
 against `bin/sysml -compile` at this baseline). It is not an arbitrary closure over statements,
 and was not meant to be.
 
-## X7 — tensors and set-producing expressions (values landed; RDF literal and native layout open)
+## X7 — tensors and set-producing expressions (values and RDF landed; native layout open)
 
 The representation decisions are all taken. Since #883 a `Collections::Array` is a `ValArray`
 with its dimensions and row-major elements, a `NumericalVectorValue` a `ValVector`, and a
@@ -1713,11 +1868,22 @@ operation consumes it; what the library declares ordered or nonunique is unchang
 index, a component count off the flattened size and arithmetic between two shapes each a typed
 error; the shape survives `+`, `-` and the scalar multiplications. Both cross gRPC whole on `set`
 and `tensor_quantity` arms under the `set_values` and `tensor_values` capabilities, decoded by the
-five clients into native types that check their own invariants. **What remains open**, as #121
-states it: neither value has an RDF literal form — the mapping writes the model's expressions,
-which round trip exactly (`TestSetAndTensorValuesRoundTripAsExpressions`) — and neither compiles
-natively: `sysml -compile` refuses a calc that uses one with a typed error naming the type
-(confirmed at this baseline). Still last in the track, and now only those two halves.
+five clients into native types that check their own invariants. The **RDF half is resolved by
+design**: the mapping states a model, never an evaluation of it, for every value kind — an `Array`,
+a vector, a quantity with a unit and a scalar alike are written as the expression that values the
+feature, and `internal/translate/export` does not reach the runtime at all
+(`tests/hygiene/layering_test.go` forbids the import) — so a set or a tensor needs no literal form
+either. A `Set`-, `UniqueCollection`- or `Map`-typed feature's `elements` and a rank-3 or rank-4
+`TensorMeasurementReference` export as standard `OperatorExpression`/`LiteralExpression`/
+`FeatureReferenceExpression`/`InvocationExpression` trees under `sysml:type`, round trip exactly
+with `sysx:sourceText` stripped, the structural predicates carry the round trip (`operator`,
+`function` and `referent` each break it when removed, as do both operand routes together), the
+model read back evaluates to
+sets equal regardless of the order their members were written in and to tensors of the same shape
+and components, and no `sysx:` term beyond what every other expression already uses appears
+(`set_tensor_rdf_test.go`). **What remains open** is the native half only: neither value compiles
+natively — `sysml -compile` refuses a calc that uses one with a typed error naming the type
+(confirmed at this baseline). Still last in the track, and now only that half.
 
 ## X8 — static element types through collection bodies (landed), and the two harnesses (open)
 
@@ -1761,7 +1927,8 @@ solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
 The API `Query` reads the *model* alone; the solver decides satisfiability rather than reading
 what holds, though `%solve` pins the values a matching held object has before synthesising the
-rest. No surface reaches the trace `-trace` prints. That is the rest of the track.
+rest. The document query reaches the state a session's objects are in and the trace `-trace` prints
+since #359 (Q3). Nothing of the track is open.
 
 ## Q1 — say which query is which (done)
 
@@ -1817,18 +1984,39 @@ the Python client with `ObjectRef`, both decoding the object cell, and the Node,
 clients carry the regenerated stubs. Nothing of Q2 is left; the rows in `spec-compliance.md` say
 so.
 
-## Q3 — state and event queries
+## Q3 — state and event queries (landed)
 
 "Which state is `#1.lp` in?", "which objects are in `run`?", "what did `#1` accept between
-`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace have the answers
-(`StateExecutor.getCurrentState`, the event log `-trace` prints) and no query reads them. Q3 is a runtime
-query vocabulary over current state and over the trace as a time-ordered relation, with the same
-filter forms as Q2, so the trace stops being something one reads by eye. Its prerequisite on the
-trace side is met: A5 landed (#136), so the clock Q3 reads is `Context.Clock()`, shared by every
-executor in a context, and the trace now carries `choice` lines (S2) and `due order` draws that a
-query over it would need to see; the representation Q3 would read is the one at the tag, not one
-in flight. "Which objects are in `run`" has its population (X5) and its object rows (Q2, #267).
-Unblocked; not started.
+`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace had the answers
+(`StateExecutor.ActiveStates`, the event log `-trace` prints) and no query read them. Q3 is a
+runtime query vocabulary over current state and over the trace as a time-ordered relation, with the
+same filter forms as Q2, so the trace stops being something one reads by eye. **Landed** in #359 on
+`develop` after the tag, as three operations of `DocumentQueries` beside Q2's `Objects` and
+`Verdicts`. `States(source)` answers **state rows**: one per active leaf of each source object's
+machine, every orthogonal region included, with the object, the `machine`, the leaf's `name`, its
+dotted `statePath` under the machine, the `region` it is active in and the `enclosing` composite
+states, read from `StateExecutor.ActiveLeaves` as the configuration stands now. `InState(name)` is
+the inverse — the held objects whose machine is in the named state, by leaf, by enclosing state or
+by dotted path — over the same population `all T` and `Objects` read (X5, Q2). `Events(source,
+kind, since, before)` answers **event rows**: the trace in the order the run made it — accepts,
+sends, transitions, state entry, exit and do steps, `choice` draws with their alternatives and the
+one taken (region order and due order among them), unevaluable guards — each with its instant on
+`Context.Clock()` (A5), its object and machine, the states it touches, its payload and the line
+`-trace` prints; `kind` keeps one or several kinds and `[since, before)` is inclusive at the start,
+exclusive at the end, in the clock's unit or as a duration. The representation queried is the one
+the runtime records: `runtime.TraceRecorder` keeps a typed `TraceRecord` per event and the printer
+writes `-trace`'s lines from those records, so the two cannot disagree and the printed trace is
+unchanged. `WhereFeature`, `WhereName`, `WhereType`, `Project`, `OrderBy` and `Column` read state
+and event rows as they read object and verdict rows; a model-only operation given one, an object
+exhibiting no machine, a state no machine declares, a session recording no trace, a bound that is
+no instant, an empty or backwards interval, and an interval reaching records a bounded trace has
+dropped are each a typed error. The rows cross every surface Q2 has: `%run-query` and `-run-query`
+(which runs after `-state`, `-action` and `-advance`, so it reads the run's end), the Markdown, HTML
+(`span.sysml-state`, `span.sysml-event`) and PDF renderers, and `RunDocumentQuery` as the `state`
+and `event` arms of `DocumentValue`, decoded by the Go and Python clients and carried by the Node,
+Java and Rust stubs; `OPENSYSML_GRPC_MAX_HELD_EVENTS` bounds the trace a served population keeps.
+The manual's [Which query is which](../manual/query-kinds.md) and the query cookbook teach the
+forms; the rows in `spec-compliance.md` carry the status. Nothing of Q3 is left.
 
 ## Q4 — document-query parameter defaults evaluate (done)
 
@@ -1986,7 +2174,7 @@ enumerated by `explore` (S4) and one executor alone due is no choice and is not 
 every single-behavior result and trace unchanged. `ExecuteActionResponse` and
 `ExecuteStateResponse` report `final_time` under the `final_time` capability. What it leaves:
 A4's runner is not yet on the clock, since it does not exist; Q3's queries over the trace it
-changed are unblocked.
+changed landed in #359.
 
 ## A6 — verification cases give verdicts from their bodies (landed)
 
@@ -2074,9 +2262,10 @@ against the code and the corpus (#900, whose gate now also checks that the funct
 exists and that each cited case belongs to its row). With #900 the census read **148 of 217
 reported — 137 faithful, 11 approximate — 6 not implemented, 0 deliberate, 0 known failure and 63
 unknown**, against 143 / 133 / 10 / 68 at the tag; the adjudication of the unknown KerML rows then
-moved it to 156 reported, and the census at this baseline reads **162 of 217 reported — 156
-faithful, 6 approximate — 1 not implemented, 1 deliberate, 0 known failure and 53 unknown**, each
-remaining unknown row citing why the pilot never reports it.
+moved it to 156 reported, and the census now reads **163 of 217 reported — 157 faithful, 6
+approximate, 0 not implemented, 1 deliberate, 0 known failure and 53 unknown**, with the last
+not-implemented row, `validateFeatureMultiplicityDomain`, now landed and each remaining unknown row
+citing why the pilot never reports it.
 The oracle at the other end agrees: of 285
 self-authored invalid models, the pinned pilot and we both reject 276 (3 of them only in strict
 mode, by design), the pilot alone rejects 0, and of the 9 only we reject eight are control-node
@@ -2153,8 +2342,16 @@ Each is a few hundred lines over the language's HTTP+JSON: connect, parse, evalu
 behavior, decode `Value` by the I1 rules (64-bit integers, quantities, enumerations, unset), and
 surface diagnostics as the language's errors. Each ships with the I2 fixtures as its tests and a
 page on starting `sysml-grpc` (binary provisioning from the release, the flags, TLS, the health
-check). Not started; each is about a session once I1 and I2 exist, and they can go in parallel.
-Publishing (CRAN, the Julia registry, File Exchange) is account-gated and goes with R2.
+check).
+
+The Julia and MATLAB packages are **landed but unreleased** on `develop`: `client/julia/OpenSysML`
+(JSON over HTTP.jl + JSON.jl, Julia >= 1.10) and `client/matlab` (`+opensysml`, MATLAB R2019b+ and
+GNU Octave 7+, the Octave path over curl since an Octave built without Java (the snap and the
+CI build) cannot spawn a private child). Both drive every conformance
+scenario through the public `call`/`callRaw` and write the shared report
+format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
+a `julia-client` and a `matlab-client` job. The R package is **not started**. Publishing (CRAN,
+the Julia registry, File Exchange) is account-gated and goes with R2.
 
 ## I4 — a C client, and the C ABI
 
@@ -2264,10 +2461,11 @@ B2 and B3 make a program the provider. Most values a twin reads are in a table, 
 service with a URL, and asking for a program to read them is asking for the same fifty lines in
 every host. A small set of built-in providers, selected by the `binding` string's scheme — a CSV
 or JSON file keyed by element, an HTTP endpoint returning JSON decoded by the I1 rules, and a
-Flexo project's element values once D9.2 reads one — configured on the `sysml` and `sysml-grpc`
+Flexo project's element values now that D9.2 reads one — configured on the `sysml` and `sysml-grpc`
 command lines and refused by name when the scheme is unknown. This is the item that makes a model
 with `@ExternalValue` runnable from the REPL against a spreadsheet with no host program at all.
-Depends on B2; each provider is small and independent, and the Flexo one waits for D9.2.
+Depends on B2; each provider is small and independent, and the Flexo provider is no longer gated
+by D9.2, which is landed.
 
 ## B5 — bindings as a query, and in the REPL
 
@@ -2353,24 +2551,29 @@ writer has a stable URL for an `Origin`.
 
 `dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
-it can draw in-process, and offers the others as *save as*), and the document renderer. **For
-`dot` this landed** with W1 and **for `plantuml` with W2**: `-render-form dot|plantuml`
+it can draw in-process, and offers the others as *save as*), and the document renderer. **Landed**
+— for `dot` with W1, for `plantuml` with W2, and the PDF rasterization and the panel's export in
+#356 on `develop` after the tag: `-render-form dot|plantuml`
 (`-render-all` writes `.dot` and `.puml` files), `%render <name> dot|plantuml [palette]`,
 `"form"` on `opensysml/render`, and `-diagram-form dot|plantuml` on `-render-document`
 (`%render-document <name> dot|plantuml`, `diagramForm` on `opensysml/renderDocument`), which
 writes every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown and
 `<pre class="dot">` or `<pre class="plantuml">` in HTML — a render-time choice, not a model
-attribute; the PDF backend keeps a DOT or PlantUML block as source under a notice and looks for
-no Graphviz or PlantUML tool. The form lists in the CLI help and man pages, the REPL's completion
+attribute. The form lists in the CLI help and man pages, the REPL's completion
 and the LSP's errors derive from `Forms()`, so the form reached every one. The gRPC
 surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same
 way `-render-form` does.
 
-Still open: rasterizing a DOT or PlantUML block for PDF through `dot` or the PlantUML
-jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
-variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
-and the VS Code panel's *save as* for the non-Mermaid forms.
+The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the
+writer's `// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it
+draws Mermaid through `mmdc`: optional tools located by environment variable, a block kept as
+source under a notice when its tool is absent, the tests skipping with the reason where the tool
+is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
+the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
+advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. Still open
+in the track is what [W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) list as writer
+changes: richer node shapes and compartments in both writers.
 
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
 over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
@@ -2445,20 +2648,29 @@ what M2 needs.
 
 ---
 
-# Proposed, not started
+# Proposed
 
-**The PDF path onto the HTML backend.** The backend
-[html-document-backend.md](html-document-backend.md) designs is now implemented: `docrender.HTML`
+Five pieces of work proposed outside the tracks. The first two are landed on `develop` after
+the tag; the third has its design and first step landed and three pull requests open; the fourth
+is landed; the fifth is not started.
+
+**The PDF path onto the HTML backend (landed, #358).** The backend
+[html-document-backend.md](html-document-backend.md) designs is implemented: `docrender.HTML`
 renders `-doc-form html` straight from the document IR, with the semantic structure, the `sysml-`
 classes and `data-` model facts, the default stylesheet in a cascade layer that reader CSS
 overrides without specificity fights, `-html-css`, `-html-no-default-css`, `-html-default-css`,
-`-html-fragment`, and linked HTML sets sharing one `sysml-document.css`. What remains is the
-migration designed alongside it: point the HTML-input PDF engines (`weasyprint`, `prince`) at that
-markup and retire `internal/doc/docpdf`'s Markdown re-parse and its own HTML writer, which splits the
-print styling out as a shared asset and moves the PDF goldens. Pandoc keeps reading the Markdown,
-and `-doc-form markdown` is unaffected. About one session, independent of every track above.
+`-html-fragment`, and linked HTML sets sharing one `sysml-document.css`. The migration designed
+alongside it landed in #358: `-doc-form pdf` hands WeasyPrint and Prince the same semantic HTML
+`-doc-form html` writes, under a shared `print.css` in its own cascade layer, so `-html-theme`,
+`-html-css` and `-html-no-default-css` reach the PDF and a relative `url()` or `@import` in a
+reader's sheet resolves for the PDF engines as it does for HTML; `internal/doc/docpdf`'s Markdown
+re-parse and its own HTML writer are gone. Pandoc keeps reading the Markdown (the caption marker
+it needed is a Lua filter now), and `-doc-form markdown` is unaffected. Prince is commercial and
+not provisioned by the PDF toolchain script, so its path is exercised only on the input prepared
+for it and its tests skip where the engine is absent.
 
-**The pilot as an execution referee.** [pilot-execution-referee.md](pilot-execution-referee.md)
+**The pilot as an execution referee (landed, #319, #321, #334, #413).**
+[pilot-execution-referee.md](pilot-execution-referee.md)
 established that the pinned pilot evaluates model-level expressions and nothing else, so
 `cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
@@ -2468,13 +2680,21 @@ and all on `develop` after the tag: #319 provisions the pinned implementation an
 it computes over its own test models, #321 reads and classifies the activities, and #334
 translates every expressible one to a `fuml::<Activity>` action definition by rule, runs it
 under every schedule the explorer reaches and requires the values left in its output parameters
-to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
-`not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
-pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
+to be the reference's. #413 then widened the emitter to the constructs the first cut refused:
+classes and generalizations, object creation, structural-feature actions, signals and
+`SendSignalAction`, `AcceptEventAction`, active classes with their classifier behavior and
+`StartObjectBehaviorAction` — and fixed the runtime and the SMT encoding it uncovered, where two
+`flow`s from one source pin were staged as one delivery (each `flow` declaration is its own
+transfer now, so a fork duplicating a token down two flows delivers two values). `cmd/fuml-referee`
+files 55 activities as 23 `pass` / 0 `fail` / 28 `not-expressible` / 4 `differs-by-design` (an
+action the reference fires once per object token), pinned in
+`docs/project/fuml-referee-baseline.json` and checked in CI by
 `go run -C tools ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
-rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
-the runtime's: object creation, structural-feature actions, accept-event actions and active
-classes have no translation yet, and each one added moves rows into `pass` or `fail`.
+rules and every row. What remains in the `not-expressible` bucket is recorded there: the rows
+the classifier files against constructs the translation does not spell, and the emitter's own
+typed refusals of an expressible activity — a `ReadSelfAction` in an activity performed on its
+own, a start passing arguments, an edge weight other than 1, an object-flow cycle through
+control nodes.
 
 **Scaling to very large models.** [large-model-scaling-design.md](large-model-scaling-design.md)
 (#300, on `develop` after the tag) starts from the satellite-network stress test's profiles
@@ -2496,6 +2716,61 @@ a sixth slower for the recording it never uses). Open against `develop` on the s
 (a load's files parsed, indexed and validated on a pool of workers), #309 (the REPL analyzing
 each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
 of occurrences). Independent of every track above; the design's own sequence orders it.
+
+**An MTIP export as an optional layout augment to a SysML v1 migration (landed).** A
+Cameo/MagicDraw export migrates through `sysml <model>.mdzip -convert sysml`
+([the mapping](../reference/sysml-v1-migration.md)), and #524 writes each of its diagrams as a
+`view` usage exposing the elements the diagram shows and rendered by the diagram's kind. What
+the XMI does not carry is where the diagram draws them: the tool keeps its diagram geometry
+outside the XMI, so the migrated views are auto-laid-out like any other and the arrangement an
+engineer settled on is lost. Open-MBEE's MTIP plugin (`Open-MBEE/mtip-cameo`) reads that geometry
+through the tool's own API and writes it into its HUDS XML — per diagram, the shown elements
+with their bounds, connector breakpoints, colors, fonts and images, each keyed by the element's
+identifier — so an MTIP export of the same project holds exactly the layer the migration lacks.
+`sysml <model>.mdzip -convert sysml -layout <mtip-export.xml>` now reads it as an **augment,
+not a second input format**: `internal/translate/mtip` keeps the diagram/presentation layer of
+the HUDS file and nothing else, and the migration joins each record to the migrated view and the
+exposed element or connector by the element identifier MTIP records — confirmed on a real
+export (the OpenMBEE TMT model and its MTIP export): the record id is the `xmi:id` the migration
+already resolves, all 721 diagram records joining, with the geometry written the way
+[diagram-layout-annotations.md](diagram-layout-annotations.md) already carries it — `metadata
+Layout about … { x; y; width; height; }` and `metadata Route about … { points = (…); }` in the
+view usage's body, with `@Canvas` for the diagram's extent — so the result is standard metadata
+every conforming tool preserves and every OpenSysML rendering honors, not a sidecar and not
+comments. Geometry is written only for what the view exposes; what `DiagramLayout` has no
+attribute for (colors, fonts, images) is reported and dropped rather than invented into the
+library — extending `DiagramLayout` for it is a separate decision. A record whose identifier
+matches no migrated element, a diagram MTIP exports that the migration skipped, and a malformed
+or partial record are each a named row in the migration report, never silently lost; and a
+`-layout` file written against a different project than the model refuses with the mismatch
+stated rather than annotating nothing. Without `-layout` the output is byte-identical to today's.
+Open follow-up: most placed elements are not exposed because activity and state nodes have no
+name of their own outside their body — naming them so a view can expose (and so lay out) them
+is a separate migration item. Builds on #524's view usages and the landed `DiagramLayout`
+library; independent of every track.
+
+**Behavioral editing through the diagram (not started).** The `opensysml/applyModelEdit`
+request over `internal/check/edit` writes the *structure* of a behavior: `addMember` declares a
+`state`, `action`, `fork`, `join`, `merge` or `decision` in a body, `addConnection` writes a
+`transition` or `succession` between two drawn nodes, and `rename`, `setValue`, `move`,
+`delete`, `setLayout` and `setRoute` apply to them as to any member. What no operation writes
+is the text a behavior's semantics live in — a transition's `accept` trigger, `if` guard and
+`do` effect; an action's parameters and the `flow`s and `bind`s between their pins; a state's
+`entry`, `do` and `exit` actions — so a state or action diagram drawn from the lowered
+`StateGraph`/`ActionGraph` can be arranged and extended from the canvas but its behavior still
+has to be typed in the source. The proposal is a family of operations in `internal/check/edit`
+that rewrite exactly those clauses of an existing declaration with the same source-preserving
+discipline the existing operations keep (only the bytes the parse says carry the clause are
+replaced; the result is re-parsed and re-analyzed before it is handed back, and refused when it
+would not read): setting or clearing a transition's trigger, guard and effect; adding, retyping
+and removing an action's `in`/`out`/`inout` parameters; writing a `flow` or `bind` between two
+pins as `addConnection` writes a `succession`; and a state's entry/do/exit action. Each is one
+`kind` on `opensysml/applyModelEdit`, one row in [the LSP reference](../reference/lsp.md), one
+menu action in the VS Code panel, and — since the lowering is what the diagram draws — one
+round trip the lowering tests already cover: the edited text lowers to the graph the canvas
+asked for. Builds on the landed edit operations and the state and action renderings;
+independent of every track, and the prerequisite for any diagram-first authoring of behaviors,
+in the VS Code panel or in a standalone desktop editor over the same request.
 
 # Track P — package layering (earmarked for 0.9.0)
 
@@ -2950,17 +3225,21 @@ Two orders, because there are two kinds of item. The **track-local** orders say 
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Of the 64 pull requests merged to `develop` after
-the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2, now
-closed), #263 (A7), #286 (the release fold-back), #291 (the generated test figures), #292 (L7,
-closing Track L), #296 (A4, closing Track A), #335 and #352 (E1), #344 (modeled randomness
-beside A3), #300 and #316 (the large-model design and its first step), #319, #321 and #334 (the
-fUML referee for actions), #350 (R4's installer wizard), #304 (the errata overlay, under
-"Upstream follow-through") and the state-executor fixes and findings the PSSM referee
-adjudicated (Track E). Open against `develop` and touching an item: #308, #309 and #312 (the
-large-model design's next steps) and #327 (the SysML v1 migration's remaining items, written as
-a Track D item). Open against `main`: #347, a `release/0.8.1` cut from `v0.8.0` by cherry-pick,
-carrying the bug fixes since the tag and nothing that moved a roadmap item.
+below are rewritten again around what remains. Of the 215 pull requests merged to `develop`
+after the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2,
+now closed), #359 (Q1's page and Q3, closing Track Q), #263 (A7), #286 and #364 (the release
+fold-backs), #291 (the generated test figures), #292 (L7, closing Track L), #296 (A4, closing
+Track A), #335 and #352 (E1), #466 and #479 (a braced state block as one action), #362 (E2),
+#465 (E4), #468 (E7's dynamic objects), #344 (modeled randomness beside A3), #356 (W3's
+rasterization and export), #358 (the PDF path onto the HTML backend), #300 and #316 (the
+large-model design and its first step), #319, #321, #334 and #413 (the fUML referee for actions
+and its emitter), #350 (R4's installer wizard), #304 (the errata overlay, under "Upstream
+follow-through") and the state-executor fixes and findings the PSSM referee adjudicated,
+#384, #438 and #513 (the region-order choice points) among them (Track E). Open against
+`develop` and touching an item: #308, #309 and #312 (the large-model design's next steps), #531
+(the SysML v1 migration documented across the API, the guide and **D13**, superseding #327) and #525 (*Terminate
+002*'s do step against a sibling region's entry units). `release/0.8.1` (#347) is tagged
+`v0.8.1` and folded back.
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -2981,16 +3260,22 @@ carried more than that list. By track, with the pull requests the tracks cite:
   is on `develop` after the tag and closes Q2.
 - **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
   closes the track.
-- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both. The VS Code
-  diagram panel grew on `develop` after the tag without touching a form item: it runs the
+- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both; W3's PDF
+  rasterization of both forms and the panel's export of them are on `develop` after the tag
+  (#356). The VS Code diagram panel also grew there without touching a form item: it runs the
   behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
-- **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
-  retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
-  itself is open; E3 closed by its design record ([expansion-regions.md](expansion-regions.md):
-  the iterative form is `for`, the parallel form is not SysML v2), no executor work following.
-- **Track D** — D12 (the standard library's normative element ids) is done.
+- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. E3's record
+  ([expansion-regions.md](expansion-regions.md)) closes the parallel per-element form because the
+  iterative form is `for`; E5's record closes protocol state machines because they are not a
+  SysML v2 construct; the exception-handlers record ([exception-handlers.md](exception-handlers.md))
+  closes the compliance mapping's last UML-referenced action item the same way, leaving its
+  *Implementable But Not Yet Done* list empty.
+- **Track D** — D1, D2, D7, D9 (branch read and whole-graph push), D11 and D12 are done.
+  D3's Flexo harness is measured at 505 of 582 properties delivered. D8's ontology profile and
+  D10's write-through remain open; D13 (the SysML v1 migration's remaining items) is written.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
   test-suite figures are generated and gated (#291, on `develop` after the tag).
@@ -3001,94 +3286,98 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3 closed by
-  its design record, E5 closed by its record (an optional follow-up waits on a model that needs
-  it), E7 behind its object-model item, E8 behind a model that needs it. The
-  PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
-  eleven wait on the region-order choice point whose design record #342 wrote and left at two
-  maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
-  and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
-  decision (two admitted traces no reading of the model produces); the remaining five cite a
-  *differs, v2 silent* alignment row.
-- **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
-  and Q4 are done.
-- **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
+- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed; exception handlers closed by
+  record. Optional runtime follow-ups are not SysML v2 specification gaps. The
+  PSSM referee's 13 `fail` tests are the state side's measurement, every one attributed
+  ([pssm-referee.md](pssm-referee.md)): five cite a *differs, v2 silent* alignment row; three
+  (*Entering 010*, *Entering 011*, *Junction 005*) a translation limit of the referee's; four
+  (*Transition 017*, *History 001-C*, *History 002-B*, *Exiting 002*) a defect of the suite
+  recorded in [omg-issues.md](omg-issues.md); and *Terminate 002* the runtime's one open gap in
+  the region-order work — a due `do` step is not drawn against a sibling region's remaining
+  entry units — which #525 (open) addresses.
+- **Track Q** — complete: Q1 is written, Q2 and Q4 are done, and Q3 landed in #359 on `develop`
+  after the tag.
+- **Track X** — X7's native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
-- **Track W** — richer DOT/PlantUML node shapes and compartments, PDF rasterization of both forms
-  through optional tools, and the VS Code panel's *save as* for the non-Mermaid forms.
+- **Track W** — richer DOT/PlantUML node shapes and compartments; W3's rasterization and export
+  landed in #356.
 - **Release follow-through** — R2, R3, R5 (account- and hardware-gated), and nothing else: the
   `v0.8.0` post-tag checks are met and the test figures are generated.
-- **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
-  except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122).
-- **Proposed** — the PDF path onto the HTML backend (not started); scaling to very large models
-  (the design and its first step landed, #300 and #316; #308, #309, #312 open); the fUML referee
-  for actions (landed, #319, #321, #334; its `not-expressible` bucket is the emitter's open
-  work); recording the order of orthogonal regions (the design record #342 landed, its two
-  decisions open, no code).
+- **Tracks N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
+  except the four `Value` arms Track I's clients carry (#113, #121, #122). Track D's current
+  status is stated above.
+- **Proposed** — scaling to very large models (the design and its first step landed, #300 and
+  #316; #308, #309, #312 open). The PDF path onto the HTML backend (#358) and the fUML referee
+  for actions with its emitter (#319, #321, #334, #413; the `not-expressible` rows left are typed
+  refusals recorded in [fuml-referee.md](fuml-referee.md)) are landed; the order of orthogonal
+  regions is a recorded choice point (#384, #438, #513), with *Terminate 002*'s one trace left
+  to #525. An MTIP export as an optional `-layout` augment to a SysML v1 migration, writing the
+  tool's diagram geometry into the migrated views as `DiagramLayout` metadata, is landed and
+  gated on a real model/MTIP pair; naming activity and state nodes so a view can expose them is
+  the open follow-up.
 
 ## Cross-cutting order
 
 The release housekeeping the previous order opened with is done — #286 folded `main` back into
-`develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
-(Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
+`develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 3 (D2 and D1,
+#509), 4's first half (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter
+by four.
 
-1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
-   releases shipped them, so the condition the previous baseline set is met; the loops E edits
-   carry A5's clock and S2's choice points, and every E item is written against a named scheduling
-   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
-   #336) and E1 (#335, #352) moved the PSSM referee to 46 `pass` / 17 `fail`; E1 gave E2 and E4
-   the notion of ending an ongoing performance they build on. Beside E2, the largest single
-   lever on the state side is not a lettered item: eleven of the 17 failures wait on the
-   region-order choice point, whose design record (#342) is written and stops at two decisions
-   for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
-   admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
-   the code, run beside E2 without touching it.
-2. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
-   which query is which, is written in the document-generation manual now that the set is
-   complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
-   of it.
-3. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
+**Track E** — complete: E1, E2, E4, E6, E7, E8, E9 and E10 landed; E3 and E5 closed by
+design record. Its remaining design notes do not add an open Track E item.
+
+**Track Q** — complete: Q3 (#359) landed on `develop` after the tag, on A5's clock and Q2's
+object rows; Q1, the page that says which query is which, is written in the document-generation
+manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of them.
+
+1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
-4. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
-   end structure, then the authenticated push and the branch read (the collection JSON annotations,
-   D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
-   last in the step; re-record the live-stack harness after D1/D2.
-5. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
+3. ~~**D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
+   collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
+   whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL).~~ **Landed in
+   #509;** the live-stack harness was re-recorded at 505/582 properties, so the order is shorter
+   by one more step.
+4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
-   expression item is measured; the set and tensor layouts when something needs them.
-6. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
+   expression item is measured; the set and tensor native layouts when something needs them.
+5. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
    API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
    materialization seams exist) and touch only the metadata library, one pass and the runtime's
    dispatch, so they can run beside steps 3 and 4; B2 drains events into loops that carry the
    clock (A5) and the choice points (S2). **B3** follows the transport decision, **I5** goes with
    step 3 since it is built from the same fixtures, and **B4**/**B5** come whenever a model needs
    them.
-7. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
+6. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
    static tables. Embedded behavior compilation depends on the closed IR; the native track's
    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
    M6 last.
-8. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
+7. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
-*unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
-Track W's remaining writer and rasterization work, and the large-model design's next steps in its
-own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
-(#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
-since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
-series or the features; it moves no roadmap item, and once tagged `main` is folded back into
-`develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
-since the tag — Q2 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
-referee, the state-executor fixes and the workspace's persistent semantic model — and by
-`CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
-material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
-reaching the enclosing definition's features by their bare names, now `Must be an accessible
-feature`), the completion, junction and join fixes (#313, #318, #317) add `choice` lines to the
-traces of models that exercise them, and E1 makes a `terminate` statement that `v0.8.0` ran as
-an empty action end its performance. The decision is the release checklist's, recorded there.
+Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), Track W's
+remaining writer work, and the large-model design's next steps in its own sequence (#308, #309
+and #312 are the open ones). One release is behind and one in view. `release/0.8.1` (#347) was
+a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes since the tag and the three VS
+Code extension fixes, and deliberately none of the state-executor series or the features; it is
+tagged `v0.8.1`, moved no roadmap item, and #364 folded `main` back into `develop` as after
+`v0.8.0`. The next cut from `develop` carries everything else that landed since the tag — Q1,
+Q2 and Q3 closing Track Q, L7, A4, E1 and E2, E4's streaming flows, E7's dynamic objects, the
+generated figures, modeled randomness, the fUML referee and its emitter, the region-order
+choice points and the state-executor fixes, W3's rasterization and export, the PDF path onto
+the HTML backend and the workspace's persistent semantic model — and by `CONTRIBUTING.md` §
+Versioning it bumps the minor segment, not the patch: features are patch material there, but
+#302 refuses a construct `v0.8.0` accepted (a body inside a nested definition reaching the
+enclosing definition's features by their bare names, now `Must be an accessible feature`), the
+completion, junction, join and region-order fixes (#313, #318, #317, #384, #438) add `choice`
+lines to the traces of models that exercise them, E1 makes a `terminate` statement that
+`v0.8.0` ran as an empty action end its performance, E2 leaves the rest of an inline `do` body
+unrun when the state is left, #479 reads a braced state block as one action and refuses the
+older shape of its Turtle graph, and #359's `-run-query` runs after the run rather than on the
+initial state. The decision is the release checklist's, recorded there.
 
 ## Track-local orders
 
@@ -3104,41 +3393,39 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 353/353 with no refusal left; step 4 above is next; **D7** is
-  mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
-  previous repository) have to be re-proposed against this repository before **D8**'s profile,
-  which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
-  element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the
-  branch read is to offer it; **D10** (write-through from a view-only project) after D9.1 and
-  D9.2, which it reads and writes through.
+- **Track D.** The RDF ratchet is 356/356 stable with no refusal left; the API element-form
+  ratchet is 354/356 with 2 graph-diff cases. **D1** and **D2** are done: expression trees use
+  standard ownership and operator vocabulary, and connector ends use `ReferenceSubsetting`;
+  **D8**'s ontology-profile gate is therefore open. **D7**, **D9.1**, **D9.2**, **D11** and
+  **D12** are done; **D8** and **D10** remain; **D13** (the SysML v1 migration's units, its
+  report on the wire and its experimental notice) in the order it lists.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
-  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
-  being a day's work; **E3**'s record is landed and closes the item; **E5**'s record is landed and
-  closes the item, its optional follow-up waiting on a model that needs it; **E7** after the
-  object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E1**, **E9** and **E10** are landed; **E3** is closed by its
-  record, no work following.
+  **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
+  **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
+  its optional follow-up waiting on a model that needs it; **E7** is landed; **E8** is landed: effective run-to-completion values and scopes are lowered and entry-step
+  scheduling is exposed to execution, checking, exploration and replay; **E1**, **E9** and **E10** are landed; no work follows E3.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
-  measured; X7's RDF literal form and native layout for sets and tensors last, when something
-  needs them — step 5 above.
+  measured; X7's native layout for sets and tensors last, when something needs them — step 5
+  above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
   A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
+  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 landed in #359. Nothing
+  remains in the track.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
-  reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
-  negative case first, each change moving its row.
+  reconciled with #907, #909); work the census's 53 *unknown* rows, negative case first, each
+  change moving its row.
 - **Track B.** B1, B2, then B3 — step 6 above; nothing holds B1 or B2 back; B4's file and HTTP
-  providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
-- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both have landed. What is left
-  — richer node shapes and compartments in both writers, DOT and PlantUML rasterized for PDF
-  through optional tools, the VS Code panel's *save as* — is independent of every other track and
-  runs beside any step above.
+  providers whenever asked, its Flexo provider unblocked now that D9.2 is landed; B5 with Q1.
+- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3 have landed, W3's PDF rasterization and
+  panel export in #356 on `develop` after the tag. What is left — richer node shapes and
+  compartments in both writers — is independent of every other track and runs beside any step
+  above.
 - **Track I, M.** Entirely given by the cross-cutting order above.

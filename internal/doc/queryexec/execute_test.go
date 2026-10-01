@@ -1889,6 +1889,49 @@ calc def ExactOrder :> Query {
 	}
 }
 
+func TestExecuteWhereTypeMetaclassNameOutranksNamesake(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part root {
+	part child;
+	view Usage;
+	part def Local;
+}
+part def Definition;
+calc def Usages :> Query {
+	in source : Element;
+	WhereType(
+		source = OwnedElements(source = source),
+		type = "Usage"
+	)
+}
+calc def Definitions :> Query {
+	in source : Element;
+	WhereType(
+		source = OwnedElements(source = source),
+		type = "Definition"
+	)
+}
+`)
+	rows, err := fixture.execute(t, "Usages", Bindings{
+		"source": {ElementValue(fixture.symbol(t, "root"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute usages beside a view named Usage: %v", err)
+	}
+	if got := elementNames(rows); !slices.Equal(got, []string{"child", "Usage"}) {
+		t.Fatalf("usage rows = %v", got)
+	}
+	rows, err = fixture.execute(t, "Definitions", Bindings{
+		"source": {ElementValue(fixture.symbol(t, "root"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute definitions beside a part def named Definition: %v", err)
+	}
+	if got := elementNames(rows); !slices.Equal(got, []string{"Local"}) {
+		t.Fatalf("definition rows under root = %v, want [Local]", got)
+	}
+}
+
 func TestExecuteWhereTypeUsesMetaclassConformance(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 part root {

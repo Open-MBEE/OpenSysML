@@ -12,6 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // countingSource wraps a Source and counts how often each file is read.
@@ -81,7 +83,7 @@ func TestLoaderCacheMissThenHit(t *testing.T) {
 		t.Fatal("the cached load left ScalarValues::Boolean without its declaration")
 	}
 	if boolean.Facts == nil || len(boolean.Facts.Supers) != 1 ||
-		boolean.Facts.Supers[0] != "ScalarValues::ScalarValue" {
+		boolean.Facts.Supers[0].FQN != "ScalarValues::ScalarValue" || len(boolean.Facts.Supers[0].Path) != 0 {
 		t.Fatalf("restored supertype facts of Boolean = %+v, want [ScalarValues::ScalarValue]", boolean.Facts)
 	}
 }
@@ -111,7 +113,7 @@ func TestLoaderCacheKeepsTypingEdge(t *testing.T) {
 	if len(e) != 1 {
 		t.Fatalf("cached load did not register Lib::e")
 	}
-	if e[0].Facts == nil || len(e[0].Facts.Supers) != 1 || e[0].Facts.Supers[0] != "Lib::Engine" {
+	if e[0].Facts == nil || len(e[0].Facts.Supers) != 1 || e[0].Facts.Supers[0].FQN != "Lib::Engine" {
 		t.Fatalf("restored supertype facts of e = %+v, want [Lib::Engine]", e[0].Facts)
 	}
 }
@@ -141,6 +143,86 @@ func TestLoaderCachePreservesRedefinitionMemberEdges(t *testing.T) {
 	if _, ok := m.LookupMember(f, "g"); !ok {
 		t.Fatal("cached redefined f does not expose inherited g")
 	}
+}
+
+func TestLibraryBehaviorParametersRedefinedByPosition(t *testing.T) {
+	const behaviorSource = `package ScalarFunctions {
+		calc '+' {
+			in x;
+			in y;
+			return result;
+		}
+	}`
+	const modelSource = `package P {
+		calc c : ScalarFunctions::'+' {
+			in x : ScalarValues::Real;
+			in y : ScalarValues::Real;
+			return r : ScalarValues::Real;
+		}
+	}`
+	assertParameters := func(t *testing.T, idx *symbols.Index) {
+		t.Helper()
+		doc := parser.New(source.New("model.sysml", []byte(modelSource))).ParseFile()
+		idx.AddDocument("model.sysml", doc)
+		r := resolve.New(idx)
+		m := semantics.NewModel(r)
+		r.SetModel(m)
+		candidates := idx.LookupQualified("P::c")
+		if len(candidates) != 1 {
+			t.Fatalf("P::c symbols = %d, want 1", len(candidates))
+		}
+		c := candidates[0]
+		params := m.BehaviorParametersOf(c)
+		if len(params) != 3 {
+			t.Fatalf("BehaviorParametersOf(c) = %d, want 3", len(params))
+		}
+		want := []string{"x", "y", "result"}
+		owned := []string{"x", "y", "r"}
+		for i, param := range params {
+			if got := param.Symbol.Name; got != owned[i] {
+				t.Errorf("parameter %d = %q, want %s", i, got, owned[i])
+			}
+		}
+		for i, name := range []string{"x", "y", "r"} {
+			member, ok := c.Scope.LookupLocal(name)
+			if !ok {
+				t.Fatalf("missing c.%s", name)
+			}
+			targets := m.ImplicitParameterRedefinitions(member)
+			if len(targets) != 1 {
+				t.Errorf("implicit targets of c.%s = %v, want one target named %s", name, targets, want[i])
+			} else if i < 2 && targets[0].Name != want[i] {
+				t.Errorf("implicit target of c.%s = %q (%s), want %s", name, targets[0].Name, symbols.FQNOf(targets[0]), want[i])
+			} else if i == 2 {
+				result, ok := targets[0].Decl.(*ast.Usage)
+				if !ok || !result.IsResult {
+					t.Errorf("implicit target of c.%s = %q (%s), want the general result parameter", name, targets[0].Name, symbols.FQNOf(targets[0]))
+				}
+			}
+		}
+	}
+
+	t.Run("cold load", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "library.sysml"), []byte(behaviorSource), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		idx := loadWholeLibrary(t, dir, t.TempDir())
+		assertParameters(t, idx)
+	})
+	t.Run("warm cache", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "library.sysml"), []byte(behaviorSource), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cacheDir := t.TempDir()
+		loadWholeLibrary(t, dir, cacheDir)
+		idx := loadWholeLibrary(t, dir, cacheDir)
+		assertParameters(t, idx)
+	})
+	t.Run("snapshot", func(t *testing.T) {
+		assertParameters(t, NewModelIndex())
+	})
 }
 
 // A record whose supertypes are not all reachable yet must not be cached when
@@ -354,7 +436,11 @@ func snapshotIndex(idx *symbols.Index) indexView {
 // describeSymbol renders the state a symbol contributes to name resolution,
 // which its declaration states on every load path.
 func describeSymbol(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) string {
-	supers, _ := supersOf(sym, idx, model)
+	refs, _ := supersOf(sym, idx, model)
+	var supers []string
+	for _, ref := range refs {
+		supers = append(supers, refString(ref))
+	}
 	sort.Strings(supers)
 	return fmt.Sprintf("kind=%v short=%q supers=%v alias=%q name=%q",
 		sym.Kind, sym.ShortName, supers, aliasTargetOf(sym.Decl), sym.Name)

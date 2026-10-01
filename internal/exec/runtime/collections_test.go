@@ -36,7 +36,7 @@ func evalCollectionExprBounded(t *testing.T, expr string, maxSteps int64) (Value
 	select {
 	case got := <-done:
 		return got.value, got.err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("%s did not terminate", expr)
 		return Value{}, nil
 	}

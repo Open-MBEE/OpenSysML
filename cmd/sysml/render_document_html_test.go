@@ -352,7 +352,7 @@ func TestRenderDocumentHTMLTheme(t *testing.T) {
 	wantReport(t, runCommand(t, exec.Command(binary, "-html-default-css", "-html-theme", "print")),
 		0, "@layer opensysml;", "/* print:")
 	wantReport(t, runCommand(t, exec.Command(binary, "-html-default-css", "-html-theme", "fancy")),
-		2, `no bundled theme is named "fancy"`, "default, modern, print, report")
+		2, `no bundled theme is named "fancy"`, "default, acm, ieee, modern, nasa, print, report")
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
 		"-doc-form", "html", "-html-theme", "fancy"), 2, `no bundled theme is named "fancy"`)

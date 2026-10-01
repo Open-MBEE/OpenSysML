@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -52,6 +53,12 @@ type Message struct {
 	Object      int64
 	PortID      int64
 	Delivery    DeliveryKind
+	// TypedByAccept marks a message queued by name alone from outside the model
+	// (QueuedEvent.Signal) that names no signal definition where its sender
+	// stands: the accept that takes it, matching it by name, types it by the
+	// definition the accept's own name denotes in the scope the accept is written
+	// in, so that its payload binds as a sent occurrence's does.
+	TypedByAccept bool
 	// Payload binds features of the message's type by name, as the send's arguments did.
 	Payload map[string]Value
 	// Value is the one value a send of an expression carries (`send 7`, `send d`),
@@ -79,9 +86,12 @@ const (
 	DeliverObject
 )
 
-// Call is the payload of an EventCall: the operation invoked and its arguments.
+// Call is the payload of an EventCall: the operation invoked, its declaration as
+// a behavior member of the machine's owner (nil when it declares none) and the
+// arguments.
 type Call struct {
 	Operation string
+	Declared  *symbols.Symbol
 	Args      map[string]Value
 }
 
@@ -103,6 +113,8 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messages = append(ctx.messages, msg)
+	ctx.bus.posts++
+	ctx.workChanged()
 	if ctx.trace != nil {
 		target, _ := ctx.Instance(msg.Object)
 		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from, Behavior: behavior}, msg, target)
@@ -142,10 +154,41 @@ func (ctx *Context) TakeMessage(match func(Message) bool) (Message, bool) {
 	for i := 0; i < len(ctx.messages); i++ {
 		if msg := ctx.messages[i]; match(msg) {
 			ctx.messages = append(ctx.messages[:i], ctx.messages[i+1:]...)
+			ctx.bus.cuts++
 			return msg, true
 		}
 	}
 	return Message{}, false
+}
+
+// busSerials counts the messages posted to the bus and the cuts that removed or
+// replaced messages: between two marks with equal cuts the bus has only grown.
+type busSerials struct {
+	posts, cuts uint64
+}
+
+// pendingMemo is a machine's memoized poll of the bus for a message it takes:
+// the answer, and the marks it holds under. It stands while nothing it depends on
+// moved: the bus, the machine and what runs under it and, where the scan read
+// them, the objects' data (a via path, an event subsetted, a sibling's guard).
+type pendingMemo struct {
+	valid     bool
+	bus       busSerials
+	writes    uint64
+	machine   uint64
+	readsData bool
+	// scanned is how many messages the scan examined; a bus that only grew since
+	// needs the rest examined.
+	scanned int
+	msg     Message
+	ok      bool
+}
+
+// notePollReadsData records that the poll under way, if any, read the objects' data.
+func (ctx *Context) notePollReadsData() {
+	if ctx.polling != nil {
+		ctx.polling.readsData = true
+	}
 }
 
 // PendingMessages returns the messages still in flight, oldest first.
@@ -362,7 +405,7 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // there, where an addressed receiver is a node of that holder. A send that
 // reaches none of them is delivered nowhere, which is a typed error rather than
 // a message quietly dropped.
-func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	routed, holder, err := ec.viaSender(send, self)
 	if err != nil {
 		return err
@@ -370,92 +413,169 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if send.Receiver != "" && send.Scope != nil && !ctx.sendsOwnPort(routed, holder, holder != self) {
 		return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
 	}
-	receiver := send.Receiver
-	if receiver != "" {
-		receiverSend := routed
-		receiverSend.Target = send.Receiver
-		receiverSend.TargetPath = send.ReceiverPath
-		receiverSend.IsVia = false
-		addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
-		if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
-			return &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
-		}
-		receiver = addr.Name
-	}
-	typed := receiver != ""
-	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
-		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,
-	)
+	receiver, receiverObjects, err := ctx.sendReceiver(ec, send, routed, holder, receivers)
 	if err != nil {
 		return err
 	}
-	performer := ctx.realizedConnections(ctx.performerConnections(holder, send.Scope), holder)
-	receiving, held, heldMismatch, err := ctx.connectedDeliveries(
-		nil, performer, holder, routed, msg, typed,
-	)
+	deliveries, own, err := ctx.viaRoutes(ec, conns, viaPath{send, routed, holder}, self, msg, receiver)
 	if err != nil {
 		return err
-	}
-	crossing, crossMismatch, err := ctx.ownerDeliveries(holder, routed, msg, typed)
-	if err != nil {
-		return err
-	}
-	typeMismatch = typeMismatch || heldMismatch || crossMismatch
-	outbound = appendUnseen(outbound, held...)
-	if len(own) == 0 && len(receiving) == 0 && len(crossing) == 0 {
-		if typeMismatch && receiver != "" {
-			return &SendPortTypeMismatchError{
-				Port: send.Target, Receiver: receiver, SignalType: msg.SignalType,
-			}
-		}
-		return &UnroutableSendError{Port: send.Target, Outbound: outbound}
 	}
 	// A connection joins two objects, so each copy is held to the identity of the
 	// object whose port the end resolved to rather than to the sender's. Two
 	// destinations naming one port object (through a binding) get one copy.
 	// Every destination is resolved before any copy is queued, so a failure
 	// leaves nothing behind.
-	posted := map[ownerDelivery]bool{}
-	postedPorts := map[int64]bool{}
-	type outgoing struct {
-		msg  Message
-		from *Instance
+	copies, err := ctx.deliveryCopies(deliveries, own, holder, self, receiver, receiverObjects, msg)
+	if err != nil {
+		return err
 	}
-	var copies []outgoing
-	from := self
-	for i, delivery := range slices.Concat(own, receiving, crossing) {
-		if i == len(own) {
-			from = holder
-		}
-		if posted[delivery] {
-			continue
-		}
-		posted[delivery] = true
-		portID, err := ctx.portInstanceID(ctx.instances[delivery.object], delivery.port)
-		if err != nil {
-			return err
-		}
-		if portID != 0 {
-			if postedPorts[portID] {
-				continue
-			}
-			postedPorts[portID] = true
-		}
-		copied := msg
-		copied.Target = receiver
-		copied.Port = delivery.port
-		copied.Object = delivery.object
-		copied.PortID = portID
-		copied.Delivery = DeliverPort
-		if receiver != "" {
-			copied.Delivery = DeliverPortReceiver
-		}
-		copies = append(copies, outgoing{copied, from})
+	if receiverObjects != nil && len(copies) == 0 {
+		return &UnreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
 	for _, c := range copies {
 		ctx.postFrom(c.msg, c.from, behavior)
 	}
 	return nil
+}
+
+// viaRoutes gathers the deliveries a `via` send reaches: the sender's own
+// connections, then the holder's performer connections and owner crossings. own
+// is how many of the first are the sender's, for the sender each copy leaves.
+// viaPath is the way out of a `via` send: the send as written, the same send
+// re-rooted at the holder of its port, and that holder.
+type viaPath struct {
+	send, routed lower.Send
+	holder       *Instance
+}
+
+func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, path viaPath, self *Instance, msg Message, receiver string) ([]ownerDelivery, int, error) {
+	send, routed, holder := path.send, path.routed, path.holder
+	typed := receiver != ""
+	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
+		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	performer := ctx.realizedConnections(ctx.performerConnections(holder, send.Scope), holder)
+	receiving, held, heldMismatch, err := ctx.connectedDeliveries(
+		nil, performer, holder, routed, msg, typed,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	crossing, crossMismatch, err := ctx.ownerDeliveries(holder, routed, msg, typed)
+	if err != nil {
+		return nil, 0, err
+	}
+	typeMismatch = typeMismatch || heldMismatch || crossMismatch
+	outbound = appendUnseen(outbound, held...)
+	if len(own) == 0 && len(receiving) == 0 && len(crossing) == 0 {
+		if typeMismatch && receiver != "" {
+			return nil, 0, &SendPortTypeMismatchError{
+				Port: send.Target, Receiver: receiver, SignalType: msg.SignalType,
+			}
+		}
+		return nil, 0, &UnroutableSendError{Port: send.Target, Outbound: outbound}
+	}
+	return slices.Concat(own, receiving, crossing), len(own), nil
+}
+
+// sendReceiver resolves a `via` send's receiver: the node name deliveries target,
+// or the objects a `to` expression evaluated to, deliveries then held to those
+// objects rather than to a node's name.
+func (ctx *Context) sendReceiver(ec *EvalContext, send lower.Send, routed lower.Send, holder *Instance, receivers []*Instance) (string, map[int64]bool, error) {
+	receiver := send.Receiver
+	if receiver == "" {
+		if receivers != nil {
+			return "", objectSet(receivers), nil
+		}
+		return "", nil, nil
+	}
+	separator := "::"
+	if send.ReceiverPath {
+		separator = "."
+	}
+	segments := strings.Split(receiver, separator)
+	objects, err := ec.routedReceiverObjects(send, holder, segments, len(segments) > 1)
+	if err != nil {
+		return "", nil, err
+	}
+	if objects != nil {
+		return "", objects, nil
+	}
+	receiverSend := routed
+	receiverSend.Target = send.Receiver
+	receiverSend.TargetPath = send.ReceiverPath
+	receiverSend.IsVia = false
+	addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
+	if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
+		return "", nil, &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
+	}
+	return addr.Name, nil, nil
+}
+
+// postedCopy is one message queued against a delivery, from the sender it
+// leaves: self for the sender's own connections, holder for the rest.
+type postedCopy struct {
+	msg  Message
+	from *Instance
+}
+
+// deliveryCopies makes one copy of msg per unseen delivery; a port object two
+// destinations share (through a binding) gets one copy. Every destination is
+// resolved before any copy is queued, so a failure leaves nothing behind.
+func (ctx *Context) deliveryCopies(deliveries []ownerDelivery, own int, holder, self *Instance, receiver string, receiverObjects map[int64]bool, msg Message) ([]postedCopy, error) {
+	posted := map[ownerDelivery]bool{}
+	postedPorts := map[int64]bool{}
+	var copies []postedCopy
+	from := self
+	for i, delivery := range deliveries {
+		if i == own {
+			from = holder
+		}
+		if receiverObjects != nil && !receiverObjects[delivery.object] {
+			continue
+		}
+		if posted[delivery] {
+			continue
+		}
+		posted[delivery] = true
+		copied, ok, err := ctx.portCopy(delivery, receiver, msg, postedPorts)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			copies = append(copies, postedCopy{copied, from})
+		}
+	}
+	return copies, nil
+}
+
+// portCopy makes delivery's copy of msg; a port object another delivery already
+// copied to (through a binding) is skipped, reported by ok false.
+func (ctx *Context) portCopy(delivery ownerDelivery, receiver string, msg Message, postedPorts map[int64]bool) (Message, bool, error) {
+	portID, err := ctx.portInstanceID(ctx.instances[delivery.object], delivery.port)
+	if err != nil {
+		return Message{}, false, err
+	}
+	if portID != 0 {
+		if postedPorts[portID] {
+			return Message{}, false, nil
+		}
+		postedPorts[portID] = true
+	}
+	copied := msg
+	copied.Target = receiver
+	copied.Port = delivery.port
+	copied.Object = delivery.object
+	copied.PortID = portID
+	copied.Delivery = DeliverPort
+	if receiver != "" {
+		copied.Delivery = DeliverPortReceiver
+	}
+	return copied, true, nil
 }
 
 // sendsOwnPort reports whether a send's port is the sender's own: a port of the
@@ -1025,8 +1145,9 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 	return isBehaviorSymbol(owner)
 }
 
-// send builds and posts the message a send statement describes; a message the
-// send cannot build or deliver leaves nothing building it created behind.
+// send builds and posts the message a send statement describes; a send that
+// cannot deliver leaves nothing its payload or receiver expression created
+// behind, while whatever posting itself materialized survives.
 func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	msg, err := ec.buildMessage(scope, s)
@@ -1034,24 +1155,151 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	receivers, err := ec.valuedReceivers(s)
+	if err != nil {
+		ctx.abandonCreationSince(mark, attached)
+		return err
+	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.postFor(ec, conns, msg, s, self, behavior); err != nil {
+	if err := ctx.postFor(ec, conns, msg, s, receivers, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
 	return nil
 }
 
+// valuedReceivers evaluates the bare receiver expression of a send — its `to`
+// clause that is no name or path — to the objects it denotes, nil where the
+// send carries none.
+func (ec *EvalContext) valuedReceivers(s lower.Send) ([]*Instance, error) {
+	switch {
+	case !s.IsVia && s.Target == "" && s.TargetExpr != nil:
+		return ec.receiverObjects(s.TargetExpr)
+	case s.IsVia && s.Receiver == "" && s.ReceiverExpr != nil:
+		return ec.receiverObjects(s.ReceiverExpr)
+	}
+	return nil, nil
+}
+
 // postFor posts a message as its send addressed it: to the objects a target
-// bound in ec holds, else as post routes it.
-func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
+// bound in ec or valued by its receiver expression holds, else as post routes it.
+// receivers is what valuedReceivers evaluated, nil where the send carried none.
+func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
 	}
-	return ctx.post(ec, conns, msg, s, self, behavior)
+	if receivers != nil && !s.IsVia {
+		addrs, err := ctx.addressesFrom(receivers, nil)
+		if err != nil {
+			return err
+		}
+		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	return ctx.post(ec, conns, msg, s, receivers, self, behavior)
+}
+
+// receiverObjects evaluates node to the objects it yields: every element it
+// holds must be a live object of this run, else the send's target is no object
+// to address — the error names the expression and what it held.
+func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
+	text := exprText(node)
+	value, err := ec.Eval(node)
+	if err != nil {
+		return nil, err
+	}
+	var out []*Instance
+	for _, held := range heldElements(value) {
+		id, isObject := held.Object()
+		inst, ok := ec.ctx.instances[id]
+		if !isObject || !ok {
+			return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+		}
+		if err := ec.ctx.checkNotDestroyed(inst); err != nil {
+			return nil, err
+		}
+		out = append(out, inst)
+	}
+	if len(out) == 0 {
+		return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+	}
+	return out, nil
+}
+
+// routedReceiverObjects evaluates a routed send's `to` to the objects it
+// yields where its name is no receiving node of the holder, nil then — an
+// unresolved reference included, which the caller reports as unreachable.
+func (ec *EvalContext) routedReceiverObjects(send lower.Send, holder *Instance, segments []string, path bool) (map[int64]bool, error) {
+	if send.ReceiverExpr == nil || ec.ctx.routedReceiverExists(send.Scope, segments, path, holder) {
+		return nil, nil
+	}
+	objects, err := ec.receiverObjects(send.ReceiverExpr)
+	if err != nil {
+		if errors.Is(err, ErrUnresolvedReference) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return objectSet(objects), nil
+}
+
+// objectSet maps the objects a receiver expression yielded by identity.
+func objectSet(objects []*Instance) map[int64]bool {
+	out := make(map[int64]bool, len(objects))
+	for _, inst := range objects {
+		out[inst.ID] = true
+	}
+	return out
+}
+
+// exprText renders an expression a send diagnostic names: a name or chain as
+// written, and other forms by their shape since no printer renders them.
+func exprText(node ast.Node) string {
+	switch n := node.(type) {
+	case nil:
+		return ""
+	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
+		return targetText(node)
+	case *ast.IndexExpr:
+		open, closing := "#(", ")"
+		if n.Bracket {
+			open, closing = "[", "]"
+		}
+		return exprText(n.Operand) + open + exprText(n.Index) + closing
+	case *ast.ConstructorExpr:
+		return "new " + ast.QualifiedText(n.Type)
+	case *ast.InvocationExpr:
+		return ast.QualifiedText(n.Type) + "()"
+	case *ast.SequenceExpr:
+		elements := make([]string, 0, len(n.Elements))
+		for _, element := range n.Elements {
+			elements = append(elements, exprText(element))
+		}
+		return "(" + strings.Join(elements, ", ") + ")"
+	case *ast.OperatorExpr:
+		if len(n.Operands) == 1 {
+			return n.Operator.String() + exprText(n.Operands[0])
+		}
+		operands := make([]string, 0, len(n.Operands))
+		for _, operand := range n.Operands {
+			operands = append(operands, exprText(operand))
+		}
+		return strings.Join(operands, " "+n.Operator.String()+" ")
+	case *ast.LiteralInteger:
+		return n.Value
+	case *ast.LiteralReal:
+		return n.Value
+	case *ast.LiteralString:
+		return n.Value
+	case *ast.LiteralBool:
+		if n.Value {
+			return "true"
+		}
+		return "false"
+	}
+	return "the receiver expression"
 }
 
 // post delivers a built message the way the send addressed it: routed through
@@ -1059,9 +1307,9 @@ func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Messa
 // object performing the behavior that sent it, nil for a behavior no object
 // performs; behavior is that behavior, which the trace names; ec holds the
 // behavior's bindings, nil where it has none.
-func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if send.IsVia {
-		return ctx.postVia(ec, conns, msg, send, self, behavior)
+		return ctx.postVia(ec, conns, msg, send, receivers, self, behavior)
 	}
 	return ctx.postTo(msg, send, self, behavior)
 }
@@ -1076,6 +1324,7 @@ func (ec *EvalContext) carriesEvent(m Message, subsets ast.Node) bool {
 	if path == "" {
 		return true
 	}
+	ec.ctx.notePollReadsData()
 	want, ok := ec.ctx.featureSymbol(ec.scope, path)
 	if !ok {
 		name := lastSegment(path)
@@ -1137,12 +1386,71 @@ func (ctx *Context) messageMatches(m Message, want *ast.QualifiedName, scope *sy
 	if want == nil || len(want.Parts) == 0 {
 		return true
 	}
-	if m.Signal != nil && ctx.model.semantics != nil {
-		if wantSym := ctx.resolveTypeRef(scope, want); wantSym != nil {
-			return ctx.conforms(m.Signal, wantSym)
+	if ctx.model.semantics != nil {
+		if signal := ctx.messageSignal(m, scope); signal != nil {
+			if wantSym := ctx.triggerType(scope, want); wantSym != nil {
+				return ctx.signalConforms(signal, wantSym)
+			}
 		}
 	}
 	return m.SignalType == want.Parts[len(want.Parts)-1].Text
+}
+
+// messageSignal is the definition a message's type is known as to an accept
+// written in scope: the one its send resolved, or, for a message left for the
+// accept to type, the signal definition its name denotes in that scope; nil
+// where the type is a name alone.
+func (ctx *Context) messageSignal(m Message, scope *symbols.Scope) *symbols.Symbol {
+	if m.Signal != nil || !m.TypedByAccept {
+		return m.Signal
+	}
+	if sym := ctx.resolveTypeRef(scope, ast.QualifiedNameOf(strings.Split(m.SignalType, "::")...)); IsSignalDefinition(sym) {
+		return sym
+	}
+	return nil
+}
+
+// triggerTypeKey is a type reference as written in one scope; the model fixes what it denotes.
+type triggerTypeKey struct {
+	scope *symbols.Scope
+	ref   *ast.QualifiedName
+}
+
+// signalMatchKey is a message's signal against the definition an accept names.
+type signalMatchKey struct {
+	signal, want *symbols.Symbol
+}
+
+// triggerType is resolveTypeRef memoized on the model; a binding under way resolves
+// afresh so that what it read is noted for it.
+func (ctx *Context) triggerType(scope *symbols.Scope, want *ast.QualifiedName) *symbols.Symbol {
+	if ctx.recordingReads() {
+		return ctx.resolveTypeRef(scope, want)
+	}
+	key := triggerTypeKey{scope: scope, ref: want}
+	if sym, ok := ctx.model.triggerTypes[key]; ok {
+		return sym
+	}
+	sym := ctx.resolveTypeRef(scope, want)
+	ctx.model.triggerTypes[key] = sym
+	return sym
+}
+
+// signalConforms is conforms memoized on the model, as triggerType is.
+func (ctx *Context) signalConforms(signal, want *symbols.Symbol) bool {
+	if ctx.recordingReads() {
+		return ctx.conforms(signal, want)
+	}
+	if signal == want {
+		return true
+	}
+	key := signalMatchKey{signal: signal, want: want}
+	if matches, ok := ctx.model.signalMatches[key]; ok {
+		return matches
+	}
+	matches := ctx.conforms(signal, want)
+	ctx.model.signalMatches[key] = matches
+	return matches
 }
 
 // buildMessage evaluates a send statement into a message.
@@ -1259,6 +1567,31 @@ func (ctx *Context) acceptedValue(msg *Message) (Value, error) {
 	return value, nil
 }
 
+// acceptedValueAs is acceptedValue for the accept, typed as want in scope, that
+// took the message: a message left for the accept to type (TypedByAccept) is
+// typed by the definition its own name denotes there — a subtype the accept
+// took by conformance stays that subtype — or, failing that, by the one want
+// denotes, before its value is built; one naming no signal definition even
+// there is bound as it is.
+func (ctx *Context) acceptedValueAs(msg *Message, want *ast.QualifiedName, scope *symbols.Scope) (Value, error) {
+	if msg.TypedByAccept && msg.Signal == nil && msg.Value == nil {
+		sym := ctx.messageSignal(*msg, scope)
+		if sym == nil && want != nil {
+			if w := ctx.triggerType(scope, want); IsSignalDefinition(w) {
+				sym = w
+			}
+		}
+		if sym != nil {
+			typed, err := ctx.SignalMessage(sym, msg.Payload, nil)
+			if err != nil {
+				return Value{}, err
+			}
+			msg.Signal, msg.Payload = typed.Signal, typed.Payload
+		}
+	}
+	return ctx.acceptedValue(msg)
+}
+
 // materializeAccepted builds the occurrence an accept binds a typed message as.
 func (ctx *Context) materializeAccepted(msg Message) (Value, error) {
 	value, err := ctx.materializeMessage(msg)
@@ -1318,10 +1651,7 @@ func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.Invocati
 	if err != nil {
 		return false, err
 	}
-	if sel.Ambiguous {
-		return true, nil
-	}
-	return e.ctx.model.semantics.Evaluates(sel.Called()), nil
+	return e.ctx.model.semantics.CallsCalc(sel), nil
 }
 
 // buildInvokedMessage builds the message of `send shutDown(7) to self`: the
@@ -1352,16 +1682,14 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err := e.checkConstructorArity(signal, constructor, "send "+signal.Name); err != nil {
 		return Message{}, err
 	}
-	msg, err := e.buildTypedMessage(scope, signal.Name, signal, target,
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	msg, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(scope, signal.Name, signal, target,
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	}, "send new "+signal.Name)
 	if err != nil {
 		return Message{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
-	if err != nil {
-		return Message{}, fmt.Errorf("send new %s: %w", signal.Name, err)
-	}
-	msg.Value = &value
+	msg.Value = &Value{Kind: ValInstance, Instance: inst.ID}
 	return msg, nil
 }
 
@@ -1376,16 +1704,44 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 	if err := e.checkConstructorArity(typ, constructor, what); err != nil {
 		return Value{}, err
 	}
-	msg, err := e.buildTypedMessage(e.scope, typ.Name, typ, "",
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	_, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(e.scope, typ.Name, typ, "",
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	}, what)
 	if err != nil {
 		return Value{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
+	return e.ctx.objectValue(inst)
+}
+
+// constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
+// whose life begins here and that performs T's behaviors. A construction that fails at any
+// step — an argument, the materialization, a behavior's start — leaves nothing: the objects
+// its arguments made, the values written and the messages sent along the way are rolled back.
+func (e *EvalContext) constructObject(build func() (Message, error), what string) (Message, *Instance, error) {
+	ctx := e.ctx
+	commit, rollback := ctx.beginJournal()
+	msg, err := build()
 	if err != nil {
-		return Value{}, fmt.Errorf("%s: %w", what, err)
+		rollback()
+		return Message{}, nil, err
 	}
-	return e.ctx.objectValue(e.ctx.instances[value.Instance])
+	var value Value
+	err = ctx.storedTogether(func() (err error) {
+		value, err = ctx.materializeMessage(msg)
+		return err
+	})
+	if err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	inst := ctx.instances[value.Instance]
+	if err := ctx.startClassifierBehaviors(inst, len(ctx.created)); err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	commit()
+	return msg, inst, nil
 }
 
 // checkConstructorArity rejects positional arguments beyond the constructed
@@ -1543,20 +1899,7 @@ func (e *EvalContext) constructorLabel(scope *symbols.Scope, signal *symbols.Sym
 // against goldens, so the text has to be stable: printing the trigger node
 // itself emits a pointer address.
 func triggerName(trigger ast.Node) string {
-	switch t := trigger.(type) {
-	case nil:
-		return ""
-	case *ast.AcceptEvent:
-		return "accept " + orAny(ast.SimpleName(t.SignalType))
-	case *ast.CallEvent:
-		return "call " + orAny(ast.SimpleName(t.Operation))
-	case *ast.TimeEvent:
-		return "time"
-	case *ast.ChangeEvent:
-		return "change"
-	default:
-		return fmt.Sprintf("%T", trigger)
-	}
+	return lower.TriggerName(trigger)
 }
 
 // eventName names a dispatched occurrence as triggerName names the triggers it
@@ -1684,16 +2027,9 @@ func isDefinitionSymbol(sym *symbols.Symbol) bool {
 func valueTypeName(v Value) string {
 	switch v.Kind {
 	case ValString:
-		return "String"
+		return semantics.StringTypeName
 	case ValConst:
-		switch v.Const.Kind {
-		case semantics.ValInt:
-			return "Integer"
-		case semantics.ValReal:
-			return "Real"
-		case semantics.ValBool:
-			return "Boolean"
-		}
+		return semantics.ScalarTypeName(v.Const.Kind)
 	}
 	return ""
 }

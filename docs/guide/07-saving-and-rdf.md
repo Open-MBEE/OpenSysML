@@ -26,8 +26,8 @@ sysml> %save my_model.sysml
 saved 102 bytes of sysml to my_model.sysml
 
 sysml> %save my_model.ttl
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-saved 3702 bytes of ttl to my_model.ttl
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+saved 5746 bytes of ttl to my_model.ttl
 ```
 
 A leading `~` is expanded. An existing file is replaced (and the replacement is reported), and the
@@ -89,8 +89,9 @@ sysml input.txt -convert ttl -from sysml
 `-convert` and `-from` accept `sysml`, `kerml`, `text`, `ttl`, `turtle` and `rdf`; `-from` also
 accepts `xmi` (or `uml`, `mdzip`) for a SysML v1 model exported as OMG XMI, an Eclipse `.uml`
 file or a zip archive holding the XMI (a MagicDraw/Cameo `.mdzip` project), which is migrated
-to v2 on the way in — an experimental path, and every run that takes it says so on stderr; see
-[SysML v1 migration](../reference/sysml-v1-migration.md). The output path
+to v2 on the way in — an experimental path, and every run that takes it says so on stderr;
+[chapter 11](11-migrating-from-sysml-v1.md) walks one through, and
+[SysML v1 migration](../reference/sysml-v1-migration.md) states the mapping. The output path
 plays no part in choosing the format, so a destination without an extension, such as `-o /dev/null`
 or a FIFO, needs no extra flags.
 
@@ -111,6 +112,9 @@ passed inline, takes the same format names as `-from` and `-to`, and returns the
 with its formats, or an `error` together with the diagnostics that explain it.
 `tolerate_syntax_errors` writes notation despite syntax errors; it is rejected for any direction
 that builds a graph, where an unparsed declaration would be silently dropped.
+`id_form` spells derived element ids when notation is written as a graph, as `-id` does:
+`qualified` (the default) or `uuid`. It is rejected for any other direction, and for any other
+value.
 
 A response whose conversion used the RDF mapping sets `experimental` and `experimental_notice`,
 whether it succeeded or refused, so a client can learn the status from the response rather than
@@ -168,10 +172,10 @@ model converts in both directions:
 
 ```bash
 $ sysml examples/rdf-interop-demo.sysml -convert ttl -o /tmp/rover.ttl
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/rover.ttl (ttl, 40883 bytes)
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+wrote /tmp/rover.ttl (ttl, 72765 bytes)
 $ sysml /tmp/rover.ttl -convert sysml -o /tmp/rover-back.sysml
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
 wrote /tmp/rover-back.sysml (sysml, 1014 bytes)
 ```
 
@@ -186,35 +190,22 @@ and [`examples/repl-behavioral-demo.sysml`](../../examples/repl-behavioral-demo.
 also convert, as do all of the `parser_features_demo_*.kerml` files. The
 behavior written in a body converts too: states, regions, substates, action nodes, assignments,
 transitions and the result expression a calculation ends in all have a mapping. Conversion is
-refused for constructs the notation could not be rebuilt from, such as a name shared by two
-members of one namespace. A refusal names the construct where conversion stopped and says why
-the graph could not carry it:
+refused for constructs the notation could not be rebuilt from. A refusal names the construct where
+conversion stopped and says why the graph could not carry it:
 
 ```bash
 $ sysml examples/parser_features_demo_action_semantics.sysml -convert ttl -o /tmp/action-semantics.ttl; echo $?
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/action-semantics.ttl (ttl, 84121 bytes)
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+wrote /tmp/action-semantics.ttl (ttl, 241275 bytes)
 0
 ```
 
-For example, two members of one namespace sharing a name are refused, since the name is what
-identifies an element in the graph:
-
-```sysml
-package P {
-  part def D {
-    attribute x : ScalarValues::Real;
-    attribute x : ScalarValues::Integer;
-  }
-}
-```
-
-```bash
-$ sysml dup.sysml -convert ttl; echo $?
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-sysml: cannot convert the duplicate declaration of "x" at dup.sysml:4:5: a name identifies an element in the graph, so two members of one namespace cannot share it
-2
-```
+Two members of one namespace sharing a name export as separate elements: the first keeps the
+qualified name and each later one is identified by its position among the owner's members, the same
+name an element declared unnamed takes. The duplicate is still reported as a warning when the model
+is analyzed — SysML has no reopening of a declaration within a namespace, so merge the declarations
+into one (or rename) rather than relying on the position. A member named `'@2'` is spelled
+`Demo::'@2'`, distinct from the positional identity `Demo::@2`.
 
 ---
 

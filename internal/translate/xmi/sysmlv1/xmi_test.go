@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -127,11 +128,154 @@ func TestStereotypeExtensionIsRecorded(t *testing.T) {
 		t.Fatalf("extensions = %+v", m.Extensions)
 	}
 	ext := m.Extensions[0]
-	if ext.Extender != "MagicDraw" || ext.Owner != nil || len(ext.Elements) != 1 {
+	if ext.Extender != "MagicDraw" || ext.Owner != nil || len(ext.Elements) != 0 {
 		t.Fatalf("extension = %+v", ext)
 	}
-	if got := ext.Elements[0]; got.ID != "_d" || got.Type != "uml:Diagram" || got.Name != "D" {
-		t.Errorf("extension element = %+v", got)
+	// The diagram inside is read as a diagram, not as skipped content.
+	if len(m.Diagrams) != 1 {
+		t.Fatalf("diagrams = %+v", m.Diagrams)
+	}
+	if d := m.Diagrams[0]; d.ID != "_d" || d.Name != "D" || d.Holder != nil || d.Extender != "MagicDraw" || d.Represented() {
+		t.Errorf("diagram = %+v", d)
+	}
+}
+
+func TestExtensionElementValuesAreOwned(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="Power">
+          <xmi:Extension extender="MagicDraw UML">
+            <modelExtension>
+              <operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_p"/>
+              <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="D"/>
+            </modelExtension>
+          </xmi:Extension>
+          <operand xmi:type="uml:LiteralInteger" xmi:id="_two" value="2"/>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := m.Lookup("_e")
+	operands := e.Owned("operand")
+	if len(operands) != 2 || operands[0].ID != "_ev" || operands[0].Type != "ElementValue" || operands[0].Parent != e || operands[1].ID != "_two" {
+		t.Fatalf("operands = %+v", operands)
+	}
+	if got := m.Ref(operands[0], "element"); got == nil || got.ID != "_p" {
+		t.Errorf("element ref = %+v", got)
+	}
+	if len(m.Extensions) != 1 || len(m.Extensions[0].Elements) != 0 {
+		t.Errorf("extensions = %+v", m.Extensions)
+	}
+	if len(m.Diagrams) != 1 || m.Diagrams[0].ID != "_d" || m.Diagrams[0].Holder != e {
+		t.Errorf("diagrams = %+v", m.Diagrams)
+	}
+	if m.Lookup("_d") != nil {
+		t.Error("the diagram in the extension was read as a model element")
+	}
+}
+
+func TestExtensionElementValuesAtAnyDepthAreOwned(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="w"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_h" name="h"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="*">
+          <xmi:Extension extender="Some Tool">
+            <operand xmi:type="uml:ElementValue" xmi:id="_direct" element="_w"/>
+            <modelExtension>
+              <values>
+                <operand xmi:type="uml:ElementValue" xmi:id="_deep" element="_h"/>
+              </values>
+              <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="D">
+                <operand xmi:type="uml:ElementValue" xmi:id="_drawn" element="_w"/>
+              </ownedDiagram>
+            </modelExtension>
+          </xmi:Extension>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := m.Lookup("_e")
+	operands := e.Owned("operand")
+	if len(operands) != 2 || operands[0].ID != "_direct" || operands[1].ID != "_deep" {
+		t.Fatalf("operands = %+v", operands)
+	}
+	for i, want := range []string{"_w", "_h"} {
+		if got := m.Ref(operands[i], "element"); got == nil || got.ID != want {
+			t.Errorf("operand %d element = %+v, want %s", i, got, want)
+		}
+	}
+	if m.Lookup("_drawn") != nil {
+		t.Error("a value inside the diagram's own content was adopted")
+	}
+	if len(m.Extensions) != 1 || len(m.Extensions[0].Elements) != 1 || m.Extensions[0].Elements[0].ID != "_drawn" {
+		t.Errorf("extensions = %+v", m.Extensions)
+	}
+}
+
+// TestExtensionElementValuesElsewhereStayMetadata keeps an ElementValue that is
+// not an Expression's operand — one a tool notes on a class, or under another
+// role of an Expression — out of the model, in the extension's accounting.
+func TestExtensionElementValuesElsewhereStayMetadata(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <xmi:Extension extender="MagicDraw UML">
+        <modelExtension>
+          <operand xmi:type="uml:ElementValue" xmi:id="_cv" element="_c"/>
+        </modelExtension>
+      </xmi:Extension>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="Power">
+          <xmi:Extension extender="MagicDraw UML">
+            <modelExtension>
+              <binding xmi:type="uml:ElementValue" xmi:id="_bv" element="_p"/>
+            </modelExtension>
+          </xmi:Extension>
+          <operand xmi:type="uml:LiteralInteger" xmi:id="_two" value="2"/>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Lookup("_c").Owned("operand"); len(got) != 0 {
+		t.Errorf("class operands = %+v", got)
+	}
+	if got := m.Lookup("_e").Owned("operand"); len(got) != 1 || got[0].ID != "_two" {
+		t.Errorf("expression operands = %+v", got)
+	}
+	if m.Lookup("_cv") != nil || m.Lookup("_bv") != nil {
+		t.Error("an element value outside an Expression's operands was read as a model element")
+	}
+	if len(m.Extensions) != 2 || len(m.Extensions[0].Elements) != 1 || m.Extensions[0].Elements[0].ID != "_cv" ||
+		len(m.Extensions[1].Elements) != 1 || m.Extensions[1].Elements[0].ID != "_bv" {
+		t.Errorf("extensions = %+v", m.Extensions)
 	}
 }
 
@@ -473,5 +617,266 @@ func TestReferenceExtensionsDescribeProxies(t *testing.T) {
 	}
 	if len(m.Extensions) != 1 || m.Extensions[0].Owner != q || len(m.Extensions[0].Elements) != 0 {
 		t.Errorf("Extensions = %+v", m.Extensions)
+	}
+}
+
+// profileDocument wraps a user profile and a model in one document: the
+// profile defines stereotypes, the model's classes carry applications.
+func profileDocument(profile, applications string) string {
+	return `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:Org="http://www.magicdraw.com/schemas/Org_Profile.xmi" xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_prof" name="Org Profile">` + profile + `
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c1" name="C1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c2" name="C2"/>
+  </uml:Model>
+` + applications + `
+</xmi:XMI>`
+}
+
+func TestStereotypeDefinitionByNamespaceAndName(t *testing.T) {
+	m, err := Parse([]byte(profileDocument(`
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Org Requirement">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g1">
+          <general href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement">
+            <xmi:Extension extender="MagicDraw UML"><referenceExtension referentPath="SysML::Requirements::Requirement" referentType="Stereotype"/></xmi:Extension>
+          </general>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_a1" name="Rationale"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Plain"/>`,
+		`<Org:Org_Requirement xmi:id="_ap1" base_Class="_c1" Rationale="why"/>
+  <Org:Plain xmi:id="_ap2" base_Class="_c2"/>
+  <Org:Unknown xmi:id="_ap3" base_Class="_c2"/>
+  <sysml:Block xmi:id="_ap4" base_Class="_c2"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1, c2 := m.Lookup("_c1"), m.Lookup("_c2")
+	req := c1.Stereotype("Org Requirement")
+	if req == nil || req.Definition != m.Lookup("_s1") {
+		t.Fatalf("Org_Requirement definition = %+v", req)
+	}
+	if len(req.Generals) != 1 || !req.Generals[0].IsProxy() || req.Generals[0].Name != "Requirement" ||
+		req.Generals[0].QualifiedName != "SysML::Requirements::Requirement" || req.Generals[0].Type != "Stereotype" {
+		t.Errorf("Org_Requirement generals = %+v", req.Generals)
+	}
+	if plain := c2.Stereotype("Plain"); plain == nil || plain.Definition != m.Lookup("_s2") || len(plain.Generals) != 0 {
+		t.Errorf("Plain = %+v", plain)
+	}
+	if unknown := c2.Stereotype("Unknown"); unknown == nil || unknown.Definition != nil {
+		t.Errorf("Unknown = %+v", unknown)
+	}
+	if block := c2.Stereotype("Block"); block == nil || block.Definition != nil {
+		t.Errorf("a standard application resolved to %+v", block.Definition)
+	}
+}
+
+func TestStereotypeDefinitionByProfileURI(t *testing.T) {
+	doc := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:acme="http://acme.example/uml/Acme" xmlns:twin="http://acme.example/uml/Twin">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p1" name="First" URI="http://acme.example/uml/Acme">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="Second">
+      <eAnnotations xmi:type="ecore:EAnnotation" xmi:id="_ann" source="http://www.eclipse.org/uml2/2.0.0/UML">
+        <contents xmi:type="ecore:EPackage" xmi:id="_ep" name="Second" nsURI="http://acme.example/uml/Twin" nsPrefix="twin"/>
+      </eAnnotations>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+  </uml:Model>
+  <acme:Tag xmi:id="_a1" base_Class="_c"/>
+  <twin:Tag xmi:id="_a2" base_Class="_c"/>
+</xmi:XMI>`
+	m, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := m.Lookup("_c")
+	if len(c.Stereotypes) != 2 || c.Stereotypes[0].Definition != m.Lookup("_s1") || c.Stereotypes[1].Definition != m.Lookup("_s2") {
+		t.Errorf("definitions = %+v, %+v", c.Stereotypes[0].Definition, c.Stereotypes[1].Definition)
+	}
+}
+
+func TestStereotypeDefinitionByHrefTable(t *testing.T) {
+	// Two profiles derive the same XML namespace document name; only the
+	// tool's stereotypesHREFS table can tell which one an application means.
+	doc := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:Org="http://www.magicdraw.com/schemas/Org.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p1" name="Org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+  <Org:Tag xmi:id="_a1" base_Class="_c"/>
+  <Org:Other xmi:id="_a2" base_Class="_d"/>
+  <xmi:Extension extender="MagicDraw UML 2024x">
+    <stereotypesHREFS>
+      <stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>
+      <stereotype name="Org:Other" stereotypeHREF="local:/PROJECT-2?resource=com.nomagic.magicdraw.uml_umodel.shared_umodel#_elsewhere"/>
+    </stereotypesHREFS>
+  </xmi:Extension>
+</xmi:XMI>`
+	m, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := m.Lookup("_c").Stereotype("Tag"); s.Definition != m.Lookup("_s2") {
+		t.Errorf("Tag definition = %+v, want the table's _s2", s.Definition)
+	}
+	if s := m.Lookup("_d").Stereotype("Other"); s.Definition != nil {
+		t.Errorf("Other, defined in another project, resolved to %+v", s.Definition)
+	}
+	m2, err := Parse([]byte(strings.Replace(strings.Replace(doc, `<stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>`, "", 1),
+		`<packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>`, "", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := m2.Lookup("_c").Stereotype("Tag"); s.Definition != m2.Lookup("_s1") {
+		t.Errorf("without the table, the single namesake = %+v", s.Definition)
+	}
+	if s := m.Lookup("_c").Stereotype("Tag"); s != nil {
+		// Ambiguous namesakes without a table row settle nothing.
+		m3, err := Parse([]byte(strings.Replace(doc, `<stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>`, "", 1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := m3.Lookup("_c").Stereotype("Tag"); s.Definition != nil {
+			t.Errorf("ambiguous namesakes resolved to %+v", s.Definition)
+		}
+	}
+}
+
+func TestStereotypeAncestry(t *testing.T) {
+	m, err := Parse([]byte(profileDocument(`
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_base" name="Base">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g0">
+          <general href="pathmap://SysML_PROFILES/SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_left" name="Left">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_base"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_right" name="Right">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g2" general="_base"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_missing"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_diamond" name="Diamond">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g4" general="_left"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_g5" general="_right"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_ping" name="Ping">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g6" general="_pong"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_pong" name="Pong">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g7" general="_ping"/>
+      </packagedElement>`,
+		`<Org:Diamond xmi:id="_ap1" base_Class="_c1"/>
+  <Org:Ping xmi:id="_ap2" base_Class="_c2"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := func(es []*Element) string {
+		var out []string
+		for _, e := range es {
+			out = append(out, e.Name)
+		}
+		return strings.Join(out, " ")
+	}
+	diamond := m.Lookup("_c1").Stereotype("Diamond")
+	if got := names(diamond.Generals); got != "Left Right Base Block" {
+		t.Errorf("diamond ancestors = %q", got)
+	}
+	if got := m.UnresolvedGenerals(m.Lookup("_right")); len(got) != 1 || got[0] != "_missing" {
+		t.Errorf("unresolved generals = %v", got)
+	}
+	if block := diamond.Generals[3]; !block.IsProxy() || block.Href != "pathmap://SysML_PROFILES/SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block" {
+		t.Errorf("pathmap general = %+v", block)
+	}
+	ping := m.Lookup("_c2").Stereotype("Ping")
+	if got := names(ping.Generals); got != "Pong Ping" {
+		t.Errorf("cyclic ancestors = %q", got)
+	}
+	if got := names(m.Ancestors(m.Lookup("_pong"))); got != "Ping Pong" {
+		t.Errorf("Pong ancestors = %q", got)
+	}
+}
+
+// TestAttachments reads arbitrary archive entries — here an attached image —
+// after the model parsed; a model not read from an archive has none.
+func TestAttachments(t *testing.T) {
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob := []byte("\x89PNG fleet")
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"com.nomagic.magicdraw.uml_model.model": data,
+		"attachments/fleet.png":                 blob,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := m.Attachment("attachments/fleet.png")
+	if !ok || !bytes.Equal(got, blob) {
+		t.Errorf("Attachment = %q, %v", got, ok)
+	}
+	if _, ok := m.Attachment("missing.png"); ok {
+		t.Error("a missing entry reported an attachment")
+	}
+	if !slices.Contains(m.AttachmentNames(), "attachments/fleet.png") {
+		t.Errorf("AttachmentNames = %v", m.AttachmentNames())
+	}
+	plain, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plain.Attachment("attachments/fleet.png"); ok || len(plain.AttachmentNames()) != 0 {
+		t.Error("a plain-XMI model reported attachments")
+	}
+}
+
+// An ATTACHED_FILE extension's contents names the archive entry holding the
+// element's attached file by streamContentID.
+func TestAttachedStreamReadFromExtension(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_note" body="with file">
+        <xmi:Extension extender="MagicDraw UML 2022x">
+          <md_extensions.ATTACHED_FILE>
+            <MDFoundation:MDExtension source="ATTACHED_FILE">
+              <element href="#_note" xsi:type="uml:Comment"/>
+              <contents streamContentID="BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd" xsi:type="binary:StreamIdentityBinaryObject"/>
+            </MDFoundation:MDExtension>
+          </md_extensions.ATTACHED_FILE>
+        </xmi:Extension>
+      </ownedComment>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_plain" body="plain"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Lookup("_note").AttachedStream; got != "BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd" {
+		t.Errorf("AttachedStream = %q, want BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd", got)
+	}
+	if got := m.Lookup("_plain").AttachedStream; got != "" {
+		t.Errorf("a comment with no attachment: AttachedStream = %q, want empty", got)
 	}
 }

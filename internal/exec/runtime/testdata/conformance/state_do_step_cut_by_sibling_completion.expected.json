@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "outcomes": [
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "a b r1(entry) "}}},
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "a r1(entry) b "}}},
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "a r1(entry) "}}},
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "r1(entry) a b "}}},
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "r1(entry) a "}}},
+    {"finalState": "stopped", "outputs": {"log": {"type": "String", "value": "r1(entry) "}}}
+  ],
+  "admissible": "A do step and a sibling region's entry due inside one entry: which goes first is open"
+}

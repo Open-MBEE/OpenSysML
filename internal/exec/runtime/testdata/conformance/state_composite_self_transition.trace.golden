@@ -1,36 +1,40 @@
 exit: start
 enter: Working (entry action)
-stmt assign log
-      eval feature log -> 0
-      eval literal 10 -> 10
-    eval operator * -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
 enter: lstart
 transition: start -> Working
 exit: lstart
 enter: l1 (entry action)
-stmt assign log
-      eval feature log -> 1
-      eval literal 10 -> 10
-    eval operator * -> 10
-    eval literal 3 -> 3
-  eval operator + -> 13
+stmt action body
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 3 -> 3
+    eval operator + -> 13
 transition: lstart -> l1
 exit: l1 (exit action)
-stmt assign log
-      eval feature log -> 13
-      eval literal 10 -> 10
-    eval operator * -> 130
-    eval literal 4 -> 4
-  eval operator + -> 134
+stmt action body
+  stmt assign log
+        eval feature log -> 13
+        eval literal 10 -> 10
+      eval operator * -> 130
+      eval literal 4 -> 4
+    eval operator + -> 134
 exit: Working (exit action)
-stmt assign log
-      eval feature log -> 134
-      eval literal 10 -> 10
-    eval operator * -> 1340
-    eval literal 2 -> 2
-  eval operator + -> 1342
+stmt action body
+  stmt assign log
+        eval feature log -> 134
+        eval literal 10 -> 10
+      eval operator * -> 1340
+      eval literal 2 -> 2
+    eval operator + -> 1342
 stmt assign log
       eval feature log -> 1342
       eval literal 10 -> 10
@@ -38,20 +42,22 @@ stmt assign log
     eval literal 9 -> 9
   eval operator + -> 13429
 enter: Working (entry action)
-stmt assign log
-      eval feature log -> 13429
-      eval literal 10 -> 10
-    eval operator * -> 134290
-    eval literal 1 -> 1
-  eval operator + -> 134291
+stmt action body
+  stmt assign log
+        eval feature log -> 13429
+        eval literal 10 -> 10
+      eval operator * -> 134290
+      eval literal 1 -> 1
+    eval operator + -> 134291
 enter: lstart
 transition: Working -> Working (event: accept restart)
 exit: lstart
 enter: l1 (entry action)
-stmt assign log
-      eval feature log -> 134291
-      eval literal 10 -> 10
-    eval operator * -> 1342910
-    eval literal 3 -> 3
-  eval operator + -> 1342913
+stmt action body
+  stmt assign log
+        eval feature log -> 134291
+        eval literal 10 -> 10
+      eval operator * -> 1342910
+      eval literal 3 -> 3
+    eval operator + -> 1342913
 transition: lstart -> l1

@@ -203,47 +203,52 @@ a declaration in another resolves correctly.
 
 ## Strict conformance
 
-OpenSysML accepts several notations of its own that no SysML v2 production admits: `defer`, and
-the `choice`, `junction` and `history` pseudostates. These are reported as
-warnings, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
-to errors, which turns the run into a test of whether the file is conforming SysML v2.
+OpenSysML accepts several notations of its own that no SysML v2 production admits: the
+`choice`, `junction` and `history` pseudostates. These are deprecated spellings of
+what the `StateMachines` library states as metadata — `#choice state pick;` and
+friends — reported as warnings that name the replacement, so a model that uses them
+still analyses cleanly. `-strict` promotes those warnings
+to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
+applies to `-convert` from XMI too: a strict SysML v1 migration writes no extension notation
+at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
 
-The state machine below uses the `defer` extension so the difference is visible:
+The state machine below uses the `choice` extension so the difference is visible:
 
 ```sysml
 package M {
     attribute def Alarm;
     state monitor {
         entry; then off;
-        state off {
-            defer Alarm;
-        }
+        state off;
+        transition first off accept Alarm then pick;
+        choice pick;
+        transition first pick if true then warming;
         state warming;
         accept after 10 [SI::s] then done;
-        succession first off then warming;
     }
 }
 ```
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: warning: `defer <event>;` is an OpenSysML extension with no SysML v2 production: no notation states a deferred event
-            defer Alarm;
-            ^~~~~
+monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+        choice pick;
+        ^~~~~~
 ✓ package M
 ✓ monitor.sysml: no errors
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:6:13: error: `defer <event>;` is an OpenSysML extension with no SysML v2 production: no notation states a deferred event
-            defer Alarm;
-            ^~~~~
+monitor.sysml:7:9: error: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+        choice pick;
+        ^~~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
-There is no standard notation for a deferred event, so a portable model marks the machine's
-completion with `then done;`, as `warming` does above, and leaves out the `defer`. `-strict` does not
+A portable model writes the metadata spelling the finding names instead —
+`#choice state pick;` for the `choice` above, once `private import StateMachines::*;`
+is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
 portability check, so turn it on when another SysML v2 tool has to read the model and leave
@@ -253,6 +258,16 @@ each extension is measured against. The same setting is available as `%strict` a
 ([4. The REPL](04-repl.md)), as the `sysml.strictConformance` editor setting
 ([8. Editors](08-editors.md)) and as `strict_conformance=True` from Python
 ([9. From your own program](09-clients.md#from-python)).
+
+## Lints
+
+Two further warnings, `undeclared-signal` and `port-type-mismatch`, are *lints*: the model
+is valid SysML v2, but a `when <name>` that no declaration or `send`
+accounts for, or a connection between ports whose definitions are unrelated, is almost
+always a slip. `-strict` leaves them warnings, since they are not about notation.
+`-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
+`disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
+states exactly what each reports.
 
 ## Running behavior
 

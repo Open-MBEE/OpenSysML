@@ -71,6 +71,254 @@ calc def Margins :> Query {
 	}
 }
 
+func TestCompileCellAndPathColumns(t *testing.T) {
+	fixture := loadQueryFixture(t, computedFixture+`
+part def Nested {
+	attribute weight : Real;
+}
+part def Container {
+	part nested : Nested;
+}
+calc def Cells :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (
+			Column(name = "weight", cell = { in row : Subsystem; row.mass ?? 0.0 }),
+			Column(name = "nested", cell = { in row : Container; row.nested.weight }),
+			Column(name = "path", path = "'Monte Carlo'.mean"),
+			Column(name = "single", path = "name")
+		)
+	)
+}
+`)
+	program := fixture.compile(t, "Cells")
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	elements := columns.Arguments()
+	weight, _ := argumentOf(t, elements[0].Value, "expression")
+	if weight.Operation() != OperationColumnOperator {
+		t.Fatalf("cell weight = %s, want null coalesce", weight.Operation())
+	}
+	rowWeight, _ := argumentOf(t, weight, "")
+	if rowWeight.Operation() != OperationRowProperty || rowWeight.Target() != "mass" {
+		t.Fatalf("row property = %s %q, want Subsystem::mass", rowWeight.Operation(), rowWeight.Target())
+	}
+	if rowWeight.value != "Fixture::Subsystem" {
+		t.Fatalf("row property declaring type = %q, want Fixture::Subsystem", rowWeight.value)
+	}
+	if got := rowWeight.Multiplicity(); got != (Multiplicity{Lower: 1, Upper: 1, Known: true}) {
+		t.Fatalf("row property multiplicity = %+v, want [1..1]", got)
+	}
+	nested, _ := argumentOf(t, elements[1].Value, "expression")
+	if nested.Operation() != OperationRowMember || nested.Target() != "nested.weight" {
+		t.Fatalf("nested cell = %s %q, want row member nested.weight", nested.Operation(), nested.Target())
+	}
+	if nested.value != "Fixture::Container" {
+		t.Fatalf("nested cell declaring type = %q, want Fixture::Container", nested.value)
+	}
+	path, _ := argumentOf(t, elements[2].Value, "expression")
+	if path.Operation() != OperationRowMember || path.Target() != "'Monte Carlo'.mean" {
+		t.Fatalf("path column = %s %q, want row member 'Monte Carlo'.mean", path.Operation(), path.Target())
+	}
+	single, _ := argumentOf(t, elements[3].Value, "expression")
+	if single.Operation() != OperationRowMember || single.Target() != "name" {
+		t.Fatalf("single-segment path = %s %q, want row member name", single.Operation(), single.Target())
+	}
+}
+
+func TestCompileMetadataPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "tag", path = "Fixture::TagMetadata::tag"))
+	)
+}
+`)
+	program, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Tags"))
+	if err != nil {
+		t.Fatalf("compile Tags: %v", err)
+	}
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::TagMetadata::tag" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::TagMetadata::tag", column.Operation(), column.Target())
+	}
+}
+
+func TestCompileQuotedMetadataDefinitionPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def 'My Meta' {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "tag", path = "Fixture::'My Meta'::tag"))
+	)
+}
+`)
+	project := entryDefinition(t, fixture.compile(t, "Tags")).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::'My Meta'::tag" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::'My Meta'::tag", column.Operation(), column.Target())
+	}
+}
+
+func TestCompileQuotedMetadataFeatureContainingSeparatorPathColumn(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute 'x::y' : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "value", path = "Fixture::Meta::'x::y'"))
+	)
+}
+`)
+	program := fixture.compile(t, "Tags")
+	project := entryDefinition(t, program).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	if column.Operation() != OperationRowMember || column.Target() != "Fixture::Meta::'x::y'" {
+		t.Fatalf("metadata path = %s %q, want row member Fixture::Meta::'x::y'", column.Operation(), column.Target())
+	}
+}
+
+func TestCompileMalformedColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+calc def BadPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "a..b"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" {
+		t.Fatalf("unsupported path parameter = %q, want path", planning.Parameter)
+	}
+	if planning.Target != "broken" {
+		t.Fatalf("unsupported path target = %q, want broken", planning.Target)
+	}
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported path error must carry the path origin")
+	}
+}
+
+func TestCompileMalformedMetadataColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute tag : String;
+}
+calc def BadMetadataPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "Fixture::Meta::tag..typo"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadMetadataPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" {
+		t.Fatalf("unsupported path parameter = %q, want path", planning.Parameter)
+	}
+	if planning.Target != "broken" {
+		t.Fatalf("unsupported path target = %q, want broken", planning.Target)
+	}
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported path error must carry the path origin")
+	}
+}
+
+func TestCompileUndeclaredDottedMetadataColumnPathIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def Meta {
+	attribute tag : String;
+}
+calc def BadMetadataPath :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "broken", path = "Fixture::Meta::nosuch.thing"))
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "BadMetadataPath"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Parameter != "path" || planning.Target != "broken" || !planning.Origin.Located() {
+		t.Fatalf("unsupported metadata path error = %+v", planning)
+	}
+}
+
+func TestCompileMetadataCellColumnRetainsDeclaringType(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	attribute tag : String;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (
+			Column(name = "tag", cell = { in row : TagMetadata; row.tag ?? "" })
+		)
+	)
+}
+`)
+	project := entryDefinition(t, fixture.compile(t, "Tags")).Expression()
+	columns, _ := argumentOf(t, project, "columns")
+	column, _ := argumentOf(t, columns.Arguments()[0].Value, "expression")
+	rowProperty, _ := argumentOf(t, column, "")
+	if rowProperty.Operation() != OperationRowProperty || rowProperty.Target() != "tag" {
+		t.Fatalf("metadata cell property = %s %q, want row property tag", rowProperty.Operation(), rowProperty.Target())
+	}
+	if rowProperty.value != "Fixture::TagMetadata" {
+		t.Fatalf("metadata cell declaring type = %q, want Fixture::TagMetadata", rowProperty.value)
+	}
+}
+
+func TestCompileNestedMetadataCellChainIsUnsupported(t *testing.T) {
+	fixture := loadQueryFixture(t, `
+metadata def TagMetadata {
+	part nested : Nested;
+}
+part def Nested {
+	attribute weight : Integer;
+}
+calc def Tags :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (
+			Column(name = "weight", cell = { in row : TagMetadata; row.nested.weight ?? 0 })
+		)
+	)
+}
+`)
+	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Tags"))
+	planning := planningError(t, err, ErrorUnsupportedExpression)
+	if planning.Target != "weight" {
+		t.Fatalf("unsupported metadata cell column = %q, want weight", planning.Target)
+	}
+	if !planning.Origin.Located() {
+		t.Fatal("unsupported metadata cell chain must carry its origin")
+	}
+}
+
 func TestCompiledColumnsAreImmutableToCallers(t *testing.T) {
 	fixture := loadQueryFixture(t, computedFixture+`
 calc def Margins :> Query {
@@ -239,13 +487,37 @@ calc def Bad :> Query {
 		},
 		{
 			name: "missing column expression",
-			kind: ErrorMissingArgument,
+			kind: ErrorColumnSource,
 			body: `
 calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
 		columns = (Column(name = "empty"))
+)
+}`,
+		},
+		{
+			name: "multiple column sources",
+			kind: ErrorColumnSource,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "bad", expression = Subsystem::mass, path = "mass"))
+	)
+}`,
+		},
+		{
+			name: "cell primitive type mismatch",
+			kind: ErrorColumnType,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+			columns = (Column(name = "bad", cell = { in row : Subsystem; row.mass + "wrong" }))
 	)
 }`,
 		},
@@ -406,7 +678,7 @@ calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming"))
+		columns = (RelatedColumn("satisfiedBy", "satisfaction"))
 	)
 }`,
 		},
@@ -418,7 +690,7 @@ calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming", 1, "list", "extra"))
+		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming", 1, "list", root, "extra"))
 	)
 }`,
 		},

@@ -27,6 +27,9 @@ type Context struct {
 	// Roots are the objects the session holds directly, each under its label,
 	// in the order Objects enumerates them.
 	Roots []Root
+	// Related memoizes relationship edge tables across the executions sharing
+	// this context; nil builds them once per execution.
+	Related *RelationshipTables
 }
 
 // Root is one object a session holds directly, under its label (`Demo::car`, `#7`).
@@ -62,10 +65,22 @@ const (
 	defaultInvocationBudget = 10_000
 )
 
+// sequence is an intermediate row sequence: the row values, the columns a
+// projection gave them and their cells, and the nesting depth Tree assigned
+// each row (nil when no row nests).
 type sequence struct {
 	values  []Value
 	columns []Column
 	cells   [][]Cell
+	depths  []int64
+}
+
+// depthAt is the nesting depth of row index; 0 when none was assigned.
+func (s sequence) depthAt(index int) int64 {
+	if index < len(s.depths) {
+		return s.depths[index]
+	}
+	return 0
 }
 
 type visitBudget struct {
@@ -80,7 +95,7 @@ type executor struct {
 	program    map[string]queryplan.Definition
 	budget     *visitBudget
 	calls      *visitBudget
-	related    *relationshipTables
+	related    *RelationshipTables
 	derived    *derivedValues
 	depthLeft  int
 	stack      []string
@@ -118,6 +133,10 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 	for _, compiledDefinition := range definitions {
 		compiled[compiledDefinition.Name()] = compiledDefinition
 	}
+	related := context.Related
+	if related == nil {
+		related = NewRelationshipTables()
+	}
 	execution := &executor{
 		definition: definition,
 		context:    context,
@@ -126,7 +145,7 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		program:    compiled,
 		budget:     &visitBudget{remaining: budget},
 		calls:      &visitBudget{remaining: calls},
-		related:    newRelationshipTables(),
+		related:    related,
 		derived:    &derivedValues{},
 		depthLeft:  depth,
 		stack:      []string{definition.Name()},
@@ -147,7 +166,7 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		if i < len(result.cells) {
 			cells = cloneCells(result.cells[i])
 		}
-		rows[i] = Row{element: value, cells: cells}
+		rows[i] = Row{element: value, cells: cells, depth: result.depthAt(i)}
 	}
 	return &RowSet{
 		columns: append([]Column(nil), result.columns...),
@@ -385,6 +404,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateWhereMetadata(expression)
 	case queryplan.OperationWhereName:
 		return e.evaluateWhereName(expression)
+	case queryplan.OperationWhereText:
+		return e.evaluateWhereText(expression)
 	case queryplan.OperationWhereFeature:
 		return e.evaluateWhereFeature(expression)
 	case queryplan.OperationOrderBy:
@@ -395,6 +416,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateInvoke(expression)
 	case queryplan.OperationRelatedElements:
 		return e.evaluateRelated(expression)
+	case queryplan.OperationNamed:
+		return e.evaluateNamed(expression)
 	case queryplan.OperationObjects:
 		return e.evaluateObjects(expression)
 	case queryplan.OperationVerdicts:
@@ -411,6 +434,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateInState(expression)
 	case queryplan.OperationEvents:
 		return e.evaluateEvents(expression)
+	case queryplan.OperationTree:
+		return e.evaluateTree(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -715,21 +740,6 @@ func (e *executor) stringsArgument(expression queryplan.Expression, name string)
 	return texts, nil
 }
 
-func (e *executor) integerArgument(expression queryplan.Expression, name string) (int64, error) {
-	value, err := e.argument(expression, name)
-	if err != nil {
-		return 0, err
-	}
-	if len(value.values) != 1 {
-		return 0, e.invalidArgument(expression, name, strconv.Itoa(len(value.values)))
-	}
-	integer, ok := value.values[0].Integer()
-	if !ok || integer < 0 {
-		return 0, e.invalidArgument(expression, name, string(value.values[0].Kind()))
-	}
-	return integer, nil
-}
-
 func (e *executor) booleanArgument(expression queryplan.Expression, name string) (bool, error) {
 	value, err := e.argument(expression, name)
 	if err != nil {
@@ -770,6 +780,7 @@ func cloneSequence(input sequence) sequence {
 		values:  append([]Value(nil), input.values...),
 		columns: append([]Column(nil), input.columns...),
 		cells:   make([][]Cell, len(input.cells)),
+		depths:  append([]int64(nil), input.depths...),
 	}
 	for i := range input.cells {
 		result.cells[i] = cloneCells(input.cells[i])

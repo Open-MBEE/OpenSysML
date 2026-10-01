@@ -15,14 +15,25 @@ import (
 // same connector-end information an object of a connector is materialized from —
 // never re-derived from the source text. Nodes and edges are placed by the
 // Layout and Route annotations positioning their elements in view, nil for a
-// rendering outside any view.
+// rendering outside any view. An exposed feature another exposed feature draws
+// nested in it is not a second root.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{}, out: out}
+	var roots []*symbols.Symbol
+	for _, elem := range exposed {
+		if !r.drawsConnector(elem) && featureLike(elem) {
+			roots = append(roots, elem)
+		}
+	}
+	descendants := r.exposedDescendants(roots, r.interconnectionMembers)
 	for _, elem := range exposed {
 		switch {
-		case r.model.IsConnectorUsage(elem), isFlowUsage(elem):
+		case r.drawsConnector(elem):
 			w.connectors = append(w.connectors, elem)
 		case featureLike(elem):
+			if descendants[symbols.KeyOf(elem)] {
+				continue
+			}
 			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
@@ -60,26 +71,40 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 	if !qualified {
 		name = localName(sym)
 	}
-	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
-		Geometry: r.geometryOf(w.view, sym, w.out)}
+	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
+		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Style: r.styleOf(w.view, sym, w.out)}
 	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
 	}
 	w.nodes[sym] = node
-	if seen[sym] || depth >= maxTreeDepth {
+	r.notesOf(w.view, sym, node.ID, w.out)
+	if seen[sym] || depth >= r.treeDepth() {
 		return node
 	}
 	seen[sym] = true
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		switch {
-		case r.model.IsConnectorUsage(member), isFlowUsage(member):
+		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
 		case featureLike(member):
 			node.Children = append(node.Children, w.featureNode(member, seen, depth+1, false))
 		}
 	}
 	return node
+}
+
+// interconnectionMembers is the members featureNode draws as nested nodes:
+// the feature-like of what an element declares, connectors being edges.
+func (r *Renderer) interconnectionMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range r.containedMembers(sym) {
+		if featureLike(member) {
+			out = append(out, member)
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
@@ -104,12 +129,12 @@ func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*s
 		}
 		resolved = append(resolved, node)
 	}
-	route := r.routeOf(view, connector, out)
+	route, style := r.routeOf(view, connector, out), r.edgeDress(view, connector, resolved[0].ID, resolved[1].ID, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
-				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind, Origin: symbolOrigin(connector),
-				Route: slices.Clone(route),
+				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind,
+				Origin: symbolOrigin(connector), Route: slices.Clone(route), Style: style,
 			})
 		}
 	}
@@ -122,11 +147,25 @@ type connectorEnd struct {
 	path       string
 }
 
-// connectorEnds returns the ends of a connector or flow usage, and what kind of
-// edge it makes. The ends come from the model's own connector information, so an
-// end that redefines an inherited one is read the way an object of the connector
-// reads it.
+// drawsConnector reports whether an interconnection rendering draws sym as an
+// edge: a connector usage, a binding, or a flow between features.
+func (r *Renderer) drawsConnector(sym *symbols.Symbol) bool {
+	return r.model.IsConnectorUsage(sym) || isBindingUsage(sym) || isFlowUsage(sym)
+}
+
+// connectorEnds returns the ends of a connector, binding or flow usage and the edge kind it
+// makes, read from the model's connector information so redefined inherited ends resolve.
 func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, EdgeKind) {
+	if isBindingUsage(connector) {
+		var out []connectorEnd
+		for _, att := range r.model.ConnectorObjectEnds(connector) {
+			if att.Attachment == nil {
+				continue
+			}
+			out = append(out, connectorEnd{attachment: att.Attachment, path: lower.FeaturePath(att.Attachment)})
+		}
+		return out, EdgeBinding
+	}
 	if isFlowUsage(connector) {
 		usage, _ := connector.Decl.(*ast.Usage)
 		if usage == nil || usage.FlowEnds == nil {
@@ -181,17 +220,18 @@ func chainOperand(node ast.Node) ast.Node {
 	return nil
 }
 
-// connectorLabel names a connection on an edge: its own name, else the type it
-// is declared with, else the keyword that declared it.
+// connectorLabel names a connection on an edge: the payload it carries, else its
+// own name, else the type it is declared with, else the keyword that declared it.
+// A name a migration made up counts as none, as for the unnamed source connector.
 func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
-	if connector.Name != "" && !connector.EffectiveName() {
+	if payload := flowPayload(connector); payload != "" {
+		return "of " + notationName(payload)
+	}
+	if connector.Name != "" && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
 		return localName(connector)
 	}
 	if declared := declType(connector); declared != "" {
 		return declared
-	}
-	if payload := flowPayload(connector); payload != "" {
-		return "of " + notationName(payload)
 	}
 	return declKind(connector)
 }
@@ -204,6 +244,16 @@ func flowPayload(sym *symbols.Symbol) string {
 	}
 	usage, _ := sym.Decl.(*ast.Usage)
 	return qualifiedText(usage.FlowEnds.Payload)
+}
+
+// isBindingUsage reports whether a symbol is a binding equating two features,
+// which is an edge of an interconnection rendering.
+func isBindingUsage(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageBinding && len(usage.ConnectorEnds) == 2
 }
 
 // isFlowUsage reports whether a symbol is a flow usage stating the features it
@@ -226,7 +276,7 @@ func featureLike(sym *symbols.Symbol) bool {
 		symbols.SymbolPortDef, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,
+		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolConnectionDef, symbols.SymbolAllocationDef,
 		symbols.SymbolKerMLType:

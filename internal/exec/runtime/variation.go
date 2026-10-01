@@ -170,7 +170,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 // selected it, with its ends attached to that object's features. A variant of
 // any other kind is an ordinary object of itself. keep receives the object once created.
 func (ctx *Context) variantInstance(variant *symbols.Symbol, owner int64, keep func(*Instance)) error {
-	if !ctx.model.semantics.IsConnectorUsage(variant) {
+	if !ctx.model.semantics.IsConnectorObjectUsage(variant) {
 		inst, err := ctx.instantiateAs(variant, 0)
 		if err != nil {
 			return err

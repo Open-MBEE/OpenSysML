@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "Ping"},
+    {"signal": "Go"}
+  ],
+  "finalState": "done",
+  "stateVisits": ["start", "busy", "ready", "done"]
+}

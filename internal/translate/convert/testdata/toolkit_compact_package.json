@@ -1,0 +1,81 @@
+[
+  {
+    "@id": "45173180-b633-5854-aac0-270ccda0b38f",
+    "@type": "Namespace",
+    "elementId": "45173180-b633-5854-aac0-270ccda0b38f",
+    "isImpliedIncluded": false,
+    "ownedRelationship": [
+      {
+        "@id": "c42bb705-61e7-5a88-af53-3d5987508bbf"
+      }
+    ],
+    "owningRelationship": null
+  },
+  {
+    "@id": "c42bb705-61e7-5a88-af53-3d5987508bbf",
+    "@type": "OwningMembership",
+    "elementId": "c42bb705-61e7-5a88-af53-3d5987508bbf",
+    "isImplied": false,
+    "isImpliedIncluded": false,
+    "ownedRelatedElement": [
+      {
+        "@id": "9f97322d-854e-56d3-8db6-98b229b4347e"
+      }
+    ],
+    "ownedRelationship": [],
+    "owningRelatedElement": {
+      "@id": "45173180-b633-5854-aac0-270ccda0b38f"
+    },
+    "owningRelationship": null,
+    "visibility": "public"
+  },
+  {
+    "@id": "9f97322d-854e-56d3-8db6-98b229b4347e",
+    "@type": "Package",
+    "declaredName": "P",
+    "declaredShortName": null,
+    "elementId": "9f97322d-854e-56d3-8db6-98b229b4347e",
+    "isImpliedIncluded": false,
+    "ownedRelationship": [
+      {
+        "@id": "5a8ddf6d-662e-5eb8-a117-bd95025f8dcb"
+      }
+    ],
+    "owningRelationship": {
+      "@id": "c42bb705-61e7-5a88-af53-3d5987508bbf"
+    }
+  },
+  {
+    "@id": "5a8ddf6d-662e-5eb8-a117-bd95025f8dcb",
+    "@type": "OwningMembership",
+    "elementId": "5a8ddf6d-662e-5eb8-a117-bd95025f8dcb",
+    "isImplied": false,
+    "isImpliedIncluded": false,
+    "ownedRelatedElement": [
+      {
+        "@id": "e9100a59-3b89-5d06-acf5-5c969af63bf3"
+      }
+    ],
+    "ownedRelationship": [],
+    "owningRelatedElement": {
+      "@id": "9f97322d-854e-56d3-8db6-98b229b4347e"
+    },
+    "owningRelationship": null,
+    "visibility": "public"
+  },
+  {
+    "@id": "e9100a59-3b89-5d06-acf5-5c969af63bf3",
+    "@type": "PartDefinition",
+    "declaredName": "V",
+    "declaredShortName": null,
+    "elementId": "e9100a59-3b89-5d06-acf5-5c969af63bf3",
+    "isAbstract": false,
+    "isImpliedIncluded": false,
+    "isSufficient": false,
+    "isVariation": false,
+    "ownedRelationship": [],
+    "owningRelationship": {
+      "@id": "5a8ddf6d-662e-5eb8-a117-bd95025f8dcb"
+    }
+  }
+]

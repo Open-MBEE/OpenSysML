@@ -105,6 +105,10 @@
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tResume" source="_pause" target="_hist">
             <trigger xmi:type="uml:Trigger" xmi:id="_trResume" event="_resumeEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_resumeLog" name="log">
+              <language>JavaScript</language>
+              <body>println("resuming at " + count);</body>
+            </effect>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tEnter" source="_idle" target="_cprIn">
             <trigger xmi:type="uml:Trigger" xmi:id="_trEnter" event="_enterEv"/>

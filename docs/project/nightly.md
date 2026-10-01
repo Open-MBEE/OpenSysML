@@ -56,9 +56,9 @@ And one a stable release does not ship:
   from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
   published to a marketplace, so the snapshot is where a build of it is picked up. Its
   version is the extension manifest's with the snapshot version appended as the pre-release
-  part — `0.1.0-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build from the
+  part — `0.9.0-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build from the
   next, installs a later night over an earlier one without `--force`, and ranks any stable
-  `0.1.0` above them all. It is in `SHA256SUMS.txt` with the rest.
+  `0.9.0` above them all. It is in `SHA256SUMS.txt` with the rest.
 
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the PyPI, npm, Maven and crates.io client packages. Those belong to the

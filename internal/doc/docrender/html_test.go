@@ -2,10 +2,13 @@ package docrender
 
 import (
 	"errors"
+	"html"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -73,21 +76,43 @@ func TestHTMLTelescopeReportFragmentGolden(t *testing.T) {
 	checkGolden(t, got, filepath.Join("testdata", "telescope_report.fragment.golden.html"))
 }
 
-// TestHTMLMermaidScript checks a page asked to load Mermaid carries one
-// script element after the document, a fragment none, and a default page none.
+// TestHTMLMermaidScript checks a page asked to load Mermaid carries the script
+// element after the document, configured to draw the page's charts whatever
+// their size, a fragment none, and a default page none.
 func TestHTMLMermaidScript(t *testing.T) {
 	path := filepath.Join("testdata", "telescope_report.sysml")
 	url := `https://cdn.example/mermaid.js?a=1&b="2"`
 	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{MermaidScript: url})
 	script := `<script src="https://cdn.example/mermaid.js?a=1&amp;b=&#34;2&#34;"></script>`
-	if strings.Count(got, "<script") != 1 || !strings.Contains(got, script) {
-		t.Errorf("page lacks the one script element %s:\n%s", script, got)
+	if strings.Count(got, "<script") != 2 || !strings.Contains(got, script) {
+		t.Errorf("page lacks the script element %s and its configuration:\n%s", script, got)
 	}
-	if strings.Index(got, "</article>") > strings.Index(got, script) || !strings.HasSuffix(got, script+"\n</body>\n</html>\n") {
-		t.Errorf("script must follow the document, before </body>:\n%s", got)
+	config := regexp.MustCompile(`<script>mermaid\.initialize\(\{maxTextSize: (\d+), maxEdges: (\d+)\}\);</script>`)
+	limits := config.FindStringSubmatch(got)
+	if limits == nil {
+		t.Fatalf("page lacks the Mermaid configuration:\n%s", got)
+	}
+	if strings.Index(got, "</article>") > strings.Index(got, script) || !strings.HasSuffix(got, script+"\n"+limits[0]+"\n</body>\n</html>\n") {
+		t.Errorf("script and configuration must follow the document, before </body>:\n%s", got)
 	}
 	if !strings.Contains(got, `<pre class="mermaid">`) {
 		t.Errorf("diagram source must stay for the script to draw:\n%s", got)
+	}
+	textSize, _ := strconv.Atoi(limits[1])
+	edges, _ := strconv.Atoi(limits[2])
+	arrows := regexp.MustCompile(`(?m)^\s*\S+ (-->|---|-\.->)`)
+	for _, chart := range regexp.MustCompile(`(?s)<pre class="mermaid">(.*?)</pre>`).FindAllStringSubmatch(got, -1) {
+		source := html.UnescapeString(chart[1])
+		drawn := len(arrows.FindAllString(source, -1))
+		if drawn == 0 || len(source) >= textSize || drawn >= edges {
+			t.Errorf("limits %s, %s do not cover a chart of %d bytes and %d edges", limits[1], limits[2], len(source), drawn)
+		}
+	}
+	if textSize > 50000 || edges > 500 {
+		t.Errorf("limits %s, %s are not sized to the fixture's small charts", limits[1], limits[2])
+	}
+	if out := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{MermaidScript: url, DiagramForm: view.FormDot}); strings.Contains(out, "mermaid.initialize") {
+		t.Errorf("a page drawing no Mermaid chart configures Mermaid:\n%s", out)
 	}
 	for name, opts := range map[string]HTMLOptions{
 		"default":  {},
@@ -298,7 +323,7 @@ func TestHTMLDefaultStylesheetIsOverridable(t *testing.T) {
 // and that a name that is no theme is refused.
 func TestHTMLThemes(t *testing.T) {
 	names := Themes()
-	if want := []string{"default", "modern", "print", "report"}; !slices.Equal(names, want) {
+	if want := []string{"default", "acm", "ieee", "modern", "nasa", "print", "report"}; !slices.Equal(names, want) {
 		t.Fatalf("Themes() = %v, want %v", names, want)
 	}
 	plain, err := ThemeStylesheet("")
@@ -348,13 +373,13 @@ func TestHTMLThemes(t *testing.T) {
 			t.Errorf("theme %s: default and theme share one style element, supplied CSS has its own:\n%s", name, got)
 		}
 	}
-	for _, bad := range []string{"fancy", "../document", "report.css", `themes\report`} {
+	for _, bad := range []string{"fancy", "../document", "report.css", "report.print", `themes\report`} {
 		_, err := ThemeStylesheet(bad)
 		var rendering *Error
 		if !errors.As(err, &rendering) || rendering.Kind != ErrorUnknownTheme || rendering.Actual != bad {
 			t.Errorf("ThemeStylesheet(%q) = %v, want an unknown-theme error", bad, err)
 		}
-		if err != nil && !strings.Contains(err.Error(), "default, modern, print, report") {
+		if err != nil && !strings.Contains(err.Error(), "default, acm, ieee, modern, nasa, print, report") {
 			t.Errorf("ThemeStylesheet(%q) error does not list the themes: %v", bad, err)
 		}
 	}
@@ -374,6 +399,149 @@ func TestHTMLThemes(t *testing.T) {
 		if !strings.Contains(printCSS, ".sysml-link"+sel) {
 			t.Errorf("print theme lacks the link selector %s", sel)
 		}
+	}
+}
+
+// TestHTMLThemePrintCompanions checks a theme's print companion is no theme of
+// its own but comes with its theme: one block of the opensysml-print-theme
+// layer, writing page geometry, page-margin boxes and document tokens only,
+// and that the default and a theme without one have none.
+func TestHTMLThemePrintCompanions(t *testing.T) {
+	entries, err := fs.ReadDir(themeFS, "themes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var companions []string
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".print.css") {
+			companions = append(companions, strings.TrimSuffix(entry.Name(), ".print.css"))
+		}
+	}
+	if want := []string{"acm", "ieee", "nasa", "print", "report"}; !slices.Equal(companions, want) {
+		t.Fatalf("print companions = %v, want %v", companions, want)
+	}
+	for _, name := range Themes() {
+		if strings.HasSuffix(name, ".print") {
+			t.Errorf("Themes() lists the companion %s as a theme", name)
+		}
+	}
+	for _, name := range []string{"", DefaultTheme, "modern"} {
+		if css, err := ThemePrintStylesheet(name); err != nil || css != "" {
+			t.Errorf("ThemePrintStylesheet(%q) = %q, %v; want none", name, css, err)
+		}
+	}
+	for _, bad := range []string{"fancy", "report.print", "../document"} {
+		_, err := ThemePrintStylesheet(bad)
+		var rendering *Error
+		if !errors.As(err, &rendering) || rendering.Kind != ErrorUnknownTheme || rendering.Actual != bad {
+			t.Errorf("ThemePrintStylesheet(%q) = %v, want an unknown-theme error", bad, err)
+		}
+	}
+	for _, name := range companions {
+		css, err := ThemePrintStylesheet(name)
+		if err != nil {
+			t.Fatalf("companion %s: %v", name, err)
+		}
+		if !strings.HasPrefix(css, "/* "+name+":") {
+			t.Errorf("companion %s does not open with its theme's name:\n%.80s", name, css)
+		}
+		if strings.Count(css, "@layer opensysml-print-theme {") != 1 || strings.Contains(css, "@layer opensysml {") || strings.Contains(css, "@layer opensysml-print {") {
+			t.Errorf("companion %s must be exactly one block of the opensysml-print-theme layer:\n%s", name, css)
+		}
+		if theme, _ := ThemeStylesheet(name); strings.Contains(theme, css) {
+			t.Errorf("companion %s is folded into the theme's screen sheet", name)
+		}
+		for _, line := range strings.Split(css, "\n") {
+			sel := strings.TrimSpace(line)
+			if !strings.HasSuffix(sel, "{") && !strings.HasSuffix(sel, ",") || strings.HasPrefix(sel, "@layer") {
+				continue
+			}
+			if !strings.HasPrefix(sel, ":root") && !strings.HasPrefix(sel, ".sysml-document") && !strings.HasPrefix(sel, "@page") && !strings.HasPrefix(sel, "@bottom-") {
+				t.Errorf("companion %s selector %q is neither :root, .sysml-document, @page nor a page-margin box", name, sel)
+			}
+		}
+	}
+}
+
+// TestHTMLConventionThemes checks the nasa, ieee and acm themes set the
+// faces, sizes and black-on-white tokens their conventions call for, on
+// screen and in their print companions alike, and that both agree.
+func TestHTMLConventionThemes(t *testing.T) {
+	times := `"Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif`
+	arial := `Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif`
+	courier := `"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace`
+	libertine := `"Libertinus Serif", "Linux Libertine O", "Linux Libertine", "Times New Roman", "Liberation Serif", serif`
+	biolinum := `"Libertinus Sans", "Linux Biolinum O", "Linux Biolinum", Arial, Helvetica, "Liberation Sans", sans-serif`
+	cases := []struct {
+		theme       string
+		body        string
+		heading     string
+		size        string
+		caption     string
+		screenOnly  []string
+		page        []string
+		companion   []string
+		pageNumbers string
+	}{
+		{
+			theme: "nasa", body: times, heading: arial, size: "12pt", caption: "12pt",
+			screenOnly: []string{"--sysml-measure: 6.5in;", ".sysml-document .sysml-title {\n    font-size: 24pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-heading);"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 12pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 14pt;", "--sysml-subsubheading-font-size: 12pt;", "content: counter(front, lower-roman);", "counter-increment: page 0 front 1;", ".sysml-document > .sysml-title:has(+ .sysml-toc) {\n    page: front;"},
+		},
+		{
+			theme: "ieee", body: times, heading: times, size: "10pt", caption: "8pt",
+			screenOnly: []string{"--sysml-measure: 7.17in;", "font-variant: small-caps;", "text-align: justify;", "--sysml-paragraph-indent: 1pc;", "--sysml-table-font-size: 8pt;"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 0.67in;", "--sysml-page-number-font-size: 8pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 10pt;", "--sysml-wide-table-font-size: 8pt;"},
+		},
+		{
+			theme: "acm", body: libertine, heading: biolinum, size: "10pt", caption: "9pt",
+			screenOnly: []string{"--sysml-measure: 6.5in;", "--sysml-paragraph-indent: 10pt;", ".sysml-document .sysml-title {\n    font-size: 17pt;", "--sysml-table-font-size: 9pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-body);"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 9pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 10pt;", "--sysml-wide-table-font-size: 9pt;"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.theme, func(t *testing.T) {
+			full, err := ThemeStylesheet(tc.theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			screen := full[len(DefaultStylesheet()):]
+			companion, err := ThemePrintStylesheet(tc.theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			shared := []string{
+				"--sysml-font-body: " + tc.body + ";",
+				"--sysml-font-heading: " + tc.heading + ";",
+				"--sysml-font-mono: " + courier + ";",
+				"--sysml-font-size: " + tc.size + ";",
+			}
+			for _, want := range append(append(append([]string{}, shared...), tc.screenOnly...),
+				"--sysml-caption-font-size: "+tc.caption+";",
+				"--sysml-text: #000000;", "--sysml-accent: #000000;", "--sysml-rule: #000000;", "--sysml-surface: transparent;",
+				"border-bottom: var(--sysml-border-width) solid var(--sysml-rule);", "caption-side: top;",
+			) {
+				if !strings.Contains(screen, want) {
+					t.Errorf("theme %s lacks %q", tc.theme, want)
+				}
+			}
+			for _, want := range append(append(append([]string{}, shared...), tc.page...), tc.companion...) {
+				if !strings.Contains(companion, want) {
+					t.Errorf("companion %s lacks %q", tc.theme, want)
+				}
+			}
+			for _, stray := range []string{"--sysml-measure", "--sysml-text:", "--sysml-accent:"} {
+				if strings.Contains(companion, stray) {
+					t.Errorf("companion %s sets %s, which the screen sheet already carries to the page", tc.theme, stray)
+				}
+			}
+			if strings.Contains(screen, "--sysml-page-") {
+				t.Errorf("theme %s writes page tokens the screen never reads", tc.theme)
+			}
+		})
 	}
 }
 
@@ -577,4 +745,29 @@ func TestHTMLAnonymousSectionLeavesReservedAnchor(t *testing.T) {
 	if !strings.Contains(got, `<a class="sysml-ref" href="#section"`) {
 		t.Errorf("the reference does not resolve to the named section:\n%s", got)
 	}
+}
+
+// TestHTMLCollectionCells checks a `[0..*]` column: a row holding two values
+// renders each as its own value in order, separated, and a row holding none
+// renders an empty cell.
+func TestHTMLCollectionCells(t *testing.T) {
+	got := renderFixtureHTML(t, filepath.Join("testdata", "collection_report.sysml"),
+		"Calibration::TimingReport", HTMLOptions{})
+	for _, want := range []string{
+		`<td class="sysml-cell" data-column="durations" data-value-kind="real"><span class="sysml-value" data-value-kind="real">69</span><span class="sysml-separator">, </span><span class="sysml-value" data-value-kind="real">98</span></td>`,
+		`<td class="sysml-cell" data-column="durations"></td>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+}
+
+// TestHTMLImageReportFragmentGolden locks the image block's markup: a figure
+// element whose img carries the location verbatim and the alt text, under its
+// caption.
+func TestHTMLImageReportFragmentGolden(t *testing.T) {
+	got := renderFixtureHTML(t, filepath.Join("testdata", "image_report.sysml"),
+		"Pictures::ImageReport", HTMLOptions{Fragment: true})
+	checkGolden(t, got, filepath.Join("testdata", "image_report.fragment.golden.html"))
 }

@@ -165,11 +165,14 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 	return bindings
 }
 
-// bindingLinksNothing reports a binding with an end of multiplicity [0], which links no
-// value and so constrains neither feature (KerML 1.0 §7.4.9.2, connector end multiplicity).
+// bindingLinksNothing reports a binding with an end or connector multiplicity of [0],
+// which links no value and so constrains neither feature (KerML 1.0 §7.4.9.2).
 func (ctx *Context) bindingLinksNothing(binding lower.Binding) bool {
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+		return true
+	}
 	for _, end := range binding.Ends {
-		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+		if r, ok := ctx.model.semantics.RangeIn(binding.Scope, end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 			return true
 		}
 	}
@@ -193,7 +196,7 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 	ctx.noteProbeWrite(target)
 	target.Value = Value{}
 	target.Values = Value{}
-	target.Materialized = false
+	target.Materialized, target.intrinsic = false, false
 	target.BindingDerived, target.Assumed = false, false
 	val, found, err := ctx.resolveBindings(inst, target, name, key)
 	ctx.afterWrite(target, before)
@@ -363,8 +366,9 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 	return result, nil
 }
 
-// partialBinding reports a binding not determining the target whole: an end linking fewer values than
-// its feature holds (KerML 1.0 §7.4.9.2), or one reaching the target across a collection (named by across).
+// partialBinding reports a binding not determining the target whole: an end linking fewer values
+// than its feature holds (KerML 1.0 §7.4.9.2), a connector declaring fewer links (`binding [1]`) than
+// an end's feature holds, or one reaching the target across a collection (named by across).
 func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef) (partial bool, across string, err error) {
 	defer ctx.claimBinding(key, binding.Decl)()
@@ -386,13 +390,20 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		}
 		return true, endpoint.across(), nil
 	}
+	links, linksOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity)
 	for end := range binding.Ends {
-		stated, ok := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
-		if !ok {
-			continue
+		stated, statedOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
+		// The binding links at most the smaller finite upper bound of the end's own
+		// multiplicity and the connector's (`binding [1]` declares one link).
+		var upper int64
+		bounded := false
+		if statedOK && stated.Upper.Known && !stated.Upper.Infinite {
+			upper, bounded = stated.Upper.Value, true
 		}
-		bounded := stated.Upper.Known && !stated.Upper.Infinite
-		required := stated.Lower.Known && stated.Lower.Value > 0
+		if linksOK && links.Upper.Known && !links.Upper.Infinite && (!bounded || links.Upper.Value < upper) {
+			upper, bounded = links.Upper.Value, true
+		}
+		required := statedOK && stated.Lower.Known && stated.Lower.Value > 0
 		if !bounded && !required {
 			continue
 		}
@@ -403,7 +414,13 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		if endpoint.expr != nil {
 			continue
 		}
-		narrows := bounded && endpointAdmitsMoreThan(endpoint, stated.Upper.Value)
+		narrows := bounded && endpointAdmitsMoreThan(endpoint, upper)
+		// A feature that must hold more values than the binding links can never be
+		// linked whole, so the binding is partial without reading the end's value.
+		if narrows && endpointRequiresMoreThan(endpoint, upper) {
+			partial = true
+			continue
+		}
 		if !narrows && !required {
 			continue
 		}
@@ -424,7 +441,7 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		if found && required && count < stated.Lower.Value {
 			return false, "", ctx.bindingEndCountError(binding, end, stated, count)
 		}
-		if narrows && (carries || !found || count == 0 || count > stated.Upper.Value) {
+		if narrows && (carries || !found || count == 0 || count > upper) {
 			partial = true
 		}
 	}
@@ -434,6 +451,19 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 // heldOnItsOwn reports a feature value holding what its own declaration gave it, not a binding.
 func heldOnItsOwn(fv *FeatureValue) bool {
 	return fv.Materialized && !fv.BindingDerived && fv.HeldValue().Kind != ValInvalid
+}
+
+// endpointRequiresMoreThan reports whether the features an end reaches must hold
+// more than n values together, by their declared lower bounds.
+func endpointRequiresMoreThan(endpoint bindingEndpoint, n int64) bool {
+	var total int64
+	for _, loc := range endpoint.locations {
+		declared := loc.instance.FeatureValues[loc.name].Feature.Multiplicity.Lower
+		if declared.Known {
+			total += declared.Value
+		}
+	}
+	return total > n
 }
 
 // endpointAdmitsMoreThan reports whether the features an end reaches may hold more than n
@@ -461,7 +491,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 			return Value{}, false, err
 		}
 	}
-	ctx.noteRead(fv)
+	ctx.noteRead(loc.instance, fv)
 	val := fv.HeldValue()
 	return val, val.Kind != ValInvalid, nil
 }
@@ -471,13 +501,21 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 	count := int64(len(elementsOf(val)))
 	for end := range binding.Ends {
-		stated, ok := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
+		stated, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
 		if !ok {
 			continue
 		}
 		if (stated.Lower.Known && count < stated.Lower.Value) ||
 			(stated.Upper.Known && !stated.Upper.Infinite && count > stated.Upper.Value) {
 			return ctx.bindingEndCountError(binding, end, stated, count)
+		}
+	}
+	// The connector's own multiplicity states how many links the binding declares.
+	if links, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
+		if (links.Lower.Known && count < links.Lower.Value) ||
+			(links.Upper.Known && !links.Upper.Infinite && count > links.Upper.Value) {
+			return fmt.Errorf("%w: `%s` declares %s link(s) but identifies %d value(s)",
+				ErrMultiplicityViolation, ctx.bindingText(binding), links.Text(), count)
 		}
 	}
 	return nil
@@ -489,16 +527,20 @@ func (ctx *Context) bindingEndCountError(binding lower.Binding, end int, stated 
 		ctx.bindingEndpointText(binding, end), count)
 }
 
-// bindingText spells a binding as written, end multiplicities included.
+// bindingText spells a binding as written, connector and end multiplicities included.
 func (ctx *Context) bindingText(binding lower.Binding) string {
 	ends := make([]string, len(binding.Ends))
 	for i, end := range binding.Ends {
 		ends[i] = ctx.bindingEndpointText(binding, i)
-		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok {
+		if r, ok := ctx.model.semantics.RangeIn(binding.Scope, end.Multiplicity); ok {
 			ends[i] = r.Text() + " " + ends[i]
 		}
 	}
-	return "bind " + strings.Join(ends, " = ")
+	text := "bind " + strings.Join(ends, " = ")
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
+		text = "binding " + r.Text() + " " + text
+	}
+	return text
 }
 
 func bindingEndForPath(binding lower.Binding, path string) int {
@@ -777,7 +819,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 	if fv.BindingDerived {
 		if ctx.CompositeTypeOf(fv.Feature) != nil {
 			if val := fv.HeldValue(); val.Kind != ValInvalid {
-				ctx.noteRead(fv)
+				ctx.noteRead(loc.instance, fv)
 				return val, true, nil
 			}
 		}
@@ -798,7 +840,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 			return Value{}, false, err
 		}
 	}
-	ctx.noteRead(fv)
+	ctx.noteRead(loc.instance, fv)
 	if val := fv.HeldValue(); val.Kind != ValInvalid {
 		return val, true, nil
 	}
@@ -857,7 +899,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return err
 	}
-	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
+	val, err := ctx.holdDeclared(inst, fv, val)
 	if err != nil {
 		return err
 	}
@@ -869,7 +911,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 		fv.Value = Value{}
 		fv.Values = val
 	}
-	fv.Materialized = true
+	fv.Materialized, fv.intrinsic = true, false
 	fv.BindingDerived, fv.Assumed = true, false
 	return nil
 }

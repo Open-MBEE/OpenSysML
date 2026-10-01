@@ -1,1 +1,0 @@
-- **The built binaries are about a quarter smaller.** `make build` and the release builds now link with `-s -w`, dropping the symbol table and DWARF debug data that a shipped binary never reads; on Linux `sysml` goes from 50 MB to 37 MB. The version stamps (`sysml --version`), the embedded build info the standard-library cache keys on, and panic stack traces are unchanged.

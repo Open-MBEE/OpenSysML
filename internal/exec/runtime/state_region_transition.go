@@ -79,6 +79,9 @@ func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*as
 		}
 	}
 	if enter != target {
+		if e.heldOwner(enter) != nil {
+			return enter, enter, nil
+		}
 		// Entering enter's regions entered target and its start; record the deepest.
 		return enter, e.activeConfig.regionStates[e.enclosingRegion(target)], nil
 	}
@@ -98,6 +101,9 @@ func (e *StateExecutor) activeLeavesBelow(state *ast.StateNode) []*ast.StateNode
 	for _, region := range regions {
 		active, ok := e.activeConfig.regionStates[region]
 		if !ok || active == state {
+			if !ok {
+				return []*ast.StateNode{state}
+			}
 			continue
 		}
 		leaves = append(leaves, e.activeLeavesBelow(active)...)
@@ -329,10 +335,19 @@ func (e *StateExecutor) regionKeep(targetRegion *ast.StateRegion, trans *lower.T
 	if declared, isState := trans.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
 		keep = e.graph.ParentState[declared]
 	}
-	if !e.regionContains(targetRegion, keep) {
+	if !e.regionKeeps(targetRegion, keep) {
 		keep = e.graph.RegionOwner[targetRegion]
 	}
 	return keep
+}
+
+// regionKeeps reports whether state stays active when a move happens within
+// region: a state inside it, or the graph-only owner standing for the region.
+func (e *StateExecutor) regionKeeps(region *ast.StateRegion, state *ast.StateNode) bool {
+	if state == nil {
+		return false
+	}
+	return e.regionContains(region, state) || e.graph.RegionState[region] == state
 }
 
 // regionExitPath lists the states exitRegionTo exits, innermost first: region's

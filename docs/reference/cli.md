@@ -89,6 +89,18 @@ Load multiple files before evaluating:
 sysml -e "result" types.sysml instances.sysml
 ```
 
+Every file named on the command line is a document of its own, analysed as the editor and the
+corpus gates analyse it, and the files are indexed together so that one file's reference to a
+package another declares resolves. Two consequences follow:
+
+- A root-level import serves only the file it is written in. `private import ScalarValues::*;`
+  at the top of `types.sysml` does not make `Real` resolvable in `instances.sysml`; each file
+  imports what it uses.
+- Two files that both declare `package A` are two root packages of that name, not a duplicate.
+  A reference to `A` resolves to the declaration in the file whose name sorts first (the
+  order the editor and the workspace give documents, whatever order the files were given
+  in), so `A::x` resolves where `x` is a member of that declaration.
+
 ## Real-World Examples
 
 ### 1. Quick Calculation
@@ -206,29 +218,43 @@ reported, so a script that reads it takes the output from the first `{`.
 
 ## Command Reference
 
+Document-query projections may compute a column with exactly one of
+`Column(name = "...", expression = <expr>)`, `Column(name = "...", cell = { in row : <Type>; ... })`,
+or `Column(name = "...", path = "<member.path>")`. Expressions run in query scope, cells receive
+each row as a typed parameter, and paths read dotted members from each row; see the
+[query cookbook](../manual/query-cookbook.md#computed-columns). A cell's direct `row.feature`
+reference compiles as a row-property read; deeper chains compile as row-member reads. A path uses
+the same member-path parser as `Project` and `OrderBy`.
+
 | Flag | Shorthand | Description |
 |------|-----------|-------------|
 | `--eval <expr>` | `-e` | Evaluate expression and exit (repeatable) |
 | `--debug` | | Report every diagnostic over the whole session buffer, with the pass that produced it |
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
+| `--disable-lint <code>` | | Leave the named [lint](diagnostics.md) out of the diagnostics: `undeclared-signal` or `port-type-mismatch`; comma-separated or repeated. An unknown code is a usage error |
+| `--no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
-| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
-| `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
+| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
+| `--from <format>` | | Input format for `--convert`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
+| `--image-base-url <url>` | | With `--convert` from `xmi`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-style <style>` | | Drawing style the `dot` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid and PlantUML note it as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
-| `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
 | `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
-| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `modern`, `print` or `report` (default: the default stylesheet alone) |
+| `--doc-number-figures` | | Caption the figures and tables with their number in document order — `Figure 1. <caption>` for a drawn diagram or an `Image` block, `Table 1. <caption>` for a query table or a table-kind diagram — in every `--doc-form`; a block without a caption is captioned by its number alone, and formulas are not numbered. Off, captions are written as stated |
+| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
 | `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
 | `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
@@ -239,7 +265,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--pdf-title-page` | | Former name of `--doc-title-page` |
 | `--pdf-toc` | | Former name of `--doc-toc` |
 | `--pdf-number-sections` | | Former name of `--doc-number-sections` |
-| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout |
+| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--version` | `-v` | Show version information |
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
@@ -258,15 +284,19 @@ written in, so the verdicts are about that object:
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` and relationship-derived `RelatedColumn(...)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
+| `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
+| `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
+| `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
-| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs exactly one `-action` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
+| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; or runs the one `-analysis` that specializes `Simulation::MonteCarlo` `n` times the same way, tabling what each run observed and concluding the case once over the sample; needs exactly one `-action` or `-analysis` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
 | `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`); `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
+| `-clock-step <seconds>` | The step the clock of every run the invocation makes ticks by, as a simulation tool's fixed-step clock does: a wait (`accept after`, `accept at`, a state's timer, a case's timed step) comes due at the first multiple of the step not before the instant it ends, so under `-clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the default) is a continuous clock, on which a wait comes due exactly when it ends. A step that is no finite, non-negative number is refused before anything runs. Every witness of a stepped run records it as `clock steps by <seconds>`, and `-schedule replay:<file>` follows it. With `-compare-results`, replaces every configuration's recorded `stepSize`. See [Running an action many times](#running-an-action-many-times) |
 | `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
 | `-compare-results <file>` | Reads the JSON sidecar `-migration-results` wrote and, for each run configuration it indexes — every one, or those `-action` names — runs the migrated configuration with its recorded `numberOfRuns` and `durationSimulationMode` (or the `-runs` and `-draws` given), seeded from `-seed`, and tables the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. A check of its own: refused with `-convert`, `-render*`, a query flag, `-eval`, `-compile` or `-sync`. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse`'s picks one token a step — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
@@ -282,7 +312,7 @@ written in, so the verdicts are about that object:
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
-| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once (`-validate`, `-satisfy`, `-check` and every mode that loads files). `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 Other modes, each described in full by `sysml -help` and the manual page:
@@ -293,6 +323,7 @@ Other modes, each described in full by `sysml -help` and the manual page:
 | `-compile <name>` | Compiles the named `calc def` to a native executable named by `-o`; `-target c` (default) or `go` picks the backend, and `-source` writes the generated source to `-o` instead of building it. What else compiles is in [Native compilation](../project/native-compilation.md) |
 | `-sync-diff <repo>` | Shows the change set between the model and a repository — a graph file (`.ttl`) or a SysML v2 API endpoint URL — keyed by effective element id, and never writes. `-sync-base <file>` names the repository graph at the last-seen commit so repository changes since then surface as conflicts; `-sync-confirm-deletes` confirms repository-side deletes, which the diff otherwise reports but refuses to apply; `-sync-mint-ids` mints a UUID for each unannotated element being created, and `-sync-annotate <file>` writes the model with each minted id declared as an `@ElementId` annotation |
 | `-sync-apply <url>` | Applies the change set to the model's project branch at the SysML v2 API endpoint, refusing one the dry run would have flagged, then records the commit in the sync state (`-sync-state <file>`, default `<model>.sync.json` beside the model). The token comes from `FLEXO_INTEROP_TOKEN` |
+| `-sync-state <file>` | The sync state file a live sync or a `-convert` over a branch URL reads and records the last-seen commit in; the defaults are `<model>.sync.json` on `-sync-apply` and a push, and `<output>.sync.json` on a branch read written to `-o`. A stdout branch read records nothing unless `-sync-state` names a file |
 | `-memstats`, `-cpuprofile <file>`, `-memprofile <file>` | Report on stderr what the run cost — wall time, memory allocated, memory taken from the OS — or write a CPU or heap profile for `go tool pprof` |
 | `-to <format>` | Replaced by `-convert`, which names the output format |
 
@@ -452,6 +483,7 @@ sysml model.sysml -render Views::vehicleView -render-form text
 # Graphviz DOT for a graph-shaped kind, to lay out with dot(1) or any Graphviz-reading tool
 sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
 sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito -o view.dot
+sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip -o view.dot
 
 # PlantUML in the Pilot visualizer's B&W style, for a PlantUML toolchain; no jar is run
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
@@ -481,10 +513,25 @@ status 2. Rendering decides nothing about the model, so it cannot be combined wi
 with `-convert`.
 
 `-render-all <dir>` writes every declared view of all loaded files, in document and declaration
-order. Each qualified view name becomes a file name with `::` replaced by `.`. With no
-`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced
-text form uses `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml`
-form uses `.puml`, PlantUML's conventional extension.
+order. Each qualified view name becomes a file name with `::` replaced by `.`; any other byte a
+filesystem does not take in a name — `/`, `\`, `:`, `.` (so the two `.` cannot be confused), `%`,
+`<`, `>`, `"`, `|`, `?`, `*`, and control characters — is written as `%XX` (its byte in upper-case
+hex), and a stem Windows reads as a device (`CON`, `NUL`, `COM0`–`COM9`, `COM¹`–`COM³`, `LPT0`–`LPT9`,
+`LPT¹`–`LPT³`, in any letter case) has its first byte encoded too. The rule is the same on every
+platform and reverses to the view name, so `Views::'Pointing w/NSEN'` is written as
+`Views.Pointing w%2FNSEN.mmd`. A name that would run past
+the 255 bytes a path component may hold is cut short of that — at a boundary that splits neither a
+`%XX` nor a UTF-8 sequence — and tagged with `~` and the first 16 hex digits of the SHA-256 of the
+full encoded name, so two long names that agree up to the cut still take two files; such a file
+name no longer reads back to the view name. Two views whose names meet in the same path — letter
+case aside under Unicode's simple case folding, since a filesystem may ignore it — are each
+written under their name tagged the same way (`Views.Report~<hash>.dot` and
+`Views.report~<hash>.dot`), so neither overwrites the other; a view meeting no other keeps its
+plain name. Only views written in the requested form take part, and a plain name that meets a
+tagged one is tagged in turn, so no two files written in one run meet. With no
+`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
+`.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
+`.puml`, PlantUML's conventional extension.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered
@@ -545,7 +592,7 @@ config:
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Plant::Loop<br>«part def»"]
+  subgraph n0 ["Loop<br>«part def»"]
     direction LR
   …
 ```
@@ -587,7 +634,10 @@ line is the only one printed. `TB`/`LR` become `top to bottom direction`/`left t
 PlantUML has no reversed direction, so `BT`/`RL` take the nearest forward one under a
 `' not represented:` notice. PlantUML pins no position either, so DiagramLayout geometry is kept as
 `' canvas:`, `' layout:` and `' route:` comments and noticed — `-render-form dot` is the form that
-honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)). Producing PlantUML
+honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)) — but the diagram
+draws the nodes the DOT form draws: in a view that positions some nodes, the placed ones and the
+edges between them, with the unplaced accounted for in a `' not represented:` notice, and every
+node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
 `-render-palette <name>` fills the DOT and PlantUML nodes with a colourblind-safe palette by **keyword
@@ -608,6 +658,28 @@ forms ignore it. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
+`-render-style <style>` names the look the DOT form draws in. `pilot`, the default, is the Pilot
+visualizer's Standard B&W above; `cameo` is the look of Cameo Systems Modeler, for a diagram
+migrated from a `.mdzip` to keep the look its authors saw: a diagram frame with the
+`stm [State Machine] Owner [ Name ]` header tab, 11 pt Arial, Cameo's gradient fills — pale
+yellow states, green actions, orange blocks — with thin dark borders, a state's `do / Activity`
+compartment under a rule, the initial dot, final bull's-eye, decision diamond and fork bars, and
+notes with a folded corner and dashed anchor, each colour measured from Cameo's own output
+([the measurements](../project/view-rendering-forms.md#the-cameo-style)). A palette may be named
+with it and recolours the plain nodes. The style applies to `-render`, `-render-all` and the
+`dot` diagrams of `-render-document` and `-render-documents` in every `-doc-form`; the Mermaid
+and PlantUML forms write a `not represented: style cameo` notice, the text and Markdown forms
+ignore it. A member's own `DiagramLayout::Style` — fill, line and text colour, font, size,
+weight, slant — is drawn over either look, and a `DiagramLayout::Note` beside the member it is
+about ([the annotations](../project/diagram-layout-annotations.md)). A name that is neither
+style is refused with status 2 and the two there are; `-render-style` without something to
+render is refused likewise.
+
+```bash
+sysml Project.sysml -render-document Project::DesignDescription \
+    -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
+```
+
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a
 `metadata Layout about <element> { x = …; y = …; width = …; height = …; collapsed = true; }` in a
@@ -622,14 +694,26 @@ y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends 
 honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
 points with y measured up from the canvas's bottom edge — negated when no canvas height is
 stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
-with `fixedsize=true` (an unstated one is fitted to the label, so the box's corner stays put), a
+with `fixedsize=true` and the label fitted to it — the name wrapped at the width and shrunk from
+14 pt to 8 pt until it fits, the keyword and detail lines kept only while height remains, and a
+decision, fork, initial, final or port drawn as its symbol with the name beside it (an unstated
+size is fitted to the label, so the box's corner stays put), a
 positioned cluster states its `bb`, a route is the edge's `pos` spline (a route of one waypoint
 draws no line and is noticed), the canvas is echoed as `// canvas:` and held by an invisible
 point pinned at each corner so the drawing's bounding box is the canvas, and the
-`// layout:` header names the command that honours it — `neato -n2` when every node is placed
-and any edge routed, `neato -n` when every node is placed and none routed, `neato` when only
-some nodes are — so `neato -n2 -Tsvg view.dot` draws the view where the model put it. `neato`
-redraws every edge, so under it a written route is noticed as redrawn.
+`// layout:` header names the command that honours it — `neato -n2` when any edge is routed,
+`neato -n` when none is — so `neato -n2 -Tsvg view.dot` draws the view where the model put it.
+A node the model does not position, in a view that positions others, is left undrawn with
+the edges at it — a migrated diagram shows what its source showed, and nothing lands on a
+placed box — and a `// not represented:` notice counts what was left out;
+`-render-unplaced strip` draws those nodes instead, in rows below the canvas or the positioned
+boxes, wrapped at the drawing's width and clear of it and of one another. Either way every node
+drawn is pinned, so `neato` is never left to place one. The Mermaid and PlantUML forms draw the
+same node set and edge set: the placed nodes alone by default, under a `%% not represented:` or
+`' not represented:` notice counting the unplaced, and every node under `-render-unplaced strip`,
+laid out by the tool that draws them since neither pins a position. So a positioned view's figure
+in a document shows the picture its layout describes in whichever `-diagram-form`, and an
+exposed package the layout does not place does not expand into a chart of its whole contents.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the
@@ -644,22 +728,44 @@ sysml model.sysml -render Views::vehicleView -render-form text
 `-render-documents <dir>` renders every document definition the loaded model declares into the
 directory, one Markdown file per document, in fully-qualified-name order. Each file name is the
 document's fully qualified name with `::` replaced by `-`, any byte outside ASCII letters,
-digits and `_` escaped as `.XX` (uppercase hex), plus `.md`. The names are deterministic, so
-cross-document references (see [the authoring chapter](../manual/authoring.md)) resolve as relative
-links between the written files, and repeated runs write identical bytes.
+digits and `_` escaped as `.XX` (uppercase hex), plus `.md`; so two documents that share a short
+name in different packages (`Reports::Alpha::Summary` and `Reports::Beta::Summary`) get two
+files. A stem that would name a Windows device (`CON`, `AUX`) is escaped, and a name too long for
+a file system is cut to a fixed prefix plus `~` and a hash of the whole name. Two documents
+whose files would meet on a case-insensitive file system (`Reports::Summary` and
+`Reports::SUMMARY`) are both written under that tagged `~hash` form, as `-render-all` does, so
+the set never puts two documents in one file. The names are deterministic, so cross-document
+references (see [the authoring chapter](../manual/authoring.md)) resolve as relative links between
+the written files — to the tagged name where one was needed — and repeated runs write identical
+bytes.
 
 ```bash
 sysml model.sysml -render-documents rendered
 ```
 
-The directory is created if needed; written paths go to stderr and stdout stays empty. A
-model that declares no documents, declares two documents with the same name, or does not analyse
-cleanly stops the run with status 2. `-render-documents` cannot be combined with
+The directory is created if needed; written paths go to stderr and stdout stays empty. A model
+that declares no documents or does not analyse cleanly stops the run with status 2 before anything
+is written. Once the set is being rendered, each document is compiled and evaluated on its own:
+one that fails — a query whose column has no value for a row, a diagram past a form's limit — does
+not stop the others. The run writes every document that rendered, writes in place of each one
+that did not a page carrying its title, **This document could not be rendered.** and the error, so
+links to it from other pages resolve to that explanation rather than dangling (a link into one of
+its blocks lands on a line naming that block, under the anchor the link expects), and then reports
+each failure on stderr as `document <qualified name> could not be rendered: <reason>` and exits
+with status 3 (see [Exit status](#exit-status)). `-render-documents` cannot be combined with
 `-render-document`, `-render`, `-render-all`, `-o`, `-convert`, a query flag, or a check flag
 other than `-instantiate` (see [Rendering a document over objects](#rendering-a-document-over-objects)).
 Rendering a single document with `-render-document` still succeeds when it has cross-document
-references: the links point at the targets' expected file names and dangle until those documents
-are rendered into the same directory.
+references: the links point at the file names the set would give the targets and dangle until
+those documents are rendered into the same directory.
+
+A document named by its short name alone when the model declares more than one of that name is
+ambiguous, and the error names every candidate so one can be copied:
+
+```bash
+$ sysml model.sysml -render-document Summary
+sysml: symbol "Summary" is ambiguous: Reports::Alpha::Summary, Reports::Beta::Summary (use a qualified name)
+```
 
 `-render-document` takes as many model files as the document needs, loaded as one model, so a
 document can query elements declared in sibling files:
@@ -746,7 +852,9 @@ Mermaid renders as a diagram and any other page shows as source. By default the 
 nothing over the network, runs no JavaScript of its own, and is byte-identical between runs.
 `-html-mermaid cdn` adds one `<script>` before `</body>` that loads a pinned Mermaid release from
 jsDelivr so a browser with network access draws the diagrams; `-html-mermaid <url>` loads the
-script from a URL of your own instead, such as a copy served beside the pages. The page still
+script from a URL of your own instead, such as a copy served beside the pages. A second
+`<script>` configures Mermaid to draw every chart on the page whatever its size: Mermaid's
+default text and edge limits refuse a large diagram of a large model. The page still
 carries only the source, so it degrades to source wherever the script cannot load. The option
 does not combine with `-html-fragment`: a fragment has no page shell to hold the script, so the
 embedding page loads Mermaid itself.
@@ -770,8 +878,10 @@ The default stylesheet is inlined in a standalone page and declared in a cascade
 Your own CSS is unlayered, so it wins on cascade origin rather than specificity — overriding a
 default needs neither `!important` nor a matching selector. Every default value comes from a
 `--sysml-*` custom property on `.sysml-document`, so retheming can be a handful of properties, and
-the renderer emits no `style` attributes to compete with. `-html-theme modern|print|report` layers
-a bundled theme over the default sheet, in the same layer, so your CSS still wins over both.
+the renderer emits no `style` attributes to compete with. `-html-theme acm|ieee|modern|nasa|print|report`
+layers a bundled theme over the default sheet, in the same layer, so your CSS still wins over both;
+`nasa`, `ieee` and `acm` follow the NASA STI report series, IEEE Transactions and ACM `acmart`
+manuscript conventions (see [the manual](../manual/outputs.md#html) for what each sets).
 `-html-default-css` writes that sheet to copy from (the theme's whole sheet with `-html-theme`),
 `-html-css` adds sheets after it (a file is inlined in a single page and written beside a set's pages, a URL is linked), and
 `-html-no-default-css` drops it entirely. A `-render-documents` set writes one shared
@@ -810,11 +920,21 @@ Markdown unchanged.
 
 A PDF from an HTML-reading engine is styled as an HTML page is: the print stylesheet — page size
 and margins, the page-number footer, print faces, page breaks kept out of tables and figures — is
-declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, draws
-its values from the same `--sysml-*` tokens and writes no `style` attributes, so `-html-theme`
-rethemes a PDF, `-html-css` sheets apply unlayered after both layers and win on cascade origin,
-and `-html-no-default-css` leaves both layers out so only your sheets (their `@page` rules
-included) style the PDF. A sheet's relative `url()` and `@import` references resolve against
+declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, and a
+theme's print companion, when the theme carries one, in a layer `opensysml-print-theme` after
+that, so the sheets cascade in the order
+
+```text
+theme (opensysml) < print sheet (opensysml-print) < theme's print part (opensysml-print-theme) < your -html-css, unlayered
+```
+
+All draw their values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF down to its page size, margins, faces, body size, heading scale and
+page-number footer, `-html-css` sheets apply unlayered after every layer and win on cascade
+origin, and `-html-no-default-css` leaves every bundled layer out so only your sheets (their
+`@page` rules included) style the PDF. Without a theme, the print sheet names Times, Arial and
+Courier first, then their metric-compatible free equivalents (Liberation, Nimbus), then the
+generic family. A sheet's relative `url()` and `@import` references resolve against
 the PDF's directory, as a page's resolve against the page's, so a font or image beside the
 `-o` path is found under every engine. `pandoc` writes its own HTML, so it refuses `-html-theme`
 and `-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML,
@@ -1035,6 +1155,70 @@ witness naming a fixed policy and recording no draw leaves them to it, each call
 to the policy's point as the run did, while one recording some but not all is refused. A
 `-draws` spelling that is none of the four is refused before anything runs.
 
+**Clock step.** `-clock-step <seconds>` is the fourth knob: the step the clock of every run
+ticks by. A simulation tool's fixed-step clock observes the run at its ticks alone, so a wait
+ending between two ticks is noticed at the later one: under `-clock-step 1` a wait of `2.3 [s]`
+set at `t=0` comes due at `t=3.0`, one of `2.0 [s]` at `t=2.0`, and an `accept at` an instant
+off the grid at the first tick after it. The step is read when the wait is set, so a wait
+queued before the step changed keeps the instant it was given. `0`, the default, is a
+continuous clock, on which every wait comes due exactly when it ends; a step that is no finite,
+non-negative number is refused before anything runs. The step is recorded in every witness the
+checker writes for a stepped run, as a `clock steps by <seconds>` line after the draw policy
+and ahead of the draws (a continuous run's witness carries no such line, so one written before
+reads as before; a line naming `0`, a negative step, or a step twice is refused), and
+`-schedule replay:<file>` runs on the recorded clock whatever `-clock-step` says. A configuration
+migrated from a tool whose `startTime` set its clock going carries the tool's `stepSize` as its
+own step, which `-compare-results` runs it under; see below.
+
+**A Monte Carlo analysis case.** `-runs <n>` also runs the one `-analysis` that specializes
+`Simulation::MonteCarlo`, the OpenSysML library's analysis of repeated runs (the form a SysML v1
+migration gives a simulation tool's Monte Carlo pattern; see
+[Monte Carlo analyses](sysml-v1-migration.md#monte-carlo-analyses)). Each run performs the
+case's steps on a fresh object of its subject, seeded as an action's run is, and reads the value
+the case binds as `observed`; the table has one row per run with that value and its distribution
+beneath, and then the case is concluded once over the sample: `runs`, `mean`, `deviation` (the
+sample standard deviation, none under two runs) and `outOfSpec` (the runs in which a check of
+the case did not hold) are bound and the case's own outputs evaluated over them, a failed run
+failing the table. A check any run decides on its own — one of `observed`, say, or of `observed`
+and a statistic both — is a check of the runs: once the sample is in, each run's is settled over
+it and tabled in the run's row, and the runs it did not hold in are counted as `outOfSpec`, whichever
+run came last; a check every run leaves to the sample, one of `mean` or another statistic alone,
+is decided once at the conclusion and an unsatisfied one fails the verdict. A count of runs the
+sweep budget does not allow is refused
+before any run is made. An
+`observed` that is a quantity is sampled by its magnitude in the first run's unit — a later run
+in a commensurable unit is converted, one of another dimension refuses the sample — and `mean`
+and `deviation` are quantities in that unit; the sample is of numbers or of quantities, never
+both. The table stands whatever the sample: when every run failed, each run's row and error
+are tabled and the case is reported unconcluded rather than refused as a sample of nothing, and
+a run observing no number is refused naming the run and what it observed, under the table; a
+failed run fails the case whatever comes of the sample, so only a table of completed runs is left
+unresolved by a sample or a conclusion that cannot be made. The sample deviation of Reals is
+scaled before it is squared, so a finite sample has a finite deviation however large. The runs
+make their objects from their declarations, so a subject named by `#id` alone is refused, and
+`-observe` belongs to an action's runs, not a case's. Run once, without `-runs`, such a case
+leaves its statistics unbound, so a return of one of them is refused naming `-runs`.
+
+```bash
+$ sysml out.sysml -instantiate "'settling analysis'" \
+    -analysis "'Settling Analysis Monte Carlo' 'settling analysis'" -runs 2 -seed 7
+runs Settling Analysis Monte Carlo — 2 run(s), seed 7
+run | observed           | time
+----+--------------------+--------
+1   | 2.4280365013180862 | 3.736ms
+2   | 3.3645571860689465 | 3.492ms
+observed: 2 run(s), min 2.4280365013180862, mean 2.8962968436935164, max 3.3645571860689465, p50 2.4280365013180862, p90 3.3645571860689465
+  …
+✓ 'Settling Analysis Monte Carlo' over 2 run(s)
+  runs = 2
+  mean = 2.8962968436935164
+  deviation = 0.6622201269088022
+  outOfSpec = 0
+  Mean = 2.8962968436935164
+  Deviation = 0.6622201269088022
+  OutOfSpec = 0
+```
+
 ```bash
 $ sysml -action Sys::align -runs 3 -draws max -observe clock m.sysml
 runs Sys::align — 3 run(s), no seed
@@ -1057,6 +1241,44 @@ draws the model's values from `n` too, on a stream of its own. Every draw is rec
 witness the checker writes, as `draw <call> = <value>` lines, and `-schedule replay:<file>`
 consumes them instead of drawing again.
 
+## Recording analysis runs
+
+`-record-run` runs an analysis case as `-analysis` does — the same verdict lines
+and the same bindings — and then writes the run into the model as elements of the
+bundled `AnalysisRecords` library: a record definition named for the case
+(`TimedRun` for `Demo::timed`) specializing `AnalysisRecords::AnalysisRun`, in a
+`Records` package beside the case's enclosing package or the one `-record-into`
+names, and one part per run carrying a redefinition of each input bound and
+output produced, `caseName`, `kind` and `objective` — `iteration` on a sweep or
+sample's records — a `ref` to the subject and
+`@AnalysisRecords::RecordedRun` provenance metadata (`runAt`, `tool`, `command`,
+`kind`). Verdicts a trade study or verification made become
+`VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`.
+
+```bash
+$ sysml model.sysml -record-run "Demo::timed"
+✓ Demo::timed
+  x = 5.0
+  standing: value (observed: 1 run under reverse)
+  recorded Records::timed_run1 (Records::TimedRun)
+```
+
+With `-sweep` the case runs once per row and one record per row is written
+(`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case
+is sampled and each run recorded (`kind = "runs"`). Recording again of the same
+case reuses the definition and numbers the parts on (`timed_run2`), including
+after the model was saved and reloaded — the probe for the next number reads the
+model. `-convert sysml` writes the session text the records joined, so
+`-record-run ... -convert sysml -o saved.sysml` is how a recorded model is
+saved; `-render-document` composes the same way, the records made before the
+document's queries run. A run that fails, or a record submission that produces
+diagnostics, records nothing and leaves the model untouched; the submission
+re-checks the whole model, but only errors the records introduce refuse them —
+errors the model had before the run are not counted against the records, and
+a migrated SysML v1 model whose transitions declare `accept s3 : s3` parameters
+re-checks as clean as it loaded. See
+[Recording analysis runs](../manual/recording-analysis-runs.md).
+
 ## Comparing a migrated configuration with the tool's results
 
 A SysML v1 model migrated from a simulation tool (see
@@ -1066,7 +1288,7 @@ the configured classifier, with the tool's `numberOfRuns` and `durationSimulatio
 `@Simulation::Configuration` metadata — and, in its result packages, the snapshots the tool
 stored of each run. `-convert sysml -migration-results <file>` writes both as a JSON sidecar:
 one entry per configuration with its `name` (the qualified name of the generated `action def`,
-which `-action` names), `runs`, `draws`, `target`, `behavior`, `resultLocation`, the
+which `-action` names), `runs`, `draws`, `clockStep` (the tool's internal clock's step in seconds, once its `startTime` set it going), `target`, `behavior`, `resultLocation`, the
 `observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot
 values, and `notes` stating every slot left out and why (a value that is no number, a defining
 feature the document does not hold, a feature two slots of one snapshot hold numbers for, a
@@ -1080,7 +1302,7 @@ the notation is, so `'Sub::Group'` is one name and `-action Sub::Group` or `-act
 selects it; a `::` inside its quotes is no qualification), an
 `-action` no configuration bears (`no configuration is named Group 9`) or several do (`2
 configurations are named Group 1 (…)`) failing the check on its own beside the ones compared — under its recorded
-count and policy, or the `-runs`, `-draws` and `-seed` given, and tables the tool's and
+count, policy and clock step, or the `-runs`, `-draws`, `-clock-step` and `-seed` given, and tables the tool's and
 OpenSysML's distributions side by side:
 
 ```bash
@@ -1103,8 +1325,30 @@ that stored observable. The relative difference is `(OpenSysML − tool) / |tool
 `+0.0%` where both are zero and `+1 (of 0)` where only the tool's is; a stored observable the
 run holds no value for, one whose value is no number, or one the completed runs produce in more
 than one unit (a quantity in some, a bare number or another unit in others, which no one
-distribution can pool) is a note under the table rather than a missing row; a configuration the tool stored no snapshot of, or whose behavior was not migrated,
-is undecided saying so, with the sidecar's notes. A run that fails is an `error:` line under the
+distribution can pool) is a note under the table rather than a missing row. A configuration the
+tool stored no snapshot of is run all the same, its table holding a `tool (no stored result to
+compare)` row of zero runs over OpenSysML's statistics of the observable its analysis summarises,
+or of every feature the runs produced a number for; one stating no `numberOfRuns` is run once, as
+its tool runs it, under a note saying so (`-runs` makes more); one whose behavior was not migrated
+is undecided naming it, with the sidecar's notes. A summarising snapshot another configuration's
+repeats — the same name and the same statistics (count, mean and deviation), no observable both
+hold a different number of — is noted under each as a likely copy naming the other configuration
+and its result location, since a Monte Carlo does not come out alike twice, and compared all the
+same. Summaries of one observable whose means lie more than three standard errors apart cannot
+be of runs of one and the same model — the tool ran them under other values than the snapshots
+record — so they are noted by name under the table, and the pooled mean they are compared by is
+said to blend them. An observable a migrated Monte Carlo analysis def was written for
+(the sidecar's `analysisCase` and `statistics`) is followed by a table of the case's
+statistics — its declared returns first (`return Mean`), then the outputs of
+`Simulation::MonteCarlo` the tool stored without a return (`out deviation`), the case computing
+them all: the tool's `Mean` and `Deviation` pooled over its summaries, the
+runs' by the same aggregation (the arithmetic mean, the sample standard deviation) and their
+relative difference; `N` side by side, undifferenced, each side's count being its own choice;
+`OutOfSpec` the tool's alone, noted as its own criterion, which no migrated check evaluates. A
+summary that kept no deviation leaves the tool's `Deviation` blank with a note. A configuration whose tool ran it on a stepped
+clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
+step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
+replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the
 table and fails the comparison (exit status `1`), as it fails a `-runs` table: the statistics
 are of the completed runs only, so they are not passed off as the configuration's. The statistics
 are nearest-rank on both sides,
@@ -1113,6 +1357,17 @@ one check of the report, `compare <name>`, whose `lines` are the table and the n
 are what the two executions produced — nothing is scaled, filtered or tuned — so a behavior whose
 bodies or guards are not migrated compares honestly short, and the configuration's `-runs`
 override lets a tool's single stored run be set beside a hundred of OpenSysML's.
+
+The configurations are compared one after another, each printed as soon as it is decided, and
+their runs go `-jobs` at a time ([Running in parallel](#running-in-parallel)) over the one loaded
+model: the parsed and resolved documents, their symbol index and the index of the model's `about`
+metadata are shared read-only by every worker, each worker holding memo tables of its own, and a
+run's objects and messages are released once its observables are read — its trace alone is kept
+for `-trace`. What a comparison of a large migrated model holds at once is therefore the model,
+the workers and the runs in flight, not every run made, so its memory grows with `-jobs` rather
+than with `-runs` or the number of configurations. The default job count is bounded by the memory
+available (see `-jobs`); set `-jobs` or `OPENSYSML_JOBS` lower on a machine the default still
+strains, or run one configuration at a time with `-action`.
 
 ## Exploring every linearization
 
@@ -1146,18 +1401,23 @@ is up is the run's error, as it is undecided under one policy.
 Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
 the states it visited and its context's values; an analysis case's outputs and verdicts — are one
 *outcome*. The report is one row per distinct outcome, sorted by the outcome's rendering, with the
-number of linearizations that reached it and the choice sequence of one witness run, then a status
-line:
+number of linearizations that reached it, its *probability* and the choice sequence of one
+witness run, then a status line. A linearization's probability is the product of the shares its
+choice points resolved with: a [`@Probability`-weighted](../guide/06-behavior.md#when-a-model-states-its-own-odds) pick its stated weight's
+share of the weights drawn over, an unweighted one the uniform share `seed:<n>` takes each
+alternative with — so the column is the model's own probability where every choice point is
+weighted, and otherwise assumes the open scheduling choices are taken uniformly at random. The
+column sums to `1` over a complete exploration:
 
 ```bash
 $ sysml -schedule explore -action test::race three-writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability        | witness
+---------------------------------------------+----------------+--------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
@@ -1172,10 +1432,11 @@ and two runs binding different objects under one id are two.
 **Budget.** `explore` alone runs at most 1024 runs and resolves at most 64 choice points per run;
 `explore:runs=N`, `explore:depth=D` and `explore:runs=N,depth=D` (in either order) set them. `N`
 is a decimal integer of at least 1 and `D` of at least 0. Hitting either budget is never silent:
-the status line becomes `incomplete: <budget> budget <limit> hit after N runs` (naming both, `runs`
-then `depth`, when both were hit), the outcomes reached so far are still tabled, the check is
-reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer whether
-other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
+the status line becomes `incomplete: <budget> budget <limit> hit after N runs; probabilities are
+lower bounds` (naming both budgets, `runs` then `depth`, when both were hit), the probability column
+reads `≥` what an exhaustive search would reach, the outcomes reached so far are still tabled, the
+check is reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer
+whether other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
 run and reports `incomplete: depth budget 0 hit after 1 runs`. A choice point met past `depth`
 takes its first alternative in every run and is never varied, however many runs remain: a run of
 more choice points than `depth` — the witness lists every one its run met — needs `depth` raised
@@ -1189,14 +1450,17 @@ outcome is what distinguishes the outcomes and the full set would repeat every p
 replay.
 
 With `-json` the check carries the rows as `outcomes` — each with its `values`, `linearizations`,
-`witness` (one choice per entry, in run order) and, for a failed run, its `error` — and how the
-exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
+`probability` (the sum of the shares of the linearizations reaching it), `witness` (one choice per
+entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
+`exploration` (`complete`, `runs`, `budgetsHit`), `probabilitiesLowerBound` added and true when the
+search was cut short:
 
 ```json
 {"checks": [{"subject": "Mission::race", "status": "unresolved",
   "outcomes": [{"values": [{"name": "x", "value": "2"}], "linearizations": 1,
+                "probability": 0.16666666666666666,
                 "witness": ["step 3: 2@left first of 2@left, 3@right"]}],
-  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"]}}]}
+  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"], "probabilitiesLowerBound": true}}]}
 ```
 
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
@@ -1243,9 +1507,11 @@ subject of a service request ([wire contract](wire-contract.md)), and `-engine c
 
 ### Running in parallel
 
-`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU) lets `n` runs of one exploration go at
-once, each on a worker of its own — a resolver and semantic model per worker over the one loaded
-model, so no run sees another's memo or object. The prefixes explore discovers form a work queue
+`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU — fewer where the memory available at
+startup leaves less than 512 MiB per worker, read on Linux from `MemAvailable` and the cgroup's
+`memory.max`, and never fewer than one) lets `n` runs of one exploration go at once, each on a
+worker of its own — a resolver and semantic model per worker over the one loaded model, so no run
+sees another's memo or object. The prefixes explore discovers form a work queue
 ordered as the sequential exploration would take them, and the report is assembled in that order:
 the outcome table, each outcome's witness (the least prefix reaching it), the run count and the
 budget hit are the ones `-jobs 1` reports, byte for byte, whatever `n` is. A `runs` budget is a
@@ -1262,6 +1528,12 @@ the rows, their outputs, verdicts, evaluations and errors are those of `-jobs 1`
 
 With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
 `warming`, the milliseconds spent building them; the human-readable report does not print them.
+
+The same count sets how many files of one load are parsed and validated at once. The files named
+on the command line are parsed on `n` workers, indexed together once, and analysed on `n` workers,
+each file as a document of its own; the diagnostics are those of `-jobs 1`, in command-line order,
+whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
+single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
 
 ## Analysis engines
 
@@ -1309,8 +1581,9 @@ sweep    built-in  -         observed   sweep            ready
 Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
 the same way with its executable's status (`tool:ModelCenter  tool  object  observed  compute
 ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a
-performance of an action annotated `ToolExecution` asks, and nothing else does, so a tool that
-is unregistered or fails stops that performance rather than falling back to the action's body
+performance of an action — or an invocation of a `calc def` or calc usage — annotated
+`ToolExecution` asks, and nothing else does, so a tool that
+is unregistered or fails stops that performance or calculation rather than falling back to the body
 ([External tools](environment.md#external-tools)). Every engine the manifest directory
 `OPENSYSML_ENGINES` names is listed under its own name, with the manifest's authority and
 answers and the status its file can tell; a `policy`, `sampler` or `module` entry is listed as
@@ -1452,9 +1725,9 @@ schedule. The verdicts:
 
 | Verdict | Means | Status |
 |---------|-------|--------|
-| `no violation, exhaustive` | every schedule ended complete, no bound was hit, no interleaving was left out and no property was false. The one verdict that is a proof — relative to the atomic step and the properties named — and the standing is *bounded over schedules*, never *proved*, because the checker's atomic step is coarser than the interpreter's | `0` |
-| `no violation within bounds` | no violation on the schedules searched, but a bound cut some of them, named after `bounds hit:`, or the search reached a state whose moves leave a run out, named after `not enumerated:` — `do round before dispatch` is a machine owing a dispatch after a `do` step that left a token able to act standing (one ready beside the token moved, or one its move freed), where the fixed policies move it first and the checker's one move dispatches ([the guide](../guide/06-behavior.md#a-do-behavior-under-explore-and-check)); the standing is *bounded* with a bound reached marked `(reached)` | `2` |
-| `violation` | a `-check-property` false at a reached state, a deadlock (`ErrActionDeadlock`, `ErrAcceptDeadlock` on that schedule), or a typed error a body raised — an unbound parameter, a dangling succession, a division by zero, an `accept` whose `via` port does not resolve — each with the schedule that reaches it; a budget the executor exhausts is a bound, not a violation | `1` |
+| `no violation, exhaustive` | every schedule ended complete, no bound was hit and no property was false. The one verdict that is a proof — relative to the atomic step and the properties named — and the standing is *bounded over schedules*, never *proved*, because the checker's atomic step is coarser than the interpreter's; a machine's `do` behavior is stepped one token move at a time, the dispatch drawn against each move, so the fixed policies' whole round is one of the schedules searched ([the guide](../guide/06-behavior.md#a-do-behavior-under-explore-and-check)) | `0` |
+| `no violation within bounds` | no violation on the schedules searched, but a bound cut some of them, named after `bounds hit:`; the standing is *bounded* with the bound marked `(reached)` | `2` |
+| `violation` | a `-check-property` false at a reached state, a deadlock (`ErrActionDeadlock`, `ErrAcceptDeadlock` on that schedule), or a typed error a body raised — an unbound parameter, a dangling succession, a division by zero, an `accept` whose `via` port does not resolve — each with the schedule that reaches it and a `(probability <mass>)` on its line: the share of the schedule space reaching it, `≥`-prefixed when the search was bounded, revisited a state or left a move out; a budget the executor exhausts is a bound, not a violation | `1` |
 | `divergent` | no violation, and a feature `-check-diverge` names (or, absent one, an attribute of a behavior or its performing object, a machine's `finalState`) ends with different values on different schedules; each value with one witness. The library admits the divergence; the model depends on a tool's choice | `1` |
 | `incomplete: time` | `-check-timeout` ended the plan before the search did; the states and depth it reached are named and the result is *not covered* | `2` |
 
@@ -1553,9 +1826,13 @@ search is an action's alone), and a bound that is no positive integer (`-check-d
 
 With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,
 `strength`, `bounds` and `witness`, a `check` object: `verdict`, `states`, `moves`, `depth`,
-`boundsHit[]`, `notEnumerated[]`, `violations[]` (each with its `kind`, `detail`, `witness`
+`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness`
 choices, the `draws` the run made when it drew, and file `path`), `divergent[]` (each `feature`
-with its `values[]`, each with `value`, `witness`, `draws` and `path`) and `outcomes[]`.
+with its `values[]`, each with `value`, `witness`, `draws` and `path`) and `outcomes[]`. Each
+violation also carries `mass`: the sum of the path probabilities of the search paths reaching it —
+a weighted pick its stated share, an unweighted choice the uniform `1/n` a `seed:<n>` takes each
+alternative with — and the check object carries `massLowerBound`, true when a bound was hit, a state was reached again or the persistent-set reduction left a move
+out, since the masses then bound the true figure from below.
 
 ### Deciding a property over the inputs
 
@@ -1715,6 +1992,41 @@ With `-json` the `smt` engine's `results[]` entry carries the pair as `witness` 
 each with its `schedule`, `choices`, `inputs[]` and the `path` `-check-witness` wrote, and the
 verdict's `reason` names the two values and the parting move.
 
+## Reading and pushing a repository branch
+
+A `-convert` run may name a Flexo MMS project branch on either side, in one of two URL forms:
+`http(s)://host[:port][/base]/projects/{project}/branches/{branch}` — the SysML v2 API's own
+branch resource, where everything before `/projects/` is the endpoint and must be the
+one `FLEXO_SYSMLV2_URL` configures — a URL for another endpoint is refused, since the
+read and the push go through `FLEXO_LAYER1_URL` — or `flexo://{project}/{branch}`, the
+shorthand for that configured endpoint (default `http://localhost:8083`). Both need the
+bearer token `FLEXO_INTEROP_TOKEN`, and a plaintext `http://` endpoint off this machine
+is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`.
+
+As the model argument the branch is **read** as its head commit's RDF graph — the same read
+`-sync-diff` makes through Layer 1 — so `-convert sysml` writes it back as notation and
+`-convert ttl` as normalized Turtle, and `-from` accepts only the RDF spellings (`ttl`,
+`turtle`, `rdf`). As `-o` the branch is **pushed**: `-convert ttl` replaces the branch's whole
+model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
+Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
+written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
+A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
+the same file `-sync-state` does is refused, since the model would replace the recorded commit.
+
+```bash
+sysml flexo://demo/main -convert sysml                       # branch to notation on stdout
+sysml flexo://demo/main -convert sysml -o model.sysml        # ...to a file, recording the head
+sysml model.sysml -convert ttl -o flexo://demo/main          # replace the branch's model graph
+sysml model.sysml -convert ttl -o https://mms.example.com/projects/demo/branches/main
+# ...when FLEXO_SYSMLV2_URL and FLEXO_LAYER1_URL point at that same stack
+```
+
+The head commit a read or push stood at is recorded in the sync state — `-sync-state <file>`,
+or `<output>.sync.json` beside a `-o` file on a read and `<model>.sync.json` on a push — so a
+later push is refused rather than silently overwriting another writer's commit, exactly the
+moved-head refusal `-sync-apply` gives. A stdout-only read records nothing unless `-sync-state`
+names a file.
+
 ## Output Format
 
 All evaluations include checkmark and result:
@@ -1804,6 +2116,7 @@ the one place it is written down; [the guide](../guide/) links here.
 | `0` | What was asked for was done: every file loaded and analysed cleanly, every `-e` expression produced a value (`<undetermined>`, the model-level value of an expression over a feature the model leaves open, is one), every check held, a conversion was written. Warnings leave the status `0`. |
 | `1` | The model answered false: a constraint, requirement or satisfaction assertion the model decided did not hold. Only a verdict reports this status. |
 | `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made (including a condition that is `<undetermined>`: it is reported as `no value`, naming the feature the model leaves open, never as a verdict), an exploration that hit its budget before every linearization was tried, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
+| `3` | Part of what was asked for was done: a `-render-documents` set in which at least one document could not be rendered. Every document that rendered was written, a page stating the error was written in place of each one that did not, and each failure was reported on stderr with the document's qualified name. Only a set of independent outputs reports this status. |
 
 ```bash
 $ printf '%s\n' 'constraint MassBudget { 1 > 2 }' > model.sysml
@@ -1822,13 +2135,13 @@ sysml: OPENSYSML_MAX_STEPS="abc" is not an integer: set it to a positive number 
 2
 
 $ sysml examples/parser_features_demo_advanced_bodies.kerml -convert ttl; echo $?
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
 sysml: cannot convert the operator expr at examples/parser_features_demo_advanced_bodies.kerml:87:9: save to .sysml or .kerml instead, which writes the source exactly; see docs/reference/rdf-mapping.md § Limitations
 2
 
 $ sysml examples/state-machine-demo.sysml -convert ttl -o /tmp/state-machine.ttl; echo $?
-note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/state-machine.ttl (ttl, 2078 bytes)
+note: RDF conversion — Turtle and the API's JSON element form alike — is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
+wrote /tmp/state-machine.ttl (ttl, 8932 bytes)
 0
 ```
 

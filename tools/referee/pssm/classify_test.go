@@ -1,6 +1,7 @@
 package pssm
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -73,11 +74,49 @@ func TestClassifyStandard(t *testing.T) {
 	}
 }
 
+// A deferred signal is standard notation, an ordered buffer the state's do
+// action keeps it in and its exit action flushes; a deferred call and a
+// deferral in a state left by an unguarded completion transition are not.
+func TestClassifyDeferral(t *testing.T) {
+	deferring := `<subvertex xmi:type="uml:State" xmi:id="xD" name="D"><deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt" event="%s"/></subvertex>`
+	c := classifyFixture(t, "", fmt.Sprintf(deferring, "evData"))
+	if c.Class != Standard || len(c.Uses) != 0 {
+		t.Errorf("deferred signal classified %s (%s)", c.Class, c.Reason())
+	}
+	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+`
+          <transition xmi:type="uml:Transition" xmi:id="xTd" name="TD" source="xD" target="xFin"/>`)
+	if c.Class != NotExpressible || c.Reason() != "deferral in a state left by an unguarded completion transition D" {
+		t.Errorf("deferral before an unguarded completion classified %s (%s)", c.Class, c.Reason())
+	}
+	completion := `
+          <transition xmi:type="uml:Transition" xmi:id="xTd" name="TD" source="xD" target="xFin" guard="xTdg"><ownedRule xmi:type="uml:Constraint" xmi:id="xTdg"><specification xmi:type="uml:LiteralBoolean" xmi:id="xTdgv" value="%s"/></ownedRule></transition>`
+	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+fmt.Sprintf(completion, "true"))
+	if c.Class != NotExpressible || c.Reason() != "deferral in a state left by an unguarded completion transition D" {
+		t.Errorf("deferral before a completion guarded by a literal true classified %s (%s)", c.Class, c.Reason())
+	}
+	c = classifyFixture(t, "", fmt.Sprintf(deferring, "evData")+fmt.Sprintf(completion, "false"))
+	if c.Class != Standard || len(c.Uses) != 0 {
+		t.Errorf("deferral before a guarded completion classified %s (%s)", c.Class, c.Reason())
+	}
+	src := strings.Replace(machineSuite("", fmt.Sprintf(deferring, "evOp")),
+		fixtureEvents, fixtureEvents+`  <packagedElement xmi:type="uml:CallEvent" xmi:id="evOp" operation="opOp"/>
+`, 1)
+	src = strings.Replace(src,
+		`<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>`,
+		`<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="opOp" name="op"/>`, 1)
+	s := readFixture(t, src)
+	noDiagnostics(t, s)
+	c = Classify(s.Tests[0])
+	if c.Class != NotExpressible || c.Reason() != "deferred call D" {
+		t.Errorf("deferred call classified %s (%s)", c.Class, c.Reason())
+	}
+}
+
 func TestClassifyExtensions(t *testing.T) {
 	cases := []struct {
 		name, body, want string
 	}{
-		{"defer", `<subvertex xmi:type="uml:State" xmi:id="xD" name="D"><deferrableTrigger xmi:type="uml:Trigger" xmi:id="xDt" event="evData"/></subvertex>`, "defer D"},
 		{"fork", `<subvertex xmi:type="uml:Pseudostate" xmi:id="xF" name="Fork1" kind="fork"/>`, "fork Fork1"},
 		{"join", `<subvertex xmi:type="uml:Pseudostate" xmi:id="xJ" name="Join1" kind="join"/>`, "join Join1"},
 		{"junction", `<subvertex xmi:type="uml:Pseudostate" xmi:id="xJn" name="Junction1" kind="junction"/>`, "junction Junction1"},
@@ -153,7 +192,7 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 	}
 }
 
-func TestClassifyStandaloneAndRedefinedMachine(t *testing.T) {
+func TestClassifyRedefinedMachine(t *testing.T) {
 	src := strings.Replace(machineSuite("", ""),
 		`<ownedBehavior xmi:type="uml:StateMachine" xmi:id="smX" name="Area001_Test">`,
 		`<ownedBehavior xmi:type="uml:StateMachine" xmi:id="smX" name="Area001_Test" redefinedBehavior="smX">`, 1)
@@ -161,16 +200,6 @@ func TestClassifyStandaloneAndRedefinedMachine(t *testing.T) {
 	c := Classify(s.Tests[0])
 	if c.Class != NotExpressible || c.Reason() != "redefined state machine Area001_Test" {
 		t.Errorf("redefined machine classified %s (%s)", c.Class, c.Reason())
-	}
-
-	sa := &Test{
-		Name:    "Standalone 001",
-		Target:  &Class{Name: "SA_Test", Standalone: true},
-		Machine: &StateMachine{Name: "SA_Test"},
-	}
-	c = Classify(sa)
-	if c.Class != NotExpressible || c.Reason() != "standalone state machine SA_Test" {
-		t.Errorf("standalone classified %s (%s)", c.Class, c.Reason())
 	}
 
 	c = Classify(&Test{Name: "none"})

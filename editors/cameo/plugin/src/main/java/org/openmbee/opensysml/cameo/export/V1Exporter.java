@@ -22,24 +22,35 @@ public final class V1Exporter {
       if (Files.isRegularFile(file)) return new V1MdzipSource(file);
     }
     try {
-      Path directory = Files.createTempDirectory("opensysml-cameo");
+      Path base = Path.of(System.getProperty("user.home"), ".opensysml", "cameo-exports");
+      Files.createDirectories(base);
+      Path directory = Files.createTempDirectory(base, "export");
       Path destination = directory.resolve("project.mdzip");
-      ProjectDescriptor descriptor = ProjectDescriptorsFactory.createLocalProjectDescriptor(project, destination.toFile());
-      try {
-        Application.getInstance().getProjectsManager()
-            .exportModule(project, List.of(project.getPrimaryModel()), "OpenSysML run", descriptor);
-      } catch (RuntimeException failure) {
-        try {
-          Files.deleteIfExists(destination);
-          Files.deleteIfExists(directory);
-        } catch (IOException cleanupFailure) {
-          failure.addSuppressed(cleanupFailure);
-        }
-        throw failure;
-      }
+      exportModule(project, directory, destination);
       return new V1MdzipSource(destination, true);
     } catch (IOException exception) {
       throw new UncheckedIOException("cannot create the OpenSysML export directory", exception);
+    }
+  }
+
+  private static void exportModule(Project project, Path directory, Path destination) {
+    ProjectDescriptor descriptor =
+        ProjectDescriptorsFactory.createLocalProjectDescriptor(project, destination.toFile());
+    try {
+      Application.getInstance().getProjectsManager()
+          .exportModule(project, List.of(project.getPrimaryModel()), "OpenSysML run", descriptor);
+    } catch (RuntimeException failure) {
+      discard(destination, directory, failure);
+      throw failure;
+    }
+  }
+
+  private static void discard(Path destination, Path directory, RuntimeException failure) {
+    try {
+      Files.deleteIfExists(destination);
+      Files.deleteIfExists(directory);
+    } catch (IOException cleanupFailure) {
+      failure.addSuppressed(cleanupFailure);
     }
   }
 }

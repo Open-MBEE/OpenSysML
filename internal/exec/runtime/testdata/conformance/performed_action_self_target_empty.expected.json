@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::Idle",
+  "slots": {
+    "idle": {"type": "Instance"}
+  },
+  "materialization": {}
+}

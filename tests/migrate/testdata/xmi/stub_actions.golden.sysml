@@ -1,0 +1,58 @@
+part def Probe;
+part def Logger;
+part def Rig {
+    part probe : Probe;
+    part logger : Logger;
+    attribute last : ScalarValues::Real;
+    action record {
+        in value : ScalarValues::Real[0..1];
+        first start then 'set last';
+        action 'set last' {
+            in value[0..1];
+            if value->SequenceFunctions::notEmpty() {
+                assign last := value;
+            }
+        }
+        first 'set last' then final;
+        action final terminate;
+        bind 'set last'.value = value;
+        metadata MigrationMetadata::SynthesizedName about final;
+    }
+    action sampling {
+        out sample : ScalarValues::Real[0..1];
+        first start then gain;
+        action gain {
+            out result[1] = 2.5;
+        }
+        first gain then 'fork';
+        fork 'fork';
+        first 'fork' then stamp;
+        first 'fork' then 'join';
+        action stamp {
+            out result[1] = 7;
+        }
+        first stamp then fork2;
+        fork fork2;
+        first fork2 then 'join';
+        first fork2 then join2;
+        join 'join';
+        first 'join' then measure;
+        action measure {
+            in gain : ScalarValues::Real[1];
+            out reading : ScalarValues::Real[0..1];
+        }
+        first measure then join2;
+        join join2;
+        first join2 then record;
+        perform action record ::> Rig::record;
+        first record then final;
+        action final terminate;
+        flow gain.result to measure.gain;
+        flow measure.reading to record.value;
+        bind sample = measure.reading;
+        metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
+        metadata MigrationMetadata::StandIn about 'fork', fork2, 'join', join2;
+    }
+}
+dependency Rig::sampling::measure to Rig::probe;
+dependency Rig::sampling::record to Rig::logger;

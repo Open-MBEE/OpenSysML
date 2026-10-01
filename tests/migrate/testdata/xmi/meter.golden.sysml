@@ -7,6 +7,7 @@ part def Gauge {
     action def Tick {
         first start then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }
 part def Needle :> Gauge;
@@ -53,74 +54,82 @@ part def Meter {
     attribute top : ScalarValues::Real {
         /* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */
     }
-    action def Measure {
+    action measure {
         first start then sense;
         action sense {
-            in x : ScalarValues::Real = 1.5;
-            out y : ScalarValues::Real;
+            in x : ScalarValues::Real[1] = 1.5;
+            out y : ScalarValues::Real[1];
             assign y := x * 2;
         }
         first sense then record;
         action record {
-            in v : ScalarValues::Real;
-            assign this.total := v + 1;
-            assign this.peak := v;
+            in v : ScalarValues::Real[1];
+            assign total := v + 1;
+            assign peak := v;
         }
         first record then split;
         action split {
-            assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);
-            assign this.ratio := this.total / 2;
-            assign this.floored := RealFunctions::floor(this.total) / 8;
-            assign this.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(this.total + 0.5), 8);
+            assign half := OpenSysMLMathFunctions::quotient(ticks, 2);
+            assign ratio := total / 2;
+            assign floored := RealFunctions::floor(total) / 8;
+            assign rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(total + 0.5), 8);
         }
         first split then quarterly;
         action quarterly {
-            assign this.quarter := OpenSysMLMathFunctions::quotient(this.ticks, 4);
+            assign quarter := OpenSysMLMathFunctions::quotient(ticks, 4);
         }
         first quarterly then cc;
         action cc {
-            assign this.eighth := this.ticks / 8;
+            assign eighth := ticks / 8;
         }
         first cc then judge;
         action judge {
-            in ok : ScalarValues::Boolean;
-            in n : ScalarValues::Integer = RealFunctions::floor(this.total);
-            in m : ScalarValues::Integer = 2;
-            assign this.count := n + m;
+            in ok : ScalarValues::Boolean[1];
+            in n : ScalarValues::Integer[1] = RealFunctions::floor(total);
+            in m : ScalarValues::Integer[1] = 2;
+            assign count := n + m;
         }
-        first judge then final;
+        first judge then log;
+        action log {
+            assign ticks := ticks + 1;
+        }
+        first log then shout;
+        action shout;
+        first shout then final;
         action final terminate;
         flow sense.y to record.v;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Skip {
+    action skip {
         first start then idle;
         action idle {
-            out z : ScalarValues::Real;
-            assign this.total := this.total * 1;
+            out z : ScalarValues::Real[1];
+            assign total := total * 1;
         }
         first idle then sink;
         action sink {
-            in w : ScalarValues::Real;
-            assign this.total := w;
+            in w : ScalarValues::Real[0..1];
+            if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first sink then dark;
         action dark {
-            out q : ScalarValues::Real;
+            out q : ScalarValues::Real[1];
             /* body not migrated (the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python)) {Python}:
              * q = 1
              */
         }
         first dark then drain;
         action drain {
-            in w : ScalarValues::Real;
-            assign this.total := w;
+            in w : ScalarValues::Real[0..1];
+            if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first drain then final;
         action final terminate;
         /* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */
         /* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */
+        metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Flip {
+    action flip {
         first start then bump;
         action bump {
             /* body not migrated (the types at "+" disagree: an operand is a Mode, not a number) {JavaScript}:
@@ -141,7 +150,7 @@ part def Meter {
         }
         first match then widen;
         action widen {
-            assign this.dial := this.hand;
+            assign dial := hand;
         }
         first widen then narrow;
         action narrow {
@@ -157,12 +166,12 @@ part def Meter {
         }
         first huge then smile;
         action smile {
-            assign this.label := "😀";
-            assign this.count := 9007199254740991;
+            assign label := "😀";
+            assign count := 9007199254740991;
         }
         first smile then same;
         action same {
-            assign this.lit := this.label == "😀";
+            assign lit := label == "😀";
         }
         first same then 'alias';
         action 'alias' {
@@ -172,12 +181,13 @@ part def Meter {
         }
         first 'alias' then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Arm {
-        in armed : ScalarValues::Boolean {
+    action arm {
+        in armed : ScalarValues::Boolean[1] {
             /* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */
         }
-        in limit : ScalarValues::Integer default = this.count + 1;
+        in limit : ScalarValues::Integer[1] default = count + 1;
         first start then fuse;
         action fuse {
             /* body not migrated (the text "and" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:
@@ -187,12 +197,13 @@ part def Meter {
         /* guard not migrated: [{JavaScript} ready and enabled] — the text "and" is not expression syntax: text follows the expression */
         first fuse then latch;
         action latch {
-            assign this.flag := this.ready and this.enabled;
+            assign flag := ready and enabled;
         }
         first latch then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Sweep {
+    action sweep {
         first start then spread;
         action spread {
             /* body not migrated (the types at "+" disagree: an operand is a collection, not a number) {JavaScript}:
@@ -201,13 +212,13 @@ part def Meter {
         }
         first spread then reset;
         action reset {
-            /* body not migrated (the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects) {JavaScript}:
+            /* body not migrated (the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects) {JavaScript}:
              * cells.reading = 1;
              */
         }
         first reset then peak;
         action peak {
-            assign this.total := this.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
+            assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
         }
         first peak then calib;
         action calib {
@@ -246,5 +257,6 @@ part def Meter {
         /* partition 'cells' represents Meter::cells: calib, span, ticking */
         /* partition 'banks' represents Meter::banks: charge */
         /* partition 'bank' represents Bank: settle */
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

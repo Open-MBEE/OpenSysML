@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 )
 
 // Target is a code generation backend.
@@ -28,13 +30,20 @@ const CCompilerEnvVar = "OPENSYSML_CC"
 // GoCommandEnvVar names the go command TargetGo drives (default: go).
 const GoCommandEnvVar = "OPENSYSML_GO"
 
-// goCommand resolves the go executable to an absolute path once, before it runs.
-func goCommand() (string, error) {
-	g := os.Getenv(GoCommandEnvVar)
-	if g == "" {
-		g = "go"
+func compilerName(target Target) string {
+	envVar, defaultName := CCompilerEnvVar, "cc"
+	if target == TargetGo {
+		envVar, defaultName = GoCommandEnvVar, "go"
 	}
-	resolved, err := exec.LookPath(g)
+	if name := os.Getenv(envVar); name != "" {
+		return name
+	}
+	return defaultName
+}
+
+// goCommand resolves name to an absolute executable path once, before it runs.
+func goCommand(name string) (string, error) {
+	resolved, err := exec.LookPath(name)
 	if err != nil {
 		return "", err
 	}
@@ -78,6 +87,10 @@ func Build(p *Program, target Target, output string) error {
 	if err != nil {
 		return err
 	}
+	// Check before writing source or looking up a tool the host cannot run.
+	if err := hostcap.CheckSpawn(compilerName(target)); err != nil {
+		return fmt.Errorf("codegen: %w", err)
+	}
 	srcPath := output + SourceExtension(target)
 	if err := os.WriteFile(srcPath, src, 0o600); err != nil {
 		return err
@@ -85,10 +98,7 @@ func Build(p *Program, target Target, output string) error {
 	var cmd *exec.Cmd
 	switch target {
 	case TargetC:
-		cc := os.Getenv(CCompilerEnvVar)
-		if cc == "" {
-			cc = "cc"
-		}
+		cc := compilerName(TargetC)
 		args := append(append([]string{}, CFlags...), "-o", output, srcPath, "-lm")
 		cmd = exec.Command(cc, args...) // #nosec G204 -- the compiler is the operator's choice, the arguments are ours
 	case TargetGo:
@@ -109,7 +119,7 @@ func Build(p *Program, target Target, output string) error {
 		if err != nil {
 			return err
 		}
-		goBin, err := goCommand()
+		goBin, err := goCommand(compilerName(TargetGo))
 		if err != nil {
 			return fmt.Errorf("codegen: no go command: %w", err)
 		}

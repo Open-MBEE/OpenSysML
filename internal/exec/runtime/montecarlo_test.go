@@ -1,12 +1,15 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // The seed of each run is a function of the Monte Carlo's seed and the run's
@@ -144,7 +147,8 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 	if d := Distribute(reals(0.5, 0.25, 0.25)); d.Mean != 1.0/3 {
 		t.Errorf("mean %v, want 1/3 rounded once", d.Mean)
 	}
-	if inf := Distribute(reals(1, math.Inf(1))); !math.IsInf(inf.Mean, 1) {
+	inf := Distribute(reals(1, math.Inf(1)))
+	if !math.IsInf(inf.Mean, 1) {
 		t.Errorf("mean %v, want +Inf where an observation is", inf.Mean)
 	}
 	tiny := math.SmallestNonzeroFloat64
@@ -160,10 +164,23 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 	if len(wide.Histogram) != 1 || wide.Histogram[0].Count != 3 || wide.Mean != 0 {
 		t.Errorf("over the whole Real range: bins %v mean %v, want one bin and a mean of 0", wide.Histogram, wide.Mean)
 	}
+	if far := Distribute(reals(9e307, 1e308)); math.Abs(far.Deviation-5e306*math.Sqrt2) > 1e292 {
+		t.Errorf("deviation %v, want %v: the squared deviations overflow, the deviation does not", far.Deviation, 5e306*math.Sqrt2)
+	}
+	if wide.Deviation != math.MaxFloat64 {
+		t.Errorf("deviation %v over the whole Real range, want %v", wide.Deviation, math.MaxFloat64)
+	}
+	if off := Distribute(reals(-math.MaxFloat64, math.MaxFloat64, math.MaxFloat64, math.MaxFloat64)); off.Deviation != math.MaxFloat64 {
+		t.Errorf("deviation %v about a mean of max/2, want %v: the distance from the mean overflows, the deviation does not", off.Deviation, math.MaxFloat64)
+	}
+	if huge.Deviation != 0 || !math.IsInf(inf.Deviation, 1) {
+		t.Errorf("deviation %v of equal values, want 0; %v where an observation is infinite, want +Inf", huge.Deviation, inf.Deviation)
+	}
 }
 
 // Integers beyond 2^53, which a Real cannot tell apart, stay distinct in every
-// statistic but the mean, and the whole Integer range bins without overflowing.
+// statistic but the mean — the deviation is of the exact Integers about their exact
+// mean, rounding once at the root — and the whole Integer range bins without overflowing.
 func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	const big = int64(1) << 53
 	d := Distribute(ints(big+1, big))
@@ -172,6 +189,12 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	}
 	if d.Mean != float64(big) {
 		t.Errorf("mean %v, want the nearest Real to %d.5", d.Mean, big)
+	}
+	if d.Deviation != math.Sqrt(0.5) {
+		t.Errorf("deviation %v, want %v: the sample deviation of two Integers one apart", d.Deviation, math.Sqrt(0.5))
+	}
+	if spread, want := Distribute(ints(math.MaxInt64, math.MinInt64)), math.Sqrt(0.5)*math.Ldexp(1, 64); math.Abs(spread.Deviation-want) > want*1e-15 {
+		t.Errorf("deviation over the Integer extremes %v, want %v", spread.Deviation, want)
 	}
 	want := []HistogramBin{{drawnInt(big), drawnInt(big), 1}, {drawnInt(big + 1), drawnInt(big + 1), 1}}
 	if !reflect.DeepEqual(d.Histogram, want) {
@@ -190,5 +213,67 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	}
 	if extremes.Mean != 0 {
 		t.Errorf("mean %v, want 0: the sum is exact before it rounds", extremes.Mean)
+	}
+}
+
+// A sample is of numbers or of quantities: quantities are expressed in the first
+// run's unit and the statistics carry it; a sample mixing the two, or quantities of
+// different dimensions, or observing no number at all, is refused naming the run.
+func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
+	metre := semantics.UnitFactor{Unit: &symbols.Symbol{Name: "m"}, Exponent: 1}
+	second := semantics.UnitFactor{Unit: &symbols.Symbol{Name: "s"}, Exponent: 1}
+	quantity := func(num semantics.Value, text string, scale float64, factor semantics.UnitFactor) Value {
+		return NewQuantityValue(&Quantity{Num: num, Unit: Unit{Text: text, Term: semantics.UnitTerm{
+			Scale: semantics.UnitScale(scale), Factors: []semantics.UnitFactor{factor},
+		}}})
+	}
+	runs := func(observed ...Value) []*MonteCarloRun {
+		made := make([]*MonteCarloRun, len(observed))
+		for i, v := range observed {
+			made[i] = &MonteCarloRun{Case: "Mc", Number: int64(i + 1), Observed: v}
+		}
+		return made
+	}
+	km := quantity(semantics.Value{Kind: semantics.ValInt, Int: 1}, "SI::km", 1000, metre)
+	m := quantity(semantics.Value{Kind: semantics.ValReal, Real: 3000}, "SI::m", 1, metre)
+	s := quantity(semantics.Value{Kind: semantics.ValInt, Int: 2}, "SI::s", 1, second)
+
+	single := NewSequence()
+	single.Append(km)
+	stats, err := MonteCarloSample(runs(km, m, NewSequenceValue(single)))
+	if err != nil {
+		t.Fatalf("MonteCarloSample: %v", err)
+	}
+	if stats.Runs != 3 || stats.Mean != 5.0/3 || stats.Unit == nil || stats.Unit.Text != "SI::km" {
+		t.Errorf("stats = %+v; want 3 runs with mean 5/3 in SI::km", stats)
+	}
+	if got := stats.statistic(stats.Mean).Quantity(); got == nil || got.Num.Real != 5.0/3 || got.Unit.Text != "SI::km" {
+		t.Errorf("Mean = %s; want 1.6666666666666667 [SI::km]", FormatValue(stats.statistic(stats.Mean)))
+	}
+
+	stats, err = MonteCarloSample(runs(intOf(1), realOf(2)))
+	if err != nil || stats.Unit != nil || stats.Mean != 1.5 {
+		t.Errorf("stats, err = %+v, %v; want a unitless mean of 1.5", stats, err)
+	}
+
+	for _, refused := range []struct {
+		runs  []*MonteCarloRun
+		names []string
+	}{
+		{runs(km, s), []string{"run 2 of Mc", "SI::s", "SI::km"}},
+		{runs(km, realOf(2)), []string{"run 2 of Mc", "observed 2.0", "1 [SI::km]", "numbers or of quantities"}},
+		{runs(realOf(2), km), []string{"run 2 of Mc", "observed 1 [SI::km]", "run 1 observed 2.0"}},
+		{runs(km, Value{Kind: ValNull}), []string{"run 2 of Mc", "no value", "not a number"}},
+		{runs(NewStringValue("x")), []string{"run 1 of Mc", `"x"`, "not a number"}},
+	} {
+		_, err := MonteCarloSample(refused.runs)
+		if !errors.Is(err, ErrMonteCarloObserved) {
+			t.Fatalf("MonteCarloSample = %v; want an ErrMonteCarloObserved", err)
+		}
+		for _, name := range refused.names {
+			if !strings.Contains(err.Error(), name) {
+				t.Errorf("err = %v; want it to name %q", err, name)
+			}
+		}
 	}
 }

@@ -10,7 +10,9 @@ interpreter did not check: a witness is replayed and the claim evaluated where t
 says, and a universal claim without executions to replay is *not covered* with the claim kept
 in the reason. The design is
 [bring your own engine](../internals/design/bring-your-own-engines.md); this page is the
-contract an engine author and a site operator hold each other to.
+contract an engine author and a site operator hold each other to. One engine is built in for a
+tool with a protocol of its own: `tool:fmi` evaluates a `calc def` imported from an FMI model
+through the runner `OPENSYSML_FMI_RUNNER` names — see [FMI models (FMUs)](fmi.md).
 
 ## The manifest entry
 
@@ -64,10 +66,13 @@ directory, as a bad run bound is reported.
 
 ## Listing, probing, selecting
 
-`-engines` and `%engines` read the manifests and print each entry with its kind, protocol
-(`<transport>/<protocol>`), authority, question kinds and status, then one source line per
+`-engines` and `%engines` read the manifests and print each entry with its kind, protocol,
+authority, question kinds and status, then one source line per
 manifest entry — the file, the resolved command, and `not admitted` for an engine — spawning no
-process. The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
+process. The protocol is `<transport>/<protocol>` for an engine entry; a tool's is `object` for
+the one-JSON-object exchange or `argv+<stdin>` when the entry has an `invocation` block, with a
+`/<reply format>` suffix such as `argv+none/csv` when the `reply` block reads another format —
+see [External tools](environment.md#external-tools). The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
 command resolves to an executable regular file, `unavailable: <why>` when it does not or the
 entry is not served.
 
@@ -161,7 +166,8 @@ The question, in the model's own names, and the model in the forms the entry dec
   seed the runs' modeled draws come from when one is set apart from the schedule (`-seed`,
   `%seed`), absent otherwise; `draws`, the policy the runs' RandomFunctions draws resolve
   under (`-draws`, `%draws`) — `min`, `max` or `average` — absent when they draw at random;
-  `free`, what the
+  `clockStep`, the step in seconds the runs' clock ticks by (`-clock-step`, `%clock-step`),
+  on which their waits come due, absent for the continuous clock; `free`, what the
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,
@@ -207,10 +213,12 @@ graph carries, the form carries.
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
   `guard` as `{text, span}`, `else` for the branch taken when no guard holds, `probability` as
   `{text, span}` for the weight a `Stochastic::Probability` annotation puts on a succession
-  leaving a decision, and `decl`, the span of the succession that declares it.
+  leaving a decision, and `decl`, the span of the succession that declares it. An
+  `ObjectFlowForm` is `name`, `kind` — `streaming` for a plain `flow`, `succession` for a
+  `succession flow` — `source`, `sourcePin`, `target`, `targetPin` and `decl`.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
-  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`,
-  `deferred`), `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
+  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`),
+  `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
   `via`), `entryTransitions`, `connections`, `machine`, `initial`, `attributes`.
 
 Every element the lowering names carries its `span` (`document`, `offset`, `len`) into the

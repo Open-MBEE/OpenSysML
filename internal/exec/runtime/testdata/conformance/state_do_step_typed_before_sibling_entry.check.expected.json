@@ -1,0 +1,12 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"count": [
+			"11",
+			"111"
+		]
+	},
+	"agreed": {
+		"finalState": "l1+r1"
+	}
+}

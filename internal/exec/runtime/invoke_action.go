@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -291,7 +292,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs)
+	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
@@ -308,39 +309,49 @@ type calleeFrame struct {
 	name   string
 	out    []string
 	joined bool
+	// performer is the node's performance, listening to a joined callee's outputs
+	// across the node's pauses.
+	performer *actionFrame
 }
 
 func (f *calleeFrame) abandon(*Context) {
 	if !f.joined {
 		f.exec.Release()
+		return
 	}
+	f.exec.unlisten(f.performer)
 }
 
 func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 
 // beginOrJoinCallee begins a performance of the action inv names on self, or, for a
 // `part.callee` whose object performs the callee already (its type performs it), joins
-// that one performance, as a run of the action named on an object does (performAction).
-func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value) (*calleeFrame, error) {
+// that one performance, as a run of the action named on an object does (performAction);
+// listener, if any, takes each write to the outputs of either.
+func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
-		exec, err := performanceOf(sym, self, inputs)
+		exec, err := ctx.performanceOf(sym, self, inputs)
 		if err != nil {
 			return nil, err
 		}
 		if exec != nil {
+			if listener != nil {
+				exec.listen(listener.perf, listener.take)
+			}
 			return &calleeFrame{exec: exec, joined: true}, nil
 		}
 	}
-	return ctx.beginCallee(inv.performed(sym), sym, self, inputs)
+	return ctx.beginCallee(inv.performed(sym), sym, self, inputs, listener)
 }
 
 // beginCallee starts action, a performance of performed, as a sub-execution of
-// the caller nested one deeper, on the clock until run to completion.
-func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*calleeFrame, error) {
+// the caller nested one deeper, on the clock until run to completion; listener,
+// if any, takes each write to its outputs from its first declared value on.
+func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, startActionStep)
+	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, listener, startActionStep)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +426,18 @@ func actionCandidates(
 	var ok bool
 	switch {
 	case inv.chain != nil:
-		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, inv.chain)
+		// A `::>` target is written in the usage's head, so it resolves in the
+		// scope enclosing the usage (as the document walk resolves it), not the
+		// usage's own scope where a parameter the typed def declares, such as
+		// the context parameter, would shadow the enclosing def's. A caller
+		// already passing the enclosing scope needs no walk.
+		chainScope := scope
+		if owner := scope.Owner(); owner != nil && owner.Decl == inv.referrer {
+			if parent := scope.Parent(); parent != nil {
+				chainScope = parent
+			}
+		}
+		sym, ok = ctx.resolveReferenceTarget(chainScope, inv.referrer, inv.chain)
 	case inv.referrer != nil:
 		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
@@ -504,11 +526,18 @@ type actionParameter struct {
 	// Direction is the parameter's declared direction, which decides whether the
 	// caller writes it, reads it back, or both.
 	Direction ast.FeatureDirection
+	// IsReference marks a `ref` parameter, which binds an object reference; a
+	// `::>` performance's performer supplies it, never a like-named feature of
+	// the caller's frame.
+	IsReference bool
 	// Optional reports whether an invocation may bind no argument to the parameter: it
 	// or a parameter it redefines gives a value, or its multiplicity admits none.
 	Optional bool
 	// IsResult marks the `return` parameter, what the action's value read yields.
 	IsResult bool
+	// Symbol is the parameter's declaration, from which its declared default
+	// and type are read.
+	Symbol *symbols.Symbol
 }
 
 // actionParametersOf returns an action's parameters in invocation order: its own, then
@@ -520,13 +549,102 @@ func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 			continue
 		}
 		params = append(params, actionParameter{
-			Name:      param.Symbol.Name,
-			Direction: param.Direction,
-			Optional:  ctx.model.semantics.OptionalParameter(param.Symbol),
-			IsResult:  param.IsResult,
+			Name:        param.Symbol.Name,
+			Direction:   param.Direction,
+			IsReference: isReferenceUsage(param.Symbol),
+			Optional:    ctx.model.semantics.OptionalParameter(param.Symbol),
+			IsResult:    param.IsResult,
+			Symbol:      param.Symbol,
 		})
 	}
 	return params
+}
+
+// performerSeedsRef reports whether the object a behavior runs on supplies an
+// unbound ref input: only when the parameter declares no default of its own —
+// which the binding resolves instead — and, when it declares a type, the
+// performer conforms to it.
+func (ctx *Context) performerSeedsRef(param actionParameter, performer *Instance) bool {
+	return param.Symbol == nil || ctx.performerSeedsRefParam(param.Symbol, performer)
+}
+
+// performerSuppliesRef reports whether a `::>` performance fills a `ref` input
+// without the caller's like-named binding: the performer seeds it, or a
+// declared default — such as the usage's `in ref :>> context = this` — resolves
+// once it runs on the performer. A ref neither supplies keeps the caller's.
+func (ctx *Context) performerSuppliesRef(param actionParameter, performer *Instance) bool {
+	if param.Symbol != nil {
+		if value, _ := ctx.model.semantics.ParameterDefault(param.Symbol); value != nil {
+			return true
+		}
+	}
+	return ctx.performerSeedsRef(param, performer)
+}
+
+// performerSeedsRefParam is performerSeedsRef on the parameter's own symbol.
+func (ctx *Context) performerSeedsRefParam(param *symbols.Symbol, performer *Instance) bool {
+	if value, _ := ctx.model.semantics.ParameterDefault(param); value != nil {
+		return false
+	}
+	if typ := ctx.extractType(param); typ != nil && !ctx.instanceConforms(performer, typ) {
+		return false
+	}
+	return true
+}
+
+// ActionInputNames is the action's `in` and `inout` parameter names in
+// declaration order — the parameters an invocation's arguments bind.
+func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
+	in, _ := parameterNames(ctx.actionParametersOf(sym))
+	return in
+}
+
+// NamedInput is one named argument of an action invocation: the parameter name
+// as written and its value, given in the order the invocation wrote them.
+type NamedInput struct {
+	Name  string
+	Value Value
+}
+
+// ActionInputs is the inputs an invocation of sym binds, as bindArgumentList
+// binds them: the positional arguments to the first `in` parameters in
+// declaration order, then the named ones in their order — each written name
+// resolved through BoundParameter as an invocation's is. More positional
+// arguments than parameters is ErrActionArity, a name no `in` parameter carries
+// is ErrUnknownParameter, and one already bound is ErrDuplicateArgument.
+func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, positional []Value, named []NamedInput) (map[string]Value, error) {
+	names := ctx.ActionInputNames(sym)
+	if len(positional) > len(names) {
+		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
+			ErrActionArity, symbolText(sym), len(names), len(positional))
+	}
+	inputs := make(map[string]Value, len(names))
+	bound := make(map[string]bool, len(names))
+	for i, value := range positional {
+		inputs[names[i]] = value
+		bound[names[i]] = true
+	}
+	for _, arg := range named {
+		name := arg.Name
+		if ctx.model.semantics != nil {
+			qn := &ast.QualifiedName{}
+			qn.SetSingleton(ast.NameSegment{Text: arg.Name})
+			if resolved, ok := ctx.model.semantics.BoundParameter(scope, sym, qn); ok {
+				name = resolved
+			}
+		}
+		if !slices.Contains(names, name) {
+			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
+				ErrUnknownParameter, symbolText(sym), name)
+		}
+		if bound[name] {
+			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
+				ErrDuplicateArgument, name, symbolText(sym))
+		}
+		bound[name] = true
+		inputs[name] = arg.Value
+	}
+	return inputs, nil
 }
 
 // parameterNames splits parameters into those the caller writes and reads back.

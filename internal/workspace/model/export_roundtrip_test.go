@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -36,7 +37,8 @@ func TestNotationFromTheGraphAloneAnalysesLikeTheOriginal(t *testing.T) {
 			}
 			structural := rdf.NewGraph()
 			for _, tr := range graph.Triples() {
-				if tr.Predicate != rdf.OpenSysMLTerm("sourceText") && tr.Predicate != rdf.OpenSysMLTerm("sourceTail") {
+				if tr.Predicate != rdf.OpenSysMLTerm("sourceText") && tr.Predicate != rdf.OpenSysMLTerm("sourceTail") &&
+					!export.IsSourceRangeProperty(tr.Predicate.Value) {
 					structural.AddTriple(tr)
 				}
 			}

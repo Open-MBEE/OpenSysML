@@ -491,7 +491,7 @@ func TestPristineSeesTheWaitOfAnActionAPausedBodyPerforms(t *testing.T) {
 		t.Fatalf("Instantiate Sleeper: %v", err)
 	}
 	rest := sleeper.behaviors[0]
-	if rest.Action == nil || len(rest.Action.armedWaits()) != 0 || len(rest.Action.heldWaiters()) != 1 {
+	if rest.Action == nil || len(rest.Action.armedWaits()) != 0 || len(rest.Action.pausedWaiters()) != 1 {
 		t.Fatalf("rest = %+v; want an action holding no wait of its own and one performed action", rest)
 	}
 	if waits := rest.armedWaits(); len(waits) != 1 || waits[0].Due != 3 {

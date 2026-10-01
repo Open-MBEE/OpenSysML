@@ -1,0 +1,56 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Ping"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="PingPort"
+          (Membership visibility="default"
+            (Usage kind="item" name="ping" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Ping
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Car"
+          (Membership visibility="default"
+            (Usage kind="port" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=PingPort
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Fleet"
+          (Membership visibility="default"
+            (Usage kind="part" name="cars" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Car
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="port" name="out" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=PingPort conjugated=true
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="connection" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="connect"
+              (ConnectorEnd target="out"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="p"
+                  (FeatureReference name="cars")))))
+          (Membership visibility="default"
+            (Usage kind="action" name="build" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (InitialNode name="start" successor="")
+              (Membership visibility="default"
+                (Usage kind="action" name="ping" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (SendStatement via=false
+                    (ConstructorExpr type="Ping")
+                    (IndexExpr
+                      (FeatureReference name="cars")
+                      (LiteralInteger value="2")))
+                  (SendStatement via=true
+                    (ConstructorExpr type="Ping")
+                    (FeatureReference name="out")
+                    (IndexExpr
+                      (FeatureReference name="cars")
+                      (LiteralInteger value="2")))))
+              (SuccessionEdge source="start" target="ping")
+              (FinalNode)
+              (SuccessionEdge source="ping" target="@done"))))))))

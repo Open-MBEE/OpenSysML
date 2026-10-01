@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::Sys",
+  "slots": {
+    "bnd": {"type": "Instance"},
+    "f": {"type": "Instance"}
+  },
+  "identical": [
+    ["bnd.source", "a.p"],
+    ["bnd.target", "b.q"],
+    ["f.source", "a.p"],
+    ["f.target", "b.q"]
+  ]
+}

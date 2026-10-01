@@ -66,9 +66,9 @@ afterEach(() => {
 });
 
 test("the platform package and file name follow npm's os/cpu names", () => {
-  assert.equal(platformPackage("linux", "x64"), "@opensysml/sysml-grpc-linux-x64");
-  assert.equal(platformPackage("darwin", "arm64"), "@opensysml/sysml-grpc-darwin-arm64");
-  assert.equal(platformPackage("win32", "x64"), "@opensysml/sysml-grpc-win32-x64");
+  assert.equal(platformPackage("linux", "x64"), "@openmbee/opensysml-sysml-grpc-linux-x64");
+  assert.equal(platformPackage("darwin", "arm64"), "@openmbee/opensysml-sysml-grpc-darwin-arm64");
+  assert.equal(platformPackage("win32", "x64"), "@openmbee/opensysml-sysml-grpc-win32-x64");
   assert.equal(binaryName("linux"), "sysml-grpc");
   assert.equal(binaryName("win32"), "sysml-grpc.exe");
 });
@@ -117,14 +117,19 @@ test("a binary on $PATH is used, and with nothing anywhere the error says so", a
   writeFileSync(executable, "#!/bin/sh\n");
   chmodSync(executable, 0o755);
   process.env["PATH"] = dir;
-  assert.equal((await resolveBinary({ cacheDir: empty })).path, executable);
+  // platformPackage: false — the optional package may be installed here; $PATH must
+  // still answer when it is not.
+  const hidden = { cacheDir: empty, platformPackage: false } as const;
+  assert.equal((await resolveBinary(hidden)).path, executable);
 
   process.env["PATH"] = empty;
-  const error = await rejection(resolveBinary({ cacheDir: empty }));
+  const error = await rejection(resolveBinary(hidden));
   assert.ok(error instanceof BinaryNotFoundError);
   // The message must name every place looked, and how to ask for a download.
   assert.match(error.message, /OPENSYSML_BINARY/);
-  assert.match(error.message, /@opensysml\/sysml-grpc-/);
+  // The skipped platform package is offered as a fix, not listed as a place looked.
+  assert.doesNotMatch(error.message, /looked at[^\n]*@openmbee\/opensysml-sysml-grpc-/);
+  assert.match(error.message, /npm install @openmbee\/opensysml-sysml-grpc-/);
   assert.match(error.message, new RegExp(empty.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(error.message, /OPENSYSML_GRPC_VERSION/);
   assert.doesNotMatch(error.message, /never downloads/);
@@ -461,6 +466,9 @@ function unpinned(release: { url: string; apiUrl: string }): DownloadOptions {
     apiBaseUrl: release.apiUrl,
     cacheDir: mkdtempSync(join(tmpdir(), "binary-cache-")),
     pinnedDigests: {},
+    // The optional platform package may be installed here; every cache and
+    // download test must still reach it.
+    platformPackage: false,
   };
 }
 

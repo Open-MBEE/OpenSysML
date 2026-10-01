@@ -129,7 +129,7 @@ func TestStreamsAndStatus(t *testing.T) {
 		args:   []string{"-convert", "ttl"},
 		status: exitHolds,
 		stdout: []string{"@prefix sysml:"},
-		stderr: []string{"note: RDF conversion is experimental"},
+		stderr: []string{"note: RDF conversion — Turtle and the API's JSON element form alike — is experimental"},
 	}, {
 		name:      "a notation conversion writes only the model out",
 		model:     sampleModel,

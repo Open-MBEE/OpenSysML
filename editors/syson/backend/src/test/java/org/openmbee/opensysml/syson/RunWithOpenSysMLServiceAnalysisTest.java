@@ -31,21 +31,23 @@ import org.openmbee.opensysml.syson.run.RunWithOpenSysMLInput;
 import org.openmbee.opensysml.syson.run.RunWithOpenSysMLService;
 
 class RunWithOpenSysMLServiceAnalysisTest {
+    private static final String ANALYSIS = "Analysis";
+    private static final String ANALYSIS_ID = "analysis-id";
     @Test
     void passesAnalysisOptionsToModel() {
         Connection connection = mock(Connection.class);
         Model model = mock(Model.class);
         Element target = mock(Element.class);
-        when(target.getQualifiedName()).thenReturn("Analysis");
-        when(target.getElementId()).thenReturn("analysis-id");
+        when(target.getQualifiedName()).thenReturn(ANALYSIS);
+        when(target.getElementId()).thenReturn(ANALYSIS_ID);
         when(connection.parseSources(any())).thenReturn(model);
         when(model.diagnostics()).thenReturn(List.of());
         when(model.hash()).thenReturn("hash");
         when(model.eval("21")).thenReturn(new Value.IntegerValue(21));
-        when(model.runAnalysis(eq("Analysis"), any(AnalysisOptions.class)))
+        when(model.runAnalysis(eq(ANALYSIS), any(AnalysisOptions.class)))
                 .thenReturn(new Analysis(Map.of(), List.of(), List.of(), List.of(), List.of(), List.of(), Standing.none()));
         ExportedProject project = new ExportedProject(List.of(),
-                new ElementIndex(Map.of("Analysis", new ElementIndex.IndexedElement("Analysis", "analysis-id",
+                new ElementIndex(Map.of(ANALYSIS, new ElementIndex.IndexedElement(ANALYSIS, ANALYSIS_ID,
                         "sirius-id", target))),
                 List.of(), List.of());
         ProjectExporter exporter = context -> project;
@@ -54,11 +56,11 @@ class RunWithOpenSysMLServiceAnalysisTest {
         RunWithOpenSysMLService service = new RunWithOpenSysMLService(connection, exporter, new RunResultStore(),
                 new OpenSysMLProperties());
 
-        service.run(context, target, new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "analysis-id",
+        service.run(context, target, new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", ANALYSIS_ID,
                 RunOperation.RUN_ANALYSIS, Map.of("x", "21"), List.of(), List.of("21"), "declared", "subject"));
 
         ArgumentCaptor<AnalysisOptions> options = ArgumentCaptor.forClass(AnalysisOptions.class);
-        verify(model).runAnalysis(eq("Analysis"), options.capture());
+        verify(model).runAnalysis(eq(ANALYSIS), options.capture());
         assertThat(options.getValue().subject()).isEqualTo(Optional.of("subject"));
         assertThat(options.getValue().arguments()).containsExactly(new Value.IntegerValue(21));
         assertThat(options.getValue().namedArguments()).containsEntry("x", new Value.IntegerValue(21));

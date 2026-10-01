@@ -52,7 +52,7 @@ func replaySchedule(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayOf(Witness{Objects: w.Objects, Inputs: w.Inputs, DrawPolicy: w.DrawPolicy, Draws: w.Draws, Choices: choices})); err != nil {
+	if err := ctx.SetSchedule(ReplayOf(Witness{Objects: w.Objects, Inputs: w.Inputs, DrawPolicy: w.DrawPolicy, ClockStep: w.ClockStep, Draws: w.Draws, Choices: choices})); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
@@ -122,9 +122,9 @@ func (r *Replayed) disagreeOnSchedule(w Witness, reason string) error {
 	return &ReplayDisagreement{Reason: reason, Witness: spellWitness(w), Trace: r.Ctx.Trace().String()}
 }
 
-// spellWitness spells the witness's objects, inputs, draw policy, draws and schedule as its file holds them.
+// spellWitness spells the witness's objects, inputs, draw policy, clock step, draws and schedule as its file holds them.
 func spellWitness(w Witness) string {
-	return Witness{Objects: w.Objects, Inputs: w.Inputs, DrawPolicy: w.DrawPolicy, Draws: w.Draws, Choices: w.Choices}.String()
+	return Witness{Objects: w.Objects, Inputs: w.Inputs, DrawPolicy: w.DrawPolicy, ClockStep: w.ClockStep, Draws: w.Draws, Choices: w.Choices}.String()
 }
 
 // Evaluate asks the property of the replayed run's state under a readiness probe, as the check did.

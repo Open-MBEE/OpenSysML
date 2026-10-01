@@ -1,0 +1,27 @@
+/* acm: the print companion, laid over the PDF backend's print sheet so the
+   letter page, one-inch margins, 10pt Libertine and sans heads reach paper. */
+@layer opensysml-print-theme {
+  :root {
+    --sysml-page-size: letter;
+    --sysml-page-margin: 1in;
+    --sysml-page-number-font-family: "Libertinus Serif", "Linux Libertine O", "Linux Libertine", "Times New Roman", "Liberation Serif", serif;
+    --sysml-page-number-font-size: 9pt;
+    --sysml-page-number-color: #000000;
+  }
+
+  .sysml-document {
+    --sysml-font-body: "Libertinus Serif", "Linux Libertine O", "Linux Libertine", "Times New Roman", "Liberation Serif", serif;
+    --sysml-font-heading: "Libertinus Sans", "Linux Biolinum O", "Linux Biolinum", Arial, Helvetica, "Liberation Sans", sans-serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
+    --sysml-font-size: 10pt;
+    --sysml-line-height: 1.2;
+    --sysml-space: 0.6em;
+    --sysml-title-font-size: 17pt;
+    --sysml-heading-font-size: 17pt;
+    --sysml-subheading-font-size: 10pt;
+    --sysml-subsubheading-font-size: 10pt;
+    --sysml-diagram-font-size: 9pt;
+    --sysml-wide-table-font-size: 9pt;
+    --sysml-title-page-height: 80vh;
+  }
+}

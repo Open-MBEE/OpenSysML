@@ -1,6 +1,6 @@
 // A redefinition names the library feature through an alias: lowering resolves
-// the target to Occurrences::Occurrence::isRunToCompletion and refuses the
-// machine like one redefining the feature by its own name.
+// the target to Occurrences::Occurrence::isRunToCompletion and executes the
+// machine with the declared non-run-to-completion behavior.
 package test {
 	attribute def Go;
 	alias Rtc for Occurrences::Occurrence::isRunToCompletion;

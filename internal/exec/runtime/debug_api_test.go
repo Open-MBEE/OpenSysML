@@ -1484,11 +1484,13 @@ func TestFiredTransitionsLogsSegmentsIntoAChoice(t *testing.T) {
 
 // A history entered before its owner has run takes its default transition, and
 // that route is logged after the transition into the history: straight to the
-// default state, or through a choice with each segment on the way.
+// default state, through a choice with each segment on the way, or into a
+// terminate that ends the machine.
 func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 	for _, tc := range []struct {
 		name, src string
 		want      []string
+		ended     bool
 	}{
 		{"direct", `package test {
 			state Machine {
@@ -1503,7 +1505,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 				}
 				transition first init accept go then previous;
 			}
-		}`, []string{"->init", "init->previous", "previous->idle"}},
+		}`, []string{"->init", "init->previous", "previous->idle"}, false},
 		{"choice", `package test {
 			state Machine {
 				attribute priority : Integer = 2;
@@ -1520,7 +1522,21 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 				}
 				transition first init accept go then previous;
 			}
-		}`, []string{"->init", "init->previous", "previous->route", "route->idle"}},
+		}`, []string{"->init", "init->previous", "previous->route", "route->idle"}, false},
+		{"terminate", `package test {
+			state Machine {
+				entry; then init;
+				state init;
+				state running {
+					history previous;
+					state idle;
+					action stop terminate;
+					transition first previous then stop;
+					transition first idle accept work then stop;
+				}
+				transition first init accept go then previous;
+			}
+		}`, []string{"->init", "init->previous", "previous->stop"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, sym := loadState(t, tc.src, "Machine")
@@ -1533,7 +1549,11 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 			if err := exec.ProcessNextEvent(); err != nil {
 				t.Fatalf("ProcessNextEvent: %v", err)
 			}
-			if got := activeStateNames(exec); !strings.Contains(got, "idle") {
+			if tc.ended {
+				if exec.State() != StateTerminated {
+					t.Fatalf("state = %v, want the machine ended at the terminate", exec.State())
+				}
+			} else if got := activeStateNames(exec); !strings.Contains(got, "idle") {
 				t.Fatalf("active = %s, want idle", got)
 			}
 			if got := firedNames(exec); !slices.Equal(got, tc.want) {

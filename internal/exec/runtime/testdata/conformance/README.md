@@ -83,7 +83,12 @@ top-level one is. `instantiate` names an instance case's type the same way.
   (`{"call": "setSpeed", "args": {"value": {"type": "Integer", "value": 55}}}`,
   driving `CallEvent`-triggered transitions), with `args` optional. Events are
   delivered in order. Optional; omit for autonomous (time/completion-driven)
-  machines.
+  machines. A call may state `results` (`{"call": "compute", "results": {"result":
+  {"type": "Integer", "value": 6}}}`): the outputs the behaviors its dispatch
+  triggers return to the machine, which a synchronous caller is released with
+  (`StateExecutor.Call`). A case stating any `results` is driven one event at a
+  time, each run to completion before the next, and a call that returns an output
+  the case does not list fails it.
 - `finalState`: qualified name of final reached state; for a machine ending in
   orthogonal regions, their active states joined by `+` in region name order
   (`d2+deep+r2`)
@@ -91,6 +96,10 @@ top-level one is. `instantiate` names an instance case's type the same way.
 - `evaluate`: qualified path of the state machine to execute (see
   [Entry Points](#entry-points))
 - `outputs`: map of state machine outputs
+- `error`: text the performance must fail with, for a case whose contract is a
+  diagnostic rather than a result — a guard comparing a null payload read must
+  fail with the operator's type error. Set it instead of `finalState`,
+  `stateVisits` and `outputs`; a case without it must run to completion.
 - `performers`: objects that each perform the machine, for a case whose contract
   depends on which object performs it (two objects selecting different variants
   of one variation route over their own connections). Each entry names the
@@ -121,7 +130,11 @@ one:
 
 - `outcomes`: at least two complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
-  case, with the meaning those keys have above. The observed run must match
+  case, with the meaning those keys have above, plus an optional `probability`:
+  the share of the schedule space the explore pass expects the linearizations
+  reaching that entry to carry (a weighted pick its stated weight's share, an
+  unweighted choice's uniform share), checked against the sum the exploration
+  reports for it within `1e-9`. The observed run must match
   exactly one entry: matching none fails the case as inadmissible, matching
   several fails it because the set is not distinct. `-v` output names the entry
   matched (`matched admissible outcome 1 of 2`).
@@ -205,6 +218,11 @@ with `"draws": "min"`, `"max"` or `"average"`, as `%draws`/`-draws` would set it
 a fixed policy takes the point of each call's distribution it names and needs no
 `modelSeed`, and the trace records the value taken as `draw <call> = <value>`
 (the `stochastic_draws_*` cases). Omitted or `"random"` draws from the seed.
+
+A case may pin the step its clock ticks by with `"clockStep": <seconds>`, as
+`%clock-step`/`-clock-step` would set it; every wait then comes due at the first
+multiple of the step not before its end (the `clock_step_*` cases). Omitted or `0`
+is the continuous clock.
 
 `TestExecutionConformanceUnderPolicies` runs every case under `declared` and
 under `seed:1`. A case pinning no policy was recorded under the default, so its

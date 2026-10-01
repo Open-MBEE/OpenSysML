@@ -20,10 +20,14 @@ func (r *Resolver) AliasedElement(sym *symbols.Symbol) *symbols.Symbol {
 
 // AliasNamesNothing reports whether the name an alias binds reaches no element,
 // because the alias's own target reference is unresolved (KerML 8.2.3.2). A
-// cyclic alias is excluded: its target reference does name an element.
+// cyclic alias is excluded: its target reference does name an element. A
+// record holds the target the reference named, zero when it named none.
 func (r *Resolver) AliasNamesNothing(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Kind != symbols.SymbolAlias {
 		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Alias.IsZero()
 	}
 	al, ok := sym.Decl.(*ast.Alias)
 	if !ok || al.For == nil {
@@ -68,7 +72,7 @@ func (r *Resolver) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 		}
 		seen[cur] = true
 
-		next, ok := r.aliasStep(cur)
+		next, ok := r.AliasTarget(cur)
 		if !ok {
 			return nil, false
 		}
@@ -77,9 +81,14 @@ func (r *Resolver) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 	return nil, false
 }
 
-// aliasStep resolves one alias's target, named by a qualified name resolved from
-// the alias's own scope.
-func (r *Resolver) aliasStep(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+// AliasTarget resolves one alias's own target — an alias itself when the
+// alias names one — by the qualified name resolved from the alias's scope; ok
+// is false when the name resolves to nothing.
+func (r *Resolver) AliasTarget(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if sym.Recorded() {
+		target := r.idx.Element(sym.Facts.Alias)
+		return target, target != nil
+	}
 	al, ok := sym.Decl.(*ast.Alias)
 	if !ok || al.For == nil {
 		return nil, false

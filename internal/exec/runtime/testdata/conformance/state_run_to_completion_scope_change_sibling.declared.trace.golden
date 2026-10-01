@@ -1,0 +1,38 @@
+eval feature flag -> false
+exit: prep
+enter: work (entry action)
+stmt action body
+  stmt assign flag
+    eval literal true -> true
+transition: prep -> work (event: accept Start)
+choice entry at t=0.0: next dispatch change a 1->b, work(entry) (unordered; took dispatch change a 1->b first)
+eval feature flag -> true
+exit: a
+enter: b (entry action)
+stmt action body
+  stmt assign order
+        eval feature order -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 2 -> 2
+    eval operator + -> 2
+transition: a -> b (event: change)
+enter: step (entry action)
+stmt action body
+  stmt assign order
+        eval feature order -> 2
+        eval literal 10 -> 10
+      eval operator * -> 20
+      eval literal 1 -> 1
+    eval operator + -> 21
+eval feature flag -> true
+exit: step
+enter: done (entry action)
+stmt action body
+  stmt assign order
+        eval feature order -> 21
+        eval literal 10 -> 10
+      eval operator * -> 210
+      eval literal 3 -> 3
+    eval operator + -> 213
+transition: step -> done (event: change)

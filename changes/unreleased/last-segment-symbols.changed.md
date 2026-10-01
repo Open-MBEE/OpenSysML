@@ -1,1 +1,0 @@
-- **The simple name a qualified name ends in is computed in one place.** `symbols.LastSegment` is exported and the identical copy in `suggest` is gone; `ast.QualifiedNameOf` builds a qualified name from its segments, replacing the copies in `solve` and the resolver tests. No behavior changes.

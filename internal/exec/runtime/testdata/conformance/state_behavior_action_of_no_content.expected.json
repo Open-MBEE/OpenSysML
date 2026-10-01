@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"events": [{"signal": "Go"}],
+	"finalState": "work",
+	"stateVisits": ["idle", "work"],
+	"outputs": {
+		"counter": {"type": "Integer", "value": 1}
+	}
+}

@@ -21,6 +21,7 @@ type Model struct {
 
 	activities map[string]*Activity
 	classes    map[string]*Class
+	signals    map[string]*Signal
 }
 
 // Exception reports whether this is the exception-test model.
@@ -34,6 +35,137 @@ func (m *Model) Activity(id string) *Activity {
 // Class returns the class with the given XMI id, or nil.
 func (m *Model) Class(id string) *Class {
 	return m.classes[id]
+}
+
+// ClassOf returns the class a type reference names: by ID when it carries one
+// (an ID naming another kind of element names no class), else by name, or nil
+// when it names none or the name is ambiguous. An external reference names an
+// element of another document, never one of the model's.
+func (m *Model) ClassOf(t TypeRef) *Class {
+	if m == nil || t.Zero() || t.External {
+		return nil
+	}
+	if t.ID != "" {
+		return m.classes[t.ID]
+	}
+	var found *Class
+	for _, c := range m.Classes {
+		if c.Name != t.Name || t.Name == "" {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = c
+	}
+	return found
+}
+
+// ActivityOf returns the activity a type reference names, as ClassOf does a
+// class: by ID when it carries one, else by name, or nil.
+func (m *Model) ActivityOf(t TypeRef) *Activity {
+	if m == nil || t.Zero() || t.External {
+		return nil
+	}
+	if t.ID != "" {
+		return m.activities[t.ID]
+	}
+	return m.ActivityNamed(t.Name)
+}
+
+// SignalOf returns the signal a type reference names: by ID when it carries
+// one, else by name, or nil when it names none, the name is ambiguous or it is
+// external.
+func (m *Model) SignalOf(t TypeRef) *Signal {
+	if m == nil || t.Zero() || t.External {
+		return nil
+	}
+	if t.ID != "" {
+		return m.signals[t.ID]
+	}
+	var found *Signal
+	for _, s := range m.Signals {
+		if s.Name != t.Name || t.Name == "" {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = s
+	}
+	return found
+}
+
+// AllAttributes returns the class's attributes with those it inherits, each
+// once, generals before the classes specializing them; a property redefined by
+// another of them is replaced by it.
+func (c *Class) AllAttributes() []*Property {
+	seen := map[*Class]bool{}
+	var out []*Property
+	var visit func(c *Class)
+	visit = func(c *Class) {
+		if c == nil || seen[c] {
+			return
+		}
+		seen[c] = true
+		for _, g := range c.Generals {
+			visit(c.Model.ClassOf(g))
+		}
+		out = append(out, c.Attributes...)
+	}
+	visit(c)
+	return effectiveProperties(out)
+}
+
+// StartedBehavior returns the behavior an object of the class runs when started:
+// its classifierBehavior, or the nearest one it inherits, generals in order.
+func (c *Class) StartedBehavior() *Activity {
+	seen := map[*Class]bool{}
+	var find func(c *Class) *Activity
+	find = func(c *Class) *Activity {
+		if c == nil || c.Model == nil || seen[c] {
+			return nil
+		}
+		seen[c] = true
+		if c.ClassifierBehavior != nil {
+			return c.ClassifierBehavior
+		}
+		for _, g := range c.Generals {
+			if b := find(c.Model.ClassOf(g)); b != nil {
+				return b
+			}
+		}
+		return nil
+	}
+	return find(c)
+}
+
+// effectiveProperties drops from props every property another of them redefines,
+// directly or through a chain of redefinitions, keeping the order of the rest.
+func effectiveProperties(props []*Property) []*Property {
+	redefined := map[*Property]bool{}
+	var mark func(p *Property)
+	mark = func(p *Property) {
+		for _, r := range p.Redefines {
+			if r != nil && !redefined[r] {
+				redefined[r] = true
+				mark(r)
+			}
+		}
+	}
+	for _, p := range props {
+		mark(p)
+	}
+	if len(redefined) == 0 {
+		return props
+	}
+	out := make([]*Property, 0, len(props))
+	for _, p := range props {
+		if !redefined[p] {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // ActivityNamed returns the activity with the given name, or nil when none or
@@ -221,6 +353,7 @@ const (
 	ReadStructuralFeatureAction        NodeKind = "ReadStructuralFeatureAction"
 	AddStructuralFeatureValueAction    NodeKind = "AddStructuralFeatureValueAction"
 	RemoveStructuralFeatureValueAction NodeKind = "RemoveStructuralFeatureValueAction"
+	ClearStructuralFeatureAction       NodeKind = "ClearStructuralFeatureAction"
 	ReadExtentAction                   NodeKind = "ReadExtentAction"
 	ReadIsClassifiedObjectAction       NodeKind = "ReadIsClassifiedObjectAction"
 	ReclassifyObjectAction             NodeKind = "ReclassifyObjectAction"
@@ -446,11 +579,34 @@ type Class struct {
 
 // Signal is a uml:Signal declared by the model.
 type Signal struct {
-	ID         string
-	Name       string
+	ID    string
+	Name  string
+	Model *Model
+	// Generals are the signals it generalizes.
 	Generals   []TypeRef
 	Attributes []*Property
 	Line       int
+}
+
+// AllAttributes returns the signal's attributes with those it inherits, each
+// once, generals before the signals specializing them, a redefined one replaced
+// by its redefinition: the order a SendSignalAction's argument pins follow.
+func (s *Signal) AllAttributes() []*Property {
+	seen := map[*Signal]bool{}
+	var out []*Property
+	var visit func(s *Signal)
+	visit = func(s *Signal) {
+		if s == nil || seen[s] {
+			return
+		}
+		seen[s] = true
+		for _, g := range s.Generals {
+			visit(s.Model.SignalOf(g))
+		}
+		out = append(out, s.Attributes...)
+	}
+	visit(s)
+	return effectiveProperties(out)
 }
 
 // Association is a uml:Association declared by the model.
@@ -470,6 +626,9 @@ type Property struct {
 	Multiplicity
 	// Owner names the class, signal, activity or association owning it.
 	Owner TypeRef
+	// Redefines are the inherited properties this one redefines, which it
+	// replaces among its owner's effective attributes.
+	Redefines []*Property
 	// Association is set for an association end (owned by either side).
 	Association *Association
 	// Composite is set for a composite aggregation end.

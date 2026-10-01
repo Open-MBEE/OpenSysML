@@ -1,0 +1,23 @@
+exit: idle
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
+enter: work
+choice fork split: next a(entry), split->b(effect) (unordered; took a(entry) first)
+enter: a (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "a(entry) " -> "a(entry) "
+    eval operator + -> "a(entry) "
+enter: b (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "a(entry) "
+      eval literal "b(entry) " -> "b(entry) "
+    eval operator + -> "a(entry) b(entry) "
+transition: idle -> split
+do: work
+stmt action body
+  stmt assign log
+      eval feature log -> "a(entry) b(entry) "
+      eval literal "did " -> "did "
+    eval operator + -> "a(entry) b(entry) did "

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -52,12 +53,23 @@ const sampleModel = `package Demo {
 }
 `
 
-// refusedModel declares one name twice in a namespace, which the RDF mapping
-// refuses: a name identifies an element in the graph.
+// refusedModel contains a non-constant ElementId value the RDF mapping cannot
+// carry back from the graph.
 const refusedModel = `package Demo {
-    part def Seat;
-    part seat : Seat;
-    part seat : Seat;
+    @IdentityMetadata::ProjectRef { projectId = "proj-1"; }
+    attribute origin = "el-";
+    part def A {
+        @IdentityMetadata::ElementId { id = origin; }
+    }
+}
+`
+
+// duplicateModel declares one name twice in a namespace: the mapping keeps
+// both, the later one identified by its position.
+const duplicateModel = `package P {
+ private import ScalarValues::*;
+ part def A { attribute x : Real; }
+ part def A { attribute y : Real; }
 }
 `
 
@@ -187,16 +199,17 @@ func TestConvertErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		"missing input":     {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
-		"no input":          {[]string{"-convert", "ttl"}, "no model to convert"},
-		"unknown extension": {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
-		"unknown format":    {[]string{model, "-convert", "xml"}, "unknown format"},
-		"file as format":    {[]string{"-convert", model}, "-convert names the format"},
-		"extra argument":    {[]string{model, filepath.Join(dir, "other.sysml"), "-convert", "ttl"}, "unexpected extra argument"},
-		"replaced -to flag": {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
-		"forgotten value":   {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
-		"syntax error":      {[]string{broken, "-convert", "ttl"}, "syntax error"},
-		"unsupported rdf":   {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
+		"missing input":       {[]string{filepath.Join(dir, "absent.sysml"), "-convert", "ttl"}, "absent.sysml"},
+		"no input":            {[]string{"-convert", "ttl"}, "no model to convert"},
+		"unknown extension":   {[]string{unknownExt, "-convert", "ttl"}, "cannot tell the format"},
+		"unknown format":      {[]string{model, "-convert", "xml"}, "unknown format"},
+		"file as format":      {[]string{"-convert", model}, "-convert names the format"},
+		"several to notation": {[]string{model, model, "-convert", "sysml"}, "converts to ttl or api-json"},
+		"several to a branch": {[]string{model, model, "-convert", "ttl", "-o", "flexo://p/main"}, "is written to a file"},
+		"replaced -to flag":   {[]string{model, "-convert", "ttl", "-to", "sysml"}, "-to has been replaced by -convert"},
+		"forgotten value":     {[]string{model, "-convert", "ttl", "-o"}, "flag needs an argument: -o"},
+		"syntax error":        {[]string{broken, "-convert", "ttl"}, "syntax error"},
+		"unsupported rdf":     {[]string{badTurtle, "-convert", "sysml"}, "blank node"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -212,6 +225,30 @@ func TestConvertErrors(t *testing.T) {
 	}
 }
 
+// TestConvertIDFormMisuse checks -id is refused, as a usage error, on every
+// conversion but SysML notation to an RDF form.
+func TestConvertIDFormMisuse(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string][]string{
+		"without convert":       {model, "-id", "uuid"},
+		"to notation":           {model, "-convert", "sysml", "-id", "uuid"},
+		"from interchange json": {model, "-from", "api-json", "-convert", "api-json", "-id", "uuid"},
+		"from xmi":              {model, "-from", "xmi", "-convert", "sysml", "-id", "uuid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			res := runCommand(t, exec.Command(binary, args...))
+			if res.status != 2 || !strings.Contains(res.stderr, "-id") {
+				t.Errorf("%v: status %d, stderr:\n%s", args, res.status, res.stderr)
+			}
+		})
+	}
+}
+
 // TestConvertRDFIsMarkedExperimental checks every RDF conversion says so on
 // stderr — including one the mapping refuses — and that the notice never lands
 // in the converted model on stdout.
@@ -219,8 +256,14 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
+	positionalName := filepath.Join(dir, "positional-name.sysml")
+	positionalTurtle := filepath.Join(dir, "positional-name.ttl")
+	positionalBack := filepath.Join(dir, "positional-name-back.sysml")
 	behavior := filepath.Join(dir, "refused.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(positionalName, []byte("package P { part def A; part def '@2'; part def A; }"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(behavior, []byte(refusedModel), 0o644); err != nil {
@@ -231,31 +274,88 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if to.status != 0 {
 		t.Fatalf("converting to Turtle failed: %s%s", to.stdout, to.stderr)
 	}
-	if !strings.Contains(to.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(to.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("no experimental notice on stderr:\n%s", to.stderr)
+	}
+	converted := runCommand(t, exec.Command(binary, positionalName, "-convert", "ttl", "-o", positionalTurtle))
+	if converted.status != 0 {
+		t.Fatalf("converting the positional-name model failed: %s%s", converted.stdout, converted.stderr)
+	}
+	turtle, err := os.ReadFile(positionalTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(turtle), `sysml:qualifiedName "P::'@2'"`) {
+		t.Errorf("Turtle lacks the quoted name identity:\n%s", turtle)
+	}
+	back := runCommand(t, exec.Command(binary, positionalTurtle, "-convert", "sysml", "-o", positionalBack))
+	if back.status != 0 {
+		t.Fatalf("converting back from the positional-name graph failed: %s%s", back.stdout, back.stderr)
+	}
+	notation, err := os.ReadFile(positionalBack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(notation), "part def A") != 2 || !strings.Contains(string(notation), "part def '@2'") {
+		t.Errorf("the positional-name model did not come back:\n%s", notation)
 	}
 	if strings.Contains(to.stdout, "experimental") {
 		t.Errorf("the notice landed in the converted model:\n%s", to.stdout)
 	}
 
-	turtle := filepath.Join(dir, "model.ttl")
-	run(t, binary, model, "-convert", "ttl", "-o", turtle)
-	from := runCommand(t, exec.Command(binary, turtle, "-convert", "sysml"))
-	if !strings.Contains(from.stderr, "RDF conversion is experimental") {
+	positionalTurtleFile := filepath.Join(dir, "model.ttl")
+	run(t, binary, model, "-convert", "ttl", "-o", positionalTurtleFile)
+	from := runCommand(t, exec.Command(binary, positionalTurtleFile, "-convert", "sysml"))
+	if !strings.Contains(from.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("reading RDF is experimental too, but was not marked:\n%s", from.stderr)
 	}
 
-	notation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
-	if strings.Contains(notation.output(), "experimental") {
-		t.Errorf("a notation conversion is stable, but was marked:\n%s", notation.output())
+	positionalNotation := runCommand(t, exec.Command(binary, model, "-convert", "sysml"))
+	if strings.Contains(positionalNotation.output(), "experimental") {
+		t.Errorf("a notation conversion is stable, but was marked:\n%s", positionalNotation.output())
 	}
 
 	refused := runCommand(t, exec.Command(binary, behavior, "-convert", "ttl"))
 	if refused.status == 0 {
-		t.Fatalf("expected the mapping to refuse the duplicate declaration:\n%s", refused.stdout)
+		t.Fatalf("expected the mapping to refuse a non-constant ElementId:\n%s", refused.stdout)
 	}
-	if !strings.Contains(refused.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)
+	}
+}
+
+// TestConvertDuplicateMemberNames converts a model declaring one name twice
+// in a namespace: the later member is exported as its own element, identified
+// by its position.
+func TestConvertDuplicateMemberNames(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(duplicateModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runCommand(t, exec.Command(binary, model, "-convert", "json"))
+	if res.status != 0 {
+		t.Fatalf("the duplicate-name model was refused: %s%s", res.stdout, res.stderr)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &elements); err != nil {
+		t.Fatalf("the JSON conversion did not parse: %v\n%s", err, res.stdout)
+	}
+	var defs []map[string]any
+	for _, el := range elements {
+		if el["@type"] == "PartDefinition" && el["declaredName"] == "A" {
+			defs = append(defs, el)
+		}
+	}
+	if len(defs) != 2 {
+		t.Fatalf("got %d `part def A` elements, want 2:\n%s", len(defs), res.stdout)
+	}
+	if defs[0]["@id"] == defs[1]["@id"] {
+		t.Errorf("the two `part def A` share an @id %v", defs[0]["@id"])
+	}
+	if defs[0]["qualifiedName"] != "P::A" || defs[1]["qualifiedName"] != "P::@2" {
+		t.Errorf("qualified names are %v and %v, want P::A and P::@2", defs[0]["qualifiedName"], defs[1]["qualifiedName"])
 	}
 }
 
@@ -299,6 +399,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 	textReport := filepath.Join(dir, "report.txt")
 	jsonReport := filepath.Join(dir, "report.json")
+	layoutExport := filepath.Join(dir, "layout.xml")
 	turtle := filepath.Join(dir, "model.ttl")
 	run(t, binary, xmi, "-convert", "ttl", "-o", turtle, "-migration-report", textReport)
 	run(t, binary, xmi, "-from", "xmi", "-convert", "sysml", "-o", model, "-migration-report", jsonReport)
@@ -360,6 +461,11 @@ func TestConvertMigratesXMI(t *testing.T) {
 		"output over the input, spelled differently":   {[]string{v1, "-convert", "sysml", "-o", filepath.Join(dir, ".", "v1.xmi")}, "-o names the model being migrated"},
 		"output over the input through a link":         {[]string{v1, "-convert", "sysml", "-o", symlinkTo(t, dir, "v1-link", v1)}, "-o names the model being migrated"},
 		"output over the input through a hard link":    {[]string{v1, "-convert", "sysml", "-o", hardLink}, "-o names the model being migrated"},
+		"layout without convert":                       {[]string{model, "-layout", layoutExport}, "-layout accompanies -convert"},
+		"layout without xmi":                           {[]string{model, "-convert", "ttl", "-layout", layoutExport}, "-layout augments a SysML v1 migration"},
+		"layout over the model":                        {[]string{xmi, "-convert", "sysml", "-o", layoutExport, "-layout", layoutExport}, "-layout and -o both name"},
+		"layout over the report":                       {[]string{xmi, "-convert", "sysml", "-migration-report", layoutExport, "-layout", layoutExport}, "-layout and -migration-report both name"},
+		"layout over the input":                        {[]string{xmi, "-convert", "sysml", "-layout", xmi}, "names the model being migrated"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, err := exec.Command(binary, tc.args...).CombinedOutput()
@@ -436,4 +542,378 @@ func danglingLink(t *testing.T, dir, name, target string) string {
 		t.Skipf("cannot make a symbolic link: %v", err)
 	}
 	return link
+}
+
+// TestConvertLayoutAugment migrates the layout fixture with its MTIP export:
+// the views carry the export's geometry as DiagramLayout metadata.
+func TestConvertLayoutAugment(t *testing.T) {
+	binary := buildCLI(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.xmi")
+	layout := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.layout.xml")
+	out := runCommand(t, exec.Command(binary, xmi, "-convert", "sysml", "-layout", layout))
+	if out.status != 0 {
+		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
+	}
+	for _, want := range []string{
+		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }",
+		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
+		`@DiagramLayout::Canvas { unit = "px";`,
+	} {
+		if !strings.Contains(out.stdout, want) {
+			t.Errorf("migrated notation lacks %q:\n%s", want, out.stdout)
+		}
+	}
+	if !strings.Contains(out.stderr, "laid out 2 of 2 diagrams") {
+		t.Errorf("the layout summary belongs on stderr:\n%s", out.stderr)
+	}
+}
+
+// TestConvertImageBaseURL resolves a comment's server-relative <img src>
+// against -image-base-url in a migration, refuses the flag on unmigrated
+// input, and refuses a base that is not an absolute http(s) URL.
+func TestConvertImageBaseURL(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `body="First note."`,
+		`body="&lt;p&gt;&lt;img src=&quot;/projects/y/png&quot;&gt;&lt;/p&gt;&lt;p&gt;Figure 1. Caption&lt;/p&gt;"`, 1)
+	model := filepath.Join(dir, "documents.xmi")
+	if err := os.WriteFile(model, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "https://mms.example.org"))
+	if res.status != 0 {
+		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+	}
+	migrated, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), `attribute redefines location = "https://mms.example.org/projects/y/png";`) {
+		t.Errorf("notation lacks the resolved image:\n%s", migrated)
+	}
+
+	v2 := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(v2, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, v2, "-convert", "sysml", "-image-base-url", "https://mms.example.org"))
+	if res.status == 0 || !strings.Contains(res.stderr, "-image-base-url resolves images of a SysML v1 migration") {
+		t.Errorf("v2 input: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "ftp://x"))
+	if res.status == 0 || !strings.Contains(res.stderr, "not an absolute http(s) URL") {
+		t.Errorf("ftp base: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+}
+
+// TestConvertImagesLandBesideResolvedOutput a symlinked -o writes the
+// migration's image files beside the model the link resolves to, and -o
+// naming a directory fails rather than scattering images into its parent.
+func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	models := filepath.Join(dir, "models")
+	if err := os.MkdirAll(models, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := symlinkTo(t, dir, "out.sysml", filepath.Join(models, "report.sysml"))
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", link))
+	if res.status != 0 {
+		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(models, "images", "fleet.png")); err != nil {
+		t.Errorf("the image did not land beside the resolved output: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
+		t.Error("images were written beside the link, not its target")
+	}
+	if _, err := os.Stat(filepath.Join(models, "report.sysml")); err != nil {
+		t.Errorf("the model did not land at the resolved output: %v", err)
+	}
+
+	outDir := filepath.Join(dir, "adir")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", outDir))
+	if res.status == 0 || !strings.Contains(res.stderr, "which is not a file") {
+		t.Errorf("directory -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
+		t.Error("a failed run still wrote images")
+	}
+}
+
+// documentsMdzip packs the documents fixture with its attached image as an
+// mdzip in memory, so the migration has image files to write.
+func documentsMdzip(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	// Entries in a fixed order so two calls yield byte-identical archives.
+	for _, entry := range []struct {
+		name    string
+		content []byte
+	}{
+		{"com.nomagic.magicdraw.uml_model.model", data},
+		{"attachments/fleet.png", []byte("\x89PNG\r\n\x1a\n fleet bytes")},
+	} {
+		w, err := zw.Create(entry.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(entry.content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// TestConvertImageSidecarCollision refuses to write a migration image over a
+// path the run already uses, here the input model itself.
+func TestConvertImageSidecarCollision(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "images"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	model := filepath.Join(dir, "images", "fleet.png")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+model) {
+		t.Errorf("colliding -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote the model")
+	}
+	if got, err := os.ReadFile(model); err != nil || !bytes.Equal(got, documentsMdzip(t)) {
+		t.Error("the input model was overwritten")
+	}
+}
+
+// TestConvertImageSidecarIsTheModel refuses a -o an image would land on,
+// here through an images/ link back to the model's directory.
+func TestConvertImageSidecarIsTheModel(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(dir, filepath.Join(dir, "images")); err != nil {
+		t.Skip(err)
+	}
+	out := filepath.Join(dir, "fleet.png")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+out) {
+		t.Errorf("-o at an image's path: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote to the model's path")
+	}
+}
+
+// TestConvertModelOutputIsAnInput a model of several files is not written
+// over one of them, whether -o names the file or a link to it.
+func TestConvertModelOutputIsAnInput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.sysml")
+	b := filepath.Join(dir, "b.sysml")
+	sources := map[string]string{a: "package A;\n", b: "package B { import A::*; }\n"}
+	write := func(t *testing.T) {
+		for path, src := range sources {
+			if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	write(t)
+	link := filepath.Join(dir, "link.sysml")
+	if err := os.Symlink(b, link); err != nil {
+		t.Skip(err)
+	}
+	for name, out := range map[string]string{"first input": a, "second input": b, "link to an input": link} {
+		t.Run(name, func(t *testing.T) {
+			write(t)
+			res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", out))
+			if res.status == 0 || !strings.Contains(res.stderr, "would replace") {
+				t.Errorf("-o at an input's path: status %d, stderr:\n%s", res.status, res.stderr)
+			}
+			for path, src := range sources {
+				if got, err := os.ReadFile(path); err != nil || string(got) != src {
+					t.Errorf("%s was replaced (%v):\n%s", path, err, got)
+				}
+			}
+		})
+	}
+	write(t)
+	beside := filepath.Join(dir, "model.ttl")
+	res := runCommand(t, exec.Command(binary, a, b, "-convert", "ttl", "-o", beside))
+	if res.status != 0 {
+		t.Fatalf("-o beside the inputs: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(beside); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestConvertModelFailureKeepsImages a migration whose model cannot be saved
+// leaves the images beside the previous model as they were: the model and its
+// images are committed only once every one of them is written.
+func TestConvertModelFailureKeepsImages(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := []byte("the previous model's image")
+	if err := os.WriteFile(filepath.Join(images, "fleet.png"), old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(outDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(outDir, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("saving into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(filepath.Join(images, "fleet.png")); err != nil || !bytes.Equal(got, old) {
+		t.Errorf("the failed model save replaced the previous model's image (%v)", err)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced (%v)", err)
+	}
+	entries, err := os.ReadDir(images)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("staged files were left behind in %s: %v", images, entries)
+	}
+}
+
+// TestConvertImageFailureKeepsModel an image that cannot be written leaves the
+// previous model in place too, rather than a model referring to an image that
+// was never saved.
+func TestConvertImageFailureKeepsModel(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(images, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(images, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("writing an image into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced although its image was not written (%v)", err)
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("staged files were left behind in %s: %v", outDir, entries)
+	}
+}
+
+// TestStrictConvertWritesNoExtensionNotation runs a strict migration through
+// the command line: no OpenSysML extension statement is written.
+func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
+	binary := buildCLI(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "plant_states.xmi")
+	out := run(t, binary, xmi, "-strict", "-convert", "sysml", "-from", "xmi")
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		for _, kw := range []string{"defer ", "choice ", "junction ", "history ", "deep history "} {
+			if strings.HasPrefix(trimmed, kw) {
+				t.Fatalf("strict conversion wrote an extension statement %q:\n%s", trimmed, out)
+			}
+		}
+	}
+}
+
+// TestConvertFMUOverTheArchive: -o naming the FMU being imported refuses, and
+// the archive survives.
+func TestConvertFMUOverTheArchive(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	fmu := filepath.Join(dir, "model.fmu")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	entry, err := zw.Create("modelDescription.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte(`<fmiModelDescription fmiVersion="2.0" modelName="M" guid="{m}"><ModelVariables/></fmiModelDescription>`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fmu, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(binary, fmu, "-convert", "sysml", "-o", fmu).CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected a non-zero exit, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), "names the FMU being imported") {
+		t.Fatalf("output =\n%s\nwant the import's same-file refusal", out)
+	}
+	if got, err := os.ReadFile(fmu); err != nil || !bytes.Equal(got, buf.Bytes()) {
+		t.Fatalf("the FMU archive was modified (err %v)", err)
+	}
 }

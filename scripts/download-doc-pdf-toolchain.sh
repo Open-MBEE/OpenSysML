@@ -17,6 +17,9 @@
 # binary finds the pinned copies.
 set -euo pipefail
 
+# HTTPS_ONLY pins curl to TLS URLs so no fetch can fall back to plain http.
+HTTPS_ONLY="=https"
+
 PANDOC_VERSION="3.10.2"
 PANDOC_SHA256_AMD64="c7edd535941c48be6a362081a748272837de81ae11777202d9c341d3d8261c9a"
 PANDOC_SHA256_ARM64="1c4d69f2a092bd47cb180e58a4aab7b9637101ced928252458c7d41a7f7fa71d"
@@ -55,7 +58,7 @@ if [[ -x "$pandoc_dir/bin/pandoc" ]]; then
 else
 	tarball="$dest/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "Fetching pandoc $PANDOC_VERSION ($pandoc_arch) ..."
-	curl -fsSL --proto '=https' --proto-redir '=https' -o "$tarball" \
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
 		"https://github.com/jgm/pandoc/releases/download/$PANDOC_VERSION/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "$pandoc_sha256  $tarball" | sha256sum -c -
 	tar -xzf "$tarball" -C "$dest"
@@ -133,7 +136,7 @@ else
 	else
 		echo "Fetching Graphviz $GRAPHVIZ_VERSION (Ubuntu $ubuntu_version) ..."
 		tarball="$dest/graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
-		curl -fsSL --proto '=https' --proto-redir '=https' -o "$tarball" \
+		curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
 			"https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$GRAPHVIZ_VERSION/ubuntu_${ubuntu_version}_graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
 		echo "$graphviz_sha256  $tarball" | sha256sum -c -
 		debs="$dest/graphviz-debs"
@@ -189,7 +192,7 @@ if [[ -s "$plantuml" ]]; then
 else
 	echo "Fetching PlantUML $PLANTUML_VERSION ..."
 	mkdir -p "$(dirname "$plantuml")"
-	curl -fsSL --proto '=https' --proto-redir '=https' -o "$plantuml.part" \
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$plantuml.part" \
 		"https://github.com/plantuml/plantuml/releases/download/v$PLANTUML_VERSION/plantuml-$PLANTUML_VERSION.jar"
 	echo "$PLANTUML_SHA256  $plantuml.part" | sha256sum -c -
 	mv "$plantuml.part" "$plantuml"

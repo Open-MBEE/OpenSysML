@@ -1,6 +1,7 @@
 exit: start
 enter: waiting (entry action)
-stmt send
+stmt action body
+  stmt send
 transition: start -> waiting
 exit: waiting
 enter: done

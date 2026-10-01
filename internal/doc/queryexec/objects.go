@@ -36,6 +36,10 @@ func (e *executor) evaluateObjects(expression queryplan.Expression) (sequence, e
 	}
 	var result sequence
 	err = e.eachSessionObject(expression, func(row Value) {
+		inst, _, _ := row.Object()
+		if _, gone := e.context.Runtime.Destroyed(inst); gone {
+			return
+		}
 		if e.objectIsA(row, typeName, target) {
 			result.values = append(result.values, row)
 		}
@@ -79,6 +83,11 @@ func (e *executor) eachSessionObject(expression queryplan.Expression, visit func
 			return e.budgetError(expression)
 		}
 		visit(next)
+		inst, _, _ := next.Object()
+		// A destroyed object keeps its label but left the extent with its portions.
+		if _, gone := e.context.Runtime.Destroyed(inst); gone {
+			continue
+		}
 		children, err := e.heldObjects(expression, next)
 		if err != nil {
 			return err
@@ -259,7 +268,7 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
-			result = append(result, valueAt(typedPropertyValue(property, value, decl), origin))
+			result = append(result, valueAt(e.typedPropertyValue(property, value, decl), origin))
 		}
 		return result, true, nil
 	}

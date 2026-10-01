@@ -64,7 +64,7 @@ func TestControlNodesWithoutOutgoingEdgesEndTheirTokens(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Probe")
-	meta(t, s, "%action Probe::Run #1")
+	meta(t, s, "%action Probe::run #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the run did not complete:\n%s", out)
 	}

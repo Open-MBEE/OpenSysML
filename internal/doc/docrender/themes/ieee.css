@@ -1,0 +1,111 @@
+/* ieee: IEEE Transactions/Journals author conventions (IEEE Editorial Style
+   Manual, IEEEtran): Times 10pt justified, small-caps heads, 8pt captions. */
+@layer opensysml {
+  .sysml-document {
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-heading: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
+    --sysml-font-size: 10pt;
+    --sysml-line-height: 1.2;
+    --sysml-measure: 7.17in;
+    --sysml-space: 0.6em;
+    --sysml-space-tight: 0.2em;
+    --sysml-text: #000000;
+    --sysml-muted: #000000;
+    --sysml-accent: #000000;
+    --sysml-rule: #000000;
+    --sysml-surface: transparent;
+    --sysml-cell-padding: 0.15em 0.4em;
+    --sysml-code-font-size: 0.9em;
+    --sysml-caption-font-size: 8pt;
+    --sysml-table-font-size: 8pt;
+    --sysml-title-page-height: 80vh;
+    --sysml-group-heading-weight: 700;
+    --sysml-paragraph-indent: 1pc;
+  }
+
+  .sysml-document h1,
+  .sysml-document h2,
+  .sysml-document h3,
+  .sysml-document h4 {
+    font-family: var(--sysml-font-heading);
+    font-weight: 400;
+    line-height: 1.2;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .sysml-document .sysml-title {
+    font-size: 24pt;
+    text-align: center;
+  }
+
+  .sysml-document h2 {
+    font-size: 10pt;
+    font-variant: small-caps;
+    text-align: center;
+    margin: 1.8em 0 0.6em;
+  }
+
+  .sysml-document h3,
+  .sysml-document h4 {
+    font-size: 10pt;
+    font-style: italic;
+    margin: 1.2em 0 0.4em;
+  }
+
+  .sysml-document .sysml-paragraph {
+    margin: 0;
+    text-align: justify;
+    text-indent: var(--sysml-paragraph-indent);
+    hyphens: auto;
+  }
+
+  .sysml-document .sysml-table {
+    font-size: var(--sysml-table-font-size);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    border: none;
+    border-bottom: var(--sysml-border-width) solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-table thead th {
+    border-top: var(--sysml-border-width) solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-caption {
+    caption-side: top;
+    font-size: var(--sysml-caption-font-size);
+    font-variant: small-caps;
+    text-align: center;
+    padding-bottom: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-diagram {
+    text-align: center;
+  }
+
+  .sysml-document .sysml-diagram .sysml-caption,
+  .sysml-document .sysml-formula .sysml-caption {
+    font-variant: normal;
+    text-align: left;
+  }
+
+  .sysml-document .sysml-diagram pre {
+    text-align: left;
+    border: var(--sysml-border-width) solid var(--sysml-rule);
+    padding: var(--sysml-space-tight);
+    overflow-x: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .sysml-document .sysml-link,
+  .sysml-document .sysml-ref {
+    text-decoration: none;
+  }
+}

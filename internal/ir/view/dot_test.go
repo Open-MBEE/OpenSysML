@@ -3,7 +3,9 @@ package view
 import (
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -175,7 +177,10 @@ func TestDOTLabelShape(t *testing.T) {
 		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"},
 			`<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>`},
 		{"name-less", &Node{Kind: "connect"}, `<<b>connect</b>>`},
-		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>part</b>>`},
+		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>`},
+		{"synthesized name", &Node{Kind: "action", Name: "call", Type: "doTracking", NameSynthesized: true},
+			`<<b>: doTracking</b><br/><font point-size="10"><i>«action»</i></font>>`},
+		{"synthesized name, untyped", &Node{Kind: "action", Name: "stamp2", NameSynthesized: true}, `<<b>action</b>>`},
 		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, `<<b>connect</b><br/>already shown>`},
 		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1, collapsed"},
 			`<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font><br/>already shown as n1, collapsed>`},
@@ -185,9 +190,26 @@ func TestDOTLabelShape(t *testing.T) {
 			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>x &gt; y>`},
 	}
 	for _, tc := range cases {
-		if got := dotLabel(tc.node); got != "label="+tc.want {
+		if got := (labeller{}).dotLabel(tc.node); got != "label="+tc.want {
 			t.Errorf("%s: dotLabel = %s, want %s", tc.name, got, tc.want)
 		}
+	}
+}
+
+// The extent estimate measures every line of a head that breaks across lines
+// in bold, and takes the keyword line to be the one after the last of them.
+func TestDOTLabelExtentMultilineHead(t *testing.T) {
+	l := labeller{}
+	long := strings.Repeat("W", 60)
+	broken := &Node{Kind: "action def", Name: `'x\n` + long + `'`}
+	whole := &Node{Kind: "action def", Name: `'x` + long + `'`}
+	brokenWidth, brokenHeight := l.dotLabelExtent(broken)
+	wholeWidth, wholeHeight := l.dotLabelExtent(whole)
+	if want := wholeWidth - 2*l.size()*dotBoldGlyphEm; math.Abs(brokenWidth-want) > 1e-9 {
+		t.Errorf("width = %g, want %g: the second line is not measured in bold", brokenWidth, want)
+	}
+	if want := wholeHeight + l.size()*dotLineEm; brokenHeight != want {
+		t.Errorf("height = %g, want %g: the second line is one head line, not the keyword", brokenHeight, want)
 	}
 }
 
@@ -309,6 +331,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeTransition: `"a" -> "b" [label="k"];`,
 		EdgeSuccession: `"a" -> "b" [label="k"];`,
 		EdgeFlow:       `"a" -> "b" [label="k", style=dashed];`,
+		EdgeBinding:    `"a" -> "b" [label="k", arrowhead=none];`,
 	}
 	for kind := EdgeConnection; kind.String() != "edge"; kind++ {
 		want, ok := styles[kind]
@@ -385,7 +408,7 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		if !strings.Contains(dot, "label="+dotQuote(edge.Label)) {
 			t.Errorf("DOT drops the transition label %q", edge.Label)
 		}
-		if !strings.Contains(mermaid, ": "+mermaidText(edge.Label)) {
+		if !strings.Contains(mermaid, ": "+mermaidTransitionText(edge.Label)) {
 			t.Errorf("Mermaid drops the transition label %q", edge.Label)
 		}
 	}
@@ -462,7 +485,8 @@ digraph "V::empty" {
 // is pinned at its centre in points, y up from the canvas's bottom edge, sized
 // in inches — fixed when the Layout sizes it, fitted to its label when not; a
 // route is a `pos` spline through its waypoints; the canvas is held by a pinned
-// point at each corner; the header names `neato` while a node is unpositioned.
+// point at each corner; the cluster round positioned members is boxed round
+// them, so every node is positioned and the header names `neato -n2`.
 func TestDOTWritesTheGeometry(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
 	dot, err := rendering.DOT()
@@ -472,31 +496,37 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	checkGolden(t, filepath.Join("testdata", "layout.dot.golden"), dot)
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
-		"// canvas: unit=px w=1200 h=800\n// layout: neato\n",
-		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
-		// pump: top-left (300, 40), no size, so the centre of a 109x37 box fitted
-		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
-		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
+		"// canvas: unit=px w=1200 h=800\n// layout: neato -n2\n",
+		// Loop: no Layout, boxed a margin round pump and tank, its anchor at the centre.
+		"    bb=\"292,692,628,768\";\n    \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
+		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
+		// pump: top-left (300, 40), no size, so the centre of a 96x36 box fitted to
+		// eleven glyphs at its Style's 11pt over a 10pt keyword line, stated but not
+		// fixed, collapsed.
+		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
-		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
-		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
+		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		// Headless, so no `e,` point; the label sits up and right of the first leg.
+		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	// Without a canvas height, y is negated; the inline Layout of pump is kept
-	// and the unpositioned tank leaves the graph to neato.
+	// Without a canvas height, y is negated; the inline Layout of pump is kept,
+	// its head wrapped where eleven bold 14pt glyphs overrun the stated 100pt width,
+	// and tank, with none, takes the end of the inline route: its 118x37
+	// label-fitted box centred 59 back from (200, 45) along the route's last leg.
 	plain, err := render(t, "layout.sysml", "PlantViews::plainView").DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, plain)
 	for _, want := range []string{
-		"// layout: neato\ndigraph",
-		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
-		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>];`,
+		"// layout: neato -n2\ndigraph",
+		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n",
+		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
 		if !strings.Contains(plain, want) {
@@ -506,19 +536,29 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	if strings.Contains(plain, "canvas") {
 		t.Errorf("plain DOT states a canvas it has none of:\n%s", plain)
 	}
-	// States and transitions are placed the same way; a pseudo-state is not.
+	// States and transitions are placed the same way; the start, with neither
+	// a Layout nor a routed transition, takes its place above the state it enters:
+	// its 14.4pt dot 20 clear of off's top, on off's centre line. The routed
+	// transitions end at `e,` points 10 short of their last waypoint, so Graphviz
+	// draws their heads; the label of off_on sits right of its vertical run.
 	machine, err := render(t, "layout.sysml", "PlantViews::machineView").DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, machine)
+	if strings.Contains(machine, "not represented") {
+		t.Errorf("machine DOT leaves the start unplaced:\n%s", machine)
+	}
 	for _, want := range []string{
-		`"n3" [shape=point, fillcolor=black, label=""];`,
+		"// layout: neato -n2\ndigraph",
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
 		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
-		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
-		`"n1" -> "n2" [label="off_on:", pos="50,-10 50,-10 50,-90 50,-90"];`,
-		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
+		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, margin=0, fillcolor="#EBEBD7", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		`"n3" [shape=point, fillcolor=black, label="", pos="37.5,21.8!", pin=true];`,
+		`bb="-8,-148,88,31.6";`,
+		`"n3" -> "n1";`,
+		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="22.5,-70"];`,
+		`"n2" -> "n1" [pos="e,30,-10 30,-90 30,-90 30,-20 30,-20"];`,
 	} {
 		if !strings.Contains(machine, want) {
 			t.Errorf("machine DOT lacks %q:\n%s", want, machine)
@@ -535,9 +575,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 
 // A graph whose every node is positioned is written for `neato -n`, and for
 // `neato -n2` once any edge is routed; a route of one waypoint is noticed,
-// as are routes while a node is left for `neato` to place; a cluster
+// as is a node left unplaced, which is not drawn; a cluster
 // states its box — the stated one, or the one from its corner round its
-// members — and pins its anchor at the centre; a tree pins the node itself.
+// members — and pins its anchor at the centre; a stated cluster's label is
+// fitted to the strip above its topmost stated member; a tree pins the node itself.
 func TestDOTPinsEveryNode(t *testing.T) {
 	rendering := &Rendering{
 		View:   "Pinned::view",
@@ -568,19 +609,19 @@ func TestDOTPinsEveryNode(t *testing.T) {
 // canvas: unit=px w=400 h=300
 // layout: neato -n2
 digraph "Pinned::view" {
-  graph [fontname="Helvetica", compound=true, inputscale=72, dpi=72];
+  graph [fontname="Helvetica", compound=true, layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,300!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="400,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<font point-size="8"><b>Outer</b></font>>;
     color=black;
     penwidth=0.5;
     bb="10,180,210,280";
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
-    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
+    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
     "n2" [style="rounded,filled", label=<<b>b</b><br/><font point-size="10"><i>«part»</i></font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   subgraph "cluster_n3" {
@@ -605,18 +646,17 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="174,252 174,252 300,80 300,80", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
+	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="e,300,80 174,252 174,252 294,88 294,88", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
 		t.Errorf("fully routed DOT:\n%s", dot)
 	}
-	// Leaving a node unpositioned hands the graph to `neato`, which redraws
-	// the routes it is given, so they are noticed.
+	// Leaving a node unpositioned leaves it undrawn, the rest pinned as before.
 	rendering.Roots[1].Children[0].Geometry = nil
 	dot, err = rendering.DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// not represented: 2 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them\n// canvas: unit=px w=400 h=300\n// layout: neato\n") {
+	if !strings.Contains(dot, "// not represented: 1 node(s) without a position, left undrawn\n// canvas: unit=px w=400 h=300\n// layout: neato -n2\n") || strings.Contains(dot, `"n4"`) {
 		t.Errorf("partly positioned DOT:\n%s", dot)
 	}
 	rendering.Roots[1].Children[0].Geometry = &Geometry{X: 310, Y: 210}
@@ -634,8 +674,9 @@ digraph "Pinned::view" {
 	}
 	for _, want := range []string{
 		"// layout: neato -n2\n",
-		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
-		`"n0" [label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
+		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
+		// Outer's box holds a's, 10px below its top: its title is fitted to that strip, at the top.
+		`"n0" [label=<<font point-size="8"><b>Outer</b></font>>, margin=0, labelloc=t, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
 		`"n3" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -646,7 +687,8 @@ digraph "Pinned::view" {
 		t.Errorf("tree DOT states a cluster box:\n%s", dot)
 	}
 	// Pseudo-states are centred on their own shapes: a point's fixed size, a
-	// circle round the label's diagonal.
+	// circle round the label's diagonal, a stated box drawn as the bare symbol
+	// with the name beside it.
 	pseudo := &Rendering{View: "V", Kind: KindState, Roots: []*Node{
 		{ID: "s", Kind: startKind, Geometry: &Geometry{X: 0, Y: 0}},
 		{ID: "i", Kind: "initial", Name: "go", Geometry: &Geometry{X: 100, Y: 0}},
@@ -660,7 +702,7 @@ digraph "Pinned::view" {
 	for _, want := range []string{
 		`"s" [shape=point, fillcolor=black, label="", pos="1.8,-1.8!", pin=true];`,
 		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
-		`"f" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
+		`"f" [shape=doublecircle, fillcolor=black, label="", xlabel="done", pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("pseudo-state DOT lacks %q:\n%s", want, dot)
@@ -681,7 +723,7 @@ digraph "Pinned::view" {
 		}
 	}
 	// A cluster with a corner but no positioned member has no box to state;
-	// its anchor is pinned at the corner and neato places the members.
+	// its anchor is pinned at the corner and the unplaced member is left undrawn.
 	corner := &Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{
 		{ID: "n0", Kind: "part def", Name: "Outer", Geometry: &Geometry{X: 30, Y: 40}, Children: []*Node{{ID: "n1", Kind: "part", Name: "a"}}},
 	}}
@@ -690,7 +732,7 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato\n") || strings.Contains(dot, "bb=") || !strings.Contains(dot, `"n0" [shape=point, style=invis, width=0, height=0, label="", pos="30,-40!", pin=true];`) {
+	if !strings.Contains(dot, "// layout: neato -n\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n1"`) || !strings.Contains(dot, `"n0" [shape=point, style=invis, width=0, height=0, label="", pos="30,-40!", pin=true];`) {
 		t.Errorf("corner-only cluster DOT:\n%s", dot)
 	}
 	// A canvas with a unit alone is named in the header and pins nothing, and
@@ -710,6 +752,272 @@ digraph "Pinned::view" {
 	}
 	if !strings.Contains(dot, "// canvas: unit=px w=400 h=300\n// layout: dot\n") || strings.Contains(dot, "graph [fontname=\"Helvetica\", ") || strings.Contains(dot, `"canvas:0"`) {
 		t.Errorf("unpositioned sized-canvas DOT:\n%s", dot)
+	}
+}
+
+// A node with no Layout takes its position from the routes that meet it: the
+// box its label is fitted to, centred one reach back from the route's end along
+// the end segment, so the route meets its border; several routes are averaged.
+// The cluster round them is boxed a margin round every placed member. Every
+// node then has a position and the header names `neato -n2`; a stated Layout
+// still wins over the route, a one-point route places nothing, and a node with
+// neither Layout nor route is left undrawn, with the edges at it.
+func TestDOTPlacesNodesFromRoutes(t *testing.T) {
+	rendering := &Rendering{
+		View:   "Routed::view",
+		Kind:   KindAction,
+		Canvas: &Canvas{Unit: "px", Width: 250, Height: 326, HasSize: true},
+		Roots: []*Node{
+			{ID: "n0", Kind: "action def", Name: "SendAck", Children: []*Node{
+				{ID: "n1", Kind: "initial", Name: "start"},
+				{ID: "n2", Kind: "action", Name: "wait"},
+				{ID: "n3", Kind: "action", Name: "send", Geometry: &Geometry{X: 120, Y: 200, Width: 80, Height: 40, HasSize: true}},
+				{ID: "n4", Kind: "final", Name: "done"},
+			}},
+		},
+		Edges: []Edge{
+			// start: an 80pt circle (its label's diagonal), so centred 40 above (160, 53).
+			// wait: a 64x37 box, 18.5 above (160, 92) and 18.5 below (160, 129): (160, 110.5) both ways.
+			{From: "n1", To: "n2", Kind: EdgeSuccession, Route: []Point{{X: 160, Y: 53}, {X: 160, Y: 92}}},
+			{From: "n2", To: "n3", Kind: EdgeSuccession, Route: []Point{{X: 160, Y: 129}, {X: 160, Y: 200}}},
+			// send keeps its stated box, centred at (160, 220), not the route's (150, 240).
+			// done: a 69pt circle, 34.5 below (150, 280); the cluster is 8 out from every box.
+			{From: "n3", To: "n4", Kind: EdgeSuccession, Route: []Point{{X: 150, Y: 240}, {X: 150, Y: 280}}},
+		},
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	want := `// view: Routed::view
+// kind: action
+// canvas: unit=px w=250 h=326
+// layout: neato -n2
+digraph "Routed::view" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,326!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="250,0!", pin=true];
+  subgraph "cluster_n0" {
+    label=<<b>SendAck</b><br/><font point-size="10"><i>«action def»</i></font>>;
+    color=black;
+    penwidth=0.5;
+    bb="107.5,-31,208,361";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="157.75,165!", pin=true];
+    "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="160,313!", pin=true, width=1.1111111111111112, height=1.1111111111111112];
+    "n2" [style="rounded,filled", label=<<b>wait</b><br/><font point-size="10"><i>«action»</i></font>>, pos="160,215.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];
+    "n3" [style="rounded,filled", label=<<b>send</b><br/><font point-size="10"><i>«action»</i></font>>, margin=0, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
+    "n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="150,11.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];
+  }
+  "n1" -> "n2" [pos="e,160,234 160,273 160,273 160,244 160,244"];
+  "n2" -> "n3" [pos="e,160,126 160,197 160,197 160,136 160,136"];
+  "n3" -> "n4" [pos="e,150,46 150,86 150,86 150,56 150,56"];
+}
+`
+	if dot != want {
+		t.Errorf("DOT:\n%s\nwant:\n%s", dot, want)
+	}
+	// An unnamed pseudo-state takes the UML dot's 0.2in; a diagonal end segment
+	// is followed back to the box's border, here the bottom edge of wait's 37pt.
+	diagonal := &Rendering{View: "V", Kind: KindAction, Roots: []*Node{
+		{ID: "a", Kind: "action", Name: "wait"},
+		{ID: "f", Kind: "final"},
+	}, Edges: []Edge{{From: "a", To: "f", Kind: EdgeSuccession, Route: []Point{{X: 100, Y: 100}, {X: 137, Y: 137}, {X: 200, Y: 137}}}}}
+	dot, err = diagonal.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, want := range []string{
+		"// layout: neato -n2\n",
+		`"a" [style="rounded,filled", label=<<b>wait</b><br/><font point-size="10"><i>«action»</i></font>>, pos="81.5,-81.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];`,
+		`"f" [shape=doublecircle, fillcolor=black, label="", pos="207.2,-137!", pin=true, width=0.2, height=0.2];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("diagonal DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	// A route of one waypoint places nothing, nor does an edge with none; the
+	// final node it reaches takes its place below send instead, unrouted to.
+	rendering.Edges[2].Route = rendering.Edges[2].Route[:1]
+	dot, err = rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: route of n3->n4 is one waypoint, (150, 240); a line needs two\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") ||
+		!strings.Contains(dot, `"n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="160,31.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`) ||
+		!strings.Contains(dot, `"n3" -> "n4";`) || strings.Contains(dot, "without a position") {
+		t.Errorf("one-waypoint DOT:\n%s", dot)
+	}
+	rendering.Edges = rendering.Edges[:2]
+	rendering.Roots[0].Children = append(rendering.Roots[0].Children, &Node{ID: "n5", Kind: "action", Name: "value"})
+	dot, err = rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: 2 node(s) without a position, left undrawn\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") || strings.Contains(dot, `"n5"`) {
+		t.Errorf("unrouted-node DOT:\n%s", dot)
+	}
+	// A tree has no clusters to box round members: the parent itself is left
+	// undrawn when nothing routes to it, its children drawn with no edge to it.
+	rendering.Roots[0].Children = rendering.Roots[0].Children[:4]
+	rendering.Kind = KindTree
+	dot, err = rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// layout: neato -n2\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n0"`) || !strings.Contains(dot, `"n1" -> "n2" [pos=`) {
+		t.Errorf("tree DOT:\n%s", dot)
+	}
+}
+
+// A drawing some Layout positions leaves the nodes none does undrawn, with the
+// edges at them, and says so; asked for the strip, it sets them in rows below
+// everything placed — canvas, boxes and routes — a gap clear of it and of one
+// another, an unplaced cluster round its own members, a tree's nodes each on
+// their own; a drawing nothing positions is laid out by `dot` as ever.
+func TestDOTSettlesUnplacedNodes(t *testing.T) {
+	rendering := func() *Rendering {
+		return &Rendering{
+			View:   "V",
+			Kind:   KindInterconnection,
+			Canvas: &Canvas{Unit: "px", Width: 300, Height: 100, HasSize: true},
+			Roots: []*Node{
+				{ID: "placed", Kind: "part", Name: "pump", Geometry: &Geometry{X: 10, Y: 10, Width: 100, Height: 40, HasSize: true}},
+				{ID: "low", Kind: "part", Name: "tank", Geometry: &Geometry{X: 150, Y: 120, Width: 60, Height: 30, HasSize: true}},
+				{ID: "loose", Kind: "part", Name: "spare"},
+				{ID: "wide", Kind: "part def", Name: "A rather long definition name"},
+				{ID: "group", Kind: "part def", Name: "Group", Children: []*Node{
+					{ID: "g1", Kind: "part", Name: "g1"},
+					{ID: "g2", Kind: "part", Name: "g2"},
+				}},
+			},
+			Edges: []Edge{
+				{From: "placed", To: "low", Kind: EdgeConnection, Route: []Point{{X: 60, Y: 50}, {X: 60, Y: 170}, {X: 150, Y: 170}}},
+				{From: "placed", To: "loose", Kind: EdgeConnection},
+				{From: "loose", To: "g1", Kind: EdgeFlow},
+			},
+		}
+	}
+	dot, err := rendering().DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: 5 node(s) without a position, left undrawn, and 2 edge(s) at them\n// canvas: unit=px w=300 h=100\n// layout: neato -n2\n") {
+		t.Errorf("omitting DOT header:\n%s", dot)
+	}
+	for _, id := range []string{"loose", "wide", "group", "g1", "g2"} {
+		if strings.Contains(dot, dotQuote(id)) {
+			t.Errorf("omitting DOT draws unplaced %s:\n%s", id, dot)
+		}
+	}
+	if !strings.Contains(dot, `"placed" -> "low" [arrowhead=none, penwidth=3, pos=`) || strings.Count(dot, " -> ") != 1 {
+		t.Errorf("omitting DOT edges:\n%s", dot)
+	}
+	// The strip: the canvas is 300 wide but tank reaches to y=170 with its route,
+	// so the strip starts at y=194 and rows wrap at x=300.
+	dot, err = rendering().DOTWith(Options{Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: 5 node(s) without a position, drawn in a strip below the drawing\n// canvas: unit=px w=300 h=100\n// layout: neato -n2\n") {
+		t.Errorf("strip DOT header:\n%s", dot)
+	}
+	for _, want := range []string{
+		// spare: 63x37 from (0, 194), so its centre is (31.5, 212.5), y flipped
+		// against the 100-high canvas; the long name, 284 wide, would overrun 300
+		// beside it, so it heads the next row, 24 below.
+		`"loose" [style="rounded,filled", label=<<b>spare</b><br/><font point-size="10"><i>«part»</i></font>>, pos="31.5,-112.5!", pin=true, width=0.875, height=0.5138888888888888];`,
+		`"wide" [label=<<b>A rather long definition name</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="142,-173.5!", pin=true, width=3.9444444444444446, height=0.5138888888888888];`,
+		// Group heads the third row at y=316: its title, then g1 and g2 side by
+		// side, a margin of 8 in from its box.
+		"    bb=\"0,-298,148,-216\";\n",
+		`"g1" [style="rounded,filled", label=<<b>g1</b><br/><font point-size="10"><i>«part»</i></font>>, pos="35,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="113,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"placed" -> "loose" [arrowhead=none, penwidth=3];`,
+		`"loose" -> "g1" [style=dashed];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("strip DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	assertStripBelow(t, rendering(), 170)
+	// A tree sets each unplaced node on its own, the containment edges drawn to them.
+	tree := rendering()
+	tree.Kind = KindTree
+	dot, err = tree.DOTWith(Options{Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if strings.Contains(dot, "bb=") || !strings.Contains(dot, `"group" -> "g1" [arrowhead=none];`) ||
+		!strings.Contains(dot, `"group" [label=<<b>Group</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="38,-234.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`) ||
+		!strings.Contains(dot, `"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="205,-234.5!", pin=true, width=0.75, height=0.5138888888888888];`) {
+		t.Errorf("tree strip DOT:\n%s", dot)
+	}
+	assertStripBelow(t, tree, 170)
+	// Nothing positioned: every node drawn, laid out by dot, whatever is asked.
+	for _, unplaced := range []Unplaced{"", UnplacedOmit, UnplacedStrip} {
+		plain := rendering()
+		plain.Canvas = nil
+		for _, root := range plain.Roots {
+			root.Geometry = nil
+		}
+		plain.Edges[0].Route = nil
+		dot, err = plain.DOTWith(Options{Unplaced: unplaced})
+		if err != nil {
+			t.Fatalf("%q: DOT: %v", unplaced, err)
+		}
+		if !strings.Contains(dot, "// kind: interconnection\n// layout: dot\n") || strings.Contains(dot, "pos=") || strings.Count(dot, " -> ") != 3 {
+			t.Errorf("%q: unpositioned DOT:\n%s", unplaced, dot)
+		}
+	}
+	// A placement no name has is refused, naming the ones there are.
+	if _, err := rendering().DOTWith(Options{Unplaced: "pile"}); err == nil || !errors.Is(err, ErrUnknownUnplaced) || err.Error() != `unknown placement "pile" of unplaced nodes; the placements are omit, strip` {
+		t.Errorf("unknown placement: %v", err)
+	}
+}
+
+// assertStripBelow checks every node the strip places sits below everything
+// the Layouts place — the canvas and every stated box and route end at floor —
+// and that no two strip boxes overlap.
+func assertStripBelow(t *testing.T, r *Rendering, floor float64) {
+	t.Helper()
+	w := newDOTWriter(r, Options{})
+	stated := map[string]nodeBox{}
+	for id, box := range w.boxes {
+		stated[id] = box
+	}
+	w.stripUnplaced(r.Roots, r.Edges)
+	var strip []nodeBox
+	for id, box := range w.boxes {
+		if _, ok := stated[id]; ok {
+			continue
+		}
+		if box.low.Y < floor+dotStripGap {
+			t.Errorf("strip box %s at y=%v is not below the drawing's %v", id, box.low.Y, floor)
+		}
+		strip = append(strip, box)
+	}
+	if len(strip) == 0 {
+		t.Fatal("the strip placed nothing")
+	}
+	for i, a := range strip {
+		for _, b := range strip[i+1:] {
+			if a.encloses(b) || b.encloses(a) {
+				continue // a cluster round its members
+			}
+			if a.low.X < b.high.X && b.low.X < a.high.X && a.low.Y < b.high.Y && b.low.Y < a.high.Y {
+				t.Errorf("strip boxes overlap: %+v and %+v", a, b)
+			}
+		}
 	}
 }
 
@@ -746,12 +1054,14 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			}
 			clusters[tokens[i+1].text] = true
 			i++
-		case tok.quoted && i+1 < len(tokens) && tokens[i+1].text == "->":
-			if i+2 >= len(tokens) || !tokens[i+2].quoted {
+		case tok.quoted && i+1 < len(tokens) && (tokens[i+1].text == "->" || tokens[i+1].text == ":"):
+			from, next := dotEdgeEnd(tokens, i)
+			if next >= len(tokens) || tokens[next].text != "->" || next+1 >= len(tokens) || !tokens[next+1].quoted {
 				t.Fatalf("edge to an unquoted end at token %d:\n%s", i, dot)
 			}
-			edges = append(edges, edge{tok.text, tokens[i+2].text})
-			i += 2
+			to, next := dotEdgeEnd(tokens, next+1)
+			edges = append(edges, edge{from, to})
+			i = next - 1
 			if i+1 < len(tokens) && tokens[i+1].text == "[" {
 				i = checkDOTAttributes(t, tokens, i, dot, &clipped)
 			}
@@ -798,6 +1108,16 @@ func checkDOTSyntax(t *testing.T, dot string) {
 	}
 }
 
+// dotEdgeEnd reads an edge end at tokens[i]: a quoted node, or `node:port` with
+// a quoted port; it returns the node and the index after the end.
+func dotEdgeEnd(tokens []dotToken, i int) (string, int) {
+	node := tokens[i].text
+	if i+2 < len(tokens) && tokens[i+1].text == ":" && !tokens[i+1].quoted && tokens[i+2].quoted {
+		return node, i + 3
+	}
+	return node, i + 1
+}
+
 // checkDOTAttributes checks the attribute list opening after tokens[i] and
 // returns the index of its closing bracket, collecting lhead/ltail clusters.
 func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clipped *[]string) int {
@@ -814,7 +1134,7 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 			t.Fatalf("attribute list is not name=value at token %d (%q):\n%s", i, tokens[i].text, dot)
 		}
 		name, value := tokens[i].text, tokens[i+2]
-		if (name == "label" || name == "lhead" || name == "ltail" || name == "pos" || name == "bb" || name == "comment") && !value.quoted {
+		if (name == "label" || name == "xlabel" || name == "lhead" || name == "ltail" || name == "pos" || name == "bb" || name == "comment") && !value.quoted {
 			t.Fatalf("attribute %s has a bare value %q:\n%s", name, value.text, dot)
 		}
 		if value.html {
@@ -826,7 +1146,7 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 		if name == "lhead" || name == "ltail" {
 			*clipped = append(*clipped, value.text)
 		}
-		if name == "pos" || name == "bb" {
+		if name == "pos" || name == "bb" || name == "lp" {
 			checkDOTGeometry(t, name, value.text, dot)
 		}
 		if name == "width" || name == "height" || name == "inputscale" || name == "dpi" || name == "penwidth" || name == "fontsize" {
@@ -857,8 +1177,10 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			tag := label[i+1 : i+end]
 			i += end
 			switch {
-			case tag == "br/":
-			case tag == "b" || tag == "i" || strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+			case tag == "br/" || tag == "hr/":
+			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
+				tag == `table border="0" cellborder="0" cellspacing="0" cellpadding="2"` ||
+				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
 				open = append(open, strings.Fields(tag)[0])
 			case strings.HasPrefix(tag, "/"):
 				if len(open) == 0 || open[len(open)-1] != tag[1:] {
@@ -887,12 +1209,33 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 	}
 }
 
+// dotTableCellTag reports whether tag is a `td` with only the cell attributes
+// the writer sets, each with a quoted value.
+func dotTableCellTag(tag string) bool {
+	fields := strings.Fields(tag)
+	if len(fields) == 0 || fields[0] != "td" {
+		return false
+	}
+	for _, attr := range fields[1:] {
+		name, value, ok := strings.Cut(attr, "=")
+		if !ok || !slices.Contains([]string{"align", "port", "border", "fixedsize", "width", "height", "colspan"}, name) ||
+			len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
+			return false
+		}
+	}
+	return true
+}
+
 // checkDOTGeometry checks a geometry attribute's value as Graphviz reads it: a
-// node `pos` is one pinned point, an edge `pos` a cubic B-spline of 3n+1
-// points, `bb` two corners.
+// node `pos` or an `lp` is one point, a node's pinned, an edge `pos` a cubic
+// B-spline of 3n+1 points behind an optional `e,x,y` endpoint, `bb` two corners.
 func checkDOTGeometry(t *testing.T, name, value, dot string) {
 	t.Helper()
 	points := strings.Fields(value)
+	if name == "pos" && len(points) > 1 && strings.HasPrefix(points[0], "e,") {
+		checkDOTGeometry(t, "lp", strings.TrimPrefix(points[0], "e,"), dot)
+		points = points[1:]
+	}
 	for i, point := range points {
 		if name == "pos" && len(points) == 1 {
 			point = strings.TrimSuffix(point, "!")
@@ -978,7 +1321,7 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 		case c == '-' && i+1 < len(dot) && dot[i+1] == '>':
 			tokens = append(tokens, dotToken{text: "->"})
 			i++
-		case strings.ContainsRune("{}[];,=", rune(c)):
+		case strings.ContainsRune("{}[];,=:", rune(c)):
 			tokens = append(tokens, dotToken{text: string(c)})
 		case c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.':
 			start := i
@@ -991,4 +1334,35 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 		}
 	}
 	return tokens, nil
+}
+
+// A pseudostate with a stated position keeps it: the route reaching it is not
+// followed to place it, and the box it stands in has that geometry.
+func TestDOTKeepsStatedPseudostatePositions(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindState, Canvas: &Canvas{Unit: "px", Width: 300, Height: 300, HasSize: true}, Roots: []*Node{
+		{ID: "i", Kind: "initial", Geometry: &Geometry{X: 60, Y: 40, Width: 16, Height: 16, HasSize: true}},
+		{ID: "s", Kind: "state", Name: "Idle", Geometry: &Geometry{X: 40, Y: 100, Width: 120, Height: 50, HasSize: true}},
+		{ID: "f", Kind: "final", Geometry: &Geometry{X: 200, Y: 100, Width: 20, Height: 20, HasSize: true}},
+	}, Edges: []Edge{
+		{From: "i", To: "s", Kind: EdgeTransition, Route: []Point{{X: 68, Y: 56}, {X: 68, Y: 100}}},
+		{From: "s", To: "f", Kind: EdgeTransition, Route: []Point{{X: 160, Y: 125}, {X: 200, Y: 110}}},
+	}}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, want := range []string{
+		"// layout: neato -n2\n",
+		`"i" [shape=circle, fillcolor=black, label="", pos="68,252!", pin=true, width=0.2222222222222222, height=0.2222222222222222, fixedsize=true];`,
+		`"f" [shape=doublecircle, fillcolor=black, label="", pos="210,190!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"i" -> "s" [pos="e,68,200 68,244 68,244 68,210 68,210"];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	if strings.Contains(dot, "not represented") {
+		t.Errorf("DOT drops something:\n%s", dot)
+	}
 }

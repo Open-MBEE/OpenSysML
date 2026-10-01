@@ -13,9 +13,10 @@ package OpenSysMLExecution {
     item def TypeShape :> SideTable;
 
     // One entry of a type's flattened schema (runtime.EffectiveFeature): name, symbol, owner,
-    // type, multiplicity, the stated value and its declaration, and whether it is a set, unique.
+    // type, multiplicity, the stated value and its declaration, whether it is a set, unique,
+    // and whether a more specific nested chain governs its bound value.
     item def EffectiveFeature {
-        attribute fieldCount : Integer = 9;
+        attribute fieldCount : Integer = 10;
         attribute inheritsDefault : Boolean = true;
         attribute inheritsMultiplicity : Boolean = true;
     }
@@ -165,7 +166,7 @@ package OpenSysMLExecution {
     // run records a choice point, which a replay or an exploration takes differently.
     part def Scheduler :> CodeUnit {
         attribute :>> goPackage = "internal/exec/runtime";
-        attribute choiceKindCount : Integer = 10;
+        attribute choiceKindCount : Integer = 11;
         attribute defaultPolicy : String = "reverse";
         attribute policySpellings : String = "declared, reverse, seed:<n>, explore[:runs=<n>,depth=<d>], replay:<file>";
         attribute recordsChoicePoints : Boolean = true;

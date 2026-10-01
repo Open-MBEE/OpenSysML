@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -37,6 +39,7 @@ const PageSize = 10
 const (
 	graphProject     = "opensysml-graph-load"
 	referenceProject = "opensysml-json-commit"
+	apiJSONProject   = "opensysml-api-json-commit"
 )
 
 // uniqueProjectID suffixes a prefix with random hex the service's id rules
@@ -111,8 +114,55 @@ func Measure(ctx context.Context, c *Client, fixture string, model, reference []
 		return report, err
 	}
 
+	elements, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		return report, fmt.Errorf("write the api element form: %w", err)
+	}
+	report.APIJSONStats = APIJSONStats{Elements: len(apiJSONElements(elements)), Bytes: len(elements)}
+	apiChanges, apiWritten, err := apiJSONPayload(elements)
+	if err != nil {
+		return report, err
+	}
+	report.APIJSON, err = c.measureSide(ctx, "api-json-commit", apiJSONProject, apiWritten,
+		func(project string) error { _, err := c.PostChanges(ctx, project, "", apiChanges); return err })
+	if err != nil {
+		return report, err
+	}
+
 	report.Findings = findings(report, graphWritten)
 	return report, nil
+}
+
+// apiJSONElements counts the element objects the writer emitted.
+func apiJSONElements(elements []byte) []json.RawMessage {
+	var payloads []json.RawMessage
+	_ = json.Unmarshal(elements, &payloads)
+	return payloads
+}
+
+// apiJSONPayload wraps each element object of the API's element form as the
+// DataVersion payload of one Commit, and reduces the same payload to the
+// written inventory the comparison measures against.
+func apiJSONPayload(elements []byte) ([]byte, map[string]*writtenElement, error) {
+	var payloads []map[string]json.RawMessage
+	if err := json.Unmarshal(elements, &payloads); err != nil {
+		return nil, nil, fmt.Errorf("decode the api element form: %w", err)
+	}
+	change := make([]map[string]any, 0, len(payloads))
+	written := make(map[string]*writtenElement, len(payloads))
+	for _, payload := range payloads {
+		change = append(change, map[string]any{"@type": "DataVersion", "payload": payload})
+		element, err := payloadWritten(payload)
+		if err != nil {
+			return nil, nil, err
+		}
+		written[element.id] = element
+	}
+	changes, err := json.Marshal(map[string]any{"@type": "Commit", "change": change})
+	if err != nil {
+		return nil, nil, err
+	}
+	return changes, written, nil
 }
 
 // graphStats counts the Turtle before any service sees it, per namespace, so the
@@ -204,19 +254,9 @@ func referencePayload(fixture []byte) ([]byte, map[string]*writtenElement, error
 
 	written := make(map[string]*writtenElement, len(parsed.Change))
 	for _, change := range parsed.Change {
-		element := &writtenElement{props: map[string]property{}}
-		for name, raw := range change.Payload {
-			switch name {
-			case "@id":
-				_ = json.Unmarshal(raw, &element.id)
-			case "@type":
-				_ = json.Unmarshal(raw, &element.metaclass)
-			default:
-				element.props[name] = jsonProperty(raw)
-			}
-		}
-		if element.id == "" {
-			return nil, nil, fmt.Errorf("reference change without @id")
+		element, err := payloadWritten(change.Payload)
+		if err != nil {
+			return nil, nil, err
 		}
 		written[element.id] = element
 	}
@@ -232,6 +272,26 @@ func referencePayload(fixture []byte) ([]byte, map[string]*writtenElement, error
 		return nil, nil, err
 	}
 	return changes, written, nil
+}
+
+// payloadWritten reduces one posted element object — a reference change's
+// payload or an API element — to the inventory a side is measured by.
+func payloadWritten(payload map[string]json.RawMessage) (*writtenElement, error) {
+	element := &writtenElement{props: map[string]property{}}
+	for name, raw := range payload {
+		switch name {
+		case "@id":
+			_ = json.Unmarshal(raw, &element.id)
+		case "@type":
+			_ = json.Unmarshal(raw, &element.metaclass)
+		default:
+			element.props[name] = jsonProperty(raw)
+		}
+	}
+	if element.id == "" {
+		return nil, fmt.Errorf("a posted element has no @id")
+	}
+	return element, nil
 }
 
 // jsonProperty reduces one posted JSON value to a shape and an arity, so a
@@ -265,6 +325,7 @@ func (c *Client) measureSide(ctx context.Context, name, projectID string,
 
 	if err := write(projectID); err != nil {
 		// A refused payload is a result, not a harness failure: record and stop here.
+		side.Refusal = refusalReason(err, projectID)
 		side.Elements = append(side.Elements, ElementStat{
 			ID:     "<payload>",
 			Direct: fmt.Sprintf("write-refused(%d)", Status(err)),
@@ -400,6 +461,24 @@ func deliveredKind(raw json.RawMessage) string {
 	default:
 		return "literal"
 	}
+}
+
+// refusalReason is the refused write's diagnostic, kept to one stable line:
+// no request shape, no fresh project id, no line breaks.
+func refusalReason(err error, projectID string) string {
+	var se *statusError
+	if !errors.As(err, &se) {
+		return "the write failed"
+	}
+	reason := strings.Join(strings.Fields(se.body), " ")
+	reason = strings.ReplaceAll(reason, projectID, "<project>")
+	if len(reason) > 200 {
+		reason = reason[:200]
+	}
+	if reason == "" {
+		reason = "refused without a diagnostic"
+	}
+	return reason
 }
 
 // richestCommit picks the commit whose element listing returns the most

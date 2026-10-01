@@ -10,21 +10,21 @@ starts and stops on its own.
 | --- | --- | --- | --- |
 | Go | `github.com/Open-MBEE/OpenSysML/client/opensysml` | in process, or Connect to a service | [Go packages](../reference/api.md) |
 | Python | `opensysml` | gRPC, to a private child service or a named one | [Python API](../reference/python-api.md) |
-| Node/TypeScript | `@opensysml/client` | Connect, from Node or from a browser page | [Node API](../reference/node-api.md) |
-| Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
+| Node/TypeScript | `@openmbee/opensysml` | Connect, from Node or from a browser page | [Node API](../reference/node-api.md) |
+| Java | `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
-Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+They do not all cover the same ground. Go and Java expose every RPC the service offers —
+`parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods; Node and Rust cover
+query methods — and so does Python; Node and Rust cover
 that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
 those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
-## The same task, five ways
+## The same task, seven ways
 
 One model, one task, in each language: parse a file, evaluate an attribute against an object, look
 up a definition, instantiate it. Pick your language in the tabs; the sections after them go into
@@ -62,7 +62,7 @@ package Demo {
 === "Node"
 
     ```bash
-    npm install @opensysml/client          # once the first release is published
+    npm install @openmbee/opensysml          # once the first release is published
     export OPENSYSML_GRPC_VERSION=latest
     ```
 
@@ -71,12 +71,12 @@ package Demo {
     ```xml
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-client</artifactId>
-      <version>0.1.0-SNAPSHOT</version>
+      <artifactId>opensysml</artifactId>
+      <version>0.9.0</version>
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
+    Once the first release is published — until then, `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -85,14 +85,64 @@ package Demo {
     opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
     ```
 
-    Not published yet, so take it from git or a path. Rust 1.83 or later.
+    Published to crates.io with each core release (`opensysml = "0.9"`); take it from git or a path for a checkout. Rust 1.83 or later.
 
-The four service clients each need a `sysml-grpc` binary to start, and they share the cache they
+=== "Julia"
+
+    ```julia
+    using Pkg; Pkg.develop(path="client/julia/OpenSysML")
+    using OpenSysML
+    ```
+
+    Not in the registry yet, so take it as a path package. Julia 1.10 or later; `HTTP.jl` and
+    `JSON.jl` are the only dependencies.
+
+=== "MATLAB"
+
+    ```matlab
+    addpath('client/matlab')
+    ```
+
+    No installation step beyond the path: the package is plain `.m` files. MATLAB R2019b+ or GNU
+    Octave 7+.
+
+The six service clients each need a `sysml-grpc` binary to start, and they share the cache they
 find one in — `~/.opensysml/bin/sysml-grpc`, then `$PATH`, with a release downloaded into that
 cache when `$OPENSYSML_GRPC_VERSION` asks for one. An explicit path comes first, from a variable
 that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRPC_BINARY` for Java
 and Rust. [Getting the service binary](#getting-the-service-binary) gives the five ways to provide
 one. The Go API needs none: it is the engine.
+
+### Author an action body
+
+The Python client can add sequence items and recursively nested action statements. `Body` builds
+the contents of `if`, `while`, `loop` and `for`; its first ordinary item is plain and later items
+use `then`. `Editor` methods default to `then=True`. An empty `else_body` is the same as no else,
+because an empty else branch performs nothing; empty action bodies are written as `{ }`.
+These forms follow SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, and 1641 TerminateNode;
+formal/2026-03-02. Source-end multiplicities follow SysML.xtext:878, 887, 1703 TargetSuccession,
+1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession and formal/2026-03-02.
+
+```python
+from opensysml import Body
+
+editor.add_if(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+    else_body=Body().add_terminate(),
+)
+editor.add_while(
+    "Demo::Run",
+    "count < 3",
+    Body().add_assign("count", "count + 1"),
+)
+```
+
+The service requires `authoring`, `sequence_authoring` and
+`action_body_statement_authoring` for these extended items and source-end multiplicities.
+Existing `add_first` and `add_then` requests retain their original wire fields.
 
 ### Parse, evaluate, look up, instantiate
 
@@ -130,7 +180,7 @@ one. The Go API needs none: it is the engine.
 === "Node"
 
     ```ts
-    import { load } from "@opensysml/client";
+    import { load } from "@openmbee/opensysml";
 
     await using model = await load("vehicle.sysml");
 
@@ -169,6 +219,32 @@ one. The Go API needs none: it is the engine.
     let built = model.instantiate("Demo::Vehicle")?;
 
     println!("{}", built.instance.type_symbol_id());  // Demo::Vehicle
+    ```
+
+=== "Julia"
+
+    ```julia
+    using OpenSysML
+
+    conn = connect()
+    model = parse_file(conn, "vehicle.sysml")
+
+    evaluate(model, "mass"; subject="Demo::sedan")   # 1800.0
+    vehicle = symbol(model, "Demo::Vehicle")         # partDef, Demo::Vehicle
+    built = instantiate(model, "Demo::Vehicle")
+    built.type_symbol_id                             # Demo::Vehicle
+    ```
+
+=== "MATLAB"
+
+    ```matlab
+    conn = opensysml.connect();
+    model = opensysml.parseFile(conn, 'vehicle.sysml');
+
+    mass = opensysml.evaluate(model, 'mass', 'subject', 'Demo::sedan');  % 1800
+    vehicle = opensysml.symbol(model, 'Demo::Vehicle');                  % partDef, Demo::Vehicle
+    built = opensysml.instantiate(model, 'Demo::Vehicle');
+    built.type_symbol_id                                               % Demo::Vehicle
     ```
 
 Names differ, answers do not: one engine parses the file and one runtime computes `mass`, so
@@ -271,8 +347,8 @@ Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen 
 with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
 choice to the service. `ListEngines` names the engines the service registers — the `check` and
-`smt` model checkers among them, though no request yet asks the `holds` question they answer, so
-naming one is its typed refusal until the wire gains that request. Every `Verdict`,
+`smt` model checkers among them; a `holds` or `satisfiable` question is theirs to answer, and an
+engine that does not cover it refuses by name. Every `Verdict`,
 `Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
 its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
 line under a REPL verdict prints. A service that does not advertise `engines` refuses a named
@@ -421,6 +497,11 @@ model.raise_for_errors()       # raises ModelError, or returns the model
 model = opensysml.load("model.sysml", strict=True)   # raises instead of returning
 ```
 
+The diagnostics are the ones `sysml -validate` reports for the same document: syntax errors,
+the parser's notation warnings and what the analysis makes of them — a reserved keyword written
+as a name (`part filter : X;`, code `reserved-keyword-name`) is an error over gRPC as it is on the
+command line — and the resolution and validation findings.
+
 A `Diagnostic` carries `severity`, `message`, `code` and its location. Branch on `code`, not on
 the message text: `"syntax"` for a syntax error, a validation code such as `"unresolved"` or
 `"feature-value-overriding"` for a finding, `"choice-point"` and `"guard-unevaluable"` for a
@@ -446,8 +527,8 @@ except opensysml.ModelError as exc:
 ```
 
 `strict_conformance=True`, available on the same three calls, answers a different question:
-whether the source is conforming SysML v2. OpenSysML's own notation, such as `defer` and the
-pseudostates, is then reported as an error rather than a warning
+whether the source is conforming SysML v2. OpenSysML's own notation, such as the `choice`,
+`junction` and `history` pseudostates, is then reported as an error rather than a warning
 ([3. Strict conformance](03-command-line.md#strict-conformance)). The two settings are
 independent: `strict` decides whether errors raise, and `strict_conformance` decides what
 counts as an error.
@@ -460,6 +541,26 @@ model.ok                       # False if the model uses OpenSysML notation
 A service that predates the field raises `MissingCapabilityError` rather than silently answering
 the default question. Support is advertised as `strict_conformance` in
 `Connection.server_info().capabilities`.
+
+### Models of several files
+
+`load` and `loads` each parse one document, and that document is the whole model: an import of a package another file declares does not resolve, and `load` refuses a directory. `Connection.parse_sources` (and `opensysml.parse_sources`) wraps the service's `ParseSources` RPC, which parses several documents as one model, so such an import is satisfied and each diagnostic names the document it came from. Each document is a path the service reads, a `(name, text)` pair of inline source reported under that name, or a `SourceDocument` — the explicit form, and how inline content is declared to be KerML:
+
+```python
+from opensysml import SourceDocument
+
+model = conn.parse_sources([
+    "models/base.sysml",                          # a file, named by its path
+    ("chapter.sysml", chapter_text),              # inline text, named for diagnostics
+    SourceDocument.inline("units.kerml", kerml_text, language="kerml"),
+], strict=True)
+
+model["Chapter::Car::engine"]      # typed by a definition base.sysml declares
+model.documents                    # ('models/base.sysml', 'chapter.sysml', 'units.kerml')
+[d.file for d in model.diagnostics]  # each names the document it came from
+```
+
+The model is the same `Model` that `load` returns: `strict` and `strict_conformance` mean what they mean for `loads`, `model.root` is the first document's root and `model.roots` has one per document, in order; `find`, `model[...]` and `opensysml.generate.generate_source` cover them all. The typed-class command line (`python -m opensysml.generate model.sysml`) still takes one source file; for a model of several documents call `generate_source(model, text)` from Python, where `text` is the source the module is stamped with. Two documents may not share a name — a `ValueError` before any call — and a file the service cannot read raises `ModelFileNotFoundError`. A service that predates the call raises `MissingCapabilityError`; support is advertised as `parse_sources` in `Connection.server_info().capabilities`. Notation conversion (`model.convert("sysml")`) is written for a model of one document and is refused for one of several; convert to a graph form (`"ttl"`, `"api-json"`) instead. [The Go](../reference/api.md), [Java](../reference/java-api.md) and [Julia](../reference/julia-api.md) clients wrap the same RPC.
 
 ### Inspecting symbols
 
@@ -735,6 +836,32 @@ model.verify_constraint("Demo::Wheel")
 
 The kind is read from a typed `failure_reason` reported by the service, never from the message
 text.
+
+**Questions beyond evaluation.** `question=` asks the service's solvers rather than evaluate a
+point: `"holds"` proves the constraint or requirement for every assignment the free features can
+take, `"satisfiable"` finds one — the same constraint can be violated for some values while still
+satisfiable:
+
+```python
+verdict = model.verify_constraint("Demo::lemma", question="holds")
+verdict.question     # 'holds'
+verdict.status       # 'holds' | 'violated' | 'undecided' | 'satisfiable' | 'unsatisfiable'
+verdict.strength     # 'proved' when a solver proved it
+verdict.witness      # the free features' values for a violated or satisfiable answer
+verdict.witness[0].feature, verdict.witness[0].value, verdict.witness[0].unit, verdict.witness[0].exact
+verdict.error        # why nothing was decided: a refused translation, an absent solver,
+                     # nonlinear arithmetic the backend could not close, a rounded unsat
+                     # that is no proof
+```
+
+Every verdict stamps `question` and `status` — an evaluation's are `'evaluate'` and its
+`holds`/`violated`/`undecided` as before — and `verdict.holds` stays the boolean: true for
+`holds` and `satisfiable`, false otherwise. Undecided is reported, never a false proof: the
+service proves only what its solvers decide soundly, and names why otherwise. A question other
+than `"evaluate"` needs `verification_questions`
+(`opensysml.capabilities.CAPABILITY_VERIFICATION_QUESTIONS`), checked before anything is sent;
+any other spelling is `InvalidRequestError`. The `Connection` methods take the same
+`question=None`.
 
 `verify_satisfaction` evaluates many assertions in one call and reports a single object graph for
 all of them, so `verdict.instances` holds every object the call built. Pick out the object a
@@ -1015,6 +1142,22 @@ text, and `write(path)` saves it. Formats are named `sysml`, `kerml`, `text`, `t
 `rdf`. A file path's format is inferred from its extension; inline `content` has no extension, so
 it needs `from_format`.
 
+`convert` also reads a **SysML v1** model and migrates it, when the source is UML XMI, an Eclipse
+UML2 `.uml` file or a `.mdzip` archive: `from_format` is `xmi`, `uml` or `mdzip`, inferred from
+those extensions, and is an input only — asking to write it raises `InvalidRequestError`, since a
+v2 model has no v1 form. Migration is
+[experimental](../reference/sysml-v1-migration.md#status-experimental) and warns as the RDF
+direction does. The service does not return the migration report; run
+`sysml Model.xmi -convert sysml -migration-report Model.report.txt` for the element-by-element
+account, as [chapter 11](11-migrating-from-sysml-v1.md) walks through.
+
+```python
+migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")  # ExperimentalFeatureWarning
+migrated.from_format, migrated.to_format                          # ('xmi', 'sysml')
+migrated.write("Vehicle.sysml")
+opensysml.convert("ttl", content=xmi_text, from_format="xmi")    # straight to RDF
+```
+
 A `Model` writes out the source the service parsed, identified by `model.hash`, so editing the file
 between `load` and `save` does not change what is written: the model saved is the model you
 inspected. `convert(file_path=…)` is the alternative, and reads the file as it is now. The
@@ -1038,7 +1181,8 @@ What each direction preserves:
 Conversion is capability-negotiated: against a service that does not report the `convert`
 capability, these calls raise `MissingCapabilityError` naming the required upgrade rather than
 failing on an unimplemented method. For a service that does not report the RDF mapping's status,
-the status is worked out from the formats it reports, so an RDF conversion warns either way.
+the status is worked out from the formats it reports, so an RDF conversion or a v1 migration
+warns either way.
 Suppress the warning with `warnings.simplefilter("ignore",
 opensysml.ExperimentalFeatureWarning)`; no stable feature uses that warning class.
 
@@ -1075,9 +1219,57 @@ model = opensysml.loads("package Demo {}", strict=True)
 result = model.edit().add_part_def("", "Vehicle").apply()
 ```
 
-`add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None)`
-accepts notation strings for the declaration. Typed `add_*` helpers cover the common SysML and
-KerML kinds, `delete(target, cascade=False)` removes declarations transactionally, and
+`add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
+abstract=False, redefines=None, default=False, direction=None, metadata=None, expression=None,
+doc=None)` accepts notation strings for the declaration. `metadata` is a metadata type name or a
+sequence of names written as `#M` prefixes on the new member; `expression` writes a body expression,
+and `doc` is plain text written as `doc /* ... */`. Typed `add_*` helpers cover the common SysML and
+KerML kinds, including `ref` and
+`return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
+`add_require_constraint` and `add_assume_constraint` write requirement statements.
+`add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
+`add_objective(owner, name=None, type=None)` creates a verification objective;
+`add_verify(owner, requirement)` adds `verify <requirement>;`, creating a case objective when
+needed. `add_metadata(owner, metadata_type, values=None, name=None, about=None, shorthand=False)`
+writes a metadata usage; values are a mapping or ordered sequence of `(feature, value)` pairs,
+and `about` accepts one reference or a sequence. `shorthand=True` writes `@M` notation.
+`add_metadata_prefix(target, metadata_type)` adds `#M` to an existing declaration, resolving the
+metadata definition from the declaration's own scope and refusing a duplicate or a declaration
+without a grammar-admitted prefix slot.
+`add_first` and `add_then` write `first`/`then` sequencing members in action bodies — `then` takes a
+`ref` to an existing node (`done`, a member name) or `action=`/`kind=`/`type=` for a member it declares.
+`add_constraint_def` and `add_constraint` accept `expression=` for a constraint body (`{ ... }`),
+distinct from `value=`, which writes a feature value (`= ...`). `add_assert_constraint` supports
+optional types and negation; `add_exhibit_state`, `add_exhibit` and `add_state_action` author
+exhibits and `entry`/`do`/`exit` subactions. These edits preflight
+`constraint_body_authoring` and `state_action_authoring`.
+`add_documentation(target, body, name=None, locale=None, replace=False)` gives an existing
+declaration its documentation, as the first member of its body; a declaration ending in `;`
+gains a body, and one already documented is refused unless `replace=True`.
+`add_import(owner, target, visibility=None, recursive=False, all=False, filter=None)` writes an
+import declaration in a namespace body or the document root (`""`): `target` is `A::B` for a
+membership import or `A::*` for a namespace import, `recursive` writes `::**`, `all` writes
+`import all`, and `filter` takes one expression string or a list of them, each written
+`[<expression>]`. `visibility` defaults to `private`, the indicator the grammar requires and the
+one legal everywhere including the root.
+`add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment [name] [about a, b] [locale "..."] /* ... */` in `owner`'s body, or at the top
+level when `owner` is `""`, and `add_note(target, text)` writes the line note `// text`
+above a declaration. A note is not a model element, so it is kept in the source only.
+`add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
+a return expression requires a return type and is bound to the result parameter,
+not written as `return <expr>;`. `add_action_def` and `add_action` accept
+`inputs` and `outputs` as lists of `(name, type)` string pairs.
+`add_perform_action` writes `perform action name : Type`, and
+`add_perform(owner, action)` writes `perform <action>;` — a perform usage named
+by the action usage it references, for example
+`add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
+`add_connection(owner, kind, from_, to, name=None, type=None)` writes a
+`connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
+`connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's
+scope, for example `tank.fuelOut`. `add_allocation` and `add_flow` select those kinds directly.
+The optional `type` is accepted only for kinds that permit a typing target.
+`delete(target, cascade=False)` removes declarations transactionally, and
 `move(target, owner)` carries a declaration, body and comments included, into another namespace
 of the same document (`""` is the document itself), respelling the references the move
 would otherwise break.
@@ -1088,9 +1280,9 @@ would otherwise break.
 `AppliedEdit(operation_index, target, offset, length, old_text, new_text, document)` in source
 order, where `length == 0` marks a value added to a feature that had none before, and
 `result.documents` lists the edited notation per document as `EditedDocument(name, content)` —
-one entry, named as the model was loaded, for the one-document models this client loads. A model
-of several documents, parsed together through the service's `ParseSources`, is edited as one
-atomic batch and answers its rewritten documents there, with `str(result)` empty; see
+one entry, named as the model was loaded, for a model of one document. A model of several
+documents, parsed together with `parse_sources`, is edited as one atomic batch and answers its
+rewritten documents there, each under the name the parse gave it, with `str(result)` empty; see
 [the wire contract](../reference/wire-contract.md#applyedits-one-document-or-several).
 
 How editing works:
@@ -1106,6 +1298,13 @@ How editing works:
   diagnostics explaining why, and nothing is returned, so the service never produces a file its
   parser cannot read. Errors the model already had are not blamed on the edit; only
   errors the edit introduces cause a refusal.
+- **A batch is resolved as a whole.** References are checked against the model as the whole
+  batch leaves it, so an operation may name a declaration a later operation of the same batch
+  adds — `add_then("P::A", action="g", type="GenerateHeat")` followed by
+  `add_action_def("P", name="GenerateHeat")` succeeds as the reverse order does. A reference
+  nothing in the batch declares is refused as it always was. Names, though, are taken in
+  operation order: a later operation asking for a name an earlier one declared is refused, and an
+  insertion anchor (`after=`) must name a member the model already has.
 
 Every refusal is a typed error, never a silent no-op:
 
@@ -1159,7 +1358,23 @@ These limitations are intentional:
 
 Editing is capability-negotiated the same way as conversion: a service that does not report the
 `apply_edits` capability raises `MissingCapabilityError` naming the required upgrade before any
-call is made.
+call is made. An `add_connection` edit also requires both `authoring` and
+`connection_authoring`. The new AddMember modifiers and `ref`/`return` kinds
+require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
+requirement-constraint edits require `requirement_constraint_authoring`.
+Transition edits require `transition_authoring` alongside `authoring`.
+Verification edits and unnamed objectives require `verification_objective_authoring`; metadata
+usages and prefixes on new members require `metadata_authoring`; adding a prefix to an existing
+declaration requires `metadata_prefix_authoring`.
+Sequence edits require `sequence_authoring` alongside `authoring`.
+An `add_member` edit with an empty kind — `add_parameter` writes one by default —
+spells a directed usage with no keyword (`in x : T;`) and requires
+`implicit_parameters`; an explicit `ref` kind still writes `in ref x : T;`.
+Constraint-body and asserted-constraint edits require `constraint_body_authoring`; exhibit and
+state subaction edits require `state_action_authoring`.
+Import edits require `import_authoring`.
+Documentation edits — `add_documentation` or an `add_member` with `doc` — require
+`documentation_authoring`; comment and note edits require `comment_authoring`.
 
 ### Querying a model using the standard query model
 
@@ -1244,7 +1459,7 @@ everything above.
 ## From Node or a browser
 
 ```ts
-import { loads } from "@opensysml/client";
+import { loads } from "@openmbee/opensysml";
 
 await using model = await loads(`package Demo {
   part def Wheel { attribute radius : ScalarValues::Real = 0.3; }
@@ -1257,7 +1472,7 @@ const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");
 ```
 
-`@opensysml/client` is not published yet, so build it from a checkout: `npm install && npm run build`
+`@openmbee/opensysml` is not published yet, so build it from a checkout: `npm install && npm run build`
 in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
@@ -1269,7 +1484,7 @@ leaves open, with its `reason` and count bounds.
 The same package runs in a browser, from a second entry point that spawns nothing:
 
 ```ts
-import { connect } from "@opensysml/client/browser";
+import { connect } from "@openmbee/opensysml/browser";
 
 await using connection = await connect({ address: "https://sysml.example.com" });
 ```
@@ -1302,15 +1517,17 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Verification light = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
   Analysis study = model.runAnalysis("Trade::lightest");          // selected alternative, evaluations
   List<QueryElement> parts = model.query(
-      Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 }
 ```
 
 The client is meant to live inside a JVM host application it does not own (an Eclipse-based tool,
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
-Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f client/java/pom.xml install` puts it in your local repository.
+Netty out of a host that has its own. It publishes to Maven Central with each core
+release — `org.openmbee:opensysml` at the core's version — once the first
+release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
+puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
@@ -1350,8 +1567,8 @@ let built = model.instantiate("Demo::Car")?;
 The crate is blocking and pulls in no async runtime: every one of the service's RPCs is unary and the
 usual consumer talks to a local child that answers in milliseconds, so a private `tokio::Runtime`
 inside a library would cost every consumer something for little gain. Calling it from inside a
-runtime is fine, and a test pins that. It is not on crates.io yet, so take it from a path or from
-git; the minimum supported Rust version is 1.83.
+runtime is fine, and a test pins that. It is on crates.io as `opensysml`, published with each core release; take it from a path or from
+git for a checkout. The minimum supported Rust version is 1.83.
 
 `load`/`loads` connect and parse in one call; `Connection::private()`, `Connection::external(host,
 port)` and `Connection::connect()` (which honours `$OPENSYSML_SERVICE`) are the explicit forms.
@@ -1365,6 +1582,58 @@ generated `ExecuteActionRequest` with its `schedule` field and the `Outcome` and
 
 [The Rust API reference](../reference/rust-api.md) documents the API, the error variants and the one
 gap in its release verification.
+
+## From Julia
+
+```julia
+using OpenSysML
+
+conn = connect()                                    # $OPENSYSML_SERVICE, else a private child
+model = parse_source(conn, "package Demo { part def Car { attribute mass = 1500.0; } }")
+
+evaluate(model, "2 + 2")                            # 4, as an Int64
+car = symbol(model, "Demo::Car")
+built = instantiate(model, "Demo::Car")             # Instance: id, type_symbol_id, feature_values
+```
+
+The client is thin: JSON over HTTP against the Connect-JSON surface, with `HTTP.jl` and `JSON.jl`
+as its only dependencies. `connect()` honours `$OPENSYSML_SERVICE` and otherwise spawns a private
+child (`sysml-grpc -port 0 -health-port 0 -report-address -exit-with-parent`), holding the child's
+stdin open so the service dies with the process however it dies; `close(conn)` closes the pipe and
+reaps it. `private()` and `external(address)` are the explicit forms. Errors surface as
+`ConnectError` (a refused call), `TransportError` (the service never answered JSON) and
+`DiagnosticError` (the call answered, and the model failed). `call(conn, "Method", request)`
+reaches every RPC, whether or not a named function wraps it — that is what the conformance runner
+drives. The declared floor is Julia 1.10.
+
+[The Julia API reference](../reference/julia-api.md) documents the surface, the `Value` decoding
+and the conformance runner.
+
+## From MATLAB
+
+```matlab
+addpath('client/matlab')
+
+conn = opensysml.connect();                         % $OPENSYSML_SERVICE, else a private child
+model = opensysml.parseSource(conn, 'package Demo { part def Car { attribute mass = 1500.0; } }', ...
+    'name', 'demo.sysml');
+
+opensysml.evaluate(model, '2 + 2')                  % int64(4)
+car = opensysml.symbol(model, 'Demo::Car');
+built = opensysml.instantiate(model, 'Demo::Car');  % struct: id, type_symbol_id, feature_values
+```
+
+The package runs in MATLAB R2019b+ and GNU Octave 7+ — the same JSON-over-HTTP surface, with
+`matlab.net.http` under MATLAB and a `curl` subprocess under Octave. `opensysml.private` spawns the
+service through Java's `ProcessBuilder`, so an Octave built without Java (the snap and the CI
+build) cannot spawn a private child: use `opensysml.external(address)` or `OPENSYSML_SERVICE` instead, which is also what CI
+exercises. Errors are `MException`s with `opensysml:*` identifiers — `opensysml:connect`,
+`opensysml:transport`, `opensysml:diagnostics` — and `opensysml.call`/`callRaw` reach every RPC,
+the path the conformance runner drives. Request lists are cell arrays, because `jsonencode` writes
+a 1x1 struct as one object.
+
+[The MATLAB API reference](../reference/matlab-api.md) documents the surface, the `Value` decoding
+and what differs under Octave.
 
 ---
 

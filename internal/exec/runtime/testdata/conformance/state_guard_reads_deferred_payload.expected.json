@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "Level", "args": {"level": {"type": "Integer", "value": 8}}},
+    {"signal": "Go", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["busy", "ready", "high", "done"],
+  "outputs": {
+    "chosen": {"type": "Integer", "value": 8}
+  }
+}

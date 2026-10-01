@@ -76,8 +76,8 @@ state def SafetyMonitor {
 }
 ```
 
-**History and deferral** (an OpenSysML extension — the OMG
-textual notation has no production for pseudostates or for deferral; see
+**History** (an OpenSysML extension — the OMG
+textual notation has no production for pseudostates; see
 `docs/reference/grammar/README.md`):
 ```sysml
 state def Player {
@@ -85,7 +85,6 @@ state def Player {
         state track;
         state paused;
 
-        defer Skip;            // retained while `playing` is active
         history resume;        // shallow, UML's H; `deep history` is H*
     }
     state stopped;

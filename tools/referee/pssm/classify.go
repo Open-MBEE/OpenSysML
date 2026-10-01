@@ -17,7 +17,7 @@ type Expressibility int
 const (
 	// NotExpressible: the model uses a construct with no SysML v2 spelling.
 	NotExpressible Expressibility = iota
-	// Extension: spellable with this project's extensions (defer, fork, join,
+	// Extension: spellable with this project's extensions (fork, join,
 	// junction, choice, history).
 	Extension
 	// Standard: spellable in standard SysML v2 notation.
@@ -58,12 +58,18 @@ const (
 	ConstructRedefinedTransition Construct = "redefined transition"
 	ConstructRedefinedMachine    Construct = "redefined state machine"
 	ConstructSubmachine          Construct = "submachine state"
-	ConstructStandalone          Construct = "standalone state machine"
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
-	// No translation: the model's behaviors read what the notation cannot bind.
+	// A deferred signal is kept in standard notation, by an ordered buffer the
+	// state's do action fills from an accept loop and its exit action flushes.
+	// A deferred call is not; nor is a deferral in a state an unguarded
+	// completion transition leaves, since the accept loop never completes and
+	// the completion transition would never fire.
+	ConstructDeferredCall       Construct = "deferred call"
+	ConstructDeferredCompletion Construct = "deferral in a state left by an unguarded completion transition"
+	// No translation: the model's behaviors read what no transition's accept
+	// carries to them, or the tester computes what the driver cannot.
 	ConstructBehaviorParameter   Construct = "behavior parameter"
-	ConstructOperationResult     Construct = "operation result"
 	ConstructTesterTrace         Construct = "tester trace"
 	ConstructGuardSideEffect     Construct = "guard side effect"
 	ConstructGuardBehaviorUnread Construct = "guard behavior not read"
@@ -74,7 +80,6 @@ const (
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
 	// This project's extensions.
-	ConstructDefer          Construct = "defer"
 	ConstructFork           Construct = "fork"
 	ConstructJoin           Construct = "join"
 	ConstructJunction       Construct = "junction"
@@ -95,16 +100,15 @@ var constructClass = map[Construct]Expressibility{
 	ConstructRedefinedTransition:  NotExpressible,
 	ConstructRedefinedMachine:     NotExpressible,
 	ConstructSubmachine:           NotExpressible,
-	ConstructStandalone:           NotExpressible,
 	ConstructUnknownVertex:        NotExpressible,
 	ConstructNoMachine:            NotExpressible,
+	ConstructDeferredCall:         NotExpressible,
+	ConstructDeferredCompletion:   NotExpressible,
 	ConstructBehaviorParameter:    NotExpressible,
-	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
 	ConstructGuardSideEffect:      NotExpressible,
 	ConstructGuardBehaviorUnread:  NotExpressible,
 	ConstructRegionNoEntry:        NotExpressible,
-	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
 	ConstructJoin:                 Extension,
 	ConstructJunction:             Extension,
@@ -162,16 +166,18 @@ func Classify(t *Test) Classification {
 	if t.Machine == nil {
 		add(ConstructNoMachine, "")
 	} else {
-		if t.Target != nil && t.Target.Standalone {
-			add(ConstructStandalone, t.Machine.Name)
-		}
 		if t.Machine.Redefines != "" {
 			add(ConstructRedefinedMachine, t.Machine.Name)
 		}
-		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions), forkEntered: forkEnteredRegions(t.Machine.Regions)}
+		w := &walker{
+			add:         add,
+			reached:     reachedVertices(t.Machine.Regions),
+			forkEntered: forkEnteredRegions(t.Machine.Regions),
+			unbound:     unboundBehaviors(BindBehaviors(t.Machine)),
+		}
 		w.connectionPoints(t.Machine.ConnectionPoints)
 		w.regions(t.Machine.Regions)
-		w.tester(t.Stimulation)
+		w.tester(t.Target, t.Stimulation)
 	}
 	class := Standard
 	for _, u := range uses {
@@ -183,6 +189,20 @@ func Classify(t *Test) Classification {
 		return constructClass[uses[i].Construct] < constructClass[uses[j].Construct]
 	})
 	return Classification{Class: class, Uses: uses}
+}
+
+// unguardedCompletionOutOf reports whether a transition with no trigger and
+// no guard that can hold it back leaves v.
+func unguardedCompletionOutOf(v *Vertex) bool {
+	if v.Region == nil {
+		return false
+	}
+	for _, tr := range v.Region.Transitions {
+		if tr.Source == v && len(tr.Triggers) == 0 && tr.Guard.unconditional() {
+			return true
+		}
+	}
+	return false
 }
 
 // reachedVertices collects every vertex some transition in the regions, at
@@ -287,6 +307,16 @@ type walker struct {
 	add         func(Construct, string)
 	reached     map[*Vertex]bool
 	forkEntered map[*Region]bool
+	// unbound are the behaviors with parameters no event binds.
+	unbound map[*Behavior]bool
+}
+
+func unboundBehaviors(b *Bindings) map[*Behavior]bool {
+	unbound := map[*Behavior]bool{}
+	for _, r := range b.Refused {
+		unbound[r.Behavior] = true
+	}
+	return unbound
 }
 
 // connectionPoints records a machine's or state's connection points. Entry and
@@ -315,11 +345,7 @@ func (w *walker) regions(regions []*Region) {
 		}
 		for _, tr := range r.Transitions {
 			w.guard(tr.Guard, tr.Name)
-			for _, trig := range tr.Triggers {
-				if trig.Event != nil && trig.Event.Kind == EventCall && trig.Event.Operation != nil {
-					w.operation(trig.Event.Operation, tr.Name)
-				}
-			}
+			w.behavior(tr.Effect, tr.Name)
 			switch tr.Kind {
 			case TransitionLocal:
 				w.add(ConstructLocalTransition, tr.Name)
@@ -372,35 +398,33 @@ func guardBehaviorUnread(g *Guard) bool {
 	return g != nil && g.Behavior != nil && g.Behavior.Body == nil && g.Behavior.Type != typeFunctionBehavior
 }
 
-// behavior records a state behavior with parameters: the notation binds event
-// data on the transition, never on an entry, exit or do action.
+// behavior records a behavior with parameters that no event binds: one some
+// path reaches without accepting data of its types first (see BindBehaviors).
 func (w *walker) behavior(b *Behavior, where string) {
-	if b != nil && len(b.Params) > 0 {
+	if w.unbound[b] {
 		w.add(ConstructBehaviorParameter, where)
 	}
 }
 
-// operation records a call trigger whose operation returns a value: the
-// runtime's call events carry no result back to the caller.
-func (w *walker) operation(op *Operation, where string) {
-	for _, p := range op.Params {
-		if p.Direction == "out" || p.Direction == "return" || p.Direction == "inout" {
-			w.add(ConstructOperationResult, where)
-			return
-		}
-	}
-}
-
-// tester records a tester that writes the trace itself: only the target's
-// behaviors append to the model's log.
-func (w *walker) tester(body *Body) {
+// tester records a tester trace the driver cannot perform: one traced while
+// the machine may still run, a value the library does not evaluate, or a call
+// the stimulation cannot bind. The driver appends every other tester trace to
+// the log once the calls it embeds have returned (see traceStimulus).
+func (w *walker) tester(target *Class, body *Body) {
 	if body == nil {
 		return
 	}
-	for _, st := range body.Statements {
+	var prev *Statement
+	for i := range body.Statements {
+		st := &body.Statements[i]
 		if st.Kind == StmtCall && st.Name == "trace" && isTarget(st.Receiver) {
-			w.add(ConstructTesterTrace, st.String())
+			if target == nil {
+				w.add(ConstructTesterTrace, st.String())
+			} else if _, reason := traceStimulus(target, prev, st); reason != "" {
+				w.add(ConstructTesterTrace, st.String())
+			}
 		}
+		prev = st
 	}
 }
 
@@ -433,8 +457,13 @@ func (w *walker) vertex(v *Vertex) {
 	w.behavior(v.Entry, where)
 	w.behavior(v.Exit, where)
 	w.behavior(v.Do, where)
-	if len(v.Deferred) > 0 {
-		w.add(ConstructDefer, where)
+	for _, t := range v.Deferred {
+		if t.Event == nil || t.Event.Kind != EventSignal {
+			w.add(ConstructDeferredCall, where)
+		}
+	}
+	if len(v.Deferred) > 0 && unguardedCompletionOutOf(v) {
+		w.add(ConstructDeferredCompletion, where)
 	}
 	if v.Redefines != "" {
 		w.add(ConstructRedefinedState, where)

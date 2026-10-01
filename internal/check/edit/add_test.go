@@ -54,6 +54,16 @@ func TestAddMemberWritesOptionalNotation(t *testing.T) {
 	}
 }
 
+func TestWriteMemberPlacesAbstractRefAfterDirection(t *testing.T) {
+	op := AddMember("", "ref", "p")
+	op.Direction = "in"
+	op.IsAbstract = true
+	op.Type = "T"
+	if got := writeMember(op, memberKinds["ref"], "", "", "", ""); got != "in abstract ref p : T;" {
+		t.Fatalf("writeMember = %q, want %q", got, "in abstract ref p : T;")
+	}
+}
+
 func TestAddMemberOptionalFieldCombinations(t *testing.T) {
 	fields := []struct {
 		name, typ, multiplicity, value string
@@ -260,17 +270,30 @@ func TestAddMemberDuplicateRootNamesRefuse(t *testing.T) {
 	}
 }
 
+func TestAddMemberRejectsQuotedDuplicateName(t *testing.T) {
+	m := loadContent(t, "add-quoted-duplicate.sysml", "package P { part def X; }\n")
+	addFailure(t, m, AddMember("P", "part def", "'X'"), FailureMemberNameTaken)
+}
+
 // memberKindTypes pairs each typed usage kind with a definition kind it may be
 // typed by. SysML usages are typed by their own `def`.
 var memberKindTypes = map[string]string{
 	"feature": "class", "step": "behavior", "expr": "function", "bool": "predicate",
 	"subject": "part def", "actor": "part def", "stakeholder": "part def", "objective": "requirement def",
+	"ref": "part def", "return": "part def", "perform action": "action def",
+	"assert constraint": "constraint def", "assert not constraint": "constraint def",
+	"exhibit state": "state def", "entry action": "action def",
+	"do action": "action def", "exit action": "action def",
 }
 
 // memberKindOwners pairs each kind only some bodies offer with a member of P
 // whose body does; every other kind goes into P itself.
 var memberKindOwners = map[string]string{
 	"subject": "P::R", "actor": "P::R", "stakeholder": "P::R", "objective": "P::U",
+	"assert constraint": "P::Host", "assert not constraint": "P::Host",
+	"assert": "P::Host", "assert not": "P::Host",
+	"exhibit state": "P::Host", "exhibit": "P::Vehicle",
+	"entry action": "P::State", "do action": "P::State", "exit action": "P::State",
 }
 
 // TestEveryMemberKindWrites drives each registered kind through the parser and
@@ -284,11 +307,14 @@ func TestEveryMemberKindWrites(t *testing.T) {
 		}
 		for _, kind := range kinds {
 			t.Run(name+"/"+kind, func(t *testing.T) {
-				src := "package P {\n    action def A {\n        action a0;\n    }\n    requirement def R;\n    use case def U;\n}\n"
+				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host { constraint addedTarget; }\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
 				if lang == source.KindKerML {
 					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
 				}
 				op := AddMember("P", kind, "added")
+				if kind == "return" {
+					op.Owner = "P::C"
+				}
 				switch {
 				case memberKinds[kind].typed:
 					typeKind := memberKindTypes[kind]
@@ -303,6 +329,22 @@ func TestEveryMemberKindWrites(t *testing.T) {
 				case !memberKinds[kind].definition && kind != "package":
 					op.Owner = "P::A"
 				}
+				if kind == "perform" {
+					// A perform usage is named by the action usage it performs:
+					// its name is the feature reference to that action.
+					src = strings.Replace(src, "    use case def U;\n",
+						"    use case def U;\n    part def X {\n        action run : A;\n    }\n    part def B {\n        part x : X;\n    }\n", 1)
+					op.Owner = "P::B"
+					op.MemberName = "x.run"
+				}
+				if kind == "exhibit" {
+					op.Owner = "P::Vehicle"
+					op.MemberName = "s"
+				}
+				if kind == "assert" || kind == "assert not" {
+					op.Owner = "P::Host"
+					op.MemberName = "addedTarget"
+				}
 				m := loadContent(t, name, src)
 				requireClean(t, m)
 				res, err := Apply(m, []Operation{op})
@@ -310,7 +352,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 					t.Fatalf("Apply: %v", err)
 				}
 				got := string(res.Content)
-				want := kind + " added"
+				want := kind + " " + op.MemberName
 				if op.Type != "" {
 					want += " : T"
 				}
@@ -321,6 +363,105 @@ func TestEveryMemberKindWrites(t *testing.T) {
 			})
 		}
 	}
+}
+
+// Perform-action usages are members written two ways: `perform action
+// <name> : <ActionDef>;` declares and types the performed action, while
+// `perform <ref>;` names an existing action usage by feature reference and
+// takes the usage's name from it.
+func TestAddMemberPerformAction(t *testing.T) {
+	src := "package Demo {\n" +
+		"    action def ToastBread;\n" +
+		"    part def Toaster {\n" +
+		"        action heat : ToastBread;\n" +
+		"    }\n" +
+		"    part def Kitchen {\n" +
+		"        part t : Toaster;\n" +
+		"    }\n" +
+		"}\n"
+	t.Run("declaration form", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		op := AddMember("Demo::Kitchen", "perform action", "heat")
+		op.Type = "ToastBread"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform action heat : ToastBread;") {
+			t.Fatalf("content lacks the perform action usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("declaration form with multiplicity", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		op := AddMember("Demo::Kitchen", "perform action", "heat")
+		op.Type = "ToastBread"
+		op.Multiplicity = "[1]"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform action heat : ToastBread [1];") {
+			t.Fatalf("content lacks the perform action usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("reference form", func(t *testing.T) {
+		m := loadContent(t, "perform.sysml", src)
+		requireClean(t, m)
+		res, err := Apply(m, []Operation{AddMember("Demo::Kitchen", "perform", "t.heat")})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform t.heat;") {
+			t.Fatalf("content lacks the perform usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "perform.sysml", got))
+	})
+	t.Run("rooted reference form", func(t *testing.T) {
+		rooted := "package P {\n    action def A;\n    action run : A;\n}\npackage Q {}\n"
+		m := loadContent(t, "rooted.sysml", rooted)
+		requireClean(t, m)
+		res, err := Apply(m, []Operation{AddMember("Q", "perform", "$::P::run")})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform $::P::run;") {
+			t.Fatalf("content lacks the rooted perform usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "rooted.sysml", got))
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$"), FailureInvalidName)
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$.run"), FailureInvalidName)
+	})
+	t.Run("refusals", func(t *testing.T) {
+		addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Kitchen", "perform-action", "heat"), FailureIllegalKind)
+		op := AddMember("Demo::Kitchen", "perform", "t.heat")
+		op.Type = "ToastBread"
+		e := addFailure(t, loadContent(t, "perform.sysml", src), op, FailureIllegalKind)
+		if !strings.Contains(e.Message, "cannot carry a typing target") {
+			t.Fatalf("typing refusal message = %q", e.Message)
+		}
+		e = addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Kitchen", "perform", "nothere"), FailureResultInvalid)
+		if !strings.Contains(e.Message, "nothere") {
+			t.Fatalf("unresolved reference message = %q", e.Message)
+		}
+		addFailure(t, loadContent(t, "perform.sysml", src),
+			AddMember("Demo::Toaster", "perform", "heat"), FailureMemberNameTaken)
+		op = AddMember("Demo::Kitchen", "perform action", "bake")
+		op.Type = "ToastBread"
+		op.Direction = "in"
+		addFailure(t, loadContent(t, "perform.sysml", src), op, FailureIllegalKind)
+	})
 }
 
 // A member only a requirement or case body offers is written into one and
@@ -454,6 +595,18 @@ func TestAddMemberIndentationAndRootEOF(t *testing.T) {
 			name: "empty body",
 			src:  "package P {\n}\n",
 			want: "package P {\n    part def Added;\n}\n",
+			op:   intoP,
+		},
+		{
+			name: "single-line empty body",
+			src:  "package P { }\n",
+			want: "package P {\n    part def Added;\n}\n",
+			op:   intoP,
+		},
+		{
+			name: "single-line body with a member",
+			src:  "package P { part a; }\n",
+			want: "package P { part a;\n    part def Added;\n}\n",
 			op:   intoP,
 		},
 		{

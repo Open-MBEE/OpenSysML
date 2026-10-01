@@ -2,6 +2,7 @@ package passes
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -95,6 +96,20 @@ func (u *oosemUnion) regather(ctx *Context, g *Gathers, a *oosemAudit, doc strin
 	} else {
 		u.perDoc[doc] = cur
 	}
+}
+
+// Contributors implements kit.ContributorNamer: the documents with any OOSEM facts.
+func (u *oosemUnion) Contributors(name string) ([]string, bool) {
+	if !strings.HasPrefix(name, "\x00oosem/") {
+		return nil, false
+	}
+	var out []string
+	for doc, f := range u.perDoc {
+		if len(f.present)+len(f.derived)+len(f.satisfied)+len(f.allocated)+len(f.satisfies) > 0 {
+			out = append(out, doc)
+		}
+	}
+	return out, true
 }
 
 func (f *oosemFacts) presentSet() map[oosemKind]bool {

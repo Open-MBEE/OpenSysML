@@ -25,6 +25,9 @@ const actionLabelPrefix = "action "
 
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
+	// outputListeners, one per node of another action performing this one, take each
+	// write to an output of the action as it is made; empty when nothing is listening.
+	outputListeners []outputListener
 	// performances holds the action's own performance, root, and runs its nodes' as
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
@@ -90,9 +93,6 @@ type ActionExecutor struct {
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
-	// leftStanding marks the body's latest one-token step as leaving a token able to
-	// act, one a sweep moving each token once would have moved after the one picked.
-	leftStanding bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -217,7 +217,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self, behavior: action},
+		performances: performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -231,6 +231,7 @@ func newActionExecutorOn(
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	exec.performances.thisOccurrence = exec.materializeOccurrence
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
@@ -456,7 +457,7 @@ func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast
 func (e *ActionExecutor) waitsOnClockAlone() bool {
 	for _, token := range e.tokens {
 		if token.pausedOnClock() {
-			if held := token.heldWaiter(); held != nil && held.dueWork() {
+			if w := token.pausedWaiter(e); w != nil && w.dueWork() {
 				return false
 			}
 			continue
@@ -609,12 +610,25 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			}
 			break
 		}
+		if err := e.pauseAfterMove(); err != nil {
+			e.held = true
+			return err
+		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
 		e.endPausedBodies()
 		return e.deadlockError(nil)
 	}
 	return nil
+}
+
+// pauseAfterMove pauses the body performing this action after one token move where
+// its run goes one move at a time and another move is open now; nil else.
+func (e *ActionExecutor) pauseAfterMove() error {
+	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+		return nil
+	}
+	return e.ctx.tokenStepBody()
 }
 
 // StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
@@ -714,7 +728,7 @@ func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (b
 // dueNow reports whether a parked token of perf's flow (the action's for nil) can
 // proceed now: its instant has come, its message is in flight, or its performed action has work due.
 func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
-	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDueHeldRun(perf)
+	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDuePausedWork(perf)
 }
 
 // canProceed reports whether a parked token of perf's flow (the action's for nil)
@@ -746,11 +760,11 @@ func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
 	return false
 }
 
-// hasDueHeldRun reports whether an action performed by the paused work of a token
-// of perf's flow (the action's for nil) has work due at this instant.
-func (e *ActionExecutor) hasDueHeldRun(perf *actionFrame) bool {
+// hasDuePausedWork reports whether an executor the paused work of a token of perf's
+// flow (the action's for nil) waits on has work due at this instant.
+func (e *ActionExecutor) hasDuePausedWork(perf *actionFrame) bool {
 	for _, token := range e.tokens {
-		if held := token.heldWaiter(); held != nil && token.inFlowOf(perf) && held.dueWork() {
+		if w := token.pausedWaiter(e); w != nil && token.inFlowOf(perf) && w.dueWork() {
 			return true
 		}
 	}
@@ -886,7 +900,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 		return nil, err
 	}
 	for _, token := range e.tokens {
-		held, ok := token.heldWaiter().(messageAcceptor)
+		held, ok := token.pausedWaiter(e).(messageAcceptor)
 		if !ok {
 			continue
 		}
@@ -1118,11 +1132,25 @@ func (e *ActionExecutor) NodeNames() []string {
 // initializeAttributes fills the features no supplied input holds: from the occurrence's
 // slots, else the declared defaults in order, each evaluated where it was declared.
 func (e *ActionExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.features {
-			if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
-				continue
-			}
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = e.evalContextFor(e.root, e.graph.Scope)
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.features {
+		if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -1130,27 +1158,70 @@ func (e *ActionExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.root.data[e.root.key(attr.Name)] = value
+				if err := e.streamInitialOutput(attr.Name, value); err != nil {
+					return err
+				}
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := e.evalContextFor(e.root, e.graph.Scope)
-	defer ec.beginStep()()
-	for _, attr := range e.features {
-		if attr.Value == nil || e.dynamics.ownsFeature(attr.Name) {
+		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		if _, held := e.root.data[e.root.key(attr.Name)]; held {
-			continue
-		}
-		value, err := ec.evalIn(attr.Scope).Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
+		}
 		e.root.data[e.root.key(attr.Name)] = value
+		if err := e.streamInitialOutput(attr.Name, value); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a behavior started on an
+// object to that object, when the object is of the type the parameter declares: a
+// performance started on an instance answers `in ref :>> context` with the instance
+// itself rather than a fresh unnamed one. It reports whether the parameter took the
+// object.
+func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+		return false
+	}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.root.data[e.root.key(attr.Name)] = value
+	return true
+}
+
+// streamInitialOutput carries the initial value of an output or inout to the listeners,
+// as a write to it would; other features are the performance's own.
+func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
+	switch e.root.features[e.root.key(name)] {
+	case ast.DirOut, ast.DirInOut:
+		return e.streamOutput(name, value)
+	}
 	return nil
 }
 
@@ -1170,6 +1241,41 @@ func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 	return false, nil
 }
 
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a definition run directly denotes it, seeding it with the
+// values the performance's own features already hold so it is authoritative
+// from then on; a run of a usage, whose occurrence the usage materializes or
+// none, has none of its own to make.
+func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.action.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.action, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.features {
+		if value, held := e.root.data[e.root.key(attr.Name)]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.performances.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
+}
+
+// returnAround holds nothing either.
+func (e *ActionExecutor) returnAround(string, Value) (bool, error) {
+	return false, nil
+}
+
 // runOwnFlow runs the flow a block-declared node states of its own to completion.
 func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 	return e.runSubflow(perf)
@@ -1178,21 +1284,35 @@ func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 // endsOwn allows a terminate to end the action's own performance.
 func (e *ActionExecutor) endsOwn() bool { return true }
 
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write, the path every store to a declared feature takes once the occurrence
+// exists; with none, or a name it does not declare, it leaves value untouched.
+func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
+}
+
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
-		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
-			return fmt.Errorf("%w: write %s of object #%d: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+		if value, err = e.mirrorOccurrence(name, value); err != nil {
+			return err
 		}
-		fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
-		if err != nil {
-			return fmt.Errorf("%w: read %s of object #%d after write: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
-		}
-		value = fv.HeldValue()
 	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
@@ -1200,6 +1320,37 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 	}
 	e.root.data[e.root.key(name)] = value
 	e.moved = true
+	return e.streamOutput(name, value)
+}
+
+// outputListener is a node's ear on the outputs of the action it performs: perf is
+// the node's performance, take carries each write to its pins.
+type outputListener struct {
+	perf *actionFrame
+	take func(name string, value Value) error
+}
+
+// listen has perf take each later write to the action's outputs, replacing what it
+// listened through before.
+func (e *ActionExecutor) listen(perf *actionFrame, take func(string, Value) error) {
+	e.unlisten(perf)
+	e.outputListeners = append(e.outputListeners, outputListener{perf: perf, take: take})
+}
+
+// unlisten stops perf's listening; a performance a node joined outlives the node.
+func (e *ActionExecutor) unlisten(perf *actionFrame) {
+	e.outputListeners = slices.DeleteFunc(e.outputListeners, func(l outputListener) bool {
+		return l.perf == perf
+	})
+}
+
+// streamOutput carries a write to an output to every listener, in listening order.
+func (e *ActionExecutor) streamOutput(name string, value Value) error {
+	for _, l := range e.outputListeners {
+		if err := l.take(name, value); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1541,7 +1692,7 @@ func (e *ActionExecutor) moving(t Token) bool {
 // of a join (its sources are 1..1), else those delivered or whose source a token may still perform.
 func (e *ActionExecutor) awaitedSuccessions(frame *actionFrame, node ast.Node) []lower.ActionEdge {
 	graph := e.graphOf(frame)
-	incoming := incomingEdges(graph, node)
+	incoming := graph.Incoming(node)
 	if _, join := node.(*ast.JoinNode); join || len(incoming) < 2 {
 		return incoming
 	}
@@ -1588,26 +1739,12 @@ func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[a
 	if _, join := node.(*ast.JoinNode); !join {
 		return true
 	}
-	for _, edge := range incomingEdges(e.graphOf(frame), node) {
+	for _, edge := range e.graphOf(frame).Incoming(node) {
 		if _, delivered := e.arrival(frame, node, edge, false); !delivered && !reached[edge.Source] {
 			return false
 		}
 	}
 	return true
-}
-
-// incomingEdges returns the successions into node, in the declaration order of
-// the nodes they leave.
-func incomingEdges(graph *lower.ActionGraph, node ast.Node) []lower.ActionEdge {
-	var incoming []lower.ActionEdge
-	for _, source := range graph.Nodes {
-		for _, edge := range graph.Edges[source] {
-			if edge.Target == node {
-				incoming = append(incoming, edge)
-			}
-		}
-	}
-	return incoming
 }
 
 // Awaiting returns the successions into the node token is held at that no token has
@@ -1707,12 +1844,13 @@ func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil 
 // stepCandidates lists the tokens a step may move, as the policy is handed them.
 func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
 	tokens := stepTokens{
-		owner:  e,
-		step:   e.stepCount + 1,
-		ids:    make([]int64, 0, len(e.tokens)),
-		parked: make(map[int64]bool),
-		held:   make(map[int64]bool),
-		label:  e.tokenLabel,
+		owner:   e,
+		step:    e.stepCount + 1,
+		ids:     make([]int64, 0, len(e.tokens)),
+		parked:  make(map[int64]bool),
+		held:    make(map[int64]bool),
+		label:   e.tokenLabel,
+		stepped: e.ctx.stepsTokens(),
 	}
 	tokens.enabled = func(id int64) bool { return e.enabled(id, eligible) }
 	for i, t := range e.tokens {
@@ -1876,6 +2014,9 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 	if frame == e.root && !frame.inBody {
 		e.removeToken(tokenIdx)
 		if len(e.tokens) == 0 {
+			if err := checkStreamsReceived(e.root); err != nil {
+				return err
+			}
 			e.state = StateCompleted
 			e.ctx.endPerformanceLife(e.occurrence)
 		}
@@ -2161,7 +2302,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	}
 
 	// Apply data flows: transfer data from this node's output pins to target input pins
-	if err := e.applyDataFlows(frame, frame.graph, node, frame.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil); err != nil {
 		return err
 	}
 
@@ -2186,6 +2327,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	// the next step retries the match.
 	graph := e.graphOf(token.frame)
 	accept, isAccept := graph.Accepts[usage]
+	var payload *Value
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
@@ -2238,7 +2380,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 				acceptedEventName(msg), msg.Payload)
 		}
 		if accept.ParamName != "" {
-			value, err := e.ctx.acceptedValue(&msg)
+			value, err := e.ctx.acceptedValueAs(&msg, accept.SignalType, accept.Scope)
 			if err != nil {
 				return fmt.Errorf("accept %s: %w", accept.ParamName, err)
 			}
@@ -2247,12 +2389,19 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
 				return err
 			}
+			payload = &value
 		}
 	}
 
 	perf, err := e.beginPerformance(token.frame, graph, usage, nil)
 	if err != nil {
 		return err
+	}
+	// The payload is the accept's own output pin as well, for a flow out of the node.
+	if payload != nil {
+		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
+			return err
+		}
 	}
 
 	// A node owning no flow, performing no action, is done in this step: a case
@@ -2283,7 +2432,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// The flows out of this node carry what this performance produced to the
 	// pins the nodes downstream read.
-	if err := e.applyDataFlows(frame, frame.graph, node, perf.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, perf, perf.data, perf.streamed); err != nil {
 		return err
 	}
 
@@ -2394,14 +2543,14 @@ func (e *ActionExecutor) NextWait() (float64, bool) {
 }
 
 // TimeWaits describes the tokens parked on the clock, in token-ID order, then
-// those of the actions the paused work of its tokens performs.
+// those of the executors the paused work of its tokens waits on.
 func (e *ActionExecutor) TimeWaits() []string {
 	waits := e.timeWaits(nil)
 	out := make([]string, 0, len(waits))
 	for _, token := range waits {
 		out = append(out, token.Wait.String())
 	}
-	for _, held := range e.heldWaiters() {
+	for _, held := range e.pausedWaiters() {
 		for _, wait := range held.clockWaits() {
 			out = append(out, wait.What())
 		}
@@ -2416,27 +2565,42 @@ func (e *ActionExecutor) visibleWaits() []ClockWait {
 }
 
 // visibleArmedWaits lists, due or not, the waits that hold this action, earliest first:
-// its own and, through the paused work of its tokens, those of the actions it performs.
+// its tokens' and, through their paused work, those of the actions it performs and cases it runs.
 func (e *ActionExecutor) visibleArmedWaits() []ClockWait {
-	waits := e.armedWaits()
-	for _, held := range e.heldWaiters() {
-		waits = append(waits, held.visibleArmedWaits()...)
+	waits := e.tokenWaits()
+	for _, w := range e.pausedWaiters() {
+		waits = append(waits, w.visibleArmedWaits()...)
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
 }
 
-// heldWaiters lists the executors performing an action for the paused work of
-// this action's tokens, in token-ID order.
-func (e *ActionExecutor) heldWaiters() []clockWaiter {
-	tokens := slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) })
-	var held []clockWaiter
-	for _, token := range tokens {
-		if w := token.heldWaiter(); w != nil {
-			held = append(held, w)
+// pausedWaiters lists the executors the paused work of this action's tokens waits
+// on (performing an action for it, or the flow of a case it runs), in token-ID order.
+func (e *ActionExecutor) pausedWaiters() []clockWaiter {
+	var waiters []clockWaiter
+	for _, token := range e.tokensByID() {
+		if w := token.pausedWaiter(e); w != nil {
+			waiters = append(waiters, w)
 		}
 	}
-	return held
+	return waiters
+}
+
+// hostedFlows lists the flows of the cases the paused work of this action's tokens
+// runs, in token-ID order; the action lists their waits to the clock as its own.
+func (e *ActionExecutor) hostedFlows() []*ActionExecutor {
+	var flows []*ActionExecutor
+	for _, token := range e.tokensByID() {
+		if flow := token.hostedFlow(e); flow != nil {
+			flows = append(flows, flow)
+		}
+	}
+	return flows
+}
+
+func (e *ActionExecutor) tokensByID() []Token {
+	return slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) })
 }
 
 // dueLabel names the executor in a due-order choice.
@@ -2450,14 +2614,24 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 	return notYetDue(e.armedWaits(), e.ctx.clock.now)
 }
 
-// armedWaits lists the tokens parked on the clock, due or not, earliest first; an
-// action performed for a paused body lists its own to the clock.
+// armedWaits lists the waits this action holds on the clock, due or not, earliest
+// first: its tokens parked there and, as its own, those of the cases its paused work
+// runs; an action performed for a paused body lists its own to the clock.
 func (e *ActionExecutor) armedWaits() []ClockWait {
+	waits := e.tokenWaits()
+	for _, flow := range e.hostedFlows() {
+		waits = append(waits, flow.armedWaits()...)
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// tokenWaits lists the action's tokens parked on the clock, due or not, in token-ID order.
+func (e *ActionExecutor) tokenWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
 		waits = append(waits, ClockWait{Due: token.Wait.Due, holder: e, what: token.Wait})
 	}
-	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
 }
 
@@ -2574,17 +2748,34 @@ func statementNodeKeyword(node ast.Node) string {
 }
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
-// of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op.
-func (e *performances) applyDataFlows(frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, produced map[string]Value) error {
+// of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op,
+// unless the pin is declared admitting no value, when the flow carries nothing.
+// A streaming flow from a pin in streamed carried its values as they were written;
+// perf is the performance that produced, nil for a node performed in frame itself.
+func (e *performances) applyDataFlows(
+	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, perf *actionFrame, produced map[string]Value, streamed map[string]bool,
+) error {
 	for _, flow := range graph.DataFlows[sourceNode] {
+		if flow.Kind == lower.FlowStreaming && streamed[flow.SourcePin] {
+			continue
+		}
 		sourceData, ok := produced[flow.SourcePin]
 		if !ok {
+			if perf.admitsNoValueAt(flow.SourcePin) {
+				continue
+			}
 			return fmt.Errorf(
-				"%s: %s produced no value at %s",
-				flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				"%w: %s: %s produced no value at %s",
+				ErrFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
-		if err := e.deliverFlow(frame, graph, flow, sourceData); err != nil {
+		var err error
+		if flow.Kind == lower.FlowStreaming {
+			err = e.streamFlow(frame, graph, sourceNode, perf, flow, sourceData)
+		} else {
+			err = e.deliverFlow(frame, graph, flow, sourceData)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -2603,14 +2794,14 @@ func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph,
 	return e.setFrameFeature(frame, flow.TargetPin, value)
 }
 
-// flowDescription names a data flow for a diagnostic: its own name when it was
-// declared with one, and the pins it joins otherwise.
+// flowDescription names a data flow for a diagnostic: its kind and its own name when it
+// was declared with one, and the pins it joins otherwise.
 func flowDescription(flow lower.ObjectFlow) string {
 	if flow.Name != "" {
-		return "flow " + flow.Name
+		return flow.Kind.String() + " " + flow.Name
 	}
 	return fmt.Sprintf(
-		"flow from %s to %s",
+		flow.Kind.String()+" from %s to %s",
 		orAnyPin(flow.SourcePin), orAnyPin(flow.TargetPin),
 	)
 }

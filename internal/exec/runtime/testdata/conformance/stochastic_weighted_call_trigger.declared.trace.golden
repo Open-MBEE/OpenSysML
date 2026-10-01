@@ -1,0 +1,15 @@
+eval feature priority -> 0.25
+  eval literal 1.0 -> 1.0
+  eval feature priority -> 0.25
+eval operator - -> 0.75
+choice state idle on call route: transitions 1->slow p=0.25, 2->fast p=0.75 (weighted; drew 0.774817894359002, took 2->fast)
+exit: idle
+enter: fast (entry action)
+stmt action body
+  stmt assign log
+        eval literal 10.0 -> 10.0
+        eval feature log -> 0.0
+      eval operator * -> 0.0
+      eval literal 2.0 -> 2.0
+    eval operator + -> 2.0
+transition: idle -> fast (event: call route)

@@ -16,11 +16,25 @@ A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`
 `interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
-(connection, transition, succession, flow), a table's columns and rows, the origin of every node
+(connection, binding, transition, succession, flow), a table's columns and rows, the origin of every node
 and row, and notices for what the kind could not represent. The tree, interconnection, state and
 action kinds are produced from the model — the last two from the lowered `StateGraph` and
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
 language.
+
+What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
+kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
+[DiagramLayout](diagram-layout-annotations.md) annotation — a `Canvas`, `Layout` or `Route`,
+whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it is owned — and the
+`render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
+how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
+those views without the `metadata` and `render` nodes their annotations would add. The
+`MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
+in a body are left out the same way: they record what the migration did, not what the model
+holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
+an annotation typed by any definition outside `DiagramLayout` and `MigrationMetadata` — is drawn
+as before, and a rendering usage owned by anything but a view (a `rendering` under a package)
+stays a node.
 
 A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
@@ -42,13 +56,57 @@ and a document's `Diagram` block is refused at planning time.
 ## Node labels
 
 Every graphical form draws a node's label the way the graphical notation heads a compartment:
-the element's name first, the kind after it. `label.go` composes the lines once, and each writer
+the element's name first, the kind after it. A quoted name's escapes decode in the label — `\n`
+a line break, `\t` a tab, `\'` a quote — the quotes themselves kept; `Node.Name`, the JSON and
+the text form keep the spelling. `label.go` composes the lines once, and each writer
 only joins them:
 
 1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
-   name; an anonymous element leads with its kind instead;
+   name; an anonymous element leads with its kind instead, or with ` : Type` alone when typed.
+   A name the model did not give is not shown and the node heads as an anonymous one: a name a
+   [v1 migration](../reference/sysml-v1-migration.md) made up for an element its source left
+   unnamed, which it marks with `MigrationMetadata::SynthesizedName`, and the language's own
+   `start` and `done` of an action's flow (`Node.NameSynthesized`, `shown` in `label.go`);
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
+
+An action node whose name is not shown — one written with no name, or with one a migration made
+up — heads with what it does instead of with `action`
+(`Node.Text`, composed by `actionText` in `behavior.go` from the lowered `ActionGraph`, so no
+writer reads the declaration back): an accept's trigger by the name it ends in (`Go Now`), a
+send's message type or expression, the one assignment its body makes (`i := i + 1`), and for a
+node with a single output and nothing else — a UML value specification action migrated as
+`action value3 { out result : Boolean = true; }` — the literal its result is bound to (`true`,
+`"SH-0"`, `0`), or `: Type` when the result has a type and no value. A node whose type names what
+it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
+reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
+it is set only when that flow lowers to nodes of its own, so an action whose body is a single
+statement or a bound value carries no `own flow` and no nested cluster.
+
+A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
+`behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
+else by the activity its type performs (`do action : Initialize` reads `Initialize`), else by
+what its anonymous body does — the message it sends or the one assignment it makes — and the
+keyword alone when none of that names it.
+
+The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
+as the walk spells them — a root's name qualified, a nested member's simple, a type as the
+declaration references it — and the text form prints them so. The graphical forms head a node
+the way a diagram frame does (`labeller` in `label.go`): the roots' names lose the namespace
+every named root shares — the longest run of leading qualifier names common to all of them, so
+`Plant::Loop` alone heads `Loop`, `Systems::Radio` beside `Systems::Braking::Brake` heads
+`Radio` beside `Braking::Brake`, and roots from unrelated packages keep their whole names — and
+a type is named by the name each of its references ends in, its `~` kept (`~Ports::FuelPort` is
+`~FuelPort`; `Pump, ~FuelPort` for a pair); a name the roots' namespace does not head, and a type
+that does not read as references, are shown whole. A member drawn under a drawn owner — a child
+node, or a nested exposed element whose owner is a node of the same rendering — is headed by its
+name below the nearest such owner, as a compartment or a nested box in a diagram frame shows it:
+`'K-Mirror Offset'::'interpolation Error' : 'Interpolation Error'` under the `'K-Mirror Offset'`
+node heads `'interpolation Error' : 'Interpolation Error'`, and a name with a single segment is
+shown whole. Only the graphical heads change: `Node.Name`, the JSON and the text form keep the
+qualified name. The DOT writer sizes a box from the same label it emits, so a box a Layout does
+not size holds what it is headed with; a box a Layout sizes has its label fitted to it
+([Geometry](#geometry)).
 
 Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
@@ -69,11 +127,37 @@ reads as markup. A cluster's label is the same string. The text form keeps the n
 declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
 a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.
 
+## Edge labels
+
+An edge is labelled by its own text when it has any, and by its name only when it has none
+(`edgeLabel` in `behavior.go`): a transition's label is its trigger, guard and effect, `accept Sig
+[g] / act`; a succession's its guard and probability, `[g] p = 0.5`; a flow's the pins or the
+payload it carries, `out to in`, `of Water`; and a connection's the name, else the declared type,
+else the keyword. A flow between named pins also records the pins as its ends (`Edge.FromPort`,
+`Edge.ToPort`, the IDs of the nodes' `Ports`), so a writer that draws the pins on the action's
+border attaches the flow to them and leaves the `out to in` text off; a writer that does not
+keeps the text. A named edge with none of that — a completion transition, a plain succession, a
+binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
+whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
+spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
+[temperature > 0]`, as the graphical notation draws it, since the name adds nothing a reader
+looks for and a migrated name would only repeat the ends. A name the migration made up because
+the source had none (`MigrationMetadata::SynthesizedName`) never becomes a label: an edge with no
+text of its own and such a name is drawn unlabelled, as its source drew it. The rule is one place,
+so the text, Mermaid, DOT and PlantUML forms label an edge alike.
+
+A trigger names its signal or operation the way a node's type is named, by the name the reference
+ends in (`triggerLabel` in `behavior.go`): `accept Signals::'APS Internal'::'Go Now'` reads
+`accept 'Go Now'`, a named payload keeps its name (`accept msg : Halt`) and a call trigger its
+arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a call from a signal), so a transition a v1 migration wrote with the signal's whole
+path does not carry that path across the drawing. A time or change event, and an accept of an
+event feature (`accept :> shutDown`), keep their written text.
+
 ## Why DOT next to Mermaid
 
 Mermaid was chosen first because it draws where models are read — Markdown, documentation sites,
-editors — with nothing installed. It stays the default. DOT is offered beside it for what Mermaid
-is not:
+editors — with nothing installed. It stays the default of `-render` and of every document view
+nothing positions. DOT is offered beside it for what Mermaid is not:
 
 - **Graphviz toolchains.** Publishing pipelines that already run `dot`, `neato` or `fdp` take DOT
   as input and produce SVG, PDF or PNG with a layout Mermaid's browser renderer cannot match on a
@@ -90,6 +174,29 @@ runs the `dot` that `OPENSYSML_DOT` names (else the one on `PATH`) with `-Tsvg`,
 the block's `// layout:` header names, so a positioned view is drawn where its `Layout`s put
 it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
 optional tool — see [Surfaces](#surfaces).
+
+### The document default
+
+A document states no form; `-diagram-form` is chosen at render time, and when it is not stated the
+form is chosen **per diagram** (`docrender.DiagramOptions.formFor`):
+
+1. A stated `-diagram-form` (`%render-document <name> <form>`, `"diagramForm"` on
+   `opensysml/renderDocument`) applies to every graph-shaped block, as before.
+2. A graph-shaped view that `Rendering.Positioned` holds for — some `DiagramLayout::Layout` or
+   `Route` places a node of it, and its kind has a DOT form — is written as `dot`, so a migrated
+   or editor-laid-out diagram is drawn where it states, and when Graphviz is installed
+   (`OPENSYSML_DOT`, else `dot` on `PATH`) the Markdown and HTML backends inline the SVG that
+   Graphviz draws (`docpdf.Graphviz`, a `docrender.DiagramDrawer`) in a `<figure class="sysml-diagram">`
+   instead of the fence; the PDF backend draws it as it always did.
+3. Every other graph-shaped view is `mermaid`, as it was.
+4. A positioned view with no Graphviz installed is written as `mermaid` under a visible notice,
+   *drawn as Mermaid, not at its stated positions: Graphviz (dot) is not installed* — an emphasised
+   paragraph in Markdown, a `<p class="sysml-diagram-notice">` inside the figure in HTML, and so
+   in the PDF whichever engine — never silently.
+
+A document mixing positioned and unpositioned views therefore gets a Graphviz figure for each of
+the former and a Mermaid graph for each of the latter, and a table-kind view is a table in every
+case. The rule lives in `docrender` so the CLI, the REPL, the LSP and the PDF backend agree.
 
 ## What the DOT writer emits
 
@@ -119,7 +226,8 @@ digraph "VehicleViews::vehicleView" {
   action rendering a node with children is
   `subgraph "cluster_<id>" { label=<…>; color=black; penwidth=<w>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
-  no clusters. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  no clusters. In a positioned tree a child boxed inside its owner's box draws as a compartment
+  row of it and no edge is written for it; a child boxed outside keeps its edge. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
   anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
   `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
@@ -127,20 +235,57 @@ digraph "VehicleViews::vehicleView" {
 - **State kind.** A state is a rounded box, a region a dashed cluster, the start pseudo-state a
   `point`, an initial state a `circle`, a final state a `doublecircle` — an unnamed initial or
   final one the filled black UML dot, a named one a labelled ring; a transition's label is the
-  trigger/guard/effect text the state writer composes, unchanged.
+  trigger/guard/effect text the state writer composes, unchanged. Every pseudo-state the lowered
+  `StateGraph` knows is a node of its kind — `initial`, `final`, `choice`, `junction`, `fork`,
+  `join`, `shallow history`, `deep history`, and a terminate action — and is drawn as its UML
+  symbol whenever a Layout sizes it, and always under the [cameo style](#the-cameo-style)
+  (`isSymbolKind`, `dotSymbolAttributes`): a filled dot for `initial` and `junction`, a bull's-eye
+  for `final` and terminate, a diamond for `choice`, `decision` and `merge`, a filled bar for
+  `fork` and `join` lying the way its box is longer, a white ring lettered `H` or `H*` for a
+  history. No text is set inside a symbol; a name the model gave is set beside it as `xlabel`,
+  a synthesized one not at all. SysML v2 has no entry- or exit-point pseudo-states: a state's
+  `entry` and `exit` are its behaviours, drawn in its compartment.
+- **Action pins.** An action node's directed parameters and its bound result are its `Ports`
+  (`actionPorts`, `inheritedPorts` in `behavior.go`: what it declares, then what its type gives
+  it, and a pin a flow names that neither declared). A boxed node's pins are nodes of their own,
+  `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
+  fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
+  beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
+  waypoint leaves or reaches the box, outside the border and touching it — a pin several routes
+  meet, at the mean of their ends, and each route's end waypoint is brought onto that pin's
+  border, facing its next waypoint, so every spline touches the one square (`pinnedRoute`); the
+  rest are spread along the top edge (inputs) and the bottom edge (outputs). The pins are placed
+  once every node has its box, so a node drawn in the `UnplacedStrip` has its pins on the box the
+  strip gives it. A flow at a pin is written between the pin nodes, `"n1.0" -> "n5.0"`, and
+  carries no `out to in` text — the pins name what flows — but does carry the flow's own name
+  when it has one that no migration made up (`Edge.Name`), at either end or both. An unplaced
+  plain node draws its pins as cells of an HTML-like table label instead, a
+  row of squares above the head for the inputs and below it for the outputs, and a flow ends at
+  the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
+  as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
+  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
 
   | `EdgeKind` | Mermaid | DOT |
   | --- | --- | --- |
   | connection | `---` | `arrowhead=none, penwidth=3` |
+  | binding | `---` | `arrowhead=none` |
   | transition, succession | `-->` | solid, default arrowhead |
   | flow | `-.->` | `style=dashed` |
+
+  An interconnection draws a `binding` between two features as an edge of its own kind, a plain
+  undirected line beside the heavy connection (`==` in the text form, `--` in PlantUML), and
+  pins its `DiagramLayout::Route` as it pins a connection's.
 
 - **Quoting.** Every identifier, edge label and geometry value passes through one helper that
   double-quotes it and escapes `"`, `\` and newlines; a node or cluster label is an HTML-like
   string whose text passes through one helper that writes `&`, `<`, `>`, `"` and `'` as entities.
   The writer never emits an unquoted identifier or unescaped label text.
 - **Order.** Nodes and edges are written in the rendering's order; nothing is emitted from a map.
+  Graphviz paints in file order, so a sibling box enclosing others is written before them, and a
+  note whose stated box encloses a node's is written before the nodes — a Cameo text box used as
+  a group frame paints behind what it frames, its caption set at the box's top with `labelloc=t`
+  so the nodes it holds do not cover it — while every other note is written after them.
   Within an attribute list, what a node *is* (shape, style, colours, label) precedes where it is
   (`pos`, `width`, `height`).
 
@@ -151,7 +296,19 @@ touching how the graph is walked.
 
 ## Style
 
-The DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
+The DOT form draws in one of two **drawing styles** (`view.DrawingStyle`, `Options.Style`):
+`pilot`, the default and the one below, or [`cameo`](#the-cameo-style), the look of a diagram drawn
+by Cameo Systems Modeler. A style is chosen at render time — `-render-style`, `%render … dot
+[palette] cameo`, `"style"` on `opensysml/render`, the VS Code panel's **Style** list — and is
+independent of the palette, which recolours the plain nodes of whichever style is drawn. Over
+either style a `DiagramLayout::Style` on a member sets that node's or edge's own fill, pen, text
+colour, font, size, weight and slant, written after the skin's attributes so Graphviz takes it, and
+a `DiagramLayout::Note` is drawn beside the member it is about ([the annotations](diagram-layout-annotations.md)).
+The forms that draw no style write it as a notice (`%% not represented: style cameo; only the DOT
+form draws a diagram in a style`), and every form other than `dot` counts, in the same notice, the
+Styles and Notes it draws in part or not at all, so neither is dropped silently.
+
+By default the DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
 with it — `github.com/himi/plantuml`, branch `psysml`,
 `bundles/net.sourceforge.plantuml.lib/skin/sysmlbw.skin` — and the edge rules of the Pilot's
@@ -176,15 +333,51 @@ translation to DOT is:
 | `arrow { FontSize 13; LineThickness 1.0 }` | edge default `color="#181818", fontsize=13, penwidth=1` |
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
-| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the rendering names keeps its labelled ring. The `start` point is unchanged |
+| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the model names keeps its labelled ring unless a Layout sizes it. An action's `start` and `done`, being the language's names and not the body's, and a name a migration made up (`Node.NameSynthesized`) are the dot and the ring, as the notation draws them. The `start` point is unchanged |
+| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
-off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text), and the
-20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
-sections — the DOT form draws no notes and a sequence rendering has no DOT form — and the
-Pilot's `-[thickness=5]-` binding connectors, which the interconnection rendering does not
-distinguish from connections today (there is no `EdgeBinding` kind), so DOT cannot draw them
-apart either; that is a known limitation, not an approximation.
+off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer
+wraps only a head it fits to a stated box), and the 20-unit corner radius. Out of scope: the skin's sequence, gantt, mindmap and wbs
+sections — a sequence rendering has no DOT form; a note is drawn only where the model states a
+`DiagramLayout::Note`, as `shape=note` with a dashed, headless anchor edge — to the node it is
+about, or for a note about a connection or transition to an invisible point pinned at the middle
+of the edge's longest routed segment (to the edge's tail node when the edge has no route, since
+Graphviz cannot end an edge on an edge). A `Note about A, B` is one box with an anchor to each;
+two Notes stated apart are two boxes even when their text and box coincide. The Pilot's
+`-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
+than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
+
+### The cameo style
+
+`cameo` draws the diagram as Cameo Systems Modeler draws it, for a document migrated from a
+`.mdzip` whose views carry the geometry Cameo drew them at, so the published figure is the one the
+authors saw. The look was measured from pages of a Cameo-published design document — a state
+machine, an activity and two block definition diagrams, rendered at 96 dpi — not taken from
+memory; each colour is the pixel value away from the anti-aliased edges, and each fill is Cameo's
+horizontal gradient, sampled at the left and right of a box. The constants live in
+`internal/ir/view/style.go`; the translation to DOT is:
+
+| Cameo, as measured | DOT |
+| --- | --- |
+| Diagram frame: a thin grey rectangle round the drawing with a header tab reading `stm [State Machine] Owner [ Diagram Name ]`, the kind abbreviation bold, the rest plain | `subgraph cluster_frame` with `label=<<b>stm</b> [State Machine] Owner [ Name ]>`, `labeljust=l`, `labelloc=t`, `color="#5B5B59"`, `penwidth=1`, `margin=8`; `bb` is the canvas when one is stated. The kind is `bdd` for a tree, `ibd` for an interconnection, `stm` for a state machine, `act` for an activity; the bracketed type is the context element's definition keyword, title-cased (`State Machine`, `Activity`, `Block`) |
+| Text: Arial, 11 px for names and body text, ~9 px for the `«stereotype»` line and edge labels, in `#424242` | `graph`, `node` and `edge` default `fontname="Arial"`, `fontcolor="#424242"`; `fontsize=11` on nodes and the frame, `fontsize=9` on edges and the keyword line |
+| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned. No `«state»` or `«action»` line: Cameo prints a keyword only for a stereotyped state or action; every name in a head or a detail is bare, its quotes off (`Setup APS`, not `'Setup APS'`) |
+| State fill: pale yellow `#FFFFCC` at the left fading to `#FFFFF2` at the right; border `#5B5B59`, rounded corners | `style="rounded,filled"`, `fillcolor="#FFFFCC:#FFFFF2"`, `gradientangle=0`, `color="#5B5B59"`, `penwidth=1` on every `state` kind; a composite state or region is a cluster with the same fill and rounding, a region `style="rounded,dashed"` |
+| Action fill: pale green-grey `#E1E1C3` to `#F7F7EF`; border `#424242`, rounded corners | `fillcolor="#E1E1C3:#F7F7EF"`, `color="#424242"` on the `action` and `flow` families and the control nodes |
+| Block fill: orange `#FFCC99` to cream `#FFFAD4`; border `#99795C`, square corners | node default `fillcolor="#FFCC99:#FFFAD4"`, `color="#99795C"` — every kind not a state or action, `part def` and `part` alike |
+| Lines: `#424242`, 1 px, open arrowheads on transitions and flows | edge default `color="#424242"`, `penwidth=1`, `arrowhead=open`; a routed edge's spline keeps both stated ends — `e,x,y` before the curve for an arrowhead, `s,x,y` for a tail arrow — the curve stopping an arrow's length short so Graphviz draws the arrow between, and the box a routed node is drawn in is never grown beyond its stated one, so the drawn end is the stated end (`dotSpline`, `TestDOTRoutedEdgesEndAtTheirRoutes`, which runs Graphviz when `OPENSYSML_DOT` names it and asserts every drawn endpoint within 3 px of its route's) |
+| Pins: 12 px squares on an action's border, the pin name in ~8 px type beside it, object flows pin to pin | each `Port` a node `shape=box, label="", xlabel="<name>", fontsize=8, fixedsize=true`, `fillcolor="#FFFFFF"`, at the route's end on the border, or spread along the top (inputs) and bottom (outputs); the flow edge runs between the pin nodes ([Action pins](#what-the-dot-writer-emits)) |
+| Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision, merge and choice a diamond, fork and join a thin filled bar (10×60 px or 60×10 px), junction a dot, history a ring lettered H or H* | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`, 24×12 px when none is stated; a bar `shape=box, fillcolor=black, fixedsize=true` at the stated box's width and height, so a 10×60 box stands and a 60×10 box lies, 60×5 px when none is stated; `shape=circle, fillcolor=white, label="H"` (`"H*"`) for a history — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box; a name the model gave is set beside the symbol as `xlabel`, a synthesized one not at all |
+| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it, the `accept` keyword and quotes off | one `label` per edge, never an `xlabel` beside it: the `EdgeKind` label text with `accept ` removed and every name bare (`Finished / diffTime`), placed with `lp` beside one of the route's segments — the candidates are the normals of every segment, scored for the state boxes and notes the label box would cover and for leaving the canvas, the least covered wins — so a label never sits on a box a route hugs ([Geometry](#geometry)) |
+| Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text — left off a stated box too narrow for the word or too short for a body line below it — pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
+| Drop shadow: a 2 px light grey shadow under every box | dropped; Graphviz draws no shadow |
+| Corner radius: ~20 px on states and actions | Graphviz's fixed radius, as in the Pilot style |
+
+A `DiagramLayout::Style` on a member overrides the row above for that node or edge: its `fill`
+replaces the gradient with a solid colour, its `line` the pen, its `text` and `font` the type, and
+`bold`/`italic` wrap the label — a label already bold is not doubled. A palette recolours the plain
+nodes as under `pilot`, over the Cameo pens.
 
 ### Palettes
 
@@ -247,27 +440,29 @@ preprocessing step:
 // kind: interconnection
 // stated: render asInterconnectionDiagram
 // canvas: unit=px w=1200 h=800
-// layout: neato
+// layout: neato -n2
 digraph "PlantViews::placedView" {
-  graph [fontname="Helvetica", inputscale=72, dpi=72];
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    bb="292,692,628,768";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
-    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
 }
 ```
 
 - **Scale.** One pixel is one point: `inputscale=72` tells `neato` that `pos` is in points, and
-  `dpi=72` keeps the rendered pixel at that size. Lengths Graphviz takes in inches — a node's
+  `dpi=72` keeps the rendered pixel at that size. `layout=neato` names the engine in the digraph
+  itself, so a plain `dot -n` run honours the pinned positions without `-K` or a neato invocation. Lengths Graphviz takes in inches — a node's
   `width`/`height` — are divided by 72.
 - **Axis.** `y` is flipped: measured up from the canvas's bottom edge (`height - y`) when the
   canvas states a height, negated when it does not. `x` is unchanged.
@@ -279,28 +474,124 @@ digraph "PlantViews::placedView" {
   node where it is. The names cannot collide with a rendering's `n<i>` node IDs.
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
-  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
+  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`, and the label
+  is composed to fit it (`dotFittedLabel` in `dot.go`), never the box grown to the label: the
+  node's `margin=0` gives the whole box to the label (Graphviz's default pads it by 0.11 by
+  0.055 in, which a 14 px compartment row cannot spare), the head is word-wrapped at the box's
+  width and drawn at the largest whole font size from 14 pt down to 8 pt at which the wrapped
+  lines stack within the height with every word whole — a word wider than the box at every size
+  is broken where it overruns, at the largest size whose lines then fit; the keyword line (at
+  10/14 of the head's size) and each detail line follow only while height remains for them, so
+  a 449×14 px compartment row holds
+  `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
+  height even at 8 pt is cut to the lines that fit and its last line ellipsized. A stated box
+  that holds other stated boxes — a part whose members are drawn inside it, a definition over
+  its compartment rows — keeps its title clear of them: the label is fitted to the strip between
+  the box's top and the topmost box it encloses and set there with `labelloc=t`, so the title
+  reads as a diagram frame's header and the members below it stay where the Layout put them
+  (`headroom` in `dot.go`; a box that is only placed, and so sized to its own label, is not one
+  the title moves for). A stated box too short for one 8 pt line, or too narrow for the ellipsis —
+  whether the whole box or the strip its members leave it — holds no text: its head is set
+  outside as `xlabel`, as a symbol's is, and a box with only its kind to show is left bare
+  (`dotStatedLabel`). A line no size down to the floor sets within the width — a lone glyph
+  wider than the box, which wrapping cannot narrow — is ellipsized rather than written over
+  the border, and a detail line that would be is left off. A stated node drawn as a cluster round its children has its label fitted the
+  same way, to the strip above its topmost stated child; a cluster's label has no outside to go
+  to, so a strip thinner than a line still gets one line at 8 pt. Text is measured as Graphviz
+  sets it (`dot_metrics.go`): each glyph's advance from the font's own table, hinted to a whole
+  pixel at 96 dots an inch, a line the font's ascent and descent each rounded up to a pixel. The
+  font is DejaVu Sans, plain or bold — what an installation without Helvetica sets the skins'
+  Helvetica in, and the widest of its usual substitutes, so a box fitted by it holds its lines
+  where Graphviz has a narrower font too — so nothing here is particular to the tool that
+  stated the box. A glyph beyond DejaVu's table is measured by its Unicode width class: an East
+  Asian wide or fullwidth glyph takes an em, the square a CJK font sets it in; a combining mark
+  takes nothing; anything else the 0.6 em (0.66 em bold) average. A Cameo-style label with detail lines is set in
+  the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
+  before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
+  (`compartmented`); when no detail line fits in what is left, the table is dropped and the title
+  alone is fitted to the whole box. The size the fitting starts from, and the one a line is
+  written without a `<font point-size>` at, is the size the node is drawn in: its `Style`'s
+  `fontSize` when that sets one, else the skin's (`sizeOf`). A symbol kind in a stated box
+  carries no label at all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
-  1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
+  1.2 em a line, at the node's size (14 pt, or its `Style`'s) for every line but the 10 pt
+  keyword line, Graphviz's margins, no
   smaller than its 54×36 pt default box, a circle round the label for a
   pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
   `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the
   Layout put it under the writer's estimate. `collapsed` is kept as `comment="collapsed"`, an
-  attribute Graphviz ignores and a consumer can read.
+  attribute Graphviz ignores and a consumer can read. A node with no `Layout` whose edge
+  carries a `Route` of two or more waypoints is positioned by that route: the route's first
+  waypoint is where it leaves the edge's source and its last where it reaches the target, so the
+  node's box, sized as above, is centred one reach back from that waypoint along the route's end
+  segment (the edge meets the border); several routes place it at the mean of the centres they
+  give. A stated `Layout` always wins over a route, a route of one waypoint places nothing, and
+  a node with neither `Layout` nor route is unpositioned. The `start` node and an initial or
+  final node of a state rendering take their positions this way too, so a migrated diagram that
+  drew them as pseudo-states but named no member for them is still positioned throughout.
 - **Clusters.** A node drawn as a cluster writes its box as `bb="llx,lly,urx,ury"` and pins
   its anchor node at the box's centre. The box is the stated one, or, with a corner alone, the
   one from that corner round its positioned members' boxes with Graphviz's 8 pt cluster margin;
-  a cluster with neither has no box to state and pins its anchor at the corner.
+  a cluster with no `Layout` takes the box round its positioned members alone, and one with
+  a corner and no positioned member has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
-  one waypoint draws no line; it is left out and noticed as `// not represented:`.
+  one waypoint draws no line; it is left out and noticed as `// not represented:`. Every edge a
+  kind draws takes a route: a connection, binding or flow of an interconnection, a transition
+  of a state rendering, a succession or flow of an action rendering — the annotation names the
+  member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Unplaced nodes.** A node counts as positioned however its box was found — by its
+  `Layout`, round its members, or from a route. When some nodes are positioned and others are
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  every edge at one of them and the containment edge a tree would draw to it, and a
+  `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
+  edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
+  diagram never drew stay out of its picture. `Options.Unplaced = UnplacedStrip`
+  (`-render-unplaced strip` at the CLI, for `-render`, `-render-all` and the `dot` diagrams of a
+  document) keeps them instead: each unplaced node not under another unplaced node (every one, in
+  a tree) is boxed as an unpositioned node is — fitted to its label, or as a cluster round its
+  children — and the boxes are packed in rows, left to right, wrapped at the drawing's width,
+  24 px apart and 24 px below the drawing's extent (the canvas when it has one, else the
+  positioned boxes and routes), then pinned like any other; the notice says so. A strip node
+  keeps its place in the text — a member of a positioned cluster is written in that cluster,
+  whose stated box is not stretched to it — so Graphviz draws it below the box it belongs to.
+  A drawing with no positioned node is unchanged by either setting. An `Unplaced` that is
+  neither is refused (`UnknownUnplacedError`). The classification is one `placement`
+  (`placement.go`) every graph-shaped form draws by: the Mermaid and PlantUML forms of a partly
+  positioned rendering draw the placed nodes and the edges between them, an omitted tree node's
+  placed members detached from the node above as DOT draws them, under a `%% not represented:` or
+  `' not represented:` notice with DOT's wording; under `UnplacedStrip` they draw every node,
+  laid out by the tool that draws them, and say so. So the three forms draw one node set and one
+  edge set of a positioned view, and a view exposing a package its layout does not place does not
+  become a chart of the package's whole contents in Mermaid.
+- **Stand-in control nodes.** A fork, join or merge the migration marks with
+  `MigrationMetadata::StandIn` (`Node.StandIn`, `NodeData.StandIn`), which nothing positions and which has no
+  children — a node it made up to thread several edges through, at which no diagram symbol
+  stands — stays in the rendering but is elided from a positioned drawing that leaves unplaced
+  nodes undrawn, before the placement is read (`withoutStandIns` in `standin.go`, for every
+  form): each edge into it meets each edge out of it, and the pair is redrawn as one edge between
+  the nodes it was written between, along whichever route the two had — where one alone has a
+  route, the joined edge stops short of the other end, and the DOT writer leads it on once it
+  has boxed that end (`ledEdges`): from the border point of the box — stated, or the one the
+  routes of its other edges reach, which that short end does not count toward — facing where the
+  route stops, so the edge leaves its source rather than the stand-in's old place. An end no
+  Layout and no other route positions takes its box from the short route as from any other
+  (`reachingEnds`), its border at the point the route stops, so the route is left as it is; a
+  node with nothing at all is unplaced, and the edge undrawn with it. A pair with no route is
+  left undrawn, as the migration's wiring rather than the diagram's. The notice counts the nodes
+  elided and the routeless pairs dropped (`2 control node(s) a migration made up, which no
+  diagram positions, elided, and 1 edge(s) through them without a route`). Under
+  `UnplacedStrip` nothing is elided: the stand-in has a place in the strip, and is drawn there
+  with every edge through it. A positioned stand-in is drawn as any control node is, and so is
+  a control node the source had but left unnamed: its name is synthesized too, yet it is no
+  stand-in, and it takes its place where its routes meet.
 - **Engine.** The `// layout:` header names the command that honours what is written:
-  `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
-  written routes are taken as given, the other edges are drawn), `neato -n` when every node is
-  positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
-  rest are placed around them), `dot` when none is. `neato` and `dot` redraw every edge, so
-  when the header names either and a route was written, a `// not represented:` notice says
-  so. A rendering with no geometry is written byte for byte as before.
+  `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
+  given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is
+  positioned. Every node a positioned drawing draws is pinned, so plain `neato` is never named
+  and `neato -n2`, which refuses a node with no position, always has one for each; a route of
+  two or more waypoints positions its ends, so a written route is always read by `neato -n2`.
+  A rendering with no geometry is written byte for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.
@@ -465,7 +756,8 @@ every palette, and text stays black.
 | REPL | `%render <view> dot\|plantuml [palette]`; `%help` names them; the form and, after a form that takes one, the palette complete | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; a palette also gives each node of the result its `fill` and `border`, so a client drawing its own SVG colours a node as these forms do (`Rendering.Fills`) | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
-| VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
+| CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
@@ -489,6 +781,25 @@ and did not change. A view-render RPC added later would take the form as a strin
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
   the syntax check parses every `pos` and `bb` it meets, and reads an HTML-like label as one
   string whose tags balance and whose entities are known.
+- `internal/ir/view/dot_fit_test.go`: the label fitted to a stated box — a head wrapped at the
+  width, kept at 14 pt while it fits and shrunk to 8 pt when it does not, the keyword and detail
+  lines kept only while height remains, a compartment row's one line, a word broken across
+  lines only when no size keeps it whole, the ellipsis at the floor, the title of a box that
+  holds stated boxes fitted to the strip above them and set at the top, an only-placed box
+  leaving it be, a stated cluster's label fitted to its strip, a box or strip too short or
+  narrow for a line setting its head outside — and `dotFitHead`/`dotWrap`
+  on their own; the symbol every kind draws as in a stated box, its `xlabel` for a name and none
+  for a synthesized one, a `port def` and an unsized symbol kind still labelled; an unsized
+  node's label unchanged.
+- `internal/ir/view/label_test.go`: a member headed by its name below its drawn owner, at every
+  depth and for a nested exposed element, an unrelated root left whole, the text form unchanged.
+- `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their
+  `DiagramLayout` annotations, `SynthesizedName` markers or `render` members, while a user's
+  metadata usage and a rendering usage outside a view are still drawn.
+- `internal/ir/view/interconnection_roots_test.go`: an exposed feature drawn nested in another
+  exposed feature is no second root — drawn once, keeping its stated position, the connection
+  joining the nested node, in every form and whatever the expose order; and an exposed feature
+  whose container is not exposed still stands as a root.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every
@@ -565,11 +876,18 @@ and did not change. A view-render RPC added later would take the form as a strin
 - Producing PlantUML runs no jar. The goldens are checked by the in-test syntax walk; a jar on
   the machine is used by hand, or by the optional `-checkonly` check that `OPENSYSML_PLANTUML_JAR`
   turns on.
-- Node shapes are not yet specialised for action control nodes (fork, join, decision): those
-  take the default box with their kind in the label.
+- Under the `pilot` style a control node (fork, join, decision) with no stated box takes the
+  default box with its kind in the label; the symbol shapes are drawn for a stated box, and
+  always under `cameo`.
 - Graphviz has no corner radius, shadow or text wrapping, so the skin's `UsageRoundCorner 20`,
-  `Shadowing 0` and `wrapWidth 300` are approximated or dropped as the [style](#style) section
-  records.
+  `Shadowing 0` and `wrapWidth 300`, and Cameo's drop shadow and corner radius, are approximated
+  or dropped as the [style](#style) section records.
+- A `Style` is drawn whole only by the DOT form; the Mermaid and PlantUML forms take a node's
+  fill, line and text colour and not its font or an edge's Style, the text form none of it, and
+  each says so in a notice counting the styled nodes and edges. Notes are drawn by the DOT form
+  alone; the others count them.
+- A pasted raster image in a source diagram has no annotation and is not drawn; the migration
+  counts it as dropped.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering
   has no edge kind for them.
 - A palette fills nodes by keyword family only; colouring by a data attribute or query result,

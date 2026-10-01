@@ -1,0 +1,44 @@
+package Records {
+    part check_run4 : CheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "sweep";
+        }
+        attribute :>> caseName = "P::check";
+        attribute :>> kind = "sweep";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> iteration = 1;
+        attribute :>> load = 1.0;
+        attribute :>> done = true;
+    }
+    part check_run5 : CheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "sweep";
+        }
+        attribute :>> caseName = "P::check";
+        attribute :>> kind = "sweep";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> iteration = 2;
+        attribute :>> load = 3.0;
+        attribute :>> done = false;
+    }
+    part check_run6 : CheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "sweep";
+        }
+        attribute :>> caseName = "P::check";
+        attribute :>> kind = "sweep";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> iteration = 3;
+        attribute :>> load = 5.0;
+        attribute :>> done = true;
+    }
+}

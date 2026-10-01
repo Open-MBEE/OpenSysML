@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -46,7 +47,7 @@ func loadContent(t *testing.T, name, content string) Model {
 	idx.AddDocument(name, root)
 	var sem []diag.Diagnostic
 	if len(p.Diagnostics) == 0 {
-		sem = passes.Analyze(name, root, nil, idx)
+		sem = passes.Analyze(name, root, parser.AsDiagnostics(p.Diagnostics, p.Warnings), idx)
 	}
 	return Model{
 		Source:     sf,
@@ -56,6 +57,14 @@ func loadContent(t *testing.T, name, content string) Model {
 		SemDiags:   sem,
 		NewIndex:   func() *symbols.Index { return libraryIndex(t) },
 	}
+}
+
+// parseGate is what the parse of sf reported, as every reader hands it to the
+// analysis: its errors and its warnings.
+func parseGate(sf *source.SourceFile) []diag.Diagnostic {
+	p := parser.New(sf)
+	p.ParseFile()
+	return parser.AsDiagnostics(p.Diagnostics, p.Warnings)
 }
 
 // loadWorkspace is loadContent with sibling workspace documents indexed beside
@@ -71,7 +80,7 @@ func loadWorkspace(t *testing.T, name, content string, siblings map[string]strin
 	m.Index.AddDocument(name, m.Root)
 	m.Index.ExpandWildcardImports()
 	if len(m.ParseDiags) == 0 {
-		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+		m.SemDiags = passes.Analyze(name, m.Root, parseGate(m.Source), m.Index)
 	}
 	m.NewIndex = func() *symbols.Index {
 		idx := libraryIndex(t)
@@ -100,11 +109,11 @@ func loadEditableWorkspace(t *testing.T, name, content string, siblings map[stri
 	}
 	m.Index.ExpandWildcardImports()
 	if len(m.ParseDiags) == 0 {
-		m.SemDiags = passes.Analyze(name, m.Root, nil, m.Index)
+		m.SemDiags = passes.Analyze(name, m.Root, parseGate(m.Source), m.Index)
 	}
 	for sibling, doc := range others {
 		if len(doc.ParseDiags) == 0 {
-			doc.SemDiags = passes.Analyze(sibling, roots[sibling], nil, m.Index)
+			doc.SemDiags = passes.Analyze(sibling, roots[sibling], parseGate(doc.Source), m.Index)
 			others[sibling] = doc
 		}
 	}
@@ -208,13 +217,19 @@ func assertOnlySpanChanged(t *testing.T, m Model, res *Result) {
 	// Rebuild the original from the result by undoing each applied edit, which
 	// only succeeds if nothing else moved.
 	rebuilt := got
-	for i := len(res.Applied) - 1; i >= 0; i-- {
-		a := res.Applied[i]
+	// In source order; an insertion at the first byte of another edit precedes it.
+	applied := append([]Applied(nil), res.Applied...)
+	sort.SliceStable(applied, func(a, b int) bool {
+		if applied[a].Span.Offset != applied[b].Span.Offset {
+			return applied[a].Span.Offset < applied[b].Span.Offset
+		}
+		return applied[a].Span.Len == 0 && applied[b].Span.Len > 0
+	})
+	for i := len(applied) - 1; i >= 0; i-- {
+		a := applied[i]
 		shift := 0
-		for _, other := range res.Applied {
-			if other.Span.Offset < a.Span.Offset {
-				shift += len(other.NewText) - other.Span.Len
-			}
+		for _, other := range applied[:i] {
+			shift += len(other.NewText) - other.Span.Len
 		}
 		at := a.Span.Offset + shift
 		if at+len(a.NewText) > len(rebuilt) || string(rebuilt[at:at+len(a.NewText)]) != a.NewText {
@@ -265,6 +280,19 @@ func TestSetValueReplacesOnlyTheValueSpan(t *testing.T) {
 	// The edited model parses with the diagnostics the original had.
 	after := loadContent(t, "spacecraft.sysml", string(res.Content))
 	requireClean(t, after)
+}
+
+// A value may carry a comment after its expression: it is trivia, not a second
+// expression left over.
+func TestSetValueAcceptsATrailingComment(t *testing.T) {
+	m := load(t, "spacecraft.sysml")
+	requireClean(t, m)
+
+	res := applyOne(t, m, SetValue("Demo::SC::unitMass", "1050.0[SI::kg] /* measured */"))
+
+	if !strings.Contains(string(res.Content), "default = 1050.0[SI::kg] /* measured */;") {
+		t.Fatalf("value not set:\n%s", res.Content)
+	}
 }
 
 func TestSetValuePreservesCommentsAndBlankLines(t *testing.T) {

@@ -88,7 +88,7 @@ func TestKerMLLibraryGraphReadsAsKerMLWithoutSourceText(t *testing.T) {
 	const name = "Kernel Libraries/Kernel Semantic Library/Clocks.kerml"
 	turtle, stripped := libraryGraphWithoutSourceText(t, name)
 	back := toNotation(t, stripped)
-	if !strings.Contains(back, "private struct UniversalClockLife[1] subsets Clock, Life {") {
+	if !strings.Contains(back, "private struct UniversalClockLife[1] specializes Clock, Life {") {
 		t.Errorf("the library was not written in KerML:\n%s", back)
 	}
 	keepsIDsWithoutSourceText(t, name, turtle)

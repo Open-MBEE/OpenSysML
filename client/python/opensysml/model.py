@@ -4,10 +4,13 @@ import difflib
 
 from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
-from opensysml.conversion import FORMAT_SYSML, FORMAT_TURTLE, format_of_path
+from opensysml.conversion import (
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
+)
 from opensysml.diagnostic import Diagnostic
 from opensysml.edit import Editor
-from opensysml.errors import ModelError, SymbolNotFoundError
+from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
+from opensysml.proto import sysml_pb2
 from opensysml.query import TYPE_PRIMITIVE_CONSTRAINT
 
 #: Severity the service reports for a diagnostic that makes a model unusable.
@@ -25,23 +28,41 @@ class Model:
     
     Attributes:
         hash (str): Model content hash (for cache lookups)
-        root (Symbol): Root symbol of the model
+        root (Symbol): Root symbol of the model; of a model parsed from
+            several documents, the first document's
+        roots (tuple[Symbol]): Root symbol of each document, in document order
+        documents (tuple[str]): Name of each document as diagnostics report it
         diagnostics (list[Diagnostic]): Parse diagnostics (errors/warnings)
     """
     
-    def __init__(self, pb_response, client, source_path=None):
-        """Initialize Model from protobuf ParseFileResponse.
+    def __init__(self, pb_response, client, source_path=None, documents=None):
+        """Initialize Model from a parse response.
         
         Args:
-            pb_response: sysml_pb2.ParseFileResponse protobuf message
+            pb_response: sysml_pb2.ParseFileResponse for a model of one
+                document, or sysml_pb2.ParseSourcesResponse for one of several
             client: Client instance for symbol navigation
             source_path (str, optional): Path the model was loaded from
+            documents (Sequence[str], optional): Names of the documents a model
+                of several was parsed from, in document order, as diagnostics
+                report them; a model of one document is named by source_path
         """
         self._pb = pb_response
         self._client = client
         self._source_path = source_path
         self._hash = pb_response.model_hash
-        self._root = Symbol(pb_response.root, client, self._hash)
+        if isinstance(pb_response, sysml_pb2.ParseSourcesResponse):
+            pb_roots = list(pb_response.roots)
+        else:
+            pb_roots = [pb_response.root]
+        if not pb_roots:
+            raise ServiceError("the service answered the parse with no root symbol")
+        self._roots = tuple(Symbol(pb_root, client, self._hash) for pb_root in pb_roots)
+        self._root = self._roots[0]
+        if documents is not None:
+            self._documents = tuple(documents)
+        else:
+            self._documents = (source_path,) if source_path else ()
         self._diagnostics = [
             Diagnostic(pb_diag) for pb_diag in pb_response.diagnostics
         ]
@@ -58,8 +79,31 @@ class Model:
     
     @property
     def root(self):
-        """Get root symbol."""
+        """Get root symbol.
+
+        A model parsed from several documents has one root per document; this
+        is the first document's. :attr:`roots` has them all.
+        """
         return self._root
+
+    @property
+    def roots(self):
+        """Root symbol of each document, in document order.
+
+        A model loaded from one file or one string has one; a model of several
+        documents (:meth:`Connection.parse_sources`) has one per document.
+        """
+        return self._roots
+
+    @property
+    def documents(self):
+        """Name of each document, in document order, as diagnostics report it.
+
+        A model of several documents names each by the path or name it was
+        given; a model loaded from a file names that path; a model loaded from
+        inline content has no name and this is empty.
+        """
+        return self._documents
     
     @property
     def diagnostics(self):
@@ -133,7 +177,8 @@ class Model:
         again, or convert its path through :meth:`Connection.convert`.
 
         Args:
-            to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle' or 'rdf'
+            to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
+                'api-json' or 'json'
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
 
@@ -176,6 +221,17 @@ class Model:
             Conversion: The Turtle; ``str()`` of it is the text
         """
         return self.convert(FORMAT_TURTLE)
+
+    def to_api_json(self):
+        """Write this model out in the OMG API's JSON element form.
+
+        It is the same experimental RDF mapping as Turtle, spelled as the
+        element objects the SysML v2 API serves.
+
+        Returns:
+            Conversion: The JSON; ``str()`` of it is the text
+        """
+        return self.convert(FORMAT_API_JSON)
 
     def save(self, path, to_format=None, tolerate_syntax_errors=False):
         """Write this model to ``path``, in the format its extension names.
@@ -344,8 +400,9 @@ class Model:
             ``model[name]`` where a missing symbol is a failure, so it is
             reported as one instead of as an AttributeError on None.
         """
-        if self.root.name == name or self.root.id == name:
-            return self.root
+        for root in self.roots:
+            if root.name == name or root.id == name:
+                return root
         if "::" in name:
             return self._symbol_by_id(name) or self._symbol_named(name)
         return self._symbol_named(name) or self._symbol_by_id(name)
@@ -359,8 +416,9 @@ class Model:
         Returns:
             Symbol or None: Matching symbol, or None if not found
         """
-        if self.root.id == fqn:
-            return self.root
+        for root in self.roots:
+            if root.id == fqn:
+                return root
         return self._symbol_by_id(fqn)
 
     def _symbol_by_id(self, fqn):
@@ -423,7 +481,7 @@ class Model:
         that ends short of the root, as under a file's unnamed root every chain
         does, ends one level below it.
         """
-        owner = {self.root.id: ""}
+        owner = {root.id: "" for root in self.roots}
         owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
         unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
         while unknown:
@@ -433,12 +491,14 @@ class Model:
                 owner.setdefault(fqn, "")
             unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
 
+        root_ids = {root.id for root in self.roots}
+
         def depth(fqn):
             hops = 0
             while owner.get(fqn):
                 fqn = owner[fqn]
                 hops += 1
-            return hops if fqn == self.root.id else hops + 1
+            return hops if fqn in root_ids else hops + 1
 
         return {element.id: depth(element.id) for element in elements}
 
@@ -454,7 +514,7 @@ class Model:
 
         ``depth`` bounds the walk to the symbols that many levels below the root.
         """
-        queue = [(self.root, 0)]
+        queue = [(root, 0) for root in self.roots]
         while queue:
             current, level = queue.pop(0)
             if depth is not None and level >= depth:
@@ -532,9 +592,11 @@ class Model:
                 call and run inside its assembly
 
         Returns:
-            dict: Output parameter name → value; an output the wire format
-                cannot represent is reported as an UnsupportedValueError in its
-                place, so one such output does not discard the rest
+            ActionOutputs: Output parameter name → value, a ``dict``; an output
+                the wire format cannot represent is reported as an
+                UnsupportedValueError in its place, so one such output does not
+                discard the rest. Its ``performer`` holds the performer's
+                attributes under ``this.`` (``'this.level'``), empty without one
 
         Raises:
             ValueError: If the schedule explores
@@ -589,13 +651,16 @@ class Model:
                 ``"explore"`` belongs to :meth:`explore_state`
             performer (str, optional): The object the machine runs on, as for
                 :meth:`execute_action`; an object exhibiting the machine runs
-                the one it exhibits, hearing its siblings over their connectors
+                the one it exhibits, hearing its siblings over their connectors.
+                Guards and actions read and write the object's feature values
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
-                a context value the wire format cannot represent is reported as
-                an UnsupportedValueError in its place; ``final_time`` is the
-                run's simulation clock when it ended, in seconds
+                ``final_context`` also holds the performer's attributes under
+                ``this.`` (``'this.speed'``); a context value the wire format
+                cannot represent is reported as an UnsupportedValueError in its
+                place; ``final_time`` is the run's simulation clock when it
+                ended, in seconds
 
         Raises:
             ValueError: If the schedule explores
@@ -638,7 +703,7 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
         )
 
-    def verify_constraint(self, symbol_id, subject=None, engine=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
@@ -648,6 +713,10 @@ class Model:
             engine (str, optional): The engine to ask: ``"auto"`` (the
                 default), ``"all"``, or one by name, as
                 :meth:`~opensysml.Connection.verify_constraint` takes it
+            question (str, optional): The question to ask: ``"evaluate"`` (the
+                default), ``"holds"`` whether the claim holds for every
+                assignment the free features can take, or ``"satisfiable"``
+                whether any assignment satisfies it
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -658,10 +727,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_constraint(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_requirement(self, symbol_id, subject=None, engine=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None, question=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
@@ -669,6 +739,8 @@ class Model:
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against
             engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
                 :meth:`verify_constraint`
 
         Returns:
@@ -680,10 +752,11 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_requirement(
-            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine,
+            question=question,
         )
 
-    def verify_satisfaction(self, symbol_id=None, engine=None):
+    def verify_satisfaction(self, symbol_id=None, engine=None, question=None):
         """Ask whether this model's satisfaction assertions hold.
 
         This is the scriptable form of "does this model satisfy its
@@ -696,6 +769,8 @@ class Model:
                 a named satisfaction assertion
             engine (str, optional): The engine to ask, as for
                 :meth:`verify_constraint`
+            question (str, optional): The question to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. An
@@ -706,7 +781,9 @@ class Model:
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
         """
-        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id, engine=engine)
+        return self._client.verify_satisfaction(
+            self._hash, symbol_id=symbol_id, engine=engine, question=question,
+        )
 
     def satisfied(self, symbol_id=None):
         """Whether every satisfaction assertion evaluated holds.
@@ -929,10 +1006,12 @@ class Model:
         warnings = sum(1 for d in self.diagnostics if d.severity == 'warning')
         
         # Build HTML
-        html = ['<div style="font-family: monospace; padding: 10px; border: 1px solid #ccc;">']
-        html.append(f'<h3>Model: {escape(self.root.name)}</h3>')
-        html.append(f'<p><strong>Hash:</strong> <code>{escape(self.hash[:12])}...</code></p>')
-        html.append(f'<p><strong>Root Kind:</strong> {escape(self.root.kind)}</p>')
+        html = [
+            '<div style="font-family: monospace; padding: 10px; border: 1px solid #ccc;">',
+            f'<h3>Model: {escape(self.root.name)}</h3>',
+            f'<p><strong>Hash:</strong> <code>{escape(self.hash[:12])}...</code></p>',
+            f'<p><strong>Root Kind:</strong> {escape(self.root.kind)}</p>',
+        ]
         
         # Diagnostic summary
         if self.diagnostics:

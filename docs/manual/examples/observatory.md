@@ -65,7 +65,7 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+  subgraph n0 ["imagingChain<br>«part»"]
     direction LR
     n1["camera : Camera<br>«part»"]
     n2["recorder : Recorder<br>«part»"]
@@ -78,7 +78,7 @@ flowchart LR
 ```mermaid
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["Observatory::telescope<br>«part»"]
+  n0["telescope<br>«part»"]
   n1["optics : Subsystem<br>«part»"]
   n2["mass<br>«attribute»"]
   n1 --- n2

@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "test::Idle",
+  "error": "no initial state found in state machine idle"
+}

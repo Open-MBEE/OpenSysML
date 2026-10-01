@@ -87,7 +87,7 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 			var walk func(node *Node)
 			walk = func(node *Node) {
 				if node.Kind != startKind && !strings.Contains(puml, " as "+node.ID+"\n") && !strings.Contains(puml, " as "+node.ID+" ") {
-					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, labelHead(node), puml)
+					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, (labeller{}).head(node), puml)
 				}
 				for _, child := range node.Children {
 					walk(child)
@@ -149,7 +149,7 @@ func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"**Plant::Loop**\\n<size:10>//«part def»//</size>\" as n0 <<part def>> {\n  rectangle \"**pump : Pump**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\n",
+		"rectangle \"**Loop**\\n<size:10>//«part def»//</size>\" as n0 <<part def>> {\n  rectangle \"**pump : Pump**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\n",
 		"\n}\nn1 -[thickness=3]- n2 : supply\nn1 -[dashed]-> n2 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
@@ -184,7 +184,8 @@ func TestPlantUMLStateDiagram(t *testing.T) {
 
 // An action rendering takes the state grammar: control nodes are states with
 // their kind as stereotype, successions solid arrows and flows dashed and
-// labelled, every node and edge of the graph drawn.
+// labelled, every node and edge of the graph drawn. The `start` and `done` the
+// language names head as their kind, since those names are not the body's.
 func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	puml, err := render(t, "action.sysml", "FlowViews::driveView").PlantUML()
 	if err != nil {
@@ -192,10 +193,10 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	}
 	for _, want := range []string{
 		"\nhide empty description\n",
-		"state \"**Flows::Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
-		"  state \"**start**\\n<size:10>//«initial»//</size>\" as n1 <<start>>\n",
+		"state \"**Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
+		"  state \"**initial**\" as n1 <<start>>\n",
 		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n8 <<fork>>\n",
-		"  state \"**done**\\n<size:10>//«final»//</size>\" as n10 <<end>>\n",
+		"  state \"**final**\" as n10 <<end>>\n",
 		"  state \"**check**\\n<size:10>//«decision»//</size>\" as n12 <<choice>>\n",
 		"  state \"**monitor**\\n<size:10>//«action»//</size>\\nown flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 -[dashed]-> n3 : torque to reading\n",
@@ -469,7 +470,7 @@ func TestPlantUMLEscapesLabels(t *testing.T) {
 	}
 	node := &Node{ID: "n0", Kind: "part", Name: `q"uote`, Type: "T<x>", Detail: "own **flow**"}
 	label := `**q<U+0022>uote : T<U+003C>x<U+003E>**\n<size:10>//«part»//</size>\nown <U+002A><U+002A>flow<U+002A><U+002A>`
-	if got := plantumlLabel(node); got != label {
+	if got := (&plantumlWriter{}).plantumlLabel(node); got != label {
 		t.Errorf("plantumlLabel = %q, want %q", got, label)
 	}
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{node}}
@@ -505,7 +506,7 @@ func TestPlantUMLLabelShape(t *testing.T) {
 	}
 	w := &plantumlWriter{}
 	for _, tc := range cases {
-		if got := plantumlLabel(tc.node); got != tc.label {
+		if got := w.plantumlLabel(tc.node); got != tc.label {
 			t.Errorf("label of %+v = %q, want %q", tc.node, got, tc.label)
 		}
 		if got := w.decoration(tc.node); got != tc.decor {
@@ -530,7 +531,7 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(puml, "\n' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does\n<style>\n") {
+	if !strings.Contains(puml, "\n' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does\n") {
 		t.Errorf("geometry is not noted as unrepresented:\n%s", puml)
 	}
 	if plain, _ := render(t, "interconnection.sysml", "PlantViews::loopView").PlantUML(); strings.Contains(plain, "kept as comments") {

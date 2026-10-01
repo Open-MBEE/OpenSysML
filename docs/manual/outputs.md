@@ -19,12 +19,16 @@ What the renderer emits:
 - A stable `<a id="..."></a>` anchor before every block that a `Ref` targets;
   the reference renders as a link to it.
 - Tables as GitHub-flavored pipe tables; grouped tables as one subtable per
-  group key.
+  group key; a nested row (one a `Tree` query placed under another) opens its
+  first cell with `↳ ` after a non-breaking indent per level above the first,
+  the cell's own text unchanged (see [hierarchical rows](#hierarchical-rows)).
 - Lists as `-` bullets or `1.` numbered items.
 - Diagrams as fenced ` ```mermaid ` blocks (` ```dot ` blocks of Graphviz DOT
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
+- Images as a CommonMark image of the location under the caption, the
+  location verbatim.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
@@ -48,12 +52,26 @@ $ sysml reports.sysml -render-documents rendered
 
 File names are deterministic: the document's fully qualified name with `::`
 replaced by `-`, any byte outside ASCII letters, digits and `_` escaped as
-`.XX` (uppercase hex), plus `.md`. Cross-document references (see
-[the authoring chapter](authoring.md)) therefore resolve as relative links
-between the written files, and repeated runs write identical bytes. Rendering
-a cross-referencing document on its own still succeeds; its external links
-point at the targets' expected file names and dangle until those documents
-are rendered into the same directory.
+`.XX` (uppercase hex), plus `.md`, so documents sharing a short name in
+different packages get distinct files. Two names whose files would meet on a
+case-insensitive file system, a stem that would name a Windows device, and a
+name too long for a file system are written under a tagged name carrying a
+`~` and a hash of the whole name, as `-render-all` writes its views.
+Cross-document references (see [the authoring chapter](authoring.md))
+therefore resolve as relative links between the written files, tagged names
+included, and repeated runs write identical bytes. Rendering a
+cross-referencing document on its own still succeeds; its external links
+point at the file names the set gives the targets and dangle until those
+documents are rendered into the same directory.
+
+Each document in the set is compiled and evaluated on its own. One that
+cannot be rendered — a query column with no value for a row, a diagram past
+its form's limit — does not stop the others: they are written, a page carrying
+the document's title, **This document could not be rendered.** and the error
+is written in its place so links to it resolve — a link into one of its blocks
+lands on a line naming that block, under the anchor the link expects — each
+failure is reported on stderr as `document <qualified name> could not be
+rendered: <reason>`, and the run exits with status 3 rather than 0.
 
 ## HTML
 
@@ -77,7 +95,7 @@ The model rides alongside the structure. A small `sysml-` class vocabulary
 names each part of the document (`sysml-document`, `sysml-section`,
 `sysml-table`, `sysml-row`, `sysml-cell`, `sysml-value`, `sysml-list`,
 `sysml-item`, `sysml-definitions`, `sysml-entry`, `sysml-term`,
-`sysml-description`, `sysml-diagram`, `sysml-caption`, `sysml-link`,
+`sysml-description`, `sysml-diagram`, `sysml-image`, `sysml-caption`, `sysml-link`,
 `sysml-ref` and their kin), and `data-` attributes carry the facts behind
 it: the content kind and name, the query behind a table, list or
 definitions block, the group-by column, each row's, item's or entry's
@@ -93,6 +111,20 @@ apart), and a diagram's view, kind and flow direction.
 <span class="sysml-value" data-value-kind="real">15</span></td>
 </tr>
 ```
+
+A column heading prints the column's label ([Column labels](authoring.md#column-labels))
+and carries the column's name, the key its cells are marked with, as
+`data-column`, so a theme or script keys on the name whatever the heading
+reads. A table whose `columnWidths` the model states carries the class
+`sysml-table-sized` and a `<colgroup>` of one `<col>` per column, the stated
+width as `data-width` and its share of the table as `style="width: 52.7%"` (an
+automatic column takes the mean stated width), so the default stylesheet lays
+the table out fixed in that proportion and a theme can read the source widths;
+the PDF backend gives an unsized wide table the same group, its columns
+sharing the width evenly and none narrower than its heading needs.
+A nested row states its depth as `data-depth` and as the `--sysml-depth`
+property its first cell's `span.sysml-indent` is widened by
+([hierarchical rows](#hierarchical-rows)).
 
 A row over an object the session holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds))
 adds `data-object="#<id>"`, the id the instantiation report printed, beside
@@ -127,12 +159,23 @@ By default the output loads nothing over the network, runs no JavaScript of
 its own, and is byte-identical between runs. To have a browser draw the
 diagrams, `-html-mermaid cdn` adds a `<script>` loading a pinned Mermaid
 release from jsDelivr, and `-html-mermaid <url>` loads it from a URL of your
-own; the page keeps the source, so it still reads where the script cannot
-load. A fragment has no page shell for the script, so a page embedding one
-loads Mermaid itself. Rendered with `-diagram-form dot` or `-diagram-form
-plantuml`, every graph-shaped diagram embeds its Graphviz DOT source in
+own; a second `<script>` configures it to draw the page's largest chart, which
+Mermaid's default size limits (50 000 characters, 500 edges) would refuse. The
+configuration never exceeds twenty times those defaults, so no page asks a
+browser for unbounded work: a chart past 1 000 000 characters or 10 000 edges
+is refused before it is written, naming the chart and its size, and is drawn
+with `-diagram-form dot` or `plantuml` instead. The page keeps the source, so it
+still reads where the script cannot load. A fragment has no page shell for the
+script, so a page embedding one loads Mermaid itself. Rendered with
+`-diagram-form dot` or `-diagram-form plantuml`, every graph-shaped diagram
+embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
+
+An `Image` block is a `<figure class="sysml-image">` whose `<img>` carries its
+`location` verbatim — a relative path stays relative, so a page reads an
+image beside it, as a relative link does — and its `alt` the text
+alternative, the caption its `<figcaption>`.
 
 Formulas work the same way. A math span becomes `<span class="sysml-math">`
 and a `Formula` block a `<figure class="sysml-formula">` with its caption,
@@ -163,7 +206,7 @@ renderer emits no `style` attributes to compete with.
 
 | Flag | Effect |
 |---|---|
-| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `modern`, `print` or `report` |
+| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` |
 | `-html-default-css` | Write the default sheet and exit, to copy from; with `-html-theme`, the theme's whole sheet |
 | `-html-css <file\|url>` | Add a sheet after the default one: a file is inlined, a URL is linked (repeatable, applied in order) |
 | `-html-no-default-css` | Leave the default sheet out |
@@ -179,6 +222,17 @@ unlayered CSS still wins over both:
 | `modern` | Clean corporate sans-serif: filled table headers, zebra rows, rounded surfaces for code and contents |
 | `report` | Formal technical report: serif body, wider measure, open tables ruled top and bottom, captions above |
 | `print` | Monochrome and compact for paper: black rules, no fills, tables and figures kept whole across page breaks, external links spelled out |
+| `nasa` | NASA STI report series: Times 12pt body, Arial headings, tables and captions, letter page with 1in margins, page numbers centred below, black on white |
+| `ieee` | IEEE Transactions manuscript: Times 10pt body, 8pt captions and tables, centred small-caps section heads, italic subheads, justified with a 1pc indent, letter page with 0.67in margins, single column |
+| `acm` | ACM article (`acmart`): Libertine 10pt body falling back to Times, bold sans numbered heads, 9pt captions, letter page with 1in margins, single column |
+
+The three convention themes set their faces and point sizes on screen as on
+paper, so a page and its PDF agree. The Libertine fonts `acm` names are
+rarely installed, so Times metrics are what most machines print; and none of
+the three lays out two columns or writes a cover beyond the title, since the
+document model carries no report number, authors or affiliations. The
+sources and the choices made where a convention is silent are recorded in
+[the backend's design notes](../project/html-document-backend.md#bundled-themes).
 
 A theme needs the default sheet under it, so it is refused with
 `-html-no-default-css`, and a fragment has no page to style, so it is refused
@@ -206,7 +260,10 @@ $ sysml report.sysml -render-document Observatory::MassReport \
 ```
 
 Internally the PDF backend reads the compiled document tree, renders any
-Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
+Mermaid diagrams to SVG with Mermaid CLI (`mmdc`) — each under a
+configuration sized to the chart, within the same ceiling the
+[HTML backend](#html) draws under, and the same five-minute limit every
+converter runs under — typesets any formulas
 with KaTeX (`katex`), and hands an external converter the document in the
 form it reads: an HTML-to-PDF engine gets the [HTML backend's](#html) page
 with the drawn diagrams and typeset formulas in place of their source and a
@@ -233,15 +290,23 @@ of tables and figures, the title page and contents on pages of their own —
 is declared in a second cascade layer after the default sheet:
 
 ```css
-@layer opensysml;        /* the default sheet, or the theme over it */
-@layer opensysml-print;  /* the PDF backend's print sheet */
+@layer opensysml;              /* the default sheet, or the theme over it */
+@layer opensysml-print;        /* the PDF backend's print sheet */
+@layer opensysml-print-theme;  /* the theme's print companion, when it has one */
 ```
 
-Both layers draw their values from the same `--sysml-*` tokens and write no
-`style` attributes, so `-html-theme` rethemes a PDF as it does a page,
-`-html-css` sheets apply unlayered after both layers and win on cascade
-origin, and `-html-no-default-css` leaves both layers out so that only your
-sheets — `@page` rules included — style the PDF. A sheet's relative `url()`
+A theme that means to govern paper carries a print companion — `print`,
+`report`, `nasa`, `ieee` and `acm` do — that the PDF backend lays over the
+print sheet in the third layer, so the theme's page size and margins, faces,
+body size, heading scale and page-number footer reach the PDF rather than
+being overwritten by the print sheet's defaults. All three layers draw their
+values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF as it does a page, `-html-css` sheets apply
+unlayered after every layer and win on cascade origin, and
+`-html-no-default-css` leaves every bundled layer out so that only your
+sheets — `@page` rules included — style the PDF. Without a theme, the PDF is
+set in Times, Arial and Courier where they are installed and in their
+metric-compatible free equivalents (Liberation, Nimbus) where they are not. A sheet's relative `url()`
 and `@import` references resolve against the PDF's directory, as a page's
 resolve against the page's. The pandoc engine reads Markdown and writes its
 own HTML, so `-html-theme` and `-html-no-default-css` are refused for it,
@@ -285,14 +350,54 @@ All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
 
 ### Wide tables
 
-The PDF stylesheet keeps every table within the text width: cells wrap
-wherever they must, so a long qualified name breaks rather than pushing the
-rightmost columns off the page. A table of seven or more columns — a
-traceability matrix, say — is placed on landscape pages, together with the
-heading and caption that introduce it, while the surrounding pages stay
-portrait. The rules use the CSS `:has()` selector, which WeasyPrint — and so
-`weasyprint` and `pandoc` — supports; an engine without it keeps the whole
-document portrait.
+The PDF stylesheet keeps every table within the text width. A cell wraps at
+word boundaries and breaks a token only when it fits no line on its own, so a
+long qualified name breaks rather than pushing the rightmost columns off the
+page; the header row repeats at the top of every page a table continues onto;
+a row never splits across pages, though a long table does. A table of seven or
+more columns — a traceability matrix, an instance table of many value
+properties — is placed on landscape pages in smaller type (9pt; 8pt from
+eleven columns), together with the heading and caption that introduce it,
+while the surrounding pages stay portrait, and its first column, the one
+naming each row, keeps a readable minimum width however many columns follow.
+A table whose `columnWidths` the model states
+([Column widths](authoring.md#column-widths)) is sized in that proportion
+instead, though no column narrower than its heading's longest word needs, the
+others giving up the difference in proportion. Wider still, the column set is
+split rather than squeezed. The backend measures each table's headings against
+the line its column count has — 140 characters of the dense type across a
+landscape page, four fifths of that in the wide type, half of it in the
+ordinary type on a portrait page — the first column counting its least share
+of 18 % and every other column the longest word of its heading plus its cell
+padding, so no heading breaks inside a word. Headings that overrun their own
+line but fit the dense landscape line set the table on that line (HTML class
+`sysml-table-wide`: landscape, in the dense type, whatever a theme sets
+ordinary cells at) however few columns it holds; headings that overrun even
+that line, or more than twelve columns, are written as continuation tables on
+it, each repeating the first column ahead of as many of the following columns
+as head unbroken beside it (at most eleven), under the table's caption with
+"(continued)" appended and no number of its own; a heading longer than the
+line itself still sets beside the repeated column, the two sharing the line in
+proportion to their needs and the heading breaking. A table of few
+wide-headed columns therefore goes landscape or splits sooner than one of many
+short-headed ones, and a table that fits its own line is never moved or split. The `weasyprint` and `prince`
+engines split the HTML table; the `pandoc` engine gets the same split in the
+Markdown it converts, so every engine sets the same column sets, though a
+Markdown table carries no class, so `pandoc` sets a part of fewer than seven
+columns on a portrait page in the ordinary type. The landscape and first-column rules use the CSS `:has()` selector,
+which WeasyPrint — and so `weasyprint` and `pandoc` — supports; an engine
+without it keeps the whole document portrait.
+
+### Hierarchical rows
+
+A query that arranges its rows as a tree ([Nesting rows](query-cookbook.md#nesting-rows-tree))
+gives each row a depth, and every backend shows the nesting structurally,
+leaving the cell's own text as the model states it: Markdown opens a nested
+row's first cell with `↳ `, indented one step per level beyond the first with
+non-breaking spaces; HTML states the depth on the row as `data-depth` and
+widens an empty `span.sysml-indent` ahead of the first cell's values by
+`--sysml-depth` steps of `--sysml-row-indent`; PDF inherits the HTML rule. A
+flat query has every row at depth 0 and renders as before.
 
 ### PDF rendering of inline runs and anchors
 

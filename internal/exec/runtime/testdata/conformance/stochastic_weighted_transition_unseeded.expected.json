@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"libraries": true,
+	"schedule": "declared",
+	"events": [{"signal": "go"}],
+	"finalState": "fast",
+	"outputs": {
+		"log": {"type": "Integer", "value": 2}
+	}
+}

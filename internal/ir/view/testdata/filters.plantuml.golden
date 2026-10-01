@@ -42,9 +42,9 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**Systems::Radio**\n<size:10>//«part def»//</size>" as n0 <<part def>>
-class "**Systems::Airbag**\n<size:10>//«part def»//</size>" as n1 <<part def>>
-class "**Systems::Braking::Brake**\n<size:10>//«part def»//</size>" as n2 <<part def>>
+class "**Radio**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**Airbag**\n<size:10>//«part def»//</size>" as n1 <<part def>>
+class "**Braking::Brake**\n<size:10>//«part def»//</size>" as n2 <<part def>>
 class "**pad**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>
 n2 -- n3
 @enduml

@@ -10,6 +10,7 @@ import (
 
 // The help-text placeholders and check flag names the help repeats.
 const (
+	callArg         = "<call>"
 	nameArg         = "<name>"
 	fileArg         = "<file>"
 	featureArg      = "<feature>"
@@ -103,8 +104,10 @@ func doc() usage.Doc {
 					"run, so machines on sibling parts share it and its connectors.",
 				"-jobs is how many runs of one check may go concurrently — the " +
 					"linearizations of an exploration, the engines -engine all consults " +
-					"— each on a worker of its own over the shared model; the result is " +
-					"the same at any count.",
+					"— each on a worker of its own over the shared model, and how many " +
+					"files of one load are parsed and validated at once; the result is " +
+					"the same at any count. By default one per CPU, fewer where the memory " +
+					"available leaves less than 512 MiB per worker.",
 			},
 		}, {
 			Title: "Analysis engines",
@@ -235,6 +238,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
 				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
 				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
+				usage.Ex(`sysml -analysis "Mc obj" -runs 100 -seed 7 m.sysml`, "A MonteCarlo analysis case"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +
@@ -263,6 +267,17 @@ func doc() usage.Doc {
 					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
 					"a histogram; a non-numeric one is counted by value. A feature the " +
 					"action does not hold is refused.",
+				"-runs also runs an -analysis that specializes Simulation::MonteCarlo, " +
+					"the OpenSysML library's analysis of repeated runs: each run performs " +
+					"the case's steps on a fresh subject, seeded as an action's run is, and " +
+					"reads the value the case binds as observed; the table has one row per " +
+					"run with that value, and beneath its distribution the case is concluded " +
+					"once over the sample — runs, mean, deviation (the sample standard " +
+					"deviation) and outOfSpec (the runs in which a check of the case did not " +
+					"hold) bound, and the case's own outputs and checks evaluated over them. " +
+					"Each run makes its objects from their declarations, so a subject named " +
+					"by `#id` alone is refused. Run once, without -runs, such a case leaves " +
+					"its statistics unbound. -observe belongs to an action's runs, not a case's.",
 			},
 		}, {
 			Title: "Conversion",
@@ -271,15 +286,31 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.ttl -convert sysml", "RDF Turtle to SysML notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o m.ttl", "Write the conversion to a file"),
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
+				usage.Ex("sysml flexo://demo/main -convert sysml", "A Flexo branch as notation"),
+				usage.Ex("sysml model.sysml -convert ttl -o flexo://demo/main", "Push the graph to the branch"),
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
-					".ttl) unless -from names it: sysml, kerml, ttl, turtle, rdf, or " +
-					"xmi, uml or mdzip for a SysML v1 model to migrate, whose " +
-					"element-by-element report -migration-report writes out. " +
+					".ttl, .json, .fmu) unless -from names it: sysml, kerml, ttl, turtle, " +
+					"rdf, api-json, fmu for a Functional Mock-up Unit to import, or " +
+					"xmi, uml or mdzip for a SysML v1 model to " +
+					"migrate, whose " +
+					"element-by-element report -migration-report writes out; -layout " +
+					"names an MTIP export of the same project, whose diagram geometry " +
+					"is written into the migrated views as DiagramLayout metadata. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
 					"is normalized.",
+				"Either side may name a Flexo MMS project branch instead of a file: " +
+					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
+					"or flexo://{project}/{branch}, both naming the endpoint " +
+					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
+					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
+					"the branch's whole model graph, conditional on the branch's etag, " +
+					"and refuses a head the sync state says has moved. Both need the " +
+					"bearer token in FLEXO_INTEROP_TOKEN and record the head commit " +
+					"in the sync state (-sync-state, or <output>.sync.json on a read / " +
+					"<model>.sync.json on a push).",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
@@ -333,6 +364,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip", "unpositioned nodes in a strip below"),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -346,7 +379,10 @@ func doc() usage.Doc {
 					"model, so a view may expose elements a sibling file declares. " +
 					"-render-form names the form written — text, mermaid, markdown, dot " +
 					"or plantuml; by default -render takes it from the destination and " +
-					"-render-all writes each kind's machine form. " +
+					"-render-all writes each kind's machine form, one file per view named " +
+					"by its qualified name with :: as . and every byte unsafe in a filename " +
+					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
+					"a name past 255 bytes is cut and tagged ~ and a hash of the whole. " +
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
 					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
 					"-render-form plantuml, which also writes a sequence rendering; neither " +
@@ -354,7 +390,21 @@ func doc() usage.Doc {
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
 					"fills their nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
-					"viridis or cividis), keeping black text legible on every fill.",
+					"viridis or cividis), keeping black text legible on every fill. " +
+					"-render-style names the look the DOT form draws in: pilot (default), " +
+					"the Pilot visualizer's, or cameo, the look of Cameo Systems Modeler — a " +
+					"diagram frame with a header tab, Arial text, gradient fills, compartments " +
+					"and the UML pseudo-state symbols — for a diagram migrated from Cameo " +
+					"to keep its look. A DiagramLayout Style on a member colours it over " +
+					"either look, and a Note is drawn beside the member it is about. " +
+					"A view whose members carry DiagramLayout positions draws the placed " +
+					"members and the edges between them in every graph form, and leaves a " +
+					"member with no position undrawn: the DOT form pins each at its stated " +
+					"place, so nothing lands on a positioned box, while Mermaid and PlantUML " +
+					"lay the same members out themselves. -render-unplaced strip draws the " +
+					"unplaced members too, in rows in a strip below a DOT drawing. " +
+					"The same setting shapes the diagrams of -render-document and " +
+					"-render-documents.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -379,10 +429,14 @@ func doc() usage.Doc {
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
 					"result is written as CommonMark-compatible Markdown. Its diagram " +
-					"blocks are Mermaid source; -diagram-form dot or plantuml writes every " +
-					"graph-shaped one as Graphviz DOT or PlantUML instead, in Markdown and HTML " +
-					"alike, while a table-kind view stays a table. Neither Graphviz nor " +
-					"PlantUML is needed to write it.",
+					"blocks are chosen per diagram: a view some DiagramLayout::Layout or Route " +
+					"positions is drawn by Graphviz where it states, as inline SVG when dot " +
+					"is installed and as a dot fence otherwise, and every other graph-shaped " +
+					"view is Mermaid source; with Graphviz absent a positioned view falls " +
+					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot " +
+					"or plantuml writes every graph-shaped one in that form instead, in " +
+					"Markdown and HTML alike, while a table-kind view stays a table. Neither " +
+					"Graphviz nor PlantUML is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -395,7 +449,8 @@ func doc() usage.Doc {
 					"these tools is needed until PDF output is asked for; " +
 					"scripts/download-doc-pdf-toolchain.sh provisions pinned copies.",
 				"HTML output needs nothing external and loads nothing by default: -html-theme " +
-					"picks one of the bundled looks (default, modern, print, report), -html-css adds " +
+					"picks one of the bundled looks (default, acm, ieee, modern, nasa, print, report; " +
+					"acm, ieee and nasa follow those bodies' manuscript conventions), -html-css adds " +
 					"your own stylesheets, -html-no-default-css drops the default one, " +
 					"-html-fragment writes the document element alone to embed in a " +
 					"page of yours, and -html-default-css writes the default sheet out " +
@@ -442,6 +497,10 @@ func doc() usage.Doc {
 				usage.Entry("2", "What was asked could not be carried out at all — an unreadable "+
 					"file, a model that did not analyse cleanly, an unresolved name, a "+
 					"failed conversion."),
+				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
+					"in which some document could not be rendered. The others were "+
+					"written, a page stating the error stands in for each that was not, "+
+					"and each failure is reported with the document's qualified name."),
 			},
 		}, {
 			Title: "Output streams",
@@ -453,7 +512,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      append(append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
+			Items:      append(append(append(usage.BudgetEnvironment(), usage.LoadJobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Files",
@@ -498,12 +557,17 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
-	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning")
+	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal or port-type-mismatch, comma-separated or repeated")
+	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
+	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and verdict, as -analysis \"Pkg::Case(3.0) Pkg::part\" (repeatable)")
+	fs.Var(&modelChecks.toolDryRuns, "tool-dry-run", "Show what the external tool the case's or action's ToolExecution names would be given — manifest, executable, argv, environment, standard input and reply mapping — without starting it, and discards what the run did; repeatable")
+	fs.Var(&modelChecks.records, "record-run", "Run this analysis case as -analysis does and record the run into the model as AnalysisRecords elements, one record per -sweep value or -runs run (repeatable)")
+	fs.StringVar(&modelChecks.recordInto, "record-into", "", "Record -record-run runs into this package instead of a Records package beside the case's")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
@@ -514,11 +578,12 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
 	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
-	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed unless -draws is min, max or average")
+	fs.Var(&modelChecks.clockStep, "clock-step", "The step, in seconds, the clock of every run ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (default) is a continuous clock. With -compare-results, replaces every configuration's stepSize")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action, or the Simulation::MonteCarlo -analysis, this many times, each run seeded from -seed, and table the -observe features or the case's observed value; needs -seed unless -draws is min, max or average")
 	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
-	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own; default OPENSYSML_JOBS, else the number of CPUs")
+	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own, and files of one load that are parsed and validated at once; the result is the same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
 
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows and their status, spawning nothing, and exit")
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once and report the outcome as its status")
@@ -535,12 +600,15 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
-	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
-	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
+	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, fmu for a Functional Mock-up Unit to import, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
+	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
+	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
+	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
+	fs.StringVar(&layoutPath, "layout", "", "With -convert from xmi, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
+	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -convert from xmi, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
@@ -551,17 +619,20 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
-	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory")
+	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot or plantuml; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")
 	fs.BoolVar(&pdfTOC, "doc-toc", false, "Write a table of contents ahead of the content (html or pdf)")
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
+	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, html or pdf)")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 
-	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, modern, print or report")
+	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, acm, ieee, modern, nasa, print or report")
 	fs.Var(&htmlCSS, "html-css", "Style the HTML or PDF with this stylesheet too: a file is inlined, a URL is linked (repeatable, applied in order after the default sheet)")
 	fs.BoolVar(&htmlNoCSS, "html-no-default-css", false, "Leave the default stylesheet out, so only -html-css sheets style the HTML or PDF")
 	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")
@@ -611,11 +682,16 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
 			usage.Opt("strict", ""),
+			usage.Opt("disable-lint", "<code>"),
+			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
-			usage.Opt("calc", "<call>"),
-			usage.Opt("analysis", "<call>"),
+			usage.Opt("calc", callArg),
+			usage.Opt("analysis", callArg),
+			usage.Opt("tool-dry-run", callArg),
+			usage.Opt("record-run", callArg),
+			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
@@ -629,6 +705,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("schedule", "<policy>"),
 			usage.Opt("seed", "<n>"),
 			usage.Opt("draws", "<policy>"),
+			usage.Opt("clock-step", "<seconds>"),
 			usage.Opt("runs", "<n>"),
 			usage.Opt("observe", featureArg),
 			usage.Opt("sweep", "<range>"),
@@ -660,9 +737,12 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
 			usage.Opt("from", formatArg),
+			usage.Opt("id", nameArg),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
+			usage.Opt("layout", fileArg),
+			usage.Opt("image-base-url", "<url>"),
 			usage.Opt("compare-results", fileArg),
 		},
 	}, {
@@ -679,6 +759,8 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-all", "<dir>"),
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
+			usage.Opt("render-unplaced", "<placement>"),
+			usage.Opt("render-style", "<style>"),
 		},
 	}, {
 		Title: "Rendering documents",
@@ -690,6 +772,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("doc-title-page", ""),
 			usage.Opt("doc-toc", ""),
 			usage.Opt("doc-number-sections", ""),
+			usage.Opt("doc-number-figures", ""),
 			usage.Opt("pdf-engine", "<converter>"),
 		},
 	}, {

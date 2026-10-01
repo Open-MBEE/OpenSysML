@@ -10,10 +10,11 @@ import (
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are two canonical ones, FormatSysML and
-// FormatTTL, and a Conversion answers by those names whichever alias was asked
-// for. RDF, in any spelling, is an experimental mapping, which a Conversion
-// reports.
+// The formats conversion accepts. There are three canonical ones that are
+// written, FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by
+// those names whichever alias was asked for. RDF and the API's JSON element form,
+// in any spelling, are one experimental mapping, which a Conversion reports; so
+// is migration from FormatXMI, which is only ever read.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -23,8 +24,15 @@ const (
 	FormatText  Format = "text"
 	// FormatTurtle and FormatRDF are aliases of FormatTTL, the one RDF
 	// serialization written.
-	FormatTurtle Format = "turtle"
-	FormatRDF    Format = "rdf"
+	FormatTurtle  Format = "turtle"
+	FormatRDF     Format = "rdf"
+	FormatAPIJSON Format = "api-json"
+	// FormatJSON is an alias of FormatAPIJSON, the OMG API's JSON element
+	// form of the same graph FormatTTL writes.
+	FormatJSON Format = "json"
+	// FormatXMI is SysML v1 as UML XMI, an Eclipse UML2 .uml file or a .mdzip
+	// archive, migrated to v2 on the way in. Asking to write it is refused.
+	FormatXMI Format = "xmi"
 )
 
 // ConvertOption configures Convert and ConvertFile.
@@ -58,8 +66,8 @@ type Conversion struct {
 	// inferred learns what it was inferred as.
 	From Format
 	To   Format
-	// Experimental is set when either format is RDF, whose vocabulary may change
-	// without a compatibility path.
+	// Experimental is set when either format is RDF or the API's JSON form, or the
+	// source is SysML v1: mappings that may change without a compatibility path.
 	Experimental bool
 	// ExperimentalNotice says what is experimental about the conversion, empty
 	// when it is not.
@@ -138,8 +146,8 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 	}, nil
 }
 
-// Edit is one source-preserving change to a model's notation: SetValue, Rename,
-// AddMember, Delete or Move. A type switch over them is exhaustive.
+// Edit is one source-preserving change to a model's notation. A type switch
+// over the supported edit operations is exhaustive.
 type Edit interface {
 	isEdit()
 }
@@ -178,6 +186,253 @@ type AddMember struct {
 	Value string
 	// Specializes are optional specialization targets for a definition.
 	Specializes []string
+	// IsAbstract declares the definition or usage abstract.
+	IsAbstract bool
+	// Redefines are optional redefinition targets for a usage.
+	Redefines []string
+	// IsDefault writes the value with the default assignment keyword.
+	IsDefault bool
+	// Direction is an optional usage direction: "in", "out" or "inout".
+	Direction string
+	// MetadataPrefixes are metadata types prefixed to the new member with #.
+	MetadataPrefixes []string
+	// BodyExpression is the optional condition stated in a constraint-kind member's body.
+	BodyExpression string
+	// Doc is optional documentation body text, written as the declaration's
+	// first body member `doc /* ... */` that reads back as exactly this text.
+	Doc string
+}
+
+// AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
+type AddSatisfy struct {
+	// Owner is the package or body receiving the usage.
+	Owner string
+	// Requirement is the requirement feature reference.
+	Requirement string
+	// By is the optional satisfying feature reference.
+	By string
+	// Asserted marks the usage asserted.
+	Asserted bool
+	// Negated marks the usage negated.
+	Negated bool
+}
+
+// AddRequirementConstraint inserts a require or assume constraint.
+type AddRequirementConstraint struct {
+	// Owner is the requirement-like namespace receiving the constraint.
+	Owner string
+	// Kind is "require" or "assume".
+	Kind string
+	// Expression is the required constraint expression.
+	Expression string
+	// Name is the optional constraint name.
+	Name string
+}
+
+// AddTransition inserts a state transition or entry transition into a state body.
+type AddTransition struct {
+	// Owner is the state definition or usage receiving the transition.
+	Owner string
+	// Name is the optional transition name.
+	Name string
+	// Source is the source feature reference; empty only for an entry transition.
+	Source string
+	// Target is the target feature reference.
+	Target string
+	// Trigger is optional text after `accept`.
+	Trigger string
+	// Guard is an optional boolean expression after `if`.
+	Guard string
+	// Effect is optional effect text after `do`.
+	Effect string
+	// Initial writes an entry transition instead of a regular transition.
+	Initial bool
+}
+
+// AddVerify inserts a verify usage into a verification case objective.
+type AddVerify struct {
+	// Owner is the verification case or objective receiving the verify usage.
+	Owner string
+	// Requirement is the requirement reference to verify.
+	Requirement string
+}
+
+// MetadataValue is one feature binding in a metadata usage.
+type MetadataValue struct {
+	// Feature is the metadata feature reference.
+	Feature string
+	// Value is the feature value expression, written as notation.
+	Value string
+}
+
+// AddMetadata inserts a metadata usage with optional about references and values.
+type AddMetadata struct {
+	// Owner is the namespace receiving the metadata usage; empty is the document root.
+	Owner string
+	// MetadataType is the metadata definition reference.
+	MetadataType string
+	// Name is the optional usage name.
+	Name string
+	// About are optional references annotated by this usage.
+	About []string
+	// Values are the metadata feature bindings.
+	Values []MetadataValue
+	// Shorthand writes the usage with @ instead of metadata.
+	Shorthand bool
+}
+
+// AddMetadataPrefix adds a metadata prefix to an existing declaration.
+type AddMetadataPrefix struct {
+	// Target is the declaration to annotate, by its qualified name.
+	Target string
+	// MetadataType is the metadata definition reference.
+	MetadataType string
+}
+
+// AddEntryTransition constructs an entry transition to target in owner.
+func AddEntryTransition(owner, target string) AddTransition {
+	return AddTransition{Owner: owner, Target: target, Initial: true}
+}
+
+// AddSequence inserts a succession or action-body statement into an action body
+// (SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode, 1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode, 1641 TerminateNode, 1703 TargetSuccession, 1708 GuardedTargetSuccession, 1714 DefaultTargetSuccession; formal/2026-03-02).
+type AddSequence struct {
+	// Owner is the action definition or usage receiving the member.
+	Owner string
+	// Keyword is "first", "then", "", "if" or "else".
+	Keyword string
+	// Ref is the node a bare `first <ref>;`/`then <ref>;` names; empty when
+	// the `then` declares a member instead.
+	Ref string
+	// MemberKind is the action-body item kind, or a kind declared by `then`.
+	MemberKind string
+	// MemberName is the optional declared name of the `then`-declared member.
+	MemberName string
+	// Type is an optional typing target of the `then`-declared member.
+	Type string
+	// After names the body member the new member follows; empty appends it
+	// at the end of the body.
+	After string
+	// Condition, Value, Target, Via, Until and Parameter describe the new
+	// action-body statement fields.
+	Condition    string
+	Value        string
+	Target       string
+	Via          string
+	Until        string
+	Parameter    string
+	Multiplicity string
+	// Body and Else are recursively authored items; nested items have empty
+	// Owner and After.
+	Body []AddSequence
+	Else []AddSequence
+}
+
+func (a AddSequence) needsActionBodyStatementAuthoring() bool {
+	return a.needsActionBodyStatementAuthoringAt(0)
+}
+
+func (a AddSequence) needsActionBodyStatementAuthoringAt(depth int) bool {
+	if depth > 128 {
+		return false
+	}
+	if a.Keyword == "if" || a.Keyword == "else" ||
+		(a.Keyword == "" && a.MemberKind != "") || a.Condition != "" ||
+		a.Value != "" || a.Target != "" || a.Via != "" || a.Until != "" ||
+		a.Parameter != "" || a.Multiplicity != "" || len(a.Body) > 0 ||
+		len(a.Else) > 0 {
+		return true
+	}
+	switch a.MemberKind {
+	case "accept", "send", "assign", "if", "while", "loop", "for", "terminate":
+		return true
+	}
+	for _, item := range a.Body {
+		if item.needsActionBodyStatementAuthoringAt(depth + 1) {
+			return true
+		}
+	}
+	for _, item := range a.Else {
+		if item.needsActionBodyStatementAuthoringAt(depth + 1) {
+			return true
+		}
+	}
+	return false
+}
+
+// AddImport inserts an import declaration into a namespace body or the
+// document root.
+type AddImport struct {
+	// Owner is the namespace receiving the import; empty is the document root.
+	Owner string
+	// Visibility is "private", "public" or "protected"; empty writes "private".
+	Visibility string
+	// Target is the imported qualified name, optionally rooted "$::", suffixed
+	// "::*" for a namespace import.
+	Target string
+	// Recursive writes "::**" to import recursively.
+	Recursive bool
+	// All writes "import all" to import non-public members too.
+	All bool
+	// Filters are filter conditions, each written as "[<expression>]".
+	Filters []string
+}
+
+// AddDocumentation adds `doc /* ... */` as the first body member of an
+// existing declaration, opening a body for one ended by `;`.
+type AddDocumentation struct {
+	// Target is the documented declaration, by qualified name.
+	Target string
+	// Body is the documentation text, read back exactly as Documentation::body;
+	// it may not contain `*/`, which closes a comment, or a carriage return.
+	Body string
+	// Name is the documentation's optional declared name.
+	Name string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+	// Replace rewrites the one documentation Target owns instead of refusing.
+	Replace bool
+}
+
+// AddComment inserts `comment [name] [about a, b] [locale "..."] /* ... */`
+// where a new member of Owner goes, opening a body for one ended by `;`.
+type AddComment struct {
+	// Owner is the namespace receiving the comment; empty is the document root.
+	Owner string
+	// Body is the comment text, read back exactly as Comment::body; it may not
+	// contain `*/`, which closes a comment, or a carriage return.
+	Body string
+	// Name is the comment's optional declared name.
+	Name string
+	// About are the optional annotated elements, by qualified name.
+	About []string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+}
+
+// AddNote writes the line note `// text` on its own line above a declaration.
+// A note is lexical trivia, not a model element.
+type AddNote struct {
+	// Target is the declaration the note precedes, by qualified name.
+	Target string
+	// Text is the one line of note text; it may not contain a line break.
+	Text string
+}
+
+// AddConnection inserts a connection-like usage into a namespace or document root.
+type AddConnection struct {
+	// Owner is the namespace to receive the usage; empty is the document root.
+	Owner string
+	// Kind is the written connection kind, such as "allocation" or "flow".
+	Kind string
+	// From is the first feature reference, written as notation.
+	From string
+	// To is the second feature reference, written as notation.
+	To string
+	// Name is the optional declared identifier.
+	Name string
+	// Type is an optional typing target.
+	Type string
 }
 
 // Delete removes a declaration and the trivia it owns.
@@ -197,11 +452,29 @@ type Move struct {
 	Owner string
 }
 
-func (SetValue) isEdit()  { /* marker: closed Edit set */ }
-func (Rename) isEdit()    { /* marker: closed Edit set */ }
-func (AddMember) isEdit() { /* marker: closed Edit set */ }
-func (Delete) isEdit()    { /* marker: closed Edit set */ }
-func (Move) isEdit()      { /* marker: closed Edit set */ }
+func (SetValue) isEdit()   { /* marker: closed Edit set */ }
+func (Rename) isEdit()     { /* marker: closed Edit set */ }
+func (AddMember) isEdit()  { /* marker: closed Edit set */ }
+func (AddSatisfy) isEdit() { /* marker: closed Edit set */ }
+func (AddRequirementConstraint) isEdit() {
+	/* marker: closed Edit set */
+}
+func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddVerify) isEdit()     { /* marker: closed Edit set */ }
+func (AddMetadata) isEdit()   { /* marker: closed Edit set */ }
+func (AddMetadataPrefix) isEdit() {
+	/* marker: closed Edit set */
+}
+func (AddSequence) isEdit()   { /* marker: closed Edit set */ }
+func (AddImport) isEdit()     { /* marker: closed Edit set */ }
+func (AddConnection) isEdit() { /* marker: closed Edit set */ }
+func (Delete) isEdit()        { /* marker: closed Edit set */ }
+func (Move) isEdit()          { /* marker: closed Edit set */ }
+func (AddDocumentation) isEdit() {
+	/* marker: closed Edit set */
+}
+func (AddComment) isEdit() { /* marker: closed Edit set */ }
+func (AddNote) isEdit()    { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -318,6 +591,22 @@ func (c *client) requireEditDocuments(ctx context.Context, document string) erro
 	return nil
 }
 
+func (c *client) requireCapabilities(ctx context.Context, capabilities ...string) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	for _, capability := range capabilities {
+		if !info.Has(capability) {
+			return &StatusError{
+				Code:    CodeUnimplemented,
+				Message: fmt.Sprintf("capability %q is unavailable", capability),
+			}
+		}
+	}
+	return nil
+}
+
 func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -325,6 +614,11 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	}
 	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
+	}
+	if names := requiredCapabilities(edits); len(names) > 0 {
+		if err := c.requireCapabilities(ctx, names...); err != nil {
+			return nil, err
+		}
 	}
 	// This client reads Documents, so a model of several documents may be edited.
 	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
@@ -366,6 +660,95 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	return result, nil
 }
 
+// requiredCapabilities names the capabilities the edits need the service to
+// advertise, in a fixed order.
+func requiredCapabilities(edits []Edit) []string {
+	required := map[string]bool{}
+	for _, operation := range edits {
+		switch operation := operation.(type) {
+		case AddMember:
+			addMemberCapabilities(operation, required)
+		case AddConnection:
+			required[CapabilityConnectionAuthoring] = true
+		case AddSatisfy:
+			required[CapabilitySatisfyAuthoring] = true
+		case AddRequirementConstraint:
+			required[CapabilityRequirementConstraintAuthoring] = true
+		case AddTransition:
+			required[CapabilityTransitionAuthoring] = true
+		case AddVerify:
+			required[CapabilityVerificationObjectiveAuthoring] = true
+		case AddMetadata:
+			required[CapabilityMetadataAuthoring] = true
+		case AddMetadataPrefix:
+			required[CapabilityMetadataPrefixAuthoring] = true
+		case AddSequence:
+			required[CapabilitySequenceAuthoring] = true
+			if operation.needsActionBodyStatementAuthoring() {
+				required[CapabilityActionBodyStatementAuthoring] = true
+			}
+		case AddImport:
+			required[CapabilityImportAuthoring] = true
+		case AddDocumentation:
+			required[CapabilityDocumentationAuthoring] = true
+		case AddComment, AddNote:
+			required[CapabilityCommentAuthoring] = true
+		case Delete, Move:
+		default:
+			continue
+		}
+		required[CapabilityAuthoring] = true
+	}
+	var names []string
+	for _, capability := range []string{
+		CapabilityAuthoring, CapabilityConnectionAuthoring,
+		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
+		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+		CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+		CapabilityMetadataPrefixAuthoring,
+		CapabilitySequenceAuthoring, CapabilityImplicitParameters,
+		CapabilityActionBodyStatementAuthoring,
+		CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
+		CapabilityImportAuthoring, CapabilityDocumentationAuthoring,
+		CapabilityCommentAuthoring,
+	} {
+		if required[capability] {
+			names = append(names, capability)
+		}
+	}
+	return names
+}
+
+// addMemberCapabilities marks the capabilities the member's kind and prefixes need.
+func addMemberCapabilities(operation AddMember, required map[string]bool) {
+	if operation.Kind == "" {
+		required[CapabilityImplicitParameters] = true
+	}
+	if operation.IsAbstract || len(operation.Redefines) > 0 ||
+		operation.IsDefault || operation.Direction != "" ||
+		operation.Kind == "ref" || operation.Kind == "return" {
+		required[CapabilityMemberModifiers] = true
+	}
+	if operation.Kind == "objective" && operation.Name == "" {
+		required[CapabilityVerificationObjectiveAuthoring] = true
+	}
+	if len(operation.MetadataPrefixes) > 0 {
+		required[CapabilityMetadataAuthoring] = true
+	}
+	if operation.BodyExpression != "" ||
+		operation.Kind == "assert" || operation.Kind == "assert not" ||
+		operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
+		required[CapabilityConstraintBodyAuthoring] = true
+	}
+	switch operation.Kind {
+	case "exhibit state", "exhibit", "entry action", "do action", "exit action":
+		required[CapabilityStateActionAuthoring] = true
+	}
+	if operation.Doc != "" {
+		required[CapabilityDocumentationAuthoring] = true
+	}
+}
+
 func referrersFromProto(referrers []*pb.Referrer) []Referrer {
 	if len(referrers) == 0 {
 		return nil
@@ -391,14 +774,111 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 		}}}, nil
 	case AddMember:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
-			Owner:        operation.Owner,
-			Kind:         operation.Kind,
-			Name:         operation.Name,
-			Type:         operation.Type,
-			Multiplicity: operation.Multiplicity,
-			Value:        operation.Value,
-			Specializes:  append([]string(nil), operation.Specializes...),
+			Owner:            operation.Owner,
+			Kind:             operation.Kind,
+			Name:             operation.Name,
+			Type:             operation.Type,
+			Multiplicity:     operation.Multiplicity,
+			Value:            operation.Value,
+			Specializes:      append([]string(nil), operation.Specializes...),
+			IsAbstract:       operation.IsAbstract,
+			Redefines:        append([]string(nil), operation.Redefines...),
+			IsDefault:        operation.IsDefault,
+			Direction:        operation.Direction,
+			MetadataPrefixes: append([]string(nil), operation.MetadataPrefixes...),
+			BodyExpression:   operation.BodyExpression,
+			Doc:              operation.Doc,
 		}}}, nil
+	case AddSatisfy:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
+			AddSatisfy: &pb.AddSatisfyEdit{
+				Owner: operation.Owner, Requirement: operation.Requirement,
+				SatisfyingFeature: operation.By, IsAsserted: operation.Asserted,
+				IsNegated: operation.Negated,
+			},
+		}}, nil
+	case AddRequirementConstraint:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddRequirementConstraint{
+			AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
+				Owner: operation.Owner, Kind: operation.Kind,
+				Expression: operation.Expression, Name: operation.Name,
+			},
+		}}, nil
+	case AddTransition:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{
+			AddTransition: &pb.AddTransitionEdit{
+				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
+				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
+				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddVerify:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddVerify{
+			AddVerify: &pb.AddVerifyEdit{
+				Owner: operation.Owner, Requirement: operation.Requirement,
+			},
+		}}, nil
+	case AddMetadata:
+		values := make([]*pb.MetadataFeatureValue, 0, len(operation.Values))
+		for _, value := range operation.Values {
+			values = append(values, &pb.MetadataFeatureValue{
+				Feature: value.Feature, Value: value.Value,
+			})
+		}
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadata{
+			AddMetadata: &pb.AddMetadataEdit{
+				Owner: operation.Owner, MetadataType: operation.MetadataType,
+				Name: operation.Name, About: append([]string(nil), operation.About...),
+				Values: values, Shorthand: operation.Shorthand,
+			},
+		}}, nil
+	case AddMetadataPrefix:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadataPrefix{
+			AddMetadataPrefix: &pb.AddMetadataPrefixEdit{
+				Target: operation.Target, MetadataType: operation.MetadataType,
+			},
+		}}, nil
+	case AddSequence:
+		sequence, err := addSequenceToProto(operation, 0)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
+			AddSequence: sequence,
+		}}, nil
+	case AddImport:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddImport{
+			AddImport: &pb.AddImportEdit{
+				Owner: operation.Owner, Visibility: operation.Visibility,
+				Target: operation.Target, IsRecursive: operation.Recursive,
+				IsImportAll: operation.All, Filters: operation.Filters,
+			},
+		}}, nil
+	case AddDocumentation:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+			AddDocumentation: &pb.AddDocumentationEdit{
+				Target: operation.Target, Body: operation.Body, Name: operation.Name,
+				Locale: operation.Locale, Replace: operation.Replace,
+			},
+		}}, nil
+	case AddComment:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddComment{
+			AddComment: &pb.AddCommentEdit{
+				Owner: operation.Owner, Body: operation.Body, Name: operation.Name,
+				About: append([]string(nil), operation.About...), Locale: operation.Locale,
+			},
+		}}, nil
+	case AddNote:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddNote{
+			AddNote: &pb.AddNoteEdit{Target: operation.Target, Text: operation.Text},
+		}}, nil
+	case AddConnection:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
+			AddConnection: &pb.AddConnectionEdit{
+				Owner: operation.Owner, Kind: operation.Kind, FromEnd: operation.From,
+				ToEnd: operation.To, Name: operation.Name, Type: operation.Type,
+			},
+		}}, nil
 	case Delete:
 		return &pb.EditOperation{Operation: &pb.EditOperation_Delete{Delete: &pb.DeleteEdit{
 			Target:  operation.Target,
@@ -412,4 +892,35 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown edit kind"}
 	}
+}
+
+func addSequenceToProto(operation AddSequence, depth int) (*pb.AddSequenceEdit, error) {
+	if depth > 128 {
+		return nil, &StatusError{
+			Code: CodeInvalidArgument, Message: "nested action-body items exceed the maximum depth",
+		}
+	}
+	sequence := &pb.AddSequenceEdit{
+		Owner: operation.Owner, Keyword: operation.Keyword, Ref: operation.Ref,
+		MemberKind: operation.MemberKind, MemberName: operation.MemberName,
+		Type: operation.Type, After: operation.After, Condition: operation.Condition,
+		Value: operation.Value, Target: operation.Target, Via: operation.Via,
+		Until: operation.Until, Multiplicity: operation.Multiplicity,
+		Parameter: operation.Parameter,
+	}
+	for _, item := range operation.Body {
+		child, err := addSequenceToProto(item, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		sequence.Body = append(sequence.Body, child)
+	}
+	for _, item := range operation.Else {
+		child, err := addSequenceToProto(item, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		sequence.ElseBody = append(sequence.ElseBody, child)
+	}
+	return sequence, nil
 }

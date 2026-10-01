@@ -45,15 +45,15 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (106 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (108 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
-   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the fifteen prefix and
-   body-context cases `g71`–`g79`, `k22`–`k27`: exclusive prefix alternatives written together
+   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the seventeen prefix and
+   body-context cases `g71`–`g81`, `k22`–`k27`: exclusive prefix alternatives written together
    (`abstract variation`, `composite portion`) or repeated (`composite composite`), a repeated direction (on an ordinary and on a
    cross feature), `ref`, `constant` and `const` on a definition, `variation` in KerML, an
    invalid string escape, a signed multiplicity bound, a `transition` in a part def body and the
-   SysML `constant` spelling in KerML). For productions our corpus exercises in the
+   SysML `constant` spelling in KerML, and out-of-order action-body parameter modifiers). For productions our corpus exercises in the
    pinned Xtext grammars (`build/pilot-grammars/`, see the `testing-grammar-coverage` skill), the
    minimal violation: a required keyword removed (`g03` alias without `for`), a mandatory element
    omitted (`g04`, `g05`, `k01`, `k03`), a clause in a position the production forbids (`g06`
@@ -62,8 +62,8 @@ systematically from four sources, one subdirectory each:
    bodies and comments (`g01`, `g12`, `k05`).
 2. **`extensions/` — the notation we invented** (9 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
-   `history`, `region`, `defer`, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`) and `expose` in a view def body (`x09`), which our grammar admits as extensions. The pinned grammar
+   `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
+   outside a requirement body (`x08`, since made a parse error) and `expose` in a view def body (`x09`), which our grammar admits as an extension. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 306
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 311
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,15 +164,15 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-306 case(s): 297 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
-  of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
+311 case(s): 302 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+  of which 2 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 9 | 9 | 0 | 0 | 0 |
-| grammar | 106 | 106 | 0 | 0 | 0 |
-| semantic | 156 | 147 | 0 | 9 | 0 |
+| grammar | 108 | 108 | 0 | 0 | 0 |
+| semantic | 159 | 150 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -226,7 +226,16 @@ cases (`s94`–`s98`: a `:>>` target that is a sibling member, a same-scope impo
 alias, or a qualified name or feature chain whose first segment is a sibling — KerML 8.2.3.5.2 resolves a
 redefinition's target from the owning type's generals and then the enclosing namespaces, never the
 owning type's own scope, so the pilot fails to link `Couldn't resolve reference to Feature '…'` and
-so do we).
+so do we), and to 307 with `s99` (a transition's bare accept name is its payload type; inherited
+`Action::start` is a usage, not a definition, so both validators reject it under `validateUsageType`),
+and to 308 with `s100` (library members are not implicitly visible — `VerificationMethod` and
+`VerificationMethodKind::test` need an import or qualification, so both validators report an
+unresolvable reference to each).
+The action-body parameter prefix-order cases `g80`–`g81` then raised the corpus to 310, and `s101`
+(a package-level allocation whose ends name a definition's owned features by qualified name,
+`allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
+only features that have none, so both validators reject each end under
+`validateConnectorTypeFeaturing`) to 311.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -254,31 +263,32 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The four strict-only agreements are `x05`, `x06`, `x08` and `x09`: OpenSysML notation
+The two strict-only agreements are `x06` and `x09`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
-initial state marker), `x04` (`region r { … }`) and `x07` (`transition <src> to <tgt>`) left that
+initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
+`x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 223 agreements and 3 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 226 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 300 agreements and 2 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 302 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the four `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the two `extensions/` cases belong to strict mode.
 
-Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those two as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 306 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 311 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
 Two of the `extensions/` cases that agree in either mode (`x02` choice, `x03` junction) are rejected
 by us for a different reason than by the pilot: our own state-connectivity validation flags a pseudostate
 with no outgoing transition, while the pilot rejects the notation itself. The bucket records
-rejection, not agreement on the rule. The other three (`x01`, `x04`, `x07`) agree on the notation:
-we no longer accept it either.
+rejection, not agreement on the rule. The other four (`x01`, `x04`, `x05`, `x07`) agree on the
+notation: we no longer accept it either.
 
 ## Permissiveness gaps
 
@@ -332,7 +342,7 @@ reading of the specification.
 
 | Constraint | Evidence |
 | --- | --- |
-| `validateItemUsageType`, `validatePartUsageType`, `validatePartUsagePartDefinition` | `checkItemUsage` and `checkPartUsage` are commented out in `SysMLValidator.xtend`; the generic `checkUsage` requires only a `Classifier`. `item i : AD;` (an attribute definition) is rejected as `validateOccurrenceUsageType` (`An occurrence, item or part must be typed by occurrence definitions.`, which we also report), and `part p : ID;` (an item definition) is accepted by both implementations. |
+| `validateItemUsageType`, `validatePartUsageType`, `validatePartUsagePartDefinition` | `checkItemUsage` and `checkPartUsage` are commented out in `SysMLValidator.xtend`; the generic `checkUsage` requires only a `Classifier`. `item i : AD;` (an attribute definition) is rejected as `validateOccurrenceUsageType` (`An occurrence, item or part must be typed by occurrence definitions.`, which we also report), and `part p : ID;` (an item definition) is accepted by the pilot while OpenSysML reports `A part must be typed by at least one part definition.` (`validatePartUsagePartDefinition`). |
 | `validateOperatorExpressionQuantity` | Reported as a **warning** (`Should be a measurement reference (unit).`), and warnings do not count as rejection on either side. |
 | `validateUseCaseUsageReference` | Only the name and message constants are declared; `checkUseCaseUsage` implements the typing rule (`validateUseCaseUsageType`, `s38`) and nothing reads `INVALID_USE_CASE_USAGE_REFERENCE`. The `include` form is covered by `validateIncludeUseCaseUsageReference` (`s20`). |
 | `validateTransitionFeatureMembershipGuardExpression` | The error path (`Must be a Boolean expression.`) exists and the pilot's `TransitionUsage_invalid.sysml.xt` expects it for `if "test"`, but that fixture loads a reduced library without `ScalarValues`. With the full standard library the pinned validator accepts `first s1 if "test" then s2`, `if 1 + 2`, and every other non-Boolean guard we tried in a state body (`accept … if 1 then`, `transition if 2.5 then`) or an action body (`first a if "go" then b`, a decision's `if e then`, an enumeration literal, a `String`-valued calc) — while we reject them all (`transition guard must be Boolean, found String`; `s81` pins the action-body form as ours-only). The cause is in `ExpressionAdapter`: a guard implicitly redefines the library's `TransitionPerformance::guard` (`bool guard[*]`), so its result specializes `Boolean` by construction and the validator's `isBoolean` test is vacuous. Recorded in [omg-issues.md](omg-issues.md#a-non-boolean-transition-guard-is-accepted-with-the-full-library-loaded-pilot-2026-07). |
@@ -516,14 +526,16 @@ the rule.
 
 ### Should the default mode reject the `extensions/` cases?
 
-Per the specification, **yes**. `region`, `defer` and `history` appear in no production of the
-pinned grammars — `StateBodyItem` has no history or deferral member and concurrency is spelled
-`state ... parallel`. The same held for `initial` and `transition <src> to <tgt>`, which is why
-they were removed; both are now errors in either mode. The SysML v2 textual notation is defined by that grammar, so a model using them
+Per the specification, **yes**. `region` and `history` appear in no production of the
+pinned grammars — `StateBodyItem` has no history member and concurrency is spelled
+`state ... parallel`. The same held for `initial`, `transition <src> to <tgt>`, the `defer
+<event>;` member and `require` outside a requirement body, which is why they were removed; all
+four are now errors in either mode (the `defer` member with its own `defer-notation-removed`
+diagnostic, since it was a documented extension with a standard encoding to point at). The SysML v2 textual notation is defined by that grammar, so a model using them
 is not a conforming SysML v2 model, and a tool asked whether it conforms must say no. Accepting
 them by default is therefore not "conformance we argued" but a **superset we chose**: OpenSysML's
 default mode implements a dialect, and the honest statement of `-conformance auto` agreement on
-`x05`, `x06`, `x08` and `x09` is that the strict question has an answer we agree on while the
+`x06` and `x09` is that the strict question has an answer we agree on while the
 default pipeline a user gets accepts notation the reference rejects as a syntax error. What makes
 the choice defensible is not the extensions' usefulness but that the conforming question remains
 askable: [strict mode](../guide/03-command-line.md#strict-conformance) reports every one of them as
@@ -642,7 +654,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateOccurrenceUsageIsPortion` | `semantic/s45-snapshot-outside-occurrence.sysml` | both-reject | Must be owned by an occurrence definition or usage. | Must be owned by an occurrence definition or usage. | — |
 | `validateOccurrenceUsageType` | existing: `xpect/p16-part-typed-by-attribute-def.sysml` | both-reject | An occurrence, item or part must be typed by occurrence definitions. | An occurrence, item or part must be typed by occurrence definitions. | — |
 | `validateOperatorExpressionQuantity` | none: reported as a warning only | not enforced by the pilot | — | — | — |
-| `validatePartUsagePartDefinition` | none: `checkPartUsage` is commented out in the pinned validator | not enforced by the pilot | — | — | — |
+| `validatePartUsagePartDefinition` | none: `checkPartUsage` is commented out in the pinned validator | not enforced by the pilot | — | A part must be typed by at least one part definition. | — |
 | `validatePartUsageType` | none: `checkPartUsage` is commented out in the pinned validator | not enforced by the pilot | — | — | — |
 | `validatePerformActionUsageReference` | `semantic/s24-perform-references-non-action.sysml` | both-reject | Must reference an action. | Must reference an action. | — |
 | `validatePortDefinitionConjugatedPortDefinition` | none: `PortDefinition` always synthesises exactly one conjugated definition | no violating model | — | — | — |

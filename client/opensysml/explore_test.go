@@ -139,9 +139,9 @@ func TestExploringUnderABudgetIsIncomplete(t *testing.T) {
 	model := parse(t, client, exploreSource)
 
 	for _, test := range []struct{ schedule, hit, status string }{
-		{"explore:runs=2", "runs", "incomplete: runs budget 2 hit after 2 runs"},
-		{"explore:depth=1", "depth", "incomplete: depth budget 1 hit after 3 runs"},
-		{"explore:depth=1,runs=1", "runs,depth", "incomplete: runs budget 1 and depth budget 1 hit after 1 runs"},
+		{"explore:runs=2", "runs", "incomplete: runs budget 2 hit after 2 runs; probabilities are lower bounds"},
+		{"explore:depth=1", "depth", "incomplete: depth budget 1 hit after 3 runs; probabilities are lower bounds"},
+		{"explore:depth=1,runs=1", "runs,depth", "incomplete: runs budget 1 and depth budget 1 hit after 1 runs; probabilities are lower bounds"},
 	} {
 		exploration, err := client.ExploreAction(ctx, model, "Explored::three", nil, opensysml.WithSchedule(test.schedule))
 		if err != nil {

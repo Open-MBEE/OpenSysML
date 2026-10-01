@@ -189,7 +189,7 @@ func TestMoveRemovesImportMadeRedundant(t *testing.T) {
 		"        part def Base;\n" +
 		"    }\n" +
 		"    package Other {\n" +
-		"        import Lib::Base;\n" +
+		"        private import Lib::Base;\n" +
 		"        part b : Base;\n" +
 		"    }\n" +
 		"}\n"
@@ -216,9 +216,9 @@ func TestMoveReadsNameBetweenCarriedImportsItRespells(t *testing.T) {
 		"        part def B;\n" +
 		"    }\n" +
 		"    part def Holder {\n" +
-		"        import Lib::A;\n" +
+		"        private import Lib::A;\n" +
 		"        part a : A;\n" +
-		"        import Lib::B;\n" +
+		"        private import Lib::B;\n" +
 		"        part b : B;\n" +
 		"    }\n" +
 		"}\n"
@@ -230,9 +230,9 @@ func TestMoveReadsNameBetweenCarriedImportsItRespells(t *testing.T) {
 		"    }\n" +
 		"}\n" +
 		"part def Holder {\n" +
-		"    import Spacecraft_Models::Lib::A;\n" +
+		"    private import Spacecraft_Models::Lib::A;\n" +
 		"    part a : A;\n" +
-		"    import Spacecraft_Models::Lib::B;\n" +
+		"    private import Spacecraft_Models::Lib::B;\n" +
 		"    part b : B;\n" +
 		"}\n"
 	if got != want {
@@ -247,7 +247,7 @@ func TestMoveRespellsImportOfTheTarget(t *testing.T) {
 		"    }\n" +
 		"    package Other;\n" +
 		"    package Client {\n" +
-		"        import Lib::Base;\n" +
+		"        private import Lib::Base;\n" +
 		"        part b : Base;\n" +
 		"    }\n" +
 		"}\n"
@@ -259,7 +259,7 @@ func TestMoveRespellsImportOfTheTarget(t *testing.T) {
 		"        part def Base;\n" +
 		"    }\n" +
 		"    package Client {\n" +
-		"        import Other::Base;\n" +
+		"        private import Other::Base;\n" +
 		"        part b : Base;\n" +
 		"    }\n" +
 		"}\n"

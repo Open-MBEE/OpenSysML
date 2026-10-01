@@ -802,7 +802,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -1012,7 +1012,11 @@ fresh executor over the same lowered model, following the recorded choices of an
 to a frontier and taking the next untried alternative there — the first run's choice points each
 varied once, earliest first, before any is varied twice — until no alternative is untried or a
 budget is hit. Two runs that agree on the observables — an action's outputs — are
-one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
+one outcome, with `linearizations` counting how many reached it, `probability` the share of the
+schedule space its linearizations cover (a weighted pick's stated weight's share, an unweighted
+choice's uniform `1/n`, multiplied along a run and summed over the runs reaching the outcome —
+the model's own probability where every choice point is weighted, a uniform assumption over the
+scheduling choices the library leaves open otherwise), and `witness` the choice sequence
 of one that did, one entry per choice point spelling the alternatives and the one taken;
 `diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
@@ -1021,10 +1025,10 @@ three branches `a`, `b`, `c` each assigning `winner`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
-{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"probability":1.0,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1032,17 +1036,18 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race
 with no choice point explores in exactly one run.
 
 `exploration.complete` is true when every linearization within the budget was run, so
-`outcomes` is the whole set. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+`outcomes` is the whole set and their `probability` values sum to `1`. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
 in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
 `depth` how many choice points one run may resolve before the rest take their first alternative
 (default 64). Hitting either ends the search with `complete` false and the budget named in
-`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed;
+`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
+`probabilitiesLowerBound` true, since the unexplored runs can only add mass;
 `runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
 error and never silent:
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64,"probabilitiesLowerBound":true}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
 HTTP/1.1 400 Bad Request
@@ -1086,7 +1091,10 @@ object at the end of the path, so the action's `this` is a part *inside* its ass
 assembly's connectors reach it. Each explored run creates the declaration anew, and each
 outcome's `outputs` carry the object's attributes as the run left them under `this.`
 (`this.pinged`), beside the action's own, so runs that differ only in what they left the
-object holding are distinct outcomes. A path that reaches no object is the call's `error` —
+object holding are distinct outcomes. An executed run reports the same entries, spelled and
+selected as an outcome's are, in `performerAttributes` (`this.pinged`), and keeps `outputs` the
+action's output parameters alone; `performerAttributes` is empty without a performer and under
+`"explore"`, whose outcomes carry them. A path that reaches no object is the call's `error` —
 the feature the root has none of
 (`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
 (`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
@@ -1194,8 +1202,15 @@ so the object's own transitions, the messages its ports receive over the assembl
 connectors and the features it assigns are the run's; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
+Either way the machine's guards, effects and state behaviors read and write the object's feature
+values — by name in a machine the object's definition exhibits, through the `in ref` parameter
+the object binds in a state definition run on it — and `finalContext` carries, besides the
+machine's own data, every attribute the object holds when the run ends under `this.`
+(`this.speed`, `this.seen`), so two objects of one definition differing in a feature value that
+a guard reads rest in different states and report different contexts.
 Under `"explore"` every run creates the object graph anew, so the machine is explored inside
-its assembly and each outcome's `outputs` are the object's features as that run left them.
+its assembly and each outcome's `outputs` are the object's features as that run left them,
+spelled as the executed `finalContext` spells them.
 
 ### `EvaluateCalc`
 
@@ -1766,6 +1781,65 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
 and lists engines with `Connection.list_engines()`.
 
+## Conversion: `Convert`
+
+`Convert` writes a model out in another representation, and needs the `convert` capability. The
+request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
+inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
+`sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
+`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
+`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
+file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
+`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
+`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
+inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
+`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
+
+A `modelHash` from `ParseSources` of several documents converts the whole model to `ttl` or
+`api-json` as one graph: a reference from one document to an element another declares links that
+element, as a reference within one document does, and each document's root elements carry
+`sysx:sourceDocument`, the name the request gave it. Notation is written for one document, so a
+`sysml`/`kerml` target for such a model is `failed_precondition`. A document with syntax errors is
+reported in `error` and `diagnostics`, as a single document is, and so is an element two documents
+both declare (`package P` in each), which one graph would merge into one. Ids are scope-qualified
+when the documents together declare more than one identity scope. The command line does the same
+for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
+
+```console
+$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+{
+  "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
+  "fromFormat": "xmi",
+  "toFormat": "sysml",
+  "experimental": true,
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
+too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
+migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
+client that needs the element-by-element account runs the command. What the migration maps,
+approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
+`error` alone:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
+convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
+`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
+`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
+[the model hash](#how-long-a-hash-is-valid).
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
@@ -2127,8 +2201,12 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
-and where its pitfalls lie. A real client for any of these languages is one that passes the
-scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client
+and where its pitfalls lie. The Julia and MATLAB illustrations have since grown into the shipped
+[`client/julia`](../../client/julia/OpenSysML/README.md) and
+[`client/matlab`](../../client/matlab/README.md) packages, which run the conformance suite
+through their own APIs; the R and C snippets remain illustrations only. A real client for any of
+these languages is one that passes the scenarios in `conformance/scenarios/*.json` through its
+own public API, as every shipped client
 does ([Every client runs the same conformance suite](clients.md#every-client-runs-the-same-conformance-suite)).
 Each snippet is a POST helper that classifies Connect errors, plus the `Value` decoder from
 [The decoding rule](#the-decoding-rule); everything else (the `Instance` table, verdicts,

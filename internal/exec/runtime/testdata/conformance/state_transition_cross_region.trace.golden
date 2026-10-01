@@ -1,9 +1,10 @@
 exit: start
 enter: running (entry action)
-stmt assign reentered
-    eval feature reentered -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
+stmt action body
+  stmt assign reentered
+      eval feature reentered -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
 choice entering running: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
 enter: lstart
 enter: rstart
@@ -17,8 +18,9 @@ transition: rstart -> ridle
 exit: lidle
 exit: ridle
 enter: rtarget (entry action)
-stmt assign crossed
-    eval feature crossed -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
+stmt action body
+  stmt assign crossed
+      eval feature crossed -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
 transition: lidle -> rtarget

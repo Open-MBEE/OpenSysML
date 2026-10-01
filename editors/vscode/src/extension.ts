@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         void restart();
       }
     }),
+    vscode.workspace.onDidGrantWorkspaceTrust(() => void restart()),
   );
 
   await enqueue(startClient);
@@ -96,6 +97,9 @@ async function startClient(): Promise<void> {
     return;
   }
 
+  if (!vscode.workspace.isTrusted) {
+    output.appendLine("Restricted Mode: a sysml-lsp build in the workspace's bin/ is skipped; using a configured or PATH server.");
+  }
   const command = resolveServer(config.get<string>("server.path", "").trim());
   if (!command) {
     void vscode.window.showWarningMessage(
@@ -152,6 +156,9 @@ async function stopClient(): Promise<void> {
 function resolveServer(configured: string): string | undefined {
   if (configured) {
     return isExecutable(configured) ? configured : undefined;
+  }
+  if (!vscode.workspace.isTrusted) {
+    return onPath(EXECUTABLE);
   }
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     const candidate = join(folder.uri.fsPath, "bin", EXECUTABLE);

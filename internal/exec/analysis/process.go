@@ -18,9 +18,9 @@ const OutputLimitEnv = "OPENSYSML_TOOL_MAX_OUTPUT"
 // DefaultOutputLimit is the bound when OutputLimitEnv is unset or unusable.
 const DefaultOutputLimit = 64 << 20
 
-// outputLimitFromEnv reads OutputLimitEnv, falling back to DefaultOutputLimit for an unset,
+// OutputLimitFromEnv reads OutputLimitEnv, falling back to DefaultOutputLimit for an unset,
 // unparsable or non-positive value.
-func outputLimitFromEnv() int {
+func OutputLimitFromEnv() int {
 	text := strings.TrimSpace(os.Getenv(OutputLimitEnv))
 	if text == "" {
 		return DefaultOutputLimit
@@ -54,7 +54,7 @@ func parseByteSize(text string) (int, bool) {
 // boundedBuffer keeps the first limit bytes written to it and stops the process at the
 // first byte beyond. It is a plain Writer so every byte passes through Write; mu lets a
 // process's two streams and the reader that inspects them share one.
-type boundedBuffer struct {
+type BoundedBuffer struct {
 	mu    sync.Mutex
 	kept  bytes.Buffer
 	limit int
@@ -62,12 +62,12 @@ type boundedBuffer struct {
 	stop  context.CancelFunc
 }
 
-// newBoundedBuffer is a buffer of limit bytes that calls stop when the limit is passed.
-func newBoundedBuffer(limit int, stop context.CancelFunc) *boundedBuffer {
-	return &boundedBuffer{limit: max(limit, 0), stop: stop}
+// NewBoundedBuffer is a buffer of limit bytes that calls stop when the limit is passed.
+func NewBoundedBuffer(limit int, stop context.CancelFunc) *BoundedBuffer {
+	return &BoundedBuffer{limit: max(limit, 0), stop: stop}
 }
 
-func (b *boundedBuffer) Write(p []byte) (int, error) {
+func (b *BoundedBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if room := b.limit - b.kept.Len(); len(p) > room {
@@ -82,14 +82,14 @@ func (b *boundedBuffer) Write(p []byte) (int, error) {
 }
 
 // Bytes is a copy of what was kept.
-func (b *boundedBuffer) Bytes() []byte {
+func (b *BoundedBuffer) Bytes() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return bytes.Clone(b.kept.Bytes())
 }
 
 // Over reports whether the limit was passed.
-func (b *boundedBuffer) Over() bool {
+func (b *BoundedBuffer) Over() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.over

@@ -1,0 +1,13 @@
+eval literal 0.3 -> 0.3
+eval literal 0.7 -> 0.7
+choice state idle on accept go: transitions 1->slow p=0.3, 2->fast p=0.7 (weighted; drew 0.774817894359002, took 2->fast)
+exit: idle
+enter: fast (entry action)
+stmt action body
+  stmt assign log
+        eval literal 10 -> 10
+        eval feature log -> 0
+      eval operator * -> 0
+      eval literal 2 -> 2
+    eval operator + -> 2
+transition: idle -> fast (event: accept go)

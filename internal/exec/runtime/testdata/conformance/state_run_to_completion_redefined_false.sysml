@@ -1,7 +1,6 @@
-// A machine redefining isRunToCompletion to false asks for a scheduling the
-// library gives no semantics to (Occurrences::Occurrence::isRunToCompletion
-// default true): lowering refuses it with a typed error naming the feature,
-// the declaring body and the value written, instead of running it under the default.
+// A machine redefining isRunToCompletion to false opts out of the default
+// entry boundary, so the lowered runtime executes the machine under that
+// declared scheduling behavior.
 package test {
 	attribute def Go;
 

@@ -1,0 +1,7 @@
+{
+  "type": "state",
+  "events": [{"signal": "Start"}],
+  "finalState": "inner+b",
+  "outputs": {"order": {"type": "Integer", "value": 12}},
+  "trace": true
+}

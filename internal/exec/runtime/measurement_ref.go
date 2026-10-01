@@ -109,17 +109,16 @@ func (ctx *Context) MeasurementUnitValue(sym *symbols.Symbol) (Value, bool, erro
 	if err != nil {
 		return Value{}, true, fmt.Errorf("%w: %s: %w", ErrNotAQuantity, sym.Name, err)
 	}
-	return DeclaredMeasurementRef(sym, "", term), true, nil
+	return DeclaredMeasurementRef(ctx.model.semantics, sym, "", term), true, nil
 }
 
 // DeclaredMeasurementRef is the reference a unit declaration names, reducing to
 // term, spelt as text (`SI::km`) or, given none, by its symbol (`km`).
-func DeclaredMeasurementRef(sym *symbols.Symbol, text string, term semantics.UnitTerm) Value {
+func DeclaredMeasurementRef(sem *semantics.Model, sym *symbols.Symbol, text string, term semantics.UnitTerm) Value {
 	if text == "" {
 		text = unitSymbolName(sym)
 	}
-	product := semantics.NamedUnitProduct(sym, text, term.Dimensionless())
-	return NewMeasurementRefValue(Unit{Text: text, Product: product, Term: term})
+	return NewMeasurementRefValue(Unit{Text: text, Product: sem.DeclaredUnitProduct(sym, text), Term: term})
 }
 
 // measurementScaleValue is the scale a measurement scale declaration (`SI::'°C_abs'`,
@@ -305,7 +304,7 @@ func (ctx *Context) unitObjectValue(inst *Instance) (Value, bool, error) {
 // declaresUnit reports whether sym declares a measurement unit: a usage typed by a
 // unit definition (`attribute <m> metre : LengthUnit`), which a reference names.
 func (ctx *Context) declaresUnit(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolAttributeUsage && ctx.model.semantics != nil && ctx.model.semantics.IsMeasurementUnit(sym)
+	return sym != nil && sym.Kind.IsAttributeLike() && ctx.model.semantics != nil && ctx.model.semantics.IsMeasurementUnit(sym)
 }
 
 // libraryTypeDeclares reports whether the loaded library type has a member name.

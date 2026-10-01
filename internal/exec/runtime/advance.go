@@ -123,10 +123,10 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 		if !ok || next > deadline {
 			break
 		}
-		ctx.clock.now = next
+		ctx.setClock(next)
 		progress.unsettle()
 	}
-	ctx.clock.now = deadline
+	ctx.setClock(deadline)
 	report.To = deadline
 	return report.counting(progress, ctx.run.notes[noted:]), ctx.advanceEnded()
 }
@@ -155,7 +155,7 @@ func (ctx *Context) advanceToNextDue(progress *dueProgress) bool {
 	if !ok {
 		return false
 	}
-	ctx.clock.now = next
+	ctx.setClock(next)
 	progress.unsettle()
 	return true
 }
@@ -241,7 +241,12 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 	moved, err := w.runDue(progress)
 	if err != nil {
 		if behavior := ctx.behaviorOf(w); behavior != nil {
-			err = fmt.Errorf("%s: %w", behavior.Describe(), err)
+			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+			if recordsFailure(behavior, err) {
+				ctx.endFailedPerformance(behavior, wrapped)
+				return moved, nil
+			}
+			err = wrapped
 		}
 	}
 	return moved, err

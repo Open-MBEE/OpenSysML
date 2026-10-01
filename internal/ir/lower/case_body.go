@@ -25,11 +25,13 @@ func PerformsSteps(decl ast.Node) bool {
 }
 
 // caseSteps lowers a body whose steps are action nodes: the locals it declares, one
-// Block over the flow the steps state, then its results. A body stating successions
-// or control nodes is the token flow an action body is (ToActionGraph); one stating
-// none runs its steps in declaration order. The resolver reads the flow's
-// `@Probability` annotations; nil reads none.
+// Block over the flow the steps state, then its results — its `return`s, wherever
+// declared, and the control flow ending the body that returns on some path
+// (trailingResults). A body stating successions or control nodes is the token flow
+// an action body is (ToActionGraph); one stating none runs its steps in declaration
+// order. The resolver reads the flow's `@Probability` annotations; nil reads none.
 func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
+	trailing := trailingResults(body, scope)
 	if !statesOwnFlow(body) {
 		var results []Statement
 		graph := lowerBlockFlowWith(body, scope, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
@@ -42,7 +44,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 			if !states {
 				return nil, false
 			}
-			if _, isResult := stmt.(Return); isResult {
+			if isReturn(stmt) || trailing[member] {
 				results = append(results, stmt)
 				return nil, false
 			}
@@ -64,7 +66,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		if !states {
 			continue
 		}
-		if _, isResult := stmt.(Return); isResult {
+		if isReturn(stmt) || trailing[member] {
 			results = append(results, stmt)
 			continue
 		}
@@ -82,6 +84,43 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 	StartFlow(graph)
 	flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}
 	return append(append(locals, flow), results...)
+}
+
+// isReturn reports a `return` of a body, a result parameter wherever it is declared.
+func isReturn(stmt Statement) bool {
+	_, ok := stmt.(Return)
+	return ok
+}
+
+// trailingResults marks the members ending a body with results: the statements
+// after its last step, each returning on some path through it (IsResult). Control
+// flow returning among the steps stays a step, its effects in declared order.
+func trailingResults(body []ast.Node, scope *symbols.Scope) map[ast.Node]bool {
+	trailing := map[ast.Node]bool{}
+	for i := len(body) - 1; i >= 0; i-- {
+		member := body[i]
+		if statesNoStep(member) {
+			continue
+		}
+		if isFlowNode(member) {
+			break
+		}
+		stmt, states := calcStep(member, scope)
+		if !states {
+			continue
+		}
+		if !IsResult(stmt) {
+			break
+		}
+		trailing[member] = true
+	}
+	return trailing
+}
+
+// IsResult reports a statement that returns a value on some path through it: a
+// `return`, or control flow with one inside. The results end a lowered body.
+func IsResult(stmt Statement) bool {
+	return Returns([]Statement{stmt})
 }
 
 // stepName names a step of a case body for a diagnostic.

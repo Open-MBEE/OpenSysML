@@ -47,7 +47,7 @@ func (r *Renderer) memberRowsOf(sym *symbols.Symbol, name string, seen map[*symb
 		return
 	}
 	seen[sym] = true
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		r.memberRows(member, name, seen, depth+1, out)
 	}
 }

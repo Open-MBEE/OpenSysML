@@ -1,1 +1,0 @@
-- **Moved the workspace packages to `internal/workspace`.** `model`, `libs` (with `errata`), `project` and `envvar` now live under `internal/workspace/`.

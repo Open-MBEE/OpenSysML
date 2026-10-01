@@ -1,0 +1,14 @@
+do: top
+stmt action body
+enter action node: state behavior run
+  stmt assign count
+      eval feature count -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+exit: top
+stmt assign count
+    eval feature count -> 1
+    eval literal 1000 -> 1000
+  eval operator + -> 1001
+enter: idle
+transition: top -> idle (event: accept Stop)

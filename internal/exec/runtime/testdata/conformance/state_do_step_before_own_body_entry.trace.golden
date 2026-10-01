@@ -1,0 +1,21 @@
+exit: idle
+enter: work
+enter: w1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "w1(entry) " -> "w1(entry) "
+    eval operator + -> "w1(entry) "
+enter: w2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "w1(entry) "
+      eval literal "w2(entry) " -> "w2(entry) "
+    eval operator + -> "w1(entry) w2(entry) "
+transition: idle -> work (event: accept Go)
+do: work
+stmt action body
+  stmt assign log
+      eval feature log -> "w1(entry) w2(entry) "
+      eval literal "did " -> "did "
+    eval operator + -> "w1(entry) w2(entry) did "

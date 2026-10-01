@@ -1,0 +1,70 @@
+# SysML v1 to v2 migration report: org_profile.xmi
+# exported by Example UML Tool
+# migrated 47 element(s): 46 mapped, 1 approximated, 0 unmapped (14 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+«Requirement» Class	Pump System::Design Note	_note	-> 'Pump System'::'Design Note'	(a plain UML class without «Block» is written as a part def)
+
+## mapped (46)
+Profile	Legacy	_legacy	-> Legacy
+Stereotype	Legacy::Requirement	_st_legacy_req	-> Legacy::Requirement
+Property	Legacy::Requirement::Text	_st_legacy_text	-> Legacy::Requirement::Text
+Model	Model	_m	(the root model's members are written at the top level)
+Profile	Org Profile	_org	-> 'Org Profile'
+Comment	Org Profile::<Comment>	_org_doc
+Enumeration	Org Profile::Criticality	_criticality	-> 'Org Profile'::Criticality
+EnumerationLiteral	Org Profile::Criticality::high	_crit_high	-> 'Org Profile'::Criticality::high
+EnumerationLiteral	Org Profile::Criticality::low	_crit_low	-> 'Org Profile'::Criticality::low
+Stereotype	Org Profile::Key Requirement	_st_key	-> 'Org Profile'::'Key Requirement'
+Property	Org Profile::Key Requirement::rank	_st_key_rank	-> 'Org Profile'::'Key Requirement'::rank
+Stereotype	Org Profile::Org Block	_st_blk	-> 'Org Profile'::'Org Block'
+Property	Org Profile::Org Block::partNumber	_st_blk_partno	-> 'Org Profile'::'Org Block'::partNumber
+Property	Org Profile::Org Block::supplier	_st_blk_supplier	-> 'Org Profile'::'Org Block'::supplier
+Stereotype	Org Profile::Org Requirement	_st_req	-> 'Org Profile'::'Org Requirement'
+Comment	Org Profile::Org Requirement::<Comment>	_st_req_doc
+Property	Org Profile::Org Requirement::Rationale	_st_req_rationale	-> 'Org Profile'::'Org Requirement'::Rationale
+Property	Org Profile::Org Requirement::criticality	_st_req_crit	-> 'Org Profile'::'Org Requirement'::criticality
+Property	Org Profile::Org Requirement::owner	_st_req_owner	-> 'Org Profile'::'Org Requirement'::owner
+Property	Org Profile::Org Requirement::weight	_st_req_weight	-> 'Org Profile'::'Org Requirement'::weight
+Stereotype	Org Profile::Org Satisfy	_st_sat	-> 'Org Profile'::'Org Satisfy'
+Property	Org Profile::Org Satisfy::verified	_st_sat_verified	-> 'Org Profile'::'Org Satisfy'::verified
+Stereotype	Org Profile::Org Value	_st_val	-> 'Org Profile'::'Org Value'
+Property	Org Profile::Org Value::precision	_st_val_precision	-> 'Org Profile'::'Org Value'::precision
+Package	Pump System	_system	-> 'Pump System'
+«Org Satisfy» Abstraction	Pump System::<Abstraction>	_sat	-> 'Pump System'::Pump
+«Block» Class	Pump System::Acme	_acme	-> 'Pump System'::Acme
+«Block» Class	Pump System::Controller	_ctrl	-> 'Pump System'::Controller
+«Org Requirement» Class	Pump System::Flow Requirement	_req_flow	-> 'Pump System'::'Flow Requirement'
+«Org Value» DataType	Pump System::FlowRate	_flow	-> 'Pump System'::FlowRate
+«Block» Class	Pump System::Motor	_motor	-> 'Pump System'::Motor
+«Org Block» Class	Pump System::Pump	_pump	-> 'Pump System'::Pump
+Property	Pump System::Pump::controller	_pump_ctrl	-> 'Pump System'::Pump::controller
+Property	Pump System::Pump::motor	_pump_motor	-> 'Pump System'::Pump::motor
+«Reviewed» Property	Pump System::Pump::rate	_pump_rate	-> 'Pump System'::Pump::rate
+«Reviewed» Connector	Pump System::Pump::wire	_wire	-> 'Pump System'::Pump::wire
+«Key Requirement» Class	Pump System::Safety Requirement	_req_safe	-> 'Pump System'::'Safety Requirement'
+«Reviewed» Dependency	Pump System::derivedFrom	_dep	-> 'Pump System'::derivedFrom
+Profile	Review	_review	-> Review
+«ValueType» DataType	Review::Priority	_priority	-> Review::Priority
+Stereotype	Review::Reviewed	_st_reviewed	-> Review::Reviewed
+Property	Review::Reviewed::approved	_st_reviewed_ok	-> Review::Reviewed::approved
+Property	Review::Reviewed::notes	_st_reviewed_notes	-> Review::Reviewed::notes
+Property	Review::Reviewed::priority	_st_reviewed_priority	-> Review::Reviewed::priority
+Property	Review::Reviewed::reviewer	_st_reviewed_by	-> Review::Reviewed::reviewer
+Property	Review::Reviewed::round	_st_reviewed_round	-> Review::Reviewed::round
+
+## skipped (14)
+Extension	Legacy::<Extension>	_ext_legacy	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Legacy::Requirement::base_Class	_st_legacy_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Extension	Org Profile::<Extension>	_ext_req	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Org Profile::<Extension>	_ext_blk	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Org Profile::<Extension>	_ext_val	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Org Profile::<Extension>	_ext_sat	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Org Profile::Org Block::base_Class	_st_blk_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Org Profile::Org Requirement::base_Class	_st_req_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Org Profile::Org Satisfy::base_Abstraction	_st_sat_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Org Profile::Org Value::base_DataType	_st_val_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+ProfileApplication	Pump System::<ProfileApplication>	_pa_org	(profile applications and element imports are not written)
+ProfileApplication	Pump System::<ProfileApplication>	_pa_review	(profile applications and element imports are not written)
+Extension	Review::<Extension>	_ext_reviewed	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Review::Reviewed::base_Element	_st_reviewed_base_e	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

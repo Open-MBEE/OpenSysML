@@ -23,6 +23,11 @@ func (p *Parser) atName() bool {
 	return false
 }
 
+// atGlobalName reports whether a `$::`-rooted qualified name begins here.
+func (p *Parser) atGlobalName() bool {
+	return p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon
+}
+
 // reservedWord reports whether the word is a literal of this file's grammar,
 // and so cannot spell a name in it.
 func (p *Parser) reservedWord(w string) bool {
@@ -432,8 +437,11 @@ func (p *Parser) parseNamespaceBody() ([]ast.Node, bool) {
 	defer p.pushBodyContext(bodyOther)()
 	var members []ast.Node
 	for !p.atEOF() && !p.at(lexer.RBrace) {
+		p.memberStart()
 		before := p.peek().Span.Offset
-		members = append(members, p.parseMember())
+		member := p.parseMember()
+		p.markAttached(member)
+		members = append(members, member)
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 			p.advance()
 		}
@@ -831,6 +839,7 @@ func (p *Parser) parsePackage(start int) ast.Node {
 	prefixes := p.parsePrefixMetadata()
 	isStandard := p.acceptKeyword("standard")
 	isLibrary := p.acceptKeyword("library")
+	prefixes = append(prefixes, p.parsePrefixMetadata()...)
 	if !p.acceptKeyword("package") {
 		return p.errorNodeSkip(start, "expected 'package'")
 	}
@@ -881,6 +890,19 @@ func (p *Parser) leadingPrefixIsNamespace() bool {
 func (p *Parser) leadingPrefixIsDependency() bool {
 	t := p.peekN(p.prefixLookahead())
 	return t.Kind == lexer.Keyword && t.KeywordID == "dependency"
+}
+
+func (p *Parser) leadingPrefixIsActionNode() bool {
+	t := p.peekN(p.prefixLookahead())
+	if t.Kind != lexer.Keyword {
+		return false
+	}
+	switch t.KeywordID {
+	case "fork", "join", "merge", "decide":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Parser) leadingPrefixIsDefUsage() bool {

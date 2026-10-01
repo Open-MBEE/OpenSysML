@@ -142,7 +142,7 @@ type validationWalk struct {
 // or usage that is neither a namespace nor a data value (attribute, enumeration).
 func RequireObject(sym *symbols.Symbol) error {
 	switch sym.Kind {
-	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage,
+	case symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolConnectorEnd, symbols.SymbolCrossFeature, symbols.SymbolMultiplicity:
 		return notAnObject(sym)
@@ -175,6 +175,8 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 	}
 	w := ctx.walkHeldObjects(root, budget)
 	report := ValidationReport{Root: root, Bounded: w.bounded, Unread: w.unread}
+	// Objects of one shape reading only declared values share one verdict.
+	defer ctx.ShareVerdicts()()
 	// Every object's carried assertions are read first, since a satisfaction one
 	// states may be about any object of the tree; verdicts then go out object by object.
 	carried := make([][]ObjectVerdict, len(w.objects))
@@ -283,7 +285,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 		}
 		// A part of a type being expanded above, or deeper than the walk descends,
 		// is cut only where reading it would begin objects of its own.
-		if held := w.ctx.CompositeTypeOf(feat); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) && w.makesObjects(inst, of) {
+		if w.cuts(inst, of, depth, map[string]bool{}) {
 			w.bounded = true
 			continue
 		}
@@ -325,6 +327,29 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			delete(w.onPath, reached.inst.Type)
 		}
 	}
+}
+
+// cuts reports whether reading of on inst would begin objects of a type being
+// expanded above, or deeper than the walk descends: through of itself, or through a
+// feature subsetting it, which a read of the collection reads in turn.
+func (w *validationWalk) cuts(inst *Instance, of ObjectFeature, depth int, seen map[string]bool) bool {
+	if seen[of.Name] {
+		return false
+	}
+	seen[of.Name] = true
+	if held := w.ctx.CompositeTypeOf(of.Feature); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) && w.makesObjects(inst, of) {
+		return true
+	}
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return false
+	}
+	for _, feat := range w.ctx.subsettingFeaturesOf(inst, of.Name) {
+		sub := feat
+		if holdsObjects(&sub) && w.cuts(inst, ObjectFeature{Name: sub.Name, Feature: &sub}, depth, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // makesObjects reports whether reading a composite feature would materialize

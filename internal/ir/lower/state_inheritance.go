@@ -283,6 +283,11 @@ func (g *StateGraph) newInstance(state *ast.StateNode, members []inheritedMember
 			decl = node
 		}
 		inst.vertexOf[decl] = replacement
+		if origin, ok := g.copiedFrom[dropped]; ok {
+			// An inherited transition names the usage a pseudostate was
+			// synthesized from, not the synthesized node.
+			inst.vertexOf[origin] = replacement
+		}
 		if node, ok := replacement.(*ast.StateNode); ok {
 			inst.stateByDecl[decl] = node
 		}
@@ -326,13 +331,11 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 	}
 	switch m := member.(type) {
 	case *ast.EntryMember:
-		state.Entry = append(state.Entry, g.behaviorsIn(m, m.Actions, scope)...)
+		state.Entry = append(state.Entry, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.DoMember:
-		state.Do = append(state.Do, g.behaviorsIn(m, m.Actions, scope)...)
+		state.Do = append(state.Do, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.ExitMember:
-		state.Exit = append(state.Exit, g.behaviorsIn(m, m.Actions, scope)...)
-	case *ast.DeferMember:
-		state.Defer = append(state.Defer, m.Triggers...)
+		state.Exit = append(state.Exit, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.StateRegion:
 		if !copied {
 			state.Regions = append(state.Regions, m)
@@ -368,7 +371,12 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		g.scopeOf[child] = childScope(scope, m)
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
+		pseudostateKind, isPseudostate := g.pseudostateKindOf(m, scope)
 		switch {
+		case isPseudostate:
+			ps := pseudostateFromUsage(m, pseudostateKind)
+			g.copyInherited(ps, m, scope)
+			state.Substates = append(state.Substates, ps)
 		case IsTerminateUsage(m):
 			if !copied {
 				state.Substates = append(state.Substates, m)
@@ -387,7 +395,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			// A typed state usage in a parallel body is a region, synthesized there.
 		case g.redefinedRunToCompletionFeature(m, scope) != "":
 			// A restated run-to-completion default is what the executor implements, not a slot.
-		case m.Kind == ast.UsageAttribute:
+		case isStateDatum(m):
 			if name, _ := ast.EffectiveName(m); name != "" {
 				content.attrs = append(content.attrs, Attribute{Name: name, Direction: m.Direction, IsResult: m.IsResult, Type: TypeText(m), Value: m.Value, Node: m, Scope: scope})
 				g.attributeScope[m] = scope
@@ -408,7 +416,7 @@ func unsupportedInherited(inherited bool, member ast.Node, state *ast.StateNode)
 	if !inherited || loweredElsewhere(member) {
 		return nil
 	}
-	return fmt.Errorf("%w: %s cannot be inherited by the state %s; a state usage inherits its definition's substates, behaviors, transitions, deferred events and attributes",
+	return fmt.Errorf("%w: %s cannot be inherited by the state %s; a state usage inherits its definition's substates, behaviors, transitions and attributes",
 		ErrUnsupportedStateContent, DescribeMember(member), state.Name)
 }
 
@@ -432,15 +440,10 @@ func loweredElsewhere(member ast.Node) bool {
 
 // behaviorsIn records the scope each behavior was declared in, which is the
 // definition's body for a behavior a usage inherits, and returns the actions.
-func (g *StateGraph) behaviorsIn(member ast.Node, actions []ast.Node, scope *symbols.Scope) []ast.Node {
+func (g *StateGraph) behaviorsIn(actions []ast.Node, scope *symbols.Scope) []ast.Node {
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			if scope != nil {
-				g.behaviorScope[actual] = scope
-			}
-			if member != nil {
-				g.behaviorBlock[actual] = member
-			}
+			g.behaviorScope[actual] = scope
 		}
 	}
 	return actions
@@ -452,10 +455,9 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 	clone := &ast.StateNode{
 		NodeBase: ast.NodeBase{NodeSpan: node.NodeSpan},
 		Name:     node.Name,
-		Entry:    g.behaviorsIn(nil, node.Entry, childScope(scope, node)),
-		Do:       g.behaviorsIn(nil, node.Do, childScope(scope, node)),
-		Exit:     g.behaviorsIn(nil, node.Exit, childScope(scope, node)),
-		Defer:    node.Defer,
+		Entry:    g.behaviorsIn(node.Entry, childScope(scope, node)),
+		Do:       g.behaviorsIn(node.Do, childScope(scope, node)),
+		Exit:     g.behaviorsIn(node.Exit, childScope(scope, node)),
 	}
 	g.declOf[clone] = node
 	g.scopeOf[clone] = childScope(scope, node)
@@ -465,7 +467,14 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 			clone.Substates = append(clone.Substates, cloneStateNode(g, child, g.scopeOf[clone]))
 		case *ast.PseudostateNode:
 			ps := *child
-			g.copyInherited(&ps, child, g.scopeOf[clone])
+			decl := ast.Node(child)
+			if origin, ok := g.copiedFrom[child]; ok {
+				// A pseudostate synthesized from a metadata-annotated usage keeps
+				// the usage as its declaration, so an endpoint naming it reaches
+				// this copy.
+				decl = origin
+			}
+			g.copyInherited(&ps, decl, g.scopeOf[clone])
 			clone.Substates = append(clone.Substates, &ps)
 		case *ast.Usage:
 			if !IsTerminateUsage(child) {
@@ -499,7 +508,6 @@ func redeclare(state *ast.StateNode, inherited, own *ast.StateNode) map[ast.Node
 	state.Entry = pickBehaviors(inherited.Entry, own.Entry)
 	state.Do = pickBehaviors(inherited.Do, own.Do)
 	state.Exit = pickBehaviors(inherited.Exit, own.Exit)
-	state.Defer = append(append([]ast.Node{}, inherited.Defer...), own.Defer...)
 	state.Substates = append(keptSubstates(inherited.Substates, own.Substates), own.Substates...)
 	state.Regions = append(keptRegions(inherited.Regions, own.Regions), own.Regions...)
 	return replacedSubstates(inherited.Substates, own.Substates)

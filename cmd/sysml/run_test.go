@@ -24,7 +24,7 @@ const uncleanModel = `package Rover {
 const behaviorModel = `package Mission {
     calc def Fall {
         in t;
-        in g;
+        in g[1];
         g * t * t
     }
 
@@ -167,10 +167,48 @@ const quantityModel = `package Orbit {
         attribute :>> unitPowerFactors = (m3, s_2);
     }
     calc def velocity { in a :> ISQ::acceleration; in t :> ISQ::time; return v :> ISQ::speed = a * t; }
-    calc def orbital { in mu : GravParam; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
+    calc def orbital { in mu : GravParam[1]; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
     calc def perMass { in f :> ISQ::force; in m :> ISQ::mass; return a :> ISQ::acceleration = f / m; }
 }
 `
+
+// dimensionOneModel declares a generator whose efficiency is a DimensionOneValue,
+// written once in the library's `one` and once as a bare number.
+const dimensionOneModel = `package P {
+    private import ISQ::*;
+    private import SI::*;
+    private import MeasurementReferences::*;
+    part def Gen {
+        attribute power : PowerValue;
+        attribute efficiency : DimensionOneValue;
+        calc deliveredEnergy { in duration : DurationValue; return : EnergyValue = power * duration * efficiency; }
+    }
+    part rated : Gen { attribute :>> power = 800.0 [W]; attribute :>> efficiency = 0.7 [one]; }
+    part rated2 : Gen { attribute :>> power = 800.0 [W]; attribute :>> efficiency = 0.7; }
+}
+`
+
+// TestRunEvalDimensionOneIdentity checks that a factor in `MeasurementReferences::one`
+// is absorbed as the identity of the unit product, so the result folds to the
+// derived unit the product without it reaches.
+func TestRunEvalDimensionOneIdentity(t *testing.T) {
+	binary := buildCLI(t)
+
+	cases := []struct{ expr, want string }{
+		{"P::rated.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
+		{"P::rated2.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
+		{"P::rated.power * P::rated.efficiency", "= 560.0 [W]"},
+		{"0.7 [MeasurementReferences::one] * 800.0 [SI::W]", "= 560.0 [SI::W]"},
+		{"800.0 [SI::W] / 0.5 [MeasurementReferences::one]", "= 1600.0 [SI::W]"},
+		{"2 [MeasurementReferences::one] * 3 [MeasurementReferences::one]", "= 6 [MeasurementReferences::one]"},
+		{"3 [SI::rad] * 1 [MeasurementReferences::one]", "= 3 [SI::rad]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			wantReport(t, check(t, binary, dimensionOneModel, "-e", tc.expr), 0, tc.want)
+		})
+	}
+}
 
 // TestRunCalcQuantity checks that a calculation's quantity result is reported in
 // the coherent unit of its dimension, a prefix folded into the magnitude.
@@ -189,10 +227,10 @@ func TestRunCalcQuantity(t *testing.T) {
 const analysisModel = `package An {
     private import ScalarValues::*;
     part def Ship { attribute cost : Real default = 5.0; attribute other : Real = 7.0; }
-    calc def Sum { in a : Real; in b : Real; return : Real = a + b; }
+    calc def Sum { in a : Real[1]; in b : Real[1]; return : Real = a + b; }
     analysis def Priced {
         subject s : Ship;
-        in tax : Real;
+        in tax : Real[1];
         in limit : Real default = 100.0;
         objective { require constraint { total <= limit } }
         out total : Real = Sum(s.cost, s.other) * (1.0 + tax);
@@ -358,9 +396,9 @@ func TestRunUnderExplore(t *testing.T) {
 
 	got := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race")
 	wantReport(t, got, 0, "✓ explored Mission::race: 2 outcomes",
-		"outcome | linearizations | witness",
-		"x = 1   | 1              | step 3: 3@right first of 2@left, 3@right",
-		"x = 2   | 1              | step 3: 2@left first of 2@left, 3@right",
+		"outcome | linearizations | probability | witness",
+		"x = 1   | 1              | 0.5         | step 3: 3@right first of 2@left, 3@right",
+		"x = 2   | 1              | 0.5         | step 3: 2@left first of 2@left, 3@right",
 		"complete (2 runs)")
 	if again := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race"); again.output() != got.output() {
 		t.Errorf("explore ran\n%s\nthen\n%s", got.output(), again.output())
@@ -374,7 +412,7 @@ func TestRunUnderExplore(t *testing.T) {
 	}
 
 	got = check(t, binary, forkModel, "-schedule", "explore:runs=1", "-action", "Mission::race")
-	wantReport(t, got, 2, "? explored Mission::race: 1 outcome", "x = 2   | 1", "incomplete: runs budget 1 hit after 1 runs")
+	wantReport(t, got, 2, "? explored Mission::race: 1 outcome", "x = 2   | 1              | ≥ 0.5", "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds")
 	got = check(t, binary, forkModel, "-schedule", "depth=0", "-action", "Mission::race")
 	wantReport(t, got, 2, `invalid scheduling policy "depth=0"`)
 	got = check(t, binary, forkModel, "-schedule", "explore:depth=0", "-action", "Mission::race")
@@ -382,12 +420,12 @@ func TestRunUnderExplore(t *testing.T) {
 
 	got = check(t, binary, monitorModel, "-schedule", "explore", "-state", "Watch::Monitor", "-advance", "0")
 	wantReport(t, got, 0, "✓ explored Watch::Monitor: 2 outcomes",
-		"finalState cool; visits armed, watching, cool; route = 1; temp = 30 | 1              | state watching on change -> 1->cool",
-		"finalState hot; visits armed, watching, hot; route = 2; temp = 30   | 1              | state watching on change -> 2->hot",
+		"finalState cool; visits armed, watching, cool; route = 1; temp = 30 | 1              | 0.5         | state watching on change -> 1->cool",
+		"finalState hot; visits armed, watching, hot; route = 2; temp = 30   | 1              | 0.5         | state watching on change -> 2->hot",
 		"complete (2 runs)")
 
 	got = check(t, binary, behaviorModel, "-schedule", "explore", "-action", "Mission::tally")
-	wantReport(t, got, 0, "✓ explored Mission::tally: 1 outcome", "total = 5 | 1              | no choice points", "complete (1 runs)")
+	wantReport(t, got, 0, "✓ explored Mission::tally: 1 outcome", "total = 5 | 1              | 1           | no choice points", "complete (1 runs)")
 	got = check(t, binary, behaviorModel, "-schedule", "explore", "-calc", "Mission::Fall(3, 2)")
 	wantReport(t, got, 0, "✓ explored Mission::Fall: 1 outcome", "no choice points", "complete (1 runs)")
 	got = check(t, binary, analysisModel, "-schedule", "explore", "-analysis", "An::shipCost")
@@ -418,12 +456,14 @@ func TestJSONReportsExploration(t *testing.T) {
 					Value string `json:"value"`
 				} `json:"values"`
 				Linearizations int      `json:"linearizations"`
+				Probability    float64  `json:"probability"`
 				Witness        []string `json:"witness"`
 			} `json:"outcomes"`
 			Exploration struct {
-				Complete   bool     `json:"complete"`
-				Runs       int      `json:"runs"`
-				BudgetsHit []string `json:"budgetsHit"`
+				Complete                bool     `json:"complete"`
+				Runs                    int      `json:"runs"`
+				BudgetsHit              []string `json:"budgetsHit"`
+				ProbabilitiesLowerBound bool     `json:"probabilitiesLowerBound"`
 			} `json:"exploration"`
 		} `json:"checks"`
 	}
@@ -434,10 +474,11 @@ func TestJSONReportsExploration(t *testing.T) {
 		t.Fatalf("status = %d %q, checks = %d\n%s", got.status, report.Status, len(report.Checks), got.output())
 	}
 	c := report.Checks[0]
-	if len(c.Outcomes) != 1 || c.Outcomes[0].Linearizations != 1 ||
+	if len(c.Outcomes) != 1 || c.Outcomes[0].Linearizations != 1 || c.Outcomes[0].Probability != 0.5 ||
 		len(c.Outcomes[0].Values) != 1 || c.Outcomes[0].Values[0].Name != "x" || c.Outcomes[0].Values[0].Value != "2" ||
 		strings.Join(c.Outcomes[0].Witness, ";") != "step 3: 2@left first of 2@left, 3@right" ||
-		c.Exploration.Complete || c.Exploration.Runs != 1 || strings.Join(c.Exploration.BudgetsHit, ",") != "runs" {
+		c.Exploration.Complete || c.Exploration.Runs != 1 || strings.Join(c.Exploration.BudgetsHit, ",") != "runs" ||
+		!c.Exploration.ProbabilitiesLowerBound {
 		t.Errorf("report does not carry the exploration:\n%s", got.stdout)
 	}
 }
@@ -960,8 +1001,8 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 	got := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
 		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "5")
 	wantReport(t, got, 0, "✓ explored Due::watcher, Due::Beacon::blinking: 2 outcomes",
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true | 1              | t=5.0: action watcher first of state machine blinking of object #1, action watcher`,
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true  | 1              | t=5.0: state machine blinking of object #1 first of state machine blinking of object #1, action watcher`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true | 1              | 0.5         | t=5.0: action watcher first of state machine blinking of object #1, action watcher`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true  | 1              | 0.5         | t=5.0: state machine blinking of object #1 first of state machine blinking of object #1, action watcher`,
 		"complete (2 runs)")
 
 	// Advanced short of the instant, neither is due: one outcome, no choice, and
@@ -973,10 +1014,10 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 
 	// One behavior explored with -advance is its own outcome, as without -advance.
 	one := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-advance", "5")
-	wantReport(t, one, 0, "✓ explored Timed::pinger: 1 outcome", "count = 1 | 1              | no choice points", "complete (1 runs)")
+	wantReport(t, one, 0, "✓ explored Timed::pinger: 1 outcome", "count = 1 | 1              | 1           | no choice points", "complete (1 runs)")
 	both := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-state", "Timed::listener", "-advance", "10")
 	wantReport(t, both, 0, "✓ explored Timed::pinger, Timed::listener: 1 outcome",
-		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | no choice points`)
+		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | 1           | no choice points`)
 }
 
 // TestJSONWithoutCheck checks that -json alone is a misuse reported as such,

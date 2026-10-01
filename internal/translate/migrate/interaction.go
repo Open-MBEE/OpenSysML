@@ -39,6 +39,10 @@ type scenario struct {
 	pending map[*sysmlv1.Element]pendingWait
 	// outer gives each operand's body the body of the fragment it is nested in.
 	outer map[*[]*scenarioStep]*[]*scenarioStep
+	// nest names the actions the steps being written are nested in; hidden
+	// counts the if and loop bodies among them, which no qualified name reaches.
+	nest   []string
+	hidden int
 }
 
 // chainPos is a step's position in a chain: the steps of one action body, seq operands inlined.
@@ -82,7 +86,8 @@ const (
 // whose operands are scenarios of their own.
 type scenarioStep struct {
 	kind stepKind
-	// name is the step's written name, base the unquoted name a fragment's operands extend.
+	// name is the step's written name, base its unquoted spelling, which a
+	// fragment's operands extend.
 	name     string
 	base     string
 	msg      *sysmlv1.Element
@@ -113,6 +118,17 @@ type scenarioOperand struct {
 
 // messagelessNote says why an interaction without messages has no steps; one of
 // state invariants under time constraints is a recorded timing trace, not a behavior.
+
+// The note fragments the writer repeats.
+const (
+	theMessage  = "the message "
+	standsFor   = "stands for "
+	noLifeline  = "is received on no lifeline"
+	theValue    = "the value "
+	theArgument = "the argument "
+	notMigrated = " not migrated — "
+)
+
 func messagelessNote(e *sysmlv1.Element) string {
 	invariants := 0
 	for _, f := range e.Owned("fragment") {
@@ -202,7 +218,7 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 			s.placed[msg] = true
 			step, note := s.message(msg, body)
 			if note != "" {
-				return nil, "the message " + describe(msg) + " " + note
+				return nil, theMessage + describe(msg) + " " + note
 			}
 			steps = append(steps, step)
 		case "CombinedFragment":
@@ -227,7 +243,7 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 		s.placed[msg] = true
 		step, note := s.message(msg, body)
 		if note != "" {
-			return nil, "the message " + describe(msg) + " " + note
+			return nil, theMessage + describe(msg) + " " + note
 		}
 		steps = append(steps, step)
 	}
@@ -260,22 +276,31 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 		ref = lifelineRef{line: line, path: name, chain: name, typ: s.m.model.Ref(rep, "type")}
 	case "Property", "Port":
 		if !s.m.written(rep) {
-			return lifelineRef{}, "stands for " + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which has no v2 declaration"
+			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which has no v2 declaration"
 		}
 		paths := s.m.partPaths(s.context, rep)
 		switch len(paths) {
 		case 0:
-			return lifelineRef{}, "stands for " + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which no part of " + qualifiedName(s.context) + " reaches"
+			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which no part of " + qualifiedName(s.context) + " reaches"
 		case 1:
 		default:
-			return lifelineRef{}, "stands for " + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
+			return lifelineRef{}, standsFor + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
 		}
-		ref = lifelineRef{line: line, path: s.self + "." + paths[0], chain: paths[0], typ: s.m.model.Ref(rep, "type")}
-		if s.self != "this" {
+		self := s.self
+		if self == "this" {
+			// Inside the def the object is its context parameter, not this.
+			self = s.m.thisName(s.e)
+			if self == "this" {
+				// Inside a usage the object has no name: its parts spell bare.
+				self = ""
+			}
+		}
+		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type")}
+		if self != "this" {
 			ref.chain = ref.path
 		}
 	default:
-		return lifelineRef{}, "stands for " + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
+		return lifelineRef{}, standsFor + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
 	}
 	s.lines[line] = ref
 	return ref, ""
@@ -356,7 +381,7 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 		return nil, "is a " + sort + " message, which has no v2 form"
 	}
 	if step.receiver == nil {
-		return nil, "is received on no lifeline"
+		return nil, noLifeline
 	}
 	return step, ""
 }
@@ -389,7 +414,7 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 		return nil, "names " + describe(sig) + ", which is not a migrated signal"
 	}
 	if step.receiver == nil {
-		return nil, "is received on no lifeline"
+		return nil, noLifeline
 	}
 	step.kind = stepSend
 	step.signal = sig
@@ -398,7 +423,7 @@ func (s *scenario) send(step *scenarioStep) (*scenarioStep, string) {
 	if why != "" {
 		return nil, why
 	}
-	step.name = s.stepName(step.msg, "send"+s.m.nameFor(sig))
+	step.base, step.name = s.stepName(step.msg, "send"+upperFirst(s.m.nameFor(sig)))
 	return step, ""
 }
 
@@ -413,7 +438,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 		return nil, "names " + describe(op) + ", which is not a migrated operation"
 	}
 	if step.receiver == nil {
-		return nil, "is received on no lifeline"
+		return nil, noLifeline
 	}
 	switch {
 	case step.receiver.typ == nil:
@@ -438,7 +463,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 	if sort == "asynchCall" {
 		step.note = joinNotes(step.note, "the asynchronous call is performed to completion before the next step: an action performs what it calls")
 	}
-	step.name = s.stepName(step.msg, "call"+s.m.nameFor(op))
+	step.base, step.name = s.stepName(step.msg, "call"+upperFirst(s.m.nameFor(op)))
 	s.calls = append(s.calls, step)
 	return step, ""
 }
@@ -476,7 +501,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 		arg := replyArgs[i]
 		switch {
 		case p == nil:
-			step.note = joinNotes(step.note, "the value "+describeValue(arg)+" has no out parameter of "+op.Name+" to stand for")
+			step.note = joinNotes(step.note, theValue+describeValue(arg)+" has no out parameter of "+op.Name+" to stand for")
 			continue
 		case !s.within(step.body, call.body):
 			step.note = joinNotes(step.note, "the result "+s.m.nameOf(p)+" is not bound: the reply is not in the fragment of the call it answers")
@@ -484,7 +509,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 		}
 		target, value := assignmentOf(arg)
 		if target == "" {
-			step.note = joinNotes(step.note, "the value "+describeValue(arg)+" of "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
+			step.note = joinNotes(step.note, theValue+describeValue(arg)+" of "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
 			continue
 		}
 		attr := s.attributeNamed(step.receiver, target)
@@ -493,12 +518,12 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 			continue
 		}
 		if value != "" {
-			step.note = joinNotes(step.note, "the value "+value+" the reply states for "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
+			step.note = joinNotes(step.note, theValue+value+" the reply states for "+s.m.nameOf(p)+" is the operation's own result, which the call computes")
 		}
 		step.assigns = append(step.assigns, "assign "+step.receiver.path+"."+writeName(s.m.nameOf(attr))+" := "+call.name+"."+writeName(s.m.nameOf(p))+";")
 	}
 	if len(step.assigns) > 0 {
-		step.name = s.stepName(step.msg, "reply"+s.m.nameFor(op))
+		step.base, step.name = s.stepName(step.msg, "reply"+upperFirst(s.m.nameFor(op)))
 	}
 	return step, ""
 }
@@ -601,11 +626,11 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 	for i, t := range s.pairArguments(msgArgs, targets) {
 		arg := msgArgs[i]
 		if t == nil {
-			note = joinNotes(note, "the argument "+describeValue(arg)+" has no "+kind+" of "+owner.Name+" to bind to and is dropped")
+			note = joinNotes(note, theArgument+describeValue(arg)+" has no "+kind+" of "+owner.Name+" to bind to and is dropped")
 			continue
 		}
 		if bound[t] {
-			note = joinNotes(note, "the argument "+describeValue(arg)+" binds "+s.m.nameOf(t)+" a second time and is dropped")
+			note = joinNotes(note, theArgument+describeValue(arg)+" binds "+s.m.nameOf(t)+" a second time and is dropped")
 			continue
 		}
 		expr, ok, vnote := s.m.typedBehaviorValue(arg, t, s.e)
@@ -613,12 +638,12 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 			if requiresValue(t) {
 				return nil, "", "leaves the " + kind + " " + s.m.nameOf(t) + " of " + owner.Name + ", which must hold a value, unbound: the argument " + describeValue(arg) + " is not written: " + vnote
 			}
-			note = joinNotes(note, "the argument "+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
+			note = joinNotes(note, theArgument+describeValue(arg)+" for "+s.m.nameOf(t)+" is dropped: "+vnote)
 			continue
 		}
 		bound[t] = true
 		if kind == "parameter" {
-			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), s.m.callBodyExpr(expr, s.e)))
 		} else {
 			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
 		}
@@ -633,12 +658,13 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 }
 
 // stepName names a step after its message, or after what it does when the message is anonymous.
-func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) string {
+func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) (base, written string) {
 	name := s.m.nameOf(msg)
 	if name == "" {
 		name = lowerFirst(fallback)
 	}
-	return writeName(freshIn(s.used, name))
+	base = freshIn(s.used, name)
+	return base, writeName(base)
 }
 
 // fragment resolves a combined fragment: alt and opt to if, loop to while or for,
@@ -667,16 +693,26 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 	default:
 		return nil, "is a " + kind + " fragment, which has no v2 form"
 	}
-	if step.kind != stepAlt && step.kind != stepSeq && len(operands) > 1 {
-		if step.kind != stepPar {
-			return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
-		}
+	if step.kind != stepAlt && step.kind != stepSeq && step.kind != stepPar && len(operands) > 1 {
+		return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
 	}
 	// The operands of alt, opt, loop and par each resolve from the calls open before the fragment:
 	// alternatives do not see each other, and concurrent operands are unordered between themselves.
-	isolated := step.kind != stepSeq
 	in := slices.Clone(s.calls)
-	var outs [][]*scenarioStep
+	outs, ferr := s.fragmentOperands(step, kind, operands, in, body)
+	if ferr != "" {
+		return nil, ferr
+	}
+	s.joinCalls(step, in, outs)
+	step.base = freshIn(s.used, kind)
+	step.name = writeName(step.base)
+	return step, ""
+}
+
+// fragmentOperands resolves each operand's steps and collects the calls each
+// leaves open; isolated operands all start from the calls open before the fragment.
+func (s *scenario) fragmentOperands(step *scenarioStep, kind string, operands []*sysmlv1.Element, in []*scenarioStep, body *[]*scenarioStep) (outs [][]*scenarioStep, err string) {
+	isolated := step.kind != stepSeq
 	for i, o := range operands {
 		operand := &scenarioOperand{e: o}
 		var steps []*scenarioStep
@@ -684,32 +720,8 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 		s.outer[&operand.steps] = body
 		guard := firstOwned(o, "guard")
 		var note string
-		switch step.kind {
-		case stepAlt:
-			operand.guard, operand.gnote, note = s.guard(guard)
-			if note != "" {
-				return nil, "has an operand whose guard is not written: " + note
-			}
-			if operand.guard == "" && i != len(operands)-1 {
-				return nil, "has an operand without a guard before its last, so the operands after it would never run"
-			}
-		case stepOpt:
-			operand.guard, operand.gnote, note = s.guard(guard)
-			if note != "" {
-				return nil, "has a guard that is not written: " + note
-			}
-			if operand.guard == "" {
-				return nil, "has no guard, so whether its operand runs is unspecified"
-			}
-		case stepLoop:
-			operand.guard, step.count, operand.gnote, note = s.loopBounds(guard)
-			if note != "" {
-				return nil, note
-			}
-		case stepPar, stepSeq:
-			if guard != nil && !trueGuard(guard) {
-				return nil, "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
-			}
+		if err := s.operandGuard(step, kind, operand, guard, i, len(operands)); err != "" {
+			return nil, err
 		}
 		if isolated {
 			s.calls = slices.Clone(in)
@@ -722,6 +734,45 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 		step.operands = append(step.operands, operand)
 		outs = append(outs, s.calls)
 	}
+	return outs, ""
+}
+
+// operandGuard resolves an operand's guard by the fragment's kind, or why it cannot.
+func (s *scenario) operandGuard(step *scenarioStep, kind string, operand *scenarioOperand, guard *sysmlv1.Element, i, n int) string {
+	var note string
+	switch step.kind {
+	case stepAlt:
+		operand.guard, operand.gnote, note = s.guard(guard)
+		if note != "" {
+			return "has an operand whose guard is not written: " + note
+		}
+		if operand.guard == "" && i != n-1 {
+			return "has an operand without a guard before its last, so the operands after it would never run"
+		}
+	case stepOpt:
+		operand.guard, operand.gnote, note = s.guard(guard)
+		if note != "" {
+			return "has a guard that is not written: " + note
+		}
+		if operand.guard == "" {
+			return "has no guard, so whether its operand runs is unspecified"
+		}
+	case stepLoop:
+		operand.guard, step.count, operand.gnote, note = s.loopBounds(guard)
+		if note != "" {
+			return note
+		}
+	case stepPar, stepSeq:
+		if guard != nil && !trueGuard(guard) {
+			return "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
+		}
+	}
+	return ""
+}
+
+// joinCalls closes the calls every operand path answers; a par's operands
+// also open to replies the calls they made.
+func (s *scenario) joinCalls(step *scenarioStep, in []*scenarioStep, outs [][]*scenarioStep) {
 	switch step.kind {
 	case stepAlt, stepOpt, stepLoop:
 		// A path may skip the fragment unless an alt ends in an else; only a call still open on every path stays open.
@@ -741,9 +792,6 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 			}
 		}
 	}
-	step.base = freshIn(s.used, kind)
-	step.name = writeName(step.base)
-	return step, ""
 }
 
 // openOnEveryPath keeps the calls of in that every path in outs leaves unanswered.
@@ -833,6 +881,7 @@ func suffixNote(s string) string {
 // interactionBody writes an interaction as a scenario: an action whose steps are
 // its messages and combined fragments in occurrence order.
 func (m *migration) interactionBody(e *sysmlv1.Element) {
+	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation")
 	s, note := m.scenario(e, "this")
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.
@@ -922,7 +971,7 @@ func (s *scenario) writeSteps(steps []*scenarioStep) {
 			prev = next
 		}
 	}
-	s.m.w.line("first " + prev + " then done;")
+	s.m.w.line(firstKw + prev + " then done;")
 }
 
 // indexChain positions the steps of a chain, the operands of its seq fragments inlined.
@@ -955,10 +1004,14 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 	}
 	switch step.kind {
 	case stepSend:
-		m.w.line("action " + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
+		m.w.line(actionKw + step.name + " send new " + m.ref(step.signal, s.e) + "(" + strings.Join(step.args, ", ") + ") to " + step.receiver.path + ";")
 		s.messageDone(step, "written as a send to "+step.receiver.path)
 	case stepCall:
-		decl := "perform action " + step.name + " : " + m.ref(step.op, s.e) + " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
+		decl := "perform action " + step.name
+		if !m.asUsage[step.op] {
+			decl += " : " + m.ref(step.op, s.e)
+		}
+		decl += " ::> " + step.receiver.chain + "." + writeName(m.operationUsage(step.op))
 		if len(step.args) == 0 {
 			m.w.line(decl + ";")
 		} else {
@@ -967,10 +1020,11 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		s.messageDone(step, "written as a call of "+m.nameOf(step.op)+" on "+step.receiver.path)
 	case stepReply:
 		if len(step.assigns) == 0 {
+			m.wroteNoMember(step.msg)
 			s.messageDone(step, "the reply is the completion of the call "+step.call.name+", which the next step follows")
 			return ""
 		}
-		m.w.block("action "+step.name, func() {
+		m.w.block(actionKw+step.name, func() {
 			for _, a := range step.assigns {
 				m.w.line(a)
 			}
@@ -982,11 +1036,11 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 			what = "deletes"
 		}
 		m.w.lines(commentLines("not migrated: Message " + describe(step.msg) + " — the message " + what + " the object " + step.receiver.path + ", which exists for as long as its owner does"))
-		m.add(step.msg, Unmapped, "", "the message "+what+" "+step.receiver.path+", a part that exists for as long as its owner does; the steps after it address it as it is")
+		m.add(step.msg, Unmapped, "", theMessage+what+" "+step.receiver.path+", a part that exists for as long as its owner does; the steps after it address it as it is")
 		s.occurrencesDone(step, "")
 		return ""
 	case stepAlt, stepOpt:
-		m.w.block("action "+step.name, func() { s.branches(step, 0) })
+		m.w.block(actionKw+step.name, func() { s.nested(step.base, func() { s.branches(step, 0) }) })
 		s.fragmentDone(step, "if")
 	case stepLoop:
 		o := step.operands[0]
@@ -994,18 +1048,18 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		if step.count != "" {
 			head = "for " + freshIn(s.used, "i") + " in 1.." + step.count
 		}
-		m.w.block("action "+step.name, func() {
-			m.w.block(head, func() { s.operand(step, o, 0) })
+		m.w.block(actionKw+step.name, func() {
+			s.nested(step.base, func() { m.w.block(head, func() { s.hiding(func() { s.operand(step, o, 0) }) }) })
 		})
 		s.fragmentDone(step, strings.Fields(head)[0])
 	case stepPar:
 		join := writeName(freshIn(s.used, step.base+"End"))
 		m.w.line("fork " + step.name + ";")
-		m.w.line("first " + prev + " then " + step.name + ";")
+		m.w.line(firstKw + prev + thenKw + step.name + ";")
 		for i, o := range step.operands {
 			name := s.operand(step, o, i)
-			m.w.line("first " + step.name + " then " + name + ";")
-			m.w.line("first " + name + " then " + join + ";")
+			m.w.line(firstKw + step.name + thenKw + name + ";")
+			m.w.line(firstKw + name + thenKw + join + ";")
 		}
 		m.w.line("join " + join + ";")
 		s.fragmentDone(step, "fork")
@@ -1026,7 +1080,7 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		}
 		return prevInner
 	}
-	m.w.line("first " + prev + " then " + step.name + ";")
+	m.w.line(firstKw + prev + thenKw + step.name + ";")
 	if step.msg != nil {
 		return s.startWaits(step)
 	}
@@ -1045,8 +1099,8 @@ func (s *scenario) waits(step *scenarioStep, prev string) string {
 			s.waited[dc] = true
 			join := writeName(freshIn(s.used, p.base+"End"))
 			s.m.w.line("join " + join + ";")
-			s.m.w.line("first " + prev + " then " + join + ";")
-			s.m.w.line("first " + p.wait + " then " + join + ";")
+			s.m.w.line(firstKw + prev + thenKw + join + ";")
+			s.m.w.line(firstKw + p.wait + thenKw + join + ";")
 			prev = join
 			s.m.add(dc, Approximated, p.wait, joinNotes("the time from "+p.from+", written as the wait "+p.wait+" forked after it and joined before "+step.name, p.note))
 			s.observationsDone(dc, p.wait, step.name)
@@ -1059,19 +1113,19 @@ func (s *scenario) waits(step *scenarioStep, prev string) string {
 		s.waited[dc] = true
 		if from == "" {
 			note := "the time it measures from " + s.names[s.otherEnd(dc, step.msg)] + " to " + step.name + " is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other"
-			s.m.w.lines(commentLines("duration constraint on " + step.name + " not migrated — " + note))
+			s.m.w.lines(commentLines("duration constraint on " + step.name + notMigrated + note))
 			s.m.add(dc, Unmapped, "", note)
 			continue
 		}
 		expr, note, ok := s.waitExpr(dc)
 		if !ok {
-			s.m.w.lines(commentLines("duration constraint on " + step.name + " not migrated — " + note))
+			s.m.w.lines(commentLines("duration constraint on " + step.name + notMigrated + note))
 			s.m.add(dc, Unmapped, "", note)
 			continue
 		}
 		name := writeName(freshIn(s.used, "wait"))
-		s.m.w.line("action " + name + " accept after " + expr + " [SI::s];")
-		s.m.w.line("first " + prev + " then " + name + ";")
+		s.m.w.line(actionKw + name + " accept after " + inSeconds(expr) + ";")
+		s.m.w.line(firstKw + prev + thenKw + name + ";")
 		prev = name
 		s.m.add(dc, Approximated, name, joinNotes(from+", written as the wait "+name+" before "+step.name, note))
 		s.observationsDone(dc, name, step.name)
@@ -1099,19 +1153,19 @@ func (s *scenario) startWaits(step *scenarioStep) string {
 		expr, note, ok := s.waitExpr(dc)
 		if !ok {
 			s.waited[dc] = true
-			s.m.w.lines(commentLines("duration constraint from " + step.name + " not migrated — " + note))
+			s.m.w.lines(commentLines("duration constraint from " + step.name + notMigrated + note))
 			s.m.add(dc, Unmapped, "", note)
 			continue
 		}
 		if fork == "" {
 			fork = writeName(freshIn(s.used, "timing"))
 			s.m.w.line("fork " + fork + ";")
-			s.m.w.line("first " + step.name + " then " + fork + ";")
+			s.m.w.line(firstKw + step.name + thenKw + fork + ";")
 		}
 		base := freshIn(s.used, "wait")
 		wait := writeName(base)
-		s.m.w.line("action " + wait + " accept after " + expr + " [SI::s];")
-		s.m.w.line("first " + fork + " then " + wait + ";")
+		s.m.w.line(actionKw + wait + " accept after " + inSeconds(expr) + ";")
+		s.m.w.line(firstKw + fork + thenKw + wait + ";")
 		s.pending[dc] = pendingWait{wait: wait, base: base, from: step.name, note: note}
 	}
 	if fork == "" {
@@ -1244,19 +1298,35 @@ func (s *scenario) branches(step *scenarioStep, i int) {
 		s.operand(step, o, i)
 		return
 	}
-	s.m.w.block("if "+o.guard, func() { s.operand(step, o, i) })
+	s.m.w.block("if "+o.guard, func() { s.hiding(func() { s.operand(step, o, i) }) })
 	if i+1 < len(step.operands) {
-		s.m.w.block("else", func() { s.branches(step, i+1) })
+		s.m.w.block("else", func() { s.hiding(func() { s.branches(step, i+1) }) })
 	}
+}
+
+// nested writes body as the members of the action named name, nested in the
+// actions being written.
+func (s *scenario) nested(name string, body func()) {
+	s.nest = append(s.nest, name)
+	body()
+	s.nest = s.nest[:len(s.nest)-1]
+}
+
+// hiding writes body inside an if or loop body, where no qualified name reaches.
+func (s *scenario) hiding(body func()) {
+	s.hidden++
+	body()
+	s.hidden--
 }
 
 // operand writes the i-th operand of a fragment as a nested action and returns its name.
 func (s *scenario) operand(step *scenarioStep, o *scenarioOperand, i int) string {
-	name := writeName(freshIn(s.used, step.base+"Op"+strconv.Itoa(i+1)))
+	base := freshIn(s.used, step.base+"Op"+strconv.Itoa(i+1))
+	name := writeName(base)
 	if len(o.steps) == 0 {
-		s.m.w.line("action " + name + ";")
+		s.m.w.line(actionKw + name + ";")
 	} else {
-		s.m.w.block("action "+name, func() { s.writeSteps(o.steps) })
+		s.m.w.block(actionKw+name, func() { s.nested(base, func() { s.writeSteps(o.steps) }) })
 	}
 	note := "written as the action " + name
 	if o.guard != "" {
@@ -1280,6 +1350,13 @@ func (s *scenario) fragmentDone(step *scenarioStep, form string) {
 
 // messageDone reports a message step and the occurrences that order it.
 func (s *scenario) messageDone(step *scenarioStep, note string) {
+	switch {
+	case step.base == "":
+	case s.hidden > 0:
+		s.m.wroteEdge(step.msg, s.e, "action", "")
+	default:
+		s.m.wroteNestedEdge(step.msg, s.e, "action", append([]string(nil), s.nest...), step.base)
+	}
 	s.m.add(step.msg, verdictFor(step.note), step.name, joinNotes(note, step.note))
 	s.occurrencesDone(step, step.name)
 }

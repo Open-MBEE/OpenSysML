@@ -21,8 +21,8 @@ package 'Vehicle Design' {
     }
     package Interfaces {
         port def FuelInterface {
-            in item fuel : Fuel;
-            out attribute rate : 'Vehicle Design'::'Value Types'::Speed;
+            in item fuel : Fuel[1];
+            out attribute rate : 'Vehicle Design'::'Value Types'::Speed[1];
         }
         part def Fuel;
     }
@@ -40,7 +40,7 @@ package 'Vehicle Design' {
         private ref part sharedCharger : Engine;
         constraint massLimit : MassLimit;
         port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;
-        out port speedOut {
+        out port speedOut[1] {
             out attribute speedOut : 'Vehicle Design'::'Value Types'::Speed;
         }
         port diag;
@@ -49,7 +49,7 @@ package 'Vehicle Design' {
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
         abstract action def start {
-            in key : ScalarValues::Integer;
+            in key : ScalarValues::Integer[1];
         }
         action 'start 2' : start;
         state def 'Vehicle States' {
@@ -60,8 +60,8 @@ package 'Vehicle Design' {
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         }
-        satisfy requirement : Requirements::'Mass Requirement';
-        satisfy requirement : Requirements::'Engine Mass Requirement' by engine;
+        satisfy requirement : RequirementsModel::'Mass Requirement';
+        satisfy requirement : RequirementsModel::'Engine Mass Requirement' by engine;
         /* «Block» tags with no v2 form: isEncapsulated = true */
     }
     abstract part def System;
@@ -69,13 +69,13 @@ package 'Vehicle Design' {
         attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         part piston : Piston;
         port fuelPort : 'Vehicle Design'::Interfaces::FuelInterface;
-        in port speedIn {
+        in port speedIn[1] {
             in attribute speedIn : 'Vehicle Design'::'Value Types'::Speed;
         }
         /* applied stereotype «Critical»: level = high */
     }
     part def Piston {
-        in port p {
+        in port p[1] {
             in attribute p : 'Vehicle Design'::'Value Types'::Speed;
         }
     }
@@ -92,8 +92,8 @@ package 'Vehicle Design' {
         end vehicle : Vehicle;
     }
     constraint def MassLimit {
-        in attribute m : 'Vehicle Design'::'Value Types'::Mass;
-        in attribute limit : 'Vehicle Design'::'Value Types'::Mass;
+        in attribute m : 'Vehicle Design'::'Value Types'::Mass[1];
+        in attribute limit : 'Vehicle Design'::'Value Types'::Mass[1];
         m < limit
     }
     individual part def myCar :> Vehicle {
@@ -102,7 +102,7 @@ package 'Vehicle Design' {
     }
     action def Drive;
 }
-package Requirements {
+package RequirementsModel {
     requirement def <R1> 'Mass Requirement' {
         doc /* The vehicle shall have a mass of less than 1500 kg. */
         requirement def <'R1.1'> 'Chassis Mass' {
@@ -124,13 +124,24 @@ package Requirements {
         @ModelingMetadata::Refinement;
     }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
-    allocate 'Vehicle Design'::Drive to 'Vehicle Design'::Engine;
-    allocate 'Vehicle Design'::Motor to 'Vehicle Design'::Engine;
+    allocation def 'Drive to Engine' {
+        end drive : 'Vehicle Design'::Drive;
+        end engine : 'Vehicle Design'::Engine;
+    }
+    allocation def 'Motor to Engine' {
+        end motor : 'Vehicle Design'::Motor;
+        end engine : 'Vehicle Design'::Engine;
+    }
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {
         objective {
             verify requirement : 'Mass Requirement';
         }
     }
+    metadata MigrationMetadata::SynthesizedName about 'Drive to Engine', 'Motor to Engine';
 }
 package 'Empty Package';
+metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }
+view 'Vehicle BDD' {
+    render Views::asTextualNotation;
+}

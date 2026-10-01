@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -412,6 +413,89 @@ func TestConnectorEndAttachments(t *testing.T) {
 	// Every end of an n-ary connector is kept, in declaration order.
 	if got := m.ConnectorEndAttachments(nested(t, w.Scope, "tri")); len(got) != 3 {
 		t.Fatalf("tri: %d attachments, want three", len(got))
+	}
+}
+
+func TestConnectorObjectEnds(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def A { attribute x : Integer = 3; }
+		part def B { attribute y : Integer = 4; }
+		part w {
+			part a : A;
+			part b : B;
+			binding named bind left ::> a = right ::> b;
+			bind a = b;
+			flow of Integer from a.x to b.y;
+			flow flowNamed of Integer from a.x to b.y;
+			flow a.x to b.y;
+			message msg of Integer from a.x to b.y;
+			succession first a then b;
+		}
+	}`)
+	w := nested(t, sym(t, root, "P").Scope, "w")
+	for _, name := range []string{"named"} {
+		sym := nested(t, w.Scope, name)
+		if !m.IsConnectorObjectUsage(sym) {
+			t.Fatalf("IsConnectorObjectUsage(%s) = false", name)
+		}
+		got := m.ConnectorObjectEnds(sym)
+		if len(got) != 2 || got[0].Attachment == nil || got[1].Attachment == nil {
+			t.Fatalf("%s ends = %+v, want two attached ends", name, got)
+		}
+		if got[0].Name != "left" || got[1].Name != "right" ||
+			ast.QualifiedText(got[0].Attachment) != "a" ||
+			ast.QualifiedText(got[1].Attachment) != "b" {
+			t.Fatalf("%s ends = %+v, want left/right attached to a/b", name, got)
+		}
+		if m.ConnectorEndAttachments(sym) != nil {
+			t.Fatalf("ConnectorEndAttachments(%s) should remain connect-only", name)
+		}
+	}
+	for _, name := range []string{"flowNamed"} {
+		sym := nested(t, w.Scope, name)
+		if !m.IsConnectorObjectUsage(sym) {
+			t.Errorf("IsConnectorObjectUsage(%s) = false", name)
+		}
+		got := m.ConnectorObjectEnds(sym)
+		if len(got) != 2 || got[0].Name != "source" || got[1].Name != "target" ||
+			got[0].Attachment == nil || got[1].Attachment == nil {
+			t.Errorf("%s ends = %+v, want source/target attached to a.x/b.y", name, got)
+		}
+		if m.ConnectorEndAttachments(sym) != nil {
+			t.Fatalf("ConnectorEndAttachments(%s) should remain connect-only", name)
+		}
+	}
+	var anonymousBindings, anonymousFlows, successions int
+	for _, sym := range w.Scope.AnonymousMembers() {
+		usage, ok := sym.Decl.(*ast.Usage)
+		if !ok {
+			continue
+		}
+		switch usage.Kind {
+		case ast.UsageBinding:
+			anonymousBindings++
+			if !m.IsConnectorObjectUsage(sym) {
+				t.Error("anonymous binding is not a connector object")
+			}
+		case ast.UsageFlow:
+			anonymousFlows++
+			if usage.Keyword == "message" {
+				if m.IsConnectorObjectUsage(sym) {
+					t.Error("message flow is a connector object")
+				}
+			} else if !m.IsConnectorObjectUsage(sym) {
+				t.Error("anonymous flow is not a connector object")
+			}
+		case ast.UsageSuccession:
+			successions++
+			if m.IsConnectorObjectUsage(sym) {
+				t.Error("succession is a connector object")
+			}
+		}
+	}
+	if anonymousBindings != 1 || anonymousFlows != 2 || successions != 1 {
+		t.Fatalf("anonymous bindings=%d flows=%d successions=%d, want 1, 2, 1",
+			anonymousBindings, anonymousFlows, successions)
 	}
 }
 

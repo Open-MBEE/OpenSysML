@@ -25,6 +25,7 @@ package ViewMembers {
 	}
 	view def Derived :> Base {
 		render asTree;
+		render $::ViewMembers::Base::asTree;
 		render rendering r2 : AsTree;
 		render rendering : AsTree;
 		satisfy SafetyViewpoint;

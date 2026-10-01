@@ -16,6 +16,7 @@ func (r *recordedReads) ReadName(fqn string)        { r.names = append(r.names, 
 func (r *recordedReads) ReadNamespace(fqn string)   { r.namespaces = append(r.namespaces, fqn) }
 func (r *recordedReads) ReadDocument(name string)   { r.docs = append(r.docs, name) }
 func (r *recordedReads) ReadAllNames()              { r.all = true }
+func (r *recordedReads) ReadSegment(name string)    { r.names = append(r.names, name) }
 func (r *recordedReads) sorted(s []string) []string { sort.Strings(s); return s }
 
 func keys(m map[string]bool) []string {

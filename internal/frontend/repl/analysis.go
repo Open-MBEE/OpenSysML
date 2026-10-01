@@ -43,7 +43,7 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 	if rest == "" {
 		return inv, nil
 	}
-	if strings.ContainsAny(rest, " \t") {
+	if indexOutsideName(rest, " \t") >= 0 {
 		return analysisInvocation{}, fmt.Errorf("%q does not name one object; arguments are written in parentheses after the case's name", rest)
 	}
 	inv.object = rest
@@ -99,11 +99,17 @@ func (s *Session) doAnalysis(tail string) ([]string, bool, error) {
 // after evaluating some of what it declares reports those evaluations and the
 // verdicts left undecided beneath the error.
 func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
+	run, err := s.runAnalysis(inv)
+	return s.caseVerdict(inv, run, err)
+}
+
+// caseVerdict reports a run of the case inv names, run already made; err is the
+// error the run ended with, nil when it completed.
+func (s *Session) caseVerdict(inv analysisInvocation, run caseRun, err error) Verdict {
 	label := inv.name
 	if inv.argText != "" {
 		label += "(" + strings.TrimSpace(inv.argText) + ")"
 	}
-	run, err := s.runAnalysis(inv)
 	if err != nil {
 		verdict := unresolvedVerdict(label, err.Error())
 		s.reportCaseRun(&verdict, run.result)
@@ -129,13 +135,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 			status = s
 		}
 	}
-	mark := "✓"
-	switch status {
-	case VerdictFails:
-		mark = "✗"
-	case VerdictUnresolved:
-		mark = "?"
-	}
+	mark := statusMark(status)
 	on := ""
 	if subject != nil {
 		on = " on " + objectMention(subject, subjectLabel)
@@ -156,7 +156,11 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 // the case's calcs — a trade study's alternatives in subject order, the
 // selected one marked, and those evaluating alike marked tied.
 func (s *Session) reportCaseRun(verdict *Verdict, result runtime.AnalysisResult) {
-	ctx := s.rtCtx
+	reportCaseRunIn(s.rtCtx, verdict, result)
+}
+
+// reportCaseRunIn reports a case run made in ctx, which its values are read through.
+func reportCaseRunIn(ctx *runtime.Context, verdict *Verdict, result runtime.AnalysisResult) {
 	for _, out := range result.Outputs {
 		text := objectText(ctx, out.Value)
 		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  %s = %s", out.Name, text))
@@ -247,8 +251,7 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 // analysisSymbol resolves the case an invocation names. It is resolved before the
 // runtime is built, so a misspelling is reported as one whatever the session holds.
 func (s *Session) analysisSymbol(inv analysisInvocation) (*symbols.Symbol, string, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, "", errors.New("no declarations loaded")
 	}
 	return s.lookupSymbolOfKinds(inv.name,
@@ -291,7 +294,7 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 	// A usage owned by a type is a feature of an object of that type, which the
 	// session holds when one was created; a package-level case has no such owner.
 	self := nestedCaseOwner(sym, fqn, objects)
-	runScope := declaringScope(sym, s.ws.Document(docName).Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	// A verification case runs the same body; asking the run for its verdict too
 	// reports it beside what the run computed.

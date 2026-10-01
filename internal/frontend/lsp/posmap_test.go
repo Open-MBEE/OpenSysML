@@ -1,7 +1,9 @@
 package lsp
 
 import (
+	"bytes"
 	"testing"
+	"unicode/utf8"
 
 	"go.lsp.dev/protocol"
 
@@ -106,5 +108,125 @@ func TestSpanToRange(t *testing.T) {
 	}
 	if r != want {
 		t.Errorf("spanToRange = %+v, want %+v", r, want)
+	}
+}
+
+// linearOffsetToPosition is the pre-index scan offsetToPosition was, kept here
+// as the reference the line-indexed positions must agree with.
+func linearOffsetToPosition(content []byte, offset int) protocol.Position {
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(content) {
+		offset = len(content)
+	}
+	line := 0
+	lineStart := 0
+	for i := 0; i < offset; i++ {
+		if content[i] == '\n' {
+			line++
+			lineStart = i + 1
+		}
+	}
+	char := utf16Len(content[lineStart:offset])
+	return protocol.Position{Line: uint32Clamp(line), Character: uint32Clamp(char)}
+}
+
+// linearPositionToOffset is the pre-index walk positionToOffset was.
+func linearPositionToOffset(content []byte, pos protocol.Position) int {
+	line := 0
+	i := 0
+	for line < int(pos.Line) && i < len(content) {
+		if content[i] == '\n' {
+			line++
+		}
+		i++
+	}
+	units := 0
+	for i < len(content) && content[i] != '\n' {
+		if units >= int(pos.Character) {
+			break
+		}
+		r, size := utf8.DecodeRune(content[i:])
+		units += utf16RuneLen(r)
+		i += size
+	}
+	return i
+}
+
+func TestPositionsAgreesWithLinearScan(t *testing.T) {
+	contents := map[string][]byte{
+		"ascii multi-line": []byte("package P;\nnamespace N;\npart x;"),
+		"crlf":             []byte("a\r\nb\r\nc"),
+		"multibyte":        []byte("café\nbéta\n"),
+		"astral":           []byte("x = 😀;\ny = 😀😀;\n"),
+		"empty":            {},
+	}
+	for name, content := range contents {
+		t.Run(name+"/position", func(t *testing.T) {
+			pos := positionsFor(content)
+			offsets := []int{-10, -1, 0, 1, len(content) / 2, len(content) - 1, len(content), len(content) + 1, len(content) + 100}
+			for _, off := range offsets {
+				if got, want := pos.position(off), linearOffsetToPosition(content, off); got != want {
+					t.Errorf("position(%d) = %+v, want %+v", off, got, want)
+				}
+			}
+		})
+		t.Run(name+"/offset", func(t *testing.T) {
+			pos := positionsFor(content)
+			positionsIn := []protocol.Position{
+				{Line: 0, Character: 0},
+				{Line: 0, Character: 1},
+				{Line: 1, Character: 0},
+				{Line: 1, Character: 3},
+				{Line: 0, Character: 999},   // character past line end
+				{Line: 999, Character: 0},   // line past last line
+				{Line: 999, Character: 999}, // both past the end
+			}
+			for _, pin := range positionsIn {
+				if got, want := pos.offset(pin), linearPositionToOffset(content, pin); got != want {
+					t.Errorf("offset(%+v) = %d, want %d", pin, got, want)
+				}
+			}
+		})
+		t.Run(name+"/rangeOf", func(t *testing.T) {
+			pos := positionsFor(content)
+			spans := []source.Span{
+				{Offset: 0, Len: 0},
+				{Offset: 0, Len: len(content)},
+				{Offset: len(content) / 2, Len: 1},
+				{Offset: len(content), Len: 0},
+				{Offset: len(content) + 5, Len: 3},
+			}
+			for _, sp := range spans {
+				want := protocol.Range{
+					Start: linearOffsetToPosition(content, sp.Offset),
+					End:   linearOffsetToPosition(content, sp.End()),
+				}
+				if got := pos.rangeOf(sp); got != want {
+					t.Errorf("rangeOf(%+v) = %+v, want %+v", sp, got, want)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkSpanToRangeLarge(b *testing.B) {
+	var buf bytes.Buffer
+	for buf.Len() < 10<<20 {
+		buf.WriteString("part somePart : SomeDef { attribute x : Real; }\n")
+	}
+	content := buf.Bytes()
+	pos := positionsFor(content)
+	spans := make([]source.Span, 10000)
+	for i := range spans {
+		off := (i * 977) % len(content)
+		spans[i] = source.Span{Offset: off, Len: 4}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, sp := range spans {
+			_ = pos.rangeOf(sp)
+		}
 	}
 }

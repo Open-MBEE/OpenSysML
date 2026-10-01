@@ -39,7 +39,7 @@ func NormativeSubject(id, qualifiedName string) bool {
 func libraryDocument(roots []*element) string {
 	var read []identity.LibraryRoot
 	for _, root := range roots {
-		read = append(read, identity.LibraryRoot{QName: root.qname, ID: root.elementID, Pkg: root.metaclass == "Package"})
+		read = append(read, identity.LibraryRoot{QName: root.qname, ID: root.elementID, Pkg: root.metaclass == mPackage || root.metaclass == mLibraryPackage})
 	}
 	return identity.LibraryCatalog(libs.NewModelIndex()).DocumentRootedAt(read)
 }
@@ -102,7 +102,7 @@ func encodeLibraryNames(doc string) any {
 		}
 		return fmt.Errorf("%s: %d syntax error(s):\n  %s", doc, len(messages), strings.Join(messages, "\n  "))
 	}
-	e, err := newEncoder(file, root, doc)
+	e, err := newEncoder(file, root, doc, IDQualifiedName)
 	if err != nil {
 		return err
 	}

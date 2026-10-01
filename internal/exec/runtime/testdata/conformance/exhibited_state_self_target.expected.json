@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "test::engine",
+  "trace": true,
+  "objects": [
+    {
+      "instance": 1,
+      "events": [{"signal": "EngineCommand"}],
+      "finalState": "done",
+      "stateVisits": ["start", "waiting", "done"]
+    }
+  ]
+}

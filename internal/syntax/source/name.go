@@ -54,19 +54,166 @@ func QualifiedNameSegments(text string) ([]string, bool) {
 	}
 }
 
+// MetadataPathSegments splits a metadata path into the metadata definition's
+// segments and the feature name.
+func MetadataPathSegments(path string) (definition []string, feature string, ok bool) {
+	if segments, ok := QualifiedNameSegments(path); ok && len(segments) >= 2 {
+		return segments[:len(segments)-1], segments[len(segments)-1], true
+	}
+	separator := strings.LastIndex(path, "::")
+	if separator <= 0 || separator+2 >= len(path) {
+		return nil, "", false
+	}
+	definition, ok = QualifiedNameSegments(path[:separator])
+	if !ok || len(definition) == 0 {
+		return nil, "", false
+	}
+	feature = path[separator+2:]
+	if segments, ok := MemberPathSegments(feature); ok && len(segments) == 1 {
+		feature = segments[0]
+	}
+	return definition, feature, true
+}
+
+// MemberPathOf writes the segments of a member path, outermost first, joined
+// by '.', each quoted on its own like a qualified name segment.
+func MemberPathOf(names []string) string {
+	segments := make([]string, len(names))
+	for i, name := range names {
+		segments[i] = NameText(name)
+	}
+	return strings.Join(segments, ".")
+}
+
+// MemberPathSegments reads a member path — `.`-joined names, each a basic or
+// a 'quoted name' — back into its names, quotes dropped and escapes kept;
+// false for malformed text. A bare name is a one-segment path.
+func MemberPathSegments(text string) ([]string, bool) {
+	var names []string
+	for {
+		name, rest, ok := readBasicOrQuotedName(text)
+		if !ok {
+			return nil, false
+		}
+		names = append(names, name)
+		if rest == "" {
+			return names, true
+		}
+		if !strings.HasPrefix(rest, ".") || rest == "." {
+			return nil, false
+		}
+		text = rest[1:]
+	}
+}
+
+// ReferenceEndNames rewrites a typing's references — `, ` apart, each a
+// qualified name or feature chain, `$::` led or `~` conjugated — by the name
+// each ends in, `~` kept; text that does not read as such is returned as it is.
+func ReferenceEndNames(text string) string {
+	var ends []string
+	rest := text
+	for {
+		conjugated := strings.HasPrefix(rest, "~")
+		rest = strings.TrimPrefix(strings.TrimPrefix(rest, "~"), "$::")
+		var end string
+		for {
+			name, after, ok := readBasicOrQuotedName(rest)
+			if !ok {
+				return text
+			}
+			end, rest = name, after
+			if strings.HasPrefix(rest, "::") {
+				rest = rest[2:]
+			} else if strings.HasPrefix(rest, ".") {
+				rest = rest[1:]
+			} else {
+				break
+			}
+		}
+		end = NameText(end)
+		if conjugated {
+			end = "~" + end
+		}
+		ends = append(ends, end)
+		if rest == "" {
+			return strings.Join(ends, ", ")
+		}
+		if !strings.HasPrefix(rest, ", ") {
+			return text
+		}
+		rest = rest[2:]
+	}
+}
+
+// ReferenceQualifiedNames reads a typing's references — `, ` apart, `$::` led or
+// `~` conjugated — into each one's names; a feature chain, or text that does not
+// read as references, contributes none.
+func ReferenceQualifiedNames(text string) [][]string {
+	var refs [][]string
+	rest := text
+	for {
+		rest = strings.TrimPrefix(strings.TrimPrefix(rest, "~"), "$::")
+		var names []string
+		chain := false
+		for {
+			name, after, ok := readBasicOrQuotedName(rest)
+			if !ok {
+				return nil
+			}
+			names, rest = append(names, name), after
+			if strings.HasPrefix(rest, "::") {
+				rest = rest[2:]
+			} else if strings.HasPrefix(rest, ".") {
+				rest, chain = rest[1:], true
+			} else {
+				break
+			}
+		}
+		if !chain {
+			refs = append(refs, names)
+		}
+		if rest == "" {
+			return refs
+		}
+		if !strings.HasPrefix(rest, ", ") {
+			return nil
+		}
+		rest = rest[2:]
+	}
+}
+
 // readName reads one name off the front of text: a quoted one up to its closing
 // quote, else a bare one up to `::`.
 func readName(text string) (name, rest string, ok bool) {
-	if text == "" {
-		return "", "", false
+	if text == "" || text[0] == '\'' {
+		return readQuotedName(text)
 	}
-	if text[0] != '\'' {
-		end := strings.Index(text, "::")
-		if end < 0 {
-			end = len(text)
-		}
-		name = text[:end]
-		return name, text[end:], name != "" && !strings.Contains(name, "'")
+	end := strings.Index(text, "::")
+	if end < 0 {
+		end = len(text)
+	}
+	name = text[:end]
+	return name, text[end:], name != "" && !strings.Contains(name, "'")
+}
+
+// readBasicOrQuotedName reads one name off the front of text: a quoted one up to
+// its closing quote, else a basic name up to the first byte that cannot continue it.
+func readBasicOrQuotedName(text string) (name, rest string, ok bool) {
+	if text == "" || text[0] == '\'' {
+		return readQuotedName(text)
+	}
+	end := 0
+	for end < len(text) && IsIdentCont(text[end]) {
+		end++
+	}
+	name = text[:end]
+	return name, text[end:], IsIdentifier(name)
+}
+
+// readQuotedName reads a quoted name off the front of text, escapes kept.
+func readQuotedName(text string) (name, rest string, ok bool) {
+	if text == "" || text[0] != '\'' {
+		return "", "", false
 	}
 	for i := 1; i < len(text); i++ {
 		switch text[i] {

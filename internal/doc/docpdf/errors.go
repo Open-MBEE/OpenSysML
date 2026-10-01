@@ -21,6 +21,12 @@ const (
 	// ErrorUnsupportedOption reports a stylesheet option the selected
 	// converter cannot apply, as it writes its own HTML.
 	ErrorUnsupportedOption ErrorKind = "unsupported-option"
+	// ErrorImageMissing reports an image block whose file cannot be found
+	// where its location resolves.
+	ErrorImageMissing ErrorKind = "missing-image"
+	// ErrorTableColumns reports a table-column limit no continuation table
+	// keeps: one leaves no room beside the repeated first column.
+	ErrorTableColumns ErrorKind = "table-columns"
 )
 
 // Error is a typed PDF-rendering failure.
@@ -45,6 +51,9 @@ type Error struct {
 
 	// Option names the command-line option a converter cannot apply.
 	Option string
+
+	// Columns is the table-column limit the options state, for ErrorTableColumns.
+	Columns int
 }
 
 func (e *Error) Error() string {
@@ -77,8 +86,12 @@ func (e *Error) Error() string {
 			msg += ": " + e.Detail
 		}
 		return msg
+	case ErrorImageMissing:
+		return fmt.Sprintf("image %s: no file at %s", e.Tool, e.Detail)
 	case ErrorNoPDF:
 		return fmt.Sprintf("%s reported success but wrote no PDF", e.Tool)
+	case ErrorTableColumns:
+		return fmt.Sprintf("a table cannot be set with at most %d columns: a continuation table repeats the first column ahead of the rest, so the limit is 0 (%d, the default) or at least 2", e.Columns, DefaultTableColumns)
 	case ErrorUnsupportedOption:
 		return fmt.Sprintf("%s styles the HTML backend's page, which the %s engine does not read; select an engine reading HTML with -pdf-engine", e.Option, e.Engine)
 	default:

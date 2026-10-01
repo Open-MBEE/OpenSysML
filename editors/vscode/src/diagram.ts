@@ -23,7 +23,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import { ExportHost, exportRendering, serverForms } from "./export";
+import { ExportHost, exportRendering, serverForms, serverStyles } from "./export";
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
@@ -45,6 +45,7 @@ import {
   RENDER_PALETTE_CAPABILITY,
   RenderChangedParams,
   RenderNode,
+  RenderOrigin,
   RenderParams,
   RenderResult,
   ToWebview,
@@ -53,7 +54,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
-import { DiagramStyle, paletteOf, STYLE_SETTING, styleOf } from "./style";
+import { DiagramStyle, drawingStyleOf, paletteOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -73,6 +74,9 @@ const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: R
 const NOT_SERVED = "The SysML v2 language server does not serve diagrams; update sysml-lsp to draw one.";
 /** Shown under a palette the attached server cannot fill: it predates coloured renderings. */
 export const NO_PALETTE_HINT = "This language server draws no palette; update sysml-lsp to colour the diagram.";
+
+/** What the status line says when the server predates drawing styles and the Cameo look is asked for. */
+export const NO_STYLE_HINT = "This language server draws no Cameo style; update sysml-lsp to export the diagram in it.";
 
 /** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
 interface ViewListing {
@@ -152,12 +156,13 @@ export class DiagramPanels implements vscode.Disposable {
         }
       }),
       vscode.window.registerWebviewPanelSerializer(PANEL_TYPE, {
-        deserializeWebviewPanel: async (panel, state: { uri?: string; view?: string } | undefined) => {
+        deserializeWebviewPanel: (panel, state: { uri?: string; view?: string } | undefined) => {
           if (!state?.uri) {
             panel.dispose();
-            return;
+          } else {
+            this.adopt(vscode.Uri.parse(state.uri), panel, state.view ?? "");
           }
-          this.adopt(vscode.Uri.parse(state.uri), panel, state.view ?? "");
+          return Promise.resolve();
         },
       }),
     );
@@ -413,7 +418,9 @@ export class DiagramPanels implements vscode.Disposable {
         await vscode.workspace.fs.writeFile(vscode.Uri.parse(location), new TextEncoder().encode(artifact));
       },
     };
-    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)) });
+    const drawing = drawingStyleOf(diagramStyle(resolved.uri));
+    const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
+    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)), style });
     switch (outcome.kind) {
       case "saved":
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
@@ -760,10 +767,13 @@ class DiagramPanel {
       const style = diagramStyle(this.docURI);
       const palette = paletteOf(style);
       const colours = palette !== undefined && supportsPalette(client);
+      const drawing = drawingStyleOf(style);
+      const styled = drawing !== undefined && supportsStyle(client, drawing);
       const params: RenderParams = {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
         palette: colours ? palette : undefined,
+        style: styled ? drawing : undefined,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
       // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
@@ -784,6 +794,7 @@ class DiagramPanel {
         view: result.view,
         version: result.version,
         palette: result.palette,
+        rows: result.rows,
       };
       this.drawn += 1;
       this.post({
@@ -792,7 +803,7 @@ class DiagramPanel {
         selected: this.selected,
         drawn: this.drawn,
         style,
-        hint: palette !== undefined && !colours ? NO_PALETTE_HINT : undefined,
+        hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
       });
       this.highlightActive();
     } catch (err) {
@@ -806,9 +817,19 @@ class DiagramPanel {
     this.refresh();
   }
 
-  /** highlightAt marks the node whose declaration contains the cursor. */
+  /** highlightAt marks the node or table row whose declaration contains the cursor. */
   highlightAt(at: vscode.Position): void {
-    this.post({ type: "highlight", id: this.nodeAt(this.rendering, at)?.id });
+    const node = this.nodeAt(this.rendering, at);
+    if (node) {
+      this.post({ type: "highlight", id: node.id });
+      return;
+    }
+    const row = this.rowAt(this.rendering, at);
+    if (row !== undefined) {
+      this.post({ type: "highlight", id: `row:${row}` });
+      return;
+    }
+    this.post({ type: "highlight", id: undefined });
   }
 
   private highlightActive(): void {
@@ -840,6 +861,26 @@ class DiagramPanel {
     return found;
   }
 
+  // rowAt is the index of the innermost located table row whose declaration contains at.
+  private rowAt(rendering: Rendering, at: vscode.Position): number | undefined {
+    let found: number | undefined;
+    let foundRange: vscode.Range | undefined;
+    for (const [index, row] of (rendering.rows ?? []).entries()) {
+      if (!row.origin || vscode.Uri.parse(row.origin.uri).toString() !== this.docURI.toString()) {
+        continue;
+      }
+      const range = toRange(row.origin.range);
+      if (!range.contains(at)) {
+        continue;
+      }
+      if (!foundRange || foundRange.contains(range)) {
+        found = index;
+        foundRange = range;
+      }
+    }
+    return found;
+  }
+
   private receive(message: FromWebview): void {
     switch (message.type) {
       case "ready":
@@ -855,6 +896,9 @@ class DiagramPanel {
         return;
       case "reveal":
         void this.revealSource(message.id, message.drawn);
+        return;
+      case "revealRow":
+        void this.revealRow(message.row, message.drawn);
         return;
       case "edit":
         void this.edit(message.action, message.drawn);
@@ -877,7 +921,20 @@ class DiagramPanel {
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
-    const origin = this.node(this.rendering, id)?.origin;
+    await this.revealOrigin(this.node(this.rendering, id)?.origin);
+  }
+
+  // revealRow opens the declaration of the element a table row lists; the row indexes the drawing it was clicked on.
+  private async revealRow(row: number, drawn: number): Promise<void> {
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    await this.revealOrigin(this.rendering.rows?.[row]?.origin);
+  }
+
+  // revealOrigin opens the document and selects the identifier an origin locates.
+  private async revealOrigin(origin: RenderOrigin | undefined): Promise<void> {
     if (!origin) {
       return;
     }
@@ -1269,6 +1326,19 @@ function supportsPalette(client: LanguageClient): boolean {
   return experimental(client)?.[RENDER_PALETTE_CAPABILITY] === true;
 }
 
+/** supportsStyle reports whether the server lists a drawing style among those its render request draws. */
+function supportsStyle(client: LanguageClient, style: string): boolean {
+  return serverStyles(experimental(client)).includes(style);
+}
+
+/** renderHint says what of the chosen look the server could not draw, if anything. */
+export function renderHint(noPalette: boolean, noStyle: boolean): string | undefined {
+  if (noPalette) {
+    return NO_PALETTE_HINT;
+  }
+  return noStyle ? NO_STYLE_HINT : undefined;
+}
+
 /** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
 function supportsCrossDocument(client: LanguageClient): boolean {
   return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
@@ -1397,6 +1467,13 @@ function html(
       #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      #diagram table.opensysml-table { border-collapse: collapse; font-size: 0.9em; }
+      #diagram .opensysml-table th, #diagram .opensysml-table td { text-align: left; padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); white-space: nowrap; }
+      #diagram .opensysml-table th { font-weight: 600; position: sticky; top: 0; background: var(--vscode-editor-background); }
+      #diagram .opensysml-table tr.located { cursor: pointer; }
+      #diagram .opensysml-table tr.located:hover { background: var(--vscode-list-hoverBackground); }
+      #diagram .opensysml-table tr.opensysml-selected { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+      #diagram .empty { opacity: 0.8; }
       /* The pilot visualizer's Standard B&W, as the DOT and PlantUML forms draw it; a palette's fills ride on each shape. */
       #diagram.pilot { background: white; color: black; }
       #diagram.pilot svg { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; }
@@ -1424,6 +1501,24 @@ function html(
       #diagram.pilot .opensysml-selected > .shape, #diagram.pilot .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      #diagram.pilot .opensysml-table th, #diagram.pilot .opensysml-table td { border-color: #181818; }
+      #diagram.pilot .opensysml-table th { background: white; }
+      #diagram.pilot .opensysml-table tr.located:hover { background: #eee; }
+      #diagram.pilot .opensysml-table tr.opensysml-selected { background: #dbe9ff; color: black; }
+      /* Cameo Systems Modeler's look over the pilot's rules: 11px Arial, pale-yellow gradient fills, thin dark borders. */
+      #diagram.cameo svg { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 11px; }
+      #diagram.cameo .shape { fill: var(--node-fill, url(#cameo-fill)); stroke: var(--node-border, #5B5B59); stroke-width: 1px; }
+      #diagram.cameo .shape.container { fill: var(--node-fill, url(#cameo-fill)); }
+      #diagram.cameo .shape.usage { rx: 8px; }
+      #diagram.cameo .shape.filled { fill: #424242; stroke: #424242; }
+      #diagram.cameo .label { fill: #424242; }
+      #diagram.cameo .label .keyword { font-style: normal; font-size: 0.82em; }
+      #diagram.cameo .collapsed { fill: #424242; }
+      #diagram.cameo .line { stroke: #424242; }
+      #diagram.cameo .connection .line { stroke-width: 1px; }
+      #diagram.cameo .arrow-fill { fill: #424242; }
+      #diagram.cameo .arrow-line { stroke: #424242; }
+      #diagram.cameo .edge-label { fill: #424242; }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }
     </style>

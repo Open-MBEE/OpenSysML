@@ -11,9 +11,21 @@ import (
 
 // activityBody writes the nodes and edges of act as the body of def, the v2
 // action def being written: act itself, or the operation whose method it is.
+
+// The note fragments the writer repeats.
+const (
+	siSeconds    = " [SI::s]"
+	flowNote     = "/* flow "
+	notWritten   = " not written: "
+	itsInput     = "its input "
+	noValueSince = " receives no value, since "
+	neverAssigns = " never assigns "
+)
+
 func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	keeping := m.keeping
 	m.keeping = ""
+	m.unwrittenMembers(act, "observation")
 	for _, c := range act.Children {
 		switch c.Role {
 		case "ownedBehavior", "nestedClassifier", "ownedAttribute":
@@ -28,6 +40,22 @@ func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	a.rules()
 }
 
+// nodesRefused counts, once act's body is written, the actions among its
+// nodes reported unmapped, and those actions in all; control nodes structure
+// the flow and are left out.
+func (m *migration) nodesRefused(act *sysmlv1.Element) (refused, total int) {
+	for _, n := range act.Owned("node") {
+		if nodeKind(n) != nodeAction {
+			continue
+		}
+		total++
+		if i, ok := m.indexed[n.ID]; ok && m.report.Entries[i].Verdict == Unmapped {
+			refused++
+		}
+	}
+	return refused, total
+}
+
 // activity writes one node graph: an activity's, or a structured node's.
 type activity struct {
 	m   *migration
@@ -37,6 +65,11 @@ type activity struct {
 	ctx   *behaviorContext
 	names map[*sysmlv1.Element]string
 	used  map[string]bool
+	// named marks the edges a member of this body is named for.
+	named map[*sysmlv1.Element]bool
+	// standIns marks the written names of the nodes this body makes up, which
+	// no v1 node and so no diagram symbol stands behind.
+	standIns map[string]bool
 	// next lists, for each node, the nodes its edges lead to, once each; succ the
 	// edges out of it that stand for a succession, in the order they are owned.
 	next map[*sysmlv1.Element][]*sysmlv1.Element
@@ -69,6 +102,8 @@ type activity struct {
 	edgeSelf    map[*sysmlv1.Element]bool
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*sysmlv1.Element]bool
+	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
+	computed map[*sysmlv1.Element]string
 	// receivers maps a call's target pin to the receiver path its perform names instead.
 	receivers map[*sysmlv1.Element]string
 	// dataOnly marks the object flows that carry a value into an action without
@@ -90,8 +125,10 @@ type activity struct {
 	edges []*sysmlv1.Element
 	// data lists the object flows to write once the nodes are declared.
 	data []string
-	// written marks the (producer, pin) pairs a flow or bind is already written for.
-	written map[[2]*sysmlv1.Element]bool
+	// written maps each (producer, pin) pair a flow or bind is written for to
+	// the first edge carrying it; carriers lists every edge carrying it, in edge order.
+	written  map[[2]*sysmlv1.Element]*sysmlv1.Element
+	carriers map[[2]*sysmlv1.Element][]*sysmlv1.Element
 	// before and after are the clock stamps a duration observation reads at a node's ends.
 	before, after map[*sysmlv1.Element]*stamp
 	timed         []*timing
@@ -101,10 +138,16 @@ type activity struct {
 }
 
 func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
+	ctx := m.selfContext(def)
+	if ctx == nil {
+		ctx = m.contextOf(enclosingActivity(def))
+	}
 	a := &activity{
-		m: m, act: act, def: def, ctx: m.contextOf(enclosingActivity(def)),
+		m: m, act: act, def: def, ctx: ctx,
 		names:       map[*sysmlv1.Element]string{},
 		used:        inheritedActionNames(),
+		named:       map[*sysmlv1.Element]bool{},
+		standIns:    map[string]bool{},
 		next:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		prev:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		succ:        map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -126,8 +169,10 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		sink:        map[*sysmlv1.Element]bool{},
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
-		written:     map[[2]*sysmlv1.Element]bool{},
+		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
+		carriers:    map[[2]*sysmlv1.Element][]*sysmlv1.Element{},
 		inert:       map[*sysmlv1.Element]bool{},
+		computed:    map[*sysmlv1.Element]string{},
 		receivers:   map[*sysmlv1.Element]string{},
 		before:      map[*sysmlv1.Element]*stamp{},
 		after:       map[*sysmlv1.Element]*stamp{},
@@ -216,17 +261,43 @@ func (a *activity) name(n *sysmlv1.Element, base string) string {
 	if s, ok := a.names[n]; ok {
 		return s
 	}
-	name := a.m.nameOf(n)
-	if name == "" || a.used[name] || a.m.taken[a.def][name] {
-		if name == "" {
-			name = base
+	name, fixed := a.m.nodeNames[n]
+	if !fixed {
+		name = a.m.nameOf(n)
+		if name == "" || a.used[name] || a.m.taken[a.def][name] {
+			if name == "" {
+				name, a.m.synthesized[n] = base, true
+			}
+			name = a.fresh(name)
 		}
-		name = a.fresh(name)
 	}
 	a.used[name] = true
 	a.m.take(a.def, name)
-	a.names[n] = name
+	a.names[n], a.m.nodeNames[n] = name, name
 	return name
+}
+
+// edgeFresh is the name a shown edge's member is declared under: the one its first
+// writing chose when the body is written again, else base made fresh; "" when unshown.
+func (a *activity) edgeFresh(e *sysmlv1.Element, base string) string {
+	if em, ok := a.m.edgeMembers[e]; ok && em.name != "" && !a.named[e] {
+		a.used[em.name], a.named[e] = true, true
+		a.m.take(a.def, em.name)
+		return em.name
+	}
+	if name := a.m.edgeName(e, base); name != "" {
+		a.named[e] = true
+		return a.fresh(name)
+	}
+	return ""
+}
+
+// madeUp records a made-up member name, written, for the body's SynthesizedName
+// and StandIn markers; the member stands in for no v1 node.
+func (a *activity) madeUp(written string) {
+	a.standIns[written] = true
+	a.m.w.madeUp(written)
+	a.m.w.standIn(written)
 }
 
 // fresh returns base, or base with a number, not yet used in the body.
@@ -340,9 +411,31 @@ func (a *activity) write() {
 // An object flow into an action control flows also reach carries a value only, as
 // does one into a control or buffer node whose every outgoing edge does.
 func (a *activity) link() {
-	controlled := map[*sysmlv1.Element]bool{}
-	control := map[[2]*sysmlv1.Element]bool{}
-	outs := map[*sysmlv1.Element][]*sysmlv1.Element{}
+	controlled, control, outs := a.controlIndex()
+	for _, e := range a.edges {
+		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+			continue
+		}
+		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
+			a.dataOnly[e] = true
+		}
+	}
+	a.propagateData(controlled, outs)
+	for _, n := range a.nodes {
+		if nodeKind(n) == nodeControl && len(outs[n]) == 0 {
+			a.sink[n] = true
+		}
+	}
+	a.linkEdges(control)
+}
+
+// controlIndex marks the nodes a control flow reaches, the node pairs one
+// joins, and every node's outgoing edges.
+func (a *activity) controlIndex() (controlled map[*sysmlv1.Element]bool, control map[[2]*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) {
+	controlled = map[*sysmlv1.Element]bool{}
+	control = map[[2]*sysmlv1.Element]bool{}
+	outs = map[*sysmlv1.Element][]*sysmlv1.Element{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if e.Type == "ControlFlow" && src != nil && tgt != nil {
@@ -353,42 +446,48 @@ func (a *activity) link() {
 			outs[src] = append(outs[src], e)
 		}
 	}
-	for _, e := range a.edges {
-		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
-			continue
-		}
-		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
-			a.dataOnly[e] = true
-		}
-	}
+	return controlled, control, outs
+}
+
+// propagateData marks as data nodes the control and buffer nodes whose every
+// outgoing edge carries data only, feeding their incoming edges the same way,
+// to a fixpoint.
+func (a *activity) propagateData(controlled map[*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) {
 	for changed := true; changed; {
 		changed = false
 		for _, n := range a.nodes {
-			if k := nodeKind(n); k != nodeControl && k != nodeBuffer || a.dataNode[n] || controlled[n] || len(outs[n]) == 0 {
-				continue
-			}
-			routes := true
-			for _, e := range outs[n] {
-				routes = routes && a.dataOnly[e]
-			}
-			if !routes {
-				continue
-			}
-			a.dataNode[n] = true
-			changed = true
-			for _, e := range a.edges {
-				if a.m.model.Ref(e, "target") == n {
-					a.dataOnly[e] = true
-				}
+			if a.promoteDataNode(n, controlled, outs) {
+				changed = true
 			}
 		}
 	}
-	for _, n := range a.nodes {
-		if nodeKind(n) == nodeControl && len(outs[n]) == 0 {
-			a.sink[n] = true
+}
+
+// promoteDataNode marks n a data node and its incoming edges data-only when n is
+// an uncontrolled control or buffer node whose outgoing edges are all data-only.
+func (a *activity) promoteDataNode(n *sysmlv1.Element, controlled map[*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) bool {
+	if k := nodeKind(n); k != nodeControl && k != nodeBuffer || a.dataNode[n] || controlled[n] || len(outs[n]) == 0 {
+		return false
+	}
+	routes := true
+	for _, e := range outs[n] {
+		routes = routes && a.dataOnly[e]
+	}
+	if !routes {
+		return false
+	}
+	a.dataNode[n] = true
+	for _, e := range a.edges {
+		if a.m.model.Ref(e, "target") == n {
+			a.dataOnly[e] = true
 		}
 	}
+	return true
+}
+
+// linkEdges records the successions between nodes: every eligible edge into
+// succ, the first edge between two nodes also into next and prev.
+func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 	linked := map[[2]*sysmlv1.Element]bool{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
@@ -461,6 +560,7 @@ func (a *activity) resolveData() {
 				continue
 			}
 			a.edgeSources[e] = append(a.edgeSources[e], s)
+			a.carriers[[2]*sysmlv1.Element{s, tgt}] = append(a.carriers[[2]*sysmlv1.Element{s, tgt}], e)
 			if !slices.Contains(a.sources[tgt], s) {
 				a.sources[tgt] = append(a.sources[tgt], s)
 			}
@@ -527,6 +627,40 @@ func (a *activity) endpointIn(n *sysmlv1.Element) string {
 	return a.entry[n]
 }
 
+// startTargets lists the nodes start successions lead to: the initial nodes'
+// targets, then every node no edge leads to (a starved one only marked, never a
+// target). seen marks either.
+func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1.Element]bool) {
+	seen = map[*sysmlv1.Element]bool{}
+	for _, n := range a.nodes {
+		if nodeKind(n) != nodeInitial {
+			continue
+		}
+		for _, t := range a.next[n] {
+			if !seen[t] {
+				seen[t] = true
+				targets = append(targets, t)
+			}
+		}
+	}
+	for _, n := range a.nodes {
+		k := nodeKind(n)
+		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] || a.dataNode[n] || a.sink[n] {
+			continue
+		}
+		if k == nodeControl && n.Type != "ForkNode" {
+			// A join or merge nothing leads to would never fire.
+			continue
+		}
+		if a.starved[n] == nil {
+			targets = append(targets, n)
+			a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
+		}
+		seen[n] = true
+	}
+	return targets, seen
+}
+
 // unwritableEdge reports an edge into a node no succession may lead to.
 func (a *activity) unwritableEdge(e *sysmlv1.Element) {
 	a.m.unmapped(e, "the edge leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
@@ -552,47 +686,75 @@ func (a *activity) unwritableTarget(e *sysmlv1.Element) string {
 // and to every node no edge leads to, forked when several, after the initial
 // nodes' clock stamps and the activity's wait.
 func (a *activity) startSuccessions() {
-	var targets []*sysmlv1.Element
-	seen := map[*sysmlv1.Element]bool{}
+	targets, _ := a.startTargets()
+	from := a.startPrologue()
+	if len(targets) > 1 {
+		f := a.fresh("fork")
+		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
+		a.m.w.line("fork " + writeName(f) + ";")
+		a.madeUp(writeName(f))
+		from = writeName(f)
+	}
+	for _, t := range targets {
+		if to := a.endpointIn(t); to != "" {
+			a.succession(a.initialEdges(t), from, "", to, ";")
+		}
+	}
+	a.checkInitialSuccessions()
+}
+
+// initialEdges lists the initial nodes' edges into t, which one succession
+// from start stands for.
+func (a *activity) initialEdges(t *sysmlv1.Element) []*sysmlv1.Element {
+	var edges []*sysmlv1.Element
 	for _, n := range a.nodes {
 		if nodeKind(n) != nodeInitial {
 			continue
 		}
-		for _, t := range a.next[n] {
-			if !seen[t] {
-				seen[t] = true
-				targets = append(targets, t)
+		for _, e := range a.succ[n] {
+			if ownerNode(a.m.model.Ref(e, "target")) == t {
+				edges = append(edges, e)
 			}
 		}
 	}
-	for _, n := range a.nodes {
-		k := nodeKind(n)
-		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] || a.dataNode[n] || a.sink[n] {
-			continue
+	return edges
+}
+
+// succession writes the succession the edges travel, from from to to under guard and
+// trailed by tail; named, `succession 'from to to' first from then to;`, if a diagram shows one.
+func (a *activity) succession(edges []*sysmlv1.Element, from, guard, to, tail string) {
+	line := firstKw + from + guard + thenKw + to + tail
+	name := ""
+	for _, e := range edges {
+		if name = a.edgeFresh(e, spoken(from)+" to "+spoken(to)); name != "" {
+			line = "succession " + writeName(name) + " " + line
+			a.m.madeUp(e, writeName(name))
+			break
 		}
-		if k == nodeControl && n.Type != "ForkNode" {
-			// A join or merge nothing leads to would never fire.
-			continue
-		}
-		if a.starved[n] != nil {
-			seen[n] = true
-			continue
-		}
-		seen[n] = true
-		targets = append(targets, n)
-		a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
 	}
+	a.m.w.line(line)
+	for _, e := range edges {
+		a.named[e] = a.named[e] || name != ""
+		a.m.wroteEdgeEnding(e, a.def, "succession", name, a.standIns[from] || a.standIns[to])
+	}
+}
+
+// startPrologue writes what precedes the targets: the kept action, the initial
+// nodes' clock stamps and the activity's wait, returning the name they leave from.
+func (a *activity) startPrologue() string {
 	from := "start"
 	if a.keeping != "" {
 		name := a.fresh("keep")
 		a.m.w.line("first start then " + writeName(name) + ";")
 		a.m.w.block(actionKw+writeName(name), func() { a.m.w.line(a.keeping) })
+		a.madeUp(writeName(name))
 		from = writeName(name)
 	}
 	for _, n := range a.nodes {
 		if s, ok := a.before[n]; ok && nodeKind(n) == nodeInitial {
-			a.m.w.line("first " + from + " then " + s.name + ";")
-			a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
+			a.m.w.line(firstKw + from + thenKw + s.name + ";")
+			a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
+			a.madeUp(s.name)
 			from = s.name
 		}
 	}
@@ -600,19 +762,15 @@ func (a *activity) startSuccessions() {
 		name := a.fresh("wait")
 		a.m.w.line(firstKw + from + thenKw + writeName(name) + ";")
 		a.m.w.line(actionKw + writeName(name) + " accept after " + w + ";")
+		a.madeUp(writeName(name))
 		from = writeName(name)
 	}
-	if len(targets) > 1 {
-		f := a.fresh("fork")
-		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
-		a.m.w.line("fork " + writeName(f) + ";")
-		from = writeName(f)
-	}
-	for _, t := range targets {
-		if to := a.endpointIn(t); to != "" {
-			a.m.w.line(firstKw + from + thenKw + to + ";")
-		}
-	}
+	return from
+}
+
+// checkInitialSuccessions reports an initial node's edge whose target no
+// succession may lead to.
+func (a *activity) checkInitialSuccessions() {
 	for _, n := range a.nodes {
 		if nodeKind(n) != nodeInitial {
 			continue
@@ -695,7 +853,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), e)
 	if bound, bnote, ok := a.m.singleValue(spec, lo, lok, hok); ok {
 		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
-		return bound + " [SI::s]", true
+		return inSeconds(bound), true
 	}
 	if !lok || !hok {
 		a.unmappedWait(dc, e, a.m.openInterval(spec, lo, lok, lnote, hi, hok, hnote))
@@ -717,7 +875,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 		note = joinNotes(note, "written as a wait drawn uniformly over ["+lo+", "+hi+"] s before "+describe(e)+"; a tool's fixed min or max mode is a run setting, not the model's")
 	}
 	a.m.add(dc, Approximated, a.m.v2Name(a.def), note)
-	return expr + " [SI::s]", true
+	return inSeconds(expr), true
 }
 
 func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
@@ -729,6 +887,9 @@ func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *sysmlv1.Element) {
 	if a.starved[n] != nil {
+		if n.Type == "DecisionNode" {
+			a.m.writeComments(n, false)
+		}
 		a.starvation(n)
 		for _, e := range a.succ[n] {
 			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
@@ -737,8 +898,9 @@ func (a *activity) successions(n *sysmlv1.Element) {
 	}
 	from := writeName(a.name(n, baseName(n)))
 	if s, ok := a.after[n]; ok {
-		a.m.w.line("first " + from + " then " + s.name + ";")
-		a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
+		a.m.w.line(firstKw + from + thenKw + s.name + ";")
+		a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
+		a.madeUp(s.name)
 		from = s.name
 	}
 	outs := a.succ[n]
@@ -746,6 +908,7 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
 		a.m.w.line("fork " + writeName(f) + ";")
+		a.madeUp(writeName(f))
 		from = writeName(f)
 		a.m.downgrade(n, "several edges leave the node, which a fork "+f+" carries")
 	}
@@ -761,9 +924,9 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		}
 		g := a.guard(e, "")
 		a.m.w.lines(g.comment)
-		a.m.w.line(firstKw + from + g.expr + thenKw + to + ";")
+		a.succession([]*sysmlv1.Element{e}, from, g.expr, to, ";")
 		if g.ok {
-			a.m.add(e, Mapped, "", "")
+			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
 	}
 }
@@ -804,6 +967,14 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		weights = a.arbitraryChoice(n, outs, tos, guards, elseAt)
 		elseAt = -1
 	}
+	if elseAt >= 0 {
+		// A target succession of the member before it: right after the decide,
+		// before the comments and named successions.
+		a.m.w.line("else " + tos[elseAt] + ";")
+		a.m.wroteNoMember(outs[elseAt])
+		a.m.add(outs[elseAt], Mapped, "", "")
+	}
+	a.m.writeComments(n, false)
 	for i, e := range outs {
 		to := tos[i]
 		if to == "" {
@@ -814,20 +985,14 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 			continue
 		}
 		a.m.w.lines(guards[i].comment)
-		line := firstKw + from + guards[i].expr + thenKw + to
+		tail := ";"
 		if weights != nil {
-			line += " { @Stochastic::Probability { p = " + weights[i] + "; } }"
-		} else {
-			line += ";"
+			tail = " { @Stochastic::Probability { p = " + weights[i] + "; } }"
 		}
-		a.m.w.line(line)
+		a.succession([]*sysmlv1.Element{e}, from, guards[i].expr, to, tail)
 		if guards[i].ok {
-			a.m.add(e, Mapped, "", "")
+			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
-	}
-	if elseAt >= 0 {
-		a.m.w.line("else " + tos[elseAt] + ";")
-		a.m.add(outs[elseAt], Mapped, "", "")
 	}
 }
 
@@ -840,7 +1005,7 @@ func (a *activity) arbitraryChoice(n *sysmlv1.Element, outs []*sysmlv1.Element, 
 			written++
 		}
 	}
-	share := realLiteral(1 / float64(written))
+	share := computedLiteral(1 / float64(written))
 	weights := make([]string, len(outs))
 	var dropped []string
 	for i, e := range outs {
@@ -888,6 +1053,7 @@ func (a *activity) isElse(e *sysmlv1.Element) bool {
 // carries, which its guards are compared with; "" when nothing names it.
 func (a *activity) decisionInput(n *sysmlv1.Element) string {
 	if a.selfFed[n] {
+		a.markSelf()
 		return a.self()
 	}
 	if srcs := a.sources[n]; len(srcs) == 1 {
@@ -949,28 +1115,61 @@ func guardIsValue(g *sysmlv1.Element) bool {
 	return false
 }
 
+// probability is the SysML profile's «Probability» applied to e, or nil: only it
+// weights the edge; a same-named stereotype from another profile carries no weight.
+func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
+	return stereo(e, "Probability")
+}
+
+// foreignProbabilities notes each «Probability» on e that neither is SysML's
+// nor specializes it, whose probability is not read.
+func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
+	for _, s := range e.Stereotypes {
+		if s.Name == "Probability" && !appliesStandard(s, "Probability") {
+			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
+		}
+	}
+}
+
 // probabilities weights each branch of a decision carrying a «Probability»: a
-// number is a constant, a property is a reference the run reads, unmarked branches
-// share the remainder to 1, constant sums other than 1 are scaled; nil when none.
+// number is constant, non-strict properties are references the run reads, and
+// unmarked branches share the remainder to 1; nil when none has a value.
 func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string {
 	weights := make([]probabilityWeight, len(outs))
-	var unmarked []int
+	var unmarked, valueless []int
 	sum, marked, dynamic := 0.0, false, false
 	var notes []string
+	var approximations []struct {
+		edge *sysmlv1.Element
+		note string
+	}
 	for i, e := range outs {
 		if tos[i] == "" {
 			notes = append(notes, "the edge "+describe(e)+" leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
 		}
-		s := e.Stereotype("Probability")
+		a.foreignProbabilities(e)
+		s := probability(e)
 		if s == nil {
 			unmarked = append(unmarked, i)
 			continue
 		}
+		text := strings.TrimSpace(s.Tag("probability"))
+		if text == "" {
+			unmarked = append(unmarked, i)
+			valueless = append(valueless, i)
+			continue
+		}
 		marked = true
-		w, note := a.branchWeight(e, s)
+		w, note := a.branchWeight(e, text)
 		if note != "" {
 			notes = append(notes, note)
 			continue
+		}
+		if w.approximation != "" {
+			approximations = append(approximations, struct {
+				edge *sysmlv1.Element
+				note string
+			}{edge: e, note: w.approximation})
 		}
 		if w.property != nil {
 			dynamic = true
@@ -981,6 +1180,9 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		weights[i] = w
 	}
 	if !marked {
+		for _, i := range valueless {
+			a.m.add(outs[i], Approximated, "", "the «Probability» on the edge has no value, and no branch of the decision has one, so the guards decide")
+		}
 		return nil
 	}
 	remainder := 1 - sum
@@ -988,29 +1190,29 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	case len(notes) > 0:
 	case dynamic:
 	case len(unmarked) > 0 && remainder < -probabilityTolerance:
-		notes = append(notes, "the probabilities out of the decision sum to "+realLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
+		notes = append(notes, "the probabilities out of the decision sum to "+computedLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
 	case len(unmarked) == 0 && sum <= 0:
 		notes = append(notes, "the probabilities out of the decision sum to 0")
 	}
 	if len(notes) > 0 {
 		note := "no «Probability» is written on the decision's branches: " + strings.Join(notes, "; ")
 		for _, e := range outs {
-			if e.Stereotype("Probability") != nil {
+			if probability(e) != nil {
 				a.m.add(e, Approximated, "", note)
 			}
 		}
 		return nil
 	}
-	return a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	exprs := a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	for _, approximation := range approximations {
+		a.m.add(approximation.edge, Approximated, "", approximation.note)
+	}
+	return exprs
 }
 
-// branchWeight reads the «Probability» of one marked edge: the weight it is
+// branchWeight reads the «Probability» text of one marked edge: the weight it is
 // weighted with, or the note why none is read.
-func (a *activity) branchWeight(e *sysmlv1.Element, s *sysmlv1.Stereotype) (w probabilityWeight, note string) {
-	text := s.Tag("probability")
-	if text == "" {
-		return w, "the «Probability» on " + describe(e) + " has no probability value"
-	}
+func (a *activity) branchWeight(e *sysmlv1.Element, text string) (w probabilityWeight, note string) {
 	w, reason := a.probability(text)
 	if reason != "" {
 		return w, "the probability " + strconv.Quote(text) + " on " + describe(e) + " " + reason
@@ -1030,18 +1232,18 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 		share := a.dynamicRemainder(weights, len(unmarked))
 		for _, i := range unmarked {
 			weights[i] = probabilityWeight{expr: share}
-			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+share+", its share of what the marked branches leave of 1, read when the decision is reached")
+			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+share+", its share of what the marked branches leave of 1, read when the decision is reached")
 		}
 	case len(unmarked) > 0:
 		share := math.Max(remainder, 0) / float64(len(unmarked))
 		for _, i := range unmarked {
-			weights[i] = probabilityWeight{expr: realLiteral(share), value: share}
-			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+realLiteral(share)+", its share of what the marked branches leave of 1")
+			weights[i] = probabilityWeight{expr: computedLiteral(share), value: share}
+			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+computedLiteral(share)+", its share of what the marked branches leave of 1")
 		}
 	case !dynamic && math.Abs(remainder) > probabilityTolerance:
 		for i, e := range outs {
-			weights[i] = probabilityWeight{expr: realLiteral(weights[i].value / sum), value: weights[i].value / sum}
-			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+realLiteral(sum)+", not 1: each is scaled by the sum")
+			weights[i] = probabilityWeight{expr: computedLiteral(weights[i].value / sum), value: weights[i].value / sum}
+			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+computedLiteral(sum)+", not 1: each is scaled by the sum")
 		}
 	}
 	exprs := make([]string, len(outs))
@@ -1054,12 +1256,22 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 	return exprs
 }
 
+// unmarkedNote says why an edge has no probability of its own: it carries no
+// «Probability», or one whose tag holds no value.
+func unmarkedNote(e *sysmlv1.Element) string {
+	if probability(e) != nil {
+		return "the «Probability» on the edge has no value, so it is weighted as one carrying none"
+	}
+	return "the edge carries no «Probability»"
+}
+
 // probabilityWeight is the weight of one branch: the v2 expression written for
 // it, and the number it is when it is a constant, or the property it reads.
 type probabilityWeight struct {
-	expr     string
-	value    float64
-	property *sysmlv1.Element
+	expr          string
+	value         float64
+	property      *sysmlv1.Element
+	approximation string
 }
 
 // dynamicRemainder writes what the marked branches, one of them a reference,
@@ -1085,9 +1297,8 @@ func (a *activity) dynamicRemainder(weights []probabilityWeight, n int) string {
 // from 1 and still be written as they are.
 const probabilityTolerance = 1e-6
 
-// probability reads a probability tag: a number, written as a constant, or the
-// name or id of a numeric property visible from the activity, written as a
-// reference to it; reason says why it is neither.
+// probability reads a probability tag: a number, or a visible numeric property;
+// strict migration uses a finite literal default instead of a property reference.
 func (a *activity) probability(text string) (probabilityWeight, string) {
 	text = strings.TrimSpace(text)
 	if v, ok := finiteNumber(text); ok {
@@ -1124,7 +1335,52 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 	if mult, _ := a.m.multiplicity(p); mult != "" {
 		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which holds " + mult + " values, not one number"
 	}
-	return probabilityWeight{expr: writeName(a.m.nameOf(p)), property: p}, ""
+	if a.m.strict {
+		return a.defaultWeight(p, "under strict the probability is written as ", ", since a metadata value must be model-level evaluable",
+			"a strict migration writes only model-level evaluable metadata values and ")
+	}
+	holder, why := a.m.propertyHolder(p, a.selfType(), "this")
+	if holder == "" {
+		if why == "" {
+			why = a.noHolder(p)
+		}
+		return a.defaultWeight(p, "the probability is written as ", ", since "+why, why+", so only its default can be written, and ")
+	}
+	read := a.on(a.self()+strings.TrimPrefix(holder, "this"), writeName(a.m.nameOf(p)))
+	return probabilityWeight{expr: a.unshadowed(read), property: p}, ""
+}
+
+// noHolder says why no object the activity acts on holds the property p.
+func (a *activity) noHolder(p *sysmlv1.Element) string {
+	if t := a.selfType(); t != nil {
+		return "the action acts on a " + qualifiedName(t) + ", which neither holds " + qualifiedName(p) + " nor has one part that does"
+	}
+	return "the action acts on no object that holds " + qualifiedName(p)
+}
+
+// defaultWeight weights a branch by the finite numeric default of the property
+// p its «Probability» names, when the value cannot be read from p at run time:
+// written says how the weight is written, why concludes the note, and refused
+// opens the reason when p has no such default.
+func (a *activity) defaultWeight(p *sysmlv1.Element, written, why, refused string) (probabilityWeight, string) {
+	defaults := p.Owned("defaultValue")
+	if len(defaults) == 1 {
+		switch defaults[0].Type {
+		case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
+			_, value, reason := literalNumber(defaults[0])
+			if reason == "" {
+				return probabilityWeight{
+					expr:  computedLiteral(value),
+					value: value,
+					approximation: written + computedLiteral(value) + ", the default of property " + qualifiedName(p) + why +
+						"; a run no longer reads the property, so an object whose value differs is still weighted by the default",
+				}, ""
+			}
+		}
+	}
+	return probabilityWeight{}, "names the property " + qualifiedName(p) +
+		", whose value a run reads when the decision is reached; " + refused +
+		qualifiedName(p) + " has no finite numeric literal default"
 }
 
 // finiteNumber reads text as a finite number written as a v2 real literal.
@@ -1141,6 +1397,8 @@ func (a *activity) declare(n *sysmlv1.Element) {
 	name := writeName(a.name(n, baseName(n)))
 	a.leadIn(n, name)
 	a.declareNode(n, name)
+	a.m.madeUp(n, name)
+	a.m.declared[n] = true
 }
 
 // leadIn writes what a token passes on its way into n, named into: its wait,
@@ -1149,21 +1407,25 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 	if w, ok := a.waits[n]; ok {
 		a.m.w.line(actionKw + w.name + " accept after " + w.delay + ";")
 		a.m.w.line(firstKw + w.name + thenKw + into + ";")
+		a.madeUp(w.name)
 		into = w.name
 	}
 	if s, ok := a.before[n]; ok {
-		a.m.w.block("action "+s.name, func() { a.m.w.lines(s.lines) })
-		a.m.w.line("first " + s.name + " then " + into + ";")
+		a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
+		a.m.w.line(firstKw + s.name + thenKw + into + ";")
+		a.madeUp(s.name)
 		into = s.name
 	}
 	if j, ok := a.joins[n]; ok {
 		a.m.w.line("join " + j + ";")
 		a.m.w.line(firstKw + j + thenKw + into + ";")
+		a.madeUp(j)
 		a.m.add(n, Approximated, "", "several edges lead to the node, which waits for all of them through the join "+j)
 	}
 	if m, ok := a.merges[n]; ok {
 		a.m.w.line("merge " + m + ";")
 		a.m.w.line(firstKw + m + thenKw + into + ";")
+		a.madeUp(m)
 	}
 }
 
@@ -1182,6 +1444,7 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
+		return // successions writes the comments, after the else branch
 	case "MergeNode":
 		a.m.w.line("merge " + name + ";")
 		a.m.add(n, Mapped, name, "")
@@ -1219,8 +1482,9 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 // graph while its behavior is kept as a comment.
 func (a *activity) placeholder(n *sysmlv1.Element, name, note string, v Verdict) {
 	a.inert[n] = true
+	a.m.placeholders[n] = true
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
 	})
 	a.m.add(n, v, name, note)
@@ -1240,15 +1504,24 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 	return append(ins, n.Owned("insertAt")...)
 }
 
+// outputPins lists the output pins of an action, results first.
+func outputPins(n *sysmlv1.Element) []*sysmlv1.Element {
+	return append(n.Owned("result"), n.Owned("outputValue")...)
+}
+
 // pins declares an untyped action usage's pins as its parameters and records how a
-// flow refers to each; a typed usage's pins stand for params, its definition's, in order.
-func (a *activity) pins(n *sysmlv1.Element, typed bool, params []*sysmlv1.Element) {
-	a.declarePins(n, inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...), typed, params)
+// flow refers to each; the pins of a usage typed by callee stand for its parameters, in order.
+func (a *activity) pins(n, callee *sysmlv1.Element) {
+	a.declarePins(n, inputPins(n), outputPins(n), callee)
 }
 
 // declarePins declares the given input and output pins of n; see pins.
-func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, typed bool, params []*sysmlv1.Element) {
-	var inParams, outParams []*sysmlv1.Element
+func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element) {
+	typed := callee != nil
+	var params, inParams, outParams []*sysmlv1.Element
+	if typed {
+		params = a.m.actionParameters(callee)
+	}
 	for _, p := range params {
 		switch p.Attrs["direction"] {
 		case "out", "return":
@@ -1270,7 +1543,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 				a.m.add(pin, Mapped, a.m.v2Name(n)+"."+pname, "the pin stands for the parameter "+pname+" of the definition, which the flows name")
 				return
 			}
-			a.m.add(pin, Unmapped, "", "the definition has no "+dir+" parameter for the pin; a flow into it has nowhere to go")
+			a.m.add(pin, Unmapped, "", a.unparametered(pin, dir, callee, byPos))
 			return
 		}
 		pname := a.settlePin(n, pin, dir, used).name
@@ -1282,7 +1555,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		}
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
-		decl += mult
+		decl += shaped(mult, pin, dir != "")
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {
@@ -1291,6 +1564,9 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 			} else {
 				note = joinNotes(note, "the value pin's value "+describeValue(v)+" is not written: "+vnote)
 			}
+		}
+		if expr, ok := a.computed[pin]; ok {
+			decl += " = " + expr
 		}
 		a.m.w.line(decl + ";")
 		a.m.add(pin, verdictFor(note), a.m.v2Name(n)+"."+pname, note)
@@ -1301,6 +1577,26 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 	for i, pin := range outs {
 		declare(pin, "out", outParams, i)
 	}
+}
+
+// unparametered says why a pin past the called behavior's parameters of its direction
+// is not written: the call keeps its declaration, so no parameter can be added for the pin.
+func (a *activity) unparametered(pin *sysmlv1.Element, dir string, callee *sysmlv1.Element, byPos []*sysmlv1.Element) string {
+	note := "the called " + qualifiedName(callee) + " has no " + dir + " parameter for the pin"
+	if len(byPos) == 0 {
+		note += ", declaring none of that direction"
+	} else {
+		var names []string
+		for _, p := range byPos {
+			names = append(names, a.m.nameFor(p))
+		}
+		note += ", its " + dir + " parameters being " + strings.Join(names, ", ")
+	}
+	way := "a flow into it has nowhere to go"
+	if dir == "out" {
+		way = "a flow from it carries no value"
+	}
+	return note + "; the call is written with the parameters it declares, so " + way
 }
 
 // settlePin fixes how an untyped node's pin is declared, once: named as in v1
@@ -1334,7 +1630,7 @@ func (a *activity) settlePins(n *sysmlv1.Element) {
 	for _, pin := range inputPins(n) {
 		a.settlePin(n, pin, "in", used)
 	}
-	for _, pin := range append(n.Owned("result"), n.Owned("outputValue")...) {
+	for _, pin := range outputPins(n) {
 		a.settlePin(n, pin, "out", used)
 	}
 }
@@ -1348,13 +1644,23 @@ type pinDecl struct {
 
 // pinNamed is the pin of node n a body names, with its declaration; nil when none.
 func (m *migration) pinNamed(n *sysmlv1.Element, name string) (*sysmlv1.Element, pinDecl) {
-	pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...)
+	pins := append(inputPins(n), outputPins(n)...)
 	for _, p := range pins {
 		if d, ok := m.pins[p]; ok && m.nameOf(p) == name {
 			return p, d
 		}
 	}
 	return nil, pinDecl{}
+}
+
+// pinCalled is the pin of node n named name, declared or not; nil when none is.
+func (m *migration) pinCalled(n *sysmlv1.Element, name string) *sysmlv1.Element {
+	for _, p := range append(inputPins(n), outputPins(n)...) {
+		if m.nameOf(p) == name {
+			return p
+		}
+	}
+	return nil
 }
 
 // pinClassifier is the classifier a pin is typed by: its own type, else the
@@ -1465,16 +1771,30 @@ func (a *activity) objectFlowTarget(e, tgt *sysmlv1.Element) {
 	a.m.add(e, Approximated, "", "an object flow into "+describe(tgt)+" is written as a succession")
 }
 
+// starve notes on a pin's action that a flow brings the pin no value, unless the
+// pin is declared admitting none, whose own entry says so.
+func (a *activity) starve(pin *sysmlv1.Element, to, why string) {
+	if nodeKind(pin) != nodePin || a.m.lacksValue(pin) {
+		return
+	}
+	a.m.add(pin.Parent, Approximated, "", "its input "+to+" receives no value, since "+why+"; the action cannot be performed until one is bound")
+}
+
 // objectFlowSource writes the flow e's one source s carries into the pin or
 // parameter to, as a bind at a parameter or a flow between pins.
 func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	if callee, p := a.calleeOutput(s); callee != nil && p == nil {
-		why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
-		a.m.w.line("/* flow " + describe(s) + " to " + to + " not written: " + why + " */")
-		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+why)
+		if a.m.placeholders[s.Parent] {
+			if from, ok := a.pinRef(s); ok {
+				a.dataEdge(e, s, tgt, from, to)
+				a.m.add(e, Approximated, "", "the flow is written, but its source "+describe(s.Parent)+" is not migrated and produces no value")
+				return
+			}
 		}
+		why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
+		a.m.w.line(flowNote + describe(s) + " to " + to + notWritten + why + " */")
+		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
+		a.starve(tgt, to, why)
 		return
 	}
 	from, ok := a.pinRef(s)
@@ -1482,56 +1802,100 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
 		return
 	}
-	if a.written[[2]*sysmlv1.Element{s, tgt}] {
-		a.m.add(e, Mapped, "", "the flow from "+from+" to "+to+" is written once, though several edges carry it")
+	if first, ok := a.written[[2]*sysmlv1.Element{s, tgt}]; ok {
+		a.m.wroteSameEdge(e, first)
+		a.m.add(e, Mapped, a.m.edgeTarget(e), "the flow from "+from+" to "+to+" is written once, though several edges carry it")
 		return
 	}
-	a.written[[2]*sysmlv1.Element{s, tgt}] = true
+	a.written[[2]*sysmlv1.Element{s, tgt}] = e
 	if nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")] {
-		a.m.w.line("/* flow " + from + " to " + to + " not written: the parameter " + from + " takes no value */")
+		a.m.w.line(flowNote + from + " to " + to + " not written: the parameter " + from + " takes no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source, the parameter "+from+", takes no value, so none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since the parameter "+from+" takes none")
-		}
+		a.starve(tgt, to, "the parameter "+from+" takes none")
 		return
 	}
 	if a.inert[s.Parent] {
-		a.m.w.line("/* flow " + from + " to " + to + " not written: " + describe(s.Parent) + " is not migrated and produces no value */")
-		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+describe(s.Parent)+" is not migrated; the action cannot be performed until one is bound")
+		if a.m.placeholders[s.Parent] {
+			a.dataEdge(e, s, tgt, from, to)
+			a.m.add(e, Approximated, "", "the flow is written, but its source "+describe(s.Parent)+" is not migrated and produces no value")
+			return
 		}
+		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
+		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
+		a.starve(tgt, to, describe(s.Parent)+" is not migrated")
 		return
 	}
 	if a.unassigned(s) {
-		a.m.w.line("/* flow " + from + " to " + to + " not written: the body of " + describe(s.Parent) + " never assigns " + from + " */")
-		a.m.add(e, Approximated, "", "the flow is kept as a comment: the body of "+describe(s.Parent)+" never assigns "+describe(s)+", so no value leaves it")
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since the body of "+describe(s.Parent)+" never assigns "+from+"; the action cannot be performed until one is bound")
-		}
+		a.m.w.line(flowNote + from + " to " + to + " not written: the body of " + describe(s.Parent) + neverAssigns + from + " */")
+		a.m.add(e, Approximated, "", "the flow is kept as a comment: the body of "+describe(s.Parent)+neverAssigns+describe(s)+", so no value leaves it")
+		a.starve(tgt, to, "the body of "+describe(s.Parent)+" never assigns "+from)
 		return
 	}
 	if callee, p := a.calleeOutput(s); p != nil && a.m.dryOutputs(callee)[p] {
 		why := "nothing in the called " + qualifiedName(callee) + " gives its parameter " + a.m.nameFor(p) + " a value"
-		a.m.w.line("/* flow " + from + " to " + to + " not written: " + why + " */")
+		a.m.w.line(flowNote + from + " to " + to + notWritten + why + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", so none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", "its input "+to+" receives no value, since "+why)
-		}
+		a.starve(tgt, to, why)
 		return
 	}
 	st, tt := a.endType(s), a.endType(tgt)
 	if !a.m.conform(st, tt) {
-		a.m.w.line("/* flow " + from + " to " + to + " not written: " + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
+		a.m.w.line(flowNote + from + " to " + to + notWritten + qualifiedName(st) + " and " + qualifiedName(tt) + " do not conform */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its ends are typed by "+qualifiedName(st)+" and "+qualifiedName(tt)+", which do not conform")
 		return
 	}
-	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-		a.m.w.line("bind " + to + " = " + from + ";")
-	} else {
-		a.m.w.line("flow " + from + " to " + to + ";")
+	a.dataEdge(e, s, tgt, from, to)
+	if a.stubSource(s) {
+		note := "the flow is written, but " + describe(s.Parent) + " calls no behavior and computes nothing, so no value travels it"
+		if nodeKind(tgt) == nodePin {
+			note += ", and " + describe(tgt.Parent) + " does not wait for one"
+		}
+		a.m.add(e, Approximated, "", note)
+		return
 	}
-	a.m.add(e, Mapped, "", "")
+	a.m.add(e, Mapped, a.m.edgeTarget(e), "")
+}
+
+// dataEdge writes the flow e carries from from to to: a binding at a
+// parameter, a flow between pins, named as a member when a diagram shows e.
+func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
+	kw, decl, base := "flow", "flow "+from+" to "+to, spoken(from)+" to "+spoken(to)
+	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
+		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
+	}
+	namer := a.namer(e, s, tgt)
+	name := a.edgeFresh(namer, base)
+	if name != "" {
+		if kw == "flow" {
+			decl = "flow " + writeName(name) + " from " + from + " to " + to
+		} else {
+			decl = kw + " " + writeName(name) + " " + decl
+		}
+		a.m.madeUp(namer, writeName(name))
+	}
+	a.m.w.line(decl + ";")
+	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
+}
+
+// namer is the edge naming the member written once for what s carries to tgt: a
+// shown named one, else the first shown one, else e, the first written.
+func (a *activity) namer(e, s, tgt *sysmlv1.Element) *sysmlv1.Element {
+	var shown *sysmlv1.Element
+	for _, c := range a.carriers[[2]*sysmlv1.Element{s, tgt}] {
+		if !a.m.shownEdges[c] {
+			continue
+		}
+		if a.m.nameOf(c) != "" {
+			return c
+		}
+		if shown == nil {
+			shown = c
+		}
+	}
+	if shown != nil {
+		return shown
+	}
+	return e
 }
 
 // callBehavior writes a call behavior action as an action usage typed by the called
@@ -1541,42 +1905,113 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		a.placeholder(n, name, why, v)
 		return
 	}
+	if p := a.m.primitiveCalled(n); p != nil {
+		a.callPrimitive(n, name, p)
+		return
+	}
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
-		a.writeLeafStep(n, name)
+		if a.leafStep(n) {
+			a.writeLeafStep(n, name)
+		} else {
+			a.writeStubStep(n, name)
+		}
 		return
 	}
 	if op := a.m.methodOf[b]; op != nil {
 		b = op
 	}
 	if cat, _ := a.m.classify(b); cat == catActionDef {
-		c := a.m.contextOf(b)
-		note := ""
-		if l, _, why := a.m.lanePerformer(n); l != nil {
-			usage := strings.TrimPrefix(l.expr, "this.") + "." + writeName(a.m.behaviorUsage(b))
-			a.m.w.line("perform action " + name + " ::> " + usage + ";")
-			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
-		} else {
-			a.m.w.line("action " + name + " : " + a.m.ref(b, a.def) + ";")
-			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
-				note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
-			}
-			note = joinNotes(why, note)
-		}
-		a.pins(n, true, a.m.actionParameters(b))
-		if c != nil {
-			expr, cnote := a.callContext(n, c)
-			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
-			a.m.add(n, Mapped, name, cnote)
-		}
-		a.m.add(n, verdictFor(note), name, note)
+		a.callActionDef(n, name, b)
 		return
 	}
+	a.callCalc(n, name, b)
+}
+
+// callActionDef writes a call of an action def as an action usage typed by it,
+// or performing the usage its swimlane's object or the def's own usage stands for.
+func (a *activity) callActionDef(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
+	var note string
+	if l, _, why := a.m.lanePerformer(n); l != nil {
+		usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
+		a.m.w.line("perform action " + name + " ::> " + usage + ";")
+		a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
+		note = why
+	} else if a.m.asUsage[b] {
+		note = joinNotes(why, a.performUsage(name, b))
+	} else {
+		note = joinNotes(why, a.callTyped(n, name, b))
+	}
+	a.pins(n, b)
+	note = joinNotes(note, a.absentArguments(inputPins(n), b))
+	a.m.add(n, verdictFor(note), name, note)
+}
+
+// callTyped writes an action usage typed by the def b, binding the def's
+// context parameter to the caller's object where it takes one.
+func (a *activity) callTyped(n *sysmlv1.Element, name string, b *sysmlv1.Element) string {
+	note := ""
+	ins := ""
+	var bindExpr string
+	c := a.m.contextOf(b)
+	if c != nil {
+		expr, cnote := a.callContext(n, c)
+		switch {
+		case expr == "":
+			note = joinNotes(note, cnote)
+		case c.owner && c.evaluated && !c.used && !c.bound:
+			// The def is already written and declared no parameter.
+		case strings.Contains(expr, "::"):
+			// A bind's ends must be features of the connector's scope; a
+			// qualified member of a def is not one, so the usage redefines.
+			c.bound = true
+			ins = "in ref :>> " + writeName(c.name) + " = " + expr
+			note = joinNotes(note, cnote)
+		default:
+			c.bound = true
+			bindExpr = expr
+			// Bound to the caller's own object, `this` needs no note.
+			if expr != "this" {
+				note = joinNotes(note, cnote)
+			}
+		}
+	}
+	line := actionKw + name + " : " + a.m.ref(b, a.def)
+	if ins != "" {
+		a.m.w.line(line + " { " + strings.Join(a.m.contextBody(b, ins), "; ") + "; }")
+	} else {
+		a.m.w.line(line + ";")
+	}
+	if bindExpr != "" {
+		a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + bindExpr + ";")
+	}
+	if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
+		note = joinNotes(note, "the behavior belongs to "+qualifiedName(owner)+" and runs here in the caller's context")
+	}
+	return note
+}
+
+// callCalc writes a call of a calc def as an action evaluating it over its pins.
+func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
+	cnote := ""
+	var ctxArg string
+	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {
+		if expr, note := a.callContext(n, c); expr != "" {
+			ctxArg, c.bound, cnote = expr, true, note
+		}
+	}
+	cat, _ := a.m.classify(b)
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		var args []string
+		if ctxArg != "" && a.m.contextLeads(b, cat) {
+			args = append(args, ctxArg)
+		}
 		for _, pin := range n.Owned("argument") {
 			args = append(args, writeName(a.names[pin]))
+		}
+		if ctxArg != "" && !a.m.contextLeads(b, cat) {
+			args = append(args, ctxArg)
 		}
 		results := n.Owned("result")
 		call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
@@ -1587,9 +2022,35 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		for _, r := range results[1:] {
 			a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
 		}
-		a.m.w.line("out " + writeName(a.names[results[0]]) + " = " + call + ";")
+		a.m.w.line("out " + writeName(a.names[results[0]]) + "[1] = " + call + ";")
 	})
-	a.m.add(n, Approximated, name, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node")
+	a.m.add(n, Approximated, name, joinNotes(cnote, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node"))
+}
+
+// callPrimitive writes a call to a behavior of the fUML or Alf library as an action
+// whose output pins take the v2 library expressions over its input pins, in v1 order.
+func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitiveCall) {
+	a.settlePins(n)
+	args := make([]string, len(p.ins))
+	for i := range args {
+		args[i] = "null"
+	}
+	ins := inputPins(n)
+	for i, pin := range ins[:min(len(ins), len(args))] {
+		args[i] = writeName(a.m.pins[pin].name)
+	}
+	outs := outputPins(n)
+	for i, pin := range outs[:min(len(outs), len(p.outs))] {
+		a.computed[pin] = p.result(i, args)
+	}
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	for _, pin := range ins[min(len(ins), len(args)):] {
+		a.m.add(pin, Unmapped, "", p.qualified()+" takes "+strconv.Itoa(len(args))+" argument(s); the pin passes nothing")
+	}
+	for _, pin := range outs[min(len(outs), len(p.outs)):] {
+		a.m.add(pin, Unmapped, "", p.qualified()+" gives "+strconv.Itoa(len(p.outs))+" result(s); the pin takes nothing")
+	}
+	a.m.add(n, p.verdict, name, joinNotes(joinNotes("calls "+p.qualified()+", which the v2 library computes", p.provenance), p.note))
 }
 
 // classifierOf returns the classifier a behavior belongs to: the nearest
@@ -1618,11 +2079,17 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	op := a.m.model.Ref(n, "operation")
 	t := firstOwned(n, "target")
 	ins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return p == t })
-	outs := append(n.Owned("result"), n.Owned("outputValue")...)
+	outs := outputPins(n)
 	receiver, note, ok := a.receiverOf(t, op)
 	port := a.m.model.Ref(n, "onPort")
 	if port != nil {
 		receiver, note, ok = a.portReceiver(port, t, op)
+	}
+	withIns := func() string {
+		if ins, _ := a.m.contextIns(a.m.contextOf(op), a.def); ins != "" {
+			return " { " + strings.Join(a.m.contextBody(op, ins), "; ") + "; }"
+		}
+		return ";"
 	}
 	switch {
 	case ok:
@@ -1634,15 +2101,22 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op] && t == nil:
+		note = joinNotes(note, a.performUsage(name, op))
+	case a.m.asUsage[op]:
+		a.m.w.line(actionKw + name + ";")
+		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
 	case port != nil && t == nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	case t != nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 		a.m.add(t, Approximated, "", "the target pin is not written; the call runs in the caller's context")
 	default:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	}
-	a.declarePins(n, ins, outs, true, a.m.actionParameters(op))
+	a.declarePins(n, ins, outs, op)
+	note = joinNotes(note, a.absentArguments(ins, op))
 	a.m.add(n, verdictFor(note), name, note)
 }
 
@@ -1689,7 +2163,7 @@ func (a *activity) opaqueOf(n *sysmlv1.Element) *opaqueResult {
 	body, lang := opaqueBody(n)
 	r := &opaqueResult{assigned: map[*sysmlv1.Element]bool{}}
 	r.lines, r.ok, r.note = a.m.statements(body, lang, n)
-	for _, p := range append(n.Owned("result"), n.Owned("outputValue")...) {
+	for _, p := range outputPins(n) {
 		d, ok := a.m.pins[p]
 		if ok && slices.ContainsFunc(r.lines, func(l string) bool { return strings.HasPrefix(l, "assign "+writeName(d.name)+" :=") }) {
 			r.assigned[p] = true
@@ -1710,7 +2184,7 @@ func (a *activity) unassigned(pin *sysmlv1.Element) bool {
 func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 	r := a.opaqueOf(n)
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		if !r.ok {
 			a.inert[n] = true
 			body, lang := opaqueBody(n)
@@ -1755,7 +2229,9 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
 		decl := "out " + writeName(pname)
 		if typ != "" {
-			decl += " : " + typ
+			decl += " : " + typ + "[1]"
+		} else {
+			decl += "[1]"
 		}
 		a.m.w.line(decl + " = " + expr + ";")
 		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
@@ -1807,7 +2283,7 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		if !a.m.mayHaveFeature(t, f) {
 			return "", "the object read, " + obj + ", is a " + qualifiedName(t) + noFeature + a.m.nameOf(f)
 		}
-		return obj + "." + writeName(a.m.nameOf(f)), ""
+		return a.m.respellThis(obj+"."+writeName(a.m.nameOf(f)), a.act), ""
 	}
 	if objPin == nil || len(a.sources[objPin]) == 0 {
 		return "", ""
@@ -1837,7 +2313,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			if _, _, ok := a.objectOf(obj); !ok {
 				// UML types the object pin by the classifier that owns the feature.
 				a.pinType[obj] = f.Parent
-				a.declarePins(n, inputPins(n), nil, false, nil)
+				a.declarePins(n, inputPins(n), nil, nil)
 			}
 		}
 		expr, why := a.featureOn(obj, f)
@@ -1846,6 +2322,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 				why = "the object whose " + a.m.nameOf(f) + " is read has no v2 name"
 			}
 			a.inert[n] = true
+			a.m.placeholders[n] = true
 			a.m.w.lines(commentLines("not migrated: " + why))
 			a.m.add(n, Unmapped, name, why)
 			return
@@ -1860,7 +2337,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			pname = "result"
 		}
 		a.names[r] = pname
-		a.m.w.line("out " + writeName(pname) + " = " + expr + ";")
+		a.m.w.line("out " + writeName(pname) + "[1] = " + expr + ";")
 		a.m.add(r, Mapped, a.m.v2Name(n)+"."+pname, "")
 		a.m.add(n, Mapped, name, "")
 	})
@@ -1888,13 +2365,19 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 		a.placeholder(n, name, "the action has no value pin", Unmapped)
 		return
 	}
-	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
-		a.m.w.line("assign " + target + "." + writeName(a.m.nameOf(f)) + " := " + writeName(a.names[val]) + ";")
-	})
 	note := ""
+	a.m.w.block(actionKw+name, func() {
+		a.pins(n, nil)
+		assign := "assign " + a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act) + " := " + writeName(a.names[val]) + ";"
+		if !a.m.lacksValue(val) {
+			a.m.w.line(assign)
+			return
+		}
+		a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
+		note = "the pin " + describe(val) + " admits no value, which the feature cannot hold: it is written only when the pin holds one"
+	})
 	if mult, _ := a.m.multiplicity(f); mult != "" && n.Attrs["isReplaceAll"] != "true" {
-		note = "the value replaces the feature's; adding to a collection is not written"
+		note = joinNotes(note, "the value replaces the feature's; adding to a collection is not written")
 	}
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -1913,16 +2396,17 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 	}
 	var note string
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		args, anote := a.signalArguments(n, sig)
 		note = anote
 		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
 		if port := a.m.model.Ref(n, "onPort"); port != nil {
+			path, hasPath := a.portPath(port)
 			switch {
 			case !a.m.written(port):
 				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
-			case a.hasPort(port):
-				line += " via " + a.self() + "." + writeName(a.m.nameOf(port))
+			case hasPath:
+				line += " via " + a.m.respellThis(a.self()+"."+path, a.act)
 			default:
 				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"
 			}
@@ -1931,9 +2415,9 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			switch {
 			case ok && obj == a.self():
 			case ok:
-				line += " to " + obj
+				line += " to " + a.m.respellThis(obj, a.act)
 			case len(a.sources[t]) > 0:
-				line += " to " + writeName(a.names[t])
+				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
 			default:
 				note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
 			}
@@ -2046,7 +2530,7 @@ func (m *migration) acceptClause(ev, scope *sysmlv1.Element, payload string) (cl
 			return "", note, false
 		}
 		if payload != "" {
-			return "accept " + writeName(payload) + " : " + m.ref(sig, scope), "", true
+			return "accept " + writeName(payload) + " : " + m.acceptSignalRef(sig, scope, writeName(payload)), "", true
 		}
 		return "accept " + m.ref(sig, scope), "", true
 	case "TimeEvent":
@@ -2061,7 +2545,7 @@ func (m *migration) acceptClause(ev, scope *sysmlv1.Element, payload string) (cl
 		if !ok {
 			return "", "the time event's time is not written: " + note, false
 		}
-		return "accept after " + d + " [SI::s]", note, true
+		return "accept after " + inSeconds(d), note, true
 	case "ChangeEvent":
 		expr, ok, note := m.behaviorValue(firstOwned(ev, "changeExpression"), scope)
 		if !ok {
@@ -2087,7 +2571,7 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 		note = "the node's clauses are written as one graph; their tests are not"
 	}
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		for _, v := range n.Owned("variable") {
 			a.m.add(v, Unmapped, "", "a structured node's variable is not written")
 		}

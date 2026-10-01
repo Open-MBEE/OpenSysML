@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Safety_Profile="http://example.com/schemas/Safety_Profile.xmi"
+         xmlns:Cost_Profile="http://example.com/schemas/Cost_Profile.xmi"
+         xmlns:Vendor="http://example.com/schemas/Vendor.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Depot">
+
+    <!-- Two profiles each define a «Critical»; «Vital» specializes the safety one. -->
+    <packagedElement xmi:type="uml:Profile" xmi:id="_safety_profile" name="Safety Profile" URI="http://example.com/schemas/Safety_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_safety_critical" name="Critical">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_safety_critical_base" name="base_Class" association="_ext_safety_critical">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_safety_critical" memberEnd="_st_safety_critical_base _ext_safety_critical_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_safety_critical_end" name="extension_Critical" type="_st_safety_critical" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_safety_vital" name="Vital">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_vital" general="_st_safety_critical"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Profile" xmi:id="_cost_profile" name="Cost Profile" URI="http://example.com/schemas/Cost_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_cost_critical" name="Critical">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_cost_critical_base" name="base_Class" association="_ext_cost_critical">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_cost_critical" memberEnd="_st_cost_critical_base _ext_cost_critical_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_cost_critical_end" name="extension_Critical" type="_st_cost_critical" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_plant" name="Plant">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_valve" name="Valve"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_tank" name="Tank"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_flow" name="Flow Rate"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy_pump" client="_blk_pump" supplier="_req_flow"/>
+    </packagedElement>
+
+    <!-- The hose carries a «Critical» of a profile the document does not define. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_spares" name="Spares">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_hose" name="Hose"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_gasket" name="Gasket"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Depot Viewpoints">
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_items" name="Critical Items Viewpoint" classifierBehavior="_act_items">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_items" name="Critical Items Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_items_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_items_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_items_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_items_table" name="Critical Items">
+            <node xmi:type="uml:InitialNode" xmi:id="_items_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_items_col_name" name="Name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_items_table_e1" source="_items_table_init" target="_items_col_name"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_items_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_items_e1" source="_items_init" target="_items_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_items_e2" source="_items_collect" target="_items_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_items_e3" source="_items_filter" target="_items_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_items_e4" source="_items_table" target="_items_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_exact" name="Exact Critical Layouts Viewpoint" classifierBehavior="_act_exact">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_exact" name="Exact Critical Layouts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_exact_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_exact_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_exact_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_exact_again" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_exact_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_exact_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_exact_e1" source="_exact_init" target="_exact_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_exact_e2" source="_exact_collect" target="_exact_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_exact_e3" source="_exact_filter" target="_exact_again"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_exact_e4" source="_exact_again" target="_exact_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_exact_e5" source="_exact_image" target="_exact_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_figures" name="Critical Figures Viewpoint" classifierBehavior="_act_figures">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_figures" name="Critical Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_figures_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_types" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_figures_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e1" source="_figures_init" target="_figures_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e2" source="_figures_collect" target="_figures_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e3" source="_figures_filter" target="_figures_types"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e4" source="_figures_types" target="_figures_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e5" source="_figures_image" target="_figures_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_rest" name="Uncritical Figures Viewpoint" classifierBehavior="_act_rest">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_rest" name="Uncritical Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_rest_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rest_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rest_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rest_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_rest_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rest_e1" source="_rest_init" target="_rest_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rest_e2" source="_rest_collect" target="_rest_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rest_e3" source="_rest_filter" target="_rest_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rest_e4" source="_rest_image" target="_rest_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_layouts" name="Critical Layouts Viewpoint" classifierBehavior="_act_layouts">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_layouts" name="Critical Layouts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_layouts_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_layouts_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_layouts_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_layouts_again" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_layouts_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_layouts_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_layouts_e1" source="_layouts_init" target="_layouts_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_layouts_e2" source="_layouts_collect" target="_layouts_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_layouts_e3" source="_layouts_filter" target="_layouts_again"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_layouts_e4" source="_layouts_again" target="_layouts_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_layouts_e5" source="_layouts_image" target="_layouts_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_sat" name="Satisfier Figures Viewpoint" classifierBehavior="_act_sat">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_sat" name="Satisfier Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_sat_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sat_collect" name="Collect Satisfiers"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sat_types" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sat_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_sat_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sat_e1" source="_sat_init" target="_sat_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sat_e2" source="_sat_collect" target="_sat_types"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sat_e3" source="_sat_types" target="_sat_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sat_e4" source="_sat_image" target="_sat_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_satown" name="Satisfier Layouts Viewpoint" classifierBehavior="_act_satown">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_satown" name="Satisfier Layouts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_satown_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_satown_collect" name="Collect Satisfiers"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_satown_owned" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_satown_types" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_satown_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_satown_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_satown_e1" source="_satown_init" target="_satown_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_satown_e2" source="_satown_collect" target="_satown_owned"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_satown_e3" source="_satown_owned" target="_satown_types"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_satown_e4" source="_satown_types" target="_satown_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_satown_e5" source="_satown_image" target="_satown_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_owned" name="Owned Figures Viewpoint" classifierBehavior="_act_owned">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_owned" name="Owned Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_owned_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owned_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owned_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owned_again" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owned_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_owned_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owned_e1" source="_owned_init" target="_owned_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owned_e2" source="_owned_collect" target="_owned_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owned_e3" source="_owned_filter" target="_owned_again"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owned_e4" source="_owned_again" target="_owned_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owned_e5" source="_owned_image" target="_owned_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_doc" name="Depot Handbook">
+      <packagedElement xmi:type="uml:Class" xmi:id="_doc_handbook" name="Depot Handbook">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_items" name="criticalItems" type="_view_items" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_exact" name="exactCriticalLayouts" type="_view_exact" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_figures" name="criticalFigures" type="_view_figures" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_rest" name="uncriticalFigures" type="_view_rest" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_layouts" name="criticalLayouts" type="_view_layouts" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_sat" name="satisfierFigures" type="_view_sat" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_satown" name="satisfierLayouts" type="_view_satown" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_owned" name="ownedFigures" type="_view_owned" aggregation="composite"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_items" name="Critical Items">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_items" general="_vp_items"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_items_plant" client="_view_items" supplier="_pkg_plant"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_items_spares" client="_view_items" supplier="_pkg_spares"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_exact" name="Exact Critical Layouts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_exact" general="_vp_exact"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_exact" client="_view_exact" supplier="_pkg_plant"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_figures" name="Critical Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_figures" general="_vp_figures"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_figures" client="_view_figures" supplier="_pkg_spares"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_rest" name="Uncritical Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_rest" general="_vp_rest"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rest_plant" client="_view_rest" supplier="_pkg_plant"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rest_spares" client="_view_rest" supplier="_pkg_spares"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_layouts" name="Critical Layouts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_layouts" general="_vp_layouts"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_layouts" client="_view_layouts" supplier="_pkg_plant"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_sat" name="Satisfier Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_sat" general="_vp_sat"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sat" client="_view_sat" supplier="_req_flow"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_satown" name="Satisfier Layouts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_satown" general="_vp_satown"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_satown" client="_view_satown" supplier="_req_flow"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_owned" name="Owned Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_owned" general="_vp_owned"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_owned" client="_view_owned" supplier="_pkg_spares"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_plant" name="Plant Layout" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                  <usedElements>_blk_tank</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_pump" name="Pump Layout" ownerOfDiagram="_blk_pump">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_valve" name="Valve Layout" ownerOfDiagram="_blk_valve">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_valve</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_tank" name="Tank Layout" ownerOfDiagram="_blk_tank">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_tank</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_st_blk_valve" base_Class="_blk_valve"/>
+  <sysml:Block xmi:id="_st_blk_tank" base_Class="_blk_tank"/>
+  <sysml:Block xmi:id="_st_blk_hose" base_Class="_blk_hose"/>
+  <sysml:Block xmi:id="_st_blk_gasket" base_Class="_blk_gasket"/>
+  <sysml:Requirement xmi:id="_st_req_flow" base_Class="_req_flow" Id="D-1" Text="The pump delivers the rated flow."/>
+  <sysml:Satisfy xmi:id="_st_satisfy_pump" base_Abstraction="_dep_satisfy_pump"/>
+  <Safety_Profile:Critical xmi:id="_app_safety_pump" base_Class="_blk_pump"/>
+  <Cost_Profile:Critical xmi:id="_app_cost_valve" base_Class="_blk_valve"/>
+  <Safety_Profile:Vital xmi:id="_app_safety_tank" base_Class="_blk_tank"/>
+  <Vendor:Critical xmi:id="_app_vendor_hose" base_Class="_blk_hose"/>
+
+  <sysml:Viewpoint xmi:id="_st_vp_items" base_Class="_vp_items"/>
+  <sysml:Viewpoint xmi:id="_st_vp_exact" base_Class="_vp_exact"/>
+  <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
+  <sysml:Viewpoint xmi:id="_st_vp_rest" base_Class="_vp_rest"/>
+  <sysml:Viewpoint xmi:id="_st_vp_layouts" base_Class="_vp_layouts"/>
+  <sysml:Viewpoint xmi:id="_st_vp_sat" base_Class="_vp_sat"/>
+  <sysml:Viewpoint xmi:id="_st_vp_satown" base_Class="_vp_satown"/>
+  <sysml:Viewpoint xmi:id="_st_vp_owned" base_Class="_vp_owned"/>
+
+  <sysml:View xmi:id="_st_view_items" base_Class="_view_items"/>
+  <sysml:View xmi:id="_st_view_exact" base_Class="_view_exact"/>
+  <sysml:View xmi:id="_st_view_figures" base_Class="_view_figures"/>
+  <sysml:View xmi:id="_st_view_rest" base_Class="_view_rest"/>
+  <sysml:View xmi:id="_st_view_layouts" base_Class="_view_layouts"/>
+  <sysml:View xmi:id="_st_view_sat" base_Class="_view_sat"/>
+  <sysml:View xmi:id="_st_view_satown" base_Class="_view_satown"/>
+  <sysml:View xmi:id="_st_view_owned" base_Class="_view_owned"/>
+
+  <sysml:Conform xmi:id="_st_conform_items" base_Generalization="_gen_items"/>
+  <sysml:Conform xmi:id="_st_conform_exact" base_Generalization="_gen_exact"/>
+  <sysml:Conform xmi:id="_st_conform_figures" base_Generalization="_gen_figures"/>
+  <sysml:Conform xmi:id="_st_conform_rest" base_Generalization="_gen_rest"/>
+  <sysml:Conform xmi:id="_st_conform_layouts" base_Generalization="_gen_layouts"/>
+  <sysml:Conform xmi:id="_st_conform_sat" base_Generalization="_gen_sat"/>
+  <sysml:Conform xmi:id="_st_conform_satown" base_Generalization="_gen_satown"/>
+  <sysml:Conform xmi:id="_st_conform_owned" base_Generalization="_gen_owned"/>
+
+  <sysml:Expose xmi:id="_st_expose_items_plant" base_Dependency="_expose_items_plant"/>
+  <sysml:Expose xmi:id="_st_expose_items_spares" base_Dependency="_expose_items_spares"/>
+  <sysml:Expose xmi:id="_st_expose_exact" base_Dependency="_expose_exact"/>
+  <sysml:Expose xmi:id="_st_expose_figures" base_Dependency="_expose_figures"/>
+  <sysml:Expose xmi:id="_st_expose_rest_plant" base_Dependency="_expose_rest_plant"/>
+  <sysml:Expose xmi:id="_st_expose_rest_spares" base_Dependency="_expose_rest_spares"/>
+  <sysml:Expose xmi:id="_st_expose_layouts" base_Dependency="_expose_layouts"/>
+  <sysml:Expose xmi:id="_st_expose_sat" base_Dependency="_expose_sat"/>
+  <sysml:Expose xmi:id="_st_expose_satown" base_Dependency="_expose_satown"/>
+  <sysml:Expose xmi:id="_st_expose_owned" base_Dependency="_expose_owned"/>
+
+  <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_items_collect" base_CallBehaviorAction="_items_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_items_filter" base_CallBehaviorAction="_items_filter" include="true" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:TableStructure xmi:id="_st_items_table" base_StructuredActivityNode="_items_table"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_items_col_name" base_CallBehaviorAction="_items_col_name" desiredAttribute="Name"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_exact_collect" base_CallBehaviorAction="_exact_collect" depth="1"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_exact_filter" base_CallBehaviorAction="_exact_filter" include="true" considerDerived="false" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_exact_again" base_CallBehaviorAction="_exact_again" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_exact_image" base_CallBehaviorAction="_exact_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_figures_collect" base_CallBehaviorAction="_figures_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_figures_filter" base_CallBehaviorAction="_figures_filter" include="true" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_figures_types" base_CallBehaviorAction="_figures_types" include="true">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_rest_collect" base_CallBehaviorAction="_rest_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_rest_filter" base_CallBehaviorAction="_rest_filter" include="false" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:Image xmi:id="_st_rest_image" base_CallBehaviorAction="_rest_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_layouts_collect" base_CallBehaviorAction="_layouts_collect" depth="1"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_layouts_filter" base_CallBehaviorAction="_layouts_filter" include="true" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_layouts_again" base_CallBehaviorAction="_layouts_again" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_layouts_image" base_CallBehaviorAction="_layouts_image"/>
+
+  <Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_sat_collect" base_CallBehaviorAction="_sat_collect" depth="1" directionOut="false">
+    <stereotypes href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Satisfy"/>
+  </Document_Profile_:CollectByDirectedRelationshipStereotypes>
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_sat_types" base_CallBehaviorAction="_sat_types" include="true">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_sat_image" base_CallBehaviorAction="_sat_image"/>
+
+  <Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_satown_collect" base_CallBehaviorAction="_satown_collect" depth="1" directionOut="false">
+    <stereotypes href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Satisfy"/>
+  </Document_Profile_:CollectByDirectedRelationshipStereotypes>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_satown_owned" base_CallBehaviorAction="_satown_owned" depth="1"/>
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_satown_types" base_CallBehaviorAction="_satown_types" include="true">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_satown_image" base_CallBehaviorAction="_satown_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_owned_collect" base_CallBehaviorAction="_owned_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_owned_filter" base_CallBehaviorAction="_owned_filter" include="true" stereotypes="_st_safety_critical"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_owned_again" base_CallBehaviorAction="_owned_again" depth="0"/>
+  <Document_Profile_:Image xmi:id="_st_owned_image" base_CallBehaviorAction="_owned_image"/>
+</xmi:XMI>

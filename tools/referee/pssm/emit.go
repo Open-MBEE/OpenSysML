@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/deferred"
 )
 
 // Model is one test's state machine spelled in SysML v2 textual notation,
@@ -28,53 +29,6 @@ type Model struct {
 	Events []Stimulus
 }
 
-// Stimulus is one event the tester sends the target: a signal, with its scalar
-// payload when the signal carries one, or an operation call with its arguments.
-type Stimulus struct {
-	Signal string
-	Call   string
-	// Value is the scalar payload of a signal, nil for a plain signal.
-	Value *Literal
-	// Args are the call's arguments in parameter order.
-	Args []Argument
-}
-
-// Argument is one argument of a queued operation call.
-type Argument struct {
-	Name  string
-	Value *Literal
-}
-
-// String spells the stimulus for a report.
-func (s Stimulus) String() string {
-	if s.Call != "" {
-		parts := make([]string, len(s.Args))
-		for i, a := range s.Args {
-			parts[i] = a.Value.String()
-		}
-		return s.Call + "(" + strings.Join(parts, ", ") + ")"
-	}
-	if s.Value != nil {
-		return s.Signal + "(" + s.Value.String() + ")"
-	}
-	return s.Signal
-}
-
-// TranslateError reports a construct of a test the emitter has no exact
-// translation for. It never drops the construct instead.
-type TranslateError struct {
-	Test   string
-	Where  string
-	Reason string
-}
-
-func (e *TranslateError) Error() string {
-	if e.Where == "" {
-		return fmt.Sprintf("%s: %s", e.Test, e.Reason)
-	}
-	return fmt.Sprintf("%s: %s: %s", e.Test, e.Where, e.Reason)
-}
-
 // scalarTypes maps the UML primitive types the suite uses to ScalarValues.
 var scalarTypes = map[string]string{
 	"Boolean":          "Boolean",
@@ -90,20 +44,28 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	if t.Machine == nil {
 		return nil, &TranslateError{Test: t.ID, Reason: "no state machine"}
 	}
-	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, signals: map[string]bool{}}
+	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, taken: map[string]bool{}, signals: map[string]bool{}}
 	e.nameVertices(t.Machine.Regions)
 	var body strings.Builder
 	if err := e.machine(&body); err != nil {
 		return nil, err
 	}
-	events, err := e.stimulation()
+	events, err := Stimulation(s, t)
 	if err != nil {
 		return nil, err
+	}
+	for _, ev := range events {
+		if ev.Signal != "" {
+			e.signals[ev.Signal] = true
+		}
 	}
 	var text strings.Builder
 	fmt.Fprintf(&text, "package %s {\n", t.ID)
 	text.WriteString("    private import ScalarValues::*;\n")
 	text.WriteString("    private import BaseFunctions::*;\n")
+	if e.sequences {
+		text.WriteString("    private import SequenceFunctions::*;\n")
+	}
 	for _, name := range sortedKeys(e.signals) {
 		sig := s.Signals[name]
 		switch {
@@ -114,6 +76,9 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 		default:
 			return nil, &TranslateError{Test: t.ID, Where: "signal " + name, Reason: "a signal with a structured payload has no scalar binding"}
 		}
+	}
+	for _, def := range e.defs {
+		text.WriteString(def)
 	}
 	text.WriteString(body.String())
 	text.WriteString("}\n")
@@ -134,17 +99,40 @@ const machineName = "M"
 type emitter struct {
 	suite *Suite
 	test  *Test
-	// names are the emitted names of the machine's vertices, unique per machine.
+	// names are the emitted names of the machine's vertices, unique per machine;
+	// taken holds every emitted name, so a transition's collides with none.
 	names map[*Vertex]string
+	taken map[string]bool
 	// signals are the signals the model references, to be declared.
 	signals map[string]bool
-	// placed are transitions emitted in a scope other than their own region's.
-	placed map[*Region][]*Transition
+	// placed are transitions emitted in a scope other than their own region's;
+	// scopeOf is the region each transition is emitted in.
+	placed  map[*Region][]*Transition
+	scopeOf map[*Transition]*Region
+	// named are the emitted names of the transitions declared by name, for an
+	// exit to read their payload; unique per machine, so none shadows another.
+	named map[*Transition]string
 	// carried maps a triggered transition to the attribute its scalar payload is
 	// stored in, for a guard on a pseudostate downstream that reads it.
 	carried map[*Transition]string
 	// carriedAttrs declares those attributes, in first-use order.
 	carriedAttrs []string
+	// bindings are the behaviors with parameters and the events binding them.
+	bindings *Bindings
+	// defs are the action definitions the bound behaviors become, in the order
+	// their invocations are spelled; defNames are their names.
+	defs     []string
+	defNames map[*Behavior]string
+	// scope maps the parameters of the behavior being spelled to the names or
+	// arguments standing for them; scopeTypes carries their UML types and
+	// scopeWrites the attributes its returns write instead, where they differ.
+	scope       map[string]string
+	scopeTypes  map[string]string
+	scopeWrites map[string]string
+	// scopeEmpty names the inputs the firing may have left empty.
+	scopeEmpty map[string]bool
+	// sequences marks a model reading SequenceFunctions, to be imported.
+	sequences bool
 }
 
 func (e *emitter) fail(where, reason string) error {
@@ -155,7 +143,6 @@ func (e *emitter) fail(where, reason string) error {
 // suffixing a name two vertices share so each is one endpoint. An initial
 // pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
-	taken := map[string]bool{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
@@ -167,17 +154,38 @@ func (e *emitter) nameVertices(regions []*Region) {
 				if v.Kind == VertexInitial {
 					base += "_start"
 				}
-				name := base
-				for n := 2; taken[name]; n++ {
-					name = fmt.Sprintf("%s_%d", base, n)
-				}
-				taken[name] = true
-				e.names[v] = name
+				e.names[v] = e.take(base)
 				visit(v.Regions)
 			}
 		}
 	}
 	visit(regions)
+}
+
+// take claims base as an emitted name, suffixed while an earlier name has it.
+func (e *emitter) take(base string) string {
+	return e.takeAvoiding(base, nil)
+}
+
+// takeAvoiding is take, suffixing past the names in avoid as well.
+func (e *emitter) takeAvoiding(base string, avoid map[string]bool) string {
+	name := base
+	for n := 2; e.taken[name] || avoid[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
+	e.taken[name] = true
+	return name
+}
+
+// unshadowed suffixes base while it is a name in avoid: a generated member so
+// named would hide the signal from the references the encoding writes to it,
+// `accept kept : kept` binding the payload to its own name.
+func unshadowed(base string, avoid map[string]bool) string {
+	name := base
+	for n := 2; avoid[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
+	return name
 }
 
 // identifier turns a vertex path such as "S1.S1.1" into a bare identifier,
@@ -210,10 +218,17 @@ func spell(name string) string {
 func (e *emitter) machine(b *strings.Builder) error {
 	m := e.test.Machine
 	e.placed = map[*Region][]*Transition{}
+	e.scopeOf = map[*Transition]*Region{}
 	if err := e.placeTransitions(m.Regions); err != nil {
 		return err
 	}
 	e.carryPayloads(m.Regions)
+	e.bindings = BindBehaviors(m)
+	e.nameExitTriggers()
+	e.defNames = map[*Behavior]string{}
+	if err := e.carryEventData(); err != nil {
+		return err
+	}
 	attrs := append([]string{`attribute log : String = "";`}, e.carriedAttrs...)
 	if e.test.Target != nil {
 		initial, err := e.factoryDefaults()
@@ -398,9 +413,9 @@ func zeroLiteral(typ string) string {
 	return "0"
 }
 
-// placeTransitions files each transition under the region whose scope must
-// declare it: its own, or the region of the final state it targets, where
-// `done` names that final state.
+// placeTransitions files each transition under the innermost region that
+// contains both ends, except that a transition to a final state stays under
+// that final state's region, where `done` names the target.
 func (e *emitter) placeTransitions(regions []*Region) error {
 	var visit func([]*Region) error
 	visit = func(regions []*Region) error {
@@ -409,8 +424,14 @@ func (e *emitter) placeTransitions(regions []*Region) error {
 				scope := r
 				if t.Target != nil && t.Target.Kind == VertexFinal && t.Target.Region != nil {
 					scope = t.Target.Region
+				} else if t.Source != nil && t.Target != nil {
+					scope = commonRegion(t.Source, t.Target)
+					if scope == nil {
+						return e.fail(t.Describe(), "transition ends have no common region")
+					}
 				}
 				e.placed[scope] = append(e.placed[scope], t)
+				e.scopeOf[t] = scope
 			}
 			for _, v := range r.Vertices {
 				if err := visit(v.Regions); err != nil {
@@ -423,13 +444,44 @@ func (e *emitter) placeTransitions(regions []*Region) error {
 	return visit(regions)
 }
 
+// commonRegion returns the innermost region containing both vertices.
+func commonRegion(a, b *Vertex) *Region {
+	contains := map[*Region]bool{}
+	for r := a.Region; r != nil; r = regionParent(r) {
+		contains[r] = true
+	}
+	for r := b.Region; r != nil; r = regionParent(r) {
+		if contains[r] {
+			return r
+		}
+	}
+	return nil
+}
+
+func regionParent(r *Region) *Region {
+	if r == nil || r.owner == nil {
+		return nil
+	}
+	return r.owner.Region
+}
+
 // stateBody emits `state <name> [parallel] { ... }` for a state or the machine:
-// its attributes, entry/do/exit behaviors, deferred triggers, vertices and
-// transitions, with an orthogonal state's regions as parallel substates.
+// its attributes, entry/do/exit behaviors, the encoding of its deferred
+// signals, vertices and transitions, with an orthogonal state's regions as
+// parallel substates.
 func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, state *Vertex, regions []*Region, attrs []string) error {
 	ind := strings.Repeat("    ", depth)
+	inner := ind + "    "
 	where := "state " + path
-	parts, err := e.stateParts(state, where)
+	kept, err := e.kept(state, where)
+	if err != nil {
+		return err
+	}
+	exitInd := inner
+	if kept != nil {
+		exitInd += "    "
+	}
+	parts, err := e.stateParts(state, inner, exitInd, where)
 	if err != nil {
 		return err
 	}
@@ -438,9 +490,12 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 		parallel = " parallel"
 	}
 	fmt.Fprintf(b, "%sstate %s%s {\n", ind, spell(name), parallel)
-	inner := ind + "    "
 	for _, a := range attrs {
 		b.WriteString(inner + a + "\n")
+	}
+	w := &indentWriter{b: b, ind: inner}
+	if kept != nil {
+		kept.Items(w)
 	}
 	entryName := "initial"
 	if path != "" {
@@ -453,18 +508,19 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 		}
 	}
 	writeEntry(b, inner, entryName, parts.entry, initialTarget)
-	if parts.do != nil {
-		if err := e.doBody(b, inner, parts.do, where+" do"); err != nil {
+	if kept != nil {
+		if err := e.keptBehaviors(w, kept, state, parts.exit, where); err != nil {
 			return err
 		}
-	}
-	if len(parts.exit) > 0 {
-		fmt.Fprintf(b, "%sexit action {\n", inner)
-		writeStmts(b, inner+"    ", parts.exit)
-		fmt.Fprintf(b, "%s}\n", inner)
-	}
-	if err := e.writeDeferred(b, inner, parts.deferred, where); err != nil {
-		return err
+	} else {
+		if state != nil && state.Do != nil {
+			if err := e.doBody(b, inner, "do action", state.Do, where+" do"); err != nil {
+				return err
+			}
+		}
+		if parts.exit != "" {
+			fmt.Fprintf(b, "%sexit action%s\n", inner, parts.exit)
+		}
 	}
 	if len(regions) == 1 {
 		if err := e.region(b, depth+1, regions[0], path); err != nil {
@@ -482,6 +538,126 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	return nil
 }
 
+// keeping is a state's deferred-signal encoding with the name of the state's
+// own behavior nested in the encoding's actions.
+type keeping struct {
+	*deferred.Encoding
+	run string
+}
+
+// kept is the standard encoding of a state's deferred signals, nil when it
+// defers none: each is kept in an ordered buffer by an accept loop of the
+// state's do action and sent back to the machine by its exit action. The
+// buffer is an attribute, as the suite's signals are attribute definitions.
+// Triggers deferring one signal share its buffer and loop, as two loops would
+// keep each occurrence twice. No name the encoding makes up is a kept signal's,
+// as the encoding refers to each signal from within the members it makes up. A
+// deferred call has no such spelling, the encoding keeping signals only, nor
+// has a deferral in a state an unguarded completion transition leaves.
+func (e *emitter) kept(state *Vertex, where string) (*keeping, error) {
+	if state == nil || len(state.Deferred) == 0 {
+		return nil, nil
+	}
+	if unguardedCompletionOutOf(state) {
+		return nil, e.fail(where, "a deferral in a state left by an unguarded completion transition has no standard spelling: the accept loop keeping the signal never completes, so the completion transition would never fire")
+	}
+	var names []string
+	seen := map[string]bool{}
+	for _, trig := range state.Deferred {
+		if trig.Event == nil || trig.Event.Kind != EventSignal || trig.Event.Signal == nil {
+			return nil, e.fail(where, fmt.Sprintf("deferring %s has no standard spelling: an ordered buffer keeps signals only", trig.Event.Describe()))
+		}
+		if name := trig.Event.Signal.Name; !seen[name] {
+			seen[name] = true
+			names = append(names, name)
+		}
+	}
+	enc := &deferred.Encoding{Including: "SequenceFunctions::including"}
+	for _, name := range names {
+		e.signals[name] = true
+		base := "deferred"
+		suffix := ""
+		if len(names) > 1 {
+			base += identifier(name)
+			suffix = identifier(name)
+		}
+		payload := unshadowed(deferredPayload+suffix, seen)
+		enc.Signals = append(enc.Signals, deferred.Signal{
+			Ref:    spell(name),
+			Kind:   "attribute",
+			Buffer: e.takeAvoiding(base, seen),
+			Item:   payload,
+			Clear:  unshadowed("clear"+suffix, seen),
+			Loops: []deferred.Loop{{
+				Receive: unshadowed("receive"+suffix, seen),
+				Keep:    unshadowed("keep"+suffix, seen),
+				Payload: payload,
+				Accept:  spell(name),
+			}},
+		})
+	}
+	enc.Buffer = e.takeAvoiding("buffer", seen)
+	enc.Flush = e.takeAvoiding("flush", seen)
+	enc.Split = unshadowed("split", seen)
+	return &keeping{Encoding: enc, run: unshadowed(keptRun, seen)}, nil
+}
+
+// deferredPayload is the base name of a generated accept's parameter and of a
+// generated flush loop's variable; keptRun names the state's own behavior
+// nested in the encoding's actions.
+const (
+	deferredPayload = "kept"
+	keptRun         = "run"
+)
+
+// keptBehaviors writes a deferring state's do and exit actions: the encoding's,
+// the state's own do behavior forked beside the accept loops and its own exit
+// behavior run before the flush.
+func (e *emitter) keptBehaviors(w *indentWriter, kept *keeping, state *Vertex, exit, where string) error {
+	var own func() deferred.Own
+	var err error
+	if state.Do != nil {
+		own = func() deferred.Own {
+			var text strings.Builder
+			err = e.doBody(&text, w.ind, "action "+kept.run, state.Do, where+" do")
+			return deferred.Own{Text: text.String(), Written: text.Len() > 0, Run: kept.run}
+		}
+	}
+	kept.Do(w, own)
+	if err != nil {
+		return err
+	}
+	var exitOwn func() deferred.Own
+	if exit != "" {
+		exitOwn = func() deferred.Own {
+			return deferred.Own{Text: w.ind + "action " + kept.run + exit + "\n", Written: true, Run: kept.run}
+		}
+	}
+	kept.Exit(w, exitOwn)
+	return nil
+}
+
+// indentWriter writes the shared deferral encoding into the model's text at
+// the indentation of the body being written.
+type indentWriter struct {
+	b   *strings.Builder
+	ind string
+}
+
+func (w *indentWriter) Line(s string) { w.b.WriteString(w.ind + s + "\n") }
+
+func (w *indentWriter) Block(header string, body func()) {
+	w.Line(header + " {")
+	w.ind += "    "
+	body()
+	w.ind = strings.TrimSuffix(w.ind, "    ")
+	w.Line("}")
+}
+
+func (w *indentWriter) Raw(text string) { w.b.WriteString(text) }
+
+func (w *indentWriter) MadeUp(string) {}
+
 // startEntry spells a single region's initial transition as the destination of
 // the state's entry; an empty region contributes no destination.
 func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, where string) (string, error) {
@@ -495,6 +671,9 @@ func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, w
 // initialSuffix names the entry action a state's or region's path is suffixed with.
 const initialSuffix = ".initial"
 
+// entryLabel qualifies a `where` or path with the state's entry behavior.
+const entryLabel = " entry"
+
 // effectOf locates a transition's effect for a diagnostic.
 func effectOf(tr *Transition) string {
 	return tr.Describe() + " effect"
@@ -505,69 +684,61 @@ func regionWhere(name string) string {
 	return "region " + name
 }
 
-// stateParts is what a state's own declaration contributes to its body.
+// stateParts is what a state's own declaration contributes to its body: the
+// entry and exit actions' text after `action` ("" for none).
 type stateParts struct {
-	entry, exit []string
-	do          *Body
-	deferred    []*Trigger
+	entry, exit string
 }
 
-// stateParts translates a state's entry, exit and do behaviors and reads its
-// deferred triggers; the machine itself (state nil) contributes nothing.
-func (e *emitter) stateParts(state *Vertex, where string) (stateParts, error) {
+// stateParts translates a state's entry and exit behaviors, the exit's body
+// indented at exitInd where the encoding of a deferral nests it; the machine
+// itself (state nil) contributes nothing.
+func (e *emitter) stateParts(state *Vertex, ind, exitInd, where string) (stateParts, error) {
 	var parts stateParts
 	if state == nil {
 		return parts, nil
 	}
 	var err error
-	if parts.entry, err = e.plainBody(state.Entry, where+" entry"); err != nil {
+	if hasParams(state.Entry) {
+		parts.entry, err = e.boundEntry(state.Entry, ind, where+entryLabel, state.Path()+entryLabel)
+	} else {
+		parts.entry, err = e.plainAction(state.Entry, ind, where+entryLabel)
+	}
+	if err != nil {
 		return parts, err
 	}
-	if parts.exit, err = e.plainBody(state.Exit, where+" exit"); err != nil {
-		return parts, err
+	if hasParams(state.Exit) {
+		parts.exit, err = e.boundExit(state, exitInd, where+" exit", state.Path()+" exit")
+	} else {
+		parts.exit, err = e.plainAction(state.Exit, exitInd, where+" exit")
 	}
-	if state.Do != nil {
-		parts.do = state.Do.Body
-		if parts.do == nil {
-			return parts, e.fail(where+" do", "an opaque do behavior has no translation")
-		}
-	}
-	parts.deferred = state.Deferred
-	return parts, nil
+	return parts, err
 }
 
-// writeEntry emits a state's entry: bare `entry; then`, an entry action a
-// transition follows, or an entry action alone.
-func writeEntry(b *strings.Builder, inner, entryName string, entryStmts []string, initialTarget string) {
+// plainAction spells a behavior without parameters as the text after `action`:
+// its statements in a block, "" when it has none.
+func (e *emitter) plainAction(bh *Behavior, ind, where string) (string, error) {
+	stmts, err := e.plainBody(bh, where)
+	if err != nil || len(stmts) == 0 {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString(" {\n")
+	writeStmts(&b, ind+"    ", stmts)
+	return b.String() + ind + "}", nil
+}
+
+// writeEntry emits a state's entry: bare `entry; then`, or an entry action
+// (entry is its text after `action`) with or without a transition following.
+func writeEntry(b *strings.Builder, inner, entryName, entry, initialTarget string) {
 	switch {
-	case len(entryStmts) == 0 && initialTarget != "":
+	case entry == "" && initialTarget != "":
 		fmt.Fprintf(b, "%sentry; then %s;\n", inner, initialTarget)
-	case len(entryStmts) > 0 && initialTarget != "":
-		fmt.Fprintf(b, "%sentry action %s {\n", inner, spell(entryName))
-		writeStmts(b, inner+"    ", entryStmts)
-		fmt.Fprintf(b, "%s}\n%stransition %s then %s;\n", inner, inner, spell(entryName), initialTarget)
-	case len(entryStmts) > 0:
-		fmt.Fprintf(b, "%sentry action {\n", inner)
-		writeStmts(b, inner+"    ", entryStmts)
-		fmt.Fprintf(b, "%s}\n", inner)
+	case entry != "" && initialTarget != "":
+		fmt.Fprintf(b, "%sentry action %s%s\n%stransition %s then %s;\n", inner, spell(entryName), entry, inner, spell(entryName), initialTarget)
+	case entry != "":
+		fmt.Fprintf(b, "%sentry action%s\n", inner, entry)
 	}
-}
-
-// writeDeferred emits a state's deferred signals, if any.
-func (e *emitter) writeDeferred(b *strings.Builder, inner string, deferred []*Trigger, where string) error {
-	if len(deferred) == 0 {
-		return nil
-	}
-	names := make([]string, len(deferred))
-	for i, trig := range deferred {
-		if trig.Event == nil || trig.Event.Kind != EventSignal || trig.Event.Signal == nil {
-			return e.fail(where, "a deferred trigger that is not a signal event has no spelling")
-		}
-		e.signals[trig.Event.Signal.Name] = true
-		names[i] = trig.Event.Signal.Name
-	}
-	fmt.Fprintf(b, "%sdefer %s;\n", inner, strings.Join(names, ", "))
-	return nil
 }
 
 // parallelRegion emits one region of an orthogonal state as a parallel substate
@@ -643,6 +814,9 @@ func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *
 	helper := e.names[init]
 	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s", ind, helper, ind, helper)
 	if tr.Effect != nil {
+		if _, err := e.binding(tr.Effect, effectOf(tr)); err != nil {
+			return "", err
+		}
 		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
 		if err != nil {
 			return "", err
@@ -718,19 +892,25 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	if t.Source == nil || t.Target == nil {
 		return e.fail(where, "a transition without both ends")
 	}
-	source := e.names[t.Source]
-	if source == "" {
+	if e.names[t.Source] == "" {
 		return e.fail(where, "a transition out of an unnamed vertex")
+	}
+	source, err := e.endpoint(t.Source, e.scopeOf[t], where)
+	if err != nil {
+		return err
 	}
 	target, err := e.target(t, where)
 	if err != nil {
 		return err
 	}
 	var effect []string
-	if t.Effect != nil {
-		if effect, err = e.plainBody(t.Effect, effectOf(t)); err != nil {
-			return err
-		}
+	if hasParams(t.Effect) {
+		effect, err = e.boundEffect(t.Effect, ind+"    ", effectOf(t), t.Name+" effect")
+	} else {
+		effect, err = e.plainBody(t.Effect, effectOf(t))
+	}
+	if err != nil {
+		return err
 	}
 	accepts := []string{""}
 	params := []string{""}
@@ -748,6 +928,9 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	if attr := e.carried[t]; attr != "" {
 		effect = append([]string{fmt.Sprintf("assign %s := %s;", attr, params[0])}, effect...)
 	}
+	if ev := e.bindings.Carry[t]; ev != nil {
+		effect = append(e.storeEventData(ev, params[0]), effect...)
+	}
 	for i, accept := range accepts {
 		param := params[i]
 		if param == "" && t.Source.Kind.IsPseudostate() {
@@ -757,7 +940,11 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(b, "%stransition first %s%s%s", ind, spell(source), accept, guard)
+		name := ""
+		if named := e.named[t]; named != "" {
+			name = spell(named) + " "
+		}
+		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, source, accept, guard)
 		if len(effect) > 0 {
 			b.WriteString(" do {\n")
 			writeStmts(b, ind+"    ", effect)
@@ -768,7 +955,8 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 	return nil
 }
 
-// target spells a transition's target: `done` for a final state, else its name.
+// target spells a transition's target relative to the region declaring it:
+// `done` for a final state, else its scoped name.
 func (e *emitter) target(t *Transition, where string) (string, error) {
 	if t.Target == nil {
 		return "", e.fail(where, "a transition without a target")
@@ -780,7 +968,40 @@ func (e *emitter) target(t *Transition, where string) (string, error) {
 	if name == "" || t.Target.Kind == VertexInitial {
 		return "", e.fail(where, "a transition into an unnamed vertex")
 	}
-	return spell(name), nil
+	return e.endpoint(t.Target, e.scopeOf[t], where)
+}
+
+// endpoint spells a vertex relative to the region where its transition is
+// declared, including the state wrapper emitted for an orthogonal region.
+func (e *emitter) endpoint(v *Vertex, scope *Region, where string) (string, error) {
+	var path []*Vertex
+	for cur := v; ; {
+		path = append(path, cur)
+		if cur.Region == scope {
+			break
+		}
+		if cur.Region == nil || cur.Region.owner == nil {
+			return "", e.fail(where, "a transition endpoint is outside its scope")
+		}
+		cur = cur.Region.owner
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	parts := make([]string, 0, len(path)*2)
+	for i, v := range path {
+		if e.names[v] == "" {
+			return "", e.fail(where, "a transition endpoint is unnamed")
+		}
+		parts = append(parts, spell(e.names[v]))
+		if i+1 < len(path) {
+			region := path[i+1].Region
+			if len(v.Regions) > 1 {
+				parts = append(parts, spell(v.Path()+"/"+region.Name))
+			}
+		}
+	}
+	return strings.Join(parts, "."), nil
 }
 
 // trigger spells a trigger as an accept clause, returning the parameter name a
@@ -808,16 +1029,46 @@ func (e *emitter) trigger(trig *Trigger, where string) (accept, param string, er
 		if ev.Operation == nil {
 			return "", "", e.fail(where, "a call event without an operation")
 		}
-		var names []string
-		for _, p := range ev.Operation.Params {
-			if p.Direction == "return" || p.Direction == "out" || p.Direction == "inout" {
-				return "", "", e.fail(where, fmt.Sprintf("operation %s returns a value the caller would observe", ev.Operation.Name))
-			}
-			names = append(names, spell(p.Name))
+		if other := e.indistinctOverload(ev.Operation); other != nil {
+			return "", "", e.fail(where, fmt.Sprintf("a call of %s and one of %s are told apart by the operation they name; `accept %s` takes either", ev.Operation.Signature(), other.Signature(), acceptCall(ev.Operation)))
 		}
-		return fmt.Sprintf("%s(%s)", spell(ev.Operation.Name), strings.Join(names, ", ")), "", nil
+		return acceptCall(ev.Operation), "", nil
 	}
 	return "", "", e.fail(where, fmt.Sprintf("a %s trigger has no spelling", ev.Type))
+}
+
+// acceptCall spells the accept clause of a call trigger, `op(x, y)`.
+func acceptCall(op *Operation) string {
+	var names []string
+	for _, p := range op.Inputs() {
+		names = append(names, spell(p.Name))
+	}
+	return fmt.Sprintf("%s(%s)", spell(op.Name), strings.Join(names, ", "))
+}
+
+// indistinctOverload finds a same-named operation of the target whose calls
+// `accept op(inputs)` also takes: one with every input name of op's.
+func (e *emitter) indistinctOverload(op *Operation) *Operation {
+	if e.test.Target == nil {
+		return nil
+	}
+	for _, other := range e.test.Target.Operations {
+		if other == op || other.Name != op.Name {
+			continue
+		}
+		named := map[string]bool{}
+		for _, p := range other.Inputs() {
+			named[p.Name] = true
+		}
+		covered := true
+		for _, p := range op.Inputs() {
+			covered = covered && named[p.Name]
+		}
+		if covered {
+			return other
+		}
+	}
+	return nil
 }
 
 // alfGuard matches the Alf guard bodies the suite writes: comparisons of a
@@ -828,12 +1079,9 @@ var alfGuard = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9
 // the unguarded default.
 func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 	switch {
-	case g == nil, g.Kind == GuardElse:
+	case g.unconditional():
 		return "", nil
 	case g.Kind == GuardLiteral:
-		if g.Literal {
-			return "", nil
-		}
 		return " if false", nil
 	case g.Kind == GuardOpaque:
 		if guardSideEffect(g) {
@@ -911,6 +1159,22 @@ type step struct {
 	accept string
 }
 
+// perStatement splits each run of statements into one step per statement, so a
+// chained body performs them at the pace a plain body does.
+func perStatement(steps []step) []step {
+	var out []step
+	for _, s := range steps {
+		if s.accept != "" {
+			out = append(out, s)
+			continue
+		}
+		for _, stmt := range s.stmts {
+			out = append(out, step{stmts: []string{stmt}})
+		}
+	}
+	return out
+}
+
 // stepList accumulates steps: statements join the current run, an accept
 // closes it.
 type stepList []step
@@ -937,40 +1201,73 @@ func (e *emitter) steps(body *Body, where string, depth int) ([]step, error) {
 	}
 	var out stepList
 	for _, st := range body.Statements {
-		var err error
-		switch st.Kind {
-		case StmtCall:
-			err = e.stepCall(&out, st, where, depth)
-		case StmtSend:
-			err = e.stepSend(&out, st, where)
-		case StmtAccept:
-			err = e.stepAccept(&out, st, where)
-		case StmtAssign:
-			err = e.stepAssign(&out, st, where)
-		case StmtReturn:
-			err = e.fail(where, "a return has no translation")
-		case StmtStart:
-			err = e.fail(where, "starting an object's behavior has no translation")
-		default:
-			err = e.fail(where, fmt.Sprintf("statement %s has no translation", st))
+		guards := e.guards(st)
+		if len(guards) == 0 {
+			if err := e.stmt(&out, st, where, depth); err != nil {
+				return nil, err
+			}
+			continue
 		}
-		if err != nil {
+		if err := e.guarded(&out, st, guards, where, depth); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-// stepCall translates a call: a trace appends to the log, any other call
-// inlines the method it names.
+// guarded translates a statement whose node fires only when the inputs it needs
+// hold a token, as UML starves it otherwise: `if notEmpty(p) { ... }`.
+func (e *emitter) guarded(out *stepList, st Statement, guards []string, where string, depth int) error {
+	var inner stepList
+	if err := e.stmt(&inner, st, where, depth); err != nil {
+		return err
+	}
+	var stmts []string
+	for _, s := range inner {
+		if s.accept != "" {
+			return e.fail(where, "an accept behind an input a firing may leave empty has no spelling")
+		}
+		stmts = append(stmts, s.stmts...)
+	}
+	if len(stmts) == 0 {
+		return nil
+	}
+	out.add(fmt.Sprintf("if %s { %s }", strings.Join(guards, " and "), strings.Join(stmts, " ")))
+	return nil
+}
+
+// stmt translates one statement into the steps.
+func (e *emitter) stmt(out *stepList, st Statement, where string, depth int) error {
+	switch st.Kind {
+	case StmtCall:
+		return e.stepCall(out, st, where, depth)
+	case StmtSend:
+		return e.stepSend(out, st, where)
+	case StmtAccept:
+		return e.stepAccept(out, st, where)
+	case StmtAssign:
+		return e.stepAssign(out, st, where, depth)
+	case StmtReturn:
+		return e.stepReturn(out, st, where, depth)
+	case StmtStart:
+		return e.fail(where, "starting an object's behavior has no translation")
+	}
+	return e.fail(where, fmt.Sprintf("statement %s has no translation", st))
+}
+
+// stepCall translates a call: a trace appends its segment to the log, any
+// other call inlines the method it names, its parameters standing for the arguments.
 func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int) error {
-	if st.Name == "trace" && isSelf(st.Receiver) && len(st.Args) == 1 && st.Args[0].Kind == ExprLiteral && st.Args[0].Literal.Kind == LiteralString {
-		seg := source.StringText(st.Args[0].Literal.Text)
+	if st.Name == "trace" && isSelf(st.Receiver) && len(st.Args) == 1 {
+		seg, err := e.expr(out, &st.Args[0], where, depth)
+		if err != nil {
+			return err
+		}
 		out.add(fmt.Sprintf(`assign log := if log == "" ? %s else log + "::" + %s;`, seg, seg))
 		return nil
 	}
-	if len(st.Args) > 0 {
-		return e.fail(where, fmt.Sprintf("call %s passes arguments the translation cannot bind", st))
+	if depth > 8 {
+		return e.fail(where, "behaviors call each other too deeply to inline")
 	}
 	method := e.method(st)
 	if method == nil {
@@ -979,7 +1276,22 @@ func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int)
 	if method.Body == nil {
 		return e.fail(where, fmt.Sprintf("call %s names an opaque behavior", st))
 	}
-	inner, err := e.steps(method.Body, where+" > "+method.Name, depth+1)
+	ins := inputs(method)
+	if len(ins) != len(st.Args) {
+		return e.fail(where, fmt.Sprintf("call %s passes %d arguments to %d parameters", st, len(st.Args), len(ins)))
+	}
+	scope, types := map[string]string{}, map[string]string{}
+	for i, p := range ins {
+		a, err := e.expr(out, &st.Args[i], where, depth)
+		if err != nil {
+			return err
+		}
+		scope[p.Name] = a
+		types[p.Name] = p.Type
+	}
+	inner, err := scoped(e, scope, types, func() ([]step, error) {
+		return e.steps(method.Body, where+" > "+method.Name, depth+1)
+	})
 	if err != nil {
 		return err
 	}
@@ -1024,14 +1336,14 @@ func (e *emitter) stepAccept(out *stepList, st Statement, where string) error {
 }
 
 // stepAssign translates a replacing assignment to the machine's own feature.
-func (e *emitter) stepAssign(out *stepList, st Statement, where string) error {
+func (e *emitter) stepAssign(out *stepList, st Statement, where string, depth int) error {
 	if !isSelf(st.Receiver) {
 		return e.fail(where, fmt.Sprintf("%s writes a feature of another object", st))
 	}
 	if !st.Replace {
 		return e.fail(where, fmt.Sprintf("%s adds to a feature instead of replacing it", st))
 	}
-	value, err := e.expr(st.Value, where)
+	value, err := e.expr(out, st.Value, where, depth)
 	if err != nil {
 		return err
 	}
@@ -1046,36 +1358,49 @@ func (e *emitter) method(st Statement) *Behavior {
 		return nil
 	}
 	if st.Receiver == nil {
-		for _, bh := range e.test.Target.Behaviors {
-			if bh.Name == st.Name {
-				return bh
-			}
-		}
-		return nil
+		return e.ownedBehavior(st.BehaviorID)
 	}
 	if !isSelf(st.Receiver) {
 		return nil
 	}
 	for _, op := range e.test.Target.Operations {
-		if op.Name == st.Name && len(op.Params) == 0 {
+		if op.ID == st.OperationID && len(op.Inputs()) == len(st.Args) && len(op.Outputs()) == 0 {
 			return op.Method
 		}
 	}
 	return nil
 }
 
-// doBody emits a do activity: a plain body, or an ordered chain of actions
-// when the body waits for signals.
-func (e *emitter) doBody(b *strings.Builder, ind string, body *Body, where string) error {
-	steps, err := e.steps(body, where, 0)
+// doBody emits a do activity declared by header (`do action`, or `action run`
+// nested in a deferral's do action): a plain body, or one action per statement
+// when the body waits for signals or declares inputs (so a declaration is no step).
+func (e *emitter) doBody(b *strings.Builder, ind, header string, do *Behavior, where string) error {
+	if do.Body == nil {
+		return e.fail(where, "an opaque do behavior has no translation")
+	}
+	binding, err := e.binding(do, where)
 	if err != nil {
 		return err
 	}
-	chained := false
+	var params []string
+	scope, types := map[string]string{}, map[string]string{}
+	if binding != nil {
+		params, scope, types = e.declaredInputs(binding)
+	}
+	steps, err := scoped(e, scope, types, func() ([]step, error) {
+		return e.steps(do.Body, where, 0)
+	})
+	if err != nil {
+		return err
+	}
+	chained := len(params) > 0
 	for _, s := range steps {
 		if s.accept != "" {
 			chained = true
 		}
+	}
+	if len(params) > 0 {
+		steps = perStatement(steps)
 	}
 	if !chained {
 		var stmts []string
@@ -1085,12 +1410,15 @@ func (e *emitter) doBody(b *strings.Builder, ind string, body *Body, where strin
 		if len(stmts) == 0 {
 			return nil
 		}
-		fmt.Fprintf(b, "%sdo action {\n", ind)
+		fmt.Fprintf(b, "%s%s {\n", ind, header)
+		writeStmts(b, ind+"    ", params)
 		writeStmts(b, ind+"    ", stmts)
 		fmt.Fprintf(b, "%s}\n", ind)
 		return nil
 	}
-	fmt.Fprintf(b, "%sdo action {\n%s    first start;\n", ind, ind)
+	fmt.Fprintf(b, "%s%s {\n", ind, header)
+	writeStmts(b, ind+"    ", params)
+	fmt.Fprintf(b, "%s    first start;\n", ind)
 	for i, s := range steps {
 		if s.accept != "" {
 			fmt.Fprintf(b, "%s    then action step%d accept %s;\n", ind, i+1, s.accept)
@@ -1104,9 +1432,9 @@ func (e *emitter) doBody(b *strings.Builder, ind string, body *Body, where strin
 	return nil
 }
 
-// expr spells a value: a literal, the machine's own attribute, a bound
-// parameter, or an arithmetic application of those.
-func (e *emitter) expr(x *Expr, where string) (string, error) {
+// expr spells a value: a literal, an attribute, a bound parameter or payload,
+// or an application of a library or owned behavior to those.
+func (e *emitter) expr(out *stepList, x *Expr, where string, depth int) (string, error) {
 	if x == nil {
 		return "", e.fail(where, "a statement without a value")
 	}
@@ -1114,32 +1442,45 @@ func (e *emitter) expr(x *Expr, where string) (string, error) {
 	case ExprLiteral:
 		return e.literal(x.Literal)
 	case ExprRead:
+		if payload := e.payloadOf(x); payload != "" {
+			return payload, nil
+		}
 		if !isSelf(x.Object) {
 			return "", e.fail(where, fmt.Sprintf("%s reads a feature of another object", x))
 		}
 		return spell(x.Name), nil
-	case ExprParam, ExprEvent:
+	case ExprParam:
+		if bound, ok := e.scope[x.Name]; ok {
+			return bound, nil
+		}
+		return spell(x.Name), nil
+	case ExprEvent:
 		return spell(x.Name), nil
 	case ExprApply:
-		op := map[string]string{"plus": "+", "minus": "-", "times": "*", "Concat": "+", "==": "==", "<": "<", ">": ">"}[x.Name]
-		if op == "" || len(x.Args) != 2 {
-			return "", e.fail(where, fmt.Sprintf("%s applies a behavior the translation does not spell", x))
-		}
-		l, err := e.expr(&x.Args[0], where)
-		if err != nil {
-			return "", err
-		}
-		r, err := e.expr(&x.Args[1], where)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("(%s %s %s)", l, op, r), nil
+		return e.apply(out, x, where, depth)
 	case ExprCall:
 		return "", e.fail(where, fmt.Sprintf("%s uses an operation's result", x))
 	case ExprNew:
 		return "", e.fail(where, fmt.Sprintf("%s creates an object", x))
 	}
 	return "", e.fail(where, fmt.Sprintf("%s has no translation", x))
+}
+
+// payloadOf spells a read of a scalar signal's one attribute through a bound
+// parameter: the parameter itself, since the signal specializes the scalar type.
+func (e *emitter) payloadOf(x *Expr) string {
+	if x.Object == nil || x.Object.Kind != ExprParam {
+		return ""
+	}
+	bound, ok := e.scope[x.Object.Name]
+	if !ok {
+		return ""
+	}
+	sig := e.suite.Signals[e.scopeTypes[x.Object.Name]]
+	if sig == nil || len(sig.Attributes) != 1 || sig.Attributes[0].Name != x.Name || scalarTypes[sig.Attributes[0].Type] == "" {
+		return ""
+	}
+	return bound
 }
 
 // literal spells a UML literal as a SysML literal.
@@ -1156,112 +1497,10 @@ func (e *emitter) literal(l *Literal) (string, error) {
 	return "", e.fail("", fmt.Sprintf("literal %s has no spelling", l))
 }
 
-// stimulation reads the tester's behavior as the events to queue: Start when
-// the machine reacts to it, then each send or operation call to the target.
-func (e *emitter) stimulation() ([]Stimulus, error) {
-	var events []Stimulus
-	if e.signals["Start"] {
-		events = append(events, Stimulus{Signal: "Start"})
-	}
-	if e.test.Stimulation == nil {
-		return events, nil
-	}
-	where := "tester"
-	if len(e.test.Stimulation.Unsupported) > 0 {
-		return nil, e.fail(where, "activity nodes with no translation: "+strings.Join(e.test.Stimulation.Unsupported, "; "))
-	}
-	for _, st := range e.test.Stimulation.Statements {
-		var ev Stimulus
-		var err error
-		switch st.Kind {
-		case StmtAccept:
-			continue
-		case StmtSend:
-			ev, err = e.sentStimulus(st, where)
-		case StmtCall:
-			ev, err = e.calledStimulus(st, where)
-		default:
-			err = e.fail(where, fmt.Sprintf("%s has no translation as a queued event", st))
-		}
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, ev)
-	}
-	return events, nil
-}
-
-// sentStimulus reads a send to the target as a queued signal, with its scalar
-// payload when it carries one.
-func (e *emitter) sentStimulus(st Statement, where string) (Stimulus, error) {
-	if !isTarget(st.Receiver) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s addresses an object other than the target", st))
-	}
-	sig := e.suite.Signals[st.Name]
-	ev := Stimulus{Signal: st.Name}
-	if len(st.Args) > 0 {
-		if sig == nil || len(sig.Attributes) != 1 || len(st.Args) != 1 || st.Args[0].Kind != ExprLiteral {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s carries a payload the translation cannot bind", st))
-		}
-		ev.Value = st.Args[0].Literal
-	}
-	e.signals[st.Name] = true
-	return ev, nil
-}
-
-// calledStimulus reads an operation call on the target as a queued call with
-// its literal arguments bound to the operation's in parameters.
-func (e *emitter) calledStimulus(st Statement, where string) (Stimulus, error) {
-	if !isTarget(st.Receiver) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s calls an object other than the target", st))
-	}
-	op := e.operation(st.Name)
-	if op == nil {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s names no operation of the target", st))
-	}
-	ev := Stimulus{Call: st.Name}
-	var ins []Param
-	for _, p := range op.Params {
-		if p.Direction == "return" || p.Direction == "out" || p.Direction == "inout" {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s returns a value the tester would observe", st))
-		}
-		ins = append(ins, p)
-	}
-	if len(ins) != len(st.Args) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s passes %d arguments to %d parameters", st, len(st.Args), len(ins)))
-	}
-	for i, a := range st.Args {
-		if a.Kind != ExprLiteral {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s passes an argument that is not a literal", st))
-		}
-		ev.Args = append(ev.Args, Argument{Name: ins[i].Name, Value: a.Literal})
-	}
-	return ev, nil
-}
-
-func (e *emitter) operation(name string) *Operation {
-	if e.test.Target == nil {
-		return nil
-	}
-	for _, op := range e.test.Target.Operations {
-		if op.Name == name {
-			return op
-		}
-	}
-	return nil
-}
-
-func isSelf(x *Expr) bool { return x != nil && x.Kind == ExprSelf }
-
 // isHarness reports a reference to the test's own bookkeeping objects: the
 // tester and the semantic test that receives the End signal.
 func isHarness(x *Expr) bool {
 	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && (x.Name == "test" || x.Name == "tester")
-}
-
-// isTarget reports the tester's reference to the class under test.
-func isTarget(x *Expr) bool {
-	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && x.Name == "testable"
 }
 
 func writeStmts(b *strings.Builder, ind string, stmts []string) {

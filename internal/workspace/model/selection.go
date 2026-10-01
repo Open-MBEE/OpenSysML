@@ -1,12 +1,17 @@
 package model
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 )
 
 // DeclaredViews returns the views declared in scope and its nested scopes,
@@ -31,6 +36,39 @@ func DeclaredDocumentDefinitions(index *symbols.Index, sem *semantics.Model, sco
 		}
 	})
 	return out
+}
+
+// DocumentNames is the qualified name of every document definition the
+// workspace documents declare, in name order.
+func DocumentNames(index *symbols.Index, sem *semantics.Model) []string {
+	var names []string
+	for _, doc := range index.WorkspaceDocuments() {
+		for _, sym := range DeclaredDocumentDefinitions(index, sem, index.DocumentRoot(doc)) {
+			names = append(names, symbols.FQNOf(sym))
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// DocumentFiles plans the file each named document is written to when the
+// documents are rendered as a set in the form of extension: its stem cut to
+// fit, and tagged with a hash of the whole where two would meet letter case
+// aside. Every renderer links documents to one another by this plan, so a
+// document rendered on its own links to the files a set writes. Two documents
+// of one name cannot be told apart.
+func DocumentFiles(names []string, extension string) (map[string]string, error) {
+	files, err := filename.Plan(names, func(name string, tagged bool) string {
+		return filename.Fit(docrender.DocumentFileStem(name), extension, '.', tagged)
+	})
+	var collision *filename.CollisionError
+	if errors.As(err, &collision) {
+		if collision.Names[0] == collision.Names[1] {
+			return nil, fmt.Errorf("%s names more than one document; rename one so the name is unambiguous", source.QualifiedNameText(collision.Names[0]))
+		}
+		return nil, fmt.Errorf("%s and %s render to one file name %s; rename one so both files can coexist", source.QualifiedNameText(collision.Names[0]), source.QualifiedNameText(collision.Names[1]), collision.File)
+	}
+	return files, err
 }
 
 // SiblingDocumentPlans compiles the document definitions the workspace

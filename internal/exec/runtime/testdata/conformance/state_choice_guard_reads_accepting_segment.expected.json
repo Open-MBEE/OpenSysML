@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "events": [{"signal": "Level", "value": {"type": "Integer", "value": 8}}],
+  "finalState": "done",
+  "stateVisits": ["idle", "high", "done"],
+  "outputs": {
+    "chosen": {"type": "Integer", "value": 8}
+  }
+}

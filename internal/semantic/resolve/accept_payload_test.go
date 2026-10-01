@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // An accept node's payload is a feature of the action body it is declared in, so
@@ -260,5 +261,58 @@ func assertNoUnresolved(t *testing.T, r *Resolver) {
 	t.Helper()
 	for _, d := range r.Diagnostics {
 		t.Errorf("diagnostic: %s", d.Message)
+	}
+}
+
+// A trigger parameter named after its type (`accept s3 : s3`) shadows the type in
+// the effect, yet its own typing still names the enclosing definition, cold too.
+func TestTriggerParameterTypingSkipsTheParameter(t *testing.T) {
+	walked := resolveDoc(t, "d.sysml", `
+		package P {
+			item def s3;
+			state def SD {
+				item s32 : s3;
+				state a;
+				state b;
+				transition first a accept s3 : s3 do action { assign s32 := s3; } then b;
+			}
+		}
+	`)
+	assertNoUnresolved(t, walked)
+	r := New(walked.Index())
+
+	def, ok := scopeNamed(t, r, "d.sysml", "P").LookupLocal("s3")
+	if !ok {
+		t.Fatal("P declares no s3")
+	}
+	var trigger *symbols.Scope
+	for _, child := range scopeNamed(t, r, "d.sysml", "SD").Children() {
+		if _, ok := child.Node().(*ast.TransitionMember); ok {
+			trigger = child
+		}
+	}
+	if trigger == nil {
+		t.Fatal("the transition has no scope of its own")
+	}
+	param, ok := trigger.LookupLocal("s3")
+	if !ok {
+		t.Fatal("the transition declares no parameter s3")
+	}
+	usage := param.Decl.(*ast.Usage)
+	var typing *ast.QualifiedName
+	for _, rel := range usage.Relationships {
+		if rel.Kind == ast.RelTyping {
+			typing = ast.AsQualifiedName(rel.Target)
+		}
+	}
+	if typing == nil {
+		t.Fatal("the parameter has no typing")
+	}
+	got, ok := r.ResolveQualified(trigger, typing)
+	if !ok || got != def {
+		t.Errorf("the parameter's type resolved to %v from the transition, want P::s3", got)
+	}
+	if sym, ok := r.LookupName(trigger, "s3"); !ok || sym != param {
+		t.Errorf("s3 in the transition resolved to %v, want the parameter", sym)
 	}
 }

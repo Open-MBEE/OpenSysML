@@ -19,6 +19,7 @@ import pytest
 from opensysml.capabilities import CAPABILITY_CONVERT, MissingCapabilityError
 from opensysml.connection import Connection
 from opensysml.conversion import (
+    FORMAT_API_JSON,
     FORMAT_SYSML,
     FORMAT_TURTLE,
     ExperimentalFeatureWarning,
@@ -121,8 +122,9 @@ def test_format_of_path_infers_and_refuses():
     assert format_of_path("model.KerML") == FORMAT_SYSML
     assert format_of_path("model.ttl") == FORMAT_TURTLE
     assert format_of_path("model.turtle") == FORMAT_TURTLE
+    assert format_of_path("model.json") == FORMAT_API_JSON
     with pytest.raises(ValueError, match="cannot tell the format"):
-        format_of_path("model.json")
+        format_of_path("model.bak")
 
 
 def test_is_experimental_names_the_rdf_mapping():
@@ -130,6 +132,8 @@ def test_is_experimental_names_the_rdf_mapping():
     assert is_experimental(FORMAT_SYSML, FORMAT_TURTLE)
     assert is_experimental(FORMAT_TURTLE, FORMAT_SYSML)
     assert is_experimental("turtle", "rdf")
+    assert is_experimental(FORMAT_API_JSON, FORMAT_SYSML)
+    assert is_experimental(FORMAT_SYSML, "json")
     assert is_experimental("xmi", FORMAT_SYSML)
     assert is_experimental("uml", FORMAT_TURTLE)
     assert is_experimental("mdzip", FORMAT_TURTLE)
@@ -284,7 +288,7 @@ def test_conversion_writes_a_file(fake_service, tmp_path):
 def test_saving_an_unknown_extension_is_refused(fake_service, tmp_path):
     """An extension naming no format is refused before anything is written."""
     port, _ = fake_service()
-    out = tmp_path / "out.json"
+    out = tmp_path / "out.bak"
     with Connection(port=port, auto_start=False) as conn:
         model = conn.load_from_content(MODEL)
         with pytest.raises(ValueError, match="cannot tell the format"):
@@ -364,6 +368,56 @@ class TestRoundTripAgainstRealService:
 
         assert "part def Engine" in (tmp_path / "out.sysml").read_text()
         assert "Demo::Engine" in (tmp_path / "out.ttl").read_text()
+
+    def test_duplicate_member_names_export_as_separate_elements(self, real_service):
+        """Two members of one name are each their own element in the API JSON."""
+        import json
+
+        source = """package P {
+    private import ScalarValues::*;
+    part def A { attribute x : Real; }
+    part def A { attribute y : Real; }
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            conflicts = [d for d in model.diagnostics if d.code == "name-conflict"]
+            assert len(conflicts) == 2
+            assert all(d.severity == "warning" for d in model.diagnostics)
+
+            elements = json.loads(str(model.to_api_json()))
+            defs = [
+                el for el in elements
+                if el.get("@type") == "PartDefinition" and el.get("declaredName") == "A"
+            ]
+            assert len(defs) == 2
+            assert defs[0]["@id"] != defs[1]["@id"]
+            assert {defs[0]["qualifiedName"], defs[1]["qualifiedName"]} == {"P::A", "P::@2"}
+
+    def test_positional_looking_name_and_position_export_separately(self, real_service):
+        """A name spelling a position does not share its element identity."""
+        import json
+
+        source = """package P {
+    part def A;
+    part def '@2';
+    part def A;
+}
+"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            with pytest.warns(ExperimentalFeatureWarning):
+                api_json = model.to_api_json()
+            elements = json.loads(str(api_json))
+            defs = [
+                el for el in elements
+                if el.get("@type") == "PartDefinition"
+                and el.get("qualifiedName") in {"P::A", "P::'@2'", "P::@2"}
+            ]
+
+        assert len(defs) == 3
+        assert len({el["@id"] for el in defs}) == 3
+        assert {el["qualifiedName"] for el in defs} == {"P::A", "P::'@2'", "P::@2"}
 
     def test_unreadable_notation_fails_with_spans(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

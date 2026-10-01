@@ -1,21 +1,24 @@
 exit: idle
 enter: work
 choice entering work: next inner(entry), right(entry) (unordered; took right(entry) first)
-stmt assign log
-    eval feature log -> ""
-    eval literal "right(entry) " -> "right(entry) "
-  eval operator + -> "right(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "right(entry) " -> "right(entry) "
+    eval operator + -> "right(entry) "
 enter: r
 enter: inner
 choice entering work: next p(entry), q(entry) (unordered; took p(entry) first)
-stmt assign log
-    eval feature log -> "right(entry) "
-    eval literal "p(entry) " -> "p(entry) "
-  eval operator + -> "right(entry) p(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "right(entry) "
+      eval literal "p(entry) " -> "p(entry) "
+    eval operator + -> "right(entry) p(entry) "
 enter: p1
-stmt assign log
-    eval feature log -> "right(entry) p(entry) "
-    eval literal "q(entry) " -> "q(entry) "
-  eval operator + -> "right(entry) p(entry) q(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "right(entry) p(entry) "
+      eval literal "q(entry) " -> "q(entry) "
+    eval operator + -> "right(entry) p(entry) q(entry) "
 enter: q1
 transition: idle -> work (event: accept Go)

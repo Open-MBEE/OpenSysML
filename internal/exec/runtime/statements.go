@@ -153,6 +153,9 @@ type stmtHost interface {
 	// assignChain writes the feature a chained target names, on the object the
 	// chain reaches; a host with no world outside its body rejects it.
 	assignChain(ec *EvalContext, s lower.Assign, value Value) error
+	// assignForeign writes a qualified target that names no feature of this
+	// body's own run: an enclosing run's frame or the performing object.
+	assignForeign(ec *EvalContext, s lower.Assign, value Value) error
 	// declaredOutput reports whether name is an output feature of the host, whose
 	// assignment binds that output for this activation rather than writing a value
 	// the body merely holds.
@@ -167,9 +170,18 @@ type stmtHost interface {
 	// runFlow runs the token flow a body states of its own (lower.Block.Stated):
 	// its successions and control nodes, as the host's own performance.
 	runFlow(block lower.Block) (stmtFlow, error)
+	// runBlockFlow runs the token flow a loop or branch body states of its own.
+	runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error)
 	// performer is the object running the behavior, nil when it runs outside any
 	// object: what the body's names read and write through.
 	performer() *Instance
+	// occurrence is the performance instance `this` denotes in a def body; nil
+	// when none is materialized.
+	occurrence() *Instance
+	// materializeOccurrence materializes the performance occurrence `this`
+	// denotes the first time a directly run definition denotes it; nil where
+	// none can be.
+	materializeOccurrence() (*Instance, error)
 }
 
 // stmtEngine runs lowered body statements for a host: declarations,
@@ -187,30 +199,31 @@ type stmtEngine struct {
 	scratch EvalContext
 	// frameBuf is the frame stack scratch reads, rebuilt by every evalIn.
 	frameBuf []frame
+	// thisOccurrence is host.materializeOccurrence, bound once for every evalIn.
+	thisOccurrence func() (*Instance, error)
 }
 
-// newStmtEngine returns an engine running statements against data — the
-// behavior's own values, which its statements read and write.
-func newStmtEngine(ctx *Context, host stmtHost, data map[string]Value) *stmtEngine {
-	return &stmtEngine{ctx: ctx, host: host, env: &stmtEnv{data: mapFrame(data)}, activation: ctx.newActivation()}
-}
-
-// newStmtEngineOver returns an engine whose statements also read outer value
-// maps — the attributes of the states enclosing the behavior — innermost last.
-func newStmtEngineOver(ctx *Context, host stmtHost, data map[string]Value, outer []map[string]Value) *stmtEngine {
-	engine := newStmtEngine(ctx, host, data)
-	engine.env.outer = outer
-	return engine
+// newStmtEngineOver returns an engine running statements against data, which also
+// read outer value maps — the attributes of the enclosing states — innermost last.
+func newStmtEngineOver(ctx *Context, host stmtHost, data frame, outer []map[string]Value) *stmtEngine {
+	return &stmtEngine{
+		ctx:            ctx,
+		host:           host,
+		env:            &stmtEnv{data: data, outer: outer},
+		activation:     ctx.newActivation(),
+		thisOccurrence: host.materializeOccurrence,
+	}
 }
 
 // newStmtEngineIn returns an engine running statements against data, a frame
 // that shadows the enclosing frames its statements still read, outermost first.
 func newStmtEngineIn(ctx *Context, host stmtHost, data frame, enclosing []frame) *stmtEngine {
 	return &stmtEngine{
-		ctx:        ctx,
-		host:       host,
-		env:        &stmtEnv{data: data, enclosing: enclosing},
-		activation: ctx.newActivation(),
+		ctx:            ctx,
+		host:           host,
+		env:            &stmtEnv{data: data, enclosing: enclosing},
+		activation:     ctx.newActivation(),
+		thisOccurrence: host.materializeOccurrence,
 	}
 }
 
@@ -241,6 +254,8 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		ctx:            e.ctx,
 		scope:          scope,
 		self:           e.host.performer(),
+		occurrence:     e.host.occurrence(),
+		thisOccurrence: e.thisOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
 		inBehaviorBody: true,
@@ -360,6 +375,22 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		// declares of the name it starts from, so no host binding applies to it.
 		if s.Chain != nil {
 			return flowNext, e.host.assignChain(e.evalIn(s.Scope), s, value)
+		}
+		// A qualified target names the feature on the object its qualifier denotes:
+		// the performance running that def (`Probe::count` is the Probe run's own
+		// count), else the performing object (`Scope::azimuth` on a Scope), as a
+		// name shadowed by a nearer declaration still reaches it.
+		if s.Qualified {
+			ec := e.evalIn(s.Scope)
+			// The qualifier denoting this body's own run makes the write the
+			// unqualified one: the host writes and streams it as `assign n := 3`.
+			if e.env.data.runs(ec.ctx, s.Owner) {
+				if !e.host.declaredOutput(s.Target) && e.env.data.has(s.Target) {
+					return flowNext, e.host.assignData(e.env, s.Target, value, s)
+				}
+				return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
+			}
+			return flowNext, e.host.assignForeign(ec, s, value)
 		}
 		// An output is bound by the host even when the body's data holds it, so a
 		// second binding is reported; a block-local of the name shadows it.
@@ -532,8 +563,10 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	switch {
 	case block.Graph == nil:
 		return e.run(block.Statements)
-	case block.Stated:
+	case block.Stated && block.Own:
 		return e.host.runFlow(block)
+	case block.Stated:
+		return e.host.runBlockFlow(e, block)
 	}
 	return e.blockFlow(block)
 }

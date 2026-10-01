@@ -74,8 +74,13 @@ func (r *Resolver) scopeOwner(scope *symbols.Scope) *symbols.Symbol {
 	if scope == nil {
 		return nil
 	}
+	// The owner the builder stamps is the annotation usage the body scope hangs
+	// off, not the metaclass the body's members resolve against; only a stamped
+	// owner (the metadata definition document resolution records) counts.
 	if owner := scope.Owner(); owner != nil {
-		return owner
+		if _, isAnnotation := owner.Decl.(*ast.PrefixMetadata); !isAnnotation {
+			return owner
+		}
 	}
 	prefix, ok := scope.Node().(*ast.PrefixMetadata)
 	if !ok || !scope.BodyLocal() {

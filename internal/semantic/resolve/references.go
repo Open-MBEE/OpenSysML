@@ -94,6 +94,12 @@ func (c *refCollector) add(scope *symbols.Scope, qn *ast.QualifiedName) {
 	}
 }
 
+func (c *refCollector) addVia(scope *symbols.Scope, qn *ast.QualifiedName) {
+	if qn != nil {
+		c.push(Reference{Scope: scope, QN: qn, Via: true})
+	}
+}
+
 // addReference records the target of a reference subsetting owned by decl.
 func (c *refCollector) addReference(scope *symbols.Scope, decl ast.Node, qn *ast.QualifiedName) {
 	if qn != nil {
@@ -240,6 +246,9 @@ func (c *refCollector) namespaceDecl(scope *symbols.Scope, decl ast.Node) bool {
 		}
 		for _, sp := range d.Suppliers {
 			c.add(scope, sp)
+		}
+		if child := c.childScope(scope, d); child != nil {
+			c.walkMembers(child, d.Body)
 		}
 		return true
 	case *ast.MultiplicityDecl:
@@ -406,11 +415,6 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	case *ast.ExitMember:
 		c.walkMembers(scope, d.Actions)
 		return true
-	case *ast.DeferMember:
-		for _, trigger := range d.Triggers {
-			c.trigger(scope, trigger)
-		}
-		return true
 	case *ast.StateNode:
 		body := scope
 		if child := c.childScope(scope, d); child != nil {
@@ -436,7 +440,7 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		c.addEndpoint(scope, d.Source)
 		c.addEndpoint(scope, d.Target)
 		c.trigger(scope, d.Trigger)
-		c.add(scope, d.Via)
+		c.addVia(scope, d.Via)
 		body := symbols.TriggerScope(scope, d)
 		c.expr(body, d.Guard)
 		c.walkMembers(body, d.Effect)
@@ -462,7 +466,15 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	case *ast.SendStatement:
 		c.expr(scope, d.Message)
-		c.expr(scope, d.Target)
+		if d.IsVia {
+			if qn, ok := d.Target.(*ast.QualifiedName); ok {
+				c.addVia(scope, qn)
+			} else {
+				c.expr(scope, d.Target)
+			}
+		} else {
+			c.expr(scope, d.Target)
+		}
 		c.expr(scope, d.Receiver)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)
 		return true
@@ -514,9 +526,8 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	}
 }
 
-// trigger collects the references a transition trigger carries. Bare signal and
-// call event names are not model references (see resolve/document.go), so they
-// are skipped here too: renaming a declaration must not rewrite them.
+// trigger collects the references a transition trigger carries. Bare signal names and call event names are not model references
+// (see resolve/document.go), so they are skipped here too.
 func (c *refCollector) trigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
 	case nil:
@@ -599,6 +610,14 @@ func (c *refCollector) relationships(scope *symbols.Scope, decl ast.Node, rels [
 		target := rel.Target
 		if fr, ok := target.(*ast.FeatureReference); ok {
 			target = fr.Name
+		}
+		if rel.Kind == ast.RelVia {
+			if qn, ok := target.(*ast.QualifiedName); ok {
+				c.addVia(scope, qn)
+			} else {
+				c.target(scope, target)
+			}
+			continue
 		}
 		// A subsetting other than of decl itself reaches a sibling redefinition
 		// or resolves as a redefinition does, as in resolveRelationships.

@@ -1,8 +1,9 @@
 do: top
-stmt assign log
-    eval feature log -> ""
-    eval literal "did " -> "did "
-  eval operator + -> "did "
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "did " -> "did "
+    eval operator + -> "did "
 exit: top
 stmt assign log
     eval feature log -> "did "

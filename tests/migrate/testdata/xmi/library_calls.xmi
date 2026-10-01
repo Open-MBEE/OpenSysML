@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_recorder" name="Recorder">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_label" name="Label">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_count" name="count">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_countV" value="42"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_countOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_toString" name="toString">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-ToString"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_toStringX" name="x">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_toStringOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_concat" name="concat">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat"/>
+          <argument xmi:type="uml:ValuePin" xmi:id="_concatX" name="x">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <value xmi:type="uml:LiteralString" xmi:id="_concatXV" value="n="/>
+          </argument>
+          <argument xmi:type="uml:InputPin" xmi:id="_concatY" name="y">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_concatOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_first" name="first">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_firstSeq" name="seq" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_firstSeqL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_firstSeqU" value="*"/>
+          </argument>
+          <argument xmi:type="uml:InputPin" xmi:id="_firstEl" name="element">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_firstOut" name="result" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_firstOutL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_firstOutU" value="*"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_second" name="second">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_secondSeq" name="seq" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_secondSeqL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_secondSeqU" value="*"/>
+          </argument>
+          <argument xmi:type="uml:ValuePin" xmi:id="_secondEl" name="element">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <value xmi:type="uml:LiteralString" xmi:id="_secondElV" value="n=42"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_secondOut" name="result" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_secondOutL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_secondOutU" value="*"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_size" name="size">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Size"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_sizeSeq" name="seq" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_sizeSeqL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_sizeSeqU" value="*"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_sizeOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_flag" name="flag">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+          <argument xmi:type="uml:ValuePin" xmi:id="_flagX" name="x">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+            <value xmi:type="uml:LiteralBoolean" xmi:id="_flagXV" value="true"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_flagOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_position" name="position">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_positionSeq" name="seq" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_positionSeqL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_positionSeqU" value="*"/>
+          </argument>
+          <argument xmi:type="uml:ValuePin" xmi:id="_positionEl" name="element">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <value xmi:type="uml:LiteralString" xmi:id="_positionElV" value="n="/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_positionOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_positionOutL" value="0"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_after" name="after">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-plus"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_afterX" name="x">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </argument>
+          <argument xmi:type="uml:ValuePin" xmi:id="_afterY" name="y">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:LiteralInteger" xmi:id="_afterYV" value="1"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_afterOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_print" name="print">
+          <behavior xmi:type="uml:Activity" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_printValue" name="value">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </argument>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_count"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_count" target="_toString"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_toString" target="_concat"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_concat" target="_first"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c5" source="_first" target="_second"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c6" source="_second" target="_size"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c7" source="_size" target="_flag"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c8" source="_flag" target="_position"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c9" source="_position" target="_after"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c10" source="_after" target="_print"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c11" source="_print" target="_final"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_countOut" target="_toStringX"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o2" source="_toStringOut" target="_concatY"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_concatOut" target="_firstEl"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o4" source="_firstOut" target="_secondSeq"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o5" source="_secondOut" target="_sizeSeq"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o6" source="_secondOut" target="_positionSeq"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o7" source="_positionOut" target="_afterX"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o8" source="_concatOut" target="_printValue"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_recorder"/>
+</xmi:XMI>

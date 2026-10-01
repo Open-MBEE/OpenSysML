@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,13 @@ import (
 
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
+
+// The note fragments the writer repeats.
+const (
+	notValueOf = " is not a value of "
+	whichNote  = ", which "
+)
+
 func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	return m.valueExprAs(v, scope, wanted{})
 }
@@ -42,7 +50,7 @@ func (m *migration) valueExprAs(v, scope *sysmlv1.Element, want wanted) (expr st
 				return expr, ok, note
 			}
 		}
-		return "", false, "the " + kind + " " + qualifiedName(inst) + " is not a value of " + want.scalar + ", which " + want.holder
+		return "", false, "the " + kind + " " + qualifiedName(inst) + notValueOf + want.scalar + whichNote + want.holder
 	}
 	kind, text := literalKind(v, expr)
 	if kind == "" {
@@ -84,7 +92,7 @@ func literalAs(kind, expr, text string, want wanted) (value string, ok bool, not
 	value, spelled := scalarLiteral(kind, expr, text, want.scalar)
 	switch {
 	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + want.scalar + ", which " + want.holder
+		return "", false, "the " + kind + " " + expr + notValueOf + want.scalar + whichNote + want.holder
 	case value != expr:
 		return value, true, "the " + kind + " " + expr + " is written as the " + want.scalar + " " + want.holder
 	}
@@ -130,47 +138,68 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	case "LiteralNull":
 		return "null", true, ""
 	case "InstanceValue":
-		inst := m.model.Ref(v, "instance")
-		if inst == nil {
-			return "", false, "instance value refers to nothing in the document"
-		}
-		if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
-			return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
-		}
-		switch cat, _ := m.classify(inst); cat {
-		case catValue:
-			return m.ref(inst, scope), true, ""
-		case catIndividualDef:
-			return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
-		}
-		return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+		return m.instanceValue(v, scope)
 	case "OpaqueExpression":
-		body, lang := opaqueBody(v)
-		if body == "" {
-			return "", false, "opaque expression has no body"
-		}
-		if dialectOf(lang) != dialectNone {
-			expr, note, refused := m.translatedExpr(body, lang, scope, want)
-			if refused == nil {
-				m.noted(valueOwner(v, scope), note)
-				return expr, true, ""
-			}
-			if refused.final(lang) {
-				return "", false, refused.note()
-			}
-		}
-		refs, ok := exprRefs(body)
-		if !ok {
-			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
-		}
-		if problem := m.invisible(refs, scope); problem != "" {
-			return "", false, "opaque expression " + problem + langNote(lang)
-		}
-		return body, true, "opaque expression copied verbatim" + langNote(lang)
-	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
-		return "", false, "a UML " + v.Type + " tree has no v2 form"
+		return m.opaqueValue(v, scope, want)
+	case "Expression", "StringExpression":
+		return m.expressionTree(v, scope, want)
+	case "TimeExpression", "Duration":
+		return "", false, "a UML " + v.Type + " has no v2 form: v2 has no value bound to a time or duration observation"
+	case "Interval", "TimeInterval", "DurationInterval":
+		return "", false, "a UML " + v.Type + " has no v2 form: v2 has no interval value"
 	}
 	return "", false, "no v2 form for a UML " + v.Type
+}
+
+// instanceValue writes an instance value: an enumeration literal by qualified
+// name, a value by reference, nothing else.
+func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	inst := m.model.Ref(v, "instance")
+	if inst == nil {
+		if len(v.RefIDs("instance")) == 0 {
+			return "", false, "the instance value names no instance"
+		}
+		return "", false, "the instance value refers to nothing in the document"
+	}
+	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
+		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
+	}
+	switch cat, _ := m.classify(inst); cat {
+	case catValue:
+		return m.ref(inst, scope), true, ""
+	case catIndividualDef:
+		return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
+	}
+	return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+}
+
+// opaqueValue writes an opaque expression: translated when its language is a
+// known dialect, else copied verbatim once its references are visible.
+func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	body, lang := opaqueBody(v)
+	if body == "" {
+		return "", false, "opaque expression has no body"
+	}
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused := m.translatedExpr(body, lang, scope, want)
+		if refused == nil {
+			m.noted(valueOwner(v, scope), note)
+			return expr, true, ""
+		}
+		if refused.final(lang) {
+			return "", false, refused.note()
+		}
+	}
+	refs, ok := exprRefs(body)
+	if !ok {
+		return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
+	}
+	if problem := m.invisible(refs, scope); problem != "" {
+		return "", false, "opaque expression " + problem + langNote(lang)
+	}
+	visible, _ := m.visibleFrom(scope)
+	body = m.renamedRoots(body, refs, visible, nil)
+	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
 func langNote(lang string) string {
@@ -240,14 +269,14 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
-			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
 		}
 	}
 	if m.scalarBase(t) == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
-		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
+		return "", false, "the literal " + expr + notValueOf + qualifiedName(t) + ", which has no scalar base"
 	}
 	return expr, ok, note
 }
@@ -331,8 +360,10 @@ type reference struct {
 	local  string
 	typed  int
 	steps  []step
-	// start is the offset of the first step in the expression text.
-	start int
+	// start is the offset of the first step in the expression text,
+	// firstLen its byte length as the text spells it.
+	start    int
+	firstLen int
 }
 
 type step struct {
@@ -705,7 +736,7 @@ func qualifiedRef(q *ast.QualifiedName) (reference, bool) {
 	if q == nil || len(q.Parts) == 0 {
 		return reference{}, false
 	}
-	r := reference{global: q.Global, start: q.Parts[0].Span.Offset}
+	r := reference{global: q.Global, start: q.Parts[0].Span.Offset, firstLen: q.Parts[0].Span.Len}
 	for _, p := range q.Parts {
 		r.steps = append(r.steps, step{name: p.Text})
 	}
@@ -756,6 +787,70 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 	return ""
 }
 
+// viaRenamedRoot returns the root avoidLibraryRoots renamed whose source name
+// r's first step spells, when nothing nearer answers to it and the rest of r
+// resolves through that root. missing spells the prefix through the step that
+// fails when a source child of the failing element claims the name but is
+// itself unwritten — the path is then the user's, not the library's.
+func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) (root *sysmlv1.Element, missing string) {
+	if r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+		return nil, ""
+	}
+	name := r.steps[0].name
+	if !r.global && visible[name] != nil {
+		return nil, ""
+	}
+	if r.global && m.rootMember(name) != nil {
+		return nil, ""
+	}
+	ce := m.clashBySource[name]
+	if ce == nil || !m.written(ce) {
+		return nil, ""
+	}
+	e := ce
+	for i, s := range r.steps[1:] {
+		next, private := m.memberNamed(e, s.name, chainKind(s.chain))
+		if next == nil && private != nil && hidden != nil {
+			next = private
+		}
+		if next == nil {
+			for _, c := range e.Children {
+				if c.Name == s.name {
+					return nil, r.text(i + 2)
+				}
+			}
+			return nil, ""
+		}
+		e = next
+	}
+	return ce, ""
+}
+
+// renamedRoots rewrites, in text, each reference whose first step spells the
+// source name of a root avoidLibraryRoots renamed, to the name it is written
+// as. A nearer element answering to the name keeps the spelling, and so does
+// a reference that resolves only through the library package the root hides.
+func (m *migration) renamedRoots(text string, refs []reference, visible, hidden map[string]*sysmlv1.Element) string {
+	type replacement struct {
+		start, end int
+		name       string
+	}
+	var reps []replacement
+	for _, r := range refs {
+		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
+			continue
+		}
+		if ce, _ := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[ce])})
+		}
+	}
+	sort.Slice(reps, func(i, j int) bool { return reps[i].start > reps[j].start })
+	for _, rp := range reps {
+		text = text[:rp.start] + rp.name + text[rp.end:]
+	}
+	return text
+}
+
 // notAValue names the kind of declaration e becomes when an expression cannot
 // read it: an operation or behavior written as an action or state def.
 func (m *migration) notAValue(e *sysmlv1.Element) string {
@@ -781,7 +876,15 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Ele
 		return nil, nil, r.text(len(r.steps))
 	}
 	var lib string
-	for i, s := range r.steps {
+	start := 0
+	if ce, miss := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+		e = ce
+		start = 1
+	} else if miss != "" {
+		return nil, nil, miss
+	}
+	for i := start; i < len(r.steps); i++ {
+		s := r.steps[i]
 		var next *sysmlv1.Element
 		var private *sysmlv1.Element
 		switch {
@@ -859,7 +962,9 @@ func librarySupers(idx *symbols.Index, fqn string) []string {
 	var out []string
 	for _, sym := range idx.LookupQualified(fqn) {
 		if sym.Facts != nil {
-			out = append(out, sym.Facts.Supers...)
+			for _, super := range sym.Facts.Supers {
+				out = append(out, super.FQN)
+			}
 		}
 	}
 	return out
@@ -1090,6 +1195,7 @@ func (m *migration) exposeNamed(v, scope *sysmlv1.Element) {
 var (
 	htmlTag    = regexp.MustCompile(`(?s)<[^>]*>`)
 	htmlBreak  = regexp.MustCompile(`(?i)</p>|<br\s*/?>`)
+	htmlBody   = regexp.MustCompile(`(?is)<(style|script)[^>]*>.*?</\s*(style|script)\s*>`)
 	blankLines = regexp.MustCompile(`\n{3,}`)
 )
 
@@ -1097,7 +1203,11 @@ var (
 // documentation as HTML, whose tags are dropped and entities decoded.
 func commentText(body string) string {
 	text := body
-	if strings.Contains(strings.ToLower(text), "<html") || strings.Contains(text, "<p>") || strings.Contains(text, "<br") {
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "<html") || strings.Contains(lower, "<p>") || strings.Contains(lower, "<br") ||
+		strings.Contains(lower, "<style") || strings.Contains(lower, "<script") || strings.Contains(lower, "<img") ||
+		strings.Contains(lower, "<div") || strings.Contains(lower, "<span") {
+		text = htmlBody.ReplaceAllString(text, "")
 		text = htmlBreak.ReplaceAllString(text, "\n")
 		text = htmlTag.ReplaceAllString(text, "")
 		text = html.UnescapeString(text)

@@ -48,6 +48,27 @@ func (l Language) String() string {
 // NamespaceURL is the RFC 4122 name space for URLs, the root of every library id.
 var NamespaceURL = mustParse("6ba7b811-9dad-11d1-80b4-00c04fd430c8")
 
+// NamespaceOID is the RFC 4122 name space for OIDs, under which the pilot and
+// toolkit mint the ids of references that resolved to no library element.
+var NamespaceOID = mustParse("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
+
+// UnresolvedElementID is the id an interchange document mints for a name that
+// resolved to nothing: uuid5(NamespaceOID, "unresolved:"+qualifiedName).
+func UnresolvedElementID(qualifiedName string) string {
+	return uuid5(NamespaceOID, "unresolved:"+qualifiedName).String()
+}
+
+// NamespaceOf is the uuid5 id namespace minted under the URL name space for
+// name — the root a document's uuid element ids derive under.
+func NamespaceOf(name string) string {
+	return uuid5(NamespaceURL, name).String()
+}
+
+// DerivedID is uuid5(namespace, name), namespace spelled as a uuid5-derived id.
+func DerivedID(namespace, name string) string {
+	return uuid5(mustParse(namespace), name).String()
+}
+
 // Separator joins the segments of a qualified name.
 const Separator = "::"
 

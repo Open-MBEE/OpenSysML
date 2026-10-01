@@ -63,9 +63,44 @@ func TestExpressionValueIsATree(t *testing.T) {
 	if len(args) != 2 {
 		t.Fatalf("root has %d arguments, want 2: %v", len(args), args)
 	}
-	// Order is stated as well as written: an argument carries its index.
-	wantLexical(t, g, args[0].Value, rdf.OpenSysML+"argumentIndex", "0")
-	wantLexical(t, g, args[1].Value, rdf.OpenSysML+"argumentIndex", "1")
+	var memberships, returns []rdf.Term
+	for _, membership := range g.Objects(iri(root), rdf.SysML+"ownedFeatureMembership") {
+		if g.Type(membership) == rdf.SysML+"ReturnParameterMembership" {
+			returns = append(returns, membership)
+		} else {
+			memberships = append(memberships, membership)
+		}
+	}
+	if len(memberships) != 2 {
+		t.Fatalf("root has %d parameter memberships, want 2: %v", len(memberships), memberships)
+	}
+	if len(returns) != 1 {
+		t.Fatalf("root has %d return parameter memberships, want 1: %v", len(returns), returns)
+	}
+	results := g.Objects(iri(root), rdf.SysML+"result")
+	if len(results) != 1 || g.Type(results[0]) != rdf.SysML+"Feature" {
+		t.Fatalf("root has result %v, want one Feature", results)
+	}
+	wantLexical(t, g, results[0].Value, rdf.SysML+"direction", "out")
+	for _, membership := range memberships {
+		wantType(t, g, membership.Value, "ParameterMembership")
+		parameters := g.Objects(membership, rdf.SysML+"ownedMemberParameter")
+		if len(parameters) != 1 {
+			t.Fatalf("parameter membership %s has %d parameters", membership.Value, len(parameters))
+		}
+		wantType(t, g, parameters[0].Value, "Feature")
+		wantLexical(t, g, parameters[0].Value, rdf.SysML+"direction", "in")
+		values := g.Objects(parameters[0], rdf.SysML+"ownedMembership")
+		if len(values) != 1 {
+			t.Fatalf("parameter %s has %d owned memberships", parameters[0].Value, len(values))
+		}
+		wantType(t, g, values[0].Value, "FeatureValue")
+	}
+	for _, triple := range g.Triples() {
+		if triple.Predicate.Value == rdf.OpenSysML+"argumentIndex" {
+			t.Errorf("expression graph still emits sysx:argumentIndex: %v", triple)
+		}
+	}
 
 	wantType(t, g, args[0].Value, "FeatureReferenceExpression")
 	if got := g.Objects(args[0], rdf.SysML+"referent"); len(got) != 1 ||
@@ -81,6 +116,61 @@ func TestExpressionValueIsATree(t *testing.T) {
 	}
 	wantType(t, g, nested[1].Value, "LiteralInteger")
 	wantLexical(t, g, nested[1].Value, rdf.SysML+"value", "2")
+}
+
+func TestExpressionStructureSurvivesWithoutTextAndArguments(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	data, err := convert.Convert("structure.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysml:argument", "json:argument"} {
+		data = withoutTriples(t, data, property)
+	}
+	out, err := convert.Convert("structure.ttl", data, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("structure-only conversion: %v", err)
+	}
+	if got := strings.Join(strings.Fields(string(out)), " "); !strings.Contains(got, "attribute total : Integer = a * 2;") {
+		t.Fatalf("structure-only conversion lost the expression: %s", out)
+	}
+}
+
+func TestExpressionParameterMembershipAnnotationRestoresOrder(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute b : Integer;
+    attribute total : Integer = a - b;
+}`
+	data, err := convert.Convert("reversed.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	blocks := strings.Split(string(data), "\n\n")
+	var first, second int
+	for i, block := range blocks {
+		switch {
+		case strings.HasPrefix(block, "expr:P__total_pvalue_pin0_om\n"):
+			first = i
+		case strings.HasPrefix(block, "expr:P__total_pvalue_pin1_om\n"):
+			second = i
+		}
+	}
+	blocks[first], blocks[second] = blocks[second], blocks[first]
+	data = []byte(strings.Join(blocks, "\n\n"))
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysml:argument", "json:argument"} {
+		data = withoutTriples(t, data, property)
+	}
+	out, err := convert.Convert("reversed.ttl", data, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("reversed membership conversion: %v", err)
+	}
+	if got := strings.Join(strings.Fields(string(out)), " "); !strings.Contains(got, "attribute total : Integer = a - b;") {
+		t.Fatalf("annotation did not preserve operand order: %s", out)
+	}
 }
 
 // Every expression-valued position emits a tree, not only a feature's value:
@@ -113,7 +203,6 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
 		{"_pvalue", "LiteralInteger"}, // limit = 4
 		{"wheels_plowerBound", "LiteralInteger"},
 		{"wheels_pupperBound", "OperatorExpression"},
-		{"_pcondition", "OperatorExpression"},
 		{"_pguard", "OperatorExpression"},
 		{"_pfilter", "OperatorExpression"},
 	} {
@@ -129,6 +218,20 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
 				want.metaclass, want.suffix, trees)
 		}
 	}
+	// A constraint member's condition is no longer a position on the assert: the
+	// braced expression is a real element owned through its
+	// ResultExpressionMembership.
+	condition := false
+	for _, triple := range g.Triples() {
+		if triple.Predicate.Value == rdf.RDFNS+"type" &&
+			triple.Object.Value == rdf.SysML+"OperatorExpression" &&
+			!strings.HasPrefix(triple.Subject.Value, rdf.Expression) {
+			condition = true
+		}
+	}
+	if !condition {
+		t.Errorf("the assert's condition is no element; the graph states: %v", trees)
+	}
 }
 
 // An expression's identity is its owner and its position, so two expressions in
@@ -142,7 +245,14 @@ func TestExpressionIdentityIsPerPosition(t *testing.T) {
 	types := map[string]int{}
 	for _, triple := range g.Triples() {
 		if triple.Predicate.Value == rdf.RDFNS+"type" &&
-			strings.HasPrefix(triple.Subject.Value, rdf.Expression) {
+			strings.HasPrefix(triple.Subject.Value, rdf.Expression) &&
+			triple.Object.Value != rdf.SysML+"Feature" &&
+			triple.Object.Value != rdf.SysML+"FeatureValue" &&
+			triple.Object.Value != rdf.SysML+"ParameterMembership" &&
+			triple.Object.Value != rdf.SysML+"ReturnParameterMembership" &&
+			triple.Object.Value != rdf.SysML+"OwningMembership" &&
+			triple.Object.Value != rdf.SysML+"Membership" &&
+			triple.Object.Value != rdf.SysML+"MultiplicityRange" {
 			types[triple.Subject.Value]++
 		}
 	}
@@ -360,8 +470,7 @@ func TestExpressionTreesKeepTheRoundTripExact(t *testing.T) {
 	}
 }
 
-// A binding head is kept as source text, but the features it relates are stated
-// as structure beside it, so a consumer reads the ends without parsing notation.
+// A binding head states its connector ends through standard ownership.
 func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 	g := turtleOf(t, "ends", `package P {
     port def Bus;
@@ -379,7 +488,7 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 }`)
 	ends := map[string][]string{}
 	for _, triple := range g.Triples() {
-		if triple.Predicate.Value == rdf.OpenSysML+"relatedFeature" {
+		if triple.Predicate.Value == rdf.SysML+"connectorEnd" {
 			ends[triple.Subject.Value] = append(ends[triple.Subject.Value], triple.Object.Value)
 		}
 	}
@@ -391,23 +500,54 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 			t.Errorf("<%s> relates %d features, want 2", subject, len(related))
 			continue
 		}
-		// The head keeps its notation, and every end says where it is written.
+		// The head keeps its notation, and every end is an owned end feature.
 		if _, ok := g.Lexical(iri(subject), rdf.OpenSysML+"sourceText"); !ok {
 			t.Errorf("<%s> states no source text", subject)
 		}
-		wantLexical(t, g, related[0], rdf.OpenSysML+"endIndex", "0")
-		wantLexical(t, g, related[1], rdf.OpenSysML+"endIndex", "1")
+		// A flow's ends are FlowEnds (SysML.xtext FlowEnd), a connector's ReferenceUsages.
+		endType := "ReferenceUsage"
+		if g.Type(iri(subject)) == rdf.SysML+"FlowUsage" {
+			endType = "FlowEnd"
+		}
+		wantType(t, g, related[0], endType)
+		wantType(t, g, related[1], endType)
+		if !g.BoolValue(iri(related[0]), rdf.SysML+"isEnd") || !g.BoolValue(iri(related[1]), rdf.SysML+"isEnd") {
+			t.Errorf("<%s> does not mark both ends with sysml:isEnd", subject)
+		}
 	}
 	// A connect end names the port it connects; a flow end reaches through one.
 	connectEnd := rdf.Expression + rdf.ExpressionNodeID("P__Car___402", "end0")
-	wantType(t, g, connectEnd, "FeatureReferenceExpression")
-	if got := g.Objects(iri(connectEnd), rdf.SysML+"referent"); len(got) != 1 ||
-		got[0].Value != "urn:sysmlv2:element:P__Car__left" {
-		t.Errorf("the first connect end reads %v, want the port P::Car::left", got)
+	wantType(t, g, connectEnd, "ReferenceUsage")
+	relationships := g.Objects(iri(connectEnd), rdf.SysML+"ownedReferenceSubsetting")
+	if len(relationships) != 1 {
+		t.Fatalf("the first connect end has %d ReferenceSubsetting relationships, want 1", len(relationships))
 	}
-	source := rdf.Expression + rdf.ExpressionNodeID("P__I___402", "flowSource")
-	wantType(t, g, source, "FeatureChainExpression")
-	wantLexical(t, g, source, rdf.OpenSysML+"endRole", "source")
-	wantLexical(t, g, rdf.Expression+rdf.ExpressionNodeID("P__I___402", "flowTarget"),
-		rdf.OpenSysML+"endRole", "target")
+	if got := g.Objects(relationships[0], rdf.SysML+"referencedFeature"); len(got) != 1 ||
+		got[0].Value != "urn:sysmlv2:element:P__Car__left" {
+		t.Errorf("the first connect end references %v, want the port P::Car::left", got)
+	}
+	for _, subject := range g.Subjects() {
+		if g.Type(subject) != rdf.SysML+"FlowUsage" {
+			continue
+		}
+		flowEnds := g.Objects(subject, rdf.SysML+"connectorEnd")
+		if len(flowEnds) != 2 {
+			t.Errorf("flow usage <%s> has %d connector ends, want 2", subject.Value, len(flowEnds))
+			continue
+		}
+		for _, end := range flowEnds {
+			wantType(t, g, end.Value, "FlowEnd")
+			// It reaches through the end it subsets to the feature its
+			// FlowFeature redefines.
+			features := g.Objects(end, rdf.SysML+"ownedFeature")
+			if len(features) != 1 {
+				t.Errorf("flow end <%s> owns %d features, want its FlowFeature", end.Value, len(features))
+				continue
+			}
+			wantType(t, g, features[0].Value, "ReferenceUsage")
+			if len(g.Objects(features[0], rdf.SysML+"redefines")) != 1 {
+				t.Errorf("the FlowFeature of <%s> redefines no feature", end.Value)
+			}
+		}
+	}
 }

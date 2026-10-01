@@ -537,50 +537,74 @@ func TestChangeTriggerKeepsAnEdgeBlockedDuringThePoll(t *testing.T) {
 	}
 }
 
-// A change condition moving the machine out of a deferring state recalls the
-// events that state held back: the run dispatches the deferred signal rather
-// than declaring itself settled with the signal still held.
-func TestChangeTriggerRecallsDeferredEvents(t *testing.T) {
-	exec := stateExecutorForSource(t, "Machine", `package test {
+// A change condition moving the machine out of a state that keeps a signal
+// through the standard deferred-signal encoding runs that state's exit action,
+// which sends the kept signal to self: the run dispatches the resent signal
+// rather than declaring itself settled with the signal still in the buffer.
+func TestChangeTriggerLeavesAStateKeepingASignal(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		private import ScalarValues::*;
 		attribute def Ping;
-		state Machine {
-			attribute ready : Boolean = false;
-			entry; then start;
-			state start;
-			state busy {
-				defer Ping;
+		part def Holder {
+			exhibit state main {
+				attribute ready : Boolean = false;
+				entry; then start;
+				state start;
+				state busy {
+					item deferred : Ping[*] ordered;
+					do action buffer {
+						first start then receive;
+						action receive accept kept : Ping;
+						then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
+						then receive;
+					}
+					exit action flush {
+						for kept in deferred { send kept to self; }
+						then action clear { assign deferred := (); }
+					}
+				}
+				accept when ready then waiting;
+				state waiting;
+				accept Ping then done;
+				state done;
+				succession first start then busy;
 			}
-			accept when ready then waiting;
-			state waiting;
-			accept Ping then done;
-			state done;
-			succession first start then busy;
 		}
-	}`)
+		part holder : Holder;
+	`))
+	holder, err := ctx.occurrenceOf(resolveSymbol(t, idx.DocumentRoot("<test>"), "holder"))
+	if err != nil {
+		t.Fatalf("occurrenceOf(holder): %v", err)
+	}
+	exec := holder.ExhibitedStates()[0].State
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	exec.SendSignal("Ping", nil)
+	ping, err := ctx.SignalMessage(resolveSymbol(t, idx.DocumentRoot("<test>"), "Ping"), nil, holder)
+	if err != nil {
+		t.Fatalf("SignalMessage(Ping): %v", err)
+	}
+	ctx.PostMessage(ping)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("deliver Ping: %v", err)
 	}
 	assertCurrentState(t, exec, "busy")
-	if len(exec.deferred) != 1 {
-		t.Fatalf("deferred = %d, want the Ping held by busy", len(exec.deferred))
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 1 {
+		t.Fatalf("deferred = %s, want the Ping kept by busy", FormatValue(kept))
 	}
-	if reason := exec.SuspendReason(); !strings.Contains(reason, "still deferred") {
-		t.Errorf("reason = %q, want the deferred event it holds", reason)
+	if len(ctx.PendingMessages()) != 0 {
+		t.Fatal("the kept Ping is still on the bus")
 	}
 
-	// The condition rising leaves busy, so the Ping it deferred is dispatched by
-	// the same run rather than stranded.
+	// The condition rising leaves busy, whose exit action resends the Ping it
+	// kept, so the same run dispatches it rather than stranding it.
 	exec.stateData["ready"] = boolValue(true)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("rerun: %v", err)
 	}
 	assertCurrentState(t, exec, "done")
-	if len(exec.deferred) != 0 {
-		t.Errorf("deferred = %d, want the recalled Ping delivered", len(exec.deferred))
+	if kept := exec.StateData()["busy.deferred"]; sequenceLen(kept) != 0 {
+		t.Errorf("deferred = %s, want the buffer cleared once the Ping was resent", FormatValue(kept))
 	}
 }
 

@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "StateGuardReadsOwnPayloadMember::rig",
+  "objects": [
+    {
+      "path": "sensor",
+      "finalState": "sending",
+      "stateVisits": ["sending"]
+    },
+    {
+      "path": "monitor",
+      "finalState": "alerting",
+      "stateVisits": ["idle", "alerting"],
+      "slots": {
+        "origin": {"type": "String", "value": "probe"}
+      }
+    }
+  ]
+}

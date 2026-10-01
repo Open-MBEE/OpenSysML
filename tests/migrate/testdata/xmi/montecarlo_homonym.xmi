@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- A user's own block named like the simulation tool's analysis pattern, with the
+         pattern's properties: without the customization module's provenance it is an
+         ordinary block, and binding a value to its Mean an ordinary binding. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_mc" name="MonteCarloAnalysis">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mcN" name="N">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mcMean" name="Mean">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mcDeviation" name="Deviation">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mcOutOfSpec" name="OutOfSpec">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_reading" name="reading">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Gauge Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_gauge"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g2" general="_mc"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindReading" role="_reading"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMean" role="_mcMean"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a0" name="gauge analysis" classifier="_analysis"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_group" name="Gauge Group"/>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_run" name="run 1" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_runReading" definingFeature="_reading">
+          <value xmi:type="uml:LiteralReal" xmi:id="_runReadingV" value="2.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_runN" definingFeature="_mcN">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_runNV" value="4"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_runMean" definingFeature="_mcMean">
+          <value xmi:type="uml:LiteralReal" xmi:id="_runMeanV" value="2.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_mc"/>
+  <sysml:Block xmi:id="_s2" base_Class="_gauge"/>
+  <sysml:Block xmi:id="_s3" base_Class="_analysis"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bind"/>
+  <SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_c0" base_Class="_group"
+      executionTarget="_a0" resultLocation="_results" numberOfRuns="1" durationSimulationMode="average"/>
+</xmi:XMI>

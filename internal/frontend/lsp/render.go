@@ -42,6 +42,20 @@ const RenderPaletteCapability = "openSysmlRenderPalette"
 // forms opensysml/render writes, so a client offers exactly those.
 const RenderFormsCapability = "openSysmlRenderForms"
 
+// RenderStylesCapability is the experimental capability whose value lists the
+// drawing styles a render request's `style` draws the DOT form in, the first
+// the default; a server without it draws the Pilot look alone.
+const RenderStylesCapability = "openSysmlRenderStyles"
+
+// renderStyleNames lists the drawing styles in the order the writer defines them.
+func renderStyleNames() []string {
+	names := make([]string, 0, len(view.DrawingStyles()))
+	for _, style := range view.DrawingStyles() {
+		names = append(names, string(style))
+	}
+	return names
+}
+
 // renderFormNames lists the forms in the order the writer defines them.
 func renderFormNames() []string {
 	names := make([]string, 0, len(view.Forms()))
@@ -56,18 +70,22 @@ func renderFormNames() []string {
 // document's own view. Form is the artifact written, defaulting to the machine
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
+// Style names the drawing style the DOT form draws in; empty is the default, pilot.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
 	Form         string                          `json:"form,omitempty"`
 	Palette      string                          `json:"palette,omitempty"`
+	Style        string                          `json:"style,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
-// edges it is made of, each located in the source it was declared in.
+// edges it is made of, each located in the source it was declared in. Style is
+// the drawing style the artifact was drawn in, the default named.
 type renderResult struct {
 	View     string        `json:"view"`
 	Kind     string        `json:"kind"`
+	Style    string        `json:"style"`
 	Stated   string        `json:"stated"`
 	Form     string        `json:"form"`
 	Artifact string        `json:"artifact"`
@@ -92,26 +110,29 @@ type renderResult struct {
 // only ones the operations besides a layout reach. Fill and Border are the
 // `#RRGGBB` colours the palette gives the node, as the DOT and PlantUML forms draw it; absent
 // for a node left black and white, and for every node when no palette is asked for.
+// Style is the node's own Style annotation, which wins over the palette and the drawing style.
 type renderNode struct {
-	ID           string          `json:"id"`
-	Kind         string          `json:"kind"`
-	Name         string          `json:"name"`
-	Type         string          `json:"type"`
-	Detail       string          `json:"detail"`
-	Parent       string          `json:"parent,omitempty"`
-	Fill         string          `json:"fill,omitempty"`
-	Border       string          `json:"border,omitempty"`
-	FQN          string          `json:"fqn,omitempty"`
-	DeclaredHere bool            `json:"declaredHere,omitempty"`
-	Notation     string          `json:"notation,omitempty"`
-	Owners       []renderOwner   `json:"owners,omitempty"`
-	Declaration  *protocol.Range `json:"declaration,omitempty"`
-	Origin       *renderOrigin   `json:"origin,omitempty"`
-	X            *float64        `json:"x,omitempty"`
-	Y            *float64        `json:"y,omitempty"`
-	Width        *float64        `json:"width,omitempty"`
-	Height       *float64        `json:"height,omitempty"`
-	Collapsed    bool            `json:"collapsed,omitempty"`
+	ID              string          `json:"id"`
+	Kind            string          `json:"kind"`
+	Name            string          `json:"name"`
+	NameSynthesized bool            `json:"nameSynthesized,omitempty"`
+	Type            string          `json:"type"`
+	Detail          string          `json:"detail"`
+	Parent          string          `json:"parent,omitempty"`
+	Fill            string          `json:"fill,omitempty"`
+	Border          string          `json:"border,omitempty"`
+	Style           *renderStyle    `json:"style,omitempty"`
+	FQN             string          `json:"fqn,omitempty"`
+	DeclaredHere    bool            `json:"declaredHere,omitempty"`
+	Notation        string          `json:"notation,omitempty"`
+	Owners          []renderOwner   `json:"owners,omitempty"`
+	Declaration     *protocol.Range `json:"declaration,omitempty"`
+	Origin          *renderOrigin   `json:"origin,omitempty"`
+	X               *float64        `json:"x,omitempty"`
+	Y               *float64        `json:"y,omitempty"`
+	Width           *float64        `json:"width,omitempty"`
+	Height          *float64        `json:"height,omitempty"`
+	Collapsed       bool            `json:"collapsed,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -124,11 +145,13 @@ type renderOwner struct {
 // renderEdge is one edge of a rendering, located at the connector, transition,
 // succession or flow it was written as, with the waypoints a Route gives it.
 // FQN and Declaration identify that declaration to a setRoute as a node's do.
+// Style is the edge's own Style annotation.
 type renderEdge struct {
 	From        string          `json:"from"`
 	To          string          `json:"to"`
 	Label       string          `json:"label"`
 	Kind        string          `json:"kind"`
+	Style       *renderStyle    `json:"style,omitempty"`
 	FQN         string          `json:"fqn,omitempty"`
 	Declaration *protocol.Range `json:"declaration,omitempty"`
 	Origin      *renderOrigin   `json:"origin,omitempty"`
@@ -146,6 +169,19 @@ type renderCanvas struct {
 	Unit   string   `json:"unit,omitempty"`
 	Width  *float64 `json:"width,omitempty"`
 	Height *float64 `json:"height,omitempty"`
+}
+
+// renderStyle is how a node or edge is drawn where a Style annotation says so:
+// `#RRGGBB` colours of fill, line and text, and the face, size in points and
+// weight of its text; each empty or zero when unstated.
+type renderStyle struct {
+	Fill     string  `json:"fill,omitempty"`
+	Line     string  `json:"line,omitempty"`
+	Text     string  `json:"text,omitempty"`
+	Font     string  `json:"font,omitempty"`
+	FontSize float64 `json:"fontSize,omitempty"`
+	Bold     bool    `json:"bold,omitempty"`
+	Italic   bool    `json:"italic,omitempty"`
 }
 
 // renderRow is one row of a table rendering, located at the element it reports.
@@ -276,7 +312,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors})
+	style, err := renderDrawingStyle(params.Style)
+	if err != nil {
+		return nil, err
+	}
+	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style})
 	if err != nil {
 		return nil, err
 	}
@@ -288,6 +328,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	out := &renderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
+		Style:    string(style),
 		Stated:   data.Stated,
 		Form:     string(form),
 		Artifact: artifact,
@@ -324,14 +365,24 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 	var declared []declaredNode
 	for _, node := range nodes {
 		n := renderNode{
-			ID:     node.ID,
-			Kind:   node.Kind,
-			Name:   node.Name,
-			Type:   node.Type,
-			Detail: node.Detail,
-			Parent: node.Parent,
-			Fill:   fills[node.ID].Fill,
-			Border: fills[node.ID].Border,
+			ID:              node.ID,
+			Kind:            node.Kind,
+			Name:            node.Name,
+			NameSynthesized: node.NameSynthesized,
+			Type:            node.Type,
+			Detail:          node.Detail,
+			Parent:          node.Parent,
+			Fill:            fills[node.ID].Fill,
+			Border:          fills[node.ID].Border,
+			Style:           wireStyle(node.Style),
+		}
+		if node.Style != nil {
+			if node.Style.Fill != "" {
+				n.Fill = node.Style.Fill
+			}
+			if node.Style.Line != "" {
+				n.Border = node.Style.Line
+			}
 		}
 		declaring := s.declaring(snapshot, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)
@@ -346,7 +397,7 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
 			} else {
-				decl := spanToRange(declaring.Content, sym.DeclSpan)
+				decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
 				n.Declaration = &decl
 			}
 		}
@@ -374,6 +425,7 @@ func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges 
 			To:    edge.To,
 			Label: edge.Label,
 			Kind:  edge.Kind.String(),
+			Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
@@ -381,7 +433,7 @@ func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges 
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
-				decl := spanToRange(declaring.Content, sym.DeclSpan)
+				decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
 				e.Declaration = &decl
 			}
 		}
@@ -423,6 +475,24 @@ func renderPalette(asked string) (view.Palette, error) {
 	return palette, nil
 }
 
+// renderDrawingStyle is the drawing style a request names, the default when it
+// names none, and an error listing the styles there are when it names something else.
+func renderDrawingStyle(asked string) (view.DrawingStyle, error) {
+	style, ok := view.ParseDrawingStyle(asked)
+	if !ok {
+		return "", &view.UnknownDrawingStyleError{Name: asked}
+	}
+	return style, nil
+}
+
+// wireStyle is a node's or edge's Style as the wire carries it; nil for none.
+func wireStyle(style *view.Style) *renderStyle {
+	if style == nil {
+		return nil
+	}
+	return &renderStyle{Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font, FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic}
+}
+
 // declaring is the document an origin is located in, as the rendering read it:
 // the snapshot's document of that name, else the bundled library file of that
 // name, which is never rewritten; nil for an origin with no locatable
@@ -462,9 +532,10 @@ func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
 	if doc == nil {
 		return nil
 	}
-	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span), Digest: doc.Digest()}
+	pos := positionsOf(doc)
+	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: pos.rangeOf(o.Span), Digest: doc.Digest()}
 	if o.Name.Len > 0 {
-		name := spanToRange(doc.Content, o.Name)
+		name := pos.rangeOf(o.Name)
 		out.SelectionRange = &name
 	}
 	return out

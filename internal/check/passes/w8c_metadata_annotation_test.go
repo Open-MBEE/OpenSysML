@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -497,6 +498,54 @@ func TestProbabilityWeightMayBeDecidedByTheRun(t *testing.T) {
 	}
 }
 
+func TestProbabilityFeatureReferenceRequiresModelLevelEvaluationInStrictMode(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def Analysis {
+		attribute pFast : Real;
+		action route {
+			first start;
+			then decide d;
+			succession fast first d then done { @Stochastic::Probability { p = pFast; } }
+			succession slow first d then done { metadata w : Stochastic::Probability { p = pFast; } }
+		}
+	}
+}`
+	for _, tc := range []struct {
+		mode diag.ConformanceMode
+		want int
+	}{
+		{mode: diag.ConformanceDefault},
+		{mode: diag.ConformanceStrict, want: 2},
+	} {
+		got := metadataValueDiagnostics(t, "probability-strict.sysml", src, tc.mode)
+		if len(got) != tc.want {
+			t.Errorf("mode %v: got %d model-level-evaluability errors, want %d: %v", tc.mode, len(got), tc.want, got)
+		}
+	}
+	literal := strings.ReplaceAll(src, "p = pFast", "p = 0.5")
+	for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+		if got := metadataValueDiagnostics(t, "probability-literal.sysml", literal, mode); len(got) != 0 {
+			t.Errorf("mode %v: literal probability produced errors: %v", mode, got)
+		}
+	}
+}
+
+func metadataValueDiagnostics(t *testing.T, name, src string, mode diag.ConformanceMode) []diag.Diagnostic {
+	t.Helper()
+	idx := newTestIndex()
+	root := parser.New(source.New(name, []byte(src))).ParseFile()
+	idx.AddDocument(name, root)
+	idx.ExpandWildcardImports()
+	var out []diag.Diagnostic
+	for _, d := range AnalyzeWithOptions(name, source.KindOf(name), root, nil, idx, Options{Conformance: mode}) {
+		if d.Code == "metadata-value-not-evaluable" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // An annotation written in a document's root namespace annotates that namespace
 // and is judged like a package member's: the pilot draws exactly these findings.
 func TestMetadataAnnotationsInTheRootNamespace(t *testing.T) {
@@ -610,6 +659,7 @@ func TestMetadataAnnotationsNestedInAnnotationBodies(t *testing.T) {
 		"metadata-owning-type-feature on :>> g = 1;",
 		"metadata-value-not-evaluable on = ~3",
 		"typing on @N;",
+		"undefined-operator on ~3",
 	}
 	for name, src := range map[string]string{"nested.kerml": kerml, "nested.sysml": sysml} {
 		var got []string
@@ -658,6 +708,8 @@ func TestMetadataUsagesNestedInAnnotationBodies(t *testing.T) {
 		"metadata-value-not-evaluable on = ~4",
 		"name-conflict on :>> i = ~4;",
 		"name-conflict on i",
+		"undefined-operator on ~3",
+		"undefined-operator on ~4",
 	}
 	for name, src := range map[string]string{"nested.kerml": kerml, "nested.sysml": sysml} {
 		var got []string

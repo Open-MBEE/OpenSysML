@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::Fleet",
+  "slots": {
+    "extentBefore": {"type": "Integer", "value": 2},
+    "sameObject": {"type": "Boolean", "value": true},
+    "extentAfter": {"type": "Integer", "value": 1},
+    "heldAfter": {"type": "Integer", "value": 2},
+    "spareAlive": {"type": "Boolean", "value": false},
+    "firstAlive": {"type": "Boolean", "value": true},
+    "readAfter": {"error": "occurrence was destroyed"}
+  }
+}

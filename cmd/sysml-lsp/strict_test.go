@@ -6,7 +6,7 @@ import (
 )
 
 // lspExtensionModel uses OpenSysML notation no SysML v2 production admits.
-const lspExtensionModel = "package M { attribute def Alarm; state def S { state off { defer Alarm; } } }"
+const lspExtensionModel = "package M { state def S { state idle; state on; choice evaluate; transition first idle then evaluate; transition first evaluate then on; } }"
 
 // The severities an editor draws: 1 error, 2 warning.
 const (
@@ -50,9 +50,10 @@ func TestStrictFlagServesStrictDiagnostics(t *testing.T) {
 // firstPublishedSeverity reads until the server publishes a diagnostic.
 func firstPublishedSeverity(s *session) float64 {
 	s.t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	// The first diagnostic can wait on a cold standard-library parse.
+	deadline := time.Now().Add(2 * time.Minute)
 	for time.Now().Before(deadline) {
-		msg := s.read()
+		msg := s.readBy(deadline)
 		if msg["method"] != "textDocument/publishDiagnostics" {
 			continue
 		}

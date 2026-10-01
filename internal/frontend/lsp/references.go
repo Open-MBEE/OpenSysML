@@ -28,8 +28,14 @@ func (s *Server) References(ctx context.Context, params *protocol.ReferenceParam
 
 	var out []protocol.Location
 	seen := map[protocol.Location]bool{}
+	posOf := map[string]positions{}
 	add := func(docName string, content []byte, span source.Span) {
-		loc := protocol.Location{URI: s.documentURI(docName), Range: spanToRange(content, span)}
+		pos, ok := posOf[docName]
+		if !ok {
+			pos = positionsFor(content)
+			posOf[docName] = pos
+		}
+		loc := protocol.Location{URI: s.documentURI(docName), Range: pos.rangeOf(span)}
 		if seen[loc] {
 			return
 		}
@@ -44,7 +50,11 @@ func (s *Server) References(ctx context.Context, params *protocol.ReferenceParam
 	}
 	// Both identities of a segment: the element it reaches and, where it wrote
 	// an alias name, the alias — each names the target for a reader.
-	for _, ref := range s.ws.ReferencesTo(target) {
+	refs, err := s.ws.ReferencesTo(target)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range refs {
 		add(ref.Doc, ref.Content, ref.Span)
 	}
 	return out, nil

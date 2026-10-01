@@ -1,0 +1,4 @@
+{
+	"verdict": "divergent",
+	"divergent": {"finalState": ["fast", "slow"], "log": ["1", "2"]}
+}

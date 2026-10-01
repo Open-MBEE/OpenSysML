@@ -6,6 +6,7 @@ eval operator > -> true
 eval operator > -> true
 exit: fine
 enter: warm (entry action)
-stmt assign path
-  eval literal 1 -> 1
+stmt action body
+  stmt assign path
+    eval literal 1 -> 1
 transition: fine -> warm (event: accept Tick)

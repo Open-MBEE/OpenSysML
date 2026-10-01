@@ -24,7 +24,9 @@
           (TransitionMember source="alerting" target="idle"
             (*ast.AssignmentActionNode))
           (TransitionMember source="idle" target="alerting"
-            (*ast.AssignmentActionNode))
+            (Membership visibility="default"
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (*ast.AssignmentActionNode))))
           (TransitionMember source="alerting" target="idle"
             (Membership visibility="default"
               (Usage kind="action" name="nudge" ref=false direction="none" composite=false derived=false ordered=false nonunique=false

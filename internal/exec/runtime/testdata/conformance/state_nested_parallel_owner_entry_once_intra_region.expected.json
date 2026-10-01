@@ -1,0 +1,15 @@
+{
+	"type": "state",
+	"schedule": "reverse",
+	"events": [
+		{"signal": "Go", "args": null},
+		{"signal": "Leave", "args": null}
+	],
+	"finalState": "waited",
+	"stateVisits": ["outer", "prep", "ridle", "work", "waited"],
+	"outputs": {
+		"outerEntered": {"type": "Integer", "value": 1},
+		"entered": {"type": "Integer", "value": 1},
+		"exited": {"type": "Integer", "value": 1}
+	}
+}

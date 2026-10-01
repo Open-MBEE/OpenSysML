@@ -85,15 +85,94 @@ func (m *Model) RangeOf(mult *ast.Multiplicity) (Range, bool) {
 	return m.multiplicityRange(mult)
 }
 
+// RangeIn is RangeOf evaluating bounds that name valued features in scope; a nil
+// scope evaluates constants only.
+func (m *Model) RangeIn(scope *symbols.Scope, mult *ast.Multiplicity) (Range, bool) {
+	return m.multiplicityRangeIn(scope, mult)
+}
+
 // MultiplicityOf returns the extracted multiplicity range of a usage symbol, a
 // subject or a requirement constraint included, or ok=false when the symbol is
 // not a usage or declares none.
 func (m *Model) MultiplicityOf(sym *symbols.Symbol) (Range, bool) {
+	if sym.Recorded() {
+		if sym.Kind == symbols.SymbolMultiplicity || sym.Facts.Node == symbols.NodeDefinition {
+			return Range{}, false
+		}
+		return recordedRange(sym.Facts.Multiplicity)
+	}
 	mult := UsageMultiplicityOf(sym)
 	if mult == nil {
 		return Range{}, false
 	}
 	return m.multiplicityRange(mult)
+}
+
+// recordedRange is the range a multiplicity fact states, ok=false for none.
+func recordedRange(facts *symbols.MultiplicityFacts) (Range, bool) {
+	if facts == nil {
+		return Range{}, false
+	}
+	bound := func(b symbols.BoundFacts) Bound {
+		if b.Named {
+			return Bound{}
+		}
+		return Bound{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	}
+	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
+}
+
+// recordedRangeIn is recordedRange as multiplicityRangeIn would read the
+// declaration in its scope: a bound written as a feature name has its value.
+func recordedRangeIn(facts *symbols.MultiplicityFacts) (Range, bool) {
+	if facts == nil {
+		return Range{}, false
+	}
+	bound := func(b symbols.BoundFacts) Bound {
+		return Bound{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	}
+	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
+}
+
+// MultiplicityFactsOf states the multiplicity sym declares — as a usage or a
+// definition does, or as a `multiplicity` member's range — as a record fact,
+// nil when it declares none. A bound only the declaring scope evaluates is
+// marked Named.
+func (m *Model) MultiplicityFactsOf(sym *symbols.Symbol) *symbols.MultiplicityFacts {
+	mult := UsageMultiplicityOf(sym)
+	scope := declScope(sym)
+	switch decl := sym.Decl.(type) {
+	case *ast.MultiplicityDecl:
+		mult, scope = decl.Range, sym.OwnerScope
+	case *ast.Definition:
+		mult = decl.Multiplicity
+	}
+	if mult == nil {
+		return nil
+	}
+	plain, _ := m.multiplicityRangeIn(nil, mult)
+	scoped, _ := m.multiplicityRangeIn(scope, mult)
+	bound := func(plain, scoped Bound) symbols.BoundFacts {
+		if plain.Known || !scoped.Known {
+			return symbols.BoundFacts{Value: plain.Value, Known: plain.Known, Infinite: plain.Infinite}
+		}
+		return symbols.BoundFacts{Value: scoped.Value, Known: true, Infinite: scoped.Infinite, Named: true}
+	}
+	return &symbols.MultiplicityFacts{
+		Lower: bound(plain.Lower, scoped.Lower),
+		Upper: bound(plain.Upper, scoped.Upper),
+	}
+}
+
+// SubsettedMultiplicity is the multiplicity a `multiplicity` member subsets
+// (`multiplicity m subsets n;`), resolved; nil for any other declaration.
+func (m *Model) SubsettedMultiplicity(sym *symbols.Symbol) *symbols.Symbol {
+	decl, ok := sym.Decl.(*ast.MultiplicityDecl)
+	if !ok || decl.Subsets == nil {
+		return nil
+	}
+	w := &multiplicityWalk{m: m}
+	return w.resolve(sym.OwnerScope, decl.Subsets)
 }
 
 // UsageMultiplicityOf returns the multiplicity a usage, subject, cross feature or
@@ -124,6 +203,149 @@ func AssumedRange() Range {
 		Lower: Bound{Value: 1, Known: true},
 		Upper: Bound{Value: 1, Known: true},
 	}
+}
+
+// UnboundedRange is the multiplicity a parameter takes when nothing it
+// redefines or subsets bounds it: [0..*] (SysML v2 §7.6.3).
+func UnboundedRange() Range {
+	return Range{
+		Lower: Bound{Value: 0, Known: true},
+		Upper: Bound{Infinite: true, Known: true},
+	}
+}
+
+// ImplicitMultiplicityApplies reports whether a usage takes the implicit
+// [1..1] of SysML v2 §7.6.3: written `attribute`, `item`, `part` or `port`,
+// owned by a type, and subsetting or redefining no feature a type owns. The
+// keyword, not the kind: KerML's `feature` parses to an attribute usage and
+// takes no default multiplicity.
+func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
+	if sym == nil || !featureOwnedByType(sym) {
+		return false
+	}
+	switch sym.Keyword() {
+	case "attribute", "item", "part", "port":
+	default:
+		return false
+	}
+	for _, rel := range RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil {
+			continue
+		}
+		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
+			continue
+		}
+		if target := m.RelationshipTarget(sym, rel); target != nil && featureOwnedByType(target) {
+			return false
+		}
+	}
+	return true
+}
+
+// featureOwnedByType reports whether a feature is owned by a definition or
+// usage rather than by a package or namespace.
+func featureOwnedByType(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil {
+		return false
+	}
+	switch owner.Kind {
+	case symbols.SymbolPackage, symbols.SymbolNamespace:
+		return false
+	}
+	return true
+}
+
+// EffectiveParameterRange is the multiplicity a parameter is held to
+// (SysML v2 §7.6.3): what its redefinition chain and the features it
+// subsets declare, the implicit [1..1] where it qualifies, else [0..*].
+func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
+	if sym == nil {
+		return UnboundedRange()
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.paramRanges[sym]; ok {
+		return cached
+	}
+	r := m.EffectiveParameterRangeAlong(m.ParameterRedefinitionChain(sym))
+	if m.computingRedefinedFeatures == 0 {
+		journal(m, m.paramRanges, sym, sym.Decl)
+		m.paramRanges[sym] = r
+	}
+	return r
+}
+
+// EffectiveParameterRangeAlong is EffectiveParameterRange over an explicit
+// redefinition chain; the ranges of all subsetted and redefined features
+// intersect (KerML 1.0 §7.3.4.4, §7.3.4.5).
+func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
+	if len(chain) == 0 {
+		return UnboundedRange()
+	}
+	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
+	for i := 0; i+1 < len(chain); i++ {
+		w.next[chain[i]] = chain[i+1]
+	}
+	if r, ok := w.rangeOf(chain[0]); ok {
+		return r
+	}
+	return UnboundedRange()
+}
+
+// rangeWalk intersects the ranges along a redefinition chain and the features
+// each member subsets or redefines, each visited once.
+type rangeWalk struct {
+	m       *Model
+	next    map[*symbols.Symbol]*symbols.Symbol
+	visited map[*symbols.Symbol]bool
+}
+
+func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
+	if w.visited[p] {
+		return Range{}, false
+	}
+	w.visited[p] = true
+	if r, ok := w.m.MultiplicityOf(p); ok {
+		return r, true
+	}
+	if w.m.ImplicitMultiplicityApplies(p) {
+		return AssumedRange(), true
+	}
+	var acc Range
+	found := false
+	for _, t := range w.targets(p) {
+		r, ok := w.rangeOf(t)
+		if !ok {
+			continue
+		}
+		if found {
+			acc = acc.Intersect(r)
+		} else {
+			acc, found = r, true
+		}
+	}
+	return acc, found
+}
+
+// targets lists the features p's range is read from: those it subsets or
+// redefines, then the next of the chain.
+func (w *rangeWalk) targets(p *symbols.Symbol) []*symbols.Symbol {
+	var targets []*symbols.Symbol
+	for _, rel := range RelationshipsOf(p) {
+		if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
+			continue
+		}
+		if target := w.m.RelationshipTarget(p, rel); target != nil {
+			targets = append(targets, target)
+		}
+	}
+	if n, ok := w.next[p]; ok {
+		targets = append(targets, n)
+	}
+	return targets
 }
 
 // EffectiveMultiplicityOf returns the multiplicity governing a usage symbol: the

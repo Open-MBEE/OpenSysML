@@ -41,35 +41,97 @@ func implicitBaseOf(t *testing.T, src string, path ...string) []string {
 	return names
 }
 
+func implicitGeneralNamesOf(t *testing.T, src string, path ...string) []string {
+	t.Helper()
+	const uri = "file:///implicit-generals.sysml"
+	ws := NewWorkspace()
+	ws.Open(uri, []byte(src), 1)
+	defer ws.Close(uri)
+
+	scope := ws.index.DocumentRoot(uri)
+	var sym *symbols.Symbol
+	for _, part := range path {
+		if scope == nil {
+			t.Fatalf("no scope while looking up %q", part)
+		}
+		s, ok := scope.LookupLocal(part)
+		if !ok {
+			t.Fatalf("symbol %q not found", part)
+		}
+		sym, scope = s, s.Scope
+	}
+
+	r := resolve.New(ws.index)
+	m := semantics.NewModel(r)
+	r.SetModel(m)
+	var names []string
+	for _, general := range m.ImplicitGenerals(sym) {
+		names = append(names, symbols.FQNOf(general))
+	}
+	return names
+}
+
+func featureBaseNameOf(t *testing.T, src string, path ...string) string {
+	t.Helper()
+	const uri = "file:///feature-base.sysml"
+	ws := NewWorkspace()
+	ws.Open(uri, []byte(src), 1)
+	defer ws.Close(uri)
+
+	scope := ws.index.DocumentRoot(uri)
+	var sym *symbols.Symbol
+	for _, part := range path {
+		if scope == nil {
+			t.Fatalf("no scope while looking up %q", part)
+		}
+		s, ok := scope.LookupLocal(part)
+		if !ok {
+			t.Fatalf("symbol %q not found", part)
+		}
+		sym, scope = s, s.Scope
+	}
+	r := resolve.New(ws.index)
+	m := semantics.NewModel(r)
+	r.SetModel(m)
+	fqn, ok := m.FeatureBaseFQN(sym)
+	if !ok {
+		return ""
+	}
+	return fqn
+}
+
 // TestImplicitUsageBaseTypes covers the standard library definition each kind of
 // untyped usage is implicitly typed by, so members inherited from it resolve.
 func TestImplicitUsageBaseTypes(t *testing.T) {
 	cases := []struct {
 		decl string
 		want string
+		base string
 	}{
-		{"part x;", "Parts::Part"},
-		{"attribute x;", "Base::DataValue"},
-		{"item x;", "Items::Item"},
-		{"occurrence x;", "Occurrences::Occurrence"},
-		{"individual occurrence x;", "Occurrences::Life"},
-		{"port x;", "Ports::Port"},
-		{"connection x;", "Connections::Connection"},
-		{"interface x;", "Interfaces::Interface"},
-		{"allocation x;", "Allocations::Allocation"},
-		{"action x;", "Actions::Action"},
-		{"state x;", "States::StateAction"},
-		{"calc x;", "Calculations::Calculation"},
-		{"constraint x;", "Constraints::ConstraintCheck"},
-		{"requirement x;", "Requirements::RequirementCheck"},
-		{"concern x;", "Requirements::ConcernCheck"},
-		{"case x;", "Cases::Case"},
-		{"analysis x;", "AnalysisCases::AnalysisCase"},
-		{"verification x;", "VerificationCases::VerificationCase"},
-		{"use case x;", "UseCases::UseCase"},
-		{"view x;", "Views::View"},
-		{"viewpoint x;", "Views::ViewpointCheck"},
-		{"rendering x;", "Views::Rendering"},
+		{"part x;", "Parts::Part", "Parts::parts"},
+		{"individual part x;", "Parts::Part", "Parts::parts"},
+		{"individual item x;", "Items::Item", "Items::items"},
+		{"attribute x;", "Base::DataValue", "Base::dataValues"},
+		{"item x;", "Items::Item", "Items::items"},
+		{"occurrence x;", "Occurrences::Occurrence", "Occurrences::occurrences"},
+		{"individual occurrence x;", "Occurrences::Life", "Occurrences::Life"},
+		{"port x;", "Ports::Port", "Ports::ports"},
+		{"connection x;", "Connections::Connection", "Connections::connections"},
+		{"interface x;", "Interfaces::Interface", "Interfaces::interfaces"},
+		{"allocation x;", "Allocations::Allocation", "Allocations::allocations"},
+		{"action x;", "Actions::Action", "Actions::actions"},
+		{"state x;", "States::StateAction", "States::stateActions"},
+		{"calc x;", "Calculations::Calculation", "Calculations::calculations"},
+		{"constraint x;", "Constraints::ConstraintCheck", "Constraints::constraintChecks"},
+		{"requirement x;", "Requirements::RequirementCheck", "Requirements::requirementChecks"},
+		{"concern x;", "Requirements::ConcernCheck", "Requirements::concernChecks"},
+		{"case x;", "Cases::Case", "Cases::cases"},
+		{"analysis x;", "AnalysisCases::AnalysisCase", "AnalysisCases::analysisCases"},
+		{"verification x;", "VerificationCases::VerificationCase", "VerificationCases::verificationCases"},
+		{"use case x;", "UseCases::UseCase", "UseCases::useCases"},
+		{"view x;", "Views::View", "Views::views"},
+		{"viewpoint x;", "Views::ViewpointCheck", "Views::viewpointChecks"},
+		{"rendering x;", "Views::Rendering", "Views::renderings"},
 		// No `metadata x;` row: the grammar reads x as the usage's typing, not
 		// its name (SysML.xtext MetadataUsageDeclaration).
 	}
@@ -80,7 +142,67 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 			if len(got) != 1 || got[0] != tc.want {
 				t.Fatalf("supertypes of %q = %v, want [%s]", tc.decl, got, tc.want)
 			}
+			generals := implicitGeneralNamesOf(t, "package P { "+tc.decl+" }", "P", "x")
+			found := false
+			for _, general := range generals {
+				if general == tc.base {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("implicit generals of %q = %v, want %s", tc.decl, generals, tc.base)
+			}
 		})
+	}
+}
+
+func TestBinaryUsageBaseFeatures(t *testing.T) {
+	const src = `package P {
+		part def A { port p; }
+		part def B { port q; }
+		part a : A;
+		part b : B;
+		connection c connect a.p to b.q;
+		interface i connect a.p to b.q;
+	}`
+	for _, tc := range []struct {
+		name string
+		path string
+		base string
+	}{
+		{"connection", "c", "Connections::binaryConnections"},
+		{"interface", "i", "Interfaces::binaryInterfaces"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			generals := implicitGeneralNamesOf(t, src, "P", tc.path)
+			found := false
+			for _, general := range generals {
+				if general == tc.base {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("implicit generals = %v, want %s", generals, tc.base)
+			}
+			if got := featureBaseNameOf(t, src, "P", tc.path); got != tc.base {
+				t.Fatalf("FeatureBaseFQN = %q, want %q", got, tc.base)
+			}
+		})
+	}
+}
+
+func TestConjugatedUsageHasNoImplicitBaseFeature(t *testing.T) {
+	const src = `package P {
+		port def PortDef;
+		part def A { port p : ~PortDef; }
+	}`
+	generals := implicitGeneralNamesOf(t, src, "P", "A", "p")
+	for _, general := range generals {
+		if general == "Ports::ports" {
+			t.Fatalf("implicit generals = %v, must not contain Ports::ports", generals)
+		}
 	}
 }
 
@@ -107,6 +229,33 @@ func TestImplicitBaseNotAppliedToTypedUsage(t *testing.T) {
 				t.Fatalf("supertypes = %v, want [%s]", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestUsageBaseFeatureSuppressionFollowsDeclaredChain(t *testing.T) {
+	typed := implicitGeneralNamesOf(t, `package P {
+		part def Vehicle;
+		part p : Vehicle;
+	}`, "P", "p")
+	found := false
+	for _, name := range typed {
+		if name == "Parts::parts" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("implicit generals of typed usage = %v, want Parts::parts", typed)
+	}
+
+	subsetted := implicitGeneralNamesOf(t, `package P {
+		part q;
+		part p :> q;
+	}`, "P", "p")
+	for _, name := range subsetted {
+		if name == "Parts::parts" {
+			t.Fatalf("implicit generals of usage subsetting a part = %v, want no Parts::parts", subsetted)
+		}
 	}
 }
 

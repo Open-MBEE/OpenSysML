@@ -1,0 +1,52 @@
+/* nasa: the print companion, laid over the PDF backend's print sheet so the
+   letter page, one-inch margins, 12pt Times and roman front matter reach paper. */
+@layer opensysml-print-theme {
+  :root {
+    --sysml-page-size: letter;
+    --sysml-page-margin: 1in;
+    --sysml-page-number-font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-page-number-font-size: 12pt;
+    --sysml-page-number-color: #000000;
+  }
+
+  .sysml-document {
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-heading: Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
+    --sysml-font-size: 12pt;
+    --sysml-line-height: 1.25;
+    --sysml-space: 0.75em;
+    --sysml-title-font-size: 24pt;
+    --sysml-heading-font-size: 24pt;
+    --sysml-subheading-font-size: 14pt;
+    --sysml-subsubheading-font-size: 12pt;
+    --sysml-diagram-font-size: 10pt;
+    --sysml-wide-table-font-size: 10pt;
+    --sysml-title-page-height: 80vh;
+  }
+
+  /* Front matter (title page, contents, a bare title leading the contents) counts
+     in roman on its own counter and leaves page at 0, so the body opens at 1. */
+  .sysml-document .sysml-title-page {
+    page: cover;
+  }
+
+  .sysml-document .sysml-toc,
+  .sysml-document > .sysml-title:has(+ .sysml-toc) {
+    page: front;
+  }
+
+  @page cover {
+    counter-increment: page 0 front 1;
+    @bottom-center {
+      content: none;
+    }
+  }
+
+  @page front {
+    counter-increment: page 0 front 1;
+    @bottom-center {
+      content: counter(front, lower-roman);
+    }
+  }
+}

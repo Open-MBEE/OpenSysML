@@ -27,9 +27,12 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: 'all' requires a type, %s is a %s",
 			ErrTypeMismatch, qualifiedNameToString(qn), target.Notation())
 	}
-	switch {
-	case target.Kind == symbols.SymbolEnumerationDef:
+	if target.Kind == symbols.SymbolEnumerationDef {
 		return ec.literalValues(sem.LiteralsOf(target))
+	}
+	// The extent is the run's, not the shape's: nothing derived over it is shared.
+	ec.ctx.unshareTraces()
+	switch {
 	case sem.IsVariationFeature(target):
 		return ec.variantValues(target, sem.VariantsOf(target))
 	case sem.IsDataType(target):
@@ -37,6 +40,8 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s is a data type, whose values are not enumerated (only an enumeration's literals are)",
 			ErrUnboundedExtent, qualifiedNameToString(qn))
 	}
+	// The extent is the objects there are, alive: what derives it reads the lives.
+	ec.ctx.readsLives()
 	roots, err := ec.extentRoots(target)
 	if err != nil {
 		return Value{}, err
@@ -119,6 +124,10 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			return nil
 		}
 		seen[inst.ID] = true
+		// A destroyed object left the extent with its portions; what it referred to is reached from where it is held.
+		if ctx.checkNotDestroyed(inst) != nil {
+			return nil
+		}
 		if ctx.isOf(inst, target) {
 			val, err := ctx.objectValue(inst)
 			if err != nil {
@@ -401,6 +410,9 @@ func (ctx *Context) extentCandidates(target *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 		found.judged = append(found.judged, target)
+		if ctx.run.extentCandidates == nil {
+			ctx.run.extentCandidates = map[*symbols.Symbol]*extentCandidates{}
+		}
 		ctx.run.extentCandidates[target] = found
 	}
 	for _, sym := range found.usages {

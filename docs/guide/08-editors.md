@@ -91,7 +91,9 @@ redraws from what the file now says.
 Where a diagram's boxes go is the model's decision when it states one: a view whose body places
 its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;
 y = 80; }`, and `Route` for an edge's waypoints) is drawn exactly so, and a node the model does
-not place takes a slot in a grid under its owner. Dragging a node writes that annotation — into
+not place is laid out in layers under its owner by the ELK layered algorithm, its edges
+running orthogonally around the boxes (a rendering of more than 600 nodes falls back to a
+square grid). Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
 through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,

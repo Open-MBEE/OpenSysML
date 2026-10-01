@@ -1,16 +1,16 @@
+// A state rendering with a scope outside the redefining state exercises the
+// same typed non-ancestor refusal as runtime lowering.
 package Machines {
-	alias Rtc for Occurrences::Occurrence::isRunToCompletion;
+	alias Scope for Occurrences::Occurrence::runToCompletionScope;
 
-	// Redefines the library's run-to-completion feature through an alias.
-	state def Relaxed {
-		attribute :>> Rtc = false;
-
-		entry; then off;
-
-		state off;
-		state on;
-
-		transition first off then on;
+	state def Relaxed parallel {
+		state left {
+			state off;
+		}
+		state right {
+			attribute :>> Scope = left::off;
+			state on;
+		}
 	}
 }
 

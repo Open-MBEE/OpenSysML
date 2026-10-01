@@ -1695,8 +1695,8 @@ func TestRelationshipsComeFromEveryTypeOfTheObject(t *testing.T) {
 	if strings.Join(conns, ",") != "p-q,q-r" {
 		t.Fatalf("connections = %v, want Base's p-q then Wide's q-r, each once", conns)
 	}
-	if anon := ctx.anonymousConnectorsOf(raw.types()); len(anon) != 2 {
-		t.Fatalf("anonymous connectors = %d, want Base's and Wide's", len(anon))
+	if anon := ctx.anonymousConnectorsOf(raw.types()); len(anon) != 4 {
+		t.Fatalf("anonymous connectors = %d, want Base's and Wide's bindings and connections", len(anon))
 	}
 }
 
@@ -2082,5 +2082,639 @@ func TestEnumerationTypedFeatureAdmitsOnlyEnumeratedValues(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Level") {
 		t.Errorf("error = %v, want the feature's type named", err)
+	}
+}
+
+// A classifier's nested redefinition reaches the children the object already
+// holds, the way its carried direct features do, and the ones still lazy read
+// it when they materialize.
+func TestClassifyAppliesNestedRedefinitions(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Wheel { attribute radius : Real default = 1.0; }
+		part def Car { part wheel : Wheel; part lazy : Wheel; }
+		part def Sport :> Car {
+			attribute :>> wheel.radius = 0.4;
+			attribute :>> lazy.radius = 0.6;
+		}
+		part car : Car;
+	}`)
+	radius := func(inst *Instance) float64 {
+		t.Helper()
+		fv, err := inst.GetFeatureValue(ctx, "radius")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(radius): %v", err)
+		}
+		return realValue(t, fv.HeldValue())
+	}
+	car := instantiateQualified(t, ctx, idx, "test::car")
+	wheel := readInstance(t, ctx, car, "wheel")
+	if got := radius(wheel); got != 1.0 {
+		t.Fatalf("wheel.radius = %v, want the declared 1.0", got)
+	}
+	if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(car, Sport): %v", err)
+	}
+	if got := radius(wheel); got != 0.4 {
+		t.Fatalf("wheel.radius after classify = %v, want the classifier's 0.4", got)
+	}
+	lazy := readInstance(t, ctx, car, "lazy")
+	if got := radius(lazy); got != 0.6 {
+		t.Fatalf("lazy.radius after classify = %v, want the classifier's 0.6", got)
+	}
+}
+
+// A chain a classifier declares counts as written in the classifier's body,
+// so it outranks the redefinition the child's own type declares — as the
+// nested-body form `part :>> wheel { attribute :>> radius = 3.0; }` does —
+// whether the child materialized before the classification or after.
+func TestClassifyChainOutranksTheChildsTypeRedefinition(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def BaseWheel { attribute radius : Real default = 1.0; }
+		part def Wheel :> BaseWheel { attribute :>> radius default = 2.0; }
+		part def Car { part wheel : Wheel; }
+		part def Sport :> Car { attribute :>> wheel.radius = 3.0; }
+		part car : Car;
+	}`
+	for _, sub := range []struct {
+		name      string
+		readFirst bool
+	}{
+		{"materialized_before_classify", true},
+		{"materialized_after_classify", false},
+	} {
+		t.Run(sub.name, func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			car := instantiateQualified(t, ctx, idx, "test::car")
+			var wheel *Instance
+			if sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+				t.Fatalf("classify(car, Sport): %v", err)
+			}
+			if !sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			fv, err := wheel.GetFeatureValue(ctx, "radius")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(radius): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 3.0 {
+				t.Fatalf("wheel.radius = %v, want the classifier's 3.0", got)
+			}
+		})
+	}
+}
+
+// A nested-body redefinition declared by a type specializing the chain's owner
+// wins over the chain, and one in a type the owner specializes loses — the
+// same ranking the nested-body form gives in both directions.
+func TestNestedRedefinitionRanksAsTheNestedBodyForm(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def BaseWheel { attribute radius : Real default = 1.0; }
+		part def Wheel :> BaseWheel { attribute :>> radius default = 2.0; }
+		part def Car { part wheel : Wheel; }
+		part def Sport :> Car { attribute :>> wheel.radius = 3.0; }
+		part def Racing :> Sport { part :>> wheel { attribute :>> radius = 7.0; } }
+		part car : Sport;
+		part racer : Racing;
+	}`)
+	wheel := readInstance(t, ctx, instantiateQualified(t, ctx, idx, "test::car"), "wheel")
+	fv, err := wheel.GetFeatureValue(ctx, "radius")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(radius): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 3.0 {
+		t.Fatalf("car.wheel.radius = %v, want the chain's 3.0", got)
+	}
+	racing := readInstance(t, ctx, instantiateQualified(t, ctx, idx, "test::racer"), "wheel")
+	fv, err = racing.GetFeatureValue(ctx, "radius")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(radius): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 7.0 {
+		t.Fatalf("racer.wheel.radius = %v, want the nested body's 7.0", got)
+	}
+}
+
+// A classifier's chain outranks one a type it specializes declares, as a
+// nested redefining body in the classifier does, for a child read before the
+// classification and one read after.
+func TestClassifyChainOutranksTheBaseTypesChain(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Wheel { attribute radius : Real default = 1.0; }
+		part def Base { part wheel : Wheel; attribute :>> wheel.radius = 1.0; }
+		part def Sport :> Base { attribute :>> wheel.radius = 2.0; }
+		part car : Base;
+	}`
+	for _, sub := range []struct {
+		name      string
+		readFirst bool
+	}{
+		{"materialized_before_classify", true},
+		{"materialized_after_classify", false},
+	} {
+		t.Run(sub.name, func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			car := instantiateQualified(t, ctx, idx, "test::car")
+			var wheel *Instance
+			if sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+				t.Fatalf("classify(car, Sport): %v", err)
+			}
+			if !sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			fv, err := wheel.GetFeatureValue(ctx, "radius")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(radius): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 2.0 {
+				t.Fatalf("wheel.radius = %v, want the classifier's 2.0", got)
+			}
+		})
+	}
+}
+
+// A chain below a reference feature walks an object the owner does not own:
+// classifying the owner by a type declaring one leaves that object as it was.
+func TestClassifyNestedChainStaysWithinOwnedObjects(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Top { ref leaf : Leaf; }
+		part def Ext :> Top { attribute :>> leaf.value = 9.0; }
+		part elsewhere : Leaf;
+		part top : Top { ref :>> leaf = elsewhere; }
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	leaf := readInstance(t, ctx, top, "leaf")
+	if leaf.owner == top {
+		t.Fatal("elsewhere is owned by top, so the test reaches no shared object")
+	}
+	if err := ctx.classify(top, idx.LookupQualified("test::Ext")[0]); err != nil {
+		t.Fatalf("classify(top, Ext): %v", err)
+	}
+	fv, err := leaf.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 1.0 {
+		t.Fatalf("elsewhere.value = %v, want its own 1.0", got)
+	}
+}
+
+// A plain feature the chain's own definition declares is no redefinition, so
+// it does not block the chain on an already-materialized child — the chain
+// refines the feature the same whether the child was read before or after
+// the classification.
+func TestClassifyChainReachesPastAPlainFeatureInItsContext(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Base { part wheel : Sport; }
+		part def Sport :> Base {
+			attribute radius : Real default = 1.0;
+			attribute :>> wheel.radius = 3.0;
+		}
+		part car : Base;
+	}`
+	for _, sub := range []struct {
+		name      string
+		readFirst bool
+	}{
+		{"materialized_before_classify", true},
+		{"materialized_after_classify", false},
+	} {
+		t.Run(sub.name, func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			car := instantiateQualified(t, ctx, idx, "test::car")
+			var wheel *Instance
+			if sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+				t.Fatalf("classify(car, Sport): %v", err)
+			}
+			if !sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			fv, err := wheel.GetFeatureValue(ctx, "radius")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(radius): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 3.0 {
+				t.Fatalf("car.wheel.radius = %v, want the chain's 3.0", got)
+			}
+		})
+	}
+}
+
+// Two chains from unrelated classifiers keep the lazy path's first-wins rule
+// on an already-materialized child: the second does not displace the first.
+// A chain from a context specializing the first's replaces it in both orders.
+func TestClassifyNestedChainKeepsTheFirstUnrelatedChain(t *testing.T) {
+	for _, sub := range []struct {
+		name   string
+		second string
+		want   float64
+	}{
+		{"unrelated_second", "SportB", 2.0},
+		{"specializing_second", "SportC", 3.0},
+	} {
+		for _, readFirst := range []bool{true, false} {
+			name := sub.name
+			if readFirst {
+				name += "_materialized_first"
+			} else {
+				name += "_materialized_after"
+			}
+			t.Run(name, func(t *testing.T) {
+				ctx, idx := libraryShapeContext(t, `package test {
+					private import ScalarValues::Real;
+					part def Wheel { attribute radius : Real default = 1.0; }
+					part def Car { part wheel : Wheel; }
+					part def SportA :> Car { attribute :>> wheel.radius = 2.0; }
+					part def SportB :> Car { attribute :>> wheel.radius = 3.0; }
+					part def SportC :> SportA { attribute :>> wheel.radius = 3.0; }
+					part car : Car;
+				}`)
+				car := instantiateQualified(t, ctx, idx, "test::car")
+				if err := ctx.classify(car, idx.LookupQualified("test::SportA")[0]); err != nil {
+					t.Fatalf("classify(car, SportA): %v", err)
+				}
+				var wheel *Instance
+				if readFirst {
+					wheel = readInstance(t, ctx, car, "wheel")
+				}
+				if err := ctx.classify(car, idx.LookupQualified("test::" + sub.second)[0]); err != nil {
+					t.Fatalf("classify(car, %s): %v", sub.second, err)
+				}
+				if !readFirst {
+					wheel = readInstance(t, ctx, car, "wheel")
+				}
+				fv, err := wheel.GetFeatureValue(ctx, "radius")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(radius): %v", err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != sub.want {
+					t.Fatalf("car.wheel.radius = %v, want %v", got, sub.want)
+				}
+			})
+		}
+	}
+}
+
+// A chain through a ref reaches no object at all — but a ref can hold an
+// object the same parent owns through a sibling part: the chain stays within
+// the feature that owns the object, so the sibling's object reads unchanged.
+func TestClassifyNestedChainStaysWithinTheOwningFeature(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Top { part a : Leaf; ref b : Leaf = a; }
+		part def Ext :> Top { attribute :>> b.value = 9.0; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	a := readInstance(t, ctx, top, "a")
+	if err := ctx.classify(top, idx.LookupQualified("test::Ext")[0]); err != nil {
+		t.Fatalf("classify(top, Ext): %v", err)
+	}
+	fv, err := a.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 1.0 {
+		t.Fatalf("top.a.value = %v, want its own 1.0", got)
+	}
+}
+
+// A classifier's valued chain governs a bound member the way a redefining
+// body does: a `mid` that adopted the bound object re-materializes fresh on
+// classification, and the bound object keeps its own value.
+func TestClassifyChainGovernsAnAdoptedBoundMember(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`
+	check := func(t *testing.T, ctx *Context, idx *symbols.Index, readFirst bool) {
+		t.Helper()
+		top := instantiateQualified(t, ctx, idx, "test::top")
+		if readFirst {
+			if got := realValue(t, func() Value {
+				v, err := readInstance(t, ctx, readInstance(t, ctx, top, "mid"), "leaf").GetFeatureValue(ctx, "value")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(value): %v", err)
+				}
+				return v.HeldValue()
+			}()); got != 1.0 {
+				t.Fatalf("top.mid.leaf.value before classify = %v, want the bound 1.0", got)
+			}
+		}
+		if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(top, Sport): %v", err)
+		}
+		mid := readInstance(t, ctx, top, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 99.0 {
+			t.Fatalf("top.mid.leaf.value = %v, want the chain's 99.0", got)
+		}
+		existing := instantiateQualified(t, ctx, idx, "test::existing")
+		if mid == existing {
+			t.Fatalf("top.mid still holds the bound object, want a fresh one")
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	}
+	t.Run("materialized_before_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, true)
+	})
+	t.Run("materialized_after_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, false)
+	})
+}
+
+// A classifier's valued chain still reaches below a bound member whose value
+// a write replaced: the written object stays `mid`'s value and the chain
+// refines below it, as a redefining body reaching the written object does.
+func TestClassifyChainReachesAWrittenPart(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	written := instantiateQualified(t, ctx, idx, "test::Mid")
+	if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+		t.Fatalf("SetFeatureValue(mid): %v", err)
+	}
+	if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(top, Sport): %v", err)
+	}
+	mid := readInstance(t, ctx, top, "mid")
+	if mid != written {
+		t.Fatalf("top.mid lost the written object, want it kept")
+	}
+	leaf := readInstance(t, ctx, mid, "leaf")
+	fv, err := leaf.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 99.0 {
+		t.Fatalf("top.mid.leaf.value = %v, want the chain's 99.0", got)
+	}
+}
+
+// A classifier's valued chain reaches the object a later write installs under
+// a feature it governs, the way a redefining body reaches a written value;
+// whichever order classify and the write come in, the written object reads
+// the chain and the discarded bound object keeps its own value.
+func TestClassifyChainReachesAPostClassifyWrite(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`
+	read99 := func(t *testing.T, ctx *Context, idx *symbols.Index, top *Instance) {
+		t.Helper()
+		mid := readInstance(t, ctx, top, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 99.0 {
+			t.Fatalf("top.mid.leaf.value = %v, want the chain's 99.0", got)
+		}
+		existing := instantiateQualified(t, ctx, idx, "test::existing")
+		if mid == existing {
+			t.Fatalf("top.mid lost the written object, want it kept")
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	}
+	t.Run("classify_then_write", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		top := instantiateQualified(t, ctx, idx, "test::top")
+		if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(top, Sport): %v", err)
+		}
+		written := instantiateQualified(t, ctx, idx, "test::Mid")
+		if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		read99(t, ctx, idx, top)
+	})
+	t.Run("write_then_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		top := instantiateQualified(t, ctx, idx, "test::top")
+		written := instantiateQualified(t, ctx, idx, "test::Mid")
+		if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(top, Sport): %v", err)
+		}
+		read99(t, ctx, idx, top)
+	})
+}
+
+// A type-only chain below a governed feature applies to the object a write
+// installs after classifying, as a redefining body's restated type does.
+func TestClassifyChainTypesAPostClassifyWrite(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def SportLeaf :> Leaf;
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { part :>> mid.leaf : SportLeaf; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(top, Sport): %v", err)
+	}
+	written := instantiateQualified(t, ctx, idx, "test::Mid")
+	if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+		t.Fatalf("SetFeatureValue(mid): %v", err)
+	}
+	mid := readInstance(t, ctx, top, "mid")
+	leaf := readInstance(t, ctx, mid, "leaf")
+	if !ctx.instanceConforms(leaf, idx.LookupQualified("test::SportLeaf")[0]) {
+		t.Fatalf("leaf is no SportLeaf, want the chain's restated type")
+	}
+}
+
+// Two chains one classifier's body declares for the same path do what two
+// same-named redefining members do: the later wins, whether the leaf was
+// already materialized or materializes after.
+func TestClassifyDuplicateChainsInOneBody(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 0.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Base { part mid : Mid; }
+		part def Sport :> Base { attribute :>> mid.leaf.value = 1.0; attribute :>> mid.leaf.value = 2.0; }
+		part c : Base;
+	}`
+	check := func(t *testing.T, ctx *Context, idx *symbols.Index, readFirst bool) {
+		t.Helper()
+		c := instantiateQualified(t, ctx, idx, "test::c")
+		if readFirst {
+			readInstance(t, ctx, readInstance(t, ctx, c, "mid"), "leaf")
+		}
+		if err := ctx.classify(c, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(c, Sport): %v", err)
+		}
+		leaf := readInstance(t, ctx, readInstance(t, ctx, c, "mid"), "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 2.0 {
+			t.Fatalf("c.mid.leaf.value = %v, want the later chain's 2.0", got)
+		}
+	}
+	t.Run("materialized_before_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, true)
+	})
+	t.Run("materialized_after_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, false)
+	})
+}
+
+// A classifier's valued chain governs a bound member read under an alias the
+// classifier also declares: the binding was written on the inherited
+// declaration, so the alias it now shares does not shield it — whichever order
+// the object reads `mid` and classifies, a fresh object takes the chain.
+func TestClassifyChainGovernsAnAliasedBoundMember(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Base { part mid : Mid = existing; }
+		part def Derived :> Base {
+			part renamed :>> mid;
+			attribute :>> mid.leaf.value = 9.0;
+		}
+		part b : Base;
+	}`
+	check := func(t *testing.T, ctx *Context, idx *symbols.Index, readFirst bool) {
+		t.Helper()
+		b := instantiateQualified(t, ctx, idx, "test::b")
+		if readFirst {
+			mid := readInstance(t, ctx, b, "mid")
+			leaf := readInstance(t, ctx, mid, "leaf")
+			fv, err := leaf.GetFeatureValue(ctx, "value")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(value): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 1.0 {
+				t.Fatalf("b.mid.leaf.value before classify = %v, want the bound 1.0", got)
+			}
+		}
+		if err := ctx.classify(b, idx.LookupQualified("test::Derived")[0]); err != nil {
+			t.Fatalf("classify(b, Derived): %v", err)
+		}
+		mid := readInstance(t, ctx, b, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 9.0 {
+			t.Fatalf("b.mid.leaf.value = %v, want the chain's 9.0", got)
+		}
+		existing := instantiateQualified(t, ctx, idx, "test::existing")
+		if mid == existing {
+			t.Fatalf("b.mid kept the bound object, want a fresh one")
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	}
+	t.Run("materialized_before_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, true)
+	})
+	t.Run("materialized_after_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, false)
+	})
+}
+
+// TestWriteToRestatedCollectionClassifies pins that an object written into a
+// collection directly is classified by it even when a feature it lives under
+// reaches that collection only through subsetting implied by nesting: the
+// implied edge defers classification on the contribution path alone, never on
+// a write that states the value.
+func TestWriteToRestatedCollectionClassifies(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		private import OccurrenceFunctions::*;
+		part def Wheel { attribute n : Integer; }
+		part vehicle {
+			part wheels : Wheel;
+			part :>> subparts : Wheel[0..*] { attribute tag : String = "tracked"; }
+			perform action build {
+				first start;
+				then action w { assign subparts := (wheels); }
+				then done;
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+	vehicle := instantiateQualified(t, ctx, idx, "test::vehicle")
+	wheel := readInstance(t, ctx, vehicle, "wheels")
+	if wheel.FeatureValues["tag"] == nil {
+		t.Fatalf("the wheel written into subparts has no tag feature; it was not classified by the restated collection")
 	}
 }

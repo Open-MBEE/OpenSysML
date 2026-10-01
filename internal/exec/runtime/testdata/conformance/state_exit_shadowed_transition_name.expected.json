@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {"signal": "Step", "value": {"type": "Integer", "value": 2}},
+    {"signal": "Stop", "value": {"type": "Integer", "value": 5}}
+  ],
+  "finalState": "done",
+  "stateVisits": ["running", "fast", "slow", "fast", "stopped", "done"],
+  "outputs": {
+    "exits": {"type": "Integer", "value": 2},
+    "seen": {"type": "Integer", "value": 25}
+  }
+}

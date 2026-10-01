@@ -1,0 +1,93 @@
+step 1: token 1@producer
+enter action node: producer
+step 2: token 1@start
+step 3: token 1@emit
+stmt assign i
+    eval feature i -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign value
+  eval feature i -> 1
+step 4: token 1@again
+  eval feature i -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+step 5: token 1@emit
+stmt assign i
+    eval feature i -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign value
+  eval feature i -> 2
+step 6: token 1@again
+  eval feature i -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+step 7: token 1@emit
+stmt assign i
+    eval feature i -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign value
+  eval feature i -> 3
+step 8: token 1@again
+  eval feature i -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature i -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+step 9: token 1@done
+leave action node: producer
+step 10: token 1@consumer
+enter action node: consumer
+step 11: token 1@start
+step 12: token 1@prime
+stmt assign reads
+  eval literal 0 -> 0
+step 13: token 1@take
+stmt assign total
+    eval feature total -> 0
+    eval feature value -> 3
+  eval operator + -> 3
+stmt assign reads
+    eval feature reads -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 14: token 1@more
+  eval feature reads -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+step 15: token 1@take
+stmt assign total
+    eval feature total -> 3
+    eval feature value -> 3
+  eval operator + -> 6
+stmt assign reads
+    eval feature reads -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 16: token 1@more
+  eval feature reads -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+step 17: token 1@take
+stmt assign total
+    eval feature total -> 6
+    eval feature value -> 3
+  eval operator + -> 9
+stmt assign reads
+    eval feature reads -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 18: token 1@more
+  eval feature reads -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature reads -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+step 19: token 1@done
+leave action node: consumer
+step 20: token 1@done
+step 21: no active tokens

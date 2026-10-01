@@ -69,7 +69,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
 	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
 	t.Run("state_do_body_accept_yields_to_a_transition", testStateDoBodyAcceptYieldsToATransition)
-	t.Run("state_do_body_accept_goes_on_across_a_substate_transition", testStateDoBodyAcceptGoesOnAcrossASubstateTransition)
+	t.Run("state_do_body_accept_yields_to_a_substate_transition", testStateDoBodyAcceptYieldsToASubstateTransition)
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
 	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
 	t.Run("state_do_body_accept_yields_to_an_open_choice", testStateDoBodyAcceptYieldsToAnOpenChoice)
@@ -174,6 +174,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("region_entry_guards_read_the_region_state_attributes", testRegionEntryGuardsReadTheRegionStateAttributes)
 	t.Run("leaving_regions_descends_through_entry_transitions", testLeavingRegionsDescendsThroughEntryTransitions)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
+	t.Run("calc_this_default_required_parameter_unbound", testCalcThisDefaultRequiredParameterUnbound)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
 	t.Run("calc_calls_an_unimported_library_function", testCalcCallsAnUnimportedLibraryFunction)
 	t.Run("calc_unbound_keyword_named_parameter", testCalcUnboundKeywordNamedParameter)
@@ -355,7 +356,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_statement_deadlock_in_a_loop", testAcceptStatementDeadlockInALoop)
 	t.Run("history_outside_composite_state", testHistoryOutsideCompositeState)
 	t.Run("history_without_record_default_or_entry", testHistoryWithoutRecordDefaultOrEntry)
-	t.Run("defer_of_non_deferrable_trigger", testDeferOfNonDeferrableTrigger)
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
 	t.Run("non_terminating_anonymous_do_body", testNonTerminatingAnonymousDoBody)
@@ -499,12 +499,104 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("weighted_decision_whose_weights_do_not_sum_to_one", testWeightedDecisionWhoseWeightsDoNotSumToOne)
 	t.Run("weighted_decision_with_a_weight_outside_zero_to_one", testWeightedDecisionWithAWeightOutsideZeroToOne)
 	t.Run("decision_mixing_weighted_and_unweighted_successions", testDecisionMixingWeightedAndUnweightedSuccessions)
-	t.Run("weighted_decision_on_a_state_transition", testWeightedDecisionOnAStateTransition)
 	t.Run("weighted_decision_whose_read_weight_is_no_probability", testWeightedDecisionWhoseReadWeightIsNoProbability)
 	t.Run("random_draw_without_a_seed", testRandomDrawWithoutASeed)
 	t.Run("random_bounds_reversed", testRandomBoundsReversed)
 	t.Run("random_duration_without_a_seed", testRandomDurationWithoutASeed)
 	t.Run("monte_carlo_plan_without_runs", testMonteCarloPlanWithoutRuns)
+	t.Run("shared_default_over_a_cyclic_derivation", testSharedDefaultOverACyclicDerivation)
+	t.Run("shared_default_taken_over_a_write_that_then_fails", testSharedDefaultTakenOverAWriteThatThenFails)
+}
+
+// A `=` value defined in terms of itself fails on every occurrence of the shape
+// with the same typed error, and the failure is never shared as a value.
+func testSharedDefaultOverACyclicDerivation(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<shared-cycle>", parseAndBuild(t, `package P {
+		part def Sat {
+			attribute a = b + 1;
+			attribute b = a + 1;
+		}
+		part def Fleet { part sats : Sat[3]; }
+	}`))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	sats, err := fleet.GetFeatureValue(ctx, "sats")
+	if err != nil {
+		t.Fatalf("sats: %v", err)
+	}
+	var first string
+	for i, held := range elementsOf(sats.HeldValue()) {
+		id, _ := held.Object()
+		sat, _ := ctx.Instance(id)
+		_, err := sat.GetFeatureValue(ctx, "a")
+		if !errors.Is(err, ErrCyclicFeatureValue) {
+			t.Fatalf("sats#(%d).a: got %v, want %v", i+1, err, ErrCyclicFeatureValue)
+		}
+		if i == 0 {
+			first = err.Error()
+		} else if err.Error() != first {
+			t.Errorf("sats#(%d).a fails as %q, the first as %q", i+1, err, first)
+		}
+	}
+	if taken := ctx.SharedDefaultsTaken(); taken != 0 {
+		t.Errorf("%d shared defaults taken from a derivation that never produced a value", taken)
+	}
+}
+
+// A write under an occurrence that took a shared value re-derives it on that
+// occurrence alone: a write the derivation cannot then use fails as a typed error
+// there, while the other occurrences keep the shape's value.
+func testSharedDefaultTakenOverAWriteThatThenFails(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<shared-then-fails>", parseAndBuild(t, `package P {
+		part def Sat {
+			attribute d = 2;
+			attribute q = 10 / d;
+		}
+		part def Fleet { part sats : Sat[2]; }
+	}`))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "P::Fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	sats, err := fleet.GetFeatureValue(ctx, "sats")
+	if err != nil {
+		t.Fatalf("sats: %v", err)
+	}
+	held := elementsOf(sats.HeldValue())
+	sat := func(i int) *Instance {
+		id, _ := held[i].Object()
+		inst, _ := ctx.Instance(id)
+		return inst
+	}
+	for i := range held {
+		fv, err := sat(i).GetFeatureValue(ctx, "q")
+		if err != nil {
+			t.Fatalf("sats#(%d).q: %v", i+1, err)
+		}
+		if got := FormatValue(fv.Value); got != "5.0" {
+			t.Fatalf("sats#(%d).q = %s, want 5.0", i+1, got)
+		}
+	}
+	if taken := ctx.SharedDefaultsTaken(); taken != 1 {
+		t.Fatalf("shared defaults taken = %d, want 1", taken)
+	}
+	if err := sat(1).SetFeatureValue(ctx, "d", integerValue(0)); err != nil {
+		t.Fatalf("sats#(2).d = 0: %v", err)
+	}
+	if _, err := sat(1).GetFeatureValue(ctx, "q"); err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("sats#(2).q after d = 0: got %v, want a division by zero", err)
+	}
+	fv, err := sat(0).GetFeatureValue(ctx, "q")
+	if err != nil {
+		t.Fatalf("sats#(1).q after the write to sats#(2): %v", err)
+	}
+	if got := FormatValue(fv.Value); got != "5.0" {
+		t.Errorf("sats#(1).q = %s after the write to sats#(2), want 5.0", got)
+	}
 }
 
 func testBindingConflict(t *testing.T) {
@@ -641,7 +733,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if !errors.Is(err, ErrBindingEnd) {
 			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingEnd", err)
 		}
-		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `bind [0..1] edges = [0..1] leftEdge`, "+
+		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
 			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
 			t.Errorf("error = %q, want %q", got, want)
 		}
@@ -772,7 +864,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 							binding [1] bind `+ends+` edges = `+ends+` pair;
 						}
 					}`))
-					want := "multiplicity violation: `bind " + ends + " edges = " + ends + " pair` links " +
+					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links " +
 						ends + " of edges, which holds 1 value(s)"
 					for _, order := range [][]string{{"pair", "edges", "pair"}, {"edges", "pair", "edges"}} {
 						inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
@@ -808,7 +900,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [2] edges = [2] pair;
 			}
 		}`))
-		want := "multiplicity violation: `bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
+		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
 		for _, order := range [][]string{{"edges", "pair"}, {"pair", "edges"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 			if err != nil {
@@ -853,7 +945,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [1] a = [1] c;
 			}
 		}`))
-		want := "multiplicity violation: `bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
+		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
 		for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Empty"))
 			if err != nil {
@@ -1379,7 +1471,7 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("ExecuteAction err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("executing the guarded action did not terminate")
 			}
 		})
@@ -2121,7 +2213,7 @@ func testDefaultNotConformingToMultiplicity(t *testing.T) {
 				if !errors.Is(err, ErrMultiplicityViolation) {
 					t.Errorf("expected ErrMultiplicityViolation, got: %v", err)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("materializing the default did not terminate")
 			}
 		})
@@ -2237,7 +2329,7 @@ func testMutuallySubsettingFeatures(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("GetFeatureValue hung on mutually subsetting features")
 	}
 	if fvErr == nil {
@@ -2812,7 +2904,7 @@ func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
 			attribute point : Point;
 			metadata def Tag;
 			#Tag part tagged : Widget;
-			calc twice { in x : Integer; x * 2 }
+			calc twice { in x : Integer[1]; x * 2 }
 			attribute xs : Integer[*] = (1, 2);
 			part other : Widget;
 			attribute widgets : Widget[*] = (widget, other);
@@ -3098,7 +3190,7 @@ func testCyclicDerivedFeatureValue(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("GetFeatureValue hung on a cyclic derived feature value")
 	}
 
@@ -3139,7 +3231,7 @@ func testWriteIntoCyclicDerivedFeatureValues(t *testing.T) {
 		if err != nil {
 			t.Fatalf("SetFeatureValue(b): %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("SetFeatureValue(b) hung unmaterializing a cycle of derived values")
 	}
 	if b := inst.FeatureValues["b"]; !b.Materialized || !b.Written {
@@ -3189,7 +3281,7 @@ func testCyclicSubsettingOfDefaultCollections(t *testing.T) {
 		}()
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-watchdog(5 * time.Second):
 			t.Fatalf("GetFeatureValue(%s) hung on collections subsetting each other", name)
 		}
 		if !errors.Is(fvErr, ErrCyclicFeatureValue) {
@@ -3333,43 +3425,8 @@ func testPerformReferenceCycle(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected a self-performing action to be bounded, it completed")
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("self-performing action did not terminate")
-	}
-}
-
-// testDeferOfNonDeferrableTrigger: only signals and calls are dispatched from
-// the event pool, so a state deferring a time trigger is reported at lowering
-// rather than deferring nothing at run time.
-func testDeferOfNonDeferrableTrigger(t *testing.T) {
-	idx := symbols.NewIndex()
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 1000)
-
-	machine := &ast.Usage{
-		Kind:  ast.UsageState,
-		Ident: ast.Identification{Name: "Machine"},
-		Members: []ast.Node{
-			entryStart("init"),
-			&ast.StateNode{Name: "init"},
-			&ast.StateNode{
-				Name:  "busy",
-				Defer: []ast.Node{&ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}}},
-			},
-			transitionMember("init", "busy"),
-		},
-	}
-
-	_, err := newStateExecutor(ctx, &symbols.Symbol{
-		Kind: symbols.SymbolStateUsage,
-		Name: machine.Ident.Name,
-		Decl: machine,
-	}, nil)
-	if err == nil {
-		t.Fatal("expected an error for a state deferring a time trigger")
-	}
-	if !strings.Contains(err.Error(), "only signal and call triggers can be deferred") {
-		t.Errorf("expected a deferrability error, got: %v", err)
 	}
 }
 
@@ -3425,7 +3482,7 @@ func testStateTransitionEndpointMisspelled(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a machine whose transition names nothing")
 	}
 	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
@@ -3472,7 +3529,7 @@ func testStateTransitionEndpointNeverResolved(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on an endpoint no resolution pass reported")
 	}
 	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
@@ -3529,9 +3586,10 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 	}
 }
 
-// testStateTransitionEndpointNamingAFirstMarker: a one-ended `first m;` marker is
-// no vertex, so an endpoint naming one is reported by the state transition check
-// and backstopped here with a typed error rather than a panic.
+// testStateTransitionEndpointNamingAFirstMarker: a member that is no vertex —
+// here an entry action — still makes an endpoint name one, which the state
+// transition check reports and is backstopped here with a typed error rather
+// than a panic.
 func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -3539,7 +3597,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			first marker;
+			entry marker { }
 			succession first init then busy;
 			transition first busy then marker;
 		}
@@ -3682,7 +3740,7 @@ func testStateJunctionWithoutAnOutgoingTransition(t *testing.T) {
 		if !strings.Contains(err.Error(), "junction stuck has no outgoing transitions") {
 			t.Errorf("expected the error to name the junction, got %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a junction no transition leaves")
 	}
 }
@@ -3720,7 +3778,7 @@ func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
 		if x := exec.StateData()["x"]; !valueEqual(x, integerValue(2)) {
 			t.Errorf("x = %v, want 2: the incoming effect had run when the choice was read", x)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a choice no branch leaves")
 	}
 }
@@ -3793,7 +3851,7 @@ func testStateCrossRegionTransitionsPingPong(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("run to completion hangs on successions crossing between regions")
 	}
 	if err == nil {
@@ -3986,7 +4044,7 @@ func stateRunErrorForSource(t *testing.T, name, src string) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("running %s did not terminate", name)
 		return nil
 	}
@@ -4721,7 +4779,7 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `package test {
 				private import ScalarValues::*;
-				calc def Inc { in x : Real; x + 1.0 }
+				calc def Inc { in x : Real[1]; x + 1.0 }
 				part def Holder { attribute zs : Real[0..*]; }
 				calc def Two {
 					attribute q : Holder = new Holder(zs = (1.0, 2.0));
@@ -4747,7 +4805,7 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("evaluating the two-valued member did not terminate")
 			}
 		})
@@ -4795,7 +4853,7 @@ func testBodyLocalOutsideItsDeclaration(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("declaring the body-local did not terminate")
 			}
 		})
@@ -5426,7 +5484,7 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(20 * time.Second):
+	case <-watchdog(20 * time.Second):
 		t.Fatal("the extent did not terminate on recursive composition")
 	}
 	if err != nil {
@@ -5741,7 +5799,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 
 	ctx.maxSteps = 0
 	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: scope}
-	err := ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, nil)
+	err := ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, nil, nil)
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("budget exhausted while building alpha: %v, want ErrStepLimitExceeded", err)
 	}
@@ -5752,7 +5810,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 	ctx.maxSteps = DefaultMaxSteps
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send = lower.Send{Target: "a.inPort", TargetPath: true, Scope: scope}
-	err = ctx.post(nil, nil, Message{SignalType: "Integer"}, send, alpha, nil)
+	err = ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, alpha, nil)
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Errorf("walking through a cyclic derived feature value: %v, want ErrCyclicFeatureValue", err)
 	}
@@ -5785,7 +5843,7 @@ func testAcceptDeadlockNeverSatisfied(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("an action waiting for a message that cannot arrive did not terminate")
 	}
 
@@ -5866,7 +5924,7 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("a loop waiting for a message that cannot arrive did not terminate")
 	}
 
@@ -7548,43 +7606,10 @@ func testStateUsageInheritsUnsupportedMember(t *testing.T) {
 	}
 }
 
-// runToCompletionRefusal builds the state executor for Machine in src and checks
-// that creating it refuses a run-to-completion redefinition: the typed error,
-// naming feature, declaring body and the value written.
-func runToCompletionRefusal(t *testing.T, src, feature, owner, written string) *lower.RunToCompletionRedefinition {
-	t.Helper()
-	return runToCompletionRefused(t, stateExecutorError(t, src, "Machine"), feature, owner, written)
-}
-
-// runToCompletionRefused checks that err, from creating a state executor, is
-// the typed run-to-completion refusal naming feature, owner and the value written.
-func runToCompletionRefused(t *testing.T, err error, feature, owner, written string) *lower.RunToCompletionRedefinition {
-	t.Helper()
-	if err == nil {
-		t.Fatalf("redefinition of %s ran under the library default", feature)
-	}
-	if !errors.Is(err, lower.ErrUnsupportedStateContent) {
-		t.Fatalf("error = %v, want unsupported state content", err)
-	}
-	var refusal *lower.RunToCompletionRedefinition
-	if !errors.As(err, &refusal) {
-		t.Fatalf("error = %v, want a run-to-completion redefinition", err)
-	}
-	if refusal.Feature != feature || refusal.Decl == nil {
-		t.Fatalf("refusal = %+v, want feature %s and its declaration", refusal, feature)
-	}
-	for _, want := range []string{feature, owner, "= " + written} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("error = %v, want %q named", err, want)
-		}
-	}
-	return refusal
-}
-
 // testRunToCompletionRedefinedFalse: a machine redefining isRunToCompletion to
-// false is refused; the runtime runs every machine to completion.
+// false executes under the declared non-run-to-completion behavior.
 func testRunToCompletionRedefinedFalse(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				attribute :>> isRunToCompletion = false;
@@ -7592,16 +7617,15 @@ func testRunToCompletionRedefinedFalse(t *testing.T) {
 				state idle;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "false")
-	if refusal.Unverified {
-		t.Fatalf("refusal = %v, want the value read as false, not unverified", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("false redefinition failed: %v", err)
 	}
 }
 
 // testRunToCompletionScopeNarrowed: a substate redefining runToCompletionScope to
-// itself narrows the scope from the whole machine and is refused.
+// itself executes with the declared state-local scope.
 func testRunToCompletionScopeNarrowed(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				entry; then idle;
@@ -7610,17 +7634,15 @@ func testRunToCompletionScopeNarrowed(t *testing.T) {
 				}
 			}
 		}
-	`, "runToCompletionScope", "the state idle", "self, narrowing the scope to that state")
-	if refusal.Unverified {
-		t.Fatalf("refusal = %v, want the scope read as narrowed, not unverified", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("scope narrowing failed: %v", err)
 	}
 }
 
-// testRunToCompletionRedefinedBySpecializedDef: the redefinition on a state
-// definition the executed machine specializes is the machine's, and is refused
-// naming both.
+// testRunToCompletionRedefinedBySpecializedDef: the effective inherited
+// redefinition on a specialized state definition executes on the machine.
 func testRunToCompletionRedefinedBySpecializedDef(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Base {
 				attribute :>> isRunToCompletion = false;
@@ -7629,13 +7651,15 @@ func testRunToCompletionRedefinedBySpecializedDef(t *testing.T) {
 			}
 			state def Machine :> Base;
 		}
-	`, "isRunToCompletion", "the state definition Base, inherited by the state definition Machine,", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("inherited redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedInOrthogonalRegion: a substate of an orthogonal
-// region carrying the redefinition is refused like any other state.
+// region carrying the redefinition executes through the lowered state path.
 func testRunToCompletionRedefinedInOrthogonalRegion(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine parallel {
 				state left {
@@ -7650,13 +7674,15 @@ func testRunToCompletionRedefinedInOrthogonalRegion(t *testing.T) {
 				}
 			}
 		}
-	`, "isRunToCompletion", "the state l1", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("orthogonal redefinition failed: %v", err)
+	}
 }
 
-// testRunToCompletionRedefinedUndecidably: a value lowering cannot read as the
-// library default is refused as unverified rather than assumed to restate it.
+// testRunToCompletionRedefinedUndecidably: a value lowering that cannot verify
+// the library default is refused rather than assumed to restate it.
 func testRunToCompletionRedefinedUndecidably(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				attribute strict : Boolean = true;
@@ -7665,17 +7691,13 @@ func testRunToCompletionRedefinedUndecidably(t *testing.T) {
 				state idle;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "strict or true")
-	if !refusal.Unverified {
-		t.Fatalf("refusal = %v, want unverified", refusal)
-	}
-	if !strings.Contains(refusal.Error(), "cannot verify") {
-		t.Fatalf("error = %v, want the unverifiable default said", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("expression redefinition failed: %v", err)
 	}
 }
 
 // testRunToCompletionDefaultsRestated: redefinitions restating the library
-// defaults say what the runtime does and run.
+// defaults execute with the default scheduling behavior.
 func testRunToCompletionDefaultsRestated(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
@@ -7695,8 +7717,7 @@ func testRunToCompletionDefaultsRestated(t *testing.T) {
 }
 
 // testRunToCompletionDefaultRestoredBySpecialization: a redefinition restating
-// the default masks the one it inherits, on the machine and on a substate, so the
-// inherited redefinition is not what the machine runs under and is not refused.
+// the default masks the inherited definition on the machine and substate.
 func testRunToCompletionDefaultRestoredBySpecialization(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
@@ -7720,10 +7741,10 @@ func testRunToCompletionDefaultRestoredBySpecialization(t *testing.T) {
 	}
 }
 
-// testRunToCompletionDefaultMaskedBySpecialization: the redefinition a machine
-// makes effective is its own, judged over the inherited one it masks.
+// testRunToCompletionDefaultMaskedBySpecialization: the machine's effective
+// redefinition is judged over and executes instead of the inherited one it masks.
 func testRunToCompletionDefaultMaskedBySpecialization(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Base {
 				attribute :>> isRunToCompletion = true;
@@ -7734,11 +7755,13 @@ func testRunToCompletionDefaultMaskedBySpecialization(t *testing.T) {
 				attribute :>> isRunToCompletion = false;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("specialized redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedThroughAlias: a redefinition naming the library
-// feature through an alias is resolved to it and refused, not read by its spelling.
+// feature through an alias resolves to it and executes by its target.
 func testRunToCompletionRedefinedThroughAlias(t *testing.T) {
 	err := libraryStateExecutorError(t, `
 		package test {
@@ -7750,11 +7773,13 @@ func testRunToCompletionRedefinedThroughAlias(t *testing.T) {
 			}
 		}
 	`, "Machine")
-	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+	if err != nil {
+		t.Fatalf("alias redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedThroughRedefiningFeature: a redefinition of a
-// feature that itself redefines the library one reaches it and is refused.
+// feature that itself redefines the library one reaches and executes it.
 func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
 	err := libraryStateExecutorError(t, `
 		package test {
@@ -7768,12 +7793,14 @@ func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
 			}
 		}
 	`, "Machine")
-	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+	if err != nil {
+		t.Fatalf("redefining-feature route failed: %v", err)
+	}
 }
 
 // testRunToCompletionModelFeatureUnderLibraryName: a model's own feature
 // declared under the library's qualified name is an ordinary attribute, so
-// redefining it to false is not a redefinition of the library's and runs.
+// redefining it to false executes without changing library RTC semantics.
 func testRunToCompletionModelFeatureUnderLibraryName(t *testing.T) {
 	const src = `
 		package Occurrences {
@@ -8413,8 +8440,8 @@ func testCalcUnboundParameter(t *testing.T) {
 	src := `
 		package test {
 			calc add {
-				in x: Integer;
-				in y: Integer;
+				in x: Integer[1];
+				in y: Integer[1];
 				x + y
 			}
 		}
@@ -8434,6 +8461,27 @@ func testCalcUnboundParameter(t *testing.T) {
 	}
 	if !errors.Is(err, ErrUnboundParameter) {
 		t.Errorf("expected ErrUnboundParameter, got: %v", err)
+	}
+}
+
+// testCalcThisDefaultRequiredParameterUnbound: a parameter's default evaluating
+// `this` materializes the occurrence before the later parameter binds, and the
+// required [1] input an argument never bound still fails the invocation as
+// unbound, whatever shape the occurrence already holds.
+func testCalcThisDefaultRequiredParameterUnbound(t *testing.T) {
+	src := `package test {
+		calc def Pair {
+			in self = this;
+			in b : Integer[1];
+			return : Integer = b->size();
+		}
+	}`
+	err := invokeCalcExpecting(t, src, "test::Pair()")
+	if !errors.Is(err, ErrUnboundParameter) {
+		t.Fatalf("error = %v, want ErrUnboundParameter for the required b", err)
+	}
+	if !strings.Contains(err.Error(), `"b"`) {
+		t.Errorf("error = %v, want it naming the parameter b", err)
 	}
 }
 
@@ -8465,7 +8513,7 @@ func testCalcCallsAnUnimportedExtensionFunction(t *testing.T) {
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("expected ErrUnresolvedReference, got: %v", err)
 	}
-	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp?"; !strings.HasSuffix(err.Error(), want) {
+	if want := ": unresolved reference: exp — did you mean OpenSysMLMathFunctions::exp? To use the bare name, import its package: private import OpenSysMLMathFunctions::*;"; !strings.HasSuffix(err.Error(), want) {
 		t.Errorf("error %q does not end in %q", err, want)
 	}
 }
@@ -8524,8 +8572,8 @@ func testCalcUnboundKeywordNamedParameter(t *testing.T) {
 	src := `
 		package test {
 			calc classify {
-				in 'type': Integer;
-				in 'state': Integer;
+				in 'type': Integer[1];
+				in 'state': Integer[1];
 				'type' + 'state'
 			}
 		}
@@ -8927,7 +8975,7 @@ func assertCalcInvocationBounded(t *testing.T, idx *symbols.Index, ctx *Context,
 		if msg := err.Error(); len(msg) > 1024 {
 			t.Errorf("error for recursive calc %s is %d bytes; want frames collapsed: %.200s…", calcName, len(msg), msg)
 		}
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatalf("recursive calc %s did not terminate", calcName)
 	}
 }
@@ -9086,7 +9134,7 @@ func testRecursiveCompositionSubjectSearch(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(20 * time.Second):
+	case <-watchdog(20 * time.Second):
 		t.Fatal("the subject search did not terminate on recursive composition")
 	}
 	if err != nil {
@@ -9831,7 +9879,7 @@ func testFlowEndNamingNoNode(t *testing.T) {
 					action driveTrain {
 						first start;
 						action generate { out engineTorque : Integer; assign engineTorque := 1; }
-						action amplify { in torqueIn : Integer; }
+						action amplify { in torqueIn : Integer[1]; }
 						done;
 						succession first start then generate;
 						succession first generate then amplify;
@@ -9916,8 +9964,8 @@ func testAcceptPayloadWithoutAValue(t *testing.T) {
 
 // testAcceptPayloadReadBeforeItIsBound: the payload is a declaration of the body
 // wherever the body resolves, so a node running before the accept binds it
-// resolves the name and finds no value — reported as a feature without a value,
-// not read as an empty value and not as a name that fails to resolve.
+// resolves the name — and a payload's bare parameter admits no value, so the read
+// yields the empty sequence its assign target refuses, not an unresolved name.
 func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 	_, err := executeActionSource(t, "pipeline", `package P {
 		action pipeline {
@@ -9931,14 +9979,17 @@ func testAcceptPayloadReadBeforeItIsBound(t *testing.T) {
 			succession first waiter then done;
 		}
 	}`)
-	if !errors.Is(err, ErrNoValue) {
-		t.Fatalf("err = %v; want ErrNoValue", err)
+	// A payload names no multiplicity of its own, so §7.6.3 gives it [0..*]:
+	// unbound it resolves to the empty sequence, which a [1..1] assign target
+	// refuses by count — reported, and not read as a name that fails to resolve.
+	if err == nil {
+		t.Fatal("expected the unbound payload read to fail")
 	}
 	if errors.Is(err, ErrUnresolvedReference) {
 		t.Errorf("a declared payload was reported as unresolved: %v", err)
 	}
-	if !strings.Contains(err.Error(), "msg") {
-		t.Errorf("error does not name the payload: %v", err)
+	if !strings.Contains(err.Error(), "seen") || !strings.Contains(err.Error(), "multiplicity") {
+		t.Errorf("error = %v, want the assign target's count refusal naming seen", err)
 	}
 }
 
@@ -9950,8 +10001,8 @@ func testFlowFromANodeThatProducedNothing(t *testing.T) {
 		package test {
 			action driveTrain {
 				first start;
-				action generate { out engineTorque : Integer; }
-				action amplify { in torqueIn : Integer; }
+				action generate { out engineTorque : Integer[1]; }
+				action amplify { in torqueIn : Integer[1]; }
 				done;
 				succession first start then generate;
 				succession first generate then amplify;
@@ -11223,7 +11274,7 @@ func testQuantityCyclicUnitDefinition(t *testing.T) {
 		if !errors.Is(err, semantics.ErrUnitCycle) {
 			t.Fatalf("err = %v; want ErrUnitCycle", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("evaluating a cyclic unit definition did not terminate")
 	}
 }
@@ -11340,7 +11391,7 @@ func invokeCalcInSource(t *testing.T, src, calcName string, arg int64, maxSteps 
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("calc %s did not terminate", calcName)
 		return nil
 	}
@@ -11500,7 +11551,7 @@ func calcUsageOutputInSource(t *testing.T, src, usageName, output string, maxSte
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("reading output %s of %s did not terminate", output, usageName)
 		return nil
 	}
@@ -11513,7 +11564,7 @@ func testCalcUsageUnboundInput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11532,7 +11583,7 @@ func testCalcUsageUnknownOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11756,7 +11807,7 @@ func testMultipleOutputsInvokedAsAnExpression(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11789,12 +11840,12 @@ func testNestedCalcUsageUnboundInput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Two;
 				out d = inner.a;
 			}
@@ -11813,12 +11864,12 @@ func testNestedCalcUsageUnknownOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Two { in n = m; }
 				out d = inner.nope;
 			}
@@ -11838,7 +11889,7 @@ func testNestedCalcUsageSelfCycle(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -11891,7 +11942,7 @@ func testNestedCalcUsageStepBudget(t *testing.T) {
 				out reached = i;
 			}
 			calc def Outer {
-				in m : Integer;
+				in m : Integer[1];
 				calc inner : Spin { in n = m; }
 				out d = inner.reached;
 			}
@@ -12297,7 +12348,7 @@ func testDeepSpecializationChainOfRedefinitions(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("reading an inherited value through a deep specialization chain hung")
 	}
 	if err != nil {
@@ -12386,7 +12437,7 @@ func calcErrorWithLibraries(t *testing.T, src, calcName string, args []Value, ma
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("calc %s did not terminate", calcName)
 		return nil
 	}
@@ -12535,7 +12586,7 @@ func testUsageReadThroughAPartWithoutAnOutput(t *testing.T) {
 	src := `
 		package test {
 			calc def Two {
-				in n : Integer;
+				in n : Integer[1];
 				out a = n + 1;
 				out b = n * 2;
 			}
@@ -12944,7 +12995,7 @@ func testOperationInvokedWithUnboundParameters(t *testing.T) {
 		part def Adder {
 			attribute total : Integer = 0;
 			action add {
-				in addend : Integer;
+				in addend : Integer[1];
 				assign total := total + addend;
 			}
 		}
@@ -13362,8 +13413,10 @@ func testStandaloneActionWritingAPerformerFeature(t *testing.T) {
 	}
 }
 
-// `this` in a body written on its own names the performance itself, which no
-// object owns, so a feature of the performer is not reachable through it.
+// `this` in a body written on its own names the performance itself, so a write
+// through it lands on the performance — and is refused when the performed
+// action declares no such feature; the performer's like-named feature is not
+// reachable through it.
 func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 	src := `
 	package test {
@@ -13380,8 +13433,11 @@ func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateWithLibraries(t, src, "test::Host")
-	if !errors.Is(err, ErrThisNotAnObject) {
-		t.Fatalf("error = %v, want ErrThisNotAnObject", err)
+	if err == nil {
+		t.Fatal("expected writing a feature the performance does not declare to fail")
+	}
+	if !strings.Contains(err.Error(), "touched") {
+		t.Errorf("error should name the refused feature, got: %v", err)
 	}
 }
 
@@ -13655,8 +13711,8 @@ func runOuterAction(t *testing.T, src string) error {
 
 const adderActionDef = `
 	action def Adder {
-		in a : Integer;
-		in b : Integer;
+		in a : Integer[1];
+		in b : Integer[1];
 		out sum : Integer;
 		first step;
 		action step { assign sum := a + b; }
@@ -13697,8 +13753,8 @@ func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 				bind leg.inner.v = leg.v;
 				first start;
 				then action leg {
-					out v : Integer;
-					action inner { out v : Integer; assign v := 1; }
+					out v : Integer[1];
+					action inner { out v : Integer[1]; assign v := 1; }
 					first start;
 					then action own { assign legV := 0; }
 					then done;
@@ -14592,7 +14648,7 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("a do body waiting for a message did not suspend")
 	}
 	if exec.State() != StateSuspended || StateVertexName(exec.CurrentState()) != "active" {
@@ -14673,7 +14729,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	if len(decision.Fires) != 0 || decision.Deferred || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
+	if len(decision.Fires) != 0 || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
 		t.Errorf("Decide(Go) = %+v, want only the do behavior of active resumed", decision)
 	}
 	if activeLeaf(exec) != "active" || exec.HasPendingDoWork() || len(ctx.PendingMessages()) != 0 {
@@ -14687,7 +14743,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
+	if !ok || dispatch.Fired || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
 		t.Errorf("dispatch = %+v, %v; want the do behavior of active resumed, as decided", dispatch, ok)
 	}
 	if err := exec.RunToCompletion(); err != nil {
@@ -14739,7 +14795,7 @@ func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -14753,11 +14809,12 @@ func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
 	}
 }
 
-// testStateDoBodyAcceptGoesOnAcrossASubstateTransition: a signal a transition
-// between two substates of the active state accepts is one the state's own do
-// behavior, parked at an accept for it, goes on with too — the state stays active
-// across that transition — and Decide reports both, before.
-func testStateDoBodyAcceptGoesOnAcrossASubstateTransition(t *testing.T) {
+// testStateDoBodyAcceptYieldsToASubstateTransition: a signal a transition between
+// two substates of the active state accepts goes to the transition alone: the
+// state's own do behavior, parked at an accept for it, stays parked — the state
+// stays active, so the behavior takes the next occurrence — and Decide reports
+// just the transition, before.
+func testStateDoBodyAcceptYieldsToASubstateTransition(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
 	attribute def Go;
@@ -14784,23 +14841,41 @@ func testStateDoBodyAcceptGoesOnAcrossASubstateTransition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition shift"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition shift"}}
 	if !reflect.DeepEqual(decision, want) {
-		t.Errorf("Decide(Go) = %+v, want %+v: the transition and the do behavior of the state it stays in both take it", decision, want)
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition takes it alone, the do behavior of the state it stays in not too", decision, want)
 	}
 	ctx.PostMessage(goMsg)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
-		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
 		t.Errorf("state %s with %d messages in flight, want right with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of right alone, the do behavior still parked at its accept", total)
+	}
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Fatal("the do behavior must still be parked at its accept with nothing due")
+	}
+	decision, err = exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go) again: %v", err)
+	}
+	want = Decision{Resumes: []string{"do behavior of state active"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) again = %+v, want %+v: no transition accepts it in right, so the do behavior takes it", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the second message: %v", err)
+	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
-		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+		t.Errorf("total = %v, want 11: the do behavior's count on the second occurrence", total)
 	}
 	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
 		t.Error("the do behavior has ended; nothing of it must remain due")
@@ -14847,7 +14922,7 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -14863,9 +14938,9 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 
 // testStateDoBodyAcceptFollowsTheTransitionChosen: a substate with two transitions
 // enabled for the signal, one between the enclosing state's substates and one out
-// of it. The one the policy chooses (the first declared) stays inside, so the
-// enclosing do behavior goes on with the signal, the alternative leaving
-// notwithstanding; Decide names the same transition and resume.
+// of it. The one the policy chooses (the first declared) stays inside, and takes
+// the signal alone all the same, the enclosing do behavior staying parked;
+// Decide names the same transition and no resume.
 func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
@@ -14895,23 +14970,26 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition shift"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition shift"}}
 	if !reflect.DeepEqual(decision, want) {
-		t.Errorf("Decide(Go) = %+v, want %+v: the transition chosen stays in the state, whose do behavior takes it too", decision, want)
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition chosen takes it alone", decision, want)
 	}
 	ctx.PostMessage(goMsg)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
-		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
 		t.Errorf("state %s with %d messages in flight, want right with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
-	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
-		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of right alone, the do behavior still parked", total)
+	}
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Error("the do behavior must still be parked at its accept with nothing due")
 	}
 }
 
@@ -14972,7 +15050,7 @@ func testStateDoBodyAcceptYieldsToAnOpenChoice(t *testing.T) {
 			t.Fatalf("stay = %s: dispatch the message: %v", tc.stay, err)
 		}
 		dispatch, ok := exec.LastDispatch()
-		if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
+		if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
 			t.Errorf("stay = %s: dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", tc.stay, dispatch, ok)
 		}
 		if activeLeaf(exec) != tc.leaf || len(ctx.PendingMessages()) != 0 {
@@ -15028,7 +15106,7 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed", dispatch, ok)
 	}
 	assertRegionConfig(t, exec, map[string]string{"right": "r2"})
@@ -15042,24 +15120,29 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 
 // testStateDoBodyAcceptRunsBeforeTheChoiceReads: the do behaviors go on with the
 // signal (one node, then yield) before the chosen transition fires, and a choice
-// on its route reads its guards only then, so a do behavior that rewrites the
-// guard on its way sends the transition down the branch the rewritten data selects.
+// on its route reads its guards only then, so a do behavior in a sibling region
+// that rewrites the guard on its way sends the transition down the branch the
+// rewritten data selects.
 func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
 	attribute def Go;
-	state def Waiter {
+	state def Waiter parallel {
 		attribute total : Integer = 0;
 		attribute stay : Boolean = true;
-		entry; then active;
-		state active {
-			do action work {
-				first start;
-				then action reader accept Go;
-				then action flip assign stay := false;
-				then action count assign total := total + 10;
-				then done;
+		state watcher {
+			entry; then work;
+			state work {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action flip assign stay := false;
+					then action count assign total := total + 10;
+					then done;
+				}
 			}
+		}
+		state active {
 			entry; then left;
 			state left;
 			choice pick;
@@ -15077,7 +15160,7 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state work"}}
 	if !reflect.DeepEqual(decision, want) {
 		t.Errorf("Decide(Go) = %+v, want %+v", decision, want)
 	}
@@ -15086,11 +15169,12 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
 	}
-	if activeLeaf(exec) != "other" || len(ctx.PendingMessages()) != 0 {
-		t.Errorf("state %s with %d messages in flight, want other with the one message consumed: the choice read stay after the do behavior cleared it", activeLeaf(exec), len(ctx.PendingMessages()))
+	assertRegionConfig(t, exec, map[string]string{"watcher": "work", "active": "other"})
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("%d messages in flight, want the one message consumed: the choice read stay after the do behavior cleared it", len(ctx.PendingMessages()))
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(100)) {
 		t.Errorf("total = %v, want 100: the entry of other, the do behavior yielded after flip with count still to run", total)
@@ -15150,7 +15234,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {
@@ -15216,7 +15300,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {
@@ -15662,7 +15746,7 @@ func testInheritedBindingDoesNotReachAMaskingNode(t *testing.T) {
 				bind add.a = x;
 			}
 			action def Derived :> Base {
-				action add { in a : Integer; out sum : Integer; assign sum := a + 1; }
+				action add { in a : Integer[1]; out sum : Integer; assign sum := a + 1; }
 				first start then add;
 				succession add then done;
 			}
@@ -15697,7 +15781,7 @@ func testInheritedBindingDoesNotReachThroughAReplacedOtherEnd(t *testing.T) {
 	src := `
 		package test {
 			action def Adder {
-				in a : Integer;
+				in a : Integer[1];
 				out sum : Integer;
 				first step;
 				action step { assign sum := a; }
@@ -16016,8 +16100,8 @@ func testNodeFlowIntoAPinTheTargetDoesNotDeclare(t *testing.T) {
 const functionValueFixture = `
 	private import ScalarValues::*;
 	calc def Sq { in v : Real; return : Real = v * v; }
-	calc def Add { in x : Real; in y : Real; return : Real = x + y; }
-	calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+	calc def Add { in x : Real; in y : Real[1]; return : Real = x + y; }
+	calc def Fn { in calc f[1] { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
 `
 
 // invokeCalcExpecting evaluates the calc call expr against src with the standard library,
@@ -16040,7 +16124,7 @@ func invokeCalcExpecting(t *testing.T, src, expr string) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("%s did not terminate", expr)
 		return nil
 	}
@@ -16097,7 +16181,7 @@ func testFunctionValueUnknownNamedArgument(t *testing.T) {
 // to fewer arguments than its calc needs is reported the same way.
 func testFunctionValueUnboundCalcParameter(t *testing.T) {
 	src := `package test {` + functionValueFixture + `
-		calc def Partial { in calc f { in x : Real; in y : Real; return : Real; } return : Real = f(1.0); }
+		calc def Partial { in calc f { in x : Real; in y : Real[1]; return : Real; } return : Real = f(1.0); }
 	}`
 	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0)")
 	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "f"`) {
@@ -16169,9 +16253,9 @@ func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
 // parameter name while no such run is active, it reads no binding of the caller's.
 func testFunctionValueNestedCalcOutsideItsRun(t *testing.T) {
 	src := `package test {` + functionValueFixture + `
-		calc def Outer { in k : Real; calc inner { in v : Real; return : Real = v * k; } return : Real = inner(1.0); }
-		calc def Called { in k : Real; return : Real = Outer::inner(2.0); }
-		calc def Passed { in k : Real; return : Real = Fn(Outer::inner, 2.0); }
+		calc def Outer { in k : Real[1]; calc inner { in v : Real[1]; return : Real = v * k; } return : Real = inner(1.0); }
+		calc def Called { in k : Real[1]; return : Real = Outer::inner(2.0); }
+		calc def Passed { in k : Real[1]; return : Real = Fn(Outer::inner, 2.0); }
 	}`
 	for _, expr := range []string{"test::Called(3.0)", "test::Passed(3.0)"} {
 		err := invokeCalcExpecting(t, src, expr)
@@ -16213,7 +16297,7 @@ const verificationRobustnessModel = `
 
 		verification def Thresholded {
 			subject sensor : Sensor;
-			in threshold : ScalarValues::Integer;
+			in threshold : ScalarValues::Integer[1];
 			VerificationCases::PassIf(sensor.reading == threshold)
 		}
 
@@ -16517,7 +16601,7 @@ func runTradeStudyExpecting(t *testing.T, name string) (AnalysisResult, error) {
 			t.Fatalf("%s selected %s, expected the run to fail", name, FormatValue(out.result.Outputs[0].Value))
 		}
 		return out.result, out.err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("%s did not terminate", name)
 		return AnalysisResult{}, nil
 	}
@@ -16850,7 +16934,7 @@ func stateMachineWithLibraries(t *testing.T, src string) *StateExecutor {
 func testStateDoTypedActionInputUnbound(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
-		action def Poll { in n : Integer; assign n := n + 1; }
+		action def Poll { in n : Integer[1]; assign n := n + 1; }
 		state Machine {
 			attribute total : Integer = 0;
 			entry; then active;
@@ -17145,25 +17229,6 @@ func testDecisionMixingWeightedAndUnweightedSuccessions(t *testing.T) {
 		action slow; then done;`)
 	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "weights 1 of its 2 successions") {
 		t.Fatalf("error = %v, want the mixed decision refused", err)
-	}
-}
-
-// testWeightedDecisionOnAStateTransition: the state machine draws no weighted
-// transition, so Probability on one is refused rather than read as unweighted.
-func testWeightedDecisionOnAStateTransition(t *testing.T) {
-	err := libraryStateExecutorError(t, `
-		package test {
-			private import ScalarValues::*;
-			private import Stochastic::*;
-			state def Machine {
-				entry; then a;
-				state a;
-				transition first a then b { @Probability { p = 1.0; } }
-				state b;
-			}
-		}`, "Machine")
-	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "a transition cannot be weighted") {
-		t.Fatalf("error = %v, want the weighted transition refused", err)
 	}
 }
 

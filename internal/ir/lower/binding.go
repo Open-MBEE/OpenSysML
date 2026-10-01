@@ -11,6 +11,8 @@ type Binding struct {
 	Ends  [2]BindingEnd
 	Scope *symbols.Scope
 	Decl  *ast.Usage
+	// Multiplicity is the connector's own as written (`binding [1] bind …`), nil when none.
+	Multiplicity *ast.Multiplicity
 }
 
 // BindingEnd is one binding endpoint. Path is the runtime lvalue path; Expr
@@ -71,5 +73,5 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 		}
 		ends[i] = BindingEnd{Path: FeaturePath(target), Expr: target, Multiplicity: end.Multiplicity}
 	}
-	return Binding{Ends: ends, Scope: scope, Decl: u}, true
+	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
 }

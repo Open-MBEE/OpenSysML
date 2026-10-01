@@ -1,0 +1,37 @@
+exit: idle
+stmt action body
+  stmt node doubling
+    eval feature value -> 3
+step 1: token 1@doubling
+    stmt assign result
+        eval feature value -> 3
+        eval literal 2 -> 2
+      eval operator * -> 6
+step 2: token 1@done
+step 3: no active tokens
+enter: doubled (entry action)
+stmt perform
+step 1: token 1@negating
+  stmt assign result
+      eval literal 0 -> 0
+      eval feature result -> 6
+    eval operator - -> -6
+step 2: token 1@done
+step 3: no active tokens
+transition: idle -> doubled (event: call compute)
+exit: doubled
+stmt action body
+  stmt node doubling
+    eval feature value -> 5
+step 1: token 1@doubling
+    stmt assign result
+        eval feature value -> 5
+        eval literal 2 -> 2
+      eval operator * -> 10
+step 2: token 1@done
+step 3: no active tokens
+enter: settled
+transition: doubled -> settled (event: call compute)
+exit: settled
+enter: done
+transition: settled -> done (event: accept Settle)

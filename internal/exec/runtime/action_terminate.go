@@ -100,10 +100,20 @@ func (e *performances) terminatedUsage(perf *actionFrame, graph *lower.ActionGra
 func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*actionFrame, error) {
 	switch s.Terminates {
 	case lower.TerminateContaining:
+		for perf.body {
+			perf = perf.parent
+		}
 		return []*actionFrame{perf}, nil
 	case lower.TerminateEnclosing:
-		if perf.parent == nil {
-			return nil, fmt.Errorf("%w: %s is no step of a flow to end", ErrTerminateTarget, perf.describe())
+		for perf.body {
+			perf = perf.parent
+		}
+		if perf == nil || perf.parent == nil {
+			name := "the body"
+			if perf != nil {
+				name = perf.describe()
+			}
+			return nil, fmt.Errorf("%w: %s is no step of a flow to end", ErrTerminateTarget, name)
 		}
 		return []*actionFrame{perf.parent}, nil
 	case lower.TerminateNode:

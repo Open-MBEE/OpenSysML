@@ -1,17 +1,20 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // extensionModel uses OpenSysML notation no SysML v2 production admits.
 const extensionModel = `package Mission {
     attribute def Alarm;
     state def Monitor {
         entry; then off;
-        state off {
-            defer Alarm;
-        }
+        state off;
+        choice evaluate;
         state on;
-        transition first off accept Alarm then on;
+        transition first off accept Alarm then evaluate;
+        transition first evaluate then on;
     }
 }
 `
@@ -23,10 +26,10 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, extensionModel, "-validate"),
-		0, "warning:", "is an OpenSysML extension with no SysML v2 production")
+		0, "warning:", "is an OpenSysML extension; write")
 
 	strict := check(t, binary, extensionModel, "-validate", "-strict")
-	wantReport(t, strict, 2, "error:", "is an OpenSysML extension with no SysML v2 production",
+	wantReport(t, strict, 2, "error:", "is an OpenSysML extension; write",
 		"did not analyse cleanly")
 	rejectReport(t, strict, "warning:")
 }
@@ -36,13 +39,12 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 	binary := buildCLI(t)
 	const corpus = "../../tools/referee/reject/testdata/negative/extensions/"
-	for _, tc := range []struct{ file, notation string }{
-		{"x02-choice-pseudostate.sysml", "`choice <name>;`"},
-		{"x03-junction-pseudostate.sysml", "`junction <name>;`"},
-		{"x05-defer-member.sysml", "`defer <event>;`"},
-		{"x06-history-member.sysml", "`history <name>;`"},
+	for _, tc := range []struct{ file, old, replacement string }{
+		{"x02-choice-pseudostate.sysml", "`choice evaluate;`", "`#choice state evaluate;`"},
+		{"x03-junction-pseudostate.sysml", "`junction route;`", "`#junction state route;`"},
+		{"x06-history-member.sysml", "`history resume;`", "`#shallowHistory state resume;`"},
 	} {
-		want := tc.notation + " is an OpenSysML extension with no SysML v2 production"
+		want := tc.old + " is an OpenSysML extension; write " + tc.replacement
 		got := checkPaths(t, binary, "-validate", corpus+tc.file)
 		wantReport(t, got, got.status, "warning: "+want)
 		rejectReport(t, got, "error: "+want)
@@ -50,6 +52,22 @@ func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 		strict := checkPaths(t, binary, "-validate", "-strict", corpus+tc.file)
 		wantReport(t, strict, 2, "error: "+want)
 		rejectReport(t, strict, "warning: "+want)
+	}
+}
+
+// The removed `defer <event>;` member is a parse error in either mode, reported
+// once with the standard encoding that replaces it.
+func TestRemovedDeferMemberIsAnErrorInEitherMode(t *testing.T) {
+	binary := buildCLI(t)
+	const file = "../../tools/referee/reject/testdata/negative/extensions/x05-defer-member.sysml"
+	const want = "error: the OpenSysML `defer <event>;` extension was removed"
+	for _, args := range [][]string{{"-validate"}, {"-validate", "-strict"}} {
+		got := checkPaths(t, binary, append(args, file)...)
+		wantReport(t, got, 2, want, "ordered", "exit action", "did not analyse cleanly")
+		rejectReport(t, got, "warning:", "is an OpenSysML extension with no SysML v2 production")
+		if n := strings.Count(got.output(), want); n != 1 {
+			t.Errorf("%v: the removed notation reported %d times, want once:\n%s", args, n, got.output())
+		}
 	}
 }
 
@@ -78,7 +96,7 @@ func TestStrictConformanceKeepsUnboundParameterAdvisory(t *testing.T) {
 	binary := buildCLI(t)
 	const unbound = `package Arity {
     private import ScalarValues::*;
-    calc def F { in x : Real; in y : Real; return : Real = x + y; }
+    calc def F { in x : Real; in y : Real[1]; return : Real = x + y; }
     attribute plain : Real = F(1.0);
     attribute head : Real = F(1.0).result;
 }

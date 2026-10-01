@@ -78,6 +78,148 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 	return dst
 }
 
+// A held entry survives a portable image: the copy remains at the same entry
+// boundary and finishes with the same result as the source.
+func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		item def Ping;
+		state Machine {
+			attribute hits : Integer = 0;
+			entry; then start;
+			state start;
+			state working {
+				attribute :>> isRunToCompletion = false;
+				state step {
+					entry action count { assign hits := hits + 1; }
+				}
+				entry action { send new Ping() to Machine; } then step;
+			}
+			state done;
+			transition first working accept Ping then done;
+			succession first start then working;
+		}
+		part def Host { exhibit state machine : Machine; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "held-entry.sysml", parseAndBuild(t, source))
+	hostSym := resolveSymbol(t, idx.DocumentRoot("held-entry.sysml"), "Host")
+	host, err := ctx.materialize(hostSym, 0, nil, "")
+	if err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+	decls := ctx.classifierBehaviorsOf(hostSym)
+	if len(decls) != 1 {
+		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
+	}
+	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	if err != nil {
+		t.Fatalf("attachClassifierBehavior: %v", err)
+	}
+	behavior.binding = 0
+	host.behaviors = append(host.behaviors, behavior)
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	state, ok := host.ExhibitedState()
+	if !ok {
+		t.Fatal("Host exhibits no state machine")
+	}
+	if err := state.State.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if !state.State.HoldsEntry() {
+		t.Fatal("source did not stop at an entry boundary")
+	}
+
+	dst := imageInto(t, ctx, host)
+	copied, ok := dst.Instance(host.ID)
+	if !ok {
+		t.Fatalf("destination has no Host #%d", host.ID)
+	}
+	copiedBehavior, ok := copied.ExhibitedState()
+	if !ok {
+		t.Fatal("copy exhibits no state machine")
+	}
+	if !copiedBehavior.State.HoldsEntry() {
+		t.Fatal("imaged copy lost its held entry")
+	}
+	if err := copiedBehavior.State.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(copy): %v", err)
+	}
+	if err := state.State.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(source): %v", err)
+	}
+	if got, want := FormatValue(copiedBehavior.State.StateData()["hits"]), FormatValue(state.State.StateData()["hits"]); got != want {
+		t.Fatalf("copy hits = %s, source hits = %s", got, want)
+	}
+	if got, want := copiedBehavior.State.stateVisits, state.State.stateVisits; !slices.Equal(got, want) {
+		t.Fatalf("copy visits = %v, source visits = %v", got, want)
+	}
+}
+
+// A held entry and a pending do action carry the transition that entered them
+// through a portable image: resumed in the copy, the substate's entry and the do
+// behaviors still read the payload the transition accepted.
+func TestHeldImageCarriesTheEnteringFiring(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		attribute def Level { attribute n : Integer; }
+		state def Machine {
+			attribute did : Integer = 0;
+			attribute entered : Integer = 0;
+			attribute innerDid : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				attribute :>> isRunToCompletion = false;
+				do { in level : Integer = raise.l.n ?? 99; assign did := level; }
+				entry; then inner;
+				state inner {
+					entry action { in level : Integer = raise.l.n ?? 99; assign entered := level; }
+					do { in level : Integer = raise.l.n ?? 99; assign innerDid := level; }
+				}
+			}
+			transition raise first idle accept l : Level then work;
+		}
+		part def Host { exhibit state machine : Machine; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "entering-firing.sysml", parseAndBuild(t, source))
+	root := idx.DocumentRoot("entering-firing.sysml")
+	host, err := ctx.Instantiate(resolveSymbol(t, root, "Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, ctx, host, "Level", map[string]Value{"n": integerValue(7)})
+	machine := lampMachine(t, host)
+	if !machine.HoldsEntry() {
+		t.Fatal("source did not stop at work's entry boundary")
+	}
+	if len(machine.doActions) != 1 || machine.doActions[0].run != nil {
+		t.Fatalf("do actions %v, want work's do behavior pending", machine.doActions)
+	}
+
+	dst := imageInto(t, ctx, host)
+	copied, ok := dst.Instance(host.ID)
+	if !ok {
+		t.Fatalf("destination has no Host #%d", host.ID)
+	}
+	imaged := lampMachine(t, copied)
+	if !imaged.HoldsEntry() {
+		t.Fatal("imaged copy lost its held entry")
+	}
+	for name, exec := range map[string]*StateExecutor{"copy": imaged, "source": machine} {
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence(%s): %v", name, err)
+		}
+		if got := activeLeaf(exec); got != "inner" {
+			t.Errorf("%s is at %s, want inner", name, got)
+		}
+		for _, attr := range []string{"did", "entered", "innerDid"} {
+			if got := FormatValue(exec.StateData()[attr]); got != "7" {
+				t.Errorf("%s %s = %s, want 7: the entering transition's payload", name, attr, got)
+			}
+		}
+	}
+}
+
 // A state machine that fired a transition is imaged as it stands: the copy is the
 // same object under the same identity in the other context, in the same state,
 // and goes on from there as the original does — while neither sees the other's moves.
@@ -956,7 +1098,7 @@ func TestHeldImageRefusesAUsageDenotingAnotherObjectOfTheDestination(t *testing.
 // destinationState is every part of a context a materialization writes, as one value to compare.
 type destinationState struct {
 	instances, created, lives, behaviors, messages, occurrences, metadata, variants, selected int
-	onClock                                                                                   int
+	onClock, shared                                                                           int
 	nextID, tookHigh, activations, runs                                                       int64
 	clock                                                                                     float64
 	clockRun                                                                                  *runState
@@ -967,8 +1109,8 @@ func destinationStateOf(ctx *Context) destinationState {
 		instances: len(ctx.instances), created: len(ctx.created), lives: len(ctx.lives), behaviors: len(ctx.objectBehaviors),
 		messages: len(ctx.messages), occurrences: len(ctx.occurrences), metadata: len(ctx.metadataObjects),
 		variants: len(ctx.variantObjects), selected: len(ctx.selectedVariants),
-		onClock: len(ctx.clock.waiters),
-		nextID:  ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
+		onClock: len(ctx.clock.waiters), shared: len(ctx.sharedDefaults),
+		nextID: ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 	}
 }
@@ -1071,8 +1213,8 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 				for _, state := range exec.ActiveStates() {
 					active = append(active, StateVertexName(state))
 				}
-				fmt.Fprintf(&b, "    state=%v active=%v queue=%d deferred=%d data=%s\n",
-					exec.State(), active, exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))
+				fmt.Fprintf(&b, "    state=%v active=%v queue=%d data=%s\n",
+					exec.State(), active, exec.eventQueue.Len(), formatValues(exec.StateData()))
 			}
 		}
 	}
@@ -1247,5 +1389,95 @@ func TestHeldImageServesConcurrentSweeps(t *testing.T) {
 	}
 	if after := heldDigest(src, everyObject); after != before {
 		t.Errorf("the sweeps changed the source:\n%s\nwas\n%s", after, before)
+	}
+}
+
+// A nested redefinition carried below a member not yet materialized survives
+// the image: the copy applies it when the member materializes after the restore.
+func TestHeldImageCarriesANestedRedefinition(t *testing.T) {
+	ctx := contextOver(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Top { part mid : Mid; }
+		part top : Top { attribute :>> mid.leaf.value = 99.0; }
+	}`)
+	obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	mid := readInstance(t, ctx, obj, "mid")
+	if len(mid.nested) == 0 {
+		t.Fatal("mid carries no nested redefinition for the image to hold")
+	}
+	dst := imageInto(t, ctx, obj)
+	restored, ok := dst.Instance(obj.ID)
+	if !ok {
+		t.Fatalf("the materialized image holds no object under #%d", obj.ID)
+	}
+	leaf := readInstance(t, dst, readInstance(t, dst, restored, "mid"), "leaf")
+	fv, err := leaf.GetFeatureValue(dst, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 99.0 {
+		t.Fatalf("mid.leaf.value after the image = %v, want 99.0", got)
+	}
+}
+
+// A feature a governing chain adjusted keeps its marking through the image:
+// the restore materializes a fresh object under the chain's reading rather
+// than reviving the bound one the canonical feature still names.
+func TestHeldImageCarriesAGovernedBoundFeature(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`
+	for _, readFirst := range []bool{false, true} {
+		name := "imaged_before_reading_mid"
+		if readFirst {
+			name = "imaged_after_reading_mid"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx := contextOver(t, model)
+			obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			if err := ctx.classify(obj, lookupOne(t, ctx.model.resolver.Index(), "test::Sport")); err != nil {
+				t.Fatalf("classify(top, Sport): %v", err)
+			}
+			if readFirst {
+				readInstance(t, ctx, readInstance(t, ctx, obj, "mid"), "leaf")
+			}
+			dst := imageInto(t, ctx, obj)
+			restored, ok := dst.Instance(obj.ID)
+			if !ok {
+				t.Fatalf("the materialized image holds no object under #%d", obj.ID)
+			}
+			for _, pair := range [][2]any{{ctx, obj}, {dst, restored}} {
+				c, o := pair[0].(*Context), pair[1].(*Instance)
+				leaf := readInstance(t, c, readInstance(t, c, o, "mid"), "leaf")
+				fv, err := leaf.GetFeatureValue(c, "value")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(value): %v", err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != 99.0 {
+					t.Fatalf("mid.leaf.value after the image = %v, want the chain's 99.0", got)
+				}
+			}
+			existing, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::existing"))
+			if err != nil {
+				t.Fatalf("Instantiate(existing): %v", err)
+			}
+			if readInstance(t, ctx, obj, "mid") == existing {
+				t.Fatalf("top.mid adopted the bound object, want a fresh one")
+			}
+		})
 	}
 }

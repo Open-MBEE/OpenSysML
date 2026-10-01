@@ -38,7 +38,7 @@ func TestBodyContextFindingsSurviveAnUnrelatedSyntaxError(t *testing.T) {
 		{"variant outside a variation", "package P { part def D { variant part v : D; }" + broken, "variant",
 			"error: A variant must be an owned member of a variation."},
 		{"require outside a requirement", "package P { part def D { require constraint { true } }" + broken, "require",
-			"warning: `require` outside a requirement body is an OpenSysML extension"},
+			"error: 'require' declares a required constraint and is only allowed in a requirement or case body"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

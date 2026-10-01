@@ -522,6 +522,18 @@ func (ctx *Context) checkSubject(kind, element string, sym *symbols.Symbol, self
 	return subject, nil
 }
 
+// ConditionCarrier is the object a check of sym is about, resolved as
+// evaluation resolves it — self when it carries the element, else the single
+// object of this runtime that does — with the same error, ambiguity included,
+// an evaluation reports.
+func (ctx *Context) ConditionCarrier(kind, element string, sym *symbols.Symbol, self *Instance) (*Instance, error) {
+	subject, err := ctx.checkSubject(kind, element, sym, self)
+	if err != nil {
+		return nil, err
+	}
+	return subject.instance, nil
+}
+
 // declaringType is the type whose objects carry sym, nil when sym is declared
 // somewhere that has no objects — a package, a library namespace.
 func declaringType(sym *symbols.Symbol) *symbols.Symbol {
@@ -571,6 +583,10 @@ func (ctx *Context) rootInstances() []*Instance {
 		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
 			continue
 		}
+		// A destroyed object is no subject of anything; what it held is reached from where it stands.
+		if ctx.checkNotDestroyed(inst) != nil {
+			continue
+		}
 		if ctx.denotesOccurrence(inst) {
 			denoted[inst.Type] = append(denoted[inst.Type], inst)
 			continue
@@ -602,8 +618,13 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 		if inst == nil {
 			continue
 		}
+		destroyed := ctx.checkNotDestroyed(inst) != nil
 		for _, fv := range inst.FeatureValues {
 			for _, id := range heldObjects(fv.HeldValue()) {
+				// A destroyed holder is not walked, so a live object it refers to stands on its own.
+				if child, ok := ctx.instances[id]; destroyed && ok && ctx.checkNotDestroyed(child) == nil {
+					continue
+				}
 				held[id] = true
 			}
 		}
@@ -612,7 +633,8 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 }
 
 // carriersUnder returns the objects reachable from roots whose type carries the
-// features owner declares, roots included, in identity order. A declaration is
+// features owner declares, roots included, in identity order; a destroyed object is
+// passed over with what it holds. A declaration is
 // descended into once per path, so recursive composition is a finite search, and
 // one object stands for each declaration reached, so objects a multiplicity
 // repeated are one candidate however deep the named declaration sits in them.
@@ -623,7 +645,8 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 	path := make(map[*symbols.Symbol]bool)
 	var descend func(root, inst *Instance, through string, features []string)
 	descend = func(root, inst *Instance, through string, features []string) {
-		if inst == nil || seen[inst.ID] {
+		// A destroyed object a live holder retains is no carrier, and holds nothing to walk.
+		if inst == nil || seen[inst.ID] || ctx.checkNotDestroyed(inst) != nil {
 			return
 		}
 		seen[inst.ID] = true

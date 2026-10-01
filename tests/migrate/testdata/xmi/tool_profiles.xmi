@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:DSL_Customization="http://www.magicdraw.com/schemas/DSL_Customization.xmi"
+         xmlns:UI_Prototyping_Profile="http://www.magicdraw.com/schemas/UI_Prototyping_Profile.xmi"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi"
+         xmlns:My_Profile="http://www.magicdraw.com/schemas/My_Profile.xmi">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_my" name="My Profile" URI="http://www.magicdraw.com/schemas/My_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_tracked" name="Tracked">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_tracked_base" name="base_Element" association="_ext_tracked">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_tracked_ticket" name="ticket">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_tracked" memberEnd="_st_tracked_base _ext_tracked_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_tracked_end" name="extension_Tracked" type="_st_tracked" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="System">
+      <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_mass" name="mass"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_owner" name="owning system"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_cust" name="Customizations">
+      <packagedElement xmi:type="uml:Class" xmi:id="_c_pump" name="Pump customization">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_c_pump_owner" name="owning system"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_ui" name="Mockups">
+      <packagedElement xmi:type="uml:Class" xmi:id="_ui_group" name="Control panel">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ui_group_start" name="start" type="_ui_button" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ui_button" name="Start button"/>
+      <packagedElement xmi:type="uml:Component" xmi:id="_ui_label" name="Status label"/>
+      <packagedElement xmi:type="uml:Component" xmi:id="_ui_clock" name="Clock" isActive="true" classifierBehavior="_ui_clock_sm">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ui_clock_ticks" name="ticks"/>
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_ui_clock_sm" name="Ticking">
+          <region xmi:type="uml:Region" xmi:id="_ui_clock_main" name="main">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_ui_clock_init"/>
+            <subvertex xmi:type="uml:State" xmi:id="_ui_clock_running" name="Running"/>
+            <transition xmi:type="uml:Transition" xmi:id="_ui_clock_t0" source="_ui_clock_init" target="_ui_clock_running"/>
+          </region>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ui_gauge" name="Gauge"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_sim" name="Runs">
+      <packagedElement xmi:type="uml:Class" xmi:id="_seq" name="Sequence generator"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_cfg" name="Run pump"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_a_pump" base_Class="_pump"/>
+  <My_Profile:Tracked xmi:id="_a_tracked" base_Element="_pump" ticket="T-42"/>
+  <DSL_Customization:Customization xmi:id="_a_cust" base_Class="_c_pump" customizationTarget="_a_pump" hideMetatype="true"/>
+  <DSL_Customization:derivedPropertySpecification xmi:id="_a_derived" base_Property="_c_pump_owner" isReadOnly="true">
+    <xmi:Extension extender="Example UML Tool">
+      <metaChainExpressionSpecification>
+        <metaChain><metaChainNavigation propertyName="owner"/></metaChain>
+      </metaChainExpressionSpecification>
+    </xmi:Extension>
+  </DSL_Customization:derivedPropertySpecification>
+  <DSL_Customization:derivedPropertySpecification xmi:id="_a_derived2" base_Property="_pump_owner"/>
+  <UI_Prototyping_Profile:GroupBox xmi:id="_a_group" base_Class="_ui_group" title="Controls"/>
+  <UI_Prototyping_Profile:Button xmi:id="_a_button" base_Class="_ui_button" text="Start"/>
+  <UI_Prototyping_Profile:Label xmi:id="_a_label" base_Component="_ui_label" text="Ready"/>
+  <UI_Prototyping_Profile:Frame xmi:id="_a_frame" base_Component="_ui_clock" title="Clock"/>
+  <UI_Prototyping_Profile:Panel xmi:id="_a_panel" base_Class="_ui_gauge"/>
+  <sysml:Block xmi:id="_a_gauge" base_Class="_ui_gauge"/>
+  <SimulationProfile:SequenceDiagramGeneratorConfig xmi:id="_a_seq" base_Class="_seq" recordTimestamp="true"/>
+  <SimulationProfile:SimulationConfig xmi:id="_a_cfg" base_Class="_cfg" executionTarget="_pump"/>
+</xmi:XMI>

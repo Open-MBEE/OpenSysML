@@ -1,1 +1,0 @@
-- **Quick-fix edits live with the diagnostics that carry them.** `internal/core/quickfix` is folded into `internal/core/diag`: `quickfix.Fix`, `Edit`, `Insert`, `InsertLine` and `Replace` are now `diag.Fix`, `diag.Edit`, `diag.Insert`, `diag.InsertLine` and `diag.Replace`. No behavior changes.

@@ -224,7 +224,7 @@ func carriedObject(v Value) (int64, bool) {
 // connectorFeatureValue reports whether the feature value holds the object of a connector, whose
 // ends a new context attaches again rather than keeping what they read before.
 func (ctx *Context) connectorFeatureValue(s *FeatureValue) bool {
-	return s.Feature != nil && ctx.model.semantics.IsConnectorUsage(s.Feature.Symbol)
+	return s.Feature != nil && ctx.model.semantics.IsConnectorObjectUsage(s.Feature.Symbol)
 }
 
 // HoldsObject reports whether the value is, or carries, an object of this context:
@@ -724,7 +724,7 @@ func (a *adoption) planUnit(unit Unit) error {
 		return nil
 	}
 	term := semantics.UnitTerm{Scale: semantics.UnitScale(1)}
-	for _, power := range unit.Product.Powers {
+	for _, power := range unit.Product.AllPowers() {
 		what := "the unit " + power.Name + " it is measured in"
 		var reduces semantics.UnitTerm
 		switch {
@@ -774,18 +774,28 @@ func (a *adoption) planTerm(term semantics.UnitTerm) error {
 func (a *adoption) rewriteUnit(unit Unit) Unit {
 	powers := make([]semantics.UnitPower, len(unit.Product.Powers))
 	for i, power := range unit.Product.Powers {
-		if found, ok := a.rebound[power.Unit]; ok {
-			power.Unit = found
-		}
-		if power.Reduces != nil {
-			reduces := a.rewriteTerm(*power.Reduces)
-			power.Reduces = &reduces
-		}
-		powers[i] = power
+		powers[i] = a.rewritePower(power)
 	}
-	unit.Product = semantics.UnitProduct{Powers: powers}
+	product := semantics.UnitProduct{Powers: powers}
+	if unit.Product.Identity != nil {
+		identity := a.rewritePower(*unit.Product.Identity)
+		product.Identity = &identity
+	}
+	unit.Product = product
 	unit.Term = a.rewriteTerm(unit.Term)
 	return unit
+}
+
+// rewritePower is one power with the declaration it names rebound, its reduction too.
+func (a *adoption) rewritePower(power semantics.UnitPower) semantics.UnitPower {
+	if found, ok := a.rebound[power.Unit]; ok {
+		power.Unit = found
+	}
+	if power.Reduces != nil {
+		reduces := a.rewriteTerm(*power.Reduces)
+		power.Reduces = &reduces
+	}
+	return power
 }
 
 // rewriteTerm is the reduction with every base unit it names rebound.
@@ -866,6 +876,8 @@ func (a *adoption) commit() {
 		prevTypes := plan.obj.types()
 		plan.obj.Type = plan.typeSym
 		plan.obj.classifiers = plan.classifiers
+		// Every value taken from a shape is derived again here, so nothing is owed for one.
+		plan.obj.owed = nil
 		// Names of one redefined feature share a feature value, which is rebound once, to
 		// the feature of the name the shared feature value was created under.
 		done := make(map[*FeatureValue]bool, len(plan.obj.FeatureValues))
@@ -883,11 +895,11 @@ func (a *adoption) commit() {
 			// A value an expression states is derived again here, so it cannot go
 			// stale against what that expression now reads.
 			if a.ctx.derivedFeatureValue(fv) {
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			if a.ctx.collectedFeatureValue(fv) {
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			// A connector reads the features the `connect` clause names, which are
@@ -897,7 +909,7 @@ func (a *adoption) commit() {
 				if id, held := fv.Value.Object(); held {
 					plan.obj.keepConnector(fv, id)
 				}
-				fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}
 			fv.Value = a.rewrite(fv.Value)

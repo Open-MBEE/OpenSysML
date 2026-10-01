@@ -22,7 +22,11 @@ type Scope struct {
 	children         []*Scope
 	childIndex       atomic.Pointer[map[ast.Node]*Scope] // lazily built node -> child scope index for larger scopes
 	bodyLocal        bool                                // declarations live only inside the owning body
+	annotated        ast.Node                            // for a metadata body, the declaration the annotation is written on
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
+	recorded         bool                                // rebuilt from an interface record: no node, imports and filters held here
+	imports          []*ast.Import                       // a recorded scope's import declarations
+	filters          []ElementFilter                     // a recorded scope's `filter` conditions
 }
 
 // scopeIndexes holds the lookup maps a larger scope builds on demand; a nil map is
@@ -55,11 +59,50 @@ func (s *Scope) Parent() *Scope { return s.parent }
 // Owner returns the symbol that owns this scope, or nil if not set.
 func (s *Scope) Owner() *Symbol { return s.owner }
 
+// OwningElement is the element that owns the members of s: the member of the
+// parent scope declaring s's node, or the owner symbol when no member does.
+func (s *Scope) OwningElement() *Symbol {
+	if s == nil {
+		return nil
+	}
+	if s.Parent() != nil && s.Node() != nil {
+		if m := s.Parent().MemberDeclaring(s.Node()); m != nil {
+			return m
+		}
+	}
+	return s.Owner()
+}
+
 // SetOwner sets the symbol that owns this scope (for inheritance lookup).
 func (s *Scope) SetOwner(sym *Symbol) { s.owner = sym }
 
 // Node returns the AST node that owns this scope, or nil for synthetic scopes.
 func (s *Scope) Node() ast.Node { return s.node }
+
+// Recorded reports whether this scope was rebuilt from an interface record and
+// so has no node: its imports and filters are read from the record.
+func (s *Scope) Recorded() bool { return s.recorded }
+
+// Imports returns the import declarations the namespace owning this scope
+// states, in declaration order, whether read from its node or its record.
+func (s *Scope) Imports() []*ast.Import {
+	if s == nil {
+		return nil
+	}
+	if s.recorded {
+		return s.imports
+	}
+	var out []*ast.Import
+	for _, m := range namespaceMembers(s.node) {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if imp, ok := m.(*ast.Import); ok {
+			out = append(out, imp)
+		}
+	}
+	return out
+}
 
 // BodyLocal reports whether this scope's names exist only inside the body that
 // declares them, so a subtree search such as a recursive import must skip it.
@@ -67,6 +110,10 @@ func (s *Scope) BodyLocal() bool { return s.bodyLocal }
 
 // markBodyLocal records that this scope's names do not escape its body.
 func (s *Scope) markBodyLocal() { s.bodyLocal = true }
+
+// Annotated returns, for the body scope of a prefix metadata annotation, the
+// declaration the annotation is written on; nil for any other scope.
+func (s *Scope) Annotated() ast.Node { return s.annotated }
 
 // Children returns the child scopes in definition order.
 func (s *Scope) Children() []*Scope { return s.children }

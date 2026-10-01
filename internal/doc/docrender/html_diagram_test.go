@@ -20,8 +20,8 @@ func renderedFigureForm(t *testing.T, caption string, rendering *view.Rendering,
 
 func renderedFigureOptions(t *testing.T, caption string, rendering *view.Rendering, options view.Options, form view.Form) string {
 	t.Helper()
-	w := &htmlWriter{form: form}
-	if err := w.writeFigure("", "d", caption, rendering, options); err != nil {
+	w := &htmlWriter{forms: DiagramOptions{Form: form}}
+	if err := w.writeFigure("", "d", captionOf(caption), rendering, options); err != nil {
 		t.Fatalf("writeFigure: %v", err)
 	}
 	return w.b.String()
@@ -73,9 +73,9 @@ func TestHTMLDiagramDotForm(t *testing.T) {
 	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormDot), "data-palette") {
 		t.Errorf("an unfilled figure carries a palette attribute")
 	}
-	w := &htmlWriter{form: view.FormDot}
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormDot}}
 	var typed *Error
-	if err := w.writeFigure("", "d", "", graphRendering(view.KindSequence), view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm {
+	if err := w.writeFigure("", "d", caption{}, graphRendering(view.KindSequence), view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm {
 		t.Fatalf("sequence as dot: error = %v", err)
 	}
 	if w.b.Len() != 0 {
@@ -139,13 +139,13 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 // TestHTMLDiagramErrors checks the typed errors for a diagram with no
 // rendering and for a kind no renderer can draw.
 func TestHTMLDiagramErrors(t *testing.T) {
-	w := &htmlWriter{form: view.FormMermaid}
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}}
 	var typed *Error
-	if err := w.writeFigure("", "d", "", nil, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
+	if err := w.writeFigure("", "d", caption{}, nil, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)
 	}
 	for _, kind := range []view.Kind{view.KindTextual, view.KindGeometry} {
-		err := w.writeFigure("", "d", "", &view.Rendering{Kind: kind}, view.Options{})
+		err := w.writeFigure("", "d", caption{}, &view.Rendering{Kind: kind}, view.Options{})
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableDiagram {
 			t.Fatalf("%s: error = %v, want %s", kind, err, ErrorUnrenderableDiagram)
 		}
@@ -153,4 +153,9 @@ func TestHTMLDiagramErrors(t *testing.T) {
 			t.Errorf("%s: message names the wrong backend: %s", kind, typed.Error())
 		}
 	}
+}
+
+// captionOf is an unnumbered caption with the given text.
+func captionOf(text string) caption {
+	return caption{text: text}
 }

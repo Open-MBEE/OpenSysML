@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Dependency_Matrix_Profile="http://www.magicdraw.com/schemas/Dependency_Matrix_Profile.xmi"
+         xmlns:Traceability="http://example.com/schemas/Traceability.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- «Fulfil» specializes SysML's «Satisfy», so a Fulfil abstraction is a satisfy. -->
+    <packagedElement xmi:type="uml:Profile" xmi:id="_traceability" name="Traceability" URI="http://example.com/schemas/Traceability.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_fulfil" name="Fulfil">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_fulfil_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Satisfy"/>
+        </generalization>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_plant" name="Plant">
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump"/>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_valve" name="Valve"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
+        <packagedElement xmi:type="uml:Class" xmi:id="_req_flow" name="FlowRequirement"/>
+        <packagedElement xmi:type="uml:Class" xmi:id="_req_seal" name="SealRequirement"/>
+        <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy" client="_blk_pump" supplier="_req_flow"/>
+        <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_fulfil" client="_blk_valve" supplier="_req_seal"/>
+        <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_derive" client="_req_seal" supplier="_req_flow"/>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_exact" name="Exact Satisfaction Matrix" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Dependency Matrix" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_flow</usedElements>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_wide" name="Wide Satisfaction Matrix" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Dependency Matrix" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_flow</usedElements>
+                  <usedElements>_req_seal</usedElements>
+                  <usedElements>_blk_pump</usedElements>
+                  <usedElements>_blk_valve</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_derived" name="Seal Derivation Map" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Relation Map" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_seal</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_map" name="Valve Requirement Map" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Relation Map" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_valve</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+      <stereotypesHREFS>
+        <stereotype name="sysml:Satisfy" stereotypeHREF="SysML Profile.mdzip#_st_satisfy"/>
+        <stereotype name="sysml:DeriveReqt" stereotypeHREF="SysML Profile.mdzip#_st_derive"/>
+      </stereotypesHREFS>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_st_blk_valve" base_Class="_blk_valve"/>
+  <sysml:Requirement xmi:id="_st_req_flow" base_Class="_req_flow" Id="R-1" Text="The pump keeps the flow above the minimum."/>
+  <sysml:Requirement xmi:id="_st_req_seal" base_Class="_req_seal" Id="R-2" Text="Every valve seals when closed."/>
+  <sysml:Satisfy xmi:id="_st_satisfy_pump" base_Abstraction="_dep_satisfy"/>
+  <Traceability:Fulfil xmi:id="_st_fulfil_valve" base_Abstraction="_dep_fulfil"/>
+  <sysml:DeriveReqt xmi:id="_st_derive_seal" base_Abstraction="_dep_derive"/>
+
+  <!-- Satisfy without subtypes: the «Fulfil» satisfy is walked too, which the report says. -->
+  <Dependency_Matrix_Profile:DependencyMatrix xmi:id="_mx_exact" base_Diagram="_diag_exact" direction="Column to row" showElements="All" takeWholeModelAsScope="false">
+    <dependencyCriteria>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification includeCustomTypes="false" includeSubtypes="false" xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Satisfied by&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="dslRelationExpressionSpecification" stereotype="_st_satisfy" direction="REVERSED" includeCustomTypes="false" includeSubtypes="false" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</dependencyCriteria>
+  </Dependency_Matrix_Profile:DependencyMatrix>
+  <Dependency_Matrix_Profile:MatrixFilter xmi:id="_mf_exact" base_Diagram="_diag_exact" rowScope="_pkg_reqs" columnScope="_pkg_structure" rowScopeDefined="true" columnScopeDefined="true" includeSubtypesOfRowTypes="true" includeSubtypesOfColumnTypes="true">
+    <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+    <columnElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Block"/>
+  </Dependency_Matrix_Profile:MatrixFilter>
+
+  <!-- Satisfy with subtypes is exact; so is DeriveReqt without them, since nothing specializing it is applied. -->
+  <Dependency_Matrix_Profile:DependencyMatrix xmi:id="_mx_wide" base_Diagram="_diag_wide" direction="Column to row" showElements="All" takeWholeModelAsScope="false">
+    <dependencyCriteria>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification includeCustomTypes="false" includeSubtypes="true" xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Satisfied by&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="dslRelationExpressionSpecification" stereotype="_st_satisfy" direction="REVERSED" includeCustomTypes="false" includeSubtypes="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</dependencyCriteria>
+    <dependencyCriteria>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification includeCustomTypes="false" includeSubtypes="false" xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Derived by&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="dslRelationExpressionSpecification" stereotype="_st_derive" direction="REVERSED" includeCustomTypes="false" includeSubtypes="false" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</dependencyCriteria>
+  </Dependency_Matrix_Profile:DependencyMatrix>
+  <Dependency_Matrix_Profile:MatrixFilter xmi:id="_mf_wide" base_Diagram="_diag_wide" rowScope="_pkg_reqs" columnScope="_pkg_plant" rowScopeDefined="true" columnScopeDefined="true" includeSubtypesOfRowTypes="true" includeSubtypesOfColumnTypes="true">
+    <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+    <columnElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Block"/>
+    <columnElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+  </Dependency_Matrix_Profile:MatrixFilter>
+
+  <!-- A relation map following DeriveReqt from the derived requirement to its original. -->
+  <MagicDraw_Profile:RelationMap xmi:id="_map_derived" base_Diagram="_diag_derived" depth="1" layout="Tree" contextElement="_req_seal" includeSubtypes="true" showLegend="false">
+    <elementTypes href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <relationCriterion>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification includeCustomTypes="false" includeSubtypes="true" xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Derived from&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="dslRelationExpressionSpecification" stereotype="_st_derive" direction="DIRECT" includeCustomTypes="false" includeSubtypes="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</relationCriterion>
+  </MagicDraw_Profile:RelationMap>
+
+  <!-- A relation map walking Satisfy without subtypes from the valve, whose only satisfy is a «Fulfil». -->
+  <MagicDraw_Profile:RelationMap xmi:id="_map_valve" base_Diagram="_diag_map" depth="1" layout="Tree" contextElement="_blk_valve" includeSubtypes="true" showLegend="false">
+    <elementTypes href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <relationCriterion>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification includeCustomTypes="false" includeSubtypes="false" xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Satisfy&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="dslRelationExpressionSpecification" stereotype="_st_satisfy" direction="DIRECT" includeCustomTypes="false" includeSubtypes="false" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</relationCriterion>
+  </MagicDraw_Profile:RelationMap>
+</xmi:XMI>

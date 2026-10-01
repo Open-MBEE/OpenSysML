@@ -51,6 +51,7 @@ def outcome_pb(winner, linearizations, witness, error=""):
     return sysml_pb2.Outcome(
         outputs={"winner": sysml_pb2.Value(int_value=winner)} if not error else {},
         linearizations=linearizations,
+        probability=0.0,
         witness=witness,
         error=error,
     )
@@ -75,6 +76,7 @@ def test_an_explored_action_answers_with_every_outcome_and_the_status():
     assert isinstance(exploration, Exploration)
     assert [o.outputs["winner"] for o in exploration] == [1, 2]
     assert [o.linearizations for o in exploration] == [3, 3]
+    assert [o.probability for o in exploration] == [0.0, 0.0]
     assert exploration.outcomes[0].witness == ["step 3: 3@left first of 2@right, 3@left"]
     assert exploration.complete
     assert exploration.status == "complete (2 runs)"
@@ -92,7 +94,8 @@ def test_a_budget_hit_is_incomplete_and_named_never_an_error():
             )
         ],
         exploration=sysml_pb2.ExplorationStatus(
-            complete=False, runs=1, budgets_hit=["runs"], runs_budget=1, depth_budget=64
+            complete=False, runs=1, budgets_hit=["runs"], runs_budget=1,
+            depth_budget=64, probabilities_lower_bound=True
         ),
     )
     conn = make_connection(stub, CURRENT)
@@ -103,7 +106,11 @@ def test_a_budget_hit_is_incomplete_and_named_never_an_error():
 
     assert not exploration.complete
     assert exploration.budgets_hit == ["runs"]
-    assert exploration.status == "incomplete: runs budget 1 hit after 1 runs"
+    assert exploration.probabilities_lower_bound
+    assert exploration.status == (
+        "incomplete: runs budget 1 hit after 1 runs; "
+        "probabilities are lower bounds"
+    )
     assert not bool(exploration)
     outcome = exploration.outcomes[0]
     assert outcome.final_state == "low"
@@ -243,12 +250,13 @@ def test_a_single_run_schedule_still_needs_only_schedule():
 def test_an_outcome_renders_its_observables_sorted():
     outcome = Outcome(
         {"b": 2, "a": 1}, final_state="", states_visited=[], error="",
-        linearizations=4, witness=["x"], diagnostics=[],
+        linearizations=4, probability=0.25, witness=["x"], diagnostics=[],
     )
     assert str(outcome) == "a = 1; b = 2"
     assert "linearizations=4" in repr(outcome)
     empty = Outcome({}, "", [], "", 1, [], [])
     assert str(empty) == "no outputs"
+    assert empty.probability == 0.0
 
 
 EXPLORE_MODEL = """
@@ -357,7 +365,10 @@ class TestExploreAgainstTheService:
     def test_a_runs_budget_of_one_is_incomplete(self):
         exploration = self.model.explore_action("Sched::race", schedule="explore:runs=1")
         assert len(exploration) == 1
-        assert exploration.status == "incomplete: runs budget 1 hit after 1 runs"
+        assert exploration.status == (
+            "incomplete: runs budget 1 hit after 1 runs; "
+            "probabilities are lower bounds"
+        )
 
     def test_the_same_model_explores_to_the_same_table(self):
         first = str(self.model.explore_action("Sched::race"))

@@ -147,6 +147,51 @@ func TestExternalWitnessThatDoesNotReplay(t *testing.T) {
 	notCovered(t, standinAnswers(t, unreadable, f.building(), q, Budget{}), "its witness does not read as a schedule")
 }
 
+// waitingModel waits 2.3 s and reads the clock, so what it reads shows the clock the
+// run was on: 2.3 on the continuous clock, 3.0 on one stepping by 1.0.
+const waitingModel = `
+package test {
+	private import ScalarValues::*;
+	private import SI::*;
+	action wait {
+		out attribute t : Real;
+		first start;
+		then action w accept after 2.3 [s];
+		then assign t := localClock.currentTime;
+		then done;
+	}
+}`
+
+// The host replays an engine's schedule on the clock the question states: the same
+// witness refutes a bound on the instant read under a step of 1.0 and holds it on
+// the continuous clock.
+func TestExternalScheduleReplaysOnTheQuestionsClockStep(t *testing.T) {
+	d := parseDrawingText(t, waitingModel)
+	start := d.symbol(t, "wait")
+	beforeHalfPastTwo := runtime.CheckProperty{Name: "t", Holds: func(_ *runtime.Context, inv *runtime.Invocation) (bool, error) {
+		return inv.Actions[0].Results()["t"].Const.Real <= 2.5, nil
+	}}
+	ask := &CheckAsk{Start: func(ctx *runtime.Context) (*runtime.Invocation, error) {
+		exec, err := ctx.CreateActionExecutor(start)
+		if err != nil {
+			return nil, err
+		}
+		return &runtime.Invocation{Actions: []*runtime.ActionExecutor{exec}}, nil
+	}, Properties: []runtime.CheckProperty{beforeHalfPastTwo}}
+	question := func(step float64) Question {
+		return Question{Kind: Holds, Subject: "test::wait", Schedule: policy(t, "explore"), Free: FreeSchedule, Check: ask, ClockStep: step}
+	}
+	answer := `{"claim":"violated","strength":"witnessed","witness":{"schedules":["no choice points"]}}`
+	result := standinAnswers(t, standinRegistry(t, answer, WitnessSchedule), d.building(), question(1.0), Budget{})
+	if result.Claim != ClaimViolated || result.Strength != Witnessed || result.Witness == nil {
+		t.Fatalf("result %+v, want the violation witnessed on a clock stepping by 1.0", result)
+	}
+	if !strings.Contains(result.Reason, "`t` evaluates false") {
+		t.Fatalf("reason %q, want t read at the tick 3.0 refuting the claim", result.Reason)
+	}
+	notCovered(t, standinAnswers(t, standinRegistry(t, answer, WitnessSchedule), d.building(), question(0), Budget{}), "its schedule replays and `t` holds at its end")
+}
+
 // An engine's schedule carries choices, never draws: under a fixed policy the host
 // replays it resolving each call to the policy's point, and the witness it reports
 // records those draws under that policy; under random, a drawing run has no replay.

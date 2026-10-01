@@ -188,7 +188,9 @@ type distribution struct {
 // draw makes the draw the call what asks for — the witness's under replay, the
 // distribution's fixed point under a fixed policy, else one from the run's modeled
 // stream — noting it for the trace and the witness; a probe's draw is undone with the probe.
+// A draw is the run's, not the shape's: what it feeds is never shared between occurrences.
 func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error) {
+	ctx.unshareTraces()
 	val, err := ctx.scheduling().draw(what, dist)
 	if err != nil {
 		return semantics.Value{}, err
@@ -363,7 +365,7 @@ func checkWeights(where string, weights []float64) (float64, error) {
 	for i, w := range weights {
 		if math.IsNaN(w) || w < 0 || w > 1 {
 			return 0, fmt.Errorf("%w: %s: branch %d weighs %s, not a probability in [0, 1]",
-				ErrBranchWeights, where, i, formatWeight(w))
+				ErrBranchWeights, where, i, FormatWeight(w))
 		}
 		total += w
 	}
@@ -382,7 +384,7 @@ func checkDistribution(where string, declared []float64, holding []int) ([]float
 	for i, w := range declared {
 		if math.IsNaN(w) || w < 0 || w > 1 {
 			return nil, fmt.Errorf("%w: %s: branch %d weighs %s, not a probability in [0, 1]",
-				ErrBranchWeights, where, i, formatWeight(w))
+				ErrBranchWeights, where, i, FormatWeight(w))
 		}
 		total += w
 	}
@@ -395,12 +397,12 @@ func checkDistribution(where string, declared []float64, holding []int) ([]float
 	}
 	if math.Abs(total-1) > lower.ProbabilityTolerance {
 		return nil, fmt.Errorf("%w: %s: the weights of its branches sum to %s, not 1.0",
-			ErrBranchWeights, where, formatWeight(total))
+			ErrBranchWeights, where, FormatWeight(total))
 	}
 	return weights, nil
 }
 
-// formatWeight spells a weight as a trace reports it.
-func formatWeight(w float64) string {
+// FormatWeight spells a weight as a trace reports it.
+func FormatWeight(w float64) string {
 	return strconv.FormatFloat(w, 'g', -1, 64)
 }

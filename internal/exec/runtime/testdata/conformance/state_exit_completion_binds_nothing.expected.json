@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "events": [{"signal": "Go", "value": {"type": "Integer", "value": 5}}],
+  "finalState": "done",
+  "stateVisits": ["idle", "passing", "done"],
+  "outputs": {
+    "entered": {"type": "Integer", "value": 0},
+    "exited": {"type": "Integer", "value": 5},
+    "second": {"type": "Integer", "value": 0}
+  }
+}

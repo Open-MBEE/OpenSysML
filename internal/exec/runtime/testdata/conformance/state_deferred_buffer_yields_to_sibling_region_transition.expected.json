@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "schedule": "reverse",
+  "events": [
+    {"signal": "Ping"},
+    {"signal": "Go"}
+  ],
+  "finalState": "open+pinged",
+  "stateVisits": ["waiting", "idle", "pinged", "open"]
+}

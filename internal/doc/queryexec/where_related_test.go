@@ -285,7 +285,13 @@ func TestExecuteWhereRelatedChargesTheVisitBudget(t *testing.T) {
 	pair := append(leaf, ElementValue(fixture.symbol(t, "OpticalSubsystem")))
 	_, err = fixture.filtered(t, pair, "specialization", "outgoing", 3, true, Options{VisitBudget: 1})
 	executionError(t, err, ErrorVisitBudget)
-	// Building an edge table charges each declaration scanned, as RelatedElements does.
-	_, err = fixture.filtered(t, leaf, "satisfaction", "incoming", 1, false, Options{VisitBudget: 3})
-	executionError(t, err, ErrorVisitBudget)
+	// Building an edge table is not charged, as for RelatedElements: a row
+	// nothing satisfies is kept without spending a visit.
+	kept, err = fixture.filtered(t, leaf, "satisfaction", "incoming", 1, false, Options{VisitBudget: 1})
+	if err != nil {
+		t.Fatalf("uncharged table: %v", err)
+	}
+	if got := rowNames(kept); len(got) != 1 || got[0] != "Observatory::MirrorAssembly" {
+		t.Fatalf("kept = %v", got)
+	}
 }

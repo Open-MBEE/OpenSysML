@@ -77,8 +77,8 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 	// An edited root is rebuilt where it stood, its trailing note with it; its
 	// neighbours stay as written.
 	edited := editTurtle(t, turtle,
-		"    sysml:declaredName \"B\" ;\n",
-		"    sysml:declaredName \"B\" ;\n    sysx:isLibraryPackage \"true\"^^xsd:boolean ;\n")
+		"elmt:B\n    a sysml:Package ;\n",
+		"elmt:B\n    a sysml:LibraryPackage ;\n")
 	back := toNotation(t, edited)
 	want := "package A; /* between */ library package B;\n\npackage C {\n\tpart p; } package D;"
 	if back != want {
@@ -90,8 +90,8 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 	// The trivia after a root is its own, so a root rebuilt ahead of another
 	// leaves that one at the start of its line.
 	edited = editTurtle(t, turtle,
-		"    sysml:declaredName \"A\" ;\n",
-		"    sysml:declaredName \"A\" ;\n    sysx:isLibraryPackage \"true\"^^xsd:boolean ;\n")
+		"elmt:A\n    a sysml:Package ;\n",
+		"elmt:A\n    a sysml:LibraryPackage ;\n")
 	want = "library package A;\npackage B; // after\n\npackage C {\n\tpart p; } package D;"
 	if back := toNotation(t, edited); back != want {
 		t.Errorf("the first root was not rebuilt in place:\n--- want ---\n%s--- got ---\n%s", want, back)
@@ -357,13 +357,20 @@ func withoutMember(t *testing.T, turtle []byte, member string) []byte {
 		kept = append(kept, line)
 	}
 	var subjects []string
+	expr := "expr:" + id
 	for _, block := range strings.Split(strings.Join(kept, "\n"), "\n\n") {
 		subject, _, _ := strings.Cut(block, "\n")
-		if subject == member || strings.HasPrefix(subject, member+"_") {
+		if subject == member || subject == expr ||
+			strings.HasPrefix(subject, member+"_") || strings.HasPrefix(subject, expr+"_") {
 			subjects = append(subjects, subject)
 		}
 	}
-	return withoutSubjects(t, []byte(strings.Join(kept, "\n")), subjects...)
+	turtle = []byte(strings.Join(kept, "\n"))
+	turtle = withoutSubjects(t, turtle, subjects...)
+	if body := strings.Replace(string(turtle), "@prefix expr: <urn:opensysml:expr:> .\n", "", 1); !strings.Contains(body, "expr:") {
+		turtle = []byte(body)
+	}
+	return turtle
 }
 
 // withoutSubjects drops every block of a Turtle document describing one of the
@@ -493,6 +500,16 @@ package Accepts {
 		t.Fatalf("the accept is split across its payload:\n%s", turtle)
 	}
 	turtle = editTurtle(t, turtle, "sysml:type elmt:Accepts__Cmd ;", "sysml:type elmt:Accepts__Other ;")
+	// The FeatureTyping the collapsed edge materializes carries the same ends.
+	for _, property := range []string{"type", "general", "target"} {
+		turtle = relinkedProperty(t, turtle, "elmt:Accepts__Drive___400__sig_ft0", property, "elmt:Accepts__Cmd", "elmt:Accepts__Other")
+	}
+	turtle = []byte(strings.Replace(string(turtle),
+		"sysml:relatedElement elmt:Accepts__Drive___400__sig, elmt:Accepts__Cmd",
+		"sysml:relatedElement elmt:Accepts__Drive___400__sig, elmt:Accepts__Other", 1))
+	turtle = []byte(strings.Replace(string(turtle),
+		`json:relatedElement "[{\"@id\":\"Accepts__Drive___400__sig\"},{\"@id\":\"Accepts__Cmd\"}]"`,
+		`json:relatedElement "[{\"@id\":\"Accepts__Drive___400__sig\"},{\"@id\":\"Accepts__Other\"}]"`, 1))
 	back := toNotation(t, turtle)
 	want := `// The drive, as modelled.
 package Accepts {

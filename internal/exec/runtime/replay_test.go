@@ -1057,9 +1057,9 @@ func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken
 }
 
 // A do-order move naming a state whose behavior is not due is refused before
-// either due behavior acts, so the run stops where the witness stopped fitting;
-// lwork's round, opened before the dispatch drawn ahead of its step, ends with
-// that step, and the round the move names opens after it with rwork due too.
+// either due behavior acts, so the run stops where the witness stopped fitting:
+// the dispatch drawn ahead of lwork's first move leaves both behaviors due, and
+// the move naming zork is refused with neither having moved.
 func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -1098,8 +1098,8 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
 		t.Fatalf("error %T %v, want the do-order move refused", err, err)
 	}
-	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
-		t.Errorf("seq is %v after the refusal, want 1: neither due behavior may act on a refused round", seq)
+	if seq := FormatValue(exec.StateData()["seq"]); seq != "0" {
+		t.Errorf("seq is %v after the refusal, want 0: neither due behavior may act on a refused move", seq)
 	}
 }
 
@@ -1138,7 +1138,7 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	witness, err := ParseChoices("entering Waiter: lwork(entry) first of lwork(entry), rwait(entry)\nstate rwait on accept Go -> 3->nowhere\n")
+	witness, err := ParseChoices("entering Waiter: lwork(entry) first of lwork(entry), rwait(entry)\nentering Waiter: rwait(entry) first of do lwork, rwait(entry)\nstate rwait on accept Go -> 3->nowhere\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1153,7 +1153,7 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 2 || !strings.Contains(err.Error(), "3->nowhere") {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 3 || !strings.Contains(err.Error(), "3->nowhere") {
 		t.Fatalf("error %T %v, want the transition move refused", err, err)
 	}
 	if total := FormatValue(exec.StateData()["total"]); total != "0" {
@@ -1531,7 +1531,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of b(entry), c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of do a, b(entry), c(entry)\nentering work: c(entry) first of do a, c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1550,7 +1550,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 4 {
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
 		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
 	}
 	data := exec.StateData()
@@ -1567,10 +1567,10 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
 		t.Errorf("do actions %v after the refusal, want a's do behavior paused as it was", exec.doActions)
 	}
-	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:2]) {
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:3]) {
 		t.Errorf("the run recorded %v, want the entry's draws alone: a refused move is not one made", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:2]) {
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:3]) {
 		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {

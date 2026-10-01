@@ -228,7 +228,7 @@ func TestMergeAddingNothingConfirmsOnlyItsDeclaration(t *testing.T) {
 func TestMergeReportsOnlyWhatWasTyped(t *testing.T) {
 	s := NewSession()
 	s.Submit("part def Z; package P { part def A; }")
-	s.Submit("part def Bad : Missing;")
+	s.Submit("part def Bad :> Missing;")
 	res := s.Submit("package P { part def B; }")
 
 	out := strings.Join(renderResult(res, VerbosityNormal), "\n")
@@ -432,7 +432,7 @@ func TestMultiSourceSubmissionReportsEverySource(t *testing.T) {
 func TestMultiSourceSubmissionReportsASiblingsError(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P {\n\tpart def A;\n}")
-	res := s.SubmitAll([]string{"package P { part def B; }", "part def Standalone : Missing;"})
+	res := s.SubmitAll([]string{"package P { part def B; }", "part def Standalone :> Missing;"})
 
 	out := strings.Join(renderResult(res, VerbosityNormal), "\n")
 	wants(t, out, "unresolved reference: Missing")
@@ -443,10 +443,10 @@ func TestMultiSourceSubmissionReportsASiblingsError(t *testing.T) {
 func TestMergedDiagnosticKeepsTheSubmittedLine(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P {\n\tpart def A;\n}")
-	res := s.Submit("package P { part def Bad : Missing; }")
+	res := s.Submit("package P { part def Bad :> Missing; }")
 
 	out := strings.Join(renderResult(res, VerbosityNormal), "\n")
-	wants(t, out, "1:17: error: unresolved reference: Missing")
+	wants(t, out, "1:18: error: unresolved reference: Missing")
 }
 
 // A loaded file supersedes what was typed about the same names, taking the rest
@@ -456,7 +456,7 @@ func TestLoadingAFileReportsTheTypedDeclarationsItReplaces(t *testing.T) {
 
 	s := NewSession()
 	s.Submit("part def Z;\npackage M { part def B; }")
-	res := s.submit(path, "package M { part def A; }")
+	res := s.submitFiles([]SourceFile{{Name: path, Text: "package M { part def A; }"}})
 
 	if !hasNotice(res, "part def Z, part def B no longer declared") {
 		t.Errorf("notices = %v, want the typed declarations the load replaced", res.Notices)

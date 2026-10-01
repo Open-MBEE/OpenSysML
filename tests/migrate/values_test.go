@@ -234,7 +234,7 @@ func TestValueActionLiteralTakesTheResultPinsType(t *testing.T) {
         <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_script" target="_final"/>
       </ownedBehavior>
     </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "out result : ScalarValues::Real = -1.0;")
+	wantLine(t, r.Notation, "out result : ScalarValues::Real[1] = -1.0;")
 	wantNoLine(t, r.Notation, `= "-1deg";`)
 	wantNoLine(t, r.Notation, `= "2deg";`)
 	wantNote(t, r, "_deg", migrate.Approximated, `the value -1deg is not written: the string "-1deg" is not a value of Real, which the feature holds`)
@@ -495,7 +495,7 @@ func TestUndirectedItemInAnInterfaceBlockIsAReference(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_fuel"/>
   <sysml:InterfaceBlock xmi:id="_s2" base_Class="_if"/>
   <sysml:FlowProperty xmi:id="_s3" base_Property="_flow" direction="in"/>`)
-	wantLine(t, r.Notation, "in item fuel : Fuel;")
+	wantLine(t, r.Notation, "in item fuel : Fuel[1];")
 	wantLine(t, r.Notation, "ref item spare : Fuel;")
 	wantNote(t, r, "_spare", migrate.Approximated, "the undirected item of an interface block is written as a reference")
 	wantClean(t, "interface.sysml", r)
@@ -815,4 +815,35 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
 	wantLine(t, r.Notation, "individual part def 'port first' :> Rover;")
 	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
 	wantClean(t, "kinds.sysml", r)
+}
+
+// A simulation tool records its verdict on a constraint property in the
+// result instance's slot for it, as a literal of a verdict enumeration outside
+// the document; an individual has no slot for a verdict, and the note says
+// that is what the slot holds rather than that the literal is out of reach.
+func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">`+realHref+`</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_an" name="Analysis">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="fits" type="_fits" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a1" name="analysis 1" classifier="_an">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_c">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v1">
+          <instance href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.VerdictKind.pass">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="SysML::Requirements::VerdictKind::pass" referentType="EnumerationLiteral"/>
+            </xmi:Extension>
+          </instance>
+        </value>
+      </slot>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
+  <sysml:Block xmi:id="_s2" base_Class="_an"/>`)
+	wantLine(t, r.Notation, "individual part def 'analysis 1' :> Analysis {")
+	wantNoLine(t, r.Notation, ":>> fits")
+	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; an individual has no slot for a verdict")
+	wantClean(t, "verdict-slot.sysml", r)
 }

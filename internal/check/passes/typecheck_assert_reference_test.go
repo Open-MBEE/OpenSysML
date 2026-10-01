@@ -98,8 +98,8 @@ part ctx { `
 	}
 }
 
-// A named binding is a feature the builder leaves unclassified, and a named
-// transition is an action usage; neither is a constraint or a requirement.
+// A named binding is a binding usage, and a named transition is an action usage;
+// neither is a constraint or a requirement.
 func TestAssertReferenceToBindingOrTransitionRejected(t *testing.T) {
 	prefix := `part def Holder {
 	attribute x; attribute y; binding b bind x = y; alias ab for b;
@@ -111,15 +111,15 @@ part ctx { `
 	tests := []struct {
 		name, target, want string
 	}{
-		{"binding", "assert b;", "assert target must be a constraint usage, found binding"},
-		{"negated binding", "assert not b;", "assert target must be a constraint usage, found binding"},
-		{"alias to binding", "assert ab;", "assert target must be a constraint usage, found binding"},
-		{"chained binding", "assert h.b;", "assert target must be a constraint usage, found binding"},
-		{"chained alias to binding", "assert h.ab;", "assert target must be a constraint usage, found binding"},
+		{"binding", "assert b;", "assert target must be a constraint usage, found bindingUsage"},
+		{"negated binding", "assert not b;", "assert target must be a constraint usage, found bindingUsage"},
+		{"alias to binding", "assert ab;", "assert target must be a constraint usage, found bindingUsage"},
+		{"chained binding", "assert h.b;", "assert target must be a constraint usage, found bindingUsage"},
+		{"chained alias to binding", "assert h.ab;", "assert target must be a constraint usage, found bindingUsage"},
 		{"chained transition", "assert h.sm.t;", "assert target must be a constraint usage, found actionUsage"},
-		{"binding in constraint body", "} constraint def K { assert b;", "assert target must be a constraint usage, found binding"},
-		{"satisfy binding", "satisfy b;", "satisfy target must be a requirement usage, found binding"},
-		{"satisfy chained binding", "satisfy h.b;", "satisfy target must be a requirement usage, found binding"},
+		{"binding in constraint body", "} constraint def K { assert b;", "assert target must be a constraint usage, found bindingUsage"},
+		{"satisfy binding", "satisfy b;", "satisfy target must be a requirement usage, found bindingUsage"},
+		{"satisfy chained binding", "satisfy h.b;", "satisfy target must be a requirement usage, found bindingUsage"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

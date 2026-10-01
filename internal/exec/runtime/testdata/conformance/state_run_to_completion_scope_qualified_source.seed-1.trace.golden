@@ -1,0 +1,19 @@
+exit: start
+enter: work
+transition: start -> work
+enter: inner (entry action)
+stmt action body
+  stmt send
+materialize: Go #1
+choice entry at t=0.0: next dispatch accept Go, inner(entry) (unordered; took inner(entry) first)
+enter: leaf (entry action)
+stmt action body
+  stmt assign hits
+      eval feature hits -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+exit: leaf
+exit: inner
+exit: work
+enter: done
+transition: leaf -> done (event: accept Go)

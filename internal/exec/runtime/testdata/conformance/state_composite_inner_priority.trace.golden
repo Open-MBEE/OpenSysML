@@ -3,17 +3,19 @@ enter: Working
 enter: Step1
 transition: start -> Step1
 exit: Step1 (exit action)
-stmt assign log
-      eval feature log -> 0
-      eval literal 10 -> 10
-    eval operator * -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
 enter: Step2 (entry action)
-stmt assign log
-      eval feature log -> 1
-      eval literal 10 -> 10
-    eval operator * -> 10
-    eval literal 2 -> 2
-  eval operator + -> 12
+stmt action body
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
 transition: Step1 -> Step2 (event: accept Abort)

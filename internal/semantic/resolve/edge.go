@@ -36,6 +36,11 @@ func (r *Resolver) resolveEdgeEnd(scope *symbols.Scope, qn *ast.QualifiedName, m
 		if !ok {
 			sym, ok = scope.LookupLocal(qn.Parts[0].Text)
 		}
+		if !ok {
+			// `first start then a` declares no label, so the start it names
+			// is the one the owner inherits, as for a `first start` label.
+			sym, ok = r.lookupContributedMember(scope.Owner(), qn.Parts[0].Text, nil)
+		}
 		if ok {
 			r.resolvedPart(qn, 0, sym)
 		}

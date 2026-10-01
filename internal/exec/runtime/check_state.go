@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -231,9 +232,6 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
 		}
 	}
-	for _, event := range e.deferred {
-		fmt.Fprintf(&s.out, " deferred{%s}", s.event(e, event))
-	}
 	for _, trans := range sortedTransitions(e.timerScheduled) {
 		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
 	}
@@ -242,19 +240,10 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	}
 	for _, act := range e.doActions {
 		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
-		if slices.Contains(e.round, act) {
-			s.out.WriteString(", in round")
-		}
 		if act.run != nil {
 			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
-			if act.run.host.flow.leftStanding {
-				s.out.WriteString(", left standing")
-			}
 		}
 		s.out.WriteString("}")
-	}
-	if e.roundDone {
-		s.out.WriteString(" round done")
 	}
 	s.out.WriteByte('\n')
 }
@@ -453,6 +442,24 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	}
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	}
+	streamed := slices.Sorted(maps.Keys(perf.streamed))
+	if len(streamed) > 0 {
+		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
+	}
+	for _, node := range sortedNodes(perf.staged) {
+		pins := perf.staged[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			for _, staged := range pins[pin] {
+				fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, staged.at, s.frameLabel(staged.source))
+			}
+		}
+	}
+	for _, node := range sortedNodes(perf.unreceived) {
+		for _, stream := range perf.unreceived[node] {
+			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node), stream.pin, stream.at,
+				nodeKey(stream.source), orAnyPin(stream.flow.SourcePin))
+		}
 	}
 	return b.String()
 }
@@ -669,10 +676,7 @@ func (s *stateSpeller) features(inst *Instance) string {
 }
 
 func (s *stateSpeller) feature(inst *Instance, name string) string {
-	fv, err := inst.GetFeatureValue(s.ctx, name)
-	if err != nil {
-		return "<error: " + err.Error() + ">"
-	}
+	fv := inst.FeatureValues[name]
 	if !fv.Feature.Scalar() {
 		if fv.Values.Kind == ValInvalid {
 			return "()"

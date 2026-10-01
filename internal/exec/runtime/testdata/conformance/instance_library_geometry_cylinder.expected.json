@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::Drum",
+  "libraries": true,
+  "slots": {
+    "cyl.height": {"type": "Quantity", "value": 2, "unit": "m"},
+    "cyl.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "cyl.base.edges": {"type": "Instance"},
+    "cyl.af.edges": {"type": "Instance"},
+    "cyl.be": {"error": "binding end cannot be resolved \"cf.edges\": feature edges not found"},
+    "cyl.ae": {"error": "binding end cannot be resolved \"cf.edges\": feature edges not found"},
+    "cyl.edges": {"error": "member edges not found in instance"},
+    "cyl.vertices": {"error": "member vertices not found in instance"},
+    "cyl.isSolid": {"type": "Boolean", "value": true},
+    "cyl.voids": {"type": "Sequence", "elements": []}
+  }
+}

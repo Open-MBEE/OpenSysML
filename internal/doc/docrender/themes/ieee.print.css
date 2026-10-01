@@ -1,0 +1,27 @@
+/* ieee: the print companion, laid over the PDF backend's print sheet so the
+   letter page, 0.67in margins, 10pt Times and 8pt captions reach paper. */
+@layer opensysml-print-theme {
+  :root {
+    --sysml-page-size: letter;
+    --sysml-page-margin: 0.67in;
+    --sysml-page-number-font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-page-number-font-size: 8pt;
+    --sysml-page-number-color: #000000;
+  }
+
+  .sysml-document {
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-heading: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
+    --sysml-font-size: 10pt;
+    --sysml-line-height: 1.2;
+    --sysml-space: 0.6em;
+    --sysml-title-font-size: 24pt;
+    --sysml-heading-font-size: 24pt;
+    --sysml-subheading-font-size: 10pt;
+    --sysml-subsubheading-font-size: 10pt;
+    --sysml-diagram-font-size: 8pt;
+    --sysml-wide-table-font-size: 8pt;
+    --sysml-title-page-height: 80vh;
+  }
+}

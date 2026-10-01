@@ -43,13 +43,13 @@ const lifetimeModel = `
 			exhibit state modes { entry; then idle; state idle; }
 		}
 		calc def Destroy { in b : Bench[0..1]; return : Bench[0..1] = destroy(b); }
-		calc def DestroyRover { in r : Rover; return : Rover = destroy(r); }
-		calc def During { in o : Bench; return : Boolean = isDuring(o); }
-		calc def WidgetDuring { in w : Widget; return : Boolean = isDuring(w); }
-		calc def Create { in b : Bench; return : Bench = create(b); }
-		calc def CreateSpare { in b : Bench; return : Widget = create(b.spare); }
-		calc def AddAt { in g : Widget[0..*] ordered nonunique; in w : Widget; in i : Positive; return : Widget[0..*] = addNewAt(g, w, i); }
-		calc def AddSpare { in b : Bench; in g : Widget[0..*] ordered nonunique; return : Widget[0..*] = addNew(g, b.spare); }
+		calc def DestroyRover { in r : Rover[1]; return : Rover = destroy(r); }
+		calc def During { in o : Bench[1]; return : Boolean = isDuring(o); }
+		calc def WidgetDuring { in w : Widget[1]; return : Boolean = isDuring(w); }
+		calc def Create { in b : Bench[1]; return : Bench = create(b); }
+		calc def CreateSpare { in b : Bench[1]; return : Widget = create(b.spare); }
+		calc def AddAt { in g : Widget[0..*] ordered nonunique; in w : Widget[1]; in i : Positive[1]; return : Widget[0..*] = addNewAt(g, w, i); }
+		calc def AddSpare { in b : Bench[1]; in g : Widget[0..*] ordered nonunique; return : Widget[0..*] = addNew(g, b.spare); }
 	}
 `
 
@@ -94,7 +94,7 @@ func TestBindingRefusesADestroyedEnd(t *testing.T) {
 				attribute knob : Integer = 9;
 				bind w.m = knob;
 			}
-			calc def DestroyWidget { in w : Widget; return : Widget = destroy(w); }
+			calc def DestroyWidget { in w : Widget[1]; return : Widget = destroy(w); }
 		}
 	`)
 	rig := instantiate("Rig")
@@ -123,7 +123,8 @@ func TestBindingRefusesADestroyedEnd(t *testing.T) {
 }
 
 // TestDestroyedObjectPerformsNothing: a destroyed object performs no behavior of
-// its type, not even one that touches none of its features, and sends nothing.
+// its type, not even one that touches none of its features, and sends nothing;
+// the message it addressed to itself (`tower` resolves to the beacon) leaves with it.
 func TestDestroyedObjectPerformsNothing(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, `
 		package test {
@@ -136,7 +137,7 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 				constraint def Sure { true }
 				state def Blink { entry; then on; state on; }
 			}
-			calc def DestroyBeacon { in b : Beacon; return : Beacon = destroy(b); }
+			calc def DestroyBeacon { in b : Beacon[1]; return : Beacon = destroy(b); }
 		}
 	`)
 	beacon := instantiate("Beacon")
@@ -154,8 +155,8 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 			t.Errorf("invoke %s on a destroyed object = %v; want %v", op, err, ErrOccurrenceDestroyed)
 		}
 	}
-	if sent := len(ctx.PendingMessages()); sent != 1 {
-		t.Errorf("messages after destroy = %d, want the 1 sent before it", sent)
+	if sent := len(ctx.PendingMessages()); sent != 0 {
+		t.Errorf("messages after destroy = %d, want 0: the Ping it addressed to itself left with it, and it sent nothing since", sent)
 	}
 	members := map[string]*symbols.Symbol{}
 	for _, member := range ctx.model.semantics.MembersOf(beacon.Type) {
@@ -270,17 +271,26 @@ func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
 	}
 }
 
-// TestDestroyRefusedWhilePerforming: an object whose exhibited state machine has
-// not completed cannot end; the refusal names the behavior under way.
-func TestDestroyRefusedWhilePerforming(t *testing.T) {
+// TestDestroyEndsTheMachinePerformed: destroying an object ends the state machine
+// it exhibits with it, terminated where it stood.
+func TestDestroyEndsTheMachinePerformed(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, lifetimeModel)
 	rover := instantiate("Rover")
-	_, err := invoke("DestroyRover", objectValue(rover))
-	if !errors.Is(err, ErrOccurrenceLifetime) || !strings.Contains(err.Error(), "under way") {
-		t.Fatalf("destroy(rover) = %v; want %v naming the behavior under way", err, ErrOccurrenceLifetime)
+	modes, ok := rover.Behavior("modes")
+	if !ok || modes.State == nil || modes.State.State().Ended() {
+		t.Fatalf("modes = %v, %v; want a machine under way", modes, ok)
 	}
-	if l, _ := ctx.OccurrenceLife(rover.ID); !l.Alive() {
-		t.Errorf("OccurrenceLife(rover) = %v after the refusal; want alive", l)
+	if _, err := invoke("DestroyRover", objectValue(rover)); err != nil {
+		t.Fatalf("destroy(rover) = %v; want the machine ended with its performer", err)
+	}
+	if l, _ := ctx.OccurrenceLife(rover.ID); !l.Destroyed {
+		t.Errorf("OccurrenceLife(rover) = %v; want destroyed", l)
+	}
+	if modes.State.State() != StateTerminated {
+		t.Errorf("modes = %v after destroy; want terminated", modes.State.State())
+	}
+	if l, ok := ctx.OccurrenceLife(modes.State.occurrence.ID); !ok || l.Alive() {
+		t.Errorf("OccurrenceLife(modes) = %v, %v; want ended", l, ok)
 	}
 }
 
@@ -290,8 +300,8 @@ const noFlowModel = `
 		private import OccurrenceFunctions::*;
 		action def Report;
 		part def Camera { perform action report : Report; }
-		calc def ReportDuring { in c : Camera; return : Boolean = isDuring(c.report); }
-		calc def DestroyCamera { in c : Camera; return : Camera = destroy(c); }
+		calc def ReportDuring { in c : Camera[1]; return : Boolean = isDuring(c.report); }
+		calc def DestroyCamera { in c : Camera[1]; return : Camera = destroy(c); }
 	}
 `
 
@@ -325,9 +335,9 @@ func TestPerformedActionWithoutAFlowCompletes(t *testing.T) {
 const noFlowInputModel = `
 	package test {
 		private import ScalarValues::*;
-		action def Report { in n : Integer; attribute twice : Integer = n * 2; }
+		action def Report { in n : Integer[1]; attribute twice : Integer = n * 2; }
 		part def Camera { attribute level : Integer = 21; perform action report : Report { in n = level; } }
-		calc def Twice { in c : Camera; return : Integer = c.report.twice; }
+		calc def Twice { in c : Camera[1]; return : Integer = c.report.twice; }
 	}
 `
 
@@ -416,7 +426,7 @@ const aliasedPartModel = `
 		part def Widget { attribute n : Integer = 1; }
 		part def Base { part p : Widget; }
 		part def Derived :> Base { part q :>> p; }
-		calc def DestroyDerived { in d : Derived; return : Derived = destroy(d); }
+		calc def DestroyDerived { in d : Derived[1]; return : Derived = destroy(d); }
 	}
 `
 

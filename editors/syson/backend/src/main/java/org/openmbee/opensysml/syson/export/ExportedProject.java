@@ -19,8 +19,13 @@ public record ExportedProject(List<SourceDocument> documents, ElementIndex index
         return ranges.stream()
                 .filter(range -> range.documentName().equals(documentName) && line >= range.startLine()
                         && line <= range.endLine())
-                .reduce((first, second) -> second)
-                .flatMap(range -> index.byElement(range.element()));
+                .reduce((first, second) -> {
+                    int firstSpan = first.endLine() - first.startLine();
+                    int secondSpan = second.endLine() - second.startLine();
+                    return secondSpan <= firstSpan ? second : first;
+                })
+                .flatMap(range -> index.byElement(range.element())
+                        .or(() -> index.enclosing(range.element())));
     }
 
     public static MessageLevel level(Status status) {

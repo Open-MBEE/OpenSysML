@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"events": [{"signal": "go"}],
+	"outcomes": [
+		{"finalState": "slow", "outputs": {"log": {"type": "Integer", "value": 1}}, "probability": 0.3},
+		{"finalState": "fast", "outputs": {"log": {"type": "Integer", "value": 2}}, "probability": 0.7}
+	],
+	"admissible": "Two transitions out of one state enabled by one event: exactly one fires, which one is open"
+}

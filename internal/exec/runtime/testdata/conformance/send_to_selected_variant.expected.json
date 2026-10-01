@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::sedan",
+  "libraries": true,
+  "objects": [
+    {"path": "engine", "finalState": "heard"}
+  ]
+}

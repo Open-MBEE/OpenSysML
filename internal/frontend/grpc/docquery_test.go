@@ -2,7 +2,9 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // telescopeFixture is the document pipeline's own telescope-domain fixture, so
@@ -571,6 +574,61 @@ func TestRenderDocumentUsesParameterDefaults(t *testing.T) {
 	} {
 		if !strings.Contains(resp.Markdown, want) {
 			t.Errorf("markdown lacks %q:\n%s", want, resp.Markdown)
+		}
+	}
+}
+
+// A document rendered on its own links a sibling by the file a set of the same
+// form writes it to, tag included, in Markdown and in HTML alike.
+func TestRenderDocumentLinksSiblingsByPlannedFiles(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: `package Reports {
+	private import DocumentQueries::*;
+
+	ref shouting : WEEKLY;
+
+	part def Weekly :> Document {
+		attribute redefines title = "Weekly";
+		part intro : Paragraph {
+			part see : Ref {
+				ref redefines target = shouting;
+			}
+		}
+	}
+	part def WEEKLY :> Document {
+		attribute redefines title = "WEEKLY";
+	}
+}
+`},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	names := []string{"Reports::Weekly", "Reports::WEEKLY"}
+	for _, form := range []struct {
+		form, extension, link string
+		rendered              func(*pb.RenderDocumentResponse) string
+	}{
+		{"markdown", ".md", "](%s)", func(r *pb.RenderDocumentResponse) string { return r.Markdown }},
+		{"html", ".html", `href="%s"`, func(r *pb.RenderDocumentResponse) string { return r.Html }},
+	} {
+		files, err := model.DocumentFiles(names, form.extension)
+		if err != nil {
+			t.Fatalf("DocumentFiles: %v", err)
+		}
+		if !regexp.MustCompile(`^Reports-WEEKLY~[0-9a-f]+\` + form.extension + `$`).MatchString(files["Reports::WEEKLY"]) {
+			t.Fatalf("planned file %q is not tagged", files["Reports::WEEKLY"])
+		}
+		resp, err := srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+			ModelHash: parsed.ModelHash, DocumentId: "Reports::Weekly", Form: form.form,
+		})
+		if err != nil {
+			t.Fatalf("RenderDocument(%s) failed: %v", form.form, err)
+		}
+		want := fmt.Sprintf(form.link, files["Reports::WEEKLY"])
+		if !strings.Contains(form.rendered(resp), want) {
+			t.Errorf("%s lacks %q:\n%s", form.form, want, form.rendered(resp))
 		}
 	}
 }

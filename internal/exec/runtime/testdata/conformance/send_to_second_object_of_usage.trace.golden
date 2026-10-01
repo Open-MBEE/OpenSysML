@@ -1,0 +1,34 @@
+materialize: Fleet #1
+start: performed action build of #1
+materialize: build #2
+run: performed action build of #1
+step 1: token 1@make
+stmt assign cars
+    eval feature cars -> ()
+materialize: Car #3
+start: exhibited state machine listening of #3
+materialize: listening #4
+enter: waiting
+    eval construct Car -> instance#3
+  eval sequence of 2 -> (instance#3)
+stmt assign cars
+    eval feature cars -> (instance#3)
+materialize: Car #5
+start: exhibited state machine listening of #5
+materialize: listening #6
+enter: waiting
+    eval construct Car -> instance#5
+  eval sequence of 2 -> (instance#3, instance#5)
+step 2: token 1@ping
+stmt send
+materialize: Ping #7
+    eval feature cars -> (instance#3, instance#5)
+    eval literal 2 -> 2
+  eval index -> instance#5
+step 3: token 1@done
+step 4: no active tokens
+run: exhibited state machine listening of #3
+run: exhibited state machine listening of #5
+exit: waiting
+enter: heard
+transition: waiting -> heard (event: accept Ping)

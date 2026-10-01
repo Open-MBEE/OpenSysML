@@ -16,7 +16,11 @@ import (
 // checkValue refuses a new value that is not one expression. Whether it names
 // anything is answered by analyzing the edited model, where it has a scope.
 func (m Model) checkValue(i int, op Operation) error {
-	text := strings.TrimSpace(op.Value)
+	return m.checkExpression(i, "value", op.Target, op.Value)
+}
+
+func (m Model) checkExpression(i int, label, target, value string) error {
+	text := strings.TrimSpace(value)
 	sf := source.New("<value>", []byte(text))
 	refuse := func(reason string, diags []diag.Diagnostic) error {
 		return &Error{
@@ -24,7 +28,7 @@ func (m Model) checkValue(i int, op Operation) error {
 			OperationIndex: i,
 			Diagnostics:    diags,
 			Diagnosed:      sf,
-			Message:        fmt.Sprintf("value %q for %s %s", op.Value, op.Target, reason),
+			Message:        fmt.Sprintf("%s %q for %s %s", label, value, target, reason),
 		}
 	}
 	if text == "" {
@@ -33,12 +37,12 @@ func (m Model) checkValue(i int, op Operation) error {
 	p := parser.New(sf)
 	expr := p.ParseExpression()
 	if len(p.Diagnostics) > 0 {
-		return refuse("does not parse as an expression", parseDiagnostics(p.Diagnostics))
+		return refuse("does not parse as an expression", parser.AsDiagnostics(p.Diagnostics, nil))
 	}
 	if expr == nil {
 		return refuse("does not parse as an expression", nil)
 	}
-	if end := expr.Span().End(); end != len(text) {
+	if end := p.Offset(); end != len(text) {
 		return refuse(fmt.Sprintf("is not one expression: %q is left over", text[end:]), nil)
 	}
 	return nil
@@ -72,6 +76,14 @@ func checkName(i int, name string) error {
 	return nil
 }
 
+func symbolName(name string) string {
+	segments, ok := source.QualifiedNameSegments(name)
+	if ok && len(segments) == 1 {
+		return segments[0]
+	}
+	return name
+}
+
 // validate re-reads every rewritten document the way the original was read and
 // refuses the edit if any carries errors its original did not: an edit never
 // hands back a model that cannot be read again. The documents are judged
@@ -90,13 +102,18 @@ func (m Model) validate(edited rewrites) error {
 		doc, _ := m.inDocument(name)
 		sf := source.NewWithKind(name, edited[name].content, doc.Source.Kind())
 		p := parser.New(sf)
-		rr := &reread{Model: doc, sf: sf, root: p.ParseFile(), editedParse: parseDiagnostics(p.Diagnostics)}
-		originalParse := parseDiagnostics(doc.ParseDiags)
-		if introduced := introduced(originalParse, rr.editedParse); len(introduced) > 0 {
+		rr := &reread{Model: doc, sf: sf, root: p.ParseFile(), editedParse: parser.AsDiagnostics(p.Diagnostics, p.Warnings)}
+		originalParse := parser.AsDiagnostics(doc.ParseDiags, nil)
+		if introduced := introduced(originalParse, errorsOnly(rr.editedParse)); len(introduced) > 0 {
 			return invalidResult(own, sf, introduced, "does not parse")
 		}
 		rr.before = errorsOnly(originalParse)
 		rereads = append(rereads, rr)
+	}
+	if m.deferred != nil && len(m.deferred.pending)+len(m.deferred.anchored) > 0 {
+		if err := m.deferred.settle(reparseModel(m, edited)); err != nil {
+			return err
+		}
 	}
 	if m.NewIndex == nil {
 		return nil
@@ -105,9 +122,10 @@ func (m Model) validate(edited rewrites) error {
 		m.reindex = newReindexer(m)
 	}
 	// The parse diagnostics are handed to the analysis, so a model that already
-	// had syntax errors is not judged by tiers its own parse never reached. The
-	// baselines are taken first: they and the edited notation share one index, in
-	// which each is in turn the document under its name.
+	// had syntax errors is not judged by tiers its own parse never reached, and
+	// the notation passes escalate the parser's warnings as they do for every
+	// other reader. The baselines are taken first: they and the edited notation
+	// share one index, in which each is in turn the document under its name.
 	for _, rr := range rereads {
 		rr.reindex = m.reindex
 		rr.before = append(errorsOnly(rr.baseline(rr.editedParse)), rr.before...)
@@ -145,8 +163,8 @@ func invalidResult(own string, sf *source.SourceFile, introduced []diag.Diagnost
 // edited notation is judged at. A model that did not parse was never analyzed —
 // the service analyzes a clean parse only — so its stored diagnostics say
 // nothing about the tiers an edit that repairs the syntax reaches for the first
-// time; the original is analyzed here instead, under the edited model's gate, so
-// that both are compared at one tier.
+// time; the original is analyzed here instead, under the edited model's gate of
+// errors and its own parse's warnings, so that both are compared at one tier.
 func (m Model) baseline(gate []diag.Diagnostic) []diag.Diagnostic {
 	if len(m.ParseDiags) == 0 {
 		return m.SemDiags
@@ -154,23 +172,8 @@ func (m Model) baseline(gate []diag.Diagnostic) []diag.Diagnostic {
 	p := parser.New(m.Source)
 	root := p.ParseFile()
 	idx := m.reindex.analyzedIn(m.Source, root)
-	return passes.AnalyzeWithOptions(m.Source.Name(), m.Source.Kind(), root, gate, idx, m.Analysis)
-}
-
-// parseDiagnostics presents parse diagnostics as pass diagnostics, which is how
-// every consumer of them reports them: as syntax errors.
-func parseDiagnostics(diags []parser.Diagnostic) []diag.Diagnostic {
-	out := make([]diag.Diagnostic, 0, len(diags))
-	for _, d := range diags {
-		out = append(out, diag.Diagnostic{
-			Severity: diag.SeverityError,
-			Span:     d.Span,
-			Message:  d.Message,
-			Code:     "syntax",
-			Source:   "syntax",
-		})
-	}
-	return out
+	own := append(errorsOnly(gate), parser.AsDiagnostics(nil, p.Warnings)...)
+	return passes.AnalyzeWithOptions(m.Source.Name(), m.Source.Kind(), root, own, idx, m.Analysis)
 }
 
 // errorsOnly keeps the diagnostics that say the model is wrong.

@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Level", "value": {"type": "Integer", "value": 7}}
+  ],
+  "finalState": "inner",
+  "stateVisits": ["idle", "work", "inner"],
+  "outputs": {
+    "entered": {"type": "Integer", "value": 7},
+    "did": {"type": "Integer", "value": 7}
+  }
+}

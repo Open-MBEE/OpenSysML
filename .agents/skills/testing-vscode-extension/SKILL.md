@@ -38,8 +38,27 @@ DISPLAY=:0 nohup code --no-sandbox --disable-gpu "$PWD" &   # $PWD = repo root, 
 DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 ```
 
-Workspace trust must be granted — Restricted Mode silently disables the extension (no LSP, no outline).
-The trust banner appears on the Welcome tab; "Manage" → "Trust" reloads the window.
+**Choose workspace trust deliberately.** The extension declares limited support in Restricted Mode:
+SysML/KerML recognition and TextMate highlighting remain available, but the workspace's own
+`bin/sysml-lsp` is never selected. Only a User-configured server path or PATH server may run;
+workspace `opensysml.server.path` and `opensysml.server.args` are ignored. Older VSIX builds
+without this declaration can disable even language recognition, showing Plain Text.
+
+For the trust boundary test, use a fresh scratch folder outside all trusted roots. Copy the
+real server to its `bin/sysml-lsp`, clear User `opensysml.server.path`, and ensure no server
+is on PATH. Keep trust enabled (do not use `security.workspace.trust.enabled: false`).
+Open a `.sysml` file: the status bar must say SysML v2 with colors, the SysML v2 Output
+channel must log that the workspace build is skipped, the missing-server warning must appear,
+and no workspace server process should exist. Banner **Manage → Trust** must then start the
+workspace binary automatically, without a manual restart. Confirm its `Starting ...` Output
+line plus live symbol hover and an unresolved-reference edit/undo.
+
+To repeat the test, **Workspaces: Manage Workspace Trust → Don't Trust** resets the folder
+(the button may be below the fold), or use another fresh folder. For a User-path regression,
+keep the second folder untrusted and configure the absolute server path through User Settings.
+A workspace settings file containing a nonexistent alternate path and invalid argument makes
+the restricted-configuration assertion non-vacuous: the User server must still start, its argv
+must not contain the workspace argument, and hover/diagnostics must work.
 
 **Choose server discovery deliberately for folder versus lone-file testing.** Opening the repo
 folder enables the `<workspace>/bin/sysml-lsp` fallback. For a lone `.sysml` file or a scratch
@@ -149,6 +168,10 @@ script against `bin/sysml-lsp` (initialize → didOpen → semanticTokens/full �
 - `pgrep -af sysml-lsp` run from a shell whose own command line contains the string `sysml-lsp`
   matches that bash process and gives a false positive. Put the check in a tiny script
   (`/tmp/lspcheck.sh`) and call it, so the output is only real servers.
+- `pgrep -a -x sysml-lsp` avoids shell-command false positives. On a shared machine, inspect
+  each PID's PPID/argv before attributing it to VS Code: another agent's direct LSP probe can
+  run the same binary concurrently. The extension's server has `--stdio` and an extension-host
+  parent; scope both absence and restart assertions to the editor under test.
 - Expected argv while a window is open: exactly one `<repo>/bin/sysml-lsp --stdio`. After **File →
   Close Window** it must disappear within a few seconds; a surviving process is the leak bug.
 - Cheap, high-signal stdio probe for exit statuses (no GUI): initialize → `shutdown` → any request

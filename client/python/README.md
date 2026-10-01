@@ -27,6 +27,7 @@ model.verify_satisfaction()                        # every assert satisfy … by
 model.verify_constraint("Demo::Vehicle::massOK", subject="Demo::sedan", engine="check")
 model.connection.list_engines()                    # what `sysml -engines` prints
 model.save("model.ttl")                            # RDF Turtle (experimental)
+model.save("model.json")                           # OMG API element JSON (experimental)
 ```
 
 A value arrives as the Python value of its kind — `Quantity`, `complex`, `Array`, `Vector`,
@@ -34,15 +35,106 @@ A value arrives as the Python value of its kind — `Quantity`, `complex`, `Arra
 `EnumLiteral`, `Undetermined`, `INFINITY` — never a string to parse; every verdict carries a
 `Standing` naming the engine that answered and the strength of its evidence.
 
+The verify calls take a `question` beyond the default `"evaluate"`: `"holds"` proves the claim
+for every assignment the free features can take and `"satisfiable"` finds one, answered by the
+service's solvers against a service advertising `verification_questions`. The verdict's
+`question` and `status` say what was answered (`holds` | `violated` | `undecided` |
+`satisfiable` | `unsatisfiable`); a violated or satisfiable answer reports `witness`, the free
+features' replayed values with `unit` and `exact`, and undecided reports the reason — a refused
+translation, an absent solver, arithmetic the backend could not close, or a rounded unsat that
+is no proof — in `error`, never a false claim:
+
+```python
+v = model.verify_constraint("Demo::lemma", question="holds")
+v.status, v.strength            # 'holds', 'proved'
+v = model.verify_constraint("Demo::bad", question="holds")
+v.status, v.witness             # 'violated', the assignment the evaluator replayed
+```
+
 Declarations can be authored from notation strings while preserving the
 untouched source:
 
 ```python
 model.edit().add_part_def("", "Vehicle").apply()
 model.edit().add_part("Vehicle", "engine", type="Engine").apply()
+model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 ```
 
+`Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
+connection-like usages; `add_allocation` and `add_flow` are typed helpers.
+`Editor.add_member` also accepts `abstract`, `redefines`, `default`, `direction`,
+`metadata`, `expression=` and `doc=` options, and supports the SysML `ref` and
+`return` kinds where they are admitted. `metadata` writes `#M` prefixes on the
+new member. `expression=` writes a body expression for supported kinds: a
+constraint condition, or a calculation/case result expression. Requirement-body
+kinds do not admit result expressions. `doc=` writes plain documentation text
+as the new declaration's first body member.
+Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
+`add_assume_constraint`, `add_transition` or `add_entry_transition` to author
+requirement statements and state transitions; `add_first` and `add_then` write
+`first`/`then` action-body sequencing, with recursive action-body items and
+source-end multiplicities available through the extended sequence fields.
+These operations preflight `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`, `sequence_authoring`,
+`implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`,
+`state_action_authoring`, `import_authoring`, `documentation_authoring` and
+`comment_authoring` as applicable.
+`add_objective(owner, name=None, type=None)` adds a named or anonymous objective,
+and `add_verify(owner, requirement)` writes `verify <requirement>;` in a
+verification case objective. `add_metadata(owner, metadata_type, values=None,
+name=None, about=None, shorthand=False)` writes metadata usages with optional
+ordered feature values and `about` references; `shorthand=True` uses `@M`.
+`add_metadata_prefix(target, metadata_type)` adds a metadata prefix to an existing declaration.
+Verification authoring requires `authoring` and `verification_objective_authoring`; metadata
+usages and new-member prefixes require `authoring` and `metadata_authoring`; existing-declaration
+prefixes require `authoring` and `metadata_prefix_authoring`.
+`add_parameter` writes an implicit
+directed usage — `in x : T;` — unless an explicit `kind` is given
+(`kind="ref"` writes `in ref x : T;`).
+`add_constraint_def` and
+`add_constraint` accept `expression=` for a constraint body (`{ ... }`), while
+`value=` writes a feature value (`= ...`). `add_assert_constraint` optionally
+negates an asserted constraint body. `add_assert(owner, ref, negated=False)`
+adds an anonymous reference assertion (`assert <ref>;` or `assert not <ref>;`);
+`ref` names the constraint target, not the assertion. `add_exhibit_state` and
+`add_exhibit` author state exhibits; `add_state_action` accepts `entry`, `do` or
+`exit`.
+`add_member` and every typed helper accept `doc="..."`, written as the new
+member's `doc /* ... */`, and
+`add_documentation(target, body, name=None, locale=None, replace=False)` documents
+an existing declaration, refusing one that already has documentation unless
+`replace=True`. `add_comment(owner, body, name=None, about=None, locale=None)` writes a
+`comment` element and `add_note(target, text)` a `// text` line note above a declaration.
+`add_import` authors import declarations. The editor preflights
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring`, `sequence_authoring`, `implicit_parameters`,
+`action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`,
+`import_authoring`, `documentation_authoring` and `comment_authoring` as
+applicable, alongside `authoring`.
+`add_calc_def` and `add_calc` accept input pairs, `return_type` and
+`return_expression`; `expression=` instead writes the body's result expression.
+A `return_expression` requires a return type, is bound to the result parameter
+rather than written as `return <expr>;`, and cannot be combined with
+`expression=`. `expression=` may be used with `return_type`. `add_action_def`
+and `add_action` accept input and output pairs. `add_perform_action` writes
+`perform action name : Type`, and `add_perform(owner, action)` writes
+`perform <action>;` — a perform usage named by the action usage it references,
+for example `add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
+
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
+
+Each `load` or `loads` parses **one document as a model of its own**: a `private import Base::*;` in `chapter.sysml` does not resolve while `base.sysml` is only a neighbour on disk, and `load` refuses a directory. `parse_sources` parses several documents as one model (the service's `ParseSources` RPC, the `parse_sources` capability), so the import resolves and each diagnostic names its document:
+
+```python
+model = opensysml.parse_sources([
+    "base.sysml",                       # a file the service reads
+    ("chapter.sysml", chapter_text),    # inline text under a name
+], strict=True)
+model["Chapter::Car"]                  # resolved across documents
+model.documents                        # ('base.sysml', 'chapter.sysml')
+```
+
+A root package named like a standard library package (`Base`, `Requirements`, …) is a separate hazard: from another document a qualified name starting with it resolves to the library, as the `library-root-name` warning says.
 
 Every call goes through the `sysml-grpc` service, which `opensysml` starts automatically from
 the first place it finds one; the guide below describes how to install it there.
@@ -193,6 +285,15 @@ releases published before it; asking for a newer one needs a newer opensysml (or
 the explicit opt-in above), and leaves an already-downloaded binary serving
 rather than refusing to start — only a digest that *contradicts* a pin is
 treated as tampering and refuses to fall back.
+
+## The FMI runner (optional)
+
+`pip install opensysml[fmi]` adds FMPy and the `opensysml-fmi-runner` executable:
+the reference runner the `tool:fmi` engine speaks the fmi/1 protocol to — one JSON
+request on standard input, one reply on standard output — simulating
+co-simulation and model-exchange FMUs. Point `OPENSYSML_FMI_RUNNER` at it and a
+`calc def` imported from an FMU (`sysml -convert sysml model.fmu`) evaluates
+through it; see docs/reference/fmi.md.
 
 ## Version
 

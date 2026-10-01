@@ -25,55 +25,51 @@ import (
 func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	r := migrateFixtureFile(t, "heater_receptions")
 	for _, line := range []string{
-		"action def SetLevel {",
+		"perform action setLevel {",
 		"first start then spread;",
 		"fork spread;",
 		"first spread then receive;",
 		"action receive accept setLevel : Signals::SetLevel;",
 		"first receive then run;",
-		"action run : 'Apply Level' { in value = setLevel.value; }",
+		"perform action run ::> 'apply Level' { in value[1] = receive.setLevel.value; }",
 		"first run then receive;",
 		"first spread then 'receive via rx';",
 		"action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;",
 		"first 'receive via rx' then 'run via rx';",
-		"action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }",
+		"perform action 'run via rx' ::> 'apply Level' { in value[1] = 'receive via rx'.'setLevel via rx'.value; }",
 		"first 'run via rx' then 'receive via rx';",
-		"perform action setLevel : SetLevel;",
-		"action def Stop {",
+		"perform action stop {",
 		"action receive accept stop : Signals::Stop;",
 		"first receive then receive;",
 		"action 'receive via rx' accept 'stop via rx' : Signals::Stop via rx;",
 		"first 'receive via rx' then 'receive via rx';",
-		"perform action stop : Stop;",
 		"action def Reset {",
+		"perform action reset : Reset;",
 		"first start then receive;",
 		"action receive accept reset : Signals::Reset;",
-		"perform action reset : Reset;",
-		"action def Boost {",
+		"perform action boost {",
 		"action receive accept boost : Signals::Boost;",
-		"perform action boost : Boost;",
-		"action def SetName {",
+		"perform action setName {",
 		"action receive accept setName : Signals::SetName;",
 		"first receive then receive;",
-		"action def SetLevels {",
+		"perform action setLevels {",
 		"action receive accept setLevels : Signals::SetLevels;",
 		"in slack : ScalarValues::Real[0..1];",
-		"action def OnNudge {",
-		"action receive accept nudge : Signals::Nudge;",
-		"action run : Nudge { in delta = nudge.delta; }",
-		"perform action onNudge : OnNudge;",
-		"action def Nudge {",
-		"in delta : ScalarValues::Real;",
+		"perform action onNudge {",
+		"action receive accept nudge2 : Signals::Nudge;",
+		"perform action run ::> nudge { in delta[1] = receive.nudge2.delta; }",
+		"action nudge {",
+		"in delta : ScalarValues::Real[1];",
 		"comment /* reception 'Away' */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, bound := range []string{"in gain =", "in slack =", ": Boosting", ": Naming", ": Leveling", ": Nudging", "then done;", "via aux"} {
+	for _, bound := range []string{"in gain[1] =", "in slack[1] =", ": Boosting", ": Naming", ": Leveling", ": Nudging", "then done;", "via aux"} {
 		if strings.Contains(string(r.Notation), bound) {
 			t.Errorf("%q was written, though nothing in the fixture calls for it:\n%s", bound, r.Notation)
 		}
 	}
-	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted")
+	wantNote(t, r, "_rcvSet", migrate.Mapped, "written as an action usage accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rpValue", migrate.Mapped, "stands for the signal's attribute value, which the accepted payload carries")
 	wantNote(t, r, "_rpExtra", migrate.Unmapped, "the parameter extra matches no attribute of the signal")
 	wantNote(t, r, "_rcvStop", migrate.Approximated, "the reception has no method, so it only accepts the signal")
@@ -81,12 +77,12 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	wantNote(t, r, "_rcvBoost", migrate.Approximated, "the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal")
 	wantNote(t, r, "_rcvName", migrate.Approximated, "the signal's attribute name is typed by String, which does not conform to the type Integer of the method Heater::Naming's parameter name; the reception only accepts the signal")
 	wantNote(t, r, "_rcvLevels", migrate.Approximated, "the signal's attribute values has multiplicity 0..*, which does not lie within the 1 of the method Heater::Leveling's parameter values; the reception only accepts the signal")
-	wantNote(t, r, "_rcvNudge", migrate.Mapped, "written as an action def accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted")
+	wantNote(t, r, "_rcvNudge", migrate.Mapped, "written as an action usage accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted")
 	wantNote(t, r, "_rcvAway", migrate.Unmapped, "signal")
 	wantNote(t, r, "_apply", migrate.Mapped, "")
 
 	h := newHeaterRun(t, r)
-	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
+	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::setLevel"))); got != 1 {
 		t.Fatalf("the object performs SetLevel %d time(s) from creation, want 1", got)
 	}
 	for _, level := range []float64{3.5, 7.25} {
@@ -109,13 +105,13 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	if got := h.level(t); got != 2.5 {
 		t.Errorf("the method run as its operation left level = %v, want 2.5", got)
 	}
-	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::SetLevel"))); got != 1 {
+	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::setLevel"))); got != 1 {
 		t.Errorf("after the signals the object performs SetLevel %d time(s), want the one it was created with", got)
 	}
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Room")
-	meta(t, s, "%action Thermostat::'Turn Up' #1.t")
+	meta(t, s, "%action Thermostat::'turn Up' #1.t")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1 : h.level"); !strings.Contains(out, "= 7.25") {

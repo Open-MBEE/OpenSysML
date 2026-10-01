@@ -30,12 +30,22 @@ Analyse the model:
 ```
 
 ```
+examples/disposal-team-demo/team.sysml:29:45: warning: Bound features should have conforming types
+        attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);
+                                            ^~~~~~~~~~~
+examples/disposal-team-demo/team.sysml:29:64: warning: Bound features should have conforming types
+        attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);
+                                                               ^~~~~~~~~~~~
 ✓ package Team
 ✓ package TeamComms
 ✓ package TeamMission
 ✓ package TeamCases
 ✓ examples/disposal-team-demo/team.sysml: no errors
 ```
+
+The two warnings are the type-conformance check reporting, as the SysML v2 pilot
+does, that `RealFunctions::sum` is declared over `Real` and the payload hands it
+`MassValue` quantities; the sums evaluate all the same, in kilograms.
 
 **Ask the fleet calculations.** `FleetReach` selects the robots reaching past a
 floor and reads their reach; `Endurance` reduces the charges to one total and
@@ -50,13 +60,16 @@ the loaded truck, so `-calc` needs no arguments.
 ```
 ✓ TeamCases::usableReach
   usable = [2.1 [m], 2.1 [m]]
+  standing: value (observed: 1 run under reverse)
 ✓ TeamCases::teamEndurance
   minutes = 60.0
+  standing: value (observed: 1 run under reverse)
 ```
 
 **Check the payload budget.** The truck's payload is the sum of what it carries,
-in kilograms; the constraint compares it against the limit, and the requirement
-states the same of the truck it is bound to.
+in kilograms; the constraint compares it against the limit, the requirement
+states the same of the truck it is bound to, and the verification case that
+verifies the requirement reaches its verdict from the same comparison.
 
 ```bash
 ./bin/sysml examples/disposal-team-demo/team.sysml \
@@ -66,9 +79,15 @@ states the same of the truck it is bound to.
 
 ```
 ✓ Constraint Team::Truck::withinPayload passed (on TeamCases::loadedTruck ID: 1)
+  standing: holds (observed: 1 run under reverse)
 ✓ Requirement TeamCases::payloadHolds satisfied
+✓ Verification TeamCases::checkPayload verdict: pass
+  standing: holds (observed: 1 run under reverse)
 ✓ satisfy payloadAsserted by loadedTruck holds (on TeamCases::loadedTruck ID: 6)
+  standing: holds (observed: 1 run under reverse)
 ✓ satisfy payloadHolds holds
+✓ Verification TeamCases::checkPayload verdict: pass
+  standing: holds (observed: 1 run under reverse)
 ```
 
 ## From the REPL

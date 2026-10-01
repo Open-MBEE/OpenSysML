@@ -1,4 +1,4 @@
-# opensysml-client (Java)
+# opensysml (Java)
 
 Java client for OpenSysML: parse, inspect and evaluate SysML v2 models over the
 `sysml-grpc` service, from inside a JVM host application it does not own — an
@@ -7,13 +7,14 @@ Eclipse-based tool, a Cameo plugin, a web service.
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
-  <artifactId>opensysml-client</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <artifactId>opensysml</artifactId>
+  <version>0.9.1</version>
 </dependency>
 ```
 
-Nothing is published yet. Build and install it into the local repository from a
-checkout:
+The version is the core release's — `v0.9.1` publishes
+`org.openmbee:opensysml:0.9.1` — once the first release is published.
+Until then, build and install it into the local repository from a checkout:
 
 ```bash
 make build                                  # bin/sysml-grpc, which the tests start
@@ -30,12 +31,12 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
 
-  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
   boolean holds = v.holds();                                        // false is an answer, not a failure
   Analysis study = model.runAnalysis("Trade::lightest");            // outputs, verdicts, case evaluations
   List<QueryElement> parts = model.query(
-      Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 
   connection.capabilities().require(Capabilities.FEATURE_VALUES);
 }
@@ -57,7 +58,7 @@ verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s
 documents (`DocumentValue`, `DocumentRow`, `DocumentQueryResult`,
 `RenderedDocument`) and `EngineInfo`. `SourceDocument` names a document a
 `parseSources` call reads; `Edit` is sealed over `SetValue`, `Rename`,
-`AddMember`, `Delete` and `Move`. Every RPC the service offers is a method.
+`AddMember`, `AddConnection`, `Delete` and `Move`. Every RPC the service offers is a method.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
@@ -366,12 +367,12 @@ unnoticed.
 
 Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
-Per protocol, of 134 scenarios:
+Per protocol, of 138 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      | 129 |    129 |      0 |       5 |
-| `connect-json` | 129 |    129 |      0 |       5 |
+| `connect`      | 133 |    133 |      0 |       5 |
+| `connect-json` | 133 |    133 |      0 |       5 |
 
 **5 skipped**: only the requests the public API cannot express —
 `parse/naming_no_source_is_invalid` (the API always names a
@@ -394,6 +395,49 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `truncate-lists`  | drops the last repeated element  |                  50 |
 | `rewrite-strings` | replaces each string            |                  70 |
 
+`Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
+`withDirection` and `withMetadataPrefixes`; `Edit.AddSatisfy`,
+`Edit.AddRequirementConstraint`, `Edit.AddTransition`, `Edit.AddVerify` and
+`Edit.AddMetadata` expose requirement, state-transition, verification and
+metadata authoring. `Edit.AddTransition.entry` constructs an entry transition.
+`AddMetadata` supports ordered feature values, `about` references and `@`
+shorthand. The client checks `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring`, `transition_authoring`,
+`verification_objective_authoring` or `metadata_authoring` before sending
+those additions.
+`Edit.AddSequence` authors action-body sequencing. Its `.first`, `.then` and
+`.thenMember` methods write `first`/`then` members. The client checks
+`sequence_authoring` and `implicit_parameters` as applicable. `Edit.AddSequence`
+also exposes `withCondition`, `withValue`,
+`withTarget`, `withVia`, `withUntil`, `withBody`, `withElseBody`,
+`withMultiplicity` and `withParameter` for recursive action-body items. An
+empty else body means no else; an explicit empty `else { }` is not authorable.
+These items and source-end multiplicities require
+`action_body_statement_authoring`; generated `AddSequenceEdit` fields carry
+recursive bodies without another edit-operation case. The forms follow
+SysML.xtext:1607 ActionBodyParameter, 1442 AcceptNode, 1499 SendNode,
+1535 AssignmentNode, 1596 IfNode, 1615 WhileLoopNode, 1624 ForLoopNode and
+1641 TerminateNode; formal/2026-03-02.
+An `Edit.AddMember` with an empty `kind` writes a directed usage with no kind
+keyword (`in x : T;`) and requires `implicit_parameters`.
+`Edit.AddMember.withBodyExpression` writes a body expression in `{ ... }`,
+distinct from `withValue`, which writes a feature value with `= ...`; calc/case/
+analysis/verification/use-case expressions are result expressions. Reference-form
+`assert` and `assert not` members are anonymous, and post-edit analysis checks
+that their feature reference denotes a constraint. Constraint-body and assertion
+additions require `constraint_body_authoring`; exhibit and state subaction kinds
+require `state_action_authoring`, alongside `authoring`.
+`Edit.AddImport` authors import declarations. `Edit.AddMember.withDoc` and
+`Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
+write documentation on a new or existing declaration, after checking
+`documentation_authoring`. `Edit.AddComment.of(owner, body)` (with `withName`, `withAbout` and
+`withLocale`) writes a `comment`, and `new Edit.AddNote(target, text)` a `// text` line note above
+a declaration, after checking `comment_authoring`.
+`Edit.addMetadataPrefix(target, metadataType)` adds a prefix to an existing declaration and
+requires `metadata_prefix_authoring` alongside `authoring`.
+
 ## Running the tests
 
 ```bash
@@ -404,10 +448,10 @@ mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence 
 
 ## Publishing
 
-Nothing has been published. The build produces a correct, signable artifact
-(sources and javadoc jars, complete POM metadata, a `release` profile that signs
-with GPG and stages to Sonatype Central with `autoPublish=false`), and
-`mvn install` works today. What a maintainer must obtain first — a verified
-`org.openmbee` namespace, a published GPG key, and Central portal
-tokens — is in
+Nothing has been published yet. The core `v*` tag's `release` workflow signs,
+uploads and publishes `org.openmbee:opensysml` and its `opensysml-parent`
+pom to Maven Central at the core's version — the client is released in lockstep
+with the core, and `autoPublish` releases the validated deployment without a
+portal step. Building locally stays `mvn install` from a checkout. The
+procedure, and the credentials the job needs, are in
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-java-client-to-maven-central).

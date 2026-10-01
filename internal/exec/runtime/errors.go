@@ -163,6 +163,11 @@ var (
 	// the usage itself: bound once, it would run itself without end.
 	ErrCalcUsageRecursion = errors.New("a calc usage runs itself")
 
+	// ErrCaseReadWaits is returned when an analysis or verification case whose
+	// outputs an expression reads waits on the clock or for a message: the read
+	// takes the case whole, and only a case performed as a step pauses the body.
+	ErrCaseReadWaits = errors.New("a case read as a feature waits")
+
 	// ErrReturnOutsideCalc is returned when a `return` is executed by a host that
 	// has no result to return, an action node's body.
 	ErrReturnOutsideCalc = errors.New("'return' outside a calculation body")
@@ -273,6 +278,14 @@ var (
 	// parameter twice: by two named arguments, or by a positional and a named one.
 	ErrDuplicateArgument = errors.New("argument bound more than once")
 
+	// ErrOperationArity is returned when an operation invocation passes more
+	// positional arguments than the operation declares input parameters.
+	ErrOperationArity = errors.New("operation argument count mismatch")
+
+	// ErrMixedArguments is returned when an operation invocation gives positional and
+	// named arguments together: an argument list is one form or the other (KerML 8.2.5.8.3).
+	ErrMixedArguments = errors.New("positional and named arguments mixed")
+
 	// ErrNodeNotPerformed is returned when a pin of an action node is read before
 	// any performance of the node has started.
 	ErrNodeNotPerformed = errors.New("action node read before it is performed")
@@ -280,6 +293,18 @@ var (
 	// ErrNodePin is returned when a pin read, flow, or binding names a feature the
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
+
+	// ErrFlowSource is returned when a flow's source completes with its pin holding
+	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
+	ErrFlowSource = errors.New("flow source produced no value")
+
+	// ErrStreamUnreceived is returned when a streaming flow carried a value after its
+	// target's last performance ended, so no performance of the target ever received it.
+	ErrStreamUnreceived = errors.New("streamed value reached no performance of its target")
+
+	// ErrStreamCycle is returned when streaming flows lead a value written to a pin back
+	// to that pin while the write is still being carried on.
+	ErrStreamCycle = errors.New("streaming flows form a cycle")
 
 	// ErrViolated is returned when an asserted constraint or a required
 	// condition evaluates to false. It is a verdict about the model, not a
@@ -339,8 +364,9 @@ var (
 	ErrNoRequirement = errors.New("no requirement to satisfy")
 
 	// ErrUnresolvedClassifierBehavior is returned when a type exhibits or
-	// performs a behavior whose body no element states, so the objects of that
-	// type have nothing to run.
+	// performs a behavior that names an element no element states a body for,
+	// so the objects of that type have nothing to run. An exhibit or perform
+	// declaration naming nothing is its own body and never fails here.
 	ErrUnresolvedClassifierBehavior = errors.New("classifier behavior names no body")
 
 	// ErrUnsupportedClassifierBehavior is returned when a type binds a behavior
@@ -478,6 +504,21 @@ type budgetExceededError struct {
 	message string
 	errs    []error
 }
+
+// UnassignedOutputError names the declared output a run could not read
+// because the activation never assigned it, and the calc that declares it.
+type UnassignedOutputError struct {
+	Output string
+	Calc   string
+}
+
+// Error keeps the diagnostic text an ErrOutputNotAssigned carried.
+func (e *UnassignedOutputError) Error() string {
+	return fmt.Sprintf("%s: output %s of %s", ErrOutputNotAssigned, e.Output, e.Calc)
+}
+
+// Unwrap reports the failure as an ErrOutputNotAssigned.
+func (e *UnassignedOutputError) Unwrap() error { return ErrOutputNotAssigned }
 
 func (e *budgetExceededError) Error() string { return e.message }
 

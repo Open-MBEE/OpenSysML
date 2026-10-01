@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"total": {"type": "Integer", "value": 50}
+	}
+}

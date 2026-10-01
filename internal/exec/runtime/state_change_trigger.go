@@ -105,11 +105,6 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	if err != nil {
 		return fired, err
 	}
-	if fired {
-		// The configuration changed, so a state left by this step no longer holds
-		// back the events it deferred.
-		e.recallDeferredEvents()
-	}
 	consumed := e.consumeRise(poll)
 	// A firing that ended the machine leaves nothing waiting on a condition.
 	if e.state.Ended() {
@@ -132,9 +127,9 @@ func newChangePoll() *changePoll {
 	}
 }
 
-// risenChange polls the change conditions under a probe, keeping the latches, and
-// reports whether pollChangeEvents would now dispatch a rise (the first transition enabled) or fail (nil).
-func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
+// risenChanges polls the change conditions under a probe, keeping the latches,
+// and reports every transition whose rise would now dispatch, or fail (nil).
+func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
 	defer func() { e.changeFired = fired }()
@@ -144,12 +139,26 @@ func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
 	if err := e.observeChangeConditions(poll); err != nil {
 		return nil, true
 	}
+	var risen []*lower.Transition
 	for _, trans := range poll.observed {
 		if e.riseEnables(poll, trans) {
-			return trans, true
+			risen = append(risen, trans)
 		}
 	}
-	return nil, false
+	return risen, len(risen) > 0
+}
+
+// risenChange polls the change conditions under a probe, keeping the latches,
+// and reports the first transition whose rise would now dispatch, or fail (nil).
+func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
+	risen, ok := e.risenChanges()
+	if !ok {
+		return nil, false
+	}
+	if len(risen) == 0 {
+		return nil, true
+	}
+	return risen[0], true
 }
 
 // riseEnables reports whether the poll's rise is an occurrence for trans, one a
@@ -302,6 +311,9 @@ func (e *StateExecutor) PollChangeEvents() (dispatched bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
+	if len(e.held) > 0 {
+		return false, nil
+	}
 	return e.pollChangeEvents()
 }
 
@@ -352,11 +364,6 @@ func (e *StateExecutor) SuspendReason() string {
 	}
 	if due, waiting := e.NextWait(); waiting {
 		reason = fmt.Sprintf("waiting on the clock: the next timer is due at t=%s (advance the clock to reach it)", semantics.FormatReal(due))
-	}
-	// An event the active states still defer cannot be dispatched here, but it is
-	// not gone either, so a stalled machine reports it rather than losing it.
-	if held := len(e.deferred); held > 0 {
-		reason += fmt.Sprintf("; %d event(s) still deferred by the active states", held)
 	}
 	return reason
 }

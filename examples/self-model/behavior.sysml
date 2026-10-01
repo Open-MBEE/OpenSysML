@@ -365,27 +365,26 @@ package OpenSysMLBehavior {
         transition first idle if not progressed then completed;
     }
 
-    // Event dispatch: run-to-completion, with unhandled events deferred while a
-    // deferring state is active.
+    // Event dispatch: run-to-completion; an event no transition and no parked
+    // accept takes is dropped.
     state def EventDispatch {
         attribute handled : Boolean = true;
-        attribute deferring : Boolean = false;
 
         entry; then waiting;
 
         state waiting;
         state dispatching;
-        state deferred;
+        state dropped;
         state settled;
 
         transition first waiting accept SignalEvent then dispatching;
         transition first dispatching if handled then settled;
-        transition first dispatching if not handled and deferring then deferred;
-        transition first deferred then waiting;
+        transition first dispatching if not handled then dropped;
+        transition first dropped then waiting;
         transition first settled then waiting;
     }
 
-    // Six budgets, each exhausted on its own: the first to run out ends the run
+    // Seven budgets, each exhausted on its own: the first to run out ends the run
     // with the error that names it, and the others are not consulted.
     state def BudgetExhaustion {
         attribute stepsLeft : Integer = 10000000;
@@ -394,6 +393,7 @@ package OpenSysMLBehavior {
         attribute doStepsLeft : Integer = 5000000;
         attribute elementsLeft : Integer = 1000000;
         attribute calcDepthLeft : Integer = 10000;
+        attribute sweepRunsLeft : Integer = 1000;
 
         entry; then running;
 
@@ -404,6 +404,7 @@ package OpenSysMLBehavior {
         state doStepLimitExceeded;
         state elementLimitExceeded;
         state calcRecursionLimitExceeded;
+        state sweepRunLimitExceeded;
 
         transition first running if stepsLeft <= 0 then stepLimitExceeded;
         transition first running if actionStepsLeft <= 0 then actionStepLimitExceeded;
@@ -411,6 +412,7 @@ package OpenSysMLBehavior {
         transition first running if doStepsLeft <= 0 then doStepLimitExceeded;
         transition first running if elementsLeft <= 0 then elementLimitExceeded;
         transition first running if calcDepthLeft <= 0 then calcRecursionLimitExceeded;
+        transition first running if sweepRunsLeft <= 0 then sweepRunLimitExceeded;
     }
 
     // What a step costs, for the action-step budget the runtime enforces.

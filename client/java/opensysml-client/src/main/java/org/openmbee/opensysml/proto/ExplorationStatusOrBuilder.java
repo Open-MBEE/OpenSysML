@@ -87,4 +87,15 @@ public interface ExplorationStatusOrBuilder extends
    * @return The depthBudget.
    */
   int getDepthBudget();
+
+  /**
+   * <pre>
+   * True when the outcomes' probabilities are lower bounds: a budget kept some
+   * linearizations unexplored.
+   * </pre>
+   *
+   * <code>bool probabilities_lower_bound = 6 [json_name = "probabilitiesLowerBound"];</code>
+   * @return The probabilitiesLowerBound.
+   */
+  boolean getProbabilitiesLowerBound();
 }

@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Warning", "value": {"type": "Integer", "value": 2}},
+    {"signal": "Reset"},
+    {"signal": "Alarm", "value": {"type": "Integer", "value": 9}}
+  ],
+  "finalState": "done",
+  "stateVisits": ["idle", "warned", "idle", "alarmed", "done"],
+  "outputs": {
+    "exits": {"type": "Integer", "value": 209}
+  }
+}

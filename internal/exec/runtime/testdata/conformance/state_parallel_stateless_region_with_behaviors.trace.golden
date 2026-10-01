@@ -3,12 +3,13 @@ enter: done
 transition: wstart -> done (event: accept Go)
 choice exiting busy: next done(exit), idle(exit) (unordered; took done(exit) first)
 exit: done
-stmt assign log
-      eval feature log -> 1
-      eval literal 10 -> 10
-    eval operator * -> 10
-    eval literal 2 -> 2
-  eval operator + -> 12
+stmt action body
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
 exit: busy
 enter: done
 transition: busy -> done (event: accept Stop)

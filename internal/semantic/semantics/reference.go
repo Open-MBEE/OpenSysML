@@ -34,7 +34,11 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	defer delete(m.resolvingRef, sym)
 
 	var out *symbols.Symbol
-	if node := referenceSubsettingTarget(sym); node != nil {
+	if sym.Recorded() {
+		if !sym.Facts.References.IsZero() {
+			out = m.recordedElement(sym.Facts.References)
+		}
+	} else if node := referenceSubsettingTarget(sym); node != nil {
 		if target, ok := m.resolver.ResolveReferenceTarget(referenceScope(sym), sym.Decl, node); ok && target != sym {
 			out = target
 		}
@@ -248,9 +252,12 @@ func (m *Model) contributors(sym *symbols.Symbol) []*symbols.Symbol {
 
 func (m *Model) collectContributors(sym *symbols.Symbol) []*symbols.Symbol {
 	supers := m.DirectSupertypes(sym)
-	out := make([]*symbols.Symbol, 0, len(supers)+2)
+	out := make([]*symbols.Symbol, 0, len(supers)+3)
 	out = append(out, supers...)
 	if base := m.implicitBaseUsage(sym); base != nil {
+		out = append(out, base)
+	}
+	if base := m.implicitUsageBaseFeature(sym); base != nil {
 		out = append(out, base)
 	}
 	if base := m.implicitKerMLFeatureBase(sym); base != nil {

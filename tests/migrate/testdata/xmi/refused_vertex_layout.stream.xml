@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass="State" xmi:id="_symbol_idle">
+    <elementID xmi:idref="_idle"/>
+  </mdElement>
+  <mdElement elementClass="Pseudostate" xmi:id="_symbol_junction">
+    <elementID xmi:idref="_junction"/>
+    <properties>
+      <mdElement elementClass="ColorProperty">
+        <propertyID>FILL_COLOR</propertyID>
+        <value xmi:value="-1973821"/>
+      </mdElement>
+    </properties>
+  </mdElement>
+  <mdElement elementClass="Pseudostate" xmi:id="_symbol_choice">
+    <elementID xmi:idref="_choice"/>
+  </mdElement>
+  <mdElement elementClass="Transition" xmi:id="_symbol_t_junction">
+    <elementID xmi:idref="_t_junction"/>
+  </mdElement>
+  <mdElement elementClass="Transition" xmi:id="_symbol_t_choice">
+    <elementID xmi:idref="_t_choice"/>
+  </mdElement>
+  <mdElement elementClass="Transition" xmi:id="_symbol_t_idle">
+    <elementID xmi:idref="_t_idle"/>
+  </mdElement>
+  <mdElement elementClass="TextBox" xmi:id="_note_junction">
+    <geometry>350, 40, 120, 30</geometry>
+    <text>Junction note</text>
+  </mdElement>
+  <mdElement elementClass="NoteAnchor" xmi:id="_anchor_junction_note">
+    <linkFirstEndID xmi:idref="_note_junction"/>
+    <linkSecondEndID xmi:idref="_symbol_junction"/>
+    <geometry>350, 55; 220, 70; </geometry>
+  </mdElement>
+</mdOwnedViews>

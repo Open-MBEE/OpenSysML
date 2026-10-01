@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // implicitBaseFindings returns "line: message" for each diagnostic of code that
@@ -15,6 +19,18 @@ func implicitBaseFindings(t *testing.T, name, src, code string) []string {
 		out = append(out, fmt.Sprintf("%d: %s", strings.Count(src[:d.Span.Offset], "\n")+1, d.Message))
 	}
 	return out
+}
+
+func TestW11ESysMLMissingLibraryBase(t *testing.T) {
+	const name = "<t>.sysml"
+	const src = `part def P;`
+	idx := symbols.NewIndex()
+	root := parser.New(source.New(name, []byte(src))).ParseFile()
+	idx.AddDocument(name, root)
+	got := only(ImplicitBasePass{}.Run(NewContextWithKind(name, source.KindSysML, idx, nil), name, root), "classifier-default-supertype")
+	if len(got) != 1 || got[0].Message != "Must directly or indirectly specialize Parts::Part" {
+		t.Fatalf("classifier-default-supertype = %+v, want missing Parts::Part diagnostic", got)
+	}
 }
 
 // A conjugated classifier owns no specialization, so it reaches its kind's

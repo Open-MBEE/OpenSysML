@@ -37,8 +37,9 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		{"explore", "proved", []string{"outcomes"}},
 		{"run", "observed", []string{"evaluate"}},
 		{"smt", "proved", []string{"holds", "sensitive"}},
-		{"solve", "proved", []string{"satisfiable"}},
+		{"solve", "proved", []string{"satisfiable", "holds"}},
 		{"sweep", "observed", []string{"sweep"}},
+		{"tool:fmi", "observed", []string{"compute"}},
 	}
 	if len(resp.Engines) != len(want) {
 		t.Fatalf("engines = %v, want %d", resp.Engines, len(want))
@@ -48,11 +49,11 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		if got.Name != w.name || got.Authority != w.authority || strings.Join(got.Answers, ",") != strings.Join(w.answers, ",") {
 			t.Errorf("engine %d = %v, want %s %s %v", i, got, w.name, w.authority, w.answers)
 		}
-		if got.Name != "solve" && got.Name != "smt" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
+		if got.Name != "solve" && got.Name != "smt" && got.Name != "tool:fmi" && (!got.Ready || got.Process != "" || got.Unavailable != "") {
 			t.Errorf("in-process engine %s = %v, want ready with no process", got.Name, got)
 		}
 	}
-	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4]} {
+	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4], resp.Engines[6]} {
 		if external.Process == "" || external.Ready == (external.Unavailable != "") {
 			t.Errorf("%s = %v, want a process and ready or a reason", external.Name, external)
 		}
@@ -294,6 +295,36 @@ func engineStandin(t *testing.T) string {
 	return standinPath
 }
 
+// A tool manifest entry composing its process from an invocation block and
+// reading a CSV reply lists its protocol as argv+none/csv rather than object.
+func TestAToolEntryListsItsComposedProtocol(t *testing.T) {
+	dir := t.TempDir()
+	entry := `{"kind":"tool","toolName":"Solver","version":"1.0","executable":"` + engineStandin(t) + `",` +
+		`"variables":["x","y"],"invocation":{"args":["--x","{x}"],"stdin":"none"},` +
+		`"reply":{"format":"csv","outputs":{"y":{"column":"y"}}}}`
+	if err := os.WriteFile(filepath.Join(dir, "solver.json"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(analysis.ToolsEnv, dir)
+	t.Setenv(analysis.EnginesEnv, "")
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.ListEngines(context.Background(), &pb.ListEnginesRequest{})
+	if err != nil {
+		t.Fatalf("ListEngines: %v", err)
+	}
+	for _, e := range resp.Engines {
+		if e.Name == "tool:Solver" {
+			if e.Kind != "tool" || e.Protocol != "argv+none/csv" || e.Version != "1.0" {
+				t.Errorf("tool:Solver = %v, want kind tool, protocol argv+none/csv, version 1.0", e)
+			}
+			return
+		}
+	}
+	t.Fatalf("tool:Solver is not listed in %v", resp.Engines)
+}
+
 // standinManifest points OPENSYSML_ENGINES at a manifest registering the stand-in as `standin`.
 func standinManifest(t *testing.T) string {
 	t.Helper()
@@ -345,6 +376,12 @@ func TestManifestEnginesAreListedButNotServedByDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range resp.Engines {
+		if e.Name == "tool:fmi" {
+			if e.Kind != "tool" || e.Protocol != "fmi/1" || !e.Served {
+				t.Errorf("tool:fmi = %v, want a tool kind listing its protocol, served", e)
+			}
+			continue
+		}
 		if e.Name != "standin" && (e.Kind != "built-in" || e.Protocol != "-" || e.Source != "" || !e.Served) {
 			t.Errorf("built-in %s = %v, want kind built-in, no protocol or source, served", e.Name, e)
 		}

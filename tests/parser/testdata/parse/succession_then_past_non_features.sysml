@@ -109,13 +109,13 @@ package ThenPastNonFeatures {
 		then action b : Step;
 	}
 
-	// The same rule holds in a state body, where a deferral is not a feature either,
+	// The same rule holds in a state body, where a comment is not a feature either,
 	// and in a structural body.
 	state def Lamp {
 		state on;
 		doc /* on precedes off */
 		then state off;
-		defer Ping;
+		comment /* off precedes broken */
 		then state broken;
 	}
 

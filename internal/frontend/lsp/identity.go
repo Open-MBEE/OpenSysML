@@ -43,7 +43,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 		out = append(out, protocol.CodeAction{
 			Title: fmt.Sprintf("Bind '%s' to a project", sym.Name),
 			Kind:  identityActionKind,
-			Edit:  workspaceEdit(uri, doc.Content, annotate(doc.Content, []annotation{projectRef(root)})),
+			Edit:  workspaceEdit(uri, positionsOf(doc), annotate(doc.Content, []annotation{projectRef(root)})),
 		})
 	}
 	if info.Annotated || info.Normative() {
@@ -62,7 +62,7 @@ func (s *Server) identityActions(name string, doc *model.Document, want source.S
 	out = append(out, protocol.CodeAction{
 		Title: title,
 		Kind:  identityActionKind,
-		Edit:  workspaceEdit(uri, doc.Content, annotate(doc.Content, notes)),
+		Edit:  workspaceEdit(uri, positionsOf(doc), annotate(doc.Content, notes)),
 	})
 	return out, nil
 }

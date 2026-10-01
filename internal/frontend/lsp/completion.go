@@ -163,7 +163,9 @@ func (c *completionItems) list() *protocol.CompletionList {
 }
 
 // symbolDocumentation returns the comment trivia preceding a symbol's
-// declaration, when the document declaring it is loaded. A client that renders
+// declaration, when the document declaring it is loaded; a declaration held as
+// its record is listed without, since completing must not parse every closed
+// file a candidate comes from. A client that renders
 // Markdown is sent the comments as prose, as hover does, rather than the source
 // with its delimiters.
 func (s *Server) symbolDocumentation(sym *symbols.Symbol) (protocol.MarkupContent, bool) {
@@ -272,7 +274,7 @@ func completionKind(k symbols.SymbolKind) protocol.CompletionItemKind {
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage:
 		return protocol.CompletionItemKindMethod
-	case symbols.SymbolAttributeUsage:
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return protocol.CompletionItemKindProperty
 	default:
 		return protocol.CompletionItemKindField

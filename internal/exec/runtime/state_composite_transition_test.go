@@ -148,8 +148,8 @@ func TestEventNoLevelAcceptsLeavesTheConfigurationAlone(t *testing.T) {
 	}
 
 	assertCurrentState(t, exec, "Step1")
-	if len(exec.deferred) != 0 {
-		t.Errorf("expected the event dropped rather than deferred, got %d held", len(exec.deferred))
+	if exec.EventQueue().Len() != 0 {
+		t.Errorf("expected the event dropped rather than held, got %d queued", exec.EventQueue().Len())
 	}
 }
 
@@ -534,4 +534,82 @@ func stateNamed(t *testing.T, exec *StateExecutor, name string) *ast.StateNode {
 	}
 	t.Fatalf("state %s not found in the lowered graph", name)
 	return nil
+}
+
+// A signal no transition out of the active configuration handles is dropped
+// where it arrives: busy takes Go alone, so the Ping arriving while busy is
+// active is gone by the time ready, which would take it, is reached.
+func TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt(t *testing.T) {
+	exec := stateExecutorFor(t, &ast.Usage{
+		Kind:  ast.UsageState,
+		Ident: ast.Identification{Name: "Machine"},
+		Members: []ast.Node{
+			entryStart("init"),
+			&ast.StateNode{Name: "init"},
+			&ast.StateNode{Name: "busy"},
+			&ast.StateNode{Name: "ready"},
+			&ast.StateNode{Name: "done"},
+			transitionMember("init", "busy"),
+			triggeredTransition("busy", "ready", "Go"),
+			triggeredTransition("ready", "done", "Ping"),
+		},
+	})
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	exec.SendSignal("Ping", nil)
+	exec.SendSignal("Go", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	assertVisits(t, exec.stateVisits, "init", "busy", "ready")
+}
+
+// An event reaches only the regions still active when it is dispatched: the
+// transition region a takes out of the composite leaves region b, which no
+// longer reacts to the same occurrence.
+func TestExitedNestedRegionDoesNotReactToTheSameEvent(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		state Machine {
+			entry; then start;
+			state start;
+			state co parallel {
+				state a {
+					entry; then astart;
+					state astart;
+					state a1;
+					succession first astart then a1;
+					transition first a1 accept Ping then out;
+				}
+				state b {
+					entry; then bstart;
+					state bstart;
+					state b1;
+					state b2;
+					succession first bstart then b1;
+					transition first b1 accept Ping then b2;
+				}
+			}
+			state out;
+			succession first start then co;
+		}
+	}`)
+
+	exec.SendSignal("Ping", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if containsState(exec.stateVisits, "b2") {
+		t.Errorf("the exited region took the event too, visits: %v", exec.stateVisits)
+	}
+	if len(exec.activeConfig.regionStates) != 0 {
+		t.Errorf("regions are still active after leaving co: %v", exec.activeConfig.regionStates)
+	}
+	current, _ := exec.CurrentState().(*ast.StateNode)
+	if current == nil || current.Name != "out" {
+		t.Errorf("expected the machine in out, got %v", exec.CurrentState())
+	}
 }

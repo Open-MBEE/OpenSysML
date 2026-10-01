@@ -79,7 +79,21 @@ func (m *Model) SelectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs
 		}
 		return m.selectAmong(scope, m.resolver.InvocationCandidates(scope, e.Type), untypedArguments(e), performs)
 	}
+	if sel, ok := m.selected(scope, e, performs); ok {
+		return sel
+	}
 	return m.SelectInvocation(scope, e, m.callArguments(scope, e), performs)
+}
+
+// selected is the selection memoized for e in scope, if any, so a call read again
+// is answered without retyping its arguments.
+func (m *Model) selected(scope *symbols.Scope, e *ast.InvocationExpr, performs Performs) (*InvocationSelection, bool) {
+	if e.Type == nil {
+		return &InvocationSelection{}, true
+	}
+	defer m.ownScope(scope).LeaveDoc()
+	sel, ok := m.invocations[invocationKey{node: e, scope: scope, performs: performs}]
+	return sel, ok
 }
 
 // SelectCallAmong is SelectCall were e's name to denote named, in that order, as a
@@ -157,6 +171,9 @@ const (
 	PerformsBehavior Performs = iota
 	// PerformsAction runs an action, as `action a = tag(x);` does: only actions answer.
 	PerformsAction
+	// PerformsOperation invokes a behavior by name on an object: every behavior
+	// answers alike, the arguments alone selecting among calcs and actions.
+	PerformsOperation
 )
 
 // CallSite is the kind of call site a reference is: an action performance when
@@ -181,6 +198,16 @@ func (m *Model) Performable(p Performs, sym *symbols.Symbol) bool {
 // function), or a feature typed by one, which is what an expression evaluates.
 func (m *Model) Evaluates(sym *symbols.Symbol) bool {
 	return m.performs(sym, calcLike)
+}
+
+// CallsCalc reports whether a call selecting sel calls a calculation, whose value
+// a send sends, rather than naming a signal: the selected declaration evaluates,
+// or the choice is left to the arguments' values, which only a calculation reads.
+func (m *Model) CallsCalc(sel *InvocationSelection) bool {
+	if sel == nil {
+		return false
+	}
+	return sel.Ambiguous || m.Evaluates(sel.Called())
 }
 
 // performs reports whether sym, or a behavior it is typed by, satisfies is.
@@ -551,18 +578,12 @@ func (m *Model) signatureParameterOf(sym *symbols.Symbol, name string) signature
 }
 
 // OptionalParameter reports whether a call may omit the parameter: it or a parameter it
-// redefines declares a default, or the nearest stated multiplicity admits no value.
+// redefines declares a default, or its effective multiplicity admits no value.
 func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 	if value, _ := m.ParameterDefault(sym); value != nil {
 		return true
 	}
-	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if _, mult, _ := parameterDeclaration(p); mult != nil {
-			r, ok := m.multiplicityRange(mult)
-			return ok && r.AllowsNone()
-		}
-	}
-	return false
+	return m.EffectiveParameterRange(sym).AllowsNone()
 }
 
 // ParameterDefault is the value the parameter takes when a call binds none: the nearest

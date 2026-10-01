@@ -108,26 +108,33 @@ func (s *Session) sweepFromText(invocation string, ranges []string, draws sweepD
 // satisfied holds; any failed run or unsatisfied objective fails it. The rows'
 // traces lead the report in plan order, as one run's trace leads its verdict.
 func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) Verdict {
-	label := sweepLabel(inv, draws)
 	table, plan, err := s.runSweep(inv, specs, draws)
 	if err != nil {
-		return standing(unresolvedVerdict(label, err.Error()), plan)
+		return standing(unresolvedVerdict(sweepLabel(inv, draws), err.Error()), plan)
 	}
+	return standing(s.sweepReport(inv, table, draws), plan)
+}
+
+// sweepReport is the verdict a completed sweep's table reports.
+func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, draws sweepDraws) Verdict {
 	status, rows := sweepStatus(table)
-	return standing(Verdict{
-		Subject: label,
+	return Verdict{
+		Subject: sweepLabel(inv, draws),
 		Status:  status,
 		Lines:   append(sweepTraces(table), sweepTableLines(table)...),
 		Values:  sweepValues(table, rows),
 		Rows:    rows,
-	}, plan)
+	}
 }
 
 // sweepTraces is what the rows' runs traced, in plan order, as trace lines print.
 func sweepTraces(table runtime.SweepTable) []string {
 	var lines []string
 	for _, row := range table.Rows {
-		for _, e := range recordedTrace(row.Context) {
+		if row.Trace == nil {
+			continue
+		}
+		for _, e := range row.Trace.Entries() {
 			lines = append(lines, tracePrefix+e)
 		}
 	}
@@ -150,8 +157,7 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 // row per value in a context of its own, held objects made there from their declarations or
 // from one image of the held graph; the session's state is released while the rows run.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
@@ -206,7 +212,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
-	runScope := declaringScope(sym, doc.Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
 		row, err := s.rowObjects(rt, args.objects, image)
@@ -247,12 +253,13 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			Verdicts:    result.Verdicts,
 			Subject:     result.Subject,
 			Evaluations: result.Evaluations,
+			Inputs:      result.Inputs,
 		}, err
 	}
 
 	model := s.freshModel()
 	s.state.Unlock()
-	answered, err := s.sweep(fqn, model, plan, run, s.draws)
+	answered, err := s.sweep(fqn, model, plan, run, s.draws, s.clockStep)
 	s.state.Lock()
 	if err != nil {
 		return runtime.SweepTable{}, &answered, err

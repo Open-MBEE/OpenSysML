@@ -2,6 +2,8 @@
 package queryplan
 
 import (
+	"strconv"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -18,6 +20,8 @@ const (
 	OperationOwnedElements Operation = "owned-elements"
 	OperationDescendants   Operation = "descendants"
 	OperationAncestors     Operation = "ancestors"
+	// OperationNamed resolves qualified names to the model elements they denote.
+	OperationNamed Operation = "named"
 	// OperationObjects enumerates the objects a session holds, by type.
 	OperationObjects Operation = "objects"
 	// OperationVerdicts checks the assertions about each source row's object.
@@ -32,12 +36,16 @@ const (
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"
 	OperationWhereName       Operation = "where-name"
+	OperationWhereText       Operation = "where-text"
 	OperationWhereFeature    Operation = "where-feature"
 	OperationOrderBy         Operation = "order-by"
 	OperationProject         Operation = "project"
 	OperationColumn          Operation = "column"
 	OperationRowProperty     Operation = "row-property"
-	OperationColumnOperator  Operation = "column-operator"
+	// OperationRowMember reads a feature reached through a member path nested
+	// in the row element — a feature chain like `stat.runs`.
+	OperationRowMember      Operation = "row-member"
+	OperationColumnOperator Operation = "column-operator"
 	// OperationRelatedColumn projects the elements a relationship reaches from each row.
 	OperationRelatedColumn Operation = "related-column"
 	// OperationWhereRelated keeps the source rows by whether a related element exists.
@@ -45,6 +53,8 @@ const (
 	// OperationExcept and OperationUnion are the ordered set operations over rows.
 	OperationExcept Operation = "except"
 	OperationUnion  Operation = "union"
+	// OperationTree arranges rows as a containment tree, each with its depth.
+	OperationTree Operation = "tree"
 )
 
 // LiteralKind classifies a literal retained in a query plan.
@@ -61,12 +71,35 @@ const (
 	LiteralQuantity LiteralKind = "quantity"
 )
 
-// Multiplicity is a query parameter's effective cardinality.
+// Multiplicity is the effective cardinality of a query parameter or of the
+// feature a column reads.
 type Multiplicity struct {
 	Lower         int64
 	Upper         int64
 	UpperInfinite bool
 	Known         bool
+}
+
+// Admits reports whether a value count lies within a known multiplicity; an
+// unknown multiplicity admits every count.
+func (m Multiplicity) Admits(count int) bool {
+	if !m.Known {
+		return true
+	}
+	n := int64(count)
+	return n >= m.Lower && (m.UpperInfinite || n <= m.Upper)
+}
+
+// String writes the multiplicity in notation form, `[lower..upper]`.
+func (m Multiplicity) String() string {
+	if !m.Known {
+		return "unknown"
+	}
+	upper := strconv.FormatInt(m.Upper, 10)
+	if m.UpperInfinite {
+		upper = "*"
+	}
+	return "[" + strconv.FormatInt(m.Lower, 10) + ".." + upper + "]"
 }
 
 // Parameter is one typed query input or result. A defaulted input carries its
@@ -95,14 +128,15 @@ type Argument struct {
 
 // Expression is one immutable node of a compiled query plan.
 type Expression struct {
-	operation Operation
-	target    string
-	literal   LiteralKind
-	value     string
-	quantity  *semantics.Quantity
-	element   *symbols.Symbol
-	arguments []Argument
-	origin    symbols.Origin
+	operation    Operation
+	target       string
+	literal      LiteralKind
+	value        string
+	quantity     *semantics.Quantity
+	element      *symbols.Symbol
+	multiplicity Multiplicity
+	arguments    []Argument
+	origin       symbols.Origin
 }
 
 // Operation returns the operation this expression performs.
@@ -127,6 +161,10 @@ func (e Expression) Quantity() (semantics.Quantity, bool) {
 func (e Expression) Element() (*symbols.Symbol, bool) {
 	return e.element, e.operation == OperationElement && e.element != nil
 }
+
+// Multiplicity returns the declared multiplicity of the feature or parameter
+// a column expression reads, which bounds how many values a cell may hold.
+func (e Expression) Multiplicity() Multiplicity { return e.multiplicity }
 
 // Arguments returns an independent copy of the expression's arguments.
 func (e Expression) Arguments() []Argument {

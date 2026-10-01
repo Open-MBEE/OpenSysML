@@ -236,7 +236,7 @@ func TestToStateGraph_ParallelStateUsage(t *testing.T) {
 	}
 }
 
-func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
+func TestToStateGraph_ParallelStateBehaviors(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {
 			state Machine parallel {
@@ -244,7 +244,6 @@ func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
 				do action work { }
 				exit action finish { }
 				state left {
-					defer Ping;
 					entry; then idle;
 					state idle;
 				}
@@ -278,9 +277,6 @@ func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
 	if left == nil || left.Name != "left" {
 		t.Fatalf("idle parent = %v, want graph-only left region state", left)
 	}
-	if got := len(graph.Deferred[left]); got != 1 {
-		t.Fatalf("left deferred triggers = %d, want 1", got)
-	}
 }
 
 func TestToStateGraph_ParallelBodyNonRegionMembers(t *testing.T) {
@@ -304,6 +300,27 @@ func TestToStateGraph_ParallelBodyNonRegionMembers(t *testing.T) {
 		}
 	})
 
+	t.Run("metadata is not a region", func(t *testing.T) {
+		graph, err := ToStateGraph(stateUsageIn(t, `
+			package test {
+				metadata def Reviewed;
+				state Machine parallel {
+					state left {
+						entry; then idle;
+						state idle;
+					}
+					metadata Reviewed about left;
+				}
+			}
+		`), nil)
+		if err != nil {
+			t.Fatalf("parallel state with metadata: %v", err)
+		}
+		if len(graph.TopRegions) != 1 || graph.TopRegions[0].Name != "left" {
+			t.Fatalf("parallel regions = %v, want only left (not metadata)", graph.TopRegions)
+		}
+	})
+
 	t.Run("perform is rejected", func(t *testing.T) {
 		_, err := ToStateGraph(stateUsageIn(t, `
 			package test {
@@ -321,8 +338,8 @@ func TestToStateGraph_ParallelBodyNonRegionMembers(t *testing.T) {
 	})
 }
 
-// A parallel state owns what its regions branch through: the pseudostate, the
-// edges leaving it, and the deferred events of the state that declares them.
+// A parallel state owns what its regions branch through: the pseudostate and
+// the edges leaving it.
 func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, `
 		package test {
@@ -334,7 +351,6 @@ func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 						entry; then lidle;
 						state lidle;
 						state lfast;
-						defer done;
 						transition first lidle then pick;
 					}
 					state right {
@@ -379,9 +395,6 @@ func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 	}
 	if leftOwner == nil {
 		t.Fatal("no graph state stands for the left region")
-	}
-	if len(graph.Deferred[leftOwner]) == 0 {
-		t.Fatal("defer declared by a region substate was dropped")
 	}
 }
 

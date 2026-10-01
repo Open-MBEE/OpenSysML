@@ -45,27 +45,61 @@ func TestTransitionFootprintsProjectGuardEffectAndActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	go_ := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	goT := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
 	stop := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 1)]
-	if !hasPlace(go_.Reads, "y") || !hasPlace(go_.Reads, "idle") {
-		t.Fatalf("Go reads %v, want the guard's y and the source's activity", placeNames(go_.Reads))
+	if !hasPlace(goT.Reads, "y") || !hasPlace(goT.Reads, "idle") {
+		t.Fatalf("Go reads %v, want the guard's y and the source's activity", placeNames(goT.Reads))
 	}
-	if !hasPlace(go_.Writes, "x") || !hasPlace(go_.Writes, "idle") || !hasPlace(go_.Writes, "busy") {
-		t.Fatalf("Go writes %v, want busy's entry x and the activity of idle and busy", placeNames(go_.Writes))
+	if !hasPlace(goT.Writes, "x") || !hasPlace(goT.Writes, "idle") || !hasPlace(goT.Writes, "busy") {
+		t.Fatalf("Go writes %v, want busy's entry x and the activity of idle and busy", placeNames(goT.Writes))
 	}
 	// The event comes off the machine's own queue: the trigger is not a bus accept.
-	if len(go_.Accepts) != 0 {
-		t.Fatalf("Go accepts %v, want none", go_.Accepts)
+	if len(goT.Accepts) != 0 {
+		t.Fatalf("Go accepts %v, want none", goT.Accepts)
 	}
 	if !hasPlace(stop.Writes, "z") || hasPlace(stop.Writes, "x") {
 		t.Fatalf("Stop writes %v, want its effect's z and not busy's x", placeNames(stop.Writes))
 	}
-	if !strings.Contains(go_.String(), "active idle") {
-		t.Fatalf("footprint renders as %q, want the activity spelt `active idle`", go_.String())
+	if !strings.Contains(goT.String(), "active idle") {
+		t.Fatalf("footprint renders as %q, want the activity spelt `active idle`", goT.String())
 	}
 	// Both leave idle: dependent through its activity, as two reactions of one leaf are.
-	if !go_.Dependent(stop) {
+	if !goT.Dependent(stop) {
 		t.Fatal("two transitions out of one state must be dependent")
+	}
+}
+
+// Entering a state starts its do behavior, whose steps may run within the move: the
+// transition's footprint carries the do behavior's writes beside the entry's.
+func TestTransitionFootprintsCoverEnteredDoBehaviors(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			state Machine {
+				attribute x : Integer = 0;
+				attribute y : Integer = 0;
+				attribute z : Integer = 0;
+				entry; then idle;
+				state idle {
+					do action { assign z := z + 1; }
+				}
+				transition first idle accept Go then busy;
+				state busy {
+					entry action { assign x := x + 1; }
+					do action { assign y := y + 1; }
+				}
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	goT := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	if !hasPlace(goT.Writes, "x") || !hasPlace(goT.Writes, "y") {
+		t.Fatalf("Go writes %v, want busy's entry x and its do behavior's y", placeNames(goT.Writes))
+	}
+	if hasPlace(goT.Writes, "z") || hasPlace(goT.Reads, "z") {
+		t.Fatalf("Go touches %v / %v, want nothing of the do behavior of the state it leaves", placeNames(goT.Reads), placeNames(goT.Writes))
 	}
 }
 

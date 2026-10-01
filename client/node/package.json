@@ -1,6 +1,6 @@
 {
-  "name": "@opensysml/client",
-  "version": "0.1.0",
+  "name": "@openmbee/opensysml",
+  "version": "0.9.1",
   "description": "OpenSysML client: parse, evaluate and instantiate SysML v2 models over the sysml-grpc Connect API",
   "license": "Apache-2.0",
   "repository": {
@@ -55,11 +55,11 @@
     "@connectrpc/connect-web": "2.1.2"
   },
   "optionalDependencies": {
-    "@opensysml/sysml-grpc-darwin-arm64": "0.1.0",
-    "@opensysml/sysml-grpc-darwin-x64": "0.1.0",
-    "@opensysml/sysml-grpc-linux-arm64": "0.1.0",
-    "@opensysml/sysml-grpc-linux-x64": "0.1.0",
-    "@opensysml/sysml-grpc-win32-x64": "0.1.0",
+    "@openmbee/opensysml-sysml-grpc-darwin-arm64": "0.9.1",
+    "@openmbee/opensysml-sysml-grpc-darwin-x64": "0.9.1",
+    "@openmbee/opensysml-sysml-grpc-linux-arm64": "0.9.1",
+    "@openmbee/opensysml-sysml-grpc-linux-x64": "0.9.1",
+    "@openmbee/opensysml-sysml-grpc-win32-x64": "0.9.1",
     "@sigstore/bundle": "4.0.0",
     "@sigstore/protobuf-specs": "0.5.1",
     "@sigstore/tuf": "4.0.2",

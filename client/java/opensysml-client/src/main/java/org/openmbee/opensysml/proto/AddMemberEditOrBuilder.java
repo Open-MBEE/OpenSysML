@@ -170,4 +170,174 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSpecializesBytes(int index);
+
+  /**
+   * <pre>
+   * Whether the declaration is abstract.
+   * </pre>
+   *
+   * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+   * @return The isAbstract.
+   */
+  boolean getIsAbstract();
+
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return A list containing the redefines.
+   */
+  java.util.List<java.lang.String>
+      getRedefinesList();
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return The count of redefines.
+   */
+  int getRedefinesCount();
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the element to return.
+   * @return The redefines at the given index.
+   */
+  java.lang.String getRedefines(int index);
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the redefines at the given index.
+   */
+  com.google.protobuf.ByteString
+      getRedefinesBytes(int index);
+
+  /**
+   * <pre>
+   * Whether the value uses the default assignment keyword.
+   * </pre>
+   *
+   * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+   * @return The isDefault.
+   */
+  boolean getIsDefault();
+
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The direction.
+   */
+  java.lang.String getDirection();
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The bytes for direction.
+   */
+  com.google.protobuf.ByteString
+      getDirectionBytes();
+
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return A list containing the metadataPrefixes.
+   */
+  java.util.List<java.lang.String>
+      getMetadataPrefixesList();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return The count of metadataPrefixes.
+   */
+  int getMetadataPrefixesCount();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The metadataPrefixes at the given index.
+   */
+  java.lang.String getMetadataPrefixes(int index);
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the metadataPrefixes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getMetadataPrefixesBytes(int index);
+
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;` that reads back as exactly this text.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
+
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bodyExpression.
+   */
+  java.lang.String getBodyExpression();
+  /**
+   * <pre>
+   * Optional body expression. For constraints, it is the condition; for calc,
+   * case, analysis, verification, and use-case kinds, it is the result
+   * expression. It is written inside `{ ... }`, distinct from value, which
+   * writes `= ...`.
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bytes for bodyExpression.
+   */
+  com.google.protobuf.ByteString
+      getBodyExpressionBytes();
 }

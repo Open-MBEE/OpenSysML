@@ -13,6 +13,7 @@ import {
   type RenderEdge,
   type RenderNode,
   type RenderOwner,
+  type RenderRow,
   type WorkspaceEdit,
 } from "./protocol";
 
@@ -27,6 +28,8 @@ export interface Rendering {
   view?: string;
   version: number;
   palette?: EditPalette;
+  /** The element rows of a table-kind rendering; absent for a drawn kind. */
+  rows?: RenderRow[];
 }
 
 /**

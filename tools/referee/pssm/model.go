@@ -113,12 +113,60 @@ type Attribute struct {
 	Default *Literal
 }
 
+// Operation returns the class's own operation with the given xmi:id, nil for
+// none; same-named operations are told apart by identity, as UML does.
+func (c *Class) Operation(id string) *Operation {
+	if c == nil {
+		return nil
+	}
+	for _, op := range c.Operations {
+		if op.ID == id {
+			return op
+		}
+	}
+	return nil
+}
+
 // Operation is a class operation with its parameters and method.
 type Operation struct {
 	ID     string
 	Name   string
 	Params []Param
 	Method *Behavior
+}
+
+// Outputs are the operation's out, inout and return parameters in order: the
+// ones a call's result pins correspond to (UML §16.3.3.1).
+func (op *Operation) Outputs() []Param {
+	var out []Param
+	for _, p := range op.Params {
+		if p.Direction == "out" || p.Direction == "inout" || p.Direction == "return" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// Signature spells the operation with its parameters, `bump(inout count : Integer)`,
+// the form that tells same-named operations apart.
+func (op *Operation) Signature() string {
+	parts := make([]string, len(op.Params))
+	for i, p := range op.Params {
+		parts[i] = p.Direction + " " + p.Name + " : " + p.Type
+	}
+	return op.Name + "(" + strings.Join(parts, ", ") + ")"
+}
+
+// Inputs are the operation's in and inout parameters in order: the ones a
+// call's argument pins correspond to.
+func (op *Operation) Inputs() []Param {
+	var in []Param
+	for _, p := range op.Params {
+		if p.Direction == "in" || p.Direction == "inout" {
+			in = append(in, p)
+		}
+	}
+	return in
 }
 
 // Param is a behavior or operation parameter: its name, type and direction
@@ -397,6 +445,12 @@ type Guard struct {
 	Type     string
 }
 
+// unconditional reports whether the guard never holds the transition back:
+// none, a literal true or an else.
+func (g *Guard) unconditional() bool {
+	return g == nil || g.Kind == GuardElse || g.Kind == GuardLiteral && g.Literal
+}
+
 // Describe spells the guard for a diagnostic or report.
 func (g *Guard) Describe() string {
 	switch {
@@ -451,10 +505,14 @@ func (b *Body) Empty() bool { return b == nil || (len(b.Statements) == 0 && len(
 type Statement struct {
 	Kind StatementKind
 	// Call and Send: the operation, behavior or signal named and its arguments
-	// in parameter order; Receiver is the object addressed, nil for a behavior.
-	Name     string
-	Args     []Expr
-	Receiver *Expr
+	// in parameter order; Receiver is the object addressed, nil for a behavior;
+	// OperationID the xmi:id of the operation an operation call names, BehaviorID
+	// that of the behavior a behavior call names when the document defines it.
+	Name        string
+	Args        []Expr
+	Receiver    *Expr
+	OperationID string
+	BehaviorID  string
 	// Accept: the events waited for, and Result the name the accepted
 	// occurrence is bound to when the body reads it ("" otherwise).
 	Events []*Event
@@ -466,6 +524,9 @@ type Statement struct {
 	FeatureID string
 	Value     *Expr
 	Replace   bool
+	// Needs names the activity's input parameters without which the node never
+	// fires: a token from each must reach it, directly or through the nodes before it.
+	Needs []string
 }
 
 // StatementKind is the kind of a Statement.
@@ -530,16 +591,37 @@ type Expr struct {
 	// the feature read on Object.
 	Name   string
 	Object *Expr
-	// Apply: the behavior applied, by its library name (Concat, ToString, Not,
-	// ...), and its arguments in parameter order. Call: the operation called on
-	// Object, with its result used as a value. New: the classifier instantiated,
-	// by Name and TypeID, and ID the create action, one per object the behavior
-	// creates.
-	Args   []Expr
-	ID     string
-	TypeID string
+	// Apply: the behavior applied by short name, BehaviorID its xmi:id when the
+	// document defines it, Library when a library owns it, Args in parameter
+	// order. Call: Result is the output read, ID the call action, OperationID
+	// the xmi:id of the operation called.
+	// New: the classifier instantiated by Name and TypeID, ID the create action.
+	Args        []Expr
+	Library     *LibraryBehavior
+	Result      string
+	ID          string
+	OperationID string
+	BehaviorID  string
+	TypeID      string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
+}
+
+// LibraryBehavior is a behavior of a library an activity applies for a value:
+// a fUML or Alf primitive the document references by href, or an activity of
+// the suite's own utility packages (Util::Tracing::formatParameterValue).
+type LibraryBehavior struct {
+	Name string
+	// Qualified is the behavior's qualified name in its library
+	// (StringFunctions::Concat, Util::Tracing::formatParameterValue).
+	Qualified string
+}
+
+func isSelf(x *Expr) bool { return x != nil && x.Kind == ExprSelf }
+
+// isTarget reports the tester's reference to the class under test.
+func isTarget(x *Expr) bool {
+	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && x.Name == "testable"
 }
 
 // ExprKind is the kind of an Expr.

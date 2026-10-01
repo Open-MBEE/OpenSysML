@@ -4,7 +4,7 @@
    same layer, so unlayered reader CSS still overrides it. */
 @layer opensysml {
   .sysml-document {
-    --sysml-font-body: Charter, "Bitstream Charter", "Source Serif Pro", Georgia, "Times New Roman", serif;
+    --sysml-font-body: Charter, "Bitstream Charter", "Source Serif Pro", Georgia, "Times New Roman", "Liberation Serif", serif;
     --sysml-font-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --sysml-font-size: 1.0625rem;
     --sysml-line-height: 1.6;

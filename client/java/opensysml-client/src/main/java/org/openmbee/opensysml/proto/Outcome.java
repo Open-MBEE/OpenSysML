@@ -448,6 +448,22 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     return diagnostics_.get(index);
   }
 
+  public static final int PROBABILITY_FIELD_NUMBER = 8;
+  private double probability_ = 0D;
+  /**
+   * <pre>
+   * The probability of the linearizations reaching this outcome, as explore
+   * computes it; a lower bound when the exploration is incomplete.
+   * </pre>
+   *
+   * <code>double probability = 8 [json_name = "probability"];</code>
+   * @return The probability.
+   */
+  @java.lang.Override
+  public double getProbability() {
+    return probability_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -485,6 +501,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     for (int i = 0; i < diagnostics_.size(); i++) {
       output.writeMessage(7, diagnostics_.get(i));
+    }
+    if (java.lang.Double.doubleToRawLongBits(probability_) != 0) {
+      output.writeDouble(8, probability_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -535,6 +554,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(7, diagnostics_.get(i));
     }
+    if (java.lang.Double.doubleToRawLongBits(probability_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(8, probability_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -564,6 +587,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         .equals(other.getWitnessList())) return false;
     if (!getDiagnosticsList()
         .equals(other.getDiagnosticsList())) return false;
+    if (java.lang.Double.doubleToLongBits(getProbability())
+        != java.lang.Double.doubleToLongBits(
+            other.getProbability())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -597,6 +623,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       hash = (37 * hash) + DIAGNOSTICS_FIELD_NUMBER;
       hash = (53 * hash) + getDiagnosticsList().hashCode();
     }
+    hash = (37 * hash) + PROBABILITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getProbability()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -772,6 +801,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         diagnosticsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000040);
+      probability_ = 0D;
       return this;
     }
 
@@ -837,6 +867,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (((from_bitField0_ & 0x00000020) != 0)) {
         witness_.makeImmutable();
         result.witness_ = witness_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.probability_ = probability_;
       }
     }
 
@@ -914,6 +947,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
           }
         }
       }
+      if (java.lang.Double.doubleToRawLongBits(other.getProbability()) != 0) {
+        setProbability(other.getProbability());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -989,6 +1025,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               }
               break;
             } // case 58
+            case 65: {
+              probability_ = input.readDouble();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 65
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2056,6 +2097,53 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         diagnostics_ = null;
       }
       return diagnosticsBuilder_;
+    }
+
+    private double probability_ ;
+    /**
+     * <pre>
+     * The probability of the linearizations reaching this outcome, as explore
+     * computes it; a lower bound when the exploration is incomplete.
+     * </pre>
+     *
+     * <code>double probability = 8 [json_name = "probability"];</code>
+     * @return The probability.
+     */
+    @java.lang.Override
+    public double getProbability() {
+      return probability_;
+    }
+    /**
+     * <pre>
+     * The probability of the linearizations reaching this outcome, as explore
+     * computes it; a lower bound when the exploration is incomplete.
+     * </pre>
+     *
+     * <code>double probability = 8 [json_name = "probability"];</code>
+     * @param value The probability to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProbability(double value) {
+
+      probability_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The probability of the linearizations reaching this outcome, as explore
+     * computes it; a lower bound when the exploration is incomplete.
+     * </pre>
+     *
+     * <code>double probability = 8 [json_name = "probability"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProbability() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      probability_ = 0D;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Outcome)

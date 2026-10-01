@@ -7,65 +7,90 @@ import (
 	"go.lsp.dev/protocol"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-// offsetToPosition converts a byte offset in content to a 0-based LSP Position
-// whose Character is a UTF-16 code-unit column.
-func offsetToPosition(content []byte, offset int) protocol.Position {
+// positions converts between byte offsets and LSP positions of one text, from
+// its line index.
+type positions struct {
+	content []byte
+	lines   *source.LineIndex
+}
+
+// positionsOf converts in doc's text, sharing the document's cached line index.
+func positionsOf(doc *model.Document) positions {
+	return positions{content: doc.Content, lines: doc.Lines()}
+}
+
+// positionsFor converts in content, indexing its lines once.
+func positionsFor(content []byte) positions {
+	return positions{content: content, lines: source.NewLineIndex(content)}
+}
+
+// position converts a byte offset to a 0-based LSP Position whose Character is
+// a UTF-16 code-unit column.
+func (p positions) position(offset int) protocol.Position {
 	if offset < 0 {
 		offset = 0
 	}
-	if offset > len(content) {
-		offset = len(content)
+	if offset > len(p.content) {
+		offset = len(p.content)
 	}
-	line := 0
-	lineStart := 0
-	for i := 0; i < offset; i++ {
-		if content[i] == '\n' {
-			line++
-			lineStart = i + 1
-		}
-	}
-	char := utf16Len(content[lineStart:offset])
-	return protocol.Position{Line: uint32Clamp(line), Character: uint32Clamp(char)}
+	pos := p.lines.PosAt(offset)
+	lineStart := offset - (pos.Col - 1)
+	char := utf16Len(p.content[lineStart:offset])
+	return protocol.Position{Line: uint32Clamp(pos.Line - 1), Character: uint32Clamp(char)}
 }
 
-// positionToOffset converts a 0-based LSP Position (UTF-16 column) to a byte
-// offset in content. Out-of-range positions clamp to the end of content.
-func positionToOffset(content []byte, pos protocol.Position) int {
-	line := 0
-	i := 0
-	for line < int(pos.Line) && i < len(content) {
-		if content[i] == '\n' {
-			line++
-		}
-		i++
+// offset converts a 0-based LSP Position (UTF-16 column) to a byte offset.
+// Out-of-range positions clamp to the end of content.
+func (p positions) offset(pos protocol.Position) int {
+	i := p.lines.OffsetAt(source.Pos{Line: int(pos.Line) + 1, Col: 1})
+	if i < 0 {
+		return len(p.content)
 	}
-	// i is now the byte offset of the start of the target line.
 	units := 0
-	for i < len(content) && content[i] != '\n' {
+	for i < len(p.content) && p.content[i] != '\n' {
 		if units >= int(pos.Character) {
 			break
 		}
-		r, size := utf8.DecodeRune(content[i:])
+		r, size := utf8.DecodeRune(p.content[i:])
 		units += utf16RuneLen(r)
 		i += size
 	}
 	return i
 }
 
+// rangeOf converts a core byte Span to an LSP Range.
+func (p positions) rangeOf(sp source.Span) protocol.Range {
+	return protocol.Range{
+		Start: p.position(sp.Offset),
+		End:   p.position(sp.End()),
+	}
+}
+
+// offsetToPosition converts a byte offset in content to a 0-based LSP Position
+// whose Character is a UTF-16 code-unit column.
+func offsetToPosition(content []byte, offset int) protocol.Position {
+	return positionsFor(content).position(offset)
+}
+
+// positionToOffset converts a 0-based LSP Position (UTF-16 column) to a byte
+// offset in content. Out-of-range positions clamp to the end of content.
+func positionToOffset(content []byte, pos protocol.Position) int {
+	return positionsFor(content).offset(pos)
+}
+
 // spanToRange converts a core byte Span to an LSP Range.
 func spanToRange(content []byte, sp source.Span) protocol.Range {
-	return protocol.Range{
-		Start: offsetToPosition(content, sp.Offset),
-		End:   offsetToPosition(content, sp.End()),
-	}
+	return positionsFor(content).rangeOf(sp)
 }
 
 // rangeToSpan converts an LSP Range to a core byte Span.
 func rangeToSpan(content []byte, r protocol.Range) source.Span {
-	start := positionToOffset(content, r.Start)
-	end := positionToOffset(content, r.End)
+	p := positionsFor(content)
+	start := p.offset(r.Start)
+	end := p.offset(r.End)
 	if end < start {
 		end = start
 	}

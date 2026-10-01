@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"outputs": {
+		"total": {"type": "Integer", "value": 6}
+	}
+}

@@ -84,26 +84,26 @@ const hostedWaitApplications = `
 func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	r := migrateDocument(t, hostedWait, hostedWaitApplications)
 	for _, line := range []string{
-		"in ref context : Host;",
+		"in ref context : Host[1];",
 		"action 'take ack' accept Ack via context.rx;",
 		"action await : Await;",
 		"bind await.context = this;",
-		"do action : Await { in context = this; }",
+		"do action : Await { in ref :>> context = Life::context; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_takeTr", migrate.Approximated, "the signal arrives at the port rx over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
-	wantNote(t, r, "_callAwait", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to this")
-	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to this")
+	wantNote(t, r, "_callAwait", migrate.Mapped, "")
+	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to Life::context")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
-	meta(t, s, "%action Host::Run #1.h")
+	meta(t, s, "%action Host::run #1.h")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1.h : seen"); !strings.Contains(out, "= 1") {
 		t.Errorf("the hosted activity did not take the signal sent to its host's port: %s", out)
@@ -112,11 +112,258 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	s = session(t, r)
 	meta(t, s, "%instantiate Rig")
 	meta(t, s, "%state Host::Life #1.h")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: done2") {
 		t.Errorf("the state's referenced do activity did not take the signal sent to its host's port:\n%s", out)
+	}
+}
+
+func TestRelativeAcceptEventReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_accept" name="wait">
+          <trigger xmi:type="uml:Trigger" xmi:id="_trigger" event="_timer"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_accept"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_accept" target="_finish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_timer" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_when">
+        <expr xmi:type="uml:LiteralString" xmi:id="_duration" value="ditSetup s"/>
+      </when>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait {")
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantNoLine(t, r.Notation, "in ref context : Host[1];")
+	wantClean(t, "t.sysml", r)
+}
+
+func TestDurationConstraintReadsOwnerFeature(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ditSetup" name="ditSetup">`+realHref+`</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_wait" name="Wait">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_value" name="value">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_one" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_result" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_value"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_value" target="_finish"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_delay">
+          <constrainedElement xmi:idref="_value"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_interval" min="_min" max="_max"/>
+        </ownedRule>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_min">
+      <expr xmi:type="uml:LiteralString" xmi:id="_minExpr" value="ditSetup s"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Duration" xmi:id="_max">
+      <expr xmi:type="uml:LiteralString" xmi:id="_maxExpr" value="ditSetup s"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>`)
+	wantLine(t, r.Notation, "action wait accept after ditSetup [SI::s];")
+	wantClean(t, "t.sysml", r)
+}
+
+func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
+	r := migrateFixtureFile(t, "viewpoint_context")
+	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint'[1];")
+	if !strings.Contains(string(r.Notation), "in ref :>> context = Review::context;") {
+		t.Errorf("nested call does not bind the viewpoint-owned context:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_review", migrate.Mapped, "its context classifier is written as a usage, so the parameter specializes it rather than being typed by it")
+}
+
+func TestFeaturedViewpointContextIsTypedByItsDefinition(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_vp" name="Review Viewpoint">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_send"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_send" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_vpStereotype" base_Class="_vp"/>`)
+	wantLine(t, r.Notation, "in ref context : Host[1];")
+	wantLine(t, r.Notation, "send new Ping() via context.'Review Viewpoint'.tx;")
+	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestFeaturedUnnamedViewpointContextPath(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_vp">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_send"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_send" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_vpStereotype" base_Class="_vp"/>`)
+	notation := string(r.Notation)
+	for _, bad := range []string{"context..", "context.''"} {
+		if strings.Contains(notation, bad) {
+			t.Errorf("notation contains %q:\n%s", bad, notation)
+		}
+	}
+	var viewpointName string
+	for _, line := range strings.Split(notation, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "viewpoint ") && strings.HasSuffix(line, " {") {
+			viewpointName = strings.TrimSuffix(strings.TrimPrefix(line, "viewpoint "), " {")
+			break
+		}
+	}
+	if viewpointName == "" {
+		t.Fatalf("notation has no named viewpoint:\n%s", notation)
+	}
+	wantLine(t, r.Notation, "send new Ping() via context."+viewpointName+".tx;")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestFeaturedViewpointOwnActivityReachesItsPorts(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+          <node xmi:type="uml:InitialNode" xmi:id="_inspectStart"/>
+          <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing" name="send ping" signal="_ping" onPort="_tx"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_inspectFinish"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_inspectStartFlow" source="_inspectStart" target="_sendPing"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_inspectFinishFlow" source="_sendPing" target="_inspectFinish"/>
+        </ownedBehavior>
+      </nestedClassifier>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_runStart"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_inspectCall" name="inspect" behavior="_inspect"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_runFinish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runStartFlow" source="_runStart" target="_inspectCall"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runFinishFlow" source="_inspectCall" target="_runFinish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
+	wantLine(t, r.Notation, "in ref context : Host[1];")
+	wantLine(t, r.Notation, "send new Ping() via context.Review.tx;")
+	wantLine(t, r.Notation, "in ref :>> context = Run::context;")
+	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestOwnerActivitySendsThroughNestedViewpointPort(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      </nestedClassifier>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_send" name="Send">
+        <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing" name="send ping" signal="_ping" onPort="_tx"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_sendPing"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_sendPing" target="_finish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
+	wantLine(t, r.Notation, "send new Ping() via context.Review.tx;")
+	wantNote(t, r, "_sendPing", migrate.Mapped, "")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestSiblingViewpointPortsShareTheirDefinitionContext(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_reviewTx" name="reviewTx" aggregation="composite"/>
+      </nestedClassifier>
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_audit" name="Audit">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_auditTx" name="auditTx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendReviewPing" name="send review ping" signal="_ping" onPort="_reviewTx"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendAuditPing" name="send audit ping" signal="_ping" onPort="_auditTx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_sendReviewPing"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_reviewFlow" source="_sendReviewPing" target="_sendAuditPing"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_sendAuditPing" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>
+  <sysml:Viewpoint xmi:id="_auditViewpoint" base_Class="_audit"/>`)
+	wantLine(t, r.Notation, "in ref context : Host[1];")
+	wantLine(t, r.Notation, "send new Ping() via context.Review.reviewTx;")
+	wantLine(t, r.Notation, "send new Ping() via context.Audit.auditTx;")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestHostAndNestedViewpointPortsShareHostContext(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_rx" name="rx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ack" name="Ack"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendAck" name="send ack" signal="_ack" onPort="_rx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_sendPing"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_pingFlow" source="_sendPing" target="_sendAck"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_sendAck" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
+	wantLine(t, r.Notation, "in ref context : Host[1];")
+	wantLine(t, r.Notation, "send new Ping() via context.tx;")
+	wantLine(t, r.Notation, "send new Ack() via context.Review.rx;")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }
 
@@ -218,11 +465,9 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	r := migrateDocument(t, borrowedContext, borrowedContextApplications)
 	for _, line := range []string{
 		"action def Relay {",
-		"in ref context : Host;",
-		"action hit : Hit;",
-		"bind hit.context = context;",
-		"action relay : Controller::Relay;",
-		"bind relay.context = this;",
+		"in ref context : Host[1];",
+		"action hit : Hit { in ref :>> context = Relay::context; }",
+		"action relay : Controller::Relay { in ref :>> context = Run::context; }",
 		"send new Ping(a, b) via context.tx;",
 		"flow two.result to 'send ping'.a;",
 		"flow two.result to 'send ping'.b;",
@@ -233,8 +478,8 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 		wantNoLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_relay", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")
-	wantNote(t, r, "_callHit", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to context")
-	wantNote(t, r, "_callRelay", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to this; the behavior belongs to Controller and runs here in the caller's context")
+	wantNote(t, r, "_callHit", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Relay::context")
+	wantNote(t, r, "_callRelay", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Run::context; the behavior belongs to Controller and runs here in the caller's context")
 	wantNote(t, r, "_split", migrate.Approximated, "the node routes data only: the flows through it are written from their sources to the pins it leads to")
 	wantNote(t, r, "_ho1", migrate.Approximated, "the flow into (_split) is written from its sources to the pins the node leads to")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -252,6 +497,74 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	}
 }
 
+func TestNestedBehaviorDefinitionsRetainAndPassTheirEnclosingContext(t *testing.T) {
+	r := migrateFixtureFile(t, "nested_context")
+	for _, line := range []string{
+		"in ref context : Host[1];",
+		"action def Write {",
+		"action def Set {",
+		"assign context.'aO Sequencer'.k := value;",
+		"action direct {",
+		"assign 'aO Sequencer'.k := 2;",
+		"first 'decide' if 'aO Sequencer'.k >= 2 then final;",
+		"perform action direct ::> Host::direct;",
+		"action set : Set { in ref :>> context = Write::context; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "nested_context.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Host::run #1.h")
+	meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1.h : 'aO Sequencer'.k"); !strings.Contains(out, "= 2") {
+		t.Errorf("the nested action did not update the owning part's exhibited state: %s", out)
+	}
+}
+
+func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
+	r := migrateFixtureFile(t, "context_bound_call")
+	for _, line := range []string{
+		"in ref context : Host[1];",
+		"action make : Make { out integer[1]; in ref :>> context = Run::context; }",
+		"flow make.integer to consume.value;",
+		"send new Ping() via context.tx;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "out '';") {
+		t.Errorf("the unnamed output parameter has an empty redeclaration:\n%s", r.Notation)
+	}
+	if diags := errors(t, "context_bound_call.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestRecursiveContextCallSettlesContextBeforeFollowingCalls(t *testing.T) {
+	r := migrateFixtureFile(t, "recursive_context_call")
+	wantLine(t, r.Notation, "action 'recursive call' : View { in ref :>> context = View::context; }")
+}
+
+func TestMutuallyRecursiveActivitiesSettleTheirOwnerContext(t *testing.T) {
+	for _, name := range []string{"recursive_context_cycle_ab", "recursive_context_cycle_ba"} {
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFile(t, name)
+			for _, declaration := range []string{
+				"action def A {\n        in ref context : Host[1];",
+				"action def B {\n        in ref context : Host[1];",
+			} {
+				if !strings.Contains(string(r.Notation), declaration) {
+					t.Fatalf("notation lacks %q:\n%s", declaration, r.Notation)
+				}
+			}
+			wantLine(t, r.Notation, "action b : B { in ref :>> context = A::context; }")
+		})
+	}
+}
+
 // hostlessCaller is a Console, no Host and holding none, whose Drive calls Relay
 // and whose machine runs Hit as a state's do behavior, then sets `ran`.
 const hostlessCaller = `
@@ -261,8 +574,12 @@ const hostlessCaller = `
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ran0" value="0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_drive" name="Drive">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_outP" name="r" direction="out"/>
         <node xmi:type="uml:InitialNode" xmi:id="_di"/>
-        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRelay2" name="relay" behavior="_relay"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_outN" name="r" parameter="_outP"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRelay2" name="relay" behavior="_relay">
+          <result xmi:type="uml:OutputPin" xmi:id="_relayOut" name="result"/>
+        </node>
         <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
           <value xmi:type="uml:LiteralInteger" xmi:id="_oneV" value="1"/>
           <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
@@ -274,6 +591,7 @@ const hostlessCaller = `
         <edge xmi:type="uml:ControlFlow" xmi:id="_de1" source="_di" target="_callRelay2"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_de2" source="_callRelay2" target="_one"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_dof" source="_oneOut" target="_setVal"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rflow" source="_relayOut" target="_outN"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_de3" source="_set" target="_df"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_clife" name="Life">
@@ -300,11 +618,13 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 		"action relay {",
 		"/* not migrated: CallBehaviorAction 'relay' — " + why + "; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */",
 		"/* do action Hit is not run: " + why + " */",
+		"bind r = relay.result;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "action relay : Controller::Relay;\n        first relay then one;\n        action one")
 	wantNote(t, r, "_callRelay2", migrate.Approximated, why+"; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing")
+	wantNote(t, r, "_rflow", migrate.Approximated, "the flow is written, but its source 'relay' is not migrated and produces no value")
 	wantNote(t, r, "_hitting", migrate.Approximated, "its do action Hit is not run: "+why)
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -312,7 +632,7 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Console")
-	meta(t, s, "%action Console::Drive #1")
+	meta(t, s, "%action Console::drive #1")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1 : ran"); !strings.Contains(out, "= 1") {
 		t.Errorf("the placeholder did not pass the token on: %s", out)
@@ -412,26 +732,23 @@ func TestActivitiesCallingEachOtherShareTheContextTheCycleNeeds(t *testing.T) {
 			r := migrateDocument(t, doc, callCycleApplications)
 			for _, line := range []string{
 				"action def Knock {",
-				"in ref context : Host;",
+				"in ref context : Host[1];",
 				"send new Ping() via context.tx;",
-				"action again : Again;",
-				"bind again.context = context;",
+				"action again : Again { in ref :>> context = Knock::context; }",
 				"action def Again {",
-				"action knock : Controller::Knock;",
-				"bind knock.context = context;",
-				"bind knock.context = this;",
+				"action knock : Controller::Knock { in ref :>> context = Again::context; }",
 			} {
 				wantLine(t, r.Notation, line)
 			}
 			wantNoLine(t, r.Notation, "via this.tx")
-			wantNoLine(t, r.Notation, "in ref context : Controller;")
-			if n := strings.Count(string(r.Notation), "in ref context : Host;"); n != 2 {
-				t.Errorf("the Host context parameter is declared %d times, want 2 (Knock and Again):\n%s", n, r.Notation)
+			wantNoLine(t, r.Notation, "in ref context : Controller[1];")
+			if n := strings.Count(string(r.Notation), "in ref context : Host[1];"); n != 3 {
+				t.Errorf("the Host context parameter is declared %d times, want 3 (Run, Knock and Again):\n%s", n, r.Notation)
 			}
 			wantNote(t, r, "_knock", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")
 			wantNote(t, r, "_again", migrate.Mapped, "acts on a Host through its ports, which it takes as its parameter context")
-			wantNote(t, r, "_callAgain", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to context")
-			wantNote(t, r, "_callKnock", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to context; the behavior belongs to Controller and runs here in the caller's context")
+			wantNote(t, r, "_callAgain", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Knock::context")
+			wantNote(t, r, "_callKnock", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Again::context; the behavior belongs to Controller and runs here in the caller's context")
 			if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 				t.Errorf("%v", diags)
 			}

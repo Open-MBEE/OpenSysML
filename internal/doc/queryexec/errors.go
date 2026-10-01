@@ -24,6 +24,7 @@ const (
 	ErrorInvalidOrder          ErrorKind = "invalid-order"
 	ErrorUnknownProperty       ErrorKind = "unknown-property"
 	ErrorUnknownClassification ErrorKind = "unknown-classification"
+	ErrorUnknownElement        ErrorKind = "unknown-element"
 	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
@@ -60,6 +61,8 @@ const (
 	ErrorNoStateMachine ErrorKind = "no-state-machine"
 	// ErrorUnknownState: InState named a state no session object's machine declares.
 	ErrorUnknownState ErrorKind = "unknown-state"
+	// ErrorObjectDestroyed: States or Events was given an object the run destroyed.
+	ErrorObjectDestroyed ErrorKind = "object-destroyed"
 	// ErrorNoTrace: Events ran in a session that records no trace.
 	ErrorNoTrace ErrorKind = "no-trace"
 	// ErrorInvalidInterval: an Events bound is not an instant on the clock, or the interval is empty.
@@ -68,6 +71,8 @@ const (
 	ErrorTraceTruncated ErrorKind = "trace-truncated"
 	// ErrorUndeclaredRow: a RelatedColumn was to traverse from a row no element declares.
 	ErrorUndeclaredRow ErrorKind = "undeclared-row"
+	// ErrorProjectedAncestors: Tree was given ancestors for rows already projected.
+	ErrorProjectedAncestors ErrorKind = "projected-ancestors"
 )
 
 // Error is a typed query-execution failure with plan provenance.
@@ -120,6 +125,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s operation %s is not executable in this engine version", e.Query, e.Operation)
 	case ErrorInvalidArgument:
 		return fmt.Sprintf("query %s operation %s%s has invalid argument %s", e.Query, e.Operation, e.column(), e.Parameter)
+	case ErrorProjectedAncestors:
+		return fmt.Sprintf("query %s operation Tree takes ancestors over unprojected rows, and its source is projected: nest before Project", e.Query)
 	case ErrorInvalidOperator:
 		return fmt.Sprintf("query %s operation %s%s does not support %q", e.Query, e.Operation, e.column(), e.Actual)
 	case ErrorInvalidOrder:
@@ -131,9 +138,18 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
+	case ErrorUnknownElement:
+		return fmt.Sprintf("query %s names no single element %s", e.Query, e.Actual)
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:
+		if e.Property == "" {
+			message := fmt.Sprintf("query %s cannot evaluate %s", e.Query, e.Target)
+			if e.Cause != nil {
+				message += ": " + e.Cause.Error()
+			}
+			return message
+		}
 		message := fmt.Sprintf("query %s cannot evaluate feature %s", e.Query, e.Property)
 		if e.Target != "" {
 			message += " of " + e.Target
@@ -194,11 +210,12 @@ func (e *Error) columnMessage() (string, bool) {
 		), true
 	case ErrorColumnCardinality:
 		return fmt.Sprintf(
-			"query %s column %s produced %s values, expected one for %s",
+			"query %s column %s produced %s values for %s, outside its declared multiplicity %s",
 			e.Query,
 			e.Property,
 			e.Actual,
 			e.Target,
+			e.Expected,
 		), true
 	case ErrorColumnDivisionByZero:
 		return fmt.Sprintf("query %s column %s divides by zero for %s", e.Query, e.Property, e.Target), true
@@ -243,6 +260,8 @@ func (e *Error) sessionMessage() (string, bool) {
 		return fmt.Sprintf("query %s operation %s asks the state of %s, which exhibits no state machine", e.Query, e.Operation, e.Target), true
 	case ErrorUnknownState:
 		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual), true
+	case ErrorObjectDestroyed:
+		return fmt.Sprintf("query %s operation %s asks after %s, an object destroyed at %s", e.Query, e.Operation, e.Target, e.Actual), true
 	case ErrorNoTrace:
 		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation), true
 	case ErrorTraceTruncated:

@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "AcceptViaContextPortInStateDef::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "sender",
+      "finalState": "sent",
+      "events": [{"signal": "Start"}],
+      "stateVisits": ["idle", "begin", "ping", "finish", "sent"]
+    },
+    {
+      "path": "target",
+      "finalState": "done",
+      "stateVisits": ["ready", "waiting", "done"]
+    },
+    {
+      "path": "decoy",
+      "finalState": "ready",
+      "stateVisits": ["ready"]
+    }
+  ]
+}

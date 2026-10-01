@@ -74,9 +74,55 @@ func (h *actionStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Valu
 	return assignThroughChain(ec, h.describe(), s, value)
 }
 
+// assignForeign writes a qualified target naming a feature outside the body's
+// own run: an enclosing run's frame, else the performing object the qualifier types.
+func (h *actionStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
+}
+
+// assignQualifiedForeign is the action and state share of assignForeign: the
+// qualifier names the run or object owning the feature, so the write lands on
+// the frame a run of it binds, else on the performing object it types.
+func assignQualifiedForeign(ec *EvalContext, s lower.Assign, value Value, describe string) error {
+	if written, err := ec.writeFrameFeature(s.Owner, s.Feature, value); err != nil {
+		return err
+	} else if written {
+		return nil
+	}
+	target := ec.self
+	if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
+		if _, ok := target.FeatureValues[s.Target]; !ok {
+			return fmt.Errorf("%s: object #%d (%s) has no feature %s",
+				ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
+		}
+		if err := target.SetFeatureValue(ec.ctx, s.Target, value); err != nil {
+			return err
+		}
+		ec.ctx.noteObjectWrite(target, s.Target, value)
+		return nil
+	}
+	return fmt.Errorf("%s: assignment to %s::%s names no object typed by %s to write on",
+		describe, s.Owner.Name, s.Target, s.Owner.Name)
+}
+
 // performer is the object performing the action this body belongs to.
 func (h *actionStmtHost) performer() *Instance {
 	return h.exec.self
+}
+
+// occurrence is the performance instance this action runs as: `this` in a body
+// statement denotes it.
+func (h *actionStmtHost) occurrence() *Instance {
+	return h.exec.occurrence
+}
+
+// materializeOccurrence defers to the performance's lazy hook, set on the
+// executor that runs it.
+func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
+	if h.exec.thisOccurrence == nil {
+		return nil, nil
+	}
+	return h.exec.thisOccurrence()
 }
 
 // acceptReturn rejects a `return`: an action node computes no result to return.
@@ -85,11 +131,18 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 }
 
 // effect performs the action a `perform` in statement form names, where it
-// stands, or ends the performance a `terminate` names; any other effect is reported.
+// stands, starts the behavior a `perform obj.beh.start` names on its object, or
+// ends the performance a `terminate` names; any other effect is reported.
 func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	env := engine.env
 	if s.Kind == lower.EffectTerminate {
 		return h.exec.terminate(engine, h.perf, s)
+	}
+	if s.Kind == lower.EffectStart {
+		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
+			return fmt.Errorf("%s: %w", h.describe(), err)
+		}
+		return nil
 	}
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
@@ -135,6 +188,10 @@ func (h *actionStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGrap
 func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 	return flowNext, fmt.Errorf("%w: %s: a flow of steps in a block is not executable",
 		ErrStatementNotExecutable, h.describe())
+}
+
+func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	return h.exec.performBlockFlow(h.perf, engine, block)
 }
 
 // performNode performs node, which a block of parent's body declares, as a subperformance
@@ -184,7 +241,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			return flowNext, err
 		}
 	}
-	if err := e.applyDataFlows(parent, graph, node, f.perf.data); err != nil {
+	if err := e.applyDataFlows(parent, graph, node, f.perf, f.perf.data, f.perf.streamed); err != nil {
 		return flowNext, err
 	}
 	if ended != nil {
@@ -219,6 +276,90 @@ func (f *performFrame) abandon(*Context) {
 }
 
 func (f *performFrame) clone() bodyFrame { c := *f; return &c }
+
+// blockFlowFrame resumes a transparent performance for a stated body flow.
+type blockFlowFrame struct {
+	perf   *actionFrame
+	levels int
+}
+
+func (f *blockFlowFrame) abandon(*Context) {
+	if f.perf != nil {
+		f.perf.ended, f.perf.live = true, 0
+	}
+}
+
+func (f *blockFlowFrame) clone() bodyFrame { c := *f; return &c }
+
+// performBlockFlow runs the flow a loop or branch body states as a performance
+// of its own, a subperformance of parent with engine's block-locals in reach.
+func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	f, resumed, err := popFrame[*blockFlowFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &blockFlowFrame{levels: e.ctx.bodyLevels()}
+	}
+	if f.perf == nil {
+		scope := block.Scope
+		if scope == nil {
+			scope = parent.scope
+		}
+		f.perf = &actionFrame{
+			node:        block.Node,
+			graph:       block.Graph,
+			flow:        block.Graph,
+			scope:       scope,
+			parent:      parent,
+			locals:      slices.Clone(engine.env.frames),
+			connections: joinConnections(parent.connections, block.Graph.Connections),
+			data:        make(map[string]Value),
+			features:    make(map[string]ast.FeatureDirection),
+			subactions:  make(map[ast.Node]*actionFrame),
+			perfs:       e,
+			run:         e.ctx.newRun(),
+			live:        1,
+			body:        true,
+		}
+		switch block.Node.(type) {
+		case *ast.WhileLoopActionNode:
+			f.perf.label = "loop body of " + parent.describe()
+		case *ast.IfBranchNode:
+			f.perf.label = "branch body of " + parent.describe()
+		}
+		features := make([]lower.Feature, 0, len(block.Graph.Attributes))
+		for _, attr := range block.Graph.Attributes {
+			f.perf.features[attr.Name] = attr.Direction
+			features = append(features, lower.Feature{
+				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult,
+				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
+			})
+		}
+		activation, endStep := e.ctx.beginStep()
+		f.perf.began = activation
+		if err := e.seedDeclaredValues(f.perf, features, activation); err != nil {
+			endStep()
+			return flowNext, err
+		}
+		endStep()
+	}
+	err = e.owner.runOwnFlow(f.perf)
+	if err != nil {
+		if ended := unwound(err); ended != nil && ended.perf != f.perf {
+			e.flow.dropTokensIn(f.perf, 0)
+			f.perf.live = 0
+			f.perf.ended = true
+			return flowNext, ended
+		}
+		if paused(err) {
+			return flowNext, e.ctx.pausing(f, err)
+		}
+		return flowNext, err
+	}
+	f.perf.ended = true
+	return flowNext, nil
+}
 
 // performPhase is how far a node's performance has come.
 type performPhase int

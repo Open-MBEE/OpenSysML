@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Run: every kind of activity node an activity diagram shows, so that the
+         export's placement of each is written or accounted for: an initial node
+         and a flow final node become start and done, which no Layout names; the
+         fork, join, decision and activity final node are declared members. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_control" name="Control">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_controller" name="Controller">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_run" name="Run">
+          <node xmi:type="uml:InitialNode" xmi:id="_cn_init"/>
+          <node xmi:type="uml:ForkNode" xmi:id="_cn_fork"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_cn_heat" name="heat"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_cn_cool" name="cool"/>
+          <node xmi:type="uml:JoinNode" xmi:id="_cn_join"/>
+          <node xmi:type="uml:DecisionNode" xmi:id="_cn_check" name="check"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_cn_final"/>
+          <node xmi:type="uml:FlowFinalNode" xmi:id="_cn_flow"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e1" source="_cn_init" target="_cn_fork"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e2" source="_cn_fork" target="_cn_heat"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e3" source="_cn_fork" target="_cn_cool"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e4" source="_cn_heat" target="_cn_join"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e5" source="_cn_cool" target="_cn_join"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e6" source="_cn_join" target="_cn_check"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e7" source="_cn_check" target="_cn_final">
+            <guard xmi:type="uml:OpaqueExpression" xmi:id="_cn_g7">
+              <language>English</language>
+              <body>true</body>
+            </guard>
+          </edge>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cn_e8" source="_cn_check" target="_cn_flow">
+            <guard xmi:type="uml:OpaqueExpression" xmi:id="_cn_g8">
+              <language>English</language>
+              <body>false</body>
+            </guard>
+          </edge>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_run" name="Run" ownerOfDiagram="_act_run">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_cn_init</usedElements>
+                  <usedElements>_cn_fork</usedElements>
+                  <usedElements>_cn_heat</usedElements>
+                  <usedElements>_cn_cool</usedElements>
+                  <usedElements>_cn_join</usedElements>
+                  <usedElements>_cn_check</usedElements>
+                  <usedElements>_cn_final</usedElements>
+                  <usedElements>_cn_flow</usedElements>
+                  <usedElements>_cn_e1</usedElements>
+                  <usedElements>_cn_e2</usedElements>
+                  <usedElements>_cn_e3</usedElements>
+                  <usedElements>_cn_e4</usedElements>
+                  <usedElements>_cn_e5</usedElements>
+                  <usedElements>_cn_e6</usedElements>
+                  <usedElements>_cn_e7</usedElements>
+                  <usedElements>_cn_e8</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_controller" base_Class="_blk_controller"/>
+</xmi:XMI>

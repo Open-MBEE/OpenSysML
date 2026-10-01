@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::Config",
+  "trace": true,
+  "outputs": {
+    "verdict": {"type": "EnumLiteral", "value": "VerdictKind::pass"},
+    "ended": {"type": "Real", "value": 60.0}
+  }
+}

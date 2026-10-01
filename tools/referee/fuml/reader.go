@@ -99,7 +99,7 @@ func ReadModel(src io.Reader, lib *Library) (*Model, error) {
 	r := &reader{
 		doc:    doc,
 		lib:    lib,
-		model:  &Model{activities: map[string]*Activity{}, classes: map[string]*Class{}},
+		model:  &Model{activities: map[string]*Activity{}, classes: map[string]*Class{}, signals: map[string]*Signal{}},
 		assocs: map[string]*Association{},
 		nodes:  map[string]*Node{},
 		edges:  map[string]*Edge{},
@@ -171,8 +171,9 @@ func (r *reader) readClassifiers(root *xmi.Element) {
 		})
 	}
 	for _, e := range r.typed(root, "uml:Signal") {
-		s := &Signal{ID: e.ID, Name: e.Name(), Line: e.Line}
+		s := &Signal{ID: e.ID, Name: e.Name(), Model: r.model, Line: e.Line}
 		r.model.Signals = append(r.model.Signals, s)
+		r.model.signals[e.ID] = s
 		owner := TypeRef{ID: e.ID, Name: e.Name(), Kind: "Signal"}
 		for _, g := range e.Tagged("generalization") {
 			s.Generals = append(s.Generals, r.typeRef(g, "general"))
@@ -230,6 +231,17 @@ func (r *reader) readProperty(e *xmi.Element, owner TypeRef) *Property {
 		Composite:    e.Attr("aggregation") == "composite",
 	}
 	r.props[e.ID] = p
+	if ids := e.Refs("redefinedProperty"); len(ids) > 0 {
+		r.later(func() {
+			for _, id := range ids {
+				if redefined := r.props[id]; redefined != nil {
+					p.Redefines = append(p.Redefines, redefined)
+				} else {
+					r.diag(e, "redefined property %s is not declared in this model", id)
+				}
+			}
+		})
+	}
 	if id := e.Attr("association"); id != "" {
 		r.later(func() {
 			if a := r.assocs[id]; a != nil {
@@ -463,7 +475,7 @@ func (r *reader) readNodeRefs(e *xmi.Element, n *Node) {
 		}
 	case SendSignalAction:
 		n.Signal = r.typeRef(e, "signal")
-	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction:
+	case ReadStructuralFeatureAction, AddStructuralFeatureValueAction, RemoveStructuralFeatureValueAction, ClearStructuralFeatureAction:
 		r.later(func() {
 			id := e.Attr("structuralFeature")
 			if n.Feature = r.props[id]; n.Feature == nil {

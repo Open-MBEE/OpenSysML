@@ -268,7 +268,6 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 		}
 		subject = inst
 	}
-
 	// The requirement being satisfied chooses the object its conditions read the
 	// same way `%requirement` does, so an object holding the carrier nested
 	// answers about that nested object rather than about the declaration.
@@ -278,21 +277,44 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if carrying == nil {
 		carrying = target
 	}
-	resolved, err := ctx.checkSubject("satisfaction", a.Text(), carrying, subject)
-	if err != nil {
-		return CheckResult{}, err
-	}
-	reached := resolved // the object resolved to, named by where it was reached from
-	subject = resolved.instance
+	return ctx.checkOn(sharedElement(a), "satisfaction", a.Text(), carrying, subject, func(reached carrier) (CheckResult, error) {
+		return ctx.checkSatisfactionOn(a, target, reached)
+	})
+}
 
-	scope := target.OwnerScope
-	members := ctx.chainMembers(target, scope)
+// ReadInSatisfaction evaluates ref, written in scope, as a's require conditions read it on subject:
+// with the requirement's subject and other members bound as checkSatisfactionOn binds them.
+func (ctx *Context) ReadInSatisfaction(a *SatisfyAssertion, subject *Instance, scope *symbols.Scope, ref ast.Node) (Value, error) {
+	defer ctx.beginRun()()
+	if a == nil || a.Symbol == nil {
+		return Value{}, ErrNotASatisfaction
+	}
+	target := a.Symbol
+	_, bindings, err := ctx.satisfactionBindings(a, target, subject)
+	if err != nil {
+		return Value{}, err
+	}
+	activation, endStep := ctx.beginStep()
+	defer endStep()
+	ec := NewEvalContextIn(ctx, scope, subject)
+	ec.activation = activation
+	ec.features = ctx.conditionFeatures(target)
+	if f := mapFrame(bindings); f.vars != nil {
+		ec.pushFrame(f)
+	}
+	return ec.Eval(ref)
+}
+
+// checkSatisfactionOn is CheckSatisfactionOn evaluated on the object it resolved
+// to, named by where it was reached from.
+func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (CheckResult, error) {
+	subject := reached.instance
 
 	// Every subject the chain declares names the object `by` supplies, which is
 	// what satisfies the requirement (SysML v2 §8.3.17.15); the other values the
 	// requirement binds by name are visible to its conditions here too, as they
 	// are when the requirement is evaluated directly.
-	bindings, err := ctx.memberBindings(target, "requirement", a.Text(), members, subject, subject, frame{})
+	members, bindings, err := ctx.satisfactionBindings(a, target, subject)
 	if err != nil {
 		return ctx.satisfactionResult(false, subject, reached), err
 	}
@@ -311,6 +333,14 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 		negated:  a.Negated,
 	}, conds)
 	return ctx.satisfactionResult(holds, subject, reached), err
+}
+
+// satisfactionBindings are the members of target's requirement chain and the values
+// they bind on subject, every subject member naming subject itself.
+func (ctx *Context) satisfactionBindings(a *SatisfyAssertion, target *symbols.Symbol, subject *Instance) ([]scopedMember, map[string]Value, error) {
+	members := ctx.chainMembers(target, target.OwnerScope)
+	bindings, err := ctx.memberBindings(target, "requirement", a.Text(), members, subject, subject, frame{})
+	return members, bindings, err
 }
 
 // satisfactionResult reports a verdict about subject, naming where a resolved

@@ -44,6 +44,9 @@ const (
 	// ChoiceStepOrder: a do behavior had a step due while an event was due for
 	// dispatch, and one of them went first.
 	ChoiceStepOrder
+	// ChoiceEntryStep: an event due for dispatch and a held entry could proceed,
+	// and one of them went first.
+	ChoiceEntryStep
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -69,6 +72,8 @@ func (k ChoiceKind) String() string {
 		return "exit order"
 	case ChoiceStepOrder:
 		return "step order"
+	case ChoiceEntryStep:
+		return "entry step"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -137,6 +142,9 @@ func (c ChoicePoint) Describe() string {
 	if c.Kind == ChoiceDecisionBranch && c.Weighted() {
 		return fmt.Sprintf("step %d: %s branches %s hold (weighted; %s)", c.Step, c.Where, c.weightedAlternatives(), c.selection(taken))
 	}
+	if c.Kind == ChoiceTransition && c.Weighted() {
+		return fmt.Sprintf("%s: transitions %s (weighted; %s)", c.Where, c.weightedAlternatives(), c.selection(taken))
+	}
 	switch c.Kind {
 	case ChoiceTokenOrder:
 		return fmt.Sprintf("step %d: tokens %s (unordered; took %s first)", c.Step, alts, taken)
@@ -155,7 +163,7 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	case ChoiceDispatchOrder:
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
-	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder:
+	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
 		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
@@ -165,7 +173,7 @@ func (c ChoicePoint) Describe() string {
 func (c ChoicePoint) weightedAlternatives() string {
 	parts := make([]string, len(c.Alternatives))
 	for i, alt := range c.Alternatives {
-		parts[i] = alt + " p=" + formatWeight(c.Weights[i])
+		parts[i] = alt + " p=" + FormatWeight(c.Weights[i])
 	}
 	return strings.Join(parts, ", ")
 }
@@ -173,7 +181,7 @@ func (c ChoicePoint) weightedAlternatives() string {
 // selection says how a weighted decision selected taken: by a draw, or without one.
 func (c ChoicePoint) selection(taken string) string {
 	if c.Drawn {
-		return "drew " + formatWeight(c.Drew) + ", took " + taken
+		return "drew " + FormatWeight(c.Drew) + ", took " + taken
 	}
 	return "took " + taken
 }
@@ -267,6 +275,9 @@ func (ctx *Context) noteFrom(n RunNote, self *Instance, behavior *symbols.Symbol
 		return
 	}
 	ctx.run.notes = append(ctx.run.notes, n)
+	if ctx.forwardNotes != nil {
+		ctx.forwardNotes(n)
+	}
 	if c, ok := n.(ChoicePoint); ok {
 		ctx.choices = append(ctx.choices, c.Choice())
 	}

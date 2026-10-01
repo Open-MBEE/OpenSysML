@@ -23,14 +23,17 @@ type stateStmtHost struct {
 	// attrs are the attributes of the state the behavior belongs to and of the
 	// states enclosing it, innermost first.
 	attrs []map[string]Value
+	// firing is the transition the behavior reads as being taken: the one under way
+	// for an entry, exit or effect, the one that entered the state for a do behavior.
+	firing *firing
 	// terminated: the run ended by a `terminate` of the behavior's own performance.
 	terminated bool
 }
 
 // executeBehaviors runs behaviors in order, each to its end at the instant. One a
-// `terminate` ends takes the rest of its block with it; other blocks run as written.
+// `terminate` ends takes the rest of its block with it; the others run as written.
 func (e *StateExecutor) executeBehaviors(behaviors []lower.StateBehavior) error {
-	var ended []lower.BehaviorBlock
+	var ended []ast.Node
 	for _, behavior := range behaviors {
 		if e.endedBefore(ended, behavior) {
 			continue
@@ -53,7 +56,7 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 	if len(behavior.Body) == 0 {
 		return false, nil
 	}
-	host := e.behaviorHost(behavior)
+	host := e.behaviorHost(behavior, e.currentFiring())
 	defer e.ctx.holdClock(host.describe())()
 	if err := host.run(); err != nil {
 		return false, err
@@ -63,8 +66,8 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 
 // endedBefore reports whether a `terminate` ended behavior's block already: the
 // behavior then ends before it begins, which the trace records.
-func (e *StateExecutor) endedBefore(ended []lower.BehaviorBlock, behavior lower.StateBehavior) bool {
-	if !slices.ContainsFunc(ended, behavior.Block.Same) {
+func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavior) bool {
+	if behavior.Block == nil || !slices.Contains(ended, behavior.Block) {
 		return false
 	}
 	if tr := e.trace(); tr != nil {
@@ -73,25 +76,12 @@ func (e *StateExecutor) endedBefore(ended []lower.BehaviorBlock, behavior lower.
 	return true
 }
 
-// endBlockPending ends, before they begin, the pending do behaviors of a block a
-// `terminate` ended; the other behaviors keep their order.
-func (e *StateExecutor) endBlockPending(pending []lower.StateBehavior, block lower.BehaviorBlock) []lower.StateBehavior {
-	ended := []lower.BehaviorBlock{block}
-	kept := make([]lower.StateBehavior, 0, len(pending))
-	for _, behavior := range pending {
-		if !e.endedBefore(ended, behavior) {
-			kept = append(kept, behavior)
-		}
-	}
-	return kept
-}
-
 // behaviorHost prepares one execution of a behavior: its performance over the
-// machine's data and the attributes of the states around it.
-func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHost {
-	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner)}
+// machine's data and the attributes of the states around it, within firing.
+func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
+	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence, thisOccurrence: e.materializeOccurrence},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -102,14 +92,44 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 	host.flow.driven.exec = host.flow
 	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
+	host.perfs.root.perfs = host.perfs
 	return host
+}
+
+// currentFiring is the transition being taken with its payload copied, so a
+// behavior performed or resumed after the firing still reads them.
+func (e *StateExecutor) currentFiring() *firing {
+	return e.firingOf(e.firingTrans)
+}
+
+// firingOf is the firing of t with the payload its trigger bound, copied from
+// the machine's data as it stands; nil t is a firing of no transition.
+func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
+	f := &firing{taken: t}
+	if t != nil && len(t.Accepted) > 0 {
+		f.payload = make(map[string]Value, len(t.Accepted))
+		for _, name := range t.Accepted {
+			if v, ok := e.stateData[name]; ok {
+				f.payload[name] = v
+			}
+		}
+	}
+	return f
+}
+
+// dataFrame is the machine's data as the behavior reads it, within its firing. The
+// frame runs the machine, so a member of the machine's behavior read by a qualified
+// name — `Track::context` inside a behavior of a state of Track's — finds its value
+// here.
+func (h *stateStmtHost) dataFrame() frame {
+	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait
 // and are re-entered (perform).
 func (h *stateStmtHost) run() error {
 	_, err := h.exec.ctx.runStatements(func() *stmtEngine {
-		engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
+		engine := newStmtEngineOver(h.exec.ctx, h, h.dataFrame(), h.attrs)
 		engine.env.perf = h.perfs.root
 		return engine
 	}, h.behavior.Body)
@@ -162,14 +182,14 @@ type doRun struct {
 	mail []Message
 }
 
-// newDoRun prepares a do behavior to run, its first statement yet to be performed;
-// nil for a behavior with no statement to run.
-func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
+// newDoRun prepares a do behavior to run within the firing that entered its state,
+// its first statement yet to be performed; nil for a behavior with no statement to run.
+func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *doRun {
 	if len(behavior.Body) == 0 {
 		return nil
 	}
-	host := e.behaviorHost(behavior)
-	body := &bodyRun{work: host, awaitsMessages: true, yields: true}
+	host := e.behaviorHost(behavior, firing)
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
 	return &doRun{host: host, body: body}
 }
 
@@ -177,14 +197,13 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
-	run.host.flow.leftStanding = false
 	run.host.terminated = false
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {
 			return nil, run.body.err
 		}
-		if pause.onWait || pause.yielded {
+		if pause.tokenStep || pause.onWait || pause.yielded {
 			return run, nil
 		}
 	}
@@ -197,11 +216,11 @@ func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
 	return run.resume(ctx)
 }
 
-// resumable reports a run due to go on: one yielded between statements, or one
-// whose wait on the clock has ended; a run parked for a message stays until its
-// machine dispatches one to it.
+// resumable reports a run due to go on: one yielded between statements or between
+// two moves of its flow, or one whose wait on the clock has ended; a run parked
+// for a message stays until its machine dispatches one to it.
 func (run *doRun) resumable(ctx *Context) bool {
-	if run.body.paused.yielded {
+	if run.body.paused.yielded || run.body.paused.tokenStep {
 		return true
 	}
 	defer ctx.readingMail(&run.mail)()
@@ -265,7 +284,7 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 		subactions:  make(map[ast.Node]*actionFrame),
 		nodes:       h.behavior.Nodes,
 		label:       h.describe(),
-		outer:       []frame{mapFrame(h.exec.stateData)},
+		outer:       []frame{h.dataFrame()},
 		run:         h.exec.ctx.newRun(),
 	}
 	if root.scope == nil {
@@ -338,6 +357,12 @@ func (h *stateStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value
 	return assignThroughChain(ec, h.describe(), s, value)
 }
 
+// assignForeign writes a qualified target naming a feature outside the body's
+// own run: an enclosing run's frame, else the performing object the qualifier types.
+func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
+}
+
 // assignStateAttribute writes an attribute owned by the state running this
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.
@@ -358,6 +383,17 @@ func (h *stateStmtHost) performer() *Instance {
 	return h.exec.self
 }
 
+// occurrence is the state performance this machine runs as: `this` in a body
+// statement denotes it.
+func (h *stateStmtHost) occurrence() *Instance {
+	return h.exec.occurrence
+}
+
+// materializeOccurrence defers to the executor's.
+func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
+	return h.exec.materializeOccurrence()
+}
+
 // acceptReturn rejects a `return`: a state behavior computes no result.
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
@@ -369,6 +405,12 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	if s.Kind == lower.EffectTerminate {
 		return h.perfs.terminate(engine, h.perfs.root, s)
+	}
+	if s.Kind == lower.EffectStart {
+		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
+			return fmt.Errorf("%s: %w", h.describe(), err)
+		}
+		return nil
 	}
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
@@ -384,6 +426,10 @@ func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 // behavior's, in a frame of its own (performances.performNode).
 func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
 	return h.perfs.performNode(h.perfs.root, engine, graph, node)
+}
+
+func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	return h.perfs.performBlockFlow(h.perfs.root, engine, block)
 }
 
 // runFlow runs the token flow an inline body states with its successions and
@@ -450,6 +496,13 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
+}
+
+// returnAround writes a returned output as assignAround does and keeps it for the
+// caller when a call event's transition is firing.
+func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
+	h.exec.recordCallOutput(name, value)
+	return h.assignAround(name, value)
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.

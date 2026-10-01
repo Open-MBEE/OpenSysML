@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -16,6 +17,7 @@ type calcParameter struct {
 	Name    string          // parameter name arguments bind to
 	Default ast.Node        // value-binding expression used when no argument is passed (nil if none)
 	Owner   *symbols.Symbol // the calc that declares the default (a supertype for an inherited one)
+	Sym     *symbols.Symbol // the parameter's own symbol, which its effective multiplicity is read off
 	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
 	// IsSubject marks a case's subject parameter, the object the case is about.
 	IsSubject bool
@@ -178,6 +180,9 @@ type calcShape struct {
 	// Uncomputed says why the calc computes nothing (no body, no bound output);
 	// the calc is still a function value, and invoking it reports this.
 	Uncomputed error
+	// Tool is the ToolExecution the calc carries, when it is computed by an
+	// external tool rather than by a body it need not state.
+	Tool *toolExecution
 	// compiled is the body in the compiled tier once compileState says it is
 	// eligible; a shape found ineligible keeps the evaluator for good.
 	compiled     *compiledCalc
@@ -253,6 +258,14 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
+	// Only a calc computes by tool; a case always runs its body.
+	if kind == "calc" {
+		tool, err := ctx.toolExecutionOf(sym)
+		if err != nil {
+			return nil, err
+		}
+		shape.Tool = tool
+	}
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
@@ -260,7 +273,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
 	switch {
-	case computes:
+	case computes || shape.Tool != nil:
 	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
 			ErrNoResultExpression, label, shape.outputNames())
@@ -338,6 +351,7 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 			sym := memberSymbol(DeclScope(link), usage)
 			param := calcParameter{
 				Name: name, Default: usage.Value, Owner: link,
+				Sym:  sym,
 				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
 			}
 			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
@@ -616,10 +630,10 @@ func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 		clear(bindings)
 		slots.release()
 	}
-	frameBuf := frame.engine.frameBuf
+	frameBuf, thisOccurrence := frame.engine.frameBuf, frame.engine.thisOccurrence
 	clear(frameBuf)
 	*frame = invocationFrame{bindings: bindings, slots: slots}
-	frame.engine.frameBuf = frameBuf[:0]
+	frame.engine.frameBuf, frame.engine.thisOccurrence = frameBuf[:0], thisOccurrence
 	if len(ctx.freeInvocationFrames) < maxFreeInvocationFrames {
 		ctx.freeInvocationFrames = append(ctx.freeInvocationFrames, frame)
 	}
@@ -667,9 +681,15 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	activation := ctx.newActivation()
 	defer ctx.endActivation(activation)
 
+	// A definition's `this` denotes the occurrence the invocation itself is,
+	// which the first read of it materializes seeded with the parameters bound
+	// so far; the invocation's end ends it. The box is on the locals frame, so a
+	// qualified write through it lands on the same instance the host mirrors to.
+	occurrence := &calcOccurrence{}
 	frame.slots.reset(shape.ParamNames)
 	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
+	locals.write = calcFeatureWriter(ctx, shape, occurrence)
 	ec := &frame.ec
 	*ec = EvalContext{
 		ctx:        ctx,
@@ -680,18 +700,34 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		activation: activation,
 	}
 
+	if isBehaviorDefKind(shape.Sym.Kind) {
+		occurrence.materialize = ctx.calcOccurrenceMaterializer(shape, locals, activation, occurrence)
+		defer func() {
+			if occurrence.inst != nil {
+				ctx.endPerformanceLife(occurrence.inst)
+			}
+		}()
+		ec.thisOccurrence = occurrence.thisOccurrence()
+	}
+
 	if ec.trace != nil {
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
 		if ec.trace != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return Value{}, err
 	}
 
-	result, err := ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
+	var result Value
+	var err error
+	if shape.Tool != nil {
+		result, err = ctx.computeCalcResultByTool(shape, ec.scope, locals.lookup)
+	} else {
+		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing, occurrence)
+	}
 	if ec.trace != nil {
 		if err != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
@@ -703,6 +739,41 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		return Value{}, calcFrame(shape.Kind, shape.Name, err)
 	}
 	return result, nil
+}
+
+// computeCalcResultByTool is the result of a tool-annotated calc: the result
+// parameter's value, else the one its outputs settle.
+func (ctx *Context) computeCalcResultByTool(shape *calcShape, scope *symbols.Scope, held func(string) (Value, bool)) (Value, error) {
+	result, returned, outputs, err := ctx.computeCalcByTool(shape, scope, held)
+	if err != nil || returned {
+		return result, err
+	}
+	return shape.toolCalcResult(outputs)
+}
+
+// calcOccurrenceMaterializer materializes the occurrence a definition's `this`
+// denotes once, seeded with the parameters bound so far.
+func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, activation int64, occurrence *calcOccurrence) func() (*Instance, error) {
+	return func() (*Instance, error) {
+		if occurrence.inst != nil {
+			return occurrence.inst, nil
+		}
+		inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range shape.ParamNames {
+			if value, held := locals.lookup(name); held {
+				if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+						ErrActionPerformanceOccurrence, name, inst.ID, err)
+				}
+			}
+		}
+		ctx.beginPerformanceLife(inst, activation)
+		occurrence.inst = inst
+		return inst, nil
+	}
 }
 
 // enterCalc spends one of the run's calc depth budget, so a recursion evaluates
@@ -744,6 +815,7 @@ func (ctx *Context) bindCalcParameters(
 	callerScope *symbols.Scope,
 	bindings frame,
 	nested *EvalContext,
+	occurrence *calcOccurrence,
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -757,17 +829,31 @@ func (ctx *Context) bindCalcParameters(
 			return err
 		}
 		// The parameter holds the value bound to it, so that value answers to the
-		// parameter's declaration as a written one does.
+		// parameter's effective multiplicity as a written one does to its declared one.
 		what := func() string {
 			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
 		}
-		if err := param.Decl.check(ctx, &value, what); err != nil {
+		decl := param.Decl
+		if decl.Target != nil && param.Sym != nil {
+			target := *decl.Target
+			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
+			decl.Target = &target
+		}
+		if err := decl.check(ctx, &value, what); err != nil {
 			return err
 		}
 		if err := param.checkFunction(&value, what); err != nil {
 			return err
 		}
 		bindings.bindParam(i, param.Name, value)
+		if occurrence != nil && occurrence.inst != nil {
+			// A parameter default read `this` earlier, so the occurrence exists
+			// and needs this binding like a run's later defaults do.
+			if err := occurrence.inst.SetFeatureValue(ctx, param.Name, value); err != nil {
+				return fmt.Errorf("%w: bind %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
+			}
+		}
 		if ec.trace != nil {
 			ec.trace.RecordCalcBind(param.Name, value, source)
 		}
@@ -780,12 +866,16 @@ func (ctx *Context) bindCalcParameters(
 // the invocation yields: what the body returned, or, for a body that returns
 // nothing, the calc's designated output feature, evaluated in the invocation's
 // activation, which the caller ends after it.
-func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame) (Value, error) {
-	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self}
+func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
+	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
-	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
+	thisOccurrence := frame.engine.thisOccurrence
+	if thisOccurrence == nil {
+		thisOccurrence = frame.host.materializeOccurrence
+	}
+	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence}
 	frame.host.attachPerformances(&frame.engine)
-	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape)
+	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {
 		return Value{}, err
 	}
@@ -800,7 +890,7 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// naming itself is a cycle rather than an evaluation, so it is evaluated
 	// through the same run bookkeeping a calc usage's outputs use.
 	run := newCalcRun(shape, callerScope, self, frame.locals())
-	run.activation, run.perf = activation, frame.host.performance()
+	run.activation, run.perf, run.occurrence = activation, frame.host.performance(), occurrence
 	if len(enclosing) > 0 {
 		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
 	}
@@ -809,15 +899,79 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	return run.value(ctx, out)
 }
 
-// runCalcSteps runs the calc's lowered computation on engine, whose data holds
-// the calc's parameters on the way in and its locals on the way out, reporting
+// toolCalcResult resolves what an invocation of a tool-computed calc yields when
+// the calc declares no result parameter: the value the tool bound to the output
+// it designates, as runCalcBody resolves a body that returned nothing — a result
+// parameter the tool answered wins outright, the one output the tool bound wins
+// alone, and several or none fail as designatedOutput fails. The tool's answers
+// are the whole computation; no body binding is evaluated.
+func (shape *calcShape) toolCalcResult(outputs map[string]Value) (Value, error) {
+	out, err := shape.designatedToolOutput(outputs)
+	if err != nil {
+		return Value{}, err
+	}
+	key := out.Name
+	if key == "" {
+		key = resultOutputName
+	}
+	return outputs[key], nil
+}
+
+// designatedToolOutput returns the output an invocation of a tool-computed calc
+// yields, in the spirit of designatedOutput: the candidates are the outputs the
+// tool answered, a result parameter winning outright over the rest.
+func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutput, error) {
+	var valued []calcOutput
+	for _, out := range shape.Outputs {
+		key := out.Name
+		if out.IsResult && key == "" {
+			key = resultOutputName
+		}
+		if _, answered := outputs[key]; !answered {
+			continue
+		}
+		if out.IsResult {
+			return out, nil
+		}
+		valued = append(valued, out)
+	}
+
+	switch len(valued) {
+	case 0:
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrCalcNoReturn, shape.Label)
+	case 1:
+		return valued[0], nil
+	default:
+		names := make([]string, 0, len(valued))
+		for _, out := range valued {
+			names = append(names, out.Name)
+		}
+		return calcOutput{}, fmt.Errorf(
+			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
+			ErrAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+		)
+	}
+}
+
+// runCalcSteps runs the calc's lowered steps on engine, whose data holds the
+// calc's parameters on the way in and its locals on the way out, reporting
 // the value host took from a `return` and whether the body returned one.
-func runCalcSteps(engine *stmtEngine, host *calcStmtHost, shape *calcShape) (Value, bool, error) {
-	flow, err := engine.run(shape.Steps)
+func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statement) (Value, bool, error) {
+	flow, err := engine.run(steps)
 	if err != nil {
 		return Value{}, false, err
 	}
 	return host.result, flow == flowReturn, nil
+}
+
+// observationSteps splits Steps at the results ending them (lower.IsResult): the
+// steps a run of a Monte Carlo case performs, then the results run over its sample.
+func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
+	end := len(shape.Steps)
+	for end > 0 && lower.IsResult(shape.Steps[end-1]) {
+		end--
+	}
+	return shape.Steps[:end], shape.Steps[end:]
 }
 
 // checkArgs rejects an argument list that cannot bind to the parameters at all:
@@ -849,9 +1003,15 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 }
 
 // optional reports whether the parameter may go without an argument: its
-// declared multiplicity admits no value, as `[0..1]` does.
-func (param *calcParameter) optional() bool {
-	return param.Decl.Target != nil && param.Decl.multStated && param.Decl.Target.mult.AllowsNone()
+// effective multiplicity admits no value, as `[0..1]` does.
+func (param *calcParameter) optional(m *semantics.Model) bool {
+	return param.Sym != nil && m.EffectiveParameterRange(param.Sym).AllowsNone()
+}
+
+// declaredOptional answers the read rule — whether the parameter as written
+// admits no value — not invocation, where a bare parameter is optional anyway.
+func (param *calcParameter) declaredOptional() bool {
+	return param.Decl.multStated && param.Decl.Target != nil && param.Decl.Target.mult.AllowsNone()
 }
 
 // hasParameter reports whether the calc declares an input parameter of that name.
@@ -909,7 +1069,7 @@ func (ec *EvalContext) bindCalcParameter(
 			}
 			return Value{}, "", shape.unboundSubject(param)
 		}
-		if param.optional() {
+		if param.optional(ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
 		return Value{}, "", fmt.Errorf(
@@ -978,6 +1138,11 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	if ctx.calcComputes(chain) {
 		return nil
 	}
+	// A tool-computed calc answers from its tool, not the library's implementation;
+	// a failed annotation read computes too, so the error surfaces on the shape path.
+	if tool, err := ctx.toolExecutionOf(sym); err != nil || tool != nil {
+		return nil
+	}
 	lib := ctx.implementedLibraryCalc(sym)
 	if lib == nil {
 		return nil
@@ -1005,7 +1170,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 // written, declared and defaulted by the nearest of its redefinitions the model
 // states — with the position of the library input it redefines, -1 for none.
 func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols.Symbol) (calcParameter, int) {
-	param := calcParameter{Name: sym.Name, IsCalc: isCalcUsageSymbol(sym)}
+	param := calcParameter{Name: sym.Name, Sym: sym, IsCalc: isCalcUsageSymbol(sym)}
 	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
 		param.Name = effective
 	}
@@ -1123,7 +1288,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
 		return Value{}, err
 	}
 

@@ -46,7 +46,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		}
 	}
 	sameOwner := ownerScope != nil && ownerScope == sym.OwnerScope
-	if sym.Name != "" && ownerScope != nil && !sameOwner && len(ownerScope.LookupLocalAll(sym.Name)) > 0 {
+	if sym.Name != "" && !sameOwner && nameTaken(ownerScope, sym.Name) {
 		return nil, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -363,7 +363,7 @@ func (mv *mover) reread() (*moved, error) {
 		return nil, err
 	}
 	model := reparseModel(m, edited)
-	if introduced := introduced(parseDiagnostics(m.ParseDiags), parseDiagnostics(model.ParseDiags)); len(introduced) > 0 {
+	if introduced := introduced(parser.AsDiagnostics(m.ParseDiags, nil), parser.AsDiagnostics(model.ParseDiags, nil)); len(introduced) > 0 {
 		return nil, &Error{
 			Failure:        FailureResultInvalid,
 			OperationIndex: mv.index,

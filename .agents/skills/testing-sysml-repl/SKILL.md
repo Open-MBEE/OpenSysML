@@ -5,6 +5,72 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Recording analysis runs and querying persisted values
+
+- Use the worked Demo model in `docs/manual/recording-analysis-runs.md`.
+  `%record Demo::timed` defaults to the sibling top-level `Records` package:
+  a `Descendants` query rooted at `Demo` cannot see it. Query `root=Records`,
+  or explicitly record `into Demo::Log` before querying `root=Demo`.
+- A document can find default records without referring to an undeclared
+  element statically: compose `Descendants(source = Named(qualifiedName =
+  "Records"), maxDepth = 10)`, `WhereMetadata('metadata' =
+  "AnalysisRecords::RecordedRun")`, and `Project(properties = ("name", "gain",
+  "x"))`. For a no-record control, declare an empty `package Records {}`;
+  otherwise `Named` reports a missing element rather than returning zero rows.
+- Compare values separately from presentation: `%run-query` and saved SysML
+  preserve Real literals such as `2.0`; document table cells may display `2`.
+  Generated-file byte counts also vary with embedded tool-version provenance.
+- For runtime-failure atomicity, first validate the negative fixture. An analysis
+  definition needs its subject first, and a usage needs a subject binding; use
+  the Demo Probe pattern with an output `1.0 / divisor` and divisor `0.0`.
+  Compare both the original input and a pre-existing output after the failed
+  `-record-run ... -convert sysml -o ...`; a static rejection alone does not
+  exercise failed analysis execution.
+
+### Devin Secrets Needed
+
+None for local recording and document-query testing.
+
+## State/event document queries and lifetime diagnostics
+
+- Build query fixtures with `DocumentQueries::*`, `KerML::Root::Element`,
+  `ScalarValues::*`, and `SI::*` imports. The parallel lamp in
+  `internal/frontend/repl/docquery_states_test.go` is a validating REPL model;
+  the timer-driven fixture in `cmd/sysml/run_query_test.go` also works through
+  `-trace -instantiate lamp -state "lp lamp" -advance 4 -run-query ...`.
+- Turn `%trace on` on before the behaviors whose events are needed. Starting
+  tracing after instantiation omits initial entry records. A posted signal is
+  dispatched at the current clock instant when `%advance` runs, not at its
+  destination time: send at 1, advance to 2, and query `[1 [s], 2 [s])` to
+  include that signal while excluding a subsequent signal sent at 2.
+- `%state lp lamp1` attaches to the exhibited machine; parallel `States` rows
+  show one leaf per region. `InState(name="on")` returns the object once, not
+  once per active leaf.
+- Lifetime diagnostics (`destroyed at N`) use an **execution-order activation
+  mark**, not simulation-clock seconds. Cross-check N against `%features obj`
+  after `%eval in obj : OccurrenceFunctions::destroy(this)`; do not assert that
+  N equals the last `%advance` time. Error kind identity is not visible at the
+  REPL: report verification of the public diagnostic, not of a Go error type.
+- Distinguish termination (States returns zero rows and Events remains readable)
+  from destruction (both refuse). Completion reports the final `done` leaf.
+
+## Dynamic object lifecycle through the REPL
+
+- `%instantiate <PartDef>` already runs the classifier actions the definition
+  performs, so the objects they create with `new` exist on `#1` right after it;
+  a separate detached `%action` builds its own objects and never shows them.
+- `%instances` lists session roots only, not nested objects created at runtime.
+  Read them through the holder: `%features #1`, `%eval in #1 : cars`, and
+  `%eval in #1 : size(all P::Car)` for the live extent — which also counts the
+  declared singleton parts, not only the `new` objects.
+- A destroyed nested object shows its lifetime note under the alias that holds it
+  (`%features P::Fleet.spare`); `%eval in #1 : spare.n` prints the typed error's
+  text (`occurrence was destroyed`), so identity (`errors.Is`) is not observable here.
+
+### Devin Secrets Needed
+
+None.
+
 ## Action checker and witness replay
 
 - Low-level runtime conformance fixtures may omit scalar imports because their
@@ -594,6 +660,32 @@ Two narrow export paths decide whether a declaration comes back spelled the way 
 Also note the parser rejects `require constraint <name> { … }` (a *named* nested constraint after
 `require`/`assume`): `expected '{' after 'require constraint'`. Only the anonymous form and the
 `require R { … }` reference form parse, so an export test cannot cover the named variant.
+
+## Python multi-document parsing (`Connection.parse_sources`)
+
+- Drive the public `opensysml.Connection.parse_sources` against a real service
+  with a library document and a second document that imports it. Assert more
+  than the absence of diagnostics: the dependent symbol's `specializations`
+  entry with `kind == "typing"` must have `target_id` naming the library's
+  definition (`Symbol` has no `.type` property), and `model.documents` must
+  keep document order, `model.roots` one root per document.
+- Use `opensysml.loads` on the dependent document alone as the negative
+  control: its import must fail. A diagnostic's `.file` is the document's
+  name as given, including inline names that look like relative paths.
+- To prove validation happens before any RPC, attach a delegating
+  `grpc.UnaryUnaryClientInterceptor` to the connection's channel and stub,
+  count both GetServerInfo and ParseSources, and follow the invalid input with
+  a valid call so the instrumentation cannot yield a vacuous pass.
+- A conformance fixture containing `choice c;` also needs an outgoing
+  transition, or it fails on an unrelated semantic error. For an isolated
+  extension warning use
+  `package P { state def S { choice c; state a; transition first c then a; } }`;
+  check the diagnostic goes from warning to error with
+  `strict_conformance=True`, then that `strict=True` raises `ModelError`.
+- The module-level `opensysml.parse_sources` opens the default connection,
+  which starts a private service unless a port is named; close it afterwards
+  (`opensysml._default_connection.close()`), or a later test that asserts no
+  private service is running fails.
 
 ## Argument order and the `--` marker
 
@@ -2464,9 +2556,66 @@ its output rather than in an exit code — so assert on the exact rendered text:
 
 ## Multi-file projects: `%load <path>...` and positional dirs/globs (PR #146)
 
+### Per-file document isolation probes
+
+- Give only one file a root-level `private import ScalarValues::*;`. A second
+  file's bare `Real` must stay unresolved, as must a later prompt declaration's
+  bare `Real`. A qualified expression such as `%eval A::x + 1.0` should still
+  work, proving isolation did not remove the loaded package from the index.
+- Two loaded files declaring the same root package are two root namespaces, not
+  a duplicate. References select the declaration in the document whose name
+  sorts first, independent of CLI argument order (see the CLI reference's
+  Multiple Files section). Put `A::X` in `first.sysml` and `A::Y` in
+  `second.sysml`, then reverse arguments: `A::X` must resolve and `A::Y` must
+  remain unresolved in both orders. Do not confuse reference precedence with
+  document rendering order.
+- For rendering order, `%view` takes a **view**, not an ordinary package.
+  `%render #table` renders the loaded documents without a declared view; reverse
+  two nonalphabetical package names and assert their member groups reverse.
+  A declared view with `render asElementTable;` needs `private import Views::*;`
+  in its scope.
+- `%save` passes notation through the formatter. Test source retention separately
+  from byte equality: tabs can become four spaces even while comments, members,
+  file order and typed declarations survive. Compare with a `develop` build
+  before attributing such formatting to a load-path regression.
+- Both debugger fixtures in `internal/frontend/repl/testdata/` are load-ready:
+  `action_debug.sysml` (`%action Debug::tally`, `%step`, type `part def Z;`,
+  `%continue`) ends at `total = 5`; `state_debug.sysml` (`%state Debug::Cycle`,
+  `%advance 1`, type `part def Z;`, `%advance 9`, `%advance 5`) reaches working
+  at t=10 and done at t=15. This tests symbol rebinding across prompt edits.
+
+#### Devin Secrets Needed
+
+None for local multi-file CLI/REPL tests.
+
+### Parallel file-load verification
+
+- The shared concurrency knob is `-jobs N` / `OPENSYSML_JOBS`, also observable
+  with `%jobs`. It bounds both plan execution and files parsed/validated in one
+  load. Compare stdout, stderr and exit status at 1, 2 and 8 jobs plus an
+  environment override; test invalid values against a nonexistent path to
+  distinguish startup rejection from a load failure. `-workers` is not a
+  supported replacement flag.
+- Generate a small multi-file model from the nested tools module:
+  `go run -C tools ./cmd/stress-model -planes 4 -satellites 10 -ground-stations 8 -split-planes <scratch-dir>`.
+  Verify SHA256/name manifest records, then shrink the model: unchanged surplus
+  output should disappear, while an edited surplus plane and user file survive.
+  Editing a still-current output should refuse the entire regeneration with
+  `nothing written`; compare all directory bytes before and after.
+- A load containing `part component : Needed::T;` gives a non-vacuous batch
+  diagnostic. In `%verbosity debug`, declare `package Needed { part def T; }`,
+  then `package Needed {}`, then restore `T`. Whole-buffer diagnostics must
+  change 1→0→1→0. An empty package removes its members; a nonempty declaration
+  merges with existing members and is not a suitable deletion probe.
+- For save/reload, retain comments and loaded-file declarations and assert
+  only the latest prompt redeclaration survives. Re-evaluate a compound
+  expression after `%clear` and reloading the saved file.
+
 `sysml <dir|glob|file>...` and `%load <path>...` expand to model files via
 `internal/workspace/project.Expand`, and every file is accepted before one analysis pass
-(`Session.SubmitAll`), so load order does not affect name resolution. Shapes to expect:
+(`Session.SubmitAll`), each file a workspace document of its own indexed with the
+others. Repeated root names resolve by document-name order, not load order.
+Shapes to expect:
 
 - More than one file prints a `loaded N files:` header listing each path (a single file prints no
   header — a good tell that the multi-file path was taken).
@@ -2841,10 +2990,10 @@ Discovered while testing inline `entry action { … }` bodies and calc `out` ass
   written that way silently tests *only* the entry behavior and never the exit behavior. To exercise
   exit behaviors and ordering, use **completion transitions**: `entry; then start; … then start work;
   then work done;` (the `state_anonymous_action_body.sysml` conformance fixture is the model to copy).
-- **An inline body is one action per do round.** After a do body has run to its end the state has
-  no more pending work, so further `%advance` calls do not re-run it; a counter incremented by a
-  `do action { … }` reaches 1 and stays there unless a transition re-enters the state. The
-  one-action-per-statement `do { … }` form is what interleaves and re-runs per statement.
+- **An inline body runs once, one statement per do round.** After a do body has run to its end the
+  state has no more pending work, so further `%advance` calls do not re-run it; a counter incremented
+  by a `do action { … }` reaches 1 and stays there unless a transition re-enters the state. A braced
+  `do { … }` is the same anonymous action and behaves the same way.
 - **Notation gotchas that cost fixture rewrites:**
   - a self-send must name the machine, statement style: `entry action { send Ping to Driver1; }`
     with `item def Ping;` — `send Sig() to self` with an `attribute def` parses but never delivers.
@@ -6001,6 +6150,31 @@ gRPC `choice-point` diagnostic encoding on the CLI surface.
 - CLI exit matrix on `timed_action.sysml`: `-action Timed::pinger -state Timed::listener -advance 5`
   exits 0; `-action Timed::pinger -advance 2` exits 2 and names the wait at t=5.0; `-action` alone
   runs to completion (exit 0); `-advance` with no behavior, or a negative one, exits 2.
+
+## Dimension-one identity: `MeasurementReferences::one` in a unit product (PR #756)
+
+`one` is the identity of the unit product — `0.7 [one] * 800 [W]` is `560.0 [W]`, `2 [one] * 3 [one]`
+is `6 [one]`, and `800 [W] * 120 [s] * 0.7 [one]` in a calc returning `EnergyValue` is
+`67200.0 [SI::J]`, identical to the bare `0.7` spelling. `one*…` in the unit, or
+`SI::'kg⋅m²⋅s⁻²'*one`, is the pre-fix signature. Traps when asserting this:
+
+- **Compare an untyped product against the no-`one` control, not against a named unit.** A bare
+  `800 [SI::W] * 120 [SI::s]` prints the coherent base spelling `SI::'kg⋅m²⋅s⁻²'` on `develop`
+  too (energy and torque share dimensions; only a declared quantity kind such as `EnergyValue`
+  selects `SI::J`). So `1 [one] * 800 [W] * 120 [s]`, `… * 1 [one]` and `(…) / 1 [one]` are correct
+  when they equal that control, and would be a spurious failure against `SI::J`.
+- **A real reference, not display text.** The Python `Unit` equality includes spelling (`J` vs
+  `SI::J`), so evaluate `<expr>.mRef == SI::J` (must be `true`) and, on the wire, compare the
+  `unit_id` of `<expr>.mRef` with that of a directly evaluated `SI::J` — both are the declaration
+  ID `SI::joule`. `unit.same_reduction(target.unit)` proves scale/dimension only, not identity.
+- **Meaningful dimension-one units stay.** `3 [rad] * 1 [one]` is `3 [rad]`, likewise `sr`, and a
+  model's percent (`attribute def PercentUnit :> DimensionOneUnit { attribute :>> unitConversion :
+  ConversionByConvention { :>> referenceUnit = one; :>> conversionFactor = 0.01; } }`) survives as a
+  factor: `50 [percent] * 800 [W]` spells `percent*W` while `== 400 [W]` is `true` and
+  `.mRef == W` is `false`. A fix that drops any dimension-one factor passes the `one` cases and
+  fails these.
+- CLI `-e` result lines are indented before `=`; strip the whitespace before parsing the magnitude in
+  a throwaway harness.
 
 ### Devin Secrets Needed
 

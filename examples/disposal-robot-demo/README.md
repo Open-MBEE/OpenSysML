@@ -79,18 +79,27 @@ that whole flow, not merely for the node to be entered.
 **Run the modes.** The transitions are timed, so `-advance` says how much
 simulated time to run for; without it only the initial transition is taken.
 
+The machine is exhibited by `RobotController`, so it runs as an object's own:
+instantiate the controller and name it after the machine.
+
 ```bash
-./bin/sysml examples/disposal-robot-demo/robot.sysml -state RobotBehavior::Modes -advance 40
+./bin/sysml examples/disposal-robot-demo/robot.sysml \
+  -instantiate RobotBehavior::controller \
+  -state "RobotBehavior::Modes controller" -advance 40
 ```
 
 ```
-✓ Advanced to 40.0 (4 event(s) processed)
+✓ Advanced to 40.0 (5 event(s) processed)
   Current state: done
+  Last event at: 25.0
+  Remaining events: 0
 ✓ State machine completed (a transition reached `done`)
+  standing: value (observed: 1 run under reverse)
 ```
 
-Add `-instantiate RobotBehavior::controller -state "RobotBehavior::Modes controller"`
-to run the machine as that object's own, and `-trace` to see every step.
+A bare `-state RobotBehavior::Modes` is refused, since the machine runs only on
+a `RobotController`; the refusal names the `-instantiate` and object-qualified
+`-state` to use. Add `-trace` to see every step.
 
 **Check what holds.** A verdict is about an object, so instantiate the robot the
 question is about; `-satisfy=<name>` evaluates the assertions one element states.
@@ -130,7 +139,7 @@ config:
 ---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Robot::Platform<br>«part def»"]
+  subgraph n0 ["Platform<br>«part def»"]
     direction LR
     n3["battery : Battery<br>«part»"]
     n5["mobility : Mobility<br>«part»"]
@@ -165,15 +174,15 @@ line as qualified name, metamodel type, and the properties `oslc.select` names.
 ```
 
 ```
-Robot::Mobility::wheels  PartUsage  type=Robot::Wheel  multiplicityUpper=4
+Robot::Mobility::wheels  PartUsage  sysml:type=Robot::Wheel  sysml:multiplicityUpper=4
 ```
 
 ```
-Robot::Platform::withinMassBudget  ConstraintUsage  name=withinMassBudget
-Robot::Platform::radio  PartUsage  name=radio
-Robot::Platform::pack  PartUsage  name=pack
+Robot::Platform::withinMassBudget  ConstraintUsage  sysml:name=withinMassBudget
+Robot::Platform::radio  PartUsage  sysml:name=radio
+Robot::Platform::pack  PartUsage  sysml:name=pack
 …
-Robot::Platform::arm  PartUsage  name=arm
+Robot::Platform::arm  PartUsage  sysml:name=arm
 ```
 
 A value is a literal, so a qualified name needs its quotes:

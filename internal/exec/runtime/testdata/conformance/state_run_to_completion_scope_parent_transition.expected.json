@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "outcomes": [
+    {
+      "finalState": "done",
+      "stateVisits": ["start", "work", "done"],
+      "outputs": {"hits": {"type": "Integer", "value": 0}}
+    },
+    {
+      "finalState": "done",
+      "stateVisits": ["start", "work", "step", "done"],
+      "outputs": {"hits": {"type": "Integer", "value": 1}}
+    }
+  ],
+  "admissible": "Dispatch during an entry the model does not run to completion",
+  "trace": true
+}

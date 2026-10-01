@@ -1,0 +1,85 @@
+exit: start
+enter: working (entry action)
+stmt action body
+  stmt declare k
+    eval literal 3 -> 3
+  stmt while
+    iteration 1
+        eval feature k -> 3
+        eval literal 0 -> 0
+      eval operator > -> true
+      stmt assign log
+            eval feature log -> 0
+            eval literal 10 -> 10
+          eval operator * -> 0
+          eval feature k -> 3
+        eval operator + -> 3
+      stmt assign k
+          eval feature k -> 3
+          eval literal 1 -> 1
+        eval operator - -> 2
+    iteration 2
+        eval feature k -> 2
+        eval literal 0 -> 0
+      eval operator > -> true
+      stmt assign log
+            eval feature log -> 3
+            eval literal 10 -> 10
+          eval operator * -> 30
+          eval feature k -> 2
+        eval operator + -> 32
+      stmt assign k
+          eval feature k -> 2
+          eval literal 1 -> 1
+        eval operator - -> 1
+    iteration 3
+        eval feature k -> 1
+        eval literal 0 -> 0
+      eval operator > -> true
+      stmt assign log
+            eval feature log -> 32
+            eval literal 10 -> 10
+          eval operator * -> 320
+          eval feature k -> 1
+        eval operator + -> 321
+      stmt assign k
+          eval feature k -> 1
+          eval literal 1 -> 1
+        eval operator - -> 0
+    iteration 4
+        eval feature k -> 0
+        eval literal 0 -> 0
+      eval operator > -> false
+transition: start -> working
+do: working
+stmt action body
+  stmt declare k
+    eval literal 5 -> 5
+do: working
+  stmt assign log
+        eval feature log -> 321
+        eval literal 10 -> 10
+      eval operator * -> 3210
+      eval feature k -> 5
+    eval operator + -> 3215
+exit: working (exit action)
+stmt action body
+  stmt declare k
+    eval literal 7 -> 7
+  stmt assign log
+        eval feature log -> 3215
+        eval literal 10 -> 10
+      eval operator * -> 32150
+      eval feature k -> 7
+    eval operator + -> 32157
+stmt action body
+  stmt declare k
+    eval literal 9 -> 9
+  stmt assign log
+        eval feature log -> 32157
+        eval literal 10 -> 10
+      eval operator * -> 321570
+      eval feature k -> 9
+    eval operator + -> 321579
+enter: finished
+transition: working -> finished

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -676,6 +677,29 @@ func TestAFormatAliasIsAnsweredCanonically(t *testing.T) {
 	}
 }
 
+func TestConvertFileMigratesSysMLv1(t *testing.T) {
+	client := newClient(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
+	conversion, err := client.ConvertFile(context.Background(), xmi, opensysml.FormatSysML)
+	if err != nil {
+		t.Fatalf("ConvertFile: %v", err)
+	}
+	if conversion.From != opensysml.FormatXMI || conversion.To != opensysml.FormatSysML {
+		t.Errorf("conversion = %s to %s, want xmi to sysml", conversion.From, conversion.To)
+	}
+	if !strings.Contains(conversion.Content, "part def Vehicle") {
+		t.Errorf("conversion does not carry the migrated model:\n%s", conversion.Content)
+	}
+	if !conversion.Experimental || !strings.Contains(conversion.ExperimentalNotice, "SysML v1 migration") {
+		t.Errorf("a migration does not report itself as experimental: %q", conversion.ExperimentalNotice)
+	}
+
+	_, err = client.ConvertFile(context.Background(), xmi, opensysml.FormatXMI)
+	if !errors.Is(err, opensysml.CodeInvalidArgument) {
+		t.Errorf("writing xmi: err = %v, want CodeInvalidArgument", err)
+	}
+}
+
 func TestConvertSourceReadsInlineContent(t *testing.T) {
 	client := newClient(t)
 	conversion, err := client.ConvertSource(context.Background(), editableSource, opensysml.FormatSysML,
@@ -927,6 +951,47 @@ func TestApplyEditsAddsAMember(t *testing.T) {
 	}
 	if !strings.Contains(result.Content, "attribute margin") {
 		t.Errorf("the member was not added:\n%s", result.Content)
+	}
+}
+
+func TestApplyEditsAddsAConnection(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, "package Demo { part def System { part a; part b; } }")
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.AddConnection{
+			Owner: "Demo::System", Kind: "allocation", From: "a", To: "b", Name: "alloc1",
+		})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "allocation alloc1 allocate a to b;") {
+		t.Errorf("the connection was not added:\n%s", result.Content)
+	}
+}
+
+func TestApplyEditsAddsATypedConnection(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Demo {
+	port def Plug;
+	connection def Cable {
+		end a : Plug;
+		end b : Plug;
+	}
+	part def Rig {
+		part left { port p : Plug; }
+		part right { port p : Plug; }
+	}
+}`)
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.AddConnection{
+			Owner: "Demo::Rig", Kind: "connection", From: "left.p", To: "right.p",
+			Name: "cable", Type: "Cable",
+		})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "connection cable : Cable connect left.p to right.p;") {
+		t.Errorf("the typed connection was not added:\n%s", result.Content)
 	}
 }
 

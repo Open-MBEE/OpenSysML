@@ -1,0 +1,13 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did w1(entry) w2(entry) \"",
+			"\"w1(entry) did w2(entry) \"",
+			"\"w1(entry) w2(entry) did \""
+		]
+	},
+	"agreed": {
+		"finalState": "w2"
+	}
+}

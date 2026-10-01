@@ -14,6 +14,18 @@ func wantNoLine(t *testing.T, notation []byte, line string) {
 	}
 }
 
+// wantNoStatement fails when a line of the notation, its indentation aside,
+// is stmt; a comment mentioning it is not.
+func wantNoStatement(t *testing.T, notation []byte, stmt string) {
+	t.Helper()
+	for _, line := range strings.Split(string(notation), "\n") {
+		if strings.TrimSpace(line) == stmt {
+			t.Errorf("notation has the statement %q:\n%s", stmt, notation)
+			return
+		}
+	}
+}
+
 func TestUserPackagesWithLibraryNamesMigrate(t *testing.T) {
 	for _, name := range []string{"SysML", "Libraries", "QUDV", "SI Definitions"} {
 		r := migrateDocument(t, `
@@ -463,6 +475,19 @@ func TestRequirementTagsComeOnlyFromStandardStereotypes(t *testing.T) {
 	}
 }
 
+// A tool that stores tagged values as HTML gives the requirement's id that body
+// too; the short name is the plain text on one line.
+func TestRequirementIDDropsHTML(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`, `
+  <sysml:Requirement xmi:id="_s" base_Class="_r" Id="&lt;html&gt;&lt;body&gt;&#10;&lt;span xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;REQ-1&lt;/span&gt;&lt;/body&gt;&lt;/html&gt;" Text="&lt;html&gt;&lt;body&gt;&lt;p&gt;Shall.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"/>`)
+	wantLine(t, r.Notation, "requirement def <'REQ-1'> Req {")
+	wantLine(t, r.Notation, "doc /* Shall. */")
+	for _, d := range errors(t, "req.sysml", r.Notation) {
+		t.Errorf("%s", d.Message)
+	}
+}
+
 // The Papyrus serialization of the SysML profile classifies as the OMG one does;
 // a tool's customization layer over SysML is any other profile: a comment.
 func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
@@ -581,7 +606,7 @@ func TestSignalIsAnItemDef(t *testing.T) {
   <sysml:FlowProperty xmi:id="_s3" base_Property="_fp" direction="in"/>
   <sysml:FlowPort xmi:id="_s4" base_Port="_port" direction="in"/>`)
 	wantLine(t, r.Notation, "item def Start {")
-	wantLine(t, r.Notation, "in item start : Start;")
+	wantLine(t, r.Notation, "in item start : Start[1];")
 	wantLine(t, r.Notation, "item pending : Start;")
 	wantLine(t, r.Notation, "ref item last : Start;")
 	wantLine(t, r.Notation, "in item cmd : Start;")

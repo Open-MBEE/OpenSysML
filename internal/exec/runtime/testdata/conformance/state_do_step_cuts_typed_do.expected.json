@@ -1,0 +1,30 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {
+      "signal": "Stop"
+    }
+  ],
+  "outcomes": [
+    {
+      "finalState": "idle",
+      "outputs": {
+        "count": {
+          "type": "Integer",
+          "value": 100
+        }
+      }
+    },
+    {
+      "finalState": "idle",
+      "outputs": {
+        "count": {
+          "type": "Integer",
+          "value": 111
+        }
+      }
+    }
+  ],
+  "admissible": "A do step and a dispatch due at one instant: which goes first is open"
+}

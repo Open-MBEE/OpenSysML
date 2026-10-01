@@ -19,7 +19,7 @@ func (s *Service) ValidateInstance(ctx context.Context, req *pb.ValidateInstance
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -99,5 +99,5 @@ func (v *verifyContext) summaryVerdict(symbolID string, root *runtime.Instance, 
 		out.Error = analysis.ValidationReason(report)
 		out.FailureReason = pb.FailureReason_FAILURE_REASON_EVALUATION
 	}
-	return out
+	return stampEvaluation(out)
 }

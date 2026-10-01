@@ -40,7 +40,7 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**Plant::Loop**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
+rectangle "**Loop**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
   rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
   rectangle "**tank : Tank**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
   rectangle "**sensor : Pump**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>

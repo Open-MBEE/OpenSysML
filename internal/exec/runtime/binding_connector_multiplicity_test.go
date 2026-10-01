@@ -1,0 +1,211 @@
+package runtime
+
+import (
+	"errors"
+	"strings"
+	"testing"
+)
+
+// The connector's own multiplicity states how many links a binding declares, so
+// `binding [1]` identifies one value of each end: an end whose feature may — or
+// must — hold more is only partially bound, and so is the other end, which is
+// some unspecified value of it; reading either through the binding is the typed
+// ErrBindingEnd rather than a whole-binding count check. An end holding a value
+// of its own keeps it, the binding only relating it to the other end.
+func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		part def Thing;
+		part def Rig {
+			part a { part xs : Thing [1]; }
+			part ys : Thing [2];
+			binding [1] bind [0..*] a.xs = [0..*] ys;
+			attribute own : Real [1] = 3;
+			attribute many : Real [2];
+			binding [1] bind [0..*] own = [0..*] many;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+
+	for _, tc := range []struct{ expr, binding string }{
+		{"rig.ys", "binding [1] bind [0..*] a.xs = [0..*] ys"},
+		{"rig.a.xs", "binding [1] bind [0..*] a.xs = [0..*] ys"},
+		{"rig.many", "binding [1] bind [0..*] own = [0..*] many"},
+	} {
+		_, err := evalIn(t, ctx, pkg.Scope, tc.expr)
+		var undetermined *UndeterminedBindingError
+		if !errors.As(err, &undetermined) {
+			t.Fatalf("%s = %v, want an UndeterminedBindingError", tc.expr, err)
+		}
+		if !strings.Contains(err.Error(), tc.binding) {
+			t.Errorf("%s error %q does not name the binding", tc.expr, err.Error())
+		}
+	}
+
+	val, err := evalIn(t, ctx, pkg.Scope, "rig.own")
+	if err != nil || FormatValue(val) != "3" {
+		t.Errorf("rig.own = %s, %v; want 3 with no error", FormatValue(val), err)
+	}
+}
+
+// Without a connector multiplicity the same ends form a whole binding, whose
+// count check against each end's declared multiplicity is unchanged.
+func TestWholeBindingWithoutConnectorMultiplicityStillChecksCounts(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		part def Thing;
+		part def Rig {
+			part a { part xs : Thing [1]; }
+			part ys : Thing [2];
+			bind a.xs = ys;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	for _, expr := range []string{"rig.ys", "rig.a.xs"} {
+		if _, err := evalIn(t, ctx, pkg.Scope, expr); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("%s = %v, want ErrMultiplicityViolation", expr, err)
+		}
+	}
+}
+
+// The connector multiplicity is also checked whole: `binding [2]` identifying
+// one value is a multiplicity violation, and `binding [0]` declares no links,
+// so it assigns nothing to either end.
+func TestConnectorMultiplicityDeclaresLinkCount(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		part def Rig {
+			attribute a : Real [1] = 1;
+			attribute b : Real [1];
+			binding [2] bind a = b;
+			attribute z : Real [1];
+			attribute w : Real [1] = 1;
+			binding [0] bind z = w;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+
+	for _, expr := range []string{"rig.b", "rig.a"} {
+		_, err := evalIn(t, ctx, pkg.Scope, expr)
+		if !errors.Is(err, ErrMultiplicityViolation) {
+			t.Fatalf("%s = %v, want ErrMultiplicityViolation", expr, err)
+		}
+		if !strings.Contains(err.Error(), "binding [2]") {
+			t.Errorf("%s error %q does not name the connector multiplicity", expr, err.Error())
+		}
+	}
+
+	val, err := evalIn(t, ctx, pkg.Scope, "rig.z")
+	if err != nil {
+		t.Fatalf("rig.z: %v", err)
+	}
+	if val.Kind != ValUndetermined {
+		t.Errorf("rig.z = %s, want %s: `binding [0]` assigns nothing", FormatValue(val), UndeterminedText)
+	}
+	if val, err := evalIn(t, ctx, pkg.Scope, "rig.w"); err != nil || FormatValue(val) != "1" {
+		t.Errorf("rig.w = %s, %v; want 1 with no error", FormatValue(val), err)
+	}
+}
+
+// A connector or end bound naming a valued feature is evaluated in the
+// binding's scope: `binding [links]` with `links = 1` declares one link, and
+// `binding [n]` with `n = 2` over two `[2]` ends is a whole binding.
+func TestConnectorMultiplicityNamesFeature(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		part def Thing;
+		part def Rig {
+			attribute links : Integer = 1;
+			part a : Thing [2];
+			part b : Thing [2];
+			binding [links] bind [0..*] a = [0..*] b;
+			attribute n : Integer = 2;
+			part c : Thing [2];
+			part d : Thing [2];
+			binding [n] bind [0..*] c = [0..*] d;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+
+	// The diagnostic renders the bound's evaluated range, not the feature's name.
+	_, err := evalIn(t, ctx, pkg.Scope, "rig.b")
+	var undetermined *UndeterminedBindingError
+	if !errors.As(err, &undetermined) {
+		t.Fatalf("rig.b = %v, want an UndeterminedBindingError", err)
+	}
+	if !strings.Contains(err.Error(), "binding [1] bind [0..*] a = [0..*] b") {
+		t.Errorf("rig.b error %q does not name the binding", err.Error())
+	}
+
+	left, err := evalIn(t, ctx, pkg.Scope, "rig.c")
+	if err != nil {
+		t.Fatalf("rig.c: %v", err)
+	}
+	right, err := evalIn(t, ctx, pkg.Scope, "rig.d")
+	if err != nil {
+		t.Fatalf("rig.d: %v", err)
+	}
+	lv, rv := elementsOf(left), elementsOf(right)
+	if len(lv) != 2 || len(rv) != 2 {
+		t.Fatalf("rig.c = %s, rig.d = %s; want the same two objects", FormatValue(left), FormatValue(right))
+	}
+	for i := range lv {
+		if lv[i].Instance != rv[i].Instance {
+			t.Errorf("rig.c#(%d) and rig.d#(%d) are different objects", i+1, i+1)
+		}
+	}
+}
+
+// A connector declaring as many links as the ends' features hold is a whole
+// binding again: `binding [2]` binds q to the two objects p holds.
+func TestConnectorMultiplicityWideEnoughIsWhole(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		part def Thing;
+		part def Rig {
+			part p : Thing [2];
+			part q : Thing [2];
+			binding [2] bind [0..*] p = [0..*] q;
+			part p1 : Thing [1];
+			part q1 : Thing [1];
+			binding [1] bind [0..*] p1 = [0..*] q1;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	for _, ends := range [][2]string{{"rig.p", "rig.q"}, {"rig.p1", "rig.q1"}} {
+		left, err := evalIn(t, ctx, pkg.Scope, ends[0])
+		if err != nil {
+			t.Fatalf("%s: %v", ends[0], err)
+		}
+		right, err := evalIn(t, ctx, pkg.Scope, ends[1])
+		if err != nil {
+			t.Fatalf("%s: %v", ends[1], err)
+		}
+		lv, rv := elementsOf(left), elementsOf(right)
+		if len(lv) == 0 || len(lv) != len(rv) {
+			t.Fatalf("%s = %s, %s = %s; want the same values", ends[0], FormatValue(left), ends[1], FormatValue(right))
+		}
+		for i := range lv {
+			if lv[i].Instance != rv[i].Instance {
+				t.Errorf("%s#(%d) and %s#(%d) are different objects", ends[0], i+1, ends[1], i+1)
+			}
+		}
+	}
+}

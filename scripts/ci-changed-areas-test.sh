@@ -45,29 +45,41 @@ case_() {
 case_ docs-only docs docs/guide/index.md
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-only cameo,java client/java/opensysml-client/pom.xml
-case_ node-only node client/node/package.json
+case_ java-module cameo,java client/java/opensysml-client/pom.xml
+case_ java-manifest cameo,java,python client/java/pom.xml
+case_ node-only node client/node/src/node/binary.ts
+case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
 case_ rust-only rust client/rust/opensysml/src/connection.rs
-case_ vscode-only vscode editors/vscode/package.json
-case_ cameo-only cameo editors/cameo/pom.xml
-case_ syson-only syson editors/syson/backend/pom.xml
+case_ rust-manifest python,rust client/rust/opensysml/Cargo.toml
+case_ rust-lock python,rust client/rust/Cargo.lock
+case_ julia-only julia client/julia/OpenSysML/src/connection.jl
+case_ matlab-only matlab client/matlab/+opensysml/call.m
+case_ vscode-manifest python,vscode editors/vscode/package.json
+case_ vscode-lock python,vscode editors/vscode/package-lock.json
+case_ syson-frontend-manifest python,syson editors/syson/frontend/package.json
+case_ syson-frontend-lock python,syson editors/syson/frontend/package-lock.json
+case_ syson-manifest python,syson editors/syson/pom.xml
+case_ cameo-manifest cameo,python editors/cameo/pom.xml
+case_ cameo-child-manifest cameo,python editors/cameo/plugin/pom.xml
+case_ syson-api-stubs-manifest python,syson editors/syson/syson-api-stubs/pom.xml
+case_ syson-backend-manifest python,syson editors/syson/backend/pom.xml
 case_ syson-readme docs,syson editors/syson/README.md
 # The grammar generator and its committed output are held together by a Go test.
-case_ vscode-grammar cameo,docs,go,java,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
-case_ vscode-syntaxes cameo,docs,go,java,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
+case_ vscode-grammar cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
+case_ vscode-syntaxes cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes cameo,docs,java,node client/java/README.md client/node/README.md
-case_ two-clients cameo,java,node client/java/pom.xml client/node/tsconfig.json
-case_ go-source cameo,docs,go,java,node,python,rust,syson,vscode internal/syntax/parser/parser.go
-case_ go-client cameo,docs,go,java,node,python,rust,syson,vscode client/opensysml/client.go
-case_ release-digests cameo,docs,go,java,node,python,rust,syson,vscode client/release-digests.json
-case_ go-tools cameo,docs,go,java,node,python,rust,syson,vscode tools/gen/snapshot/main.go
-case_ proto cameo,docs,go,java,node,python,rust,syson,vscode api/proto/sysml.proto
-case_ conformance cameo,docs,go,java,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
-case_ workflow cameo,docs,go,java,node,python,rust,syson,vscode .github/workflows/pr.yml
-case_ unclaimed cameo,docs,go,java,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ two-clients cameo,java,node,python client/java/pom.xml client/node/tsconfig.json
+case_ go-source cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode internal/syntax/parser/parser.go
+case_ go-client cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode client/opensysml/client.go
+case_ release-digests cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode client/release-digests.json
+case_ go-tools cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode tools/gen/snapshot/main.go
+case_ proto cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode api/proto/sysml.proto
+case_ conformance cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
+case_ workflow cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ unclaimed cameo,docs,go,java,julia,matlab,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2

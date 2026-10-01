@@ -1,0 +1,38 @@
+choice join XP: states A1, B1 react (unordered; took A1 first)
+exit: A1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "A1(exit);" -> "A1(exit);"
+    eval operator + -> "A1(exit);"
+stmt assign log
+    eval feature log -> "A1(exit);"
+    eval literal "T12(effect);" -> "T12(effect);"
+  eval operator + -> "A1(exit);T12(effect);"
+exit: B1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A1(exit);T12(effect);"
+      eval literal "B1(exit);" -> "B1(exit);"
+    eval operator + -> "A1(exit);T12(effect);B1(exit);"
+stmt assign log
+    eval feature log -> "A1(exit);T12(effect);B1(exit);"
+    eval literal "T22(effect);" -> "T22(effect);"
+  eval operator + -> "A1(exit);T12(effect);B1(exit);T22(effect);"
+exit: S1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A1(exit);T12(effect);B1(exit);T22(effect);"
+      eval literal "S1(exit);" -> "S1(exit);"
+    eval operator + -> "A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);"
+stmt assign log
+    eval feature log -> "A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);"
+    eval literal "T3(effect);" -> "T3(effect);"
+  eval operator + -> "A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);T3(effect);"
+enter: S2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);T3(effect);"
+      eval literal "S2(entry);" -> "S2(entry);"
+    eval operator + -> "A1(exit);T12(effect);B1(exit);T22(effect);S1(exit);T3(effect);S2(entry);"
+transition: S1 -> S2 (event: accept Go)

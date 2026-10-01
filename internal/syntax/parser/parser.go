@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
@@ -24,6 +25,9 @@ type Parser struct {
 	// checkpoints counts the outstanding checkpoints; they pin the window.
 	checkpoints int
 	triv        []ast.Trivia // trivia pending attachment to the next node
+	// trivLog logs every trivia appended to triv while a checkpoint is open,
+	// so restore can replay what the abandoned attempt consumed.
+	trivLog []ast.Trivia
 	// Diagnostics are syntax errors: input the parser could not read as
 	// well-formed SysML.
 	Diagnostics []Diagnostic
@@ -32,6 +36,10 @@ type Parser struct {
 	// as a declaration name.
 	Warnings []Diagnostic
 
+	// undefinedOps are the `~` operator expressions the parse built, in source
+	// order; ParseFile hands them to the root.
+	undefinedOps []*ast.OperatorExpr
+
 	// calcBodyDepth counts the calculation bodies being parsed, so a `return`
 	// reached in a statement position inside one is read as the result
 	// parameter it declares rather than as an unknown action keyword.
@@ -39,6 +47,27 @@ type Parser struct {
 
 	pendingComment    source.Span // span of the most recent /* */ regular comment
 	hasPendingComment bool
+	// bodyEnd is the end of the latest /* */ comment consumed as a comment body,
+	// which a node's span covers though the comment is not a non-trivia token.
+	bodyEnd int
+
+	// comments are the regular comments lexed, each with the token following it,
+	// so the ones written where no member may start can be reported.
+	comments []pendingComment
+	// memberStarts are the offsets at which a member was parsed to begin; a
+	// comment before one of them is a Comment element the grammar admits.
+	memberStarts []int
+	// commentBodies are the offsets of the comments consumed as a comment body
+	// (`comment /* */`, `doc /* */`, `rep … /* */`).
+	commentBodies []int
+	// attachedStarts are the offsets where a member continuing the one before
+	// it began — a one-name `then`/`else`/`if … then` edge or a transition
+	// stating no `first` source — which opens no member position of its own.
+	attachedStarts []int
+	// resultEnds are the offsets just past a body's trailing result
+	// expression — the `}` (or EOF) closing that body — where the grammar
+	// leaves no place for a comment (SysML.xtext ResultExpressionMember).
+	resultEnds []int
 
 	// constraintCalcDepth counts the calculation bodies that are constraint
 	// bodies, whose bare expressions are the conditions the constraint states.
@@ -111,13 +140,30 @@ func (p *Parser) bodyContext() bodyContext {
 	return p.bodyCtx[len(p.bodyCtx)-1]
 }
 
+// pendingComment is a regular comment with the non-trivia token after it, so
+// where it sits can be judged once the file is parsed.
+type pendingComment struct {
+	span source.Span
+	next lexer.Token
+}
+
 // parseCheckpoint captures parser state for backtracking.
 type parseCheckpoint struct {
-	pos           int
-	diagnosticLen int
-	warningLen    int
-	pendingSpan   source.Span
-	hadPending    bool
+	pos            int
+	diagnosticLen  int
+	warningLen     int
+	undefinedOpLen int
+	memberStartLen int
+	commentBodyLen int
+	attachedLen    int
+	resultEndLen   int
+	// triv is a copy of the pending trivia at the checkpoint; trivLogLen is
+	// how much of trivLog was already lexed then.
+	triv        []ast.Trivia
+	trivLogLen  int
+	pendingSpan source.Span
+	hadPending  bool
+	bodyEnd     int
 }
 
 // tokenWindow is how many consumed tokens the buffer keeps before compacting.
@@ -136,9 +182,13 @@ func (p *Parser) fill(n int) {
 	p.compact()
 	for len(p.buf) <= p.pos-p.base+n {
 		tok := p.lx.Next()
+		var comments []source.Span
 		for tok.IsTrivia() || tok.Kind == lexer.RegularComment {
 			if tr, ok := triviaOf(tok); ok {
 				p.triv = append(p.triv, tr)
+				if p.checkpoints > 0 {
+					p.trivLog = append(p.trivLog, tr)
+				}
 			}
 			if tok.Unterminated {
 				// Everything after the opener is inside it, so the declarations
@@ -148,6 +198,7 @@ func (p *Parser) fill(n int) {
 			if tok.Kind == lexer.RegularComment {
 				p.pendingComment = tok.Span
 				p.hasPendingComment = true
+				comments = append(comments, tok.Span)
 			}
 			if tok.Kind == lexer.EOF {
 				break
@@ -155,6 +206,11 @@ func (p *Parser) fill(n int) {
 			tok = p.lx.Next()
 		}
 		p.buf = append(p.buf, p.unreserved(tok))
+		for _, sp := range comments {
+			p.comments = append(p.comments, pendingComment{
+				span: sp, next: p.buf[len(p.buf)-1],
+			})
+		}
 		if tok.Kind == lexer.EOF {
 			// keep EOF sticky: stop growing further with real tokens
 			return
@@ -423,6 +479,12 @@ func (p *Parser) error(sp source.Span, msg string) {
 	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg})
 }
 
+// errorWithCode records an ill-formed-parse diagnostic under a code of its
+// own, for a consumer to report it by instead of the general syntax code.
+func (p *Parser) errorWithCode(sp source.Span, msg, code string) {
+	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg, Code: code})
+}
+
 // errorWithFixes records an ill-formed-parse diagnostic that unambiguous edits
 // resolve.
 func (p *Parser) errorWithFixes(sp source.Span, msg string, fixes ...diag.Fix) {
@@ -451,17 +513,34 @@ func (p *Parser) takePendingComment() (source.Span, bool) {
 	}
 	sp := p.pendingComment
 	p.hasPendingComment = false
+	p.commentBodies = append(p.commentBodies, sp.Offset)
+	p.bodyEnd = sp.End()
 	return sp, true
 }
 
-// spanFrom builds a span from a start offset to the end of the previously
-// consumed token region (current token's start).
+// spanFrom builds a span from a start offset to the end of the last consumed
+// token or comment body, so a node's span never covers the trivia after it.
 func (p *Parser) spanFrom(start int) source.Span {
-	end := p.peek().Span.Offset
+	end := p.lastEnd()
+	if p.bodyEnd > end && p.bodyEnd <= p.peek().Span.Offset {
+		end = p.bodyEnd
+	}
 	if end < start {
 		end = start
 	}
 	return source.Span{Offset: start, Len: end - start}
+}
+
+// memberStart records the offset a member is about to be parsed at, so a
+// comment before it is known to sit where the grammar admits one.
+func (p *Parser) memberStart() {
+	p.memberStarts = append(p.memberStarts, p.peek().Span.Offset)
+}
+
+// resultEnd records the offset just past a body's trailing result expression
+// — its closing `}` or the end of the file — where no comment is admitted.
+func (p *Parser) resultEnd() {
+	p.resultEnds = append(p.resultEnds, p.peek().Span.Offset)
 }
 
 // ParseFile parses the whole source as a RootNamespace (brace-less member list).
@@ -469,16 +548,70 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	start := p.peek().Span.Offset
 	root := &ast.RootNamespace{}
 	for !p.atEOF() {
+		p.memberStart()
 		before := p.pos
 		beforeOff := p.peek().Span.Offset
-		root.Members = append(root.Members, p.parseMember())
+		member := p.parseMember()
+		p.markAttached(member)
+		root.Members = append(root.Members, member)
 		// Guarantee progress: if nothing was consumed, skip a token.
 		if p.pos == before && p.peek().Span.Offset == beforeOff && !p.atEOF() {
 			p.advance()
 		}
 	}
 	root.NodeSpan = p.spanFrom(start)
+	root.UndefinedOperators = p.undefinedOps
+	p.reportMisplacedComments()
 	return root
+}
+
+// markAttached records where a member continuing the one before it began:
+// such a member opens no member position of its own, so a comment before it
+// is written where the grammar admits none.
+func (p *Parser) markAttached(m ast.Node) {
+	if m != nil && isAttachedMember(memberNode(m)) {
+		p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
+	}
+}
+
+// reportMisplacedComments warns on each regular comment written where the
+// grammar admits none. A comment is admitted only: as the body of a comment
+// notation (`comment /* */`, `doc /* */`); before a member start that is not
+// an attached continuation (a `then`/`else`/`if … then` edge or a source-less
+// transition opens no member position of its own); or at the close of a body
+// or the file — unless a trailing result expression ends there, after which
+// the grammar admits nothing (SysML.xtext CalculationBodyPart).
+func (p *Parser) reportMisplacedComments() {
+	starts := make(map[int]bool, len(p.memberStarts))
+	for _, off := range p.memberStarts {
+		starts[off] = true
+	}
+	attached := make(map[int]bool, len(p.attachedStarts))
+	for _, off := range p.attachedStarts {
+		attached[off] = true
+	}
+	resultEnds := make(map[int]bool, len(p.resultEnds))
+	for _, off := range p.resultEnds {
+		resultEnds[off] = true
+	}
+	bodies := make(map[int]bool, len(p.commentBodies))
+	for _, off := range p.commentBodies {
+		bodies[off] = true
+	}
+	for _, c := range p.comments {
+		var admitted bool
+		switch {
+		case bodies[c.span.Offset]:
+			admitted = true
+		case c.next.Kind == lexer.RBrace || c.next.Kind == lexer.EOF:
+			admitted = !resultEnds[c.next.Span.Offset]
+		default:
+			admitted = starts[c.next.Span.Offset] && !attached[c.next.Span.Offset]
+		}
+		if !admitted {
+			p.warn(c.span, "a /* */ comment is admitted only where a member may appear (SysML.xtext DefinitionMember/AnnotatingMember); write it before or after this declaration, or as `comment /* … */`", codeNonstandardNotation)
+		}
+	}
 }
 
 // checkpoint captures current parser state for backtracking. The tokens it can
@@ -486,30 +619,46 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 func (p *Parser) checkpoint() parseCheckpoint {
 	p.checkpoints++
 	return parseCheckpoint{
-		pos:           p.pos,
-		diagnosticLen: len(p.Diagnostics),
-		warningLen:    len(p.Warnings),
-		pendingSpan:   p.pendingComment,
-		hadPending:    p.hasPendingComment,
+		pos:            p.pos,
+		diagnosticLen:  len(p.Diagnostics),
+		warningLen:     len(p.Warnings),
+		undefinedOpLen: len(p.undefinedOps),
+		memberStartLen: len(p.memberStarts),
+		commentBodyLen: len(p.commentBodies),
+		attachedLen:    len(p.attachedStarts),
+		resultEndLen:   len(p.resultEnds),
+		triv:           slices.Clone(p.triv),
+		trivLogLen:     len(p.trivLog),
+		pendingSpan:    p.pendingComment,
+		hadPending:     p.hasPendingComment,
+		bodyEnd:        p.bodyEnd,
 	}
 }
 
 // restore rewinds parser to a previous checkpoint, un-consuming the tokens the
-// abandoned attempt read and dropping the findings it reported. Used for
-// try-parse patterns.
-//
-// Trivia collected during the attempt is deliberately kept: the lexer yields
-// each trivia token once, so dropping it would lose a comment from the tree.
+// abandoned attempt read and dropping the findings it reported. Pending trivia
+// becomes what was pending at the checkpoint plus what the attempt lexed —
+// the lexer yields each trivia once, so it must be replayed, not dropped.
 func (p *Parser) restore(cp parseCheckpoint) {
 	p.pos = cp.pos
 	p.Diagnostics = p.Diagnostics[:cp.diagnosticLen]
 	p.Warnings = p.Warnings[:cp.warningLen]
+	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
+	p.memberStarts = p.memberStarts[:cp.memberStartLen]
+	p.commentBodies = p.commentBodies[:cp.commentBodyLen]
+	p.attachedStarts = p.attachedStarts[:cp.attachedLen]
+	p.resultEnds = p.resultEnds[:cp.resultEndLen]
 	p.pendingComment = cp.pendingSpan
 	p.hasPendingComment = cp.hadPending
+	p.bodyEnd = cp.bodyEnd
+	p.triv = append(cp.triv, p.trivLog[cp.trivLogLen:]...)
 }
 
 // release ends a checkpoint's hold on the token buffer; a try-parse defers it
 // right after taking the checkpoint.
 func (p *Parser) release() {
 	p.checkpoints--
+	if p.checkpoints == 0 {
+		p.trivLog = p.trivLog[:0]
+	}
 }

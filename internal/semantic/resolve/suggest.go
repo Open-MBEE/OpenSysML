@@ -261,7 +261,47 @@ func (r *Resolver) UnresolvedName(scope *symbols.Scope, name string, at ast.Node
 	for i, spelling := range s.spellings {
 		spellings[i] = suggest.Notation(spelling)
 	}
-	return suggest.Hint(name, name, spellings, s.unquoted)
+	msg := suggest.Hint(name, name, spellings, s.unquoted)
+	if cand, ok := r.importCandidate(s.spellings, name); ok {
+		msg += " To use the bare name, import its package: " + importStatement(cand)
+	}
+	return msg
+}
+
+// importCandidate is the one spelling name may mean that an import of its
+// package makes visible as written; several such spellings make any one a
+// guess, so none is returned.
+func (r *Resolver) importCandidate(spellings []string, name string) (string, bool) {
+	cand := ""
+	for _, spelling := range spellings {
+		if !strings.Contains(spelling, "::") || symbols.LastSegment(spelling) != name || !r.importable(spelling) {
+			continue
+		}
+		if cand != "" {
+			return "", false
+		}
+		cand = spelling
+	}
+	return cand, cand != ""
+}
+
+// importStatement is the wildcard import writing cand as its bare name makes
+// visible ([SysML, 7.2] over [KerML, 8.2.3.3]).
+func importStatement(cand string) string {
+	return "private import " + cand[:strings.LastIndex(cand, "::")] + "::*;"
+}
+
+// SuggestName appends to msg, about the unqualified name written at in scope,
+// the spellings it may mean: first the candidates the caller offers, then the
+// names reachable from scope that an unresolved reference would suggest.
+func (r *Resolver) SuggestName(msg string, scope *symbols.Scope, name string, at ast.Node, candidates []string) string {
+	s := r.suggestionFor(scope, name, at)
+	spellings := make([]string, 0, len(candidates)+len(s.spellings))
+	spellings = append(spellings, candidates...)
+	for _, spelling := range s.spellings {
+		spellings = append(spellings, suggest.Notation(spelling))
+	}
+	return suggest.Hint(msg, name, spellings, s.unquoted)
 }
 
 // UnresolvedMember is the text after "unresolved reference: " for a qualified

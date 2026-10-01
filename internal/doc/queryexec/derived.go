@@ -25,7 +25,13 @@ type verificationKey struct {
 
 func (d *derivedValues) get(context Context) *runtime.DeclaredReader {
 	if d.reader == nil {
-		d.reader = runtime.NewDeclaredReader(context.Model, context.Resolver)
+		// Over a held runtime, derived features calling a tool-computed calc
+		// answer through the same runner the query's context drives.
+		if context.Runtime != nil {
+			d.reader = runtime.NewDeclaredReaderIn(context.Runtime)
+		} else {
+			d.reader = runtime.NewDeclaredReader(context.Model, context.Resolver)
+		}
 	}
 	return d.reader
 }
@@ -66,7 +72,7 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 func (e *executor) cellValues(value runtime.Value, property string, row Value) ([]Value, error) {
 	origin := row.Origin()
 	if lit := value.EnumerationLiteral(); lit != nil {
-		return []Value{valueAt(StringValue(symbols.FQNOf(lit)), origin)}, nil
+		return []Value{valueAt(ElementValue(lit), origin)}, nil
 	}
 	var elements []runtime.Value
 	switch value.Kind {

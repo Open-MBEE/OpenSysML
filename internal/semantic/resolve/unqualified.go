@@ -129,6 +129,9 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if r == nil || sym == nil || sym.Naming == symbols.NamedByDeclaration {
 		return true
 	}
+	if sym.Recorded() {
+		return !sym.Facts.Modifiers.Has(symbols.ModNamesNothing)
+	}
 	r.EnterDoc(sym.DocName)
 	defer r.LeaveDoc()
 	if named, done := r.effNames[sym]; done {
@@ -297,6 +300,9 @@ func impliesNamingFeature(sym *symbols.Symbol) bool {
 // isParameter reports whether sym is declared as a directed feature or a
 // result, the features an implicit redefinition matches (SysML 7.6.5).
 func isParameter(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModParameter)
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
 }
@@ -313,8 +319,7 @@ func simpleName(sym *symbols.Symbol) string {
 // lookupImports checks every import declared directly in scope for a member
 // matching name.
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	node := scope.Node()
-	for _, imp := range r.importsOf(node) {
+	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] {
 			continue
 		}
@@ -331,7 +336,19 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	for _, imp := range r.importsOf(targetScope.Node()) {
+	visit := importVisit{target: targetScope, from: from, name: name}
+	if r.importVisits[visit] {
+		return nil, false
+	}
+	r.importVisits[visit] = true
+	r.importDepth++
+	defer func() {
+		r.importDepth--
+		if r.importDepth == 0 {
+			clear(r.importVisits)
+		}
+	}()
+	for _, imp := range r.scopeImports(targetScope) {
 		if r.importStack[imp] {
 			continue
 		}
@@ -370,6 +387,18 @@ func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope
 	targetFQN := r.registeredFQN(target)
 	fromFQN := r.ReferringNamespaceFQN(from)
 	return targetFQN != "" && (fromFQN == targetFQN || strings.HasPrefix(fromFQN, targetFQN+"::"))
+}
+
+// scopeImports returns the imports the namespace owning scope declares: a
+// recorded scope holds them itself, a parsed one reads its node.
+func (r *Resolver) scopeImports(scope *symbols.Scope) []*ast.Import {
+	if scope == nil {
+		return nil
+	}
+	if scope.Recorded() {
+		return scope.Imports()
+	}
+	return r.importsOf(scope.Node())
 }
 
 // importsOf is importsOf memoized: the tree is immutable once parsed, and every
@@ -466,13 +495,25 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if r.resolvingImports[imp] {
 		return
 	}
-	r.resolvingImports[imp] = true
 	// Resolved aside: a miss here may only mean sibling imports were suspended
 	// for cycle safety, so it must not be memoized or reported as unresolved.
+	// A hit is memoized (importTargets), except while a filter condition's own
+	// names resolve: that lookup is unfiltered, and its answers reach nothing
+	// else (InCondition).
 	var target *symbols.Symbol
 	var ok bool
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	delete(r.resolvingImports, imp)
+	remember := r.inCondition == 0
+	if res, done := r.importTargets[imp]; done && remember {
+		target, ok = res.sym, res.ok
+	} else {
+		r.resolvingImports[imp] = true
+		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
+		delete(r.resolvingImports, imp)
+		if ok && remember {
+			journalNew(r, r.importTargets, imp, imp)
+			r.importTargets[imp] = resolution{sym: target, ok: true}
+		}
+	}
 	if !ok {
 		return
 	}
@@ -548,7 +589,16 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	}
 }
 
+// importPrefixAvailable reports whether imp can surface name from scope: a
+// membership import names only its last segment or the target's short name, and
+// a prefix unbound while sibling imports resolve cannot name the target.
 func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, name string) bool {
+	if imp.Kind == ast.ImportMembership && !imp.IsRecursive && imp.Imported != nil && len(imp.Imported.Parts) > 0 {
+		last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
+		if last != name && r.idx != nil && !r.idx.ShortNamed(name) && !r.idx.ShortNamed(last) {
+			return false
+		}
+	}
 	if len(r.resolvingImports) == 0 || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return true
 	}

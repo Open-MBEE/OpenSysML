@@ -72,6 +72,43 @@ package Observatory {
 		)
 	}
 
+	calc def Targeted :> Query {
+		in root : Element;
+		in targets : Element[0..*] ordered;
+		Project(
+			source = WhereType(
+				source = Descendants(source = root, maxDepth = 1),
+				type = "RequirementUsage"
+			),
+			properties = ("name"),
+			columns = (
+				RelatedColumn(
+					name = "satisfiedBy",
+					relationshipKind = "satisfaction",
+					direction = "incoming",
+					aggregate = "list",
+					targets = targets
+				)
+			)
+		)
+	}
+
+	calc def Unbounded :> Query {
+		in root : Element;
+		Project(
+			source = root,
+			properties = ("name"),
+			columns = (
+				RelatedColumn(
+					name = "generals",
+					relationshipKind = "specialization",
+					direction = "outgoing",
+					maxDepth = null
+				)
+			)
+		)
+	}
+
 	calc def Uncovered :> Query {
 		in root : Element;
 		WhereFeature(

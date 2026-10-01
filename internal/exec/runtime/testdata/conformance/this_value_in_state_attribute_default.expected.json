@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Plant",
+  "objects": [
+    {
+      "stateVisits": ["work"],
+      "slots": {
+        "flag": {"type": "Boolean", "value": true}
+      }
+    }
+  ]
+}

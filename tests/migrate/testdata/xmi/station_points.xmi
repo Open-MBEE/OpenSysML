@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_enter" name="Enter"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_dive" name="Dive"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_resume" name="Resume"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_skip" name="Skip"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_next" name="Next"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_finish" name="Finish"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_back" name="Back"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_pair" name="Pair"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_split" name="Split"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_bump" name="Bump"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_enterEv" signal="_enter"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_diveEv" signal="_dive"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_resumeEv" signal="_resume"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_skipEv" signal="_skip"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_nextEv" signal="_next"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_finishEv" signal="_finish"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_backEv" signal="_back"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pairEv" signal="_pair"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_splitEv" signal="_split"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_bumpEv" signal="_bump"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_station" name="Station" classifierBehavior="_cycle">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_trace" name="trace">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_trace0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cycle" name="Cycle">
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init0"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+
+          <subvertex xmi:type="uml:State" xmi:id="_work" name="Work">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_workEntry">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 11;</body>
+            </entry>
+            <exit xmi:type="uml:OpaqueBehavior" xmi:id="_workExit">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 12;</body>
+            </exit>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_start" name="Start" kind="entryPoint"/>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_plain" name="Plain" kind="entryPoint"/>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_through" name="Through" kind="entryPoint"/>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_leave" name="Leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_steps" name="steps">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_initW"/>
+              <subvertex xmi:type="uml:State" xmi:id="_prep" name="Prep">
+                <entry xmi:type="uml:OpaqueBehavior" xmi:id="_prepEntry">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 13;</body>
+                </entry>
+              </subvertex>
+              <subvertex xmi:type="uml:State" xmi:id="_run" name="Run">
+                <entry xmi:type="uml:OpaqueBehavior" xmi:id="_runEntry">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 14;</body>
+                </entry>
+                <exit xmi:type="uml:OpaqueBehavior" xmi:id="_runExit">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 15;</body>
+                </exit>
+                <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_deep" name="Deep" kind="entryPoint"/>
+                <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_out" name="Out" kind="exitPoint"/>
+                <region xmi:type="uml:Region" xmi:id="_pace" name="pace">
+                  <subvertex xmi:type="uml:Pseudostate" xmi:id="_initR"/>
+                  <subvertex xmi:type="uml:State" xmi:id="_slow" name="Slow"/>
+                  <subvertex xmi:type="uml:State" xmi:id="_fast" name="Fast">
+                    <entry xmi:type="uml:OpaqueBehavior" xmi:id="_fastEntry">
+                      <language>JavaScript</language>
+                      <body>trace = trace * 100 + 17;</body>
+                    </entry>
+                  </subvertex>
+                  <transition xmi:type="uml:Transition" xmi:id="_tRi" source="_initR" target="_slow"/>
+                  <transition xmi:type="uml:Transition" xmi:id="_tDeep" source="_deep" target="_fast">
+                    <effect xmi:type="uml:OpaqueBehavior" xmi:id="_deepEff">
+                      <language>JavaScript</language>
+                      <body>trace = trace * 100 + 21;</body>
+                    </effect>
+                  </transition>
+                  <transition xmi:type="uml:Transition" xmi:id="_tBack" source="_fast" target="_out">
+                    <trigger xmi:type="uml:Trigger" xmi:id="_trBack" event="_backEv"/>
+                    <effect xmi:type="uml:OpaqueBehavior" xmi:id="_backEff">
+                      <language>JavaScript</language>
+                      <body>trace = trace * 100 + 22;</body>
+                    </effect>
+                  </transition>
+                </region>
+              </subvertex>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_hist" name="H" kind="shallowHistory"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tWi" source="_initW" target="_prep"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tNext" source="_prep" target="_run">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trNext" event="_nextEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tStart" source="_start" target="_run">
+                <effect xmi:type="uml:OpaqueBehavior" xmi:id="_startEff">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 23;</body>
+                </effect>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tThrough" source="_through" target="_leave"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tFinish" source="_run" target="_leave">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trFinish" event="_finishEv"/>
+                <effect xmi:type="uml:OpaqueBehavior" xmi:id="_finishEff">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 24;</body>
+                </effect>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tOut" source="_out" target="_prep">
+                <effect xmi:type="uml:OpaqueBehavior" xmi:id="_outEff">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 25;</body>
+                </effect>
+              </transition>
+            </region>
+          </subvertex>
+
+          <subvertex xmi:type="uml:State" xmi:id="_sync" name="Sync">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_syncEntry">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 31;</body>
+            </entry>
+            <exit xmi:type="uml:OpaqueBehavior" xmi:id="_syncExit">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 32;</body>
+            </exit>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_both" name="Both" kind="entryPoint"/>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_gather" name="Gather" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_ra" name="a">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_initA"/>
+              <subvertex xmi:type="uml:State" xmi:id="_a0" name="A0"/>
+              <subvertex xmi:type="uml:State" xmi:id="_a1" name="A1">
+                <entry xmi:type="uml:OpaqueBehavior" xmi:id="_a1Entry">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 33;</body>
+                </entry>
+                <exit xmi:type="uml:OpaqueBehavior" xmi:id="_a1Exit">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 34;</body>
+                </exit>
+              </subvertex>
+              <transition xmi:type="uml:Transition" xmi:id="_tAi" source="_initA" target="_a0"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tBothA" guard="_bothAGuard" source="_both" target="_a1">
+                <ownedRule xmi:type="uml:Constraint" xmi:id="_bothAGuard">
+                  <specification xmi:type="uml:LiteralBoolean" xmi:id="_bothAGuardSpec" value="true"/>
+                </ownedRule>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tA" source="_a0" target="_a1">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trA" event="_bumpEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tAg" source="_a1" target="_gather">
+                <effect xmi:type="uml:OpaqueBehavior" xmi:id="_agEff">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 37;</body>
+                </effect>
+              </transition>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_rb" name="b">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_initB"/>
+              <subvertex xmi:type="uml:State" xmi:id="_b0" name="B0"/>
+              <subvertex xmi:type="uml:State" xmi:id="_b1" name="B1">
+                <entry xmi:type="uml:OpaqueBehavior" xmi:id="_b1Entry">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 35;</body>
+                </entry>
+                <exit xmi:type="uml:OpaqueBehavior" xmi:id="_b1Exit">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 36;</body>
+                </exit>
+              </subvertex>
+              <transition xmi:type="uml:Transition" xmi:id="_tBi" source="_initB" target="_b0"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tBothB" source="_both" target="_b1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tB" source="_b0" target="_b1">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trB" event="_bumpEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tBg" source="_b1" target="_gather">
+                <effect xmi:type="uml:OpaqueBehavior" xmi:id="_bgEff">
+                  <language>JavaScript</language>
+                  <body>trace = trace * 100 + 38;</body>
+                </effect>
+              </transition>
+            </region>
+          </subvertex>
+
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init0" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_idle" target="_start">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_goEff">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 41;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tNever" guard="_neverGuard" source="_idle" target="_work">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trNever" event="_goEv"/>
+            <ownedRule xmi:type="uml:Constraint" xmi:id="_neverGuard" name="never">
+              <specification xmi:type="uml:LiteralBoolean" xmi:id="_neverGuardSpec"/>
+            </ownedRule>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tEnter" source="_idle" target="_plain">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trEnter" event="_enterEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tDive" source="_idle" target="_deep">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trDive" event="_diveEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_diveEff">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 42;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tResume" source="_idle" target="_hist">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trResume" event="_resumeEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tSkip" source="_idle" target="_through">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trSkip" event="_skipEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tLeave" source="_leave" target="_idle">
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_leaveEff">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 43;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_work" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_stopEff">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 44;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPair" source="_idle" target="_sync">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPair" event="_pairEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tSplit" source="_idle" target="_both">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trSplit" event="_splitEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tGather" source="_gather" target="_idle">
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_gatherEff">
+              <language>JavaScript</language>
+              <body>trace = trace * 100 + 46;</body>
+            </effect>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

@@ -58,13 +58,12 @@ type checkedReport struct {
 				Choices  []string `json:"choices"`
 			} `json:"witness"`
 			Check *struct {
-				Verdict       string   `json:"verdict"`
-				States        int      `json:"states"`
-				Moves         int      `json:"moves"`
-				Depth         int      `json:"depth"`
-				BoundsHit     []string `json:"boundsHit"`
-				NotEnumerated []string `json:"notEnumerated"`
-				Violations    []struct {
+				Verdict    string   `json:"verdict"`
+				States     int      `json:"states"`
+				Moves      int      `json:"moves"`
+				Depth      int      `json:"depth"`
+				BoundsHit  []string `json:"boundsHit"`
+				Violations []struct {
 					Kind    string   `json:"kind"`
 					Name    string   `json:"name"`
 					Error   string   `json:"error"`
@@ -185,7 +184,7 @@ func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
 		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
 	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
 	wantReport(t, got, 1, "✗ Action Plant::Tank::overfill: violation",
-		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")",
+		"violation: Plant::Tank::low is false after 2 moves (probability 1) (witness "+witness+")",
 		"standing: violated (witnessed:")
 	content, err := os.ReadFile(witness)
 	if err != nil {
@@ -365,47 +364,6 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 	// The plan's clock ending stops the search: incomplete, naming time, not a verdict.
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-action", "Mission::race", "-check-timeout", "1ns"),
 		2, "? Action Mission::race: incomplete: time", "standing: not covered")
-}
-
-// A run the checker's moves leave out is named on the verdict as a bound is, and
-// the check is not exhaustive: at the round a looping `do` body's branches are due
-// together with a timed exit, the checker draws the exit before or after one step
-// of the body — `left` diverges over the two — but the fixed policies finish the
-// round before the dispatch, a run no move of the checker makes. The two regions'
-// entry order is drawn, so each outcome is tabled with either order.
-func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
-	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got := check(t, binary, string(model), "-engine", "check", "-state", "test::Machine")
-	wantReport(t, got, 1,
-		"✗ State machine test::Machine: divergent (24 states, 24 moves, depth 7; not enumerated: do round before dispatch)",
-		"divergent: left ends as 0 or 1",
-		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 0; right = 0",
-		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 1; right = 0",
-		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 0; right = 0",
-		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 0",
-		"standing: sensitive (witnessed: 24 states, 24 moves searched, not enumerated: do round before dispatch, witness of 6 choices replayed)")
-	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)", "right = 1")
-
-	got = check(t, binary, string(model), "-json", "-engine", "check", "-state", "test::Machine")
-	var report checkedReport
-	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
-		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
-	}
-	r := report.Checks[0].Results[0]
-	if got.status != 1 || r.Claim != "sensitive" || r.Strength != "witnessed" || r.Check.Verdict != "divergent" ||
-		len(r.Check.BoundsHit) != 0 || strings.Join(r.Check.NotEnumerated, ";") != "do round before dispatch" {
-		t.Errorf("the run left out is misreported:\n%s", got.stdout)
-	}
-	for _, b := range r.Bounds {
-		if b.Reached {
-			t.Errorf("a search within its bounds reports %s reached", b.Name)
-		}
-	}
 }
 
 // A check flag under -engine all puts the action to check and explore together:

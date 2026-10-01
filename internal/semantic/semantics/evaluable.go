@@ -83,6 +83,14 @@ func (m *Model) evaluableOperator(scope *symbols.Scope, e *ast.OperatorExpr, dep
 		// (KerML 1.0 §8.2.5.8.1 Table 5: `all` is not model-level evaluable).
 		return false
 	}
+	if e.Operator == ast.OpMeta && len(e.Operands) == 1 {
+		// `x meta T` reads the element x names as metadata (a metadata access
+		// expression, KerML MetaClassificationExpression), which the model holds.
+		if fr, ok := e.Operands[0].(*ast.FeatureReference); ok {
+			_, resolved := m.resolveExprTarget(scope, fr.Name)
+			return resolved && m.namedType(scope, e.TypeRef) != nil
+		}
+	}
 	if !m.allEvaluable(scope, e.Operands, depth) {
 		return false
 	}

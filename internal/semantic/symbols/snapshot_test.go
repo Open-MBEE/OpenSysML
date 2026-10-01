@@ -13,8 +13,7 @@ import (
 // a decoded index rebuilds lazily, and the inline segment storage a multi-part
 // name leaves behind once its parts are appended elsewhere.
 var unobservable = graphcmp.SkipFields(
-	"Index.directChildrenGeneration", "libraryIdentityMemo.gen",
-	"Index.directChildrenCache", "Index.directChildrenByName",
+	"Index.members", "libraryIdentityMemo.gen",
 	"QualifiedName.part0",
 )
 

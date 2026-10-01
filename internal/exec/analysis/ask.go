@@ -18,13 +18,15 @@ func Held(ctx *runtime.Context) *Model {
 }
 
 // Request is what every question put to the registry carries: the model it is asked of, the
-// subject, schedule, model seed and draw policy it runs under, and the budget and selection it is answered with.
+// subject, schedule, model seed, draw policy and clock step it runs under, and the budget and
+// selection it is answered with.
 type Request struct {
 	Model     *Model
 	Subject   string
 	Schedule  runtime.SchedulePolicy
 	ModelSeed ModelSeed
 	Draws     runtime.DrawPolicy
+	ClockStep float64
 	Budget    Budget
 	Selection Selection
 }
@@ -32,7 +34,7 @@ type Request struct {
 // ask puts q, about the request's subject under its schedule, to the registry
 // under the request's budget and selection; a dispatch fault or refusal is the error.
 func (r *Registry) ask(ctx context.Context, req Request, q Question) (Plan, error) {
-	q.Subject, q.Schedule, q.ModelSeed, q.Draws = req.Subject, req.Schedule, req.ModelSeed, req.Draws
+	q.Subject, q.Schedule, q.ModelSeed, q.Draws, q.ClockStep = req.Subject, req.Schedule, req.ModelSeed, req.Draws, req.ClockStep
 	return refusedOr(r.AnswerWith(ctx, req.Model, q, req.Budget, req.Selection))
 }
 
@@ -208,7 +210,7 @@ func leavesInputsUnbound(req Request, holds *HoldsAsk) bool {
 	if holds == nil || holds.Start == nil || !req.Model.builds() {
 		return false
 	}
-	ctx, err := Question{ModelSeed: req.ModelSeed, Draws: req.Draws}.fresh(req.Model, 0, req.Budget)
+	ctx, err := Question{ModelSeed: req.ModelSeed, Draws: req.Draws, ClockStep: req.ClockStep}.fresh(req.Model, 0, req.Budget)
 	if err != nil {
 		return false
 	}
@@ -243,6 +245,20 @@ func (r *Registry) Sweep(ctx context.Context, req Request, plan runtime.SweepPla
 		Kind:  Sweep,
 		Sweep: &SweepAsk{Plan: plan, Row: row},
 	})
+}
+
+// Prove puts an element's violation queries to the registry as a Holds question:
+// an unsat proves the claim holds for every assignment of the free features — a
+// proved one when the evaluator rounds the conditions — and a sat witnesses a
+// violation. The plan's result holds the answers in order, and the error is an
+// absent solver.
+func (r *Registry) Prove(ctx context.Context, req Request, queries []*solve.Query) (Plan, error) {
+	return refusedOr(r.AnswerWith(ctx, req.Model, Question{
+		Kind:    Holds,
+		Subject: req.Subject,
+		Free:    FreeInputs,
+		Solve:   &SolveAsk{Queries: queries, Ask: (*solve.Solver).Solve},
+	}, req.Budget, req.Selection))
 }
 
 // Solve puts an element's condition sets to the registry under the request's selection,

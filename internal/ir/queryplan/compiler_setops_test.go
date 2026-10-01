@@ -82,7 +82,7 @@ calc def DuplicateArgument :> Query {
 }
 calc def TooFewPositional :> Query {
 	in root : Element;
-	WhereRelated(root, "satisfaction", "incoming")
+	WhereRelated(root, "satisfaction")
 }
 calc def ExistsAsString :> Query {
 	in root : Element;

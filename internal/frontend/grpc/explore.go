@@ -46,6 +46,7 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 			FinalState:     o.Outcome.FinalState,
 			StatesVisited:  o.Outcome.StateVisits,
 			Linearizations: int32Clamp(o.Linearizations),
+			Probability:    o.Probability,
 		}
 		if rt := o.Outcome.Context(); rt != nil {
 			out.Diagnostics = s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(rt.Notes(), cached))
@@ -65,11 +66,12 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 		outcomes = append(outcomes, out)
 	}
 	status := &pb.ExplorationStatus{
-		Complete:    x.Complete(),
-		Runs:        int32Clamp(x.Runs),
-		BudgetsHit:  x.BudgetsHit,
-		RunsBudget:  int32Clamp(x.Budget.Runs),
-		DepthBudget: int32Clamp(x.Budget.Depth),
+		Complete:                x.Complete(),
+		Runs:                    int32Clamp(x.Runs),
+		BudgetsHit:              x.BudgetsHit,
+		RunsBudget:              int32Clamp(x.Budget.Runs),
+		DepthBudget:             int32Clamp(x.Budget.Depth),
+		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),
 	}
 	return explored{outcomes: outcomes, status: status, plan: plan}, nil
 }

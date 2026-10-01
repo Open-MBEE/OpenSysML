@@ -27,19 +27,19 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
-	ctx       *Context
-	journal   journalMark
-	run       runCapture
-	runStates []runStateCapture
+	ctx     *Context
+	journal journalMark
+	run     runCapture
 	executorCaptures
 	released bool
 }
 
 // executorCaptures is a set of executors captured by value, each once: those
-// asked for, and those the paused bodies of these perform.
+// asked for, and those the paused bodies of these perform, with the runs they drive.
 type executorCaptures struct {
-	actions []actionCapture
-	states  []stateCapture
+	actions   []actionCapture
+	states    []stateCapture
+	runStates []runStateCapture
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -50,6 +50,8 @@ type journalMark struct {
 	messages          []Message
 	clockNow          float64
 	clockWaiters      []clockWaiter
+	trace             *TraceRecorder
+	traced            traceCapture
 }
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
@@ -65,6 +67,7 @@ type runCapture struct {
 	evaluations       *evaluationLog
 	pendingBehaviors  []*ObjectBehavior
 	heldBehaviors     mapState[*ObjectBehavior, bool]
+	holdingDriven     bool
 	clockRun          *runState
 }
 
@@ -199,9 +202,6 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	for _, capture := range s.runStates {
-		capture.restore()
-	}
 	s.executorCaptures.restore()
 }
 
@@ -235,6 +235,9 @@ func (s *executorCaptures) captureState(e *StateExecutor) {
 }
 
 func (s *executorCaptures) restore() {
+	for _, capture := range s.runStates {
+		capture.restore()
+	}
 	for _, capture := range s.actions {
 		capture.restore()
 	}
@@ -252,14 +255,19 @@ type bodyCapture struct {
 }
 
 // captureBody captures the run and, into the set, the executors its paused work
-// performs: the action it holds, and a do behavior's own flow.
+// performs: the action it holds, the flow of a case it runs, and a do behavior's own flow.
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
 	for _, f := range run.cursor {
 		c.frames = append(c.frames, f.clone())
-		if callee, ok := f.(*calleeFrame); ok {
-			s.captureAction(callee.exec)
+		switch f := f.(type) {
+		case *calleeFrame:
+			s.captureAction(f.exec)
+		case *caseStepFrame:
+			if f.run == nil {
+				s.captureAction(f.start.host.flow)
+			}
 		}
 	}
 	if held := run.paused.wait.held; held != nil {
@@ -304,13 +312,15 @@ func (ctx *Context) markJournal() journalMark {
 		created: len(ctx.created), attached: len(ctx.objectBehaviors),
 		messages:     slices.Clone(ctx.messages),
 		clockNow:     ctx.clock.now,
-		clockWaiters: slices.Clone(ctx.clock.waiters),
+		clockWaiters: ctx.clock.waiters,
+		trace:        ctx.trace,
+		traced:       captureTrace(ctx.trace),
 	}
 }
 
 // rollbackJournal undoes every change journaled since the mark: the feature
-// values written, the other changes noted, the bus, the clock, the objects made
-// and the behaviors attached. The journal is cut back to the mark.
+// values written, the other changes noted, the bus, the clock, the objects made,
+// the behaviors attached and the trace recorded. The journal is cut back to the mark.
 func (ctx *Context) rollbackJournal(mark journalMark) {
 	for i := len(ctx.journalWrites) - 1; i >= mark.writes; i-- {
 		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
@@ -321,8 +331,12 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	}
 	ctx.journalUndos = ctx.journalUndos[:mark.undos]
 	ctx.messages = slices.Clone(mark.messages)
+	ctx.bus.cuts++
+	ctx.writes++
+	ctx.workChanged()
 	ctx.abandonCreationSince(mark.created, mark.attached)
-	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
+	ctx.clock.now, ctx.clock.waiters = mark.clockNow, mark.clockWaiters
+	mark.traced.restore(mark.trace)
 }
 
 func (ctx *Context) captureRun() runCapture {
@@ -337,6 +351,7 @@ func (ctx *Context) captureRun() runCapture {
 		evaluations:      ctx.evaluations,
 		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:    captureMap(ctx.heldBehaviors),
+		holdingDriven:    ctx.holdingDriven,
 		clockRun:         ctx.clockRun.state,
 	}
 	return c
@@ -357,11 +372,13 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.evaluations = c.evaluations
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
+	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
+	ctx.workChanged()
 }
 
 // captureRunState captures a run's state once, however many executors share it.
-func (s *Snapshot) captureRunState(state *runState) {
+func (s *executorCaptures) captureRunState(state *runState) {
 	if state == nil || slices.ContainsFunc(s.runStates, func(c runStateCapture) bool { return c.state == state }) {
 		return
 	}
@@ -427,8 +444,8 @@ type actionCapture struct {
 	steps, stepsSpent int64
 	inRun, held       bool
 	moved             bool
-	leftStanding      bool
 	awaiting          *actionFrame
+	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
 	traversalBase     int
@@ -447,7 +464,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
-		leftStanding:     e.leftStanding,
+		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
@@ -466,10 +483,12 @@ func (c actionCapture) restore() {
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
-	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.moved, e.awaiting = c.moved, c.awaiting
+	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
+	e.driven.stir(0)
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
 		perf.restore()
@@ -527,7 +546,10 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.pending = clonePending(perf.pending)
+	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
+	c.saved.streamed = maps.Clone(perf.streamed)
+	c.saved.unreceived = cloneUnreceived(perf.unreceived)
 	c.saved.nodes = slices.Clone(perf.nodes)
 	return c
 }
@@ -547,7 +569,10 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.pending = clonePending(c.saved.pending)
+	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
+	perf.streamed = maps.Clone(c.saved.streamed)
+	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
 }
 
@@ -560,6 +585,21 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 		clonedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
 			clonedPins[pin] = slices.Clone(values)
+		}
+		cloned[node] = clonedPins
+	}
+	return cloned
+}
+
+func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
+	if staged == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	for node, pins := range staged {
+		clonedPins := make(map[string][]stagedStream, len(pins))
+		for pin, entries := range pins {
+			clonedPins[pin] = slices.Clone(entries)
 		}
 		cloned[node] = clonedPins
 	}
@@ -595,12 +635,9 @@ type stateCapture struct {
 	pausedAt           ast.Node
 	completionDue      bool
 	history            map[*ast.StateNode]historyRecord
-	deferred           []Event
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
-	round              []*doAction
-	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -611,13 +648,24 @@ type stateCapture struct {
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
 	changeWaits        []changeWait
+	// held contains entry cascades paused at RTC boundaries.
+	held []heldEntry
+	// entering marks states entered during the captured entry unit.
+	entering map[*ast.StateNode]bool
+	// enteringMachine reports whether the captured entry unit includes the machine.
+	enteringMachine bool
+	// activeAtEntry records states active before the captured entry unit.
+	activeAtEntry map[*ast.StateNode]bool
+	pendingCall   *pendingCall
 }
 
-// doActionCapture is one do action's progress: the behaviors it has still to run
-// and the one paused under way, by identity, with its paused work by value.
+// doActionCapture is one do action's progress: the behaviors it has still to run,
+// the firing that entered its state, and the one paused under way, by identity,
+// with its paused work by value.
 type doActionCapture struct {
 	act     *doAction
 	pending []lower.StateBehavior
+	firing  *firing
 	run     *doRun
 	body    *bodyCapture
 }
@@ -638,11 +686,8 @@ func (e *StateExecutor) capture() stateCapture {
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
 		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
-		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
-		round:              slices.Clone(e.round),
-		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -654,6 +699,11 @@ func (e *StateExecutor) capture() stateCapture {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		held:               cloneHeldEntries(e.held),
+		entering:           maps.Clone(e.entering),
+		enteringMachine:    e.enteringMachine,
+		activeAtEntry:      maps.Clone(e.activeAtEntry),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	if e.eventQueue != nil {
 		c.events = slices.Clone(e.eventQueue.events)
@@ -665,7 +715,7 @@ func (e *StateExecutor) capture() stateCapture {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
 	for _, act := range e.doActions {
-		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), run: act.run})
+		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), firing: act.firing.snapshot(), run: act.run})
 	}
 	return c
 }
@@ -692,23 +742,50 @@ func (c stateCapture) restore() {
 			e.history[node] = &historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 		}
 	}
-	e.deferred, e.lastDispatch, e.lastEventAt = slices.Clone(c.deferred), cloneDispatch(c.lastDispatch), c.lastEventAt
+	e.lastDispatch, e.lastEventAt = cloneDispatch(c.lastDispatch), c.lastEventAt
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
-		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
+		act.act.pending, act.act.firing, act.act.run = slices.Clone(act.pending), act.firing.snapshot(), act.run
 		e.doActions = append(e.doActions, act.act)
 		if act.body != nil {
 			act.body.restore()
 		}
 	}
-	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
+	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
+	e.held = cloneHeldEntries(c.held)
+	clear(e.entering)
+	for state, entering := range c.entering {
+		e.entering[state] = entering
+	}
+	e.enteringMachine = c.enteringMachine
+	e.activeAtEntry = maps.Clone(c.activeAtEntry)
+	e.pendingCall = c.pendingCall.clone()
+}
+
+func cloneHeldEntries(entries []heldEntry) []heldEntry {
+	if entries == nil {
+		return nil
+	}
+	cloned := make([]heldEntry, len(entries))
+	for i, entry := range entries {
+		cloned[i] = heldEntry{
+			owner:    entry.owner,
+			regions:  slices.Clone(entry.regions),
+			branches: maps.Clone(entry.branches),
+			chain:    slices.Clone(entry.chain),
+			scopes:   slices.Clone(entry.scopes),
+			machine:  entry.machine,
+			firing:   entry.firing.snapshot(),
+		}
+	}
+	return cloned
 }
 
 func cloneConfiguration(config *StateConfiguration) *StateConfiguration {

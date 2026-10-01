@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Sampling",
+	"outputs": {
+		"recorded": {"type": "Boolean", "value": false},
+		"readings": {"type": "Integer", "value": 0},
+		"measure.gain": {"type": "Real", "value": 2.5},
+		"record.written": {"type": "Boolean", "value": false}
+	}
+}

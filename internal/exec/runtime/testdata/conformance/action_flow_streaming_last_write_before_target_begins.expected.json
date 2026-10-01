@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::stream",
+	"outputs": {
+		"count": {"type": "Integer", "value": 3}
+	}
+}

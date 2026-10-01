@@ -23,7 +23,12 @@ func document(members, applications string) []byte {
 
 func migrateDocument(t *testing.T, members, applications string) *migrate.Result {
 	t.Helper()
-	r, err := migrate.Migrate("t.xmi", document(members, applications))
+	return migrateDocumentOptions(t, members, applications, migrate.Options{})
+}
+
+func migrateDocumentOptions(t *testing.T, members, applications string, opts migrate.Options) *migrate.Result {
+	t.Helper()
+	r, err := migrate.MigrateOptions("t.xmi", document(members, applications), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +141,8 @@ func TestMultiEndedDependenciesWriteEveryPair(t *testing.T) {
   <sysml:Satisfy xmi:id="_s9" base_Abstraction="_sat_half"/>`
 	r := migrateDocument(t, members, applications)
 	for _, line := range []string{
-		"allocate A to C;", "allocate A to D;", "allocate B to C;", "allocate B to D;",
+		"allocation def 'A to C' {", "allocation def 'A to D' {", "allocation def 'B to C' {", "allocation def 'B to D' {",
+		"end a : A;", "end c : C;", "end d : D;", "end b : B;",
 		"satisfy requirement : R1;", "satisfy requirement : R2;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -349,7 +355,7 @@ func TestShadowedReferencesAreGlobal(t *testing.T) {
 // on a reference. Each is written validly and every loss is reported.
 func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
 	r := migrateDocument(t, `
-    <packagedElement xmi:type="uml:Class" xmi:id="_v" name="Intro"/>
+    <packagedElement xmi:type="uml:Artifact" xmi:id="_v" name="Intro"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_h" name="H">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_anon" type="_v" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_grid" name="grid">
@@ -367,7 +373,6 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
         <defaultValue xmi:type="uml:LiteralString" xmi:id="_d2" value="4"/>
       </ownedAttribute>
     </packagedElement>`, `
-  <sysml:View xmi:id="_s1" base_Class="_v"/>
   <sysml:Block xmi:id="_s2" base_Class="_h"/>`)
 	wantLine(t, r.Notation, "ref intro;")
 	wantLine(t, r.Notation, "ref grid;")
@@ -795,7 +800,7 @@ func TestOpaqueExpressionsNeedVisibleNames(t *testing.T) {
   <sysml:ValueType xmi:id="_s0" base_DataType="_mode"/>
   <sysml:ConstraintBlock xmi:id="_s1" base_Class="_base"/>
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute d : ScalarValues::Real default = s * 2.0 + c;")
+	wantLine(t, r.Notation, "in attribute d : ScalarValues::Real[1] default = s * 2.0 + c;")
 	wantLine(t, r.Notation, "constraint tracking { m == Mode::TRACK }")
 	wantNoLine(t, r.Notation, "constraint fits")
 	wantNoLine(t, r.Notation, "constraint moving")
@@ -901,9 +906,9 @@ func TestOpaqueBodyExpressionsBindTheirOwnNames(t *testing.T) {
       </ownedAttribute>
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute bound default = { in v; v > c };")
-	wantLine(t, r.Notation, "in attribute scaled default = { in v; private attribute k = 2.0; v * k > c };")
-	wantLine(t, r.Notation, "in attribute documented default = { in v { doc /* the value */ } v > c };")
+	wantLine(t, r.Notation, "in attribute bound[1] default = { in v; v > c };")
+	wantLine(t, r.Notation, "in attribute scaled[1] default = { in v; private attribute k = 2.0; v * k > c };")
+	wantLine(t, r.Notation, "in attribute documented[1] default = { in v { doc /* the value */ } v > c };")
 	for _, n := range []string{"stray", "each", "twice", "bodied", "nested", "deep", "asserted", "bounded", "imported"} {
 		wantNoLine(t, r.Notation, "constraint "+n)
 	}
@@ -993,9 +998,9 @@ func TestOpaqueBodyChainsAndLibraryNamesAreChecked(t *testing.T) {
       </ownedRule>
     </packagedElement>`, `
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_cb"/>`)
-	wantLine(t, r.Notation, "in attribute pointed default = { in v : Pt; v.x > c };")
-	wantLine(t, r.Notation, "in attribute counted default = { in v : ScalarValues::Integer; v > c };")
-	wantLine(t, r.Notation, "in attribute weighed default = { in v : ISQ::mass; v.num > c };")
+	wantLine(t, r.Notation, "in attribute pointed[1] default = { in v : Pt; v.x > c };")
+	wantLine(t, r.Notation, "in attribute counted[1] default = { in v : ScalarValues::Integer; v > c };")
+	wantLine(t, r.Notation, "in attribute weighed[1] default = { in v : ISQ::mass; v.num > c };")
 	for _, n := range []string{"astray", "untyped", "misspelled", "unimported", "chained"} {
 		wantNoLine(t, r.Notation, "constraint "+n)
 	}
@@ -1194,8 +1199,8 @@ func TestPrefixModifiersFollowTheGrammarOrder(t *testing.T) {
 	wantLine(t, r.Notation, "constant attribute ro : ScalarValues::Boolean;")
 	wantLine(t, r.Notation, "derived constant part da : A;")
 	wantLine(t, r.Notation, "constant ref part sh : A;")
-	wantLine(t, r.Notation, "in derived constant attribute cp : ScalarValues::Real;")
-	wantLine(t, r.Notation, "out derived constant attribute fp : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in derived constant attribute cp : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "out derived constant attribute fp : ScalarValues::Real[1];")
 	wantLine(t, r.Notation, "attribute vp : ScalarValues::Real;")
 	for _, id := range []string{"_ro", "_da", "_cp", "_fp"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
@@ -1262,12 +1267,12 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
   <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c4" base_Port="_p4"/>
   <md:ConstraintParameter xmlns:md="http://www.magicdraw.com/spec/Customization/180/SysML" xmi:id="_c6" base_Port="_p6"/>
   <custom:ConstraintParameter xmlns:custom="http://example.com/tool/customization" xmi:id="_c5" base_Property="_p5"/>`)
-	wantLine(t, r.Notation, "in attribute t : ScalarValues::Real;")
-	wantLine(t, r.Notation, "in attribute maxTime : ScalarValues::Real;")
-	wantLine(t, r.Notation, "in attribute slack : ScalarValues::Real;")
+	wantLine(t, r.Notation, "in attribute t : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "in attribute maxTime : ScalarValues::Real[1];")
+	wantLine(t, r.Notation, "in attribute slack : ScalarValues::Real[1];")
 	wantLine(t, r.Notation, "constraint inner : Positive;")
-	wantLine(t, r.Notation, "in ref part timer : Timer;")
-	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real {")
+	wantLine(t, r.Notation, "in ref part timer : Timer[1];")
+	wantLine(t, r.Notation, "in attribute tolerance : ScalarValues::Real[1] {")
 	wantLine(t, r.Notation, "/* applied stereotype «ConstraintParameter» */")
 	wantLine(t, r.Notation, "bind elapsed = limit.t;")
 	wantNoLine(t, r.Notation, "port")
@@ -1285,6 +1290,49 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 	}
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
+	}
+}
+
+// MagicDraw's tagless property-kind markers say what the usage keyword says,
+// so they are not written; a same-named stereotype from any other profile, a
+// marker carrying a tag, and one on a property of another kind are kept.
+func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
+	r := migrateFixtureFile(t, "property_markers")
+	for _, line := range []string{
+		"attribute mass : ScalarValues::Real;",
+		"attribute mode : Mode;",
+		"part engine : Engine;",
+		"ref part spare : Wheel;",
+		"ref part lead : Wheel;",
+		"constraint limit : MaxSpeed;",
+		"in attribute v : ScalarValues::Real[1];",
+		"in ref part wheel : Wheel[1];",
+		"in ref part hub : Wheel[1] {",
+		"in attribute k : ScalarValues::Real[1] {",
+		"/* applied stereotype «ReferenceProperty» */",
+		"part odd : Wheel {",
+		"/* applied stereotype «ValueProperty» */",
+		"part axle : Wheel {",
+		"/* applied stereotype «PartProperty»: ordering = rear */",
+		"part cabin : Engine {",
+		"@'Vehicle Profile'::PartProperty;",
+		"attribute serial : ScalarValues::String {",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, name := range []string{"PartProperty", "ValueProperty", "SharedProperty", "ReferenceProperty", "ConstraintProperty"} {
+		want := map[string]int{"PartProperty": 1, "ValueProperty": 3, "ReferenceProperty": 1}[name]
+		if n := strings.Count(string(r.Notation), "«"+name+"»"); n != want {
+			t.Errorf("«%s» written %d times, want %d", name, n, want)
+		}
+	}
+	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if es := entriesFor(r, "_spare"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "shared aggregation") {
+		t.Errorf("_spare entries = %+v", es)
 	}
 }
 
@@ -1323,7 +1371,9 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
 	wantLine(t, r.Notation, "verify requirement ver : Req;")
 	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
-	wantLine(t, r.Notation, "allocation alloc allocate Thing to Piece;")
+	wantLine(t, r.Notation, "allocation def alloc {")
+	wantLine(t, r.Notation, "end thing : Thing;")
+	wantLine(t, r.Notation, "end piece : Piece;")
 	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
 	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
 	for id, want := range map[string]struct {

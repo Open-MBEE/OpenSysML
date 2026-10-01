@@ -5,7 +5,7 @@ import java.util.Objects;
 
 /**
  * A {@link Query} filter: one comparison of a property, or several conditions combined. Build one
- * with {@link #equal}, {@link #greater}, {@link #less}, {@link #all} or {@link #any}, and negate it
+ * with {@link #equalTo}, {@link #greater}, {@link #less}, {@link #all} or {@link #any}, and negate it
  * with {@link #negated()}.
  */
 public sealed interface Condition {
@@ -19,7 +19,7 @@ public sealed interface Condition {
    * @param values the values it may equal
    * @return the comparison
    */
-  static Comparison equal(String property, List<String> values) {
+  static Comparison equalTo(String property, List<String> values) {
     return new Comparison(property, Comparison.Operator.EQUAL, values, false);
   }
 

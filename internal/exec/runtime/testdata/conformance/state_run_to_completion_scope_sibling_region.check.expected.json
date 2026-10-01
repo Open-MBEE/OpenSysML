@@ -1,0 +1,5 @@
+{
+  "verdict": "divergent",
+  "divergent": {"order": ["12", "21"]},
+  "agreed": {"finalState": "inner+b"}
+}

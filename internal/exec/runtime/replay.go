@@ -241,9 +241,12 @@ type Witness struct {
 	// DrawPolicy is the policy the draws were resolved under; the line is written
 	// only for a fixed policy, so a random run's witness reads as before.
 	DrawPolicy DrawPolicy
-	Draws      []DrawTaken
-	Choices    []ChoiceTaken
-	Trace      string
+	// ClockStep is the step, in seconds, the run's clock ticked by; the line is
+	// written only for a stepped clock, so a continuous run's witness reads as before.
+	ClockStep float64
+	Draws     []DrawTaken
+	Choices   []ChoiceTaken
+	Trace     string
 	// Property names the property false at the state the schedule reaches, or
 	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
 	Property string
@@ -259,8 +262,8 @@ const (
 )
 
 // String renders the witness as a file holds it: its objects one per line, its
-// inputs one per line, `draws by <policy>` for a fixed draw policy, its draws one per line, its choices one per line — or `no
-// choice points` — a blank line, the trace, and after a blank line the claims closing it: `property: <name>`
+// inputs one per line, `draws by <policy>` for a fixed draw policy, `clock steps by <seconds>` for a stepped clock, its
+// draws one per line, its choices one per line — or `no choice points` — a blank line, the trace, and after a blank line the claims closing it: `property: <name>`
 // for a property's, `fails: <the failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
 	var b strings.Builder
@@ -274,6 +277,9 @@ func (w Witness) String() string {
 	}
 	if w.DrawPolicy.Fixed() {
 		b.WriteString(drawPolicyPrefix + w.DrawPolicy.String() + "\n")
+	}
+	if w.ClockStep > 0 {
+		b.WriteString(clockStepPrefix + semantics.FormatReal(w.ClockStep) + "\n")
 	}
 	for _, d := range w.Draws {
 		b.WriteString(d.String())
@@ -457,12 +463,15 @@ func (w *Witness) readClaims() {
 // drawPolicyPrefix opens the witness line naming the draw policy of its draws.
 const drawPolicyPrefix = "draws by "
 
+// clockStepPrefix opens the witness line naming the step its clock ticked by.
+const clockStepPrefix = "clock steps by "
+
 // readHeader reads a witness header: object lines as ObjectNamed.String spells
-// them, input lines as InputTaken.String spells them, a `draws by <policy>` line, draw lines as DrawTaken.String
-// spells them, then choices as ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
+// them, input lines as InputTaken.String spells them, a `draws by <policy>` line, a `clock steps by <seconds>` line,
+// draw lines as DrawTaken.String spells them, then choices as ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
 // first blank line after it. It says whether the text has a header.
 func readHeader(text string) (w Witness, headed bool, err error) {
-	policied := false
+	policied, stepped := false, false
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -525,6 +534,28 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 				return Witness{}, true, parse
 			}
 			w.DrawPolicy, policied = policy, true
+			continue
+		}
+		if rest, ok := strings.CutPrefix(line, clockStepPrefix); ok {
+			step, err := ParseClockStep(rest)
+			if err == nil && step == 0 {
+				err = &ClockStepParseError{Text: line, Reason: "a continuous clock writes no clock step line"}
+			}
+			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
+				err = &ClockStepParseError{Text: line, Reason: "the clock step comes before the draws and the moves"}
+			}
+			if err == nil && stepped {
+				err = &ClockStepParseError{Text: line, Reason: "the clock step is named twice, and a run's clock steps by one"}
+			}
+			if err != nil {
+				var parse *ClockStepParseError
+				if !errors.As(err, &parse) {
+					parse = &ClockStepParseError{Text: line, Reason: err.Error()}
+				}
+				parse.Line = i + 1
+				return Witness{}, true, parse
+			}
+			w.ClockStep, stepped = step, true
 			continue
 		}
 		if strings.HasPrefix(line, drawPrefix) {
@@ -605,6 +636,8 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 			c.Kind = ChoiceEntryOrder
 		case strings.HasPrefix(first, exitingWherePrefix):
 			c.Kind = ChoiceExitOrder
+		case strings.HasPrefix(first, entryStepWherePrefix):
+			c.Kind = ChoiceEntryStep
 		case strings.HasPrefix(first, stepWherePrefix):
 			c.Kind = ChoiceStepOrder
 		}
@@ -1226,9 +1259,9 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 
 // chooseWeighted follows the witness's move at a weighted decision, the run's choice
 // carrying the draw the witness records where one selected the branch.
-func (r *replayRun) chooseWeighted(c *ChoicePoint) int {
+func (r *replayRun) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) int {
 	w, unbound := r.current()
-	taken := r.choose(*c, nil)
+	taken := r.choose(*c, whereOf)
 	if unbound == nil && r.refused == nil && w.Drawn {
 		c.Drew, c.Drawn = w.Drew, true
 	}
@@ -1258,7 +1291,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 			return false
 		}
 		if got := c.Weights[at]; got != w.Weights[i] {
-			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), formatWeight(got), formatWeight(w.Weights[i])))
+			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), FormatWeight(got), FormatWeight(w.Weights[i])))
 			return false
 		}
 	}
@@ -1266,7 +1299,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 		return true
 	}
 	if math.IsNaN(w.Drew) || w.Drew < 0 || w.Drew >= 1 {
-		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", formatWeight(w.Drew)))
+		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", FormatWeight(w.Drew)))
 		return false
 	}
 	total := 0.0
@@ -1274,7 +1307,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 		total += weight
 	}
 	if pick := weightedPick(c.Weights, total, w.Drew); pick != taken {
-		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", formatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
+		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", FormatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
 		return false
 	}
 	return true

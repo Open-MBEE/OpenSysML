@@ -29,7 +29,10 @@ type frame struct {
 	names      map[string]bool
 	namespaces map[string]bool
 	docs       map[string]bool
-	all        bool
+	// segments are the last-name segments ShortNamed answered about: a name
+	// registered or dropped under one can change that answer.
+	segments map[string]bool
+	all      bool
 	// deps are the documents whose frames were entered from this one.
 	deps map[string]bool
 	// recent are the frames last entered from this one, consulted before the
@@ -121,6 +124,11 @@ func (f *frame) stale(ch symbols.Changes) bool {
 	}
 	for n := range ch.Docs {
 		if f.docs[n] {
+			return true
+		}
+	}
+	for n := range ch.Names {
+		if f.segments[symbols.LastSegment(n)] {
 			return true
 		}
 	}
@@ -330,7 +338,7 @@ func (r *Resolver) depend(from *frame, doc string) {
 	back[from.doc] = true
 }
 
-// ReadName, ReadNamespace, ReadDocument and ReadAllNames implement
+// ReadName, ReadNamespace, ReadDocument, ReadAllNames and ReadSegment implement
 // symbols.ReadRecorder: what the index answered is what the frame depends on.
 func (r *Resolver) ReadName(fqn string) {
 	if r == nil {
@@ -374,6 +382,20 @@ func (r *Resolver) ReadAllNames() {
 	}
 	if f := r.cur; f != nil {
 		f.all = true
+	}
+}
+
+// ReadSegment records that the frame's lookups consulted the symbols
+// registered under last-name segment name (Index.ShortNamed).
+func (r *Resolver) ReadSegment(name string) {
+	if r == nil {
+		return
+	}
+	if f := r.cur; f != nil {
+		if f.segments == nil {
+			f.segments = map[string]bool{}
+		}
+		f.segments[name] = true
 	}
 }
 

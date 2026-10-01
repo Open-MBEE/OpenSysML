@@ -27,6 +27,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z) to build and publish the Windows assets for, signing as a tag push would; leaves `version` and `submit` unused
+        required: false
+        default: ''
       version:
         description: Version to stamp into the binaries (VERSION)
         required: true
@@ -48,6 +52,7 @@ env:
   SIGNED_EXE_ARTIFACT: windows-amd64-signed-exe
   UNSIGNED_MSI_ARTIFACT: windows-amd64-msi-unsigned
   PRESIGN_MSI_ARTIFACT: windows-amd64-msi-presign
+  MSI_INPUTS_ARTIFACT: windows-msi-inputs
   WIX_VERSION: 5.0.2
 
 jobs:
@@ -57,11 +62,14 @@ jobs:
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       sign: ${{ steps.gate.outputs.sign }}
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -74,10 +82,13 @@ jobs:
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           # Tag builds mirror CircleCI's VERSION=${CIRCLE_TAG}; dry runs take the input.
-          if [ "$REF_TYPE" = "tag" ]; then
+          if [ -n "$INPUT_TAG" ]; then
+            VERSION="$INPUT_TAG"
+          elif [ "$REF_TYPE" = "tag" ]; then
             VERSION="$REF_NAME"
           else
             VERSION="$INPUT_VERSION"
@@ -87,11 +98,12 @@ jobs:
             *) echo "Error: VERSION '$VERSION' must look like v<major>.<minor>.<patch>[-suffix]"; exit 1 ;;
           esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build sysml, sysml-lsp and sysml-grpc for windows/amd64
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ steps.version.outputs.commit }}
         run: |
           # Same derivation as the CircleCI release job, so both builds stamp
           # identical -ldflags and VERSIONINFO values for a tag.
@@ -125,6 +137,17 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload the MSI packaging inputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: |
+            packaging/msi/
+            scripts/build-msi.sh
+            LICENSE
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Decide whether SignPath is configured
         id: gate
         env:
@@ -135,6 +158,7 @@ jobs:
           PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
           SUBMIT_INPUT: ${{ inputs.submit }}
         run: |
           sign=true
@@ -146,7 +170,8 @@ jobs:
               echo "SIGNPATH_${v/POLICY_SLUG/SIGNING_POLICY_SLUG} variable is not set: skipping signing."; sign=false
             fi
           done
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$SUBMIT_INPUT" != "true" ]; then
+          # A dispatch against an existing tag publishes, so it signs exactly as a tag push does.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$INPUT_TAG" ] && [ "$SUBMIT_INPUT" != "true" ]; then
             echo "Dry run without 'submit': skipping signing."; sign=false
           fi
           echo "sign=$sign" >> "$GITHUB_OUTPUT"
@@ -160,8 +185,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
 
       - name: Download the unsigned binaries
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -178,7 +207,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/release
@@ -198,7 +227,7 @@ jobs:
     # signed by `publish-signed` instead, never both.
     name: Publish the unsigned MSI
     needs: [build, msi]
-    if: github.ref_type == 'tag' && needs.build.outputs.sign != 'true'
+    if: (github.ref_type == 'tag' || inputs.tag != '') && needs.build.outputs.sign != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -206,6 +235,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Download the unsigned MSI
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -218,7 +249,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.build.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ needs.build.outputs.commit }}
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Upload the unsigned MSI to the GitHub Release
@@ -242,6 +273,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -250,12 +283,12 @@ jobs:
           cache: true
 
       - name: Wait for CircleCI to publish the gated release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.build.outputs.version }}
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ needs.build.outputs.commit }}
         run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
 
       - name: Submit the signing request to SignPath
@@ -305,8 +338,12 @@ jobs:
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      # No checkout: the tagged tree holds paths Windows cannot check out; the build job ships what the MSI needs.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
 
       - name: Check the MSI artifact configuration is configured
         env:
@@ -332,7 +369,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/presign
@@ -426,7 +463,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload signed assets to the GitHub Release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.tag != ''
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
         with:
           tag_name: ${{ needs.build.outputs.version }}

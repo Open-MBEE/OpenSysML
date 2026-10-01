@@ -103,7 +103,7 @@ func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Valu
 	if binder.trace != nil {
 		binder.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
-	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, nil, nil); err != nil {
 		if binder.trace != nil {
 			binder.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -144,6 +144,9 @@ func flattenFrames(frames []frame) frame {
 		out.aliases = mergeAliases(out.aliases, f.aliases)
 		if f.perf != nil {
 			out.perf = f.perf
+		}
+		if f.firing != nil {
+			out.firing = f.firing
 		}
 		if run := f.running(); run != nil {
 			out.merged = append(out.merged, run)

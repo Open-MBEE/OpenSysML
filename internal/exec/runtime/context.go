@@ -30,6 +30,8 @@ type Context struct {
 	created   []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
+	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
+	lifetimes FeatureValue
 
 	// maxActionSteps, maxStateEvents and maxDoSteps bound the executors this
 	// context runs: token-flow steps, dispatched events, and do actions.
@@ -37,6 +39,10 @@ type Context struct {
 	maxActionSteps int64
 	maxStateEvents int64
 	maxDoSteps     int64
+
+	// streaming holds the pins whose writes are being carried on along streaming flows
+	// at this moment, to catch flows that lead a value back to where it was written.
+	streaming map[streamKey]bool
 
 	// maxElements bounds the collection elements one run materializes, which is
 	// what its memory grows with, unlike a step.
@@ -84,6 +90,9 @@ type Context struct {
 	metadataObjects map[metadataAnnotation]int64
 	// tools runs the external tool a ToolExecution names; nil refuses every such action.
 	tools ToolRunner
+	// forwardNotes echoes each note to the context this one was seeded from
+	// (see DeclaredReader); nil keeps notes here alone.
+	forwardNotes func(RunNote)
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.
@@ -108,6 +117,12 @@ type Context struct {
 	// behavior does not run it recursively.
 	pendingBehaviors []*ObjectBehavior
 
+	// attachingBehaviors are the members whose behaviors are attaching — bound,
+	// materialized and initializing — but not yet recorded on the object: an
+	// initialization that classifies the object (a bound feature typing it)
+	// re-scans its types and must not attach the same member again.
+	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
+
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
 
@@ -118,6 +133,9 @@ type Context struct {
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
 	heldBehaviors map[*ObjectBehavior]bool
+	// holdingDriven marks that hold however it came out, nil map included; a
+	// nested start leaves the driving to the outermost one.
+	holdingDriven bool
 
 	// objectBehaviors are every behavior an object of this context runs, so a
 	// drain to quiescence can re-run one a sibling's send woke.
@@ -187,10 +205,28 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// tracing observes the derivations under way, innermost last, for the reads
+	// that decide whether each is one every occurrence of its shape shares.
+	tracing []derivationTrace
+	// shareDefaults turns on the sharing of derived defaults between occurrences of
+	// one shape; sharedDefaults holds them, shapes interns the shapes they are
+	// keyed by, and sharedTaken counts the values taken from it (shared_default.go).
+	shareDefaults  bool
+	sharedDefaults map[sharedKey]*sharedDefault
+	shapes         map[shapeNode]*shapeNode
+	sharedTaken    int64
+	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
+	verdicts *verdictMemo
+	// behaviorsAttached counts the object behaviors attached so far, so a
+	// derivation knows whether one was attached under it.
+	behaviorsAttached int64
 	// runBoundaries mark, innermost last, where in objectBehaviors and in
 	// pendingBehaviors the behaviors a change still to be kept or undone attached
 	// begin: the only ones a drain under it may run (see nextRunnableBehavior).
 	runBoundaries []runBoundary
+	// storing are the stores under way, innermost last, each keeping the journal of the hold
+	// it reached open until the behaviors the hold started have run (see storedBeforeStarting).
+	storing []*storing
 	// run is the state of the run under way, or of the latest one ended; see beginRun.
 	run *runState
 	// runDepth is the number of runs currently under way, so the state is installed
@@ -218,6 +254,12 @@ type Context struct {
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
+	// bus counts what changed the messages in flight; writes counts the feature
+	// values written or restored. A machine's poll of the bus is memoized on them.
+	bus    busSerials
+	writes uint64
+	// polling, while a machine scans the bus, notes what the scan read beyond it.
+	polling *pendingMemo
 	// mail, while a state's do behavior runs, is where its accepts look in place
 	// of the bus: the message its machine dispatched to it, none between dispatches.
 	mail *[]Message
@@ -226,6 +268,10 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// work counts the changes that can leave an attached behavior holding work;
+	// quiescent is the memo a full scan leaves when it finds them all idle.
+	work      uint64
+	quiescent quiescence
 	// onStack lists the runs of the executors whose calls are under way, outermost first.
 	onStack []*executorRun
 
@@ -287,8 +333,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		compileCalcs: CalcCompileFromEnv(),
 
 		run: &runState{
-			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
@@ -312,6 +357,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+
+		shareDefaults:  SharedDefaultsFromEnv(),
+		sharedDefaults: make(map[sharedKey]*sharedDefault),
+		shapes:         make(map[shapeNode]*shapeNode),
 	}
 	ctx.took = &idMark{high: 1}
 	ctx.ids = newIDSequence(ctx.took)
@@ -643,9 +692,8 @@ type runState struct {
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:        ctx.newScheduler(),
-		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		scheduler:     ctx.newScheduler(),
+		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 }
 
@@ -695,6 +743,10 @@ type executorRun struct {
 	// a callee's executor was begun under, whose performance encloses it.
 	exec   endable
 	caller *executorRun
+	// serial counts the calls into the executor and into those begun under it;
+	// active is how many of them are under way.
+	serial uint64
+	active int
 }
 
 // endable is an executor whose performance an occurrence's end may end.
@@ -724,8 +776,10 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
+	run.stir(1)
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
+	ctx.workChanged()
 	// A call into an executor whose performer ended in between finds its performance over.
 	if run.exec != nil && run.exec.performerEnded() {
 		run.exec.endTerminated()
@@ -733,8 +787,24 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	return func() {
 		leave()
 		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]
+		run.stir(-1)
+		ctx.workChanged()
 	}
 }
+
+// stir counts a change of what the run's executor holds, from a call into it or
+// into one begun under it (entered +1, left -1) or a restore (0); a memo over the
+// executor's state keys on the count and stands only while no call is under way.
+func (run *executorRun) stir(entering int) {
+	for r := run; r != nil; r = r.caller {
+		r.serial++
+		r.active += entering
+	}
+}
+
+// settled reports whether no call into the run's executor, or into one begun
+// under it, is under way.
+func (run *executorRun) settled() bool { return run.active == 0 }
 
 // innermostRun is the run of the executor whose call is under way, nil outside any.
 func (ctx *Context) innermostRun() *executorRun {
@@ -771,7 +841,8 @@ func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 	} else {
 		ctx.run = ctx.newRunState()
 	}
-	return func() { ctx.run = saved }
+	ctx.workChanged()
+	return func() { ctx.run = saved; ctx.workChanged() }
 }
 
 // endExecutorRun brackets the release of a call-by-call driven run: its leftovers
@@ -864,6 +935,7 @@ type journalWrite struct {
 // noteProbeWrite records a feature value about to change, for the probe or
 // transaction under way to restore; outside one it records nothing.
 func (ctx *Context) noteProbeWrite(fv *FeatureValue) {
+	ctx.writes++
 	if ctx.journals == 0 {
 		return
 	}
@@ -1079,11 +1151,13 @@ func (ctx *Context) CheckConstraintOn(sym *symbols.Symbol, scope *symbols.Scope,
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("constraint", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkConstraintOn(sym, scope, subject)
+	})
+}
 
+// checkConstraintOn is CheckConstraintOn evaluated on the object it resolved to.
+func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Evaluate every condition the constraint states, inherited ones included.
 	conds := ctx.conditionsOf(sym, ctx.chainMembers(sym, scope))
 	holds, err := ctx.evaluateConditions(conditionCheck{
@@ -1383,11 +1457,13 @@ func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("requirement", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkRequirementOn(sym, scope, subject)
+	})
+}
 
+// checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
+func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
 	// was declared in.
 	members := ctx.chainMembers(sym, scope)
@@ -1486,11 +1562,21 @@ func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Insta
 	return (&Invocation{Actions: []*ActionExecutor{exec}}).Outcome(), nil
 }
 
+// ExecuteActionReportingPerformer runs an action as ExecuteActionPerformedBy does and
+// also reports its performer's attributes, keyed as ActionOutcomePerformedBy keys them.
+func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self *Instance, inputs map[string]Value) (outputs, performer map[string]Value, err error) {
+	exec, err := ctx.performAction(action, self, inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return exec.Results(), (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+}
+
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced. An object
 // performing the action runs the performance it already runs rather than a second.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	exec, err := performanceOf(action, self, inputs)
+	exec, err := ctx.performanceOf(action, self, inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1522,7 +1608,7 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, top, start)
+	exec, err := ctx.beginPerformed(performed, action, self, inputs, top, nil, start)
 	if err != nil {
 		return nil, err
 	}
@@ -1534,13 +1620,17 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 
 // beginPerformed creates the executor for a performance of performed running
 // action, seeds its inputs and starts it with start, on the clock until it is run;
-// top marks the performance a top-level run begins on.
-func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+// top marks the performance a top-level run begins on; listener, if any, is
+// installed before the start so the outputs' declared values stream too.
+func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 	exec.beginsRun = top
+	if listener != nil {
+		exec.listen(listener.perf, listener.take)
+	}
 	if !top {
 		exec.driven.caller = ctx.innermostRun()
 	}
@@ -1581,10 +1671,22 @@ func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
 			return fmt.Errorf("execute action: %w", err)
 		}
 	}
+	if err := ctx.settledObjects(top); err != nil {
+		return fmt.Errorf("execute action: %w", err)
+	}
 	if err := ctx.followedWhole(top); err != nil {
 		return fmt.Errorf("execute action: %w", err)
 	}
 	return nil
+}
+
+// settledObjects runs, once a top-level run's own performance ended, the behaviors
+// of the objects it left with work: one it started, or woke with a message it sent.
+func (ctx *Context) settledObjects(top bool) error {
+	if !top {
+		return nil
+	}
+	return ctx.runAttachedBehaviors()
 }
 
 // followedWhole is the refusal of a top-level run that ended with witness moves
@@ -1672,8 +1774,12 @@ var ErrAmbiguousAction = errors.New("ambiguous action")
 var ErrPerformedInputs = errors.New("inputs for a performed action")
 
 // performanceOf is the performance self runs of action's declaration, to run in
-// place of a second; nil when self performs none.
-func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+// place of a second; nil when self performs none. The `in ref` parameters a
+// usage binds by redefinition (`in ref :>> context = …`) are the declaration's
+// own bindings, not arguments a call supplies, so they do not count against it:
+// an input counts only where it is not a reference equal to the binding the
+// running performance stored for it — self itself where none was stored.
+func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	if self == nil {
 		return nil, nil
 	}
@@ -1681,7 +1787,26 @@ func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Val
 	case 0:
 		return nil, nil
 	case 1:
-		if len(inputs) > 0 {
+		conflicts := 0
+		for name, value := range inputs {
+			implicit := false
+			for _, param := range ctx.actionParametersOf(action) {
+				if param.Name != name || !param.IsReference {
+					continue
+				}
+				root := performed[0].Action.root
+				if bound, held := root.data[root.key(name)]; held {
+					implicit = ctx.valueEqual(bound, value)
+				} else {
+					implicit = value.Kind == ValInstance && value.Instance == self.ID
+				}
+				break
+			}
+			if !implicit {
+				conflicts++
+			}
+		}
+		if conflicts > 0 {
 			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
 		}
 		return performed[0].Action, nil

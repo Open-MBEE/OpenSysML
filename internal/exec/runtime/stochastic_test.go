@@ -376,6 +376,76 @@ func TestExploreEnumeratesWeightedBranches(t *testing.T) {
 	}
 }
 
+// Each outcome of a complete exploration carries the probability of its
+// linearizations: the product of the run's picks' shares, weighted ones by the
+// stated weight, unweighted ones the uniform share a seed draws each with.
+func TestExploreWeighsLinearizations(t *testing.T) {
+	m := parseLibraryModel(t, weightedRouteModel)
+	x := m.exploreAction(t, "explore", "route")
+	if !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore found %v, want both branches", outcomeTexts(x))
+	}
+	for _, o := range x.Outcomes {
+		want := 0.7
+		if takenInt(t, o.Outcome.Outputs, "taken") == 2 {
+			want = 0.3
+		}
+		if math.Abs(o.Probability-want) > 1e-9 {
+			t.Errorf("%s: probability %v, want %v", o.Outcome, o.Probability, want)
+		}
+	}
+	if p := x.Probability(); math.Abs(p-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration covers %v, want 1 exact", p)
+	}
+}
+
+// An unweighted choice point contributes the uniform share of its alternatives:
+// two token orders against the 0.3/0.7 decision leave every outcome at 0.15 or 0.35.
+func TestExploreWeighsUnweightedChoicesUniformly(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		action mix {
+			attribute x : Integer = 0;
+			attribute y : Integer = 0;
+			first start;
+			fork split;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			join sync;
+			then decide select;
+			first select then slow { @Probability { p = 0.3; } }
+			first select then fast { @Probability { p = 0.7; } }
+			action slow { assign y := 1; }
+			then done;
+			action fast { assign y := 2; }
+			then done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+		}
+	}`)
+	x := m.exploreAction(t, "explore", "mix")
+	if !x.Complete() || len(x.Outcomes) != 4 {
+		t.Fatalf("explore found %v, want the four orders and picks", outcomeTexts(x))
+	}
+	got := map[[2]int64]float64{}
+	for _, o := range x.Outcomes {
+		got[[2]int64{takenInt(t, o.Outcome.Outputs, "x"), takenInt(t, o.Outcome.Outputs, "y")}] += o.Probability
+	}
+	want := map[[2]int64]float64{{1, 1}: 0.15, {1, 2}: 0.35, {2, 1}: 0.15, {2, 2}: 0.35}
+	for xy, p := range want {
+		if math.Abs(got[xy]-p) > 1e-9 {
+			t.Errorf("x=%d, y=%d: probability %v, want %v", xy[0], xy[1], got[xy], p)
+		}
+	}
+	if p := x.Probability(); math.Abs(p-1) > 1e-9 {
+		t.Errorf("linearizations carry %v, want 1", p)
+	}
+}
+
 // A random function call without a seed, model or schedule, is a typed refusal
 // naming the call and the seed it needs; a probe of it draws nothing.
 func TestRandomFunctionRefusesToDrawUnseeded(t *testing.T) {

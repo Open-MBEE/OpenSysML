@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_plant" name="Plant">
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump">
+          <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_pump" body="Moves fluid through the plant."/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mass" name="mass">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+          </ownedAttribute>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_valve" name="valve" type="_blk_valve" aggregation="composite"/>
+          <ownedOperation xmi:type="uml:Operation" xmi:id="_op_prime" name="prime"/>
+          <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm_cycle" name="Cycle">
+            <region xmi:type="uml:Region" xmi:id="_rg_main" name="main">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_init"/>
+              <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
+              <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tr_init" source="_ps_init" target="_st_idle"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tr_start" source="_st_idle" target="_st_running"/>
+            </region>
+          </ownedBehavior>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_valve" name="Valve"/>
+        <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_mode" name="Mode">
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_on" name="on"/>
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_off" name="off"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_p1" name="p1" classifier="_blk_pump">
+          <slot xmi:type="uml:Slot" xmi:id="_slot_p1_mass" definingFeature="_prop_mass">
+            <value xmi:type="uml:LiteralReal" xmi:id="_slot_p1_mass_v" value="12.5"/>
+          </slot>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_pump_valve" name="needs" client="_blk_pump" supplier="_blk_valve"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Views">
+        <packagedElement xmi:type="uml:Class" xmi:id="_view_overview" name="Overview"/>
+        <packagedElement xmi:type="uml:Class" xmi:id="_vp_operations" name="Operations"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_tables" name="Tables"/>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_packageable" name="Packageable Elements" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_namespaces" name="Namespaces" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_types" name="Types" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_classifiers" name="Classifiers" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_diagrams" name="Diagrams" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_model" name="Model Overview" ownerOfDiagram="_m">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Package Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_plant</usedElements>
+                  <usedElements>_pkg_tables</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_st_blk_valve" base_Class="_blk_valve"/>
+  <sysml:View xmi:id="_st_view_overview" base_Class="_view_overview"/>
+  <sysml:Viewpoint xmi:id="_st_vp_operations" base_Class="_vp_operations"/>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_packageable" base_Diagram="_diag_packageable" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#PackageableElement"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_namespaces" base_Diagram="_diag_namespaces" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Namespace"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_types" base_Diagram="_diag_types" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Type"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_classifiers" base_Diagram="_diag_classifiers" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Classifier"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_diagrams" base_Diagram="_diag_diagrams" takeWholeModelAsScope="true" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Diagram"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+</xmi:XMI>

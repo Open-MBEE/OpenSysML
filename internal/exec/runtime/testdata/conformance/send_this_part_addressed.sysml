@@ -1,6 +1,6 @@
-// A send addressing `this.<part>` from an action def owned by a part def
-// delivers to that part of the performing object: `this` is the context
-// occurrence the performance runs for, so the path is read from the host.
+// A send addressing `context.<part>` from an action def owned by a part def
+// delivers to that part of the performing object: the def takes the performing
+// object as its `context` parameter, so the path is read from the host.
 package SendThisPart {
 	private import ScalarValues::*;
 
@@ -12,12 +12,13 @@ package SendThisPart {
 		attribute got : Integer = 0;
 
 		state def Listen {
+			in ref context : Worker[1];
 			entry; then idle;
 			state idle;
-			transition first idle accept g : Go do assign this.got := g.n then idle;
+			transition first idle accept g : Go do assign context.got := g.n then idle;
 		}
 
-		exhibit state listen : Listen;
+		exhibit state listen : Listen { in ref :>> context = this; }
 	}
 
 	part def Host {
@@ -25,13 +26,14 @@ package SendThisPart {
 		part worker : Worker;
 
 		action def Notify {
+			in ref context : Host[1];
 			first start;
-			then action poke send new Go(n = 7) to this.worker;
-			then action note assign this.mark := 1;
+			then action poke send new Go(n = 7) to context.worker;
+			then action note assign context.mark := 1;
 			then done;
 		}
 
-		perform action notify : Notify;
+		perform action notify : Notify { in ref :>> context = this; }
 	}
 
 	part host : Host;

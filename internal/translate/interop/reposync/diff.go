@@ -351,8 +351,17 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	}
 	views := map[string]*subjectView{}
 	uncarried := map[string]int{}
+	// A library element the graph names (isLibraryElement) is a reference into
+	// the standard library, not an element of the model: it is never created,
+	// changed or deleted in a repository.
+	library := map[string]bool{}
+	for _, subject := range g.Subjects() {
+		if export.LibraryReference(g, subject) {
+			library[subject.Value] = true
+		}
+	}
 	for _, triple := range g.Triples() {
-		if !triple.Subject.IsIRI() {
+		if !triple.Subject.IsIRI() || library[triple.Subject.Value] {
 			continue
 		}
 		id := rdf.LocalName(triple.Subject.Value)
@@ -435,7 +444,23 @@ func mintable(view *subjectView) bool {
 	if !view.mintableIRI() || view.normative {
 		return false
 	}
-	return view.metaclass != "OwningMembership" && view.metaclass != "FeatureMembership"
+	if view.metaclass == "OwningMembership" || view.metaclass == "FeatureMembership" {
+		return false
+	}
+	// An unnamed satellite the encoder derives from a side table — the
+	// materialized relationship elements, a conjugated definition — is
+	// owned by the element it restates and notation can never address it.
+	if view.qualifiedName == "" && export.DerivedSatellite(view.metaclass) {
+		return false
+	}
+	// A `#Tag` prefix is a metadata usage the notation writes as a bare name,
+	// with no body to declare an id in (SysML-textual-bnf PrefixMetadataUsage),
+	// so an id minted for it would be lost on the next export, and with it the
+	// ids of the membership or annotation derived from it.
+	if view.metaclass == "MetadataUsage" && slices.Contains(view.props[rdf.OpenSysML+"declaredKeyword"], `"#"`) {
+		return false
+	}
+	return true
 }
 
 // propertyDeltas lists the properties whose value sets differ between two

@@ -31,10 +31,19 @@ public final class BinaryStager {
     Path output = Path.of(args[1]);
     String base = DEFAULT_BASE;
     Path digests = null;
-    for (int i = 2; i < args.length; i++) {
-      if ("--base-url".equals(args[i])) base = args[++i];
-      else if ("--digests".equals(args[i])) digests = Path.of(args[++i]);
-      else throw new IllegalArgumentException("unknown option: " + args[i]);
+    int i = 2;
+    while (i < args.length) {
+      String option = args[i];
+      if ("--base-url".equals(option) || "--digests".equals(option)) {
+        if (i + 1 >= args.length) {
+          throw new IllegalArgumentException("option requires a value: " + option);
+        }
+        if ("--base-url".equals(option)) base = args[i + 1];
+        else digests = Path.of(args[i + 1]);
+        i += 2;
+      } else {
+        throw new IllegalArgumentException("unknown option: " + option);
+      }
     }
     stage(version, output, base, digests);
   }

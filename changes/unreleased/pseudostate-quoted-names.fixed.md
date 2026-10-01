@@ -1,1 +1,0 @@
-- **A pseudostate can carry a quoted name.** `fork 'spread 2';`, `join`, `junction`, `choice`, `history` and `deep history` read their name as every other declaration does, an unrestricted name `'…'` included, where only an identifier or keyword parsed before; a transition then reaches it by the same quoted name.

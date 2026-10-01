@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [{"signal": "Stop", "value": {"type": "Integer", "value": 4}}],
+  "finalState": "done",
+  "stateVisits": ["running", "fast", "stopped", "done"],
+  "outputs": {
+    "innerExit": {"type": "Integer", "value": 40},
+    "outerExit": {"type": "Integer", "value": 4}
+  }
+}
