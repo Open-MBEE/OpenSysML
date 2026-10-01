@@ -363,8 +363,7 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
     encoded = _encoded_inputs(model, inputs)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
-    needed = String[]
-    !isempty(schedule) && push!(needed, CAPABILITY_SCHEDULE)
+    needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
     request = Dict{String,Any}("modelHash" => model.hash, "actionSymbolId" => String(action_id),
                                "inputs" => encoded)
@@ -387,8 +386,7 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[],
     _check_schedule(schedule)
     _schedule_preflight(model.connection, schedule)
     performer !== nothing && require_capability(model.connection, CAPABILITY_PERFORMER)
-    needed = String[]
-    !isempty(schedule) && push!(needed, CAPABILITY_SCHEDULE)
+    needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
     request = Dict{String,Any}("modelHash" => model.hash, "stateMachineSymbolId" => String(state_id),
                                "events" => Any[String(e) for e in events])

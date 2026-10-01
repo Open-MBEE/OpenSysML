@@ -58,6 +58,16 @@ struct TransportError <: OpenSysMLError
 end
 Base.showerror(io::IO, e::TransportError) = print(io, "TransportError: $(e.message)")
 
+struct ChecksumMismatchError <: OpenSysMLError
+    message::String
+end
+Base.showerror(io::IO, e::ChecksumMismatchError) = print(io, "ChecksumMismatchError: $(e.message)")
+
+struct UnpinnedReleaseError <: OpenSysMLError
+    message::String
+end
+Base.showerror(io::IO, e::UnpinnedReleaseError) = print(io, "UnpinnedReleaseError: $(e.message)")
+
 abstract type DiagnosticError <: OpenSysMLError end
 abstract type ExecutionError <: DiagnosticError end
 
@@ -100,6 +110,44 @@ struct ConversionError <: DiagnosticError
 end
 
 abstract type EditError <: DiagnosticError end
+
+"""A declaration referring to an edited target."""
+struct Referrer
+    name::String
+    document::String
+end
+Base.:(==)(a::Referrer, b::Referrer) =
+    a.name == b.name && a.document == b.document
+Base.hash(r::Referrer, h::UInt) = hash((r.name, r.document), h)
+Base.show(io::IO, r::Referrer) =
+    print(io, "Referrer(name=$(repr(r.name)), document=$(repr(r.document)))")
+
+for name in (
+    :EditResultError, :EditTargetError, :InvalidEditError, :NoEditsError,
+    :OverlappingEditsError, :RenameReferencedError, :OwnerNotFoundError,
+    :OwnerNotNamespaceError, :IllegalMemberKindError, :MemberNameTakenError,
+    :DeleteReferencedError, :OwnerInsideTargetError, :MoveReferencedError,
+    :ReferencedElsewhereError, :EditFailureError,
+)
+    @eval begin
+        struct $name <: EditError
+            message::String
+            failure::String
+            diagnostics::Vector{Diagnostic}
+            referring_elements::Vector{String}
+            referrers::Vector{Referrer}
+        end
+        function $name(message::AbstractString; failure="", diagnostics=Diagnostic[],
+                       referring_elements=String[], referrers=Referrer[])
+            $name(String(message), String(failure),
+                 Diagnostic[d isa Diagnostic ? d : Diagnostic(d) for d in diagnostics],
+                 String[String(v) for v in referring_elements],
+                 Referrer[Referrer(r.name, r.document) for r in referrers])
+        end
+    end
+end
+Base.showerror(io::IO, err::EditError) = print(io, err.message)
+Base.show(io::IO, err::EditError) = print(io, err.message)
 
 struct SymbolNotFoundError <: OpenSysMLError
     name::String

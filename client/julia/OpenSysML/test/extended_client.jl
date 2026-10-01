@@ -1,4 +1,4 @@
-@testset "Phase A errors and capabilities" begin
+@testset "errors and capabilities" begin
     @test ConnectError("not_found", "model not found: abc", 404) isa ModelNotFoundError
     @test ConnectError("not_found", "file not found: a.sysml", 404) isa ModelFileNotFoundError
     @test ConnectError("invalid_argument", "bad request", 400) isa InvalidRequestError
@@ -11,8 +11,8 @@
     version, capabilities = info
     @test version == "1.2.3"
     @test capabilities == Set(["query", "verification"])
-    @test has(info, "query")
-    @test occursin("1.2.3", describe(info))
+    @test "query" in info
+    @test occursin("1.2.3", OpenSysML.describe(info))
     @test mismatch_reason(info; version="1.2.4") !== nothing
     @test_throws MissingCapabilityError require_capability(info, "convert")
 end
@@ -62,7 +62,7 @@ end
     kilometre = Unit("km"; scale_num=1000, factors=[UnitFactor("SI::metre", 1)])
     quantity = Quantity(2, "km", kilometre)
     @test in_unit(quantity, metre) == 2000.0
-    @test to(quantity, metre).magnitude == 2000.0
+    @test to_unit(quantity, metre).magnitude == 2000.0
     @test quantity + Quantity(500, "m", metre) == Quantity(2.5, "km", kilometre)
     @test_throws IncommensurableUnitsError quantity + Quantity(1, "s", Unit("s"; factors=[UnitFactor("SI::second", 1)]))
     @test MeasurementRef("m", "SI::metre", metre) ==
@@ -77,7 +77,7 @@ end
         Dict("array" => Dict("dimensions" => ["1"], "elements" => [Dict("intValue" => "1")])),
         Dict("array" => Dict("dimensions" => ["1"], "elements" => [Dict("intValue" => "1")])),
     ])))
-    @test nested(ArrayValue([2, 2], Any[1, 2, 3, 4])) == Any[Any[1, 2], Any[3, 4]]
+    @test OpenSysML.nested(ArrayValue([2, 2], Any[1, 2, 3, 4])) == Any[Any[1, 2], Any[3, 4]]
 
     values = Any[
         Quantity(3, "m", metre),
@@ -103,8 +103,8 @@ end
     @test CAPABILITY_FUNCTION_VALUES in value_capabilities(values[3])
     @test CAPABILITY_SET_VALUES in value_capabilities(values[12])
     @test CAPABILITY_TENSOR_VALUES in value_capabilities(values[10])
-    @test unit(values[9]) == metre
-    @test collect(magnitudes(values[9])) == [1, 2]
+    @test OpenSysML.unit(values[9]) == metre
+    @test collect(OpenSysML.magnitudes(values[9])) == [1, 2]
     @test_throws ArgumentError VectorValue([true])
     @test OpenSysML.decode_values(Dict("outputs" => Dict(
         "intValue" => Dict("intValue" => "7"))))["outputs"]["intValue"] == 7
@@ -145,7 +145,7 @@ end
     @test_throws ArgumentError format_of_path("model.unknown")
 end
 
-@testset "live Phase A RPCs" begin
+@testset "live RPC wrappers" begin
     if !isfile(GRPC_BINARY)
         @test_skip false
     else
@@ -287,4 +287,38 @@ end
             close(conn)
         end
     end
+end
+
+@testset "capability selection" begin
+    @test OpenSysML._engine_capabilities(nothing) == ()
+    @test OpenSysML._engine_capabilities("auto") == ()
+    @test OpenSysML._engine_capabilities("solver") ==
+          (OpenSysML.CAPABILITY_ENGINES,)
+    @test OpenSysML._engine_capabilities("explore") ==
+          (OpenSysML.CAPABILITY_ENGINES, OpenSysML.CAPABILITY_SCHEDULE_EXPLORE)
+    @test OpenSysML._question_capabilities("evaluate") == ()
+    @test OpenSysML._question_capabilities("why") ==
+          (OpenSysML.CAPABILITY_VERIFICATION_QUESTIONS,)
+    @test OpenSysML._schedule_capabilities(nothing) == ()
+    @test OpenSysML._schedule_capabilities("default") ==
+          (OpenSysML.CAPABILITY_SCHEDULE,)
+    @test OpenSysML._schedule_capabilities("explore:runs=2") ==
+          (OpenSysML.CAPABILITY_SCHEDULE, OpenSysML.CAPABILITY_SCHEDULE_EXPLORE)
+end
+
+@testset "ordered sweep range inputs" begin
+    normalize = OpenSysML._ordered_sweep_ranges
+    one = "x" => (1, 3)
+    ordered = ["second" => (1, 2), "first" => (4, 5)]
+    @test normalize(one) == [one]
+    @test normalize(ordered) == ordered
+    @test normalize(Dict("x" => (1, 3))) == [one]
+    error = try
+        normalize(Dict("x" => (1, 3), "y" => (2, 4)))
+        nothing
+    catch exception
+        exception
+    end
+    @test error isa ArgumentError
+    @test occursin("vector of pairs", sprint(showerror, error))
 end

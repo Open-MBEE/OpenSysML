@@ -1,0 +1,60 @@
+{
+  "Open-MBEE/OpenSysML": {
+    "v0.0.5": {
+      "sysml-grpc-darwin-amd64": "ab2933f168341bed3157bac0026d2c5a51bdb1c4629618178123f7ca8e071e72",
+      "sysml-grpc-darwin-arm64": "6e839899c93954671d39ebc91a751302d8329864e9671fc38f7549aa52bddde9",
+      "sysml-grpc-linux-amd64": "9bc8203f05a3dfa3d5c4b784f87e38d70f0db416732a73ddf56aaa4c57c2a566",
+      "sysml-grpc-linux-arm64": "fd6addc9cb717787d12225c3092d653708e6f5aac19d987582228180b529ca13",
+      "sysml-grpc-windows-amd64.exe": "0033248b904e0d10f83a5e033953372108ccad024ae530092431325339bc1179"
+    },
+    "v0.0.6": {
+      "sysml-grpc-darwin-amd64": "5954ae0838858ea585943c7a986a049ac9109874047310e9612b292259c07937",
+      "sysml-grpc-darwin-arm64": "a46792146388f0ed8b736754c6f675d287769bb026a8dd5503f1abc8ed9036c3",
+      "sysml-grpc-linux-amd64": "cb6a4a6152b79321c1d432cdc895acd4d0c4d8e43dd72d38ce6b07d7ce427dd6",
+      "sysml-grpc-linux-arm64": "8133f113c07b6f9f2772077add61c3c7e4ba3065000e8405d2c01bc67f3ec17d",
+      "sysml-grpc-windows-amd64.exe": "ae01081af3acc467fad7dbbfce10ec15c9307995a98a30773885622ba2e467db"
+    },
+    "v0.0.7": {
+      "sysml-grpc-darwin-amd64": "f83bc05ca77137e142e682f8b5e3858d223dc4be5637755b989d19094d6c9cf0",
+      "sysml-grpc-darwin-arm64": "84d6e87ae7af59cad17d1e41b0a5234a78a2c1495c298ba9184e856d5582b9f5",
+      "sysml-grpc-linux-amd64": "00ede1e52851ac9cf52e6a69d090ff81a0b188cd7b08ca83d75e27e708bddb58",
+      "sysml-grpc-linux-arm64": "54a92ccd80868c3c02fb95f90d3714d0d517d68e9d42dbe5d0d1421ee6b52951",
+      "sysml-grpc-windows-amd64.exe": "0bee1545673423dcad761e3d02453d6736ee56989aa17ee82c9a26553bb5bae6"
+    },
+    "v0.0.8": {
+      "sysml-grpc-darwin-amd64": "ac0b8f3d24ffe5250d1c375c90425014eed87a786bb977b848f274b2eaeb2ced",
+      "sysml-grpc-darwin-arm64": "0e15230e8636f19a0c145652296faa7f4a18279755f201b396f23d49ba159a6e",
+      "sysml-grpc-linux-amd64": "3afc97748c206cd9e52cb55d3e5918fe456f577a121f2fd67800e7383d4ec139",
+      "sysml-grpc-linux-arm64": "31e3b10edc8e0cc53537f3be0d56e1a78ea703899afaec76875b502b9919c438",
+      "sysml-grpc-windows-amd64.exe": "6bf92438d139e21f1005c41c3fcca5693bad3abf9c5fd8ca6dd18a041d20b101"
+    },
+    "v0.1.0": {
+      "sysml-grpc-darwin-amd64": "60a05614a278c5c17fd27717416fdf957c7f90ba69f31d9a14d531013861601e",
+      "sysml-grpc-darwin-arm64": "a31a96d6de5e43ae5071ba0cc469be7f5854b8458aad9d8cd20e5a14c64eb48b",
+      "sysml-grpc-linux-amd64": "6bf718f8ade6c67a86cad39fcbc335ae019916b50e10530608bd832986e5b1fa",
+      "sysml-grpc-linux-arm64": "09db2db4490fc07efd371ee114b395f9a7650fa9d1dc3de7ad0d2855e5958be5",
+      "sysml-grpc-windows-amd64.exe": "7367261c2f82f4dd2d473d580d4410eaf0f8c22532ba94890e33482e509b2d8c"
+    },
+    "v0.2.0": {
+      "sysml-grpc-darwin-amd64": "52c34a3048e5fa03f45189264b85fbd21523ac45d91a65b1dff8fbe0187b5541",
+      "sysml-grpc-darwin-arm64": "7caf5d8539c15cde8a076cd217b1f0581049436c092574ddcbf0f5a5af5c9a99",
+      "sysml-grpc-linux-amd64": "bc2a1aa124bbb9205953d256c1348ca38a4f57c5723fb09e6f4464a065dc6088",
+      "sysml-grpc-linux-arm64": "6f370241e327dd1277e2b8f35bed4388bae1e4172ff4d2a213c24dee2452536d",
+      "sysml-grpc-windows-amd64.exe": "1464a3aca63dd2c4d6cb8639f9958b6d887035cb7a7edd197aaa039fb5ab19f2"
+    },
+    "v0.2.1": {
+      "sysml-grpc-darwin-amd64": "589c6e248f69bc373c536d05379b9339d0c77443e67682aa06fc045dadc0606a",
+      "sysml-grpc-darwin-arm64": "f0397b0b1b9219470a1346d4e4a9135a3e2c3e480951e5aa54a55e593adb7214",
+      "sysml-grpc-linux-amd64": "b1885a0c956a69201f7d00d6d1a4f19f9df12831cedcee8ad4682a9918ffd8a6",
+      "sysml-grpc-linux-arm64": "3451bb569c1c2993a5c648df27cadcec900d46e6e1d957f87aac979c8a16c9e5",
+      "sysml-grpc-windows-amd64.exe": "3a630d38c2691a27c8f6e3b781f48e05b727c559b219b9c2e7bd8651c222628d"
+    },
+    "v0.3.0": {
+      "sysml-grpc-darwin-amd64": "8c034172f604ec78c6c045b8eef0ddb2fdebac4f22852480ad3289a3e940cf14",
+      "sysml-grpc-darwin-arm64": "c9f8fb0a424277cc83ab3f388e11e54fcc9328b9a2cb86a911e7b96fb6cb316a",
+      "sysml-grpc-linux-amd64": "b39b720e020c325020af95c33640ad3583c938d74c40d29a0741fab6c03412de",
+      "sysml-grpc-linux-arm64": "2faeacdbc3dcd20053b2dc79b559bbbf2f53b7470d982b9908c7665a53b37462",
+      "sysml-grpc-windows-amd64.exe": "f50f1b53008154c1a5fb39eb56f09464dedcf081037af765978304b2f33615c6"
+    }
+  }
+}

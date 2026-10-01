@@ -220,7 +220,7 @@ Base.length(value::TensorQuantity) = length(value.components)
 Base.iterate(value::TensorQuantity, state...) = iterate(value.components, state...)
 Base.getindex(value::TensorQuantity, index::Int) = value.components[index]
 """Return the number of dimensions in an array or tensor."""
-rank(value::Union{ArrayValue,TensorQuantity}) = length(value.dimensions)
+Base.ndims(value::Union{ArrayValue,TensorQuantity}) = length(value.dimensions)
 function Base.getindex(value::VectorValue, index::Int)
     value.components[index]
 end
@@ -248,10 +248,10 @@ function in_unit(q::Quantity, unit::Unit)
 end
 in_unit(q::Quantity, unit::Quantity) = in_unit(q, _unit(unit))
 """Return `q` converted to `unit`."""
-function to(q::Quantity, unit::Unit)
+function to_unit(q::Quantity, unit::Unit)
     Quantity(in_unit(q, unit), unit.text, unit)
 end
-to(q::Quantity, unit::Quantity) = to(q, _unit(unit))
+to_unit(q::Quantity, unit::Quantity) = to_unit(q, _unit(unit))
 function _sum_quantities(left::Quantity, right::Quantity, sign::Int)
     target = _unit(left)
     other = _unit(right)

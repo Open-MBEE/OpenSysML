@@ -23,29 +23,16 @@ function _base_url(address::AbstractString)
     return rstrip(a, '/')
 end
 
-"""Resolve the service binary from environment, cache, or `PATH`."""
-function resolve_binary()
-    name = Sys.iswindows() ? "sysml-grpc.exe" : "sysml-grpc"
-    for variable in ("OPENSYSML_GRPC_BINARY", "OPENSYSML_BINARY")
-        if haskey(ENV, variable) && !isempty(ENV[variable])
-            path = ENV[variable]
-            _is_executable_file(path) ||
-                throw(TransportError("$(variable) names no executable file: $(path)"))
-            return path
-        end
+function _version_request(version)
+    requested = version === nothing ? get(ENV, "OPENSYSML_GRPC_VERSION", nothing) : String(version)
+    requested == "latest" || return requested
+    try
+        resolve_latest_version()
+    catch err
+        err isa TransportError && return nothing
+        rethrow()
     end
-    cached = joinpath(homedir(), ".opensysml", "bin", name)
-    _is_executable_file(cached) && return cached
-    found = Sys.which(name)
-    found === nothing &&
-        throw(TransportError("no sysml-grpc binary found; set OPENSYSML_GRPC_BINARY, install to ~/.opensysml/bin/$(name), or put it on PATH"))
-    return found
 end
-
-_is_executable_file(path) =
-    isfile(path) && (Sys.iswindows() || (stat(path).mode & 0o111) != 0)
-
-_version_request(version) = version === nothing ? get(ENV, "OPENSYSML_GRPC_VERSION", nothing) : String(version)
 
 """Connect to a running sysml-grpc service."""
 function external(address::AbstractString; timeout::Real=30, version=nothing, require_capabilities=())
@@ -67,7 +54,7 @@ end
 """Start and connect to a private sysml-grpc service process."""
 function private(; binary::Union{AbstractString,Nothing}=nothing, timeout::Real=30,
                  version=nothing, require_capabilities=())
-    bin = binary === nothing ? resolve_binary() : String(binary)
+    bin = binary === nothing ? resolve_binary(; version=version) : String(binary)
     _is_executable_file(bin) || throw(TransportError("sysml-grpc binary is not an executable file: $(bin)"))
     cmd = `$bin -port 0 -health-port 0 -report-address -exit-with-parent`
     proc = try
@@ -213,7 +200,7 @@ function server_info(conn::Connection)
 end
 
 """Return whether the connected service advertises `name`."""
-has_capability(conn::Connection, name::AbstractString) = has(server_info(conn), name)
+has_capability(conn::Connection, name::AbstractString) = name in server_info(conn)
 require_capability(conn::Connection, capability::AbstractString) =
     require_capability(server_info(conn), capability)
 

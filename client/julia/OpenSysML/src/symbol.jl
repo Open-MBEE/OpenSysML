@@ -118,7 +118,7 @@ function Base.getproperty(model::Model, name::Symbol)
 end
 
 """Return the symbol with qualified identifier `fqn`, or `default`."""
-function get(model::Model, fqn::AbstractString, default=nothing)
+function Base.get(model::Model, fqn::AbstractString, default=nothing)
     for r in model.roots
         r.id == fqn && return r
     end

@@ -69,7 +69,7 @@ function _explore_action_request(model::Model, action_id, inputs, schedule, perf
     _schedule_preflight(conn, schedule)
     performer !== nothing && require_capability(conn, CAPABILITY_PERFORMER)
     encoded = _encoded_inputs(model, inputs)
-    needed = String[CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE]
+    needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "ExecuteAction", Dict{String,Any}("modelHash" => model.hash,
@@ -92,7 +92,7 @@ function _explore_state_request(model::Model, state_id, events, schedule, perfor
     conn = model.connection
     _schedule_preflight(conn, schedule)
     performer !== nothing && require_capability(conn, CAPABILITY_PERFORMER)
-    needed = String[CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE]
+    needed = String[_schedule_capabilities(schedule)...]
     performer !== nothing && push!(needed, CAPABILITY_PERFORMER)
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "ExecuteState", Dict{String,Any}("modelHash" => model.hash,

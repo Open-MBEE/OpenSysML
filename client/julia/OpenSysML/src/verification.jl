@@ -14,28 +14,16 @@ function _raise_answer_error(answer; diagnostics=_diagnostics(answer), result=no
 end
 
 function _engine_preflight(conn::Connection, engine)
-    if engine !== nothing && !isempty(String(engine)) && String(engine) != "auto"
-        require_capability(conn, CAPABILITY_ENGINES)
-    end
-    engine == "explore" && require_capability(conn, CAPABILITY_SCHEDULE_EXPLORE)
-    nothing
+    _require_capabilities(conn, _engine_capabilities(engine))
 end
 
 function _question_preflight(conn::Connection, question)
-    question !== nothing && !isempty(String(question)) && String(question) != "evaluate" &&
-        require_capability(conn, CAPABILITY_VERIFICATION_QUESTIONS)
-    nothing
+    _require_capabilities(conn, _question_capabilities(question))
 end
 
 function _schedule_preflight(conn::Connection, schedule)
-    schedule === nothing || isempty(String(schedule)) || require_capability(conn, CAPABILITY_SCHEDULE)
-    schedule !== nothing && (String(schedule) == "explore" || startswith(String(schedule), "explore:")) &&
-        require_capability(conn, CAPABILITY_SCHEDULE_EXPLORE)
-    nothing
+    _require_capabilities(conn, _schedule_capabilities(schedule))
 end
-
-_is_exploring(schedule) = schedule !== nothing &&
-    (String(schedule) == "explore" || startswith(String(schedule), "explore:"))
 
 function _encoded(conn::Connection, value)
     for capability in sort!(collect(value_capabilities(value)))
@@ -82,11 +70,8 @@ function _verification_call(model::Model, method::String, request;
     _engine_preflight(model.connection, engine)
     _question_preflight(model.connection, question)
     needed = String[CAPABILITY_VERIFICATION]
-    engine !== nothing && !isempty(String(engine)) && String(engine) != "auto" &&
-        push!(needed, CAPABILITY_ENGINES)
-    engine == "explore" && push!(needed, CAPABILITY_SCHEDULE_EXPLORE)
-    question !== nothing && !isempty(String(question)) && String(question) != "evaluate" &&
-        push!(needed, CAPABILITY_VERIFICATION_QUESTIONS)
+    append!(needed, _engine_capabilities(engine))
+    append!(needed, _question_capabilities(question))
     answer = _translate(; capabilities=Tuple(needed), connection=model.connection) do
         call(model.connection, method, request)
     end
@@ -126,11 +111,8 @@ function verify_satisfaction(model::Model; symbol=nothing, symbol_id=nothing,
     _engine_preflight(conn, engine)
     _question_preflight(conn, question)
     needed = String[CAPABILITY_VERIFICATION]
-    engine !== nothing && !isempty(String(engine)) && String(engine) != "auto" &&
-        push!(needed, CAPABILITY_ENGINES)
-    engine == "explore" && push!(needed, CAPABILITY_SCHEDULE_EXPLORE)
-    question !== nothing && !isempty(String(question)) && String(question) != "evaluate" &&
-        push!(needed, CAPABILITY_VERIFICATION_QUESTIONS)
+    append!(needed, _engine_capabilities(engine))
+    append!(needed, _question_capabilities(question))
     request = Dict{String,Any}("modelHash" => model.hash,
         "symbolId" => target === nothing ? "" : String(target),
         "engine" => engine === nothing || engine == "auto" ? "" : String(engine),
@@ -161,8 +143,7 @@ function validate_instance(model::Model, symbol_id::AbstractString; engine=nothi
     require_capability(conn, CAPABILITY_VERIFICATION)
     _engine_preflight(conn, engine)
     needed = String[CAPABILITY_VERIFICATION]
-    engine !== nothing && !isempty(String(engine)) && String(engine) != "auto" &&
-        push!(needed, CAPABILITY_ENGINES)
+    append!(needed, _engine_capabilities(engine))
     request = Dict{String,Any}("modelHash" => model.hash,
         "symbolId" => String(symbol_id),
         "engine" => engine === nothing || engine == "auto" ? "" : String(engine))
@@ -254,10 +235,8 @@ function _analysis_request(model::Model, symbol_id; subject=nothing, arguments=A
     needed = String[CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES,
         CAPABILITY_STRUCTURED_VALUES, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_SET_VALUES,
         CAPABILITY_TENSOR_VALUES, CAPABILITY_METAOBJECT_VALUES]
-    _is_exploring(schedule) && append!(needed, (CAPABILITY_SCHEDULE_EXPLORE,))
-    schedule !== nothing && !isempty(String(schedule)) && push!(needed, CAPABILITY_SCHEDULE)
-    engine !== nothing && !isempty(String(engine)) && String(engine) != "auto" &&
-        push!(needed, CAPABILITY_ENGINES)
+    append!(needed, _schedule_capabilities(schedule))
+    append!(needed, _engine_capabilities(engine))
     request = Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(symbol_id),
         "subjectSymbolId" => subject === nothing ? "" : String(subject),
         "arguments" => args, "namedArguments" => named,
@@ -299,7 +278,18 @@ function run_analysis(model::Model, symbol_id::AbstractString; subject=nothing,
 end
 
 """Run a parameter sweep and return its ordered result rows."""
-function run_sweep(model::Model, symbol_id::AbstractString, ranges::AbstractDict;
+function _ordered_sweep_ranges(ranges)
+    ranges isa Pair && return Pair[ranges]
+    ranges isa AbstractVector{<:Pair} && return ranges
+    if ranges isa AbstractDict
+        length(ranges) > 1 &&
+            throw(ArgumentError("ranges with multiple entries must be passed as a vector of pairs to preserve order"))
+        return collect(pairs(ranges))
+    end
+    throw(ArgumentError("ranges must be a Pair, a vector of pairs, or a dictionary with at most one entry"))
+end
+
+function run_sweep(model::Model, symbol_id::AbstractString, ranges;
                    subject=nothing, arguments=Any[], named_arguments=Dict(),
                    samples::Integer=0, seed::Integer=0, engine=nothing)
     conn = model.connection
@@ -308,7 +298,7 @@ function run_sweep(model::Model, symbol_id::AbstractString, ranges::AbstractDict
     args = _encoded_arguments(conn, arguments)
     named = Dict{String,Any}(String(k) => _encoded(conn, v) for (k, v) in pairs(named_arguments))
     encoded_ranges = Any[]
-    for (name, endpoints) in pairs(ranges)
+    for (name, endpoints) in _ordered_sweep_ranges(ranges)
         endpoints isa Tuple || endpoints isa AbstractVector ||
             throw(ArgumentError("range $(name) is a two- or three-value sequence"))
         length(endpoints) in (2, 3) ||
@@ -323,8 +313,7 @@ function run_sweep(model::Model, symbol_id::AbstractString, ranges::AbstractDict
     0 <= seed <= typemax(UInt64) ||
         throw(ArgumentError("seed must be a non-negative UInt64"))
     needed = String[CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES]
-    engine !== nothing && !isempty(String(engine)) && String(engine) != "auto" &&
-        push!(needed, CAPABILITY_ENGINES)
+    append!(needed, _engine_capabilities(engine))
     request = Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(symbol_id),
         "subjectSymbolId" => subject === nothing ? "" : String(subject), "arguments" => args,
         "namedArguments" => named, "ranges" => encoded_ranges, "samples" => Int(samples),

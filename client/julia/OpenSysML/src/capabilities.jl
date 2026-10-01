@@ -62,7 +62,8 @@ struct ServerInfo
 end
 
 """Return whether `info` advertises `capability`."""
-has(info::ServerInfo, capability::AbstractString) = String(capability) in info.capabilities
+Base.in(capability::AbstractString, info::ServerInfo) =
+    String(capability) in info.capabilities
 
 """Describe the service and its reported capabilities."""
 function describe(info::ServerInfo)
@@ -96,7 +97,7 @@ function mismatch_reason(info::ServerInfo; version=nothing, capabilities=())
             push!(reasons, "it reports version $(reported), but $(version) was asked for")
         end
     end
-    missing = sort!(String[c for c in capabilities if !has(info, c)])
+    missing = sort!(String[c for c in capabilities if !(c in info)])
     if !isempty(missing)
         named = join(repr.(missing), ", ")
         noun = length(missing) == 1 ? "capability" : "capabilities"
@@ -107,6 +108,41 @@ end
 
 """Require a capability from a server description or connection."""
 function require_capability(info::ServerInfo, capability::AbstractString)
-    has(info, capability) || throw(MissingCapabilityError(String(capability), info, upgrade_remedy(capability)))
+    capability in info ||
+        throw(MissingCapabilityError(String(capability), info, upgrade_remedy(capability)))
+    return nothing
+end
+
+_engine_field(engine) =
+    engine === nothing || isempty(String(engine)) || String(engine) == "auto" ? "" :
+    String(engine)
+
+_engine_capabilities(engine) = begin
+    field = _engine_field(engine)
+    field == "explore" ? (CAPABILITY_ENGINES, CAPABILITY_SCHEDULE_EXPLORE) :
+    isempty(field) ? () : (CAPABILITY_ENGINES,)
+end
+
+_question_field(question) =
+    question === nothing || isempty(String(question)) || String(question) == "evaluate" ? "" :
+    String(question)
+
+_question_capabilities(question) =
+    isempty(_question_field(question)) ? () : (CAPABILITY_VERIFICATION_QUESTIONS,)
+
+_is_exploring(schedule) = schedule !== nothing &&
+    (String(schedule) == "explore" || startswith(String(schedule), "explore:"))
+
+function _schedule_capabilities(schedule)
+    (schedule === nothing || isempty(String(schedule))) && return ()
+    _is_exploring(schedule) ?
+        (CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE) :
+        (CAPABILITY_SCHEDULE,)
+end
+
+function _require_capabilities(conn, capabilities)
+    for capability in capabilities
+        require_capability(conn, capability)
+    end
     return nothing
 end

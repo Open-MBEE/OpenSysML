@@ -253,4 +253,7 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
     end
 end
 
-include("phase_a.jl")
+include("extended_client.jl")
+include("authoring.jl")
+include("binary.jl")
+include("typed_generation.jl")

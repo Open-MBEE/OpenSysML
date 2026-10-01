@@ -32,9 +32,9 @@ function format_of_path(path::AbstractString)
 end
 
 """Convert exactly one file, inline source, or cached model to another format."""
-function convert(conn::Connection, to_format::AbstractString; file_path=nothing,
-                 content=nothing, model_hash=nothing, from_format="",
-                 tolerate_syntax_errors=false)
+function _convert(conn::Connection, to_format::AbstractString; file_path=nothing,
+                  content=nothing, model_hash=nothing, from_format="",
+                  tolerate_syntax_errors=false)
     sources = Pair{String,Any}["file_path" => file_path, "content" => content,
                                "model_hash" => model_hash]
     given = Pair{String,Any}[p for p in sources if last(p) !== nothing]
@@ -73,20 +73,26 @@ end
 """Convert a file-backed source to `to_format`."""
 convert_file(conn::Connection, path::AbstractString, to_format::AbstractString;
              from_format="", tolerate_syntax_errors=false) =
-    convert(conn, to_format; file_path=path, from_format=from_format,
-            tolerate_syntax_errors=tolerate_syntax_errors)
+    _convert(conn, to_format; file_path=path, from_format=from_format,
+             tolerate_syntax_errors=tolerate_syntax_errors)
 
 """Convert inline source to `to_format`, naming its input format explicitly."""
 convert_source(conn::Connection, content::AbstractString, to_format::AbstractString;
                from_format, tolerate_syntax_errors=false) =
-    convert(conn, to_format; content=content, from_format=from_format,
-            tolerate_syntax_errors=tolerate_syntax_errors)
+    _convert(conn, to_format; content=content, from_format=from_format,
+             tolerate_syntax_errors=tolerate_syntax_errors)
+
+"""Convert a cached model by hash to `to_format`."""
+convert_model(conn::Connection, model_hash::AbstractString, to_format::AbstractString;
+              tolerate_syntax_errors=false) =
+    _convert(conn, to_format; model_hash=model_hash,
+             tolerate_syntax_errors=tolerate_syntax_errors)
 
 """Convert the source retained for `model` to `to_format`."""
 convert_model(model::Model, to_format::AbstractString;
               tolerate_syntax_errors=false) =
-    convert(model.connection, to_format; model_hash=model.hash,
-            tolerate_syntax_errors=tolerate_syntax_errors)
+    convert_model(model.connection, model.hash, to_format;
+                  tolerate_syntax_errors=tolerate_syntax_errors)
 
 """Write `model` back out as SysML notation."""
 function to_sysml(model::Model; tolerate_syntax_errors=false)
@@ -107,6 +113,3 @@ function save(model::Model, path::AbstractString; to_format=nothing,
     end
     result
 end
-
-Base.convert(model::Model, to_format::AbstractString; kwargs...) =
-    convert_model(model, to_format; kwargs...)
