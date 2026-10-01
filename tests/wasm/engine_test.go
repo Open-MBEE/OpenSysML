@@ -264,7 +264,7 @@ func TestEngineWireParity(t *testing.T) {
 	}
 
 	for _, expression := range []string{
-		"7", "1.5", "true", `"enginedemo"`, "[1, 2, 3]",
+		"7", "1.5", "true", `"enginedemo"`, "(1, 2, 3)",
 		"10.0 [SI::m] / 2.0 [SI::s]", "enginedemo::Color::red",
 		"gatedemo::total", "enginedemo::speed",
 	} {
@@ -275,6 +275,23 @@ func TestEngineWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, res))
+		if expression == "(1, 2, 3)" {
+			// Equal answers would also match on a shared parse error: the case
+			// must exercise a real sequence, so check what the engine returned.
+			var seq struct {
+				Result struct {
+					Sequence struct {
+						Elements []json.RawMessage `json:"elements"`
+					} `json:"sequence"`
+				} `json:"result"`
+			}
+			if err := json.Unmarshal(mustCall(t, eng, "Evaluate", params), &seq); err != nil {
+				t.Fatalf("decoding the sequence answer: %v", err)
+			}
+			if len(seq.Result.Sequence.Elements) != 3 {
+				t.Errorf("(1, 2, 3) answered %d sequence elements, want 3", len(seq.Result.Sequence.Elements))
+			}
+		}
 	}
 
 	instParams := fmt.Sprintf(`{"modelHash":%q,"symbolId":"enginedemo::Switch"}`, hash)
