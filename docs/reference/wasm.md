@@ -16,12 +16,12 @@ make build-wasm-wasip1   # or one
 make build-wasm-js
 ```
 
-The output is one directory per target, three commands each, stamped with the same version
+The output is one directory per target, four commands each, stamped with the same version
 information a native build carries:
 
 ```
-bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc}.wasm
-bin/wasm/js/{sysml,sysml-lsp,sysml-grpc}.wasm
+bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine}.wasm
+bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine}.wasm
 bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
 
@@ -102,6 +102,43 @@ Three constraints apply to `js` builds:
 In a browser, nothing wires a page's input to the module's standard input: an embedder provides
 that itself. The commands take their input from arguments and files, so the parts that need no
 interactive stream work as they do under Node.
+
+## The execution engine
+
+`sysml-engine` is the in-process half of [the service](service-transports.md): the execution
+RPCs — `ParseSources`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState` — answered
+with the same JSON `sysml-grpc` emits, but without the protobuf machinery, the analysis
+framework or a held-object store, which is what keeps a WebAssembly build small enough to
+embed in a page. A model parsed through it hashes to the same `modelHash` the service
+returns, and a request a service client encodes decodes identically here.
+
+The `js` build installs a host surface instead of reading a pipe: load it through
+`wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with
+
+```js
+const answer = JSON.parse(sysmlEngine.call(method, paramsJSON));
+sysmlEngine.version;
+```
+
+where `call` is synchronous — it runs the method on the JS thread and returns the JSON-RPC
+response envelope (`{"jsonrpc":"2.0","id":null,"result":…}` or `…"error":{"code":…,"message":…}}`)
+as a string. Pass `-stdio` and the `js` build serves the pipe instead, as the native and
+`wasip1` builds always do: the same `Content-Length` frames and JSON-RPC 2.0 bodies
+`sysml-grpc -transport stdio` speaks, answered sequentially.
+
+Measured on a `go1.25` `js/wasm` build of this tree: 27,712,432 bytes of module,
+6,907,997 gzipped, 4,909,954 under Brotli — a `sysml` or `sysml-grpc` module compresses to
+more than twice the gzip figure, which is the difference embedding protobuf alone makes.
+
+What it does not serve is refused rather than dropped: an exploring schedule is answered
+Unimplemented with `exploration is not served by sysml-engine: exploring schedules are served
+by sysml-grpc`, and every other method name — verification, document queries, tools — answers
+`<Method> is not served by sysml-engine`. Within the served methods: diagnostics are the
+parser's syntax diagnostics only, since the engine does not run the analysis tier; a
+`ParseSources` response carries no `roots`; and a frame whose `Content-Type` is a protobuf
+body is answered `only application/json bodies are served`. Tool-backed engines are the
+service's job too — the engine builds a runtime context directly, so behavior an external
+engine would compute stays on `sysml-grpc`.
 
 ## What works
 

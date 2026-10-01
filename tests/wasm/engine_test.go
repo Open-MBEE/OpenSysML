@@ -1,0 +1,352 @@
+package wasm
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+)
+
+// engineCommands is the one command of these tests: linked once per target and
+// reused by every subtest, as the other run cases reuse theirs.
+const engineCommand = "sysml-engine"
+
+// engineGzipBudget bounds the gzipped js build of sysml-engine: serving JSON
+// rather than protobuf is what keeps it under, so passing the budget means the
+// engine pulled in a dependency it must not have.
+const engineGzipBudget = 7000000
+
+// TestWasmEngineRuns is sysml-engine's half of the run gate: a stdio session
+// doing real work on both targets, the globalThis host surface on js, and the
+// size budget that surface exists to keep.
+func TestWasmEngineRuns(t *testing.T) {
+	requireNode(t)
+	for _, target := range wasmTargets {
+		t.Run(target.name, func(t *testing.T) {
+			r := newRunner(t, target)
+			bin := link(t, target, engineCommand, t.TempDir())
+
+			t.Run("answers a stdio session", func(t *testing.T) {
+				session := engineSession(t, engineCalls()...)
+				var args []string
+				if target.goos == "js" {
+					// The js build installs globalThis.sysmlEngine unless asked for the pipe.
+					args = append(args, "-stdio")
+				}
+				got := r.runWithInput(t, bin, session, args...)
+				if got.code != 0 {
+					t.Fatalf("sysml-engine -stdio exited %d:\n%s", got.code, got.output)
+				}
+				for _, want := range []string{`"modelHash"`, `"realValue":6`, `"intValue":"12"`, `"on"`} {
+					if !strings.Contains(got.output, want) {
+						t.Errorf("the session output is missing %s:\n%s", want, got.output)
+					}
+				}
+			})
+
+			if target.goos == "js" {
+				t.Run("answers through globalThis.sysmlEngine", func(t *testing.T) {
+					// The script runs under plain node, not through the wasm target
+					// runner: invoke it directly.
+					got := nodeRun(t, fixture(t, "engine.mjs"),
+						wasmExecJS(t), bin, fixture(t, "model.sysml"))
+					for _, want := range []string{"modelHash ", `"realValue":6`} {
+						if !strings.Contains(got.output, want) {
+							t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
+						}
+					}
+				})
+
+				t.Run("fits the size budget", func(t *testing.T) {
+					data, err := os.ReadFile(bin)
+					if err != nil {
+						t.Fatalf("reading %s: %v", bin, err)
+					}
+					var compressed bytes.Buffer
+					w, err := gzip.NewWriterLevel(&compressed, gzip.BestCompression)
+					if err != nil {
+						t.Fatalf("gzip writer: %v", err)
+					}
+					if _, err := w.Write(data); err != nil {
+						t.Fatalf("compressing: %v", err)
+					}
+					if err := w.Close(); err != nil {
+						t.Fatalf("compressing: %v", err)
+					}
+					if size := compressed.Len(); size > engineGzipBudget {
+						t.Errorf("gzipped sysml-engine.wasm is %d bytes, over the %d-byte budget: "+
+							"the engine pulled in a dependency it must not have (protobuf, the gRPC "+
+							"service, the analysis framework)", size, engineGzipBudget)
+					}
+				})
+			}
+		})
+	}
+}
+
+// engineCalls are the calls a stdio session makes over the two fixtures:
+// parse both models, evaluate `total`, run the action with an input, run the
+// machine.
+func engineCalls() []engineCall {
+	return []engineCall{
+		{method: "ParseSources", params: engineParseParams()},
+		{method: "Evaluate", params: fmt.Sprintf(`{"modelHash":%s,"expression":"gatedemo::total"}`, engineModelHash)},
+		{method: "ExecuteAction", params: fmt.Sprintf(`{"modelHash":%s,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}}}`, engineModelHash)},
+		{method: "ExecuteState", params: fmt.Sprintf(`{"modelHash":%s,"stateMachineSymbolId":"enginedemo::Switch"}`, engineModelHash)},
+	}
+}
+
+// engineModelHash is substituted for the hash marker in engineCalls: a request
+// cannot know the hash ahead of the parse, so the session script parses and
+// re-sends it — the hash is deterministic, so the test computes it the way the
+// engine does and embeds it directly.
+var engineModelHash = func() string {
+	params := engineParseParams()
+	// The hash is over the request's own fields, so it is derived here by a
+	// throwaway engine rather than duplicated.
+	eng := engine.New()
+	resp, err := eng.Call(context.Background(), "ParseSources", []byte(params))
+	if err != nil {
+		panic(err)
+	}
+	var parsed struct {
+		ModelHash string `json:"modelHash"`
+	}
+	if err := json.Unmarshal(resp, &parsed); err != nil {
+		panic(err)
+	}
+	return strconv.Quote(parsed.ModelHash)
+}()
+
+// engineParseParams is the ParseSources request for both fixtures as inline
+// content, so a WebAssembly build needs no filesystem to answer it.
+func engineParseParams() string {
+	docs := []map[string]string{}
+	for _, name := range []string{"model.sysml", "engine.sysml"} {
+		data, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			panic(fmt.Sprintf("reading the fixture %s: %v", name, err))
+		}
+		docs = append(docs, map[string]string{"name": name, "content": string(data)})
+	}
+	body, err := json.Marshal(map[string]any{"documents": docs})
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
+// engineCall is one call of the session: its method and its params body.
+type engineCall struct {
+	method string
+	params string
+}
+
+// engineSession renders the calls as one JSON-RPC stdio session's input, each
+// request a frame.
+func engineSession(t *testing.T, calls ...engineCall) string {
+	t.Helper()
+	var session strings.Builder
+	for i, call := range calls {
+		req, err := json.Marshal(map[string]any{
+			"jsonrpc": "2.0", "id": i + 1, "method": call.method,
+			"params": json.RawMessage(call.params),
+		})
+		if err != nil {
+			t.Fatalf("rendering the request: %v", err)
+		}
+		fmt.Fprintf(&session, "Content-Length: %d\r\n\r\n%s", len(req), req)
+	}
+	return session.String()
+}
+
+// wasmExecJS is the toolchain's wasm_exec.js, which the Makefile copies beside
+// the build for a page to load; the test loads it the same way.
+func wasmExecJS(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		t.Fatalf("go env GOROOT: %v", err)
+	}
+	path := filepath.Join(strings.TrimSpace(string(out)), "lib", "wasm", "wasm_exec.js")
+	if _, err := os.Stat(path); err != nil {
+		skipOrFail(t, path+" is not readable", "the Go toolchain ships wasm_exec.js at $GOROOT/lib/wasm")
+	}
+	return path
+}
+
+// nodeRun runs a .mjs script under node directly — the host surface case, which
+// is not a wasm binary and so cannot go through the target runner.
+func nodeRun(t *testing.T, script string, args ...string) result {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		skipOrFail(t, "node is not on PATH", "install Node 24 or later")
+		return result{}
+	}
+	// --stack-size is what go_js_wasm_exec passes: model traversal recurses deeper
+	// than Node's default stack.
+	full := append([]string{"--no-warnings", "--stack-size=8192", script}, args...)
+	cmd := exec.Command(node, full...)
+	cmd.Env = childEnv(t)
+	out, err := cmd.CombinedOutput()
+	res := result{output: string(out)}
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			res.code = exit.ExitCode()
+		} else {
+			t.Fatalf("running %s: %v\n%s", script, err, res.output)
+		}
+	}
+	if res.code != 0 {
+		t.Fatalf("%s exited %d:\n%s", script, res.code, res.output)
+	}
+	return res
+}
+
+// TestEngineWireParity proves the engine answers what sysml-grpc answers: the
+// same requests put to a default-capabilities grpc.NewService and marshalled by
+// protojson, and to engine.Call, decode to the same JSON. ParseSources compares
+// modelHash alone: the engine deliberately reports the syntax diagnostics only
+// and no roots, where the service reports the analyzed diagnostics and the root
+// symbols.
+func TestEngineWireParity(t *testing.T) {
+	ctx := context.Background()
+	svc, err := sysmlgrpc.NewService(4, "parity")
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	eng := engine.New()
+
+	parseParams := engineParseParams()
+	grpcResp, err := svc.ParseSources(ctx, mustUnmarshal[pb.ParseSourcesRequest](t, parseParams))
+	if err != nil {
+		t.Fatalf("grpc ParseSources: %v", err)
+	}
+	var engineResp struct {
+		ModelHash string `json:"modelHash"`
+	}
+	engineBody := mustCall(t, eng, "ParseSources", parseParams)
+	if err := json.Unmarshal(engineBody, &engineResp); err != nil {
+		t.Fatalf("decoding the engine's ParseSources response: %v\n%s", err, engineBody)
+	}
+	if grpcResp.GetModelHash() != engineResp.ModelHash {
+		t.Fatalf("modelHash: grpc %s, engine %s", grpcResp.GetModelHash(), engineResp.ModelHash)
+	}
+	hash := grpcResp.GetModelHash()
+
+	// The equal cases: everything else the engine serves is byte-compatible in
+	// meaning, so both answers decode to the same JSON value.
+	equal := func(method string, params string, grpcOut []byte) {
+		t.Helper()
+		engineOut := mustCall(t, eng, method, params)
+		var grpcJSON, engineJSON any
+		if err := json.Unmarshal(grpcOut, &grpcJSON); err != nil {
+			t.Fatalf("%s: the grpc answer is not JSON: %v\n%s", method, err, grpcOut)
+		}
+		if err := json.Unmarshal(engineOut, &engineJSON); err != nil {
+			t.Fatalf("%s: the engine answer is not JSON: %v\n%s", method, err, engineOut)
+		}
+		if !reflect.DeepEqual(grpcJSON, engineJSON) {
+			t.Errorf("%s diverges:\ngrpc:   %s\nengine: %s", method, grpcOut, engineOut)
+		}
+	}
+
+	for _, expression := range []string{
+		"7", "1.5", "true", `"enginedemo"`, "[1, 2, 3]",
+		"10.0 [SI::m] / 2.0 [SI::s]", "enginedemo::Color::red",
+		"gatedemo::total", "enginedemo::speed",
+	} {
+		params := fmt.Sprintf(`{"modelHash":%q,"expression":%s}`,
+			hash, mustJSON(t, expression))
+		res, err := svc.Evaluate(ctx, mustUnmarshal[pb.EvaluateRequest](t, params))
+		if err != nil {
+			t.Fatalf("grpc Evaluate %q: %v", expression, err)
+		}
+		equal("Evaluate", params, mustMarshal(t, res))
+	}
+
+	instParams := fmt.Sprintf(`{"modelHash":%q,"symbolId":"enginedemo::Switch"}`, hash)
+	instRes, err := svc.Instantiate(ctx, mustUnmarshal[pb.InstantiateRequest](t, instParams))
+	if err != nil {
+		t.Fatalf("grpc Instantiate: %v", err)
+	}
+	equal("Instantiate", instParams, mustMarshal(t, instRes))
+
+	actionParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}}}`, hash)
+	actionRes, err := svc.ExecuteAction(ctx, mustUnmarshal[pb.ExecuteActionRequest](t, actionParams))
+	if err != nil {
+		t.Fatalf("grpc ExecuteAction: %v", err)
+	}
+	equal("ExecuteAction", actionParams, mustMarshal(t, actionRes))
+
+	stateParams := fmt.Sprintf(`{"modelHash":%q,"stateMachineSymbolId":"enginedemo::Switch"}`, hash)
+	stateRes, err := svc.ExecuteState(ctx, mustUnmarshal[pb.ExecuteStateRequest](t, stateParams))
+	if err != nil {
+		t.Fatalf("grpc ExecuteState: %v", err)
+	}
+	equal("ExecuteState", stateParams, mustMarshal(t, stateRes))
+}
+
+// mustCall runs one engine call, failing on a refused one.
+func mustCall(t *testing.T, eng *engine.Engine, method, params string) []byte {
+	t.Helper()
+	body, err := eng.Call(context.Background(), method, []byte(params))
+	if err != nil {
+		t.Fatalf("%s refused: %v", method, err)
+	}
+	return body
+}
+
+// mustUnmarshal decodes params into a new request message of type T as
+// protojson would read it: a test states requests as the JSON a client sends.
+func mustUnmarshal[T any, PT interface {
+	*T
+	proto.Message
+}](t *testing.T, params string) PT {
+	t.Helper()
+	msg := PT(new(T))
+	if err := protojson.Unmarshal([]byte(params), msg); err != nil {
+		t.Fatalf("decoding the test request: %v\n%s", err, params)
+	}
+	return msg
+}
+
+// mustMarshal is protojson.Marshal with a test failure on error.
+func mustMarshal(t *testing.T, msg proto.Message) []byte {
+	t.Helper()
+	body, err := protojson.Marshal(msg)
+	if err != nil {
+		t.Fatalf("protojson.Marshal: %v", err)
+	}
+	return body
+}
+
+// protojsonMessage is what protojson reads and writes.
+type protojsonMessage = proto.Message
+
+// mustJSON encodes one string as a JSON string literal.
+func mustJSON(t *testing.T, s string) string {
+	t.Helper()
+	body, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("encoding %q: %v", s, err)
+	}
+	return string(body)
+}

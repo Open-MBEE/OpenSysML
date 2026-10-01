@@ -70,6 +70,10 @@ TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
+# sysml-engine is WebAssembly-only: it serves the execution RPCs over JSON so a
+# browser client needs no protobuf, and stays out of the native build, release
+# and manual pages.
+WASM_COMMANDS := $(COMMANDS) sysml-engine
 MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 
@@ -117,7 +121,7 @@ build-wasm: build-wasm-wasip1 build-wasm-js ## Build all three commands for both
 build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
 	@echo "Building WebAssembly (wasip1)..."
 	@mkdir -p $(WASM_DIR)/wasip1
-	@for cmd in $(COMMANDS); do \
+	@for cmd in $(WASM_COMMANDS); do \
 		GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/wasip1/$$cmd.wasm ./cmd/$$cmd || exit 1; \
 	done
 	@echo "✓ Built $(WASM_DIR)/wasip1 ($(VERSION))"
@@ -125,7 +129,7 @@ build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI previe
 build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	@echo "Building WebAssembly (js)..."
 	@mkdir -p $(WASM_DIR)/js
-	@for cmd in $(COMMANDS); do \
+	@for cmd in $(WASM_COMMANDS); do \
 		GOOS=js GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/js/$$cmd.wasm ./cmd/$$cmd || exit 1; \
 	done
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
