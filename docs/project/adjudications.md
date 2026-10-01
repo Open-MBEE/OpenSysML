@@ -237,7 +237,7 @@ it, three ends typed by `BinaryInterface` do.
 
 ### Two lints report models the specification accepts
 
-`undeclared-signal` reports a `when <name>` or `defer <name>` — both OpenSysML spellings — whose
+`undeclared-signal` reports a `when <name>` — an OpenSysML spelling — whose
 name no visible declaration and no `send` in the workspace accounts for, and `port-type-mismatch`
 reports a `connect`, interface usage or `flow` joining ports whose definitions are unrelated and
 whose directed features are not conjugate (SysML v2 §7.12.2). Neither is a rule of the

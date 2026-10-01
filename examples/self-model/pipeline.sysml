@@ -384,7 +384,6 @@ package OpenSysMLPipeline {
     part def StateExecutor :> CodeUnit {
         attribute :>> goPackage = "internal/exec/runtime";
         attribute runToCompletion : Boolean = true;
-        attribute defersUnhandledEvents : Boolean = true;
         in item graph : StateGraph;
         out item trace : ExecutionTrace;
     }

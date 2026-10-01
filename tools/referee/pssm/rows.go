@@ -22,7 +22,8 @@ type Row struct {
 
 // Rows are the note's rows the suite's tests report on, by row label.
 var Rows = map[string]Row{
-	"SM7":  {"SM7", RowToolChoice, "Deferral against a transition elsewhere in the configuration"},
+	"SM6":  {"SM6", RowDiffersByDesign, "Order of a kept signal's replay against occurrences already pooled"},
+	"SM7":  {"SM7", RowDiffersByDesign, "Deferral against a transition elsewhere in the configuration"},
 	"SM11": {"SM11", RowToolChoice, "What the completion of a composite state completes"},
 	"SM15": {"SM15", RowDiffersByDesign, "A do activity and the machine competing for one occurrence"},
 	"SM28": {"SM28", RowToolChoice, "History with nothing to restore"},
@@ -37,16 +38,14 @@ var Rows = map[string]Row{
 // row is a tool choice, with the row cited either way; a mapped test that passes
 // is a `pass` reporting on the row.
 var TestRows = map[string]string{
-	// The deferring state's do activity accepts the occurrence the machine
-	// would defer or take; PSSM gives it to one accepter, KerML to every scope.
-	"Deferred 006 A": "SM15",
-	"Deferred 006 B": "SM15",
-	"Deferred 006 C": "SM15",
-	// One region defers what a sibling region's transition takes.
+	// The deferring state's exit action sends each kept occurrence to self, so
+	// it arrives behind what the pool already holds; PSSM releases it ahead.
+	"Deferred 001": "SM6",
+	"Deferred 005": "SM6",
+	// One region keeps what a sibling region's transition takes.
 	"Deferred 004 A": "SM7",
 	"Deferred 004 B": "SM7",
-	// A substate defers what the enclosing state's transition takes; released
-	// when the deferring state is left, ahead of later arrivals.
+	// A substate keeps what the enclosing state's transition takes.
 	"Deferred 003": "SM7",
 	// A composite state's body reaching `done` completes the composite, not
 	// the machine, and its own completion or triggered transition then fires.

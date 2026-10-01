@@ -180,7 +180,6 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, strict, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 	wantNote(t, strict, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate")
 	wantNoLine(t, strict.Notation, "choice choice;")
-	wantNoLine(t, strict.Notation, "#StateMachines::deferred ref : Door;")
 	noExtensionStatement(t, strict.Notation)
 	wantNote(t, strict, "_gWorn", migrate.Mapped, "")
 
@@ -943,7 +942,6 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
     </packagedElement>`
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
-	wantNoLine(t, r.Notation, "#StateMachines::deferred ref : Door;")
 	wantNoLine(t, r.Notation, "accept Door then Far;")
 	wantNoLine(t, r.Notation, "/* not migrated: defer Door; — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
 	for _, line := range []string{

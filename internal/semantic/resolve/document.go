@@ -314,14 +314,6 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 	case *ast.ExitMember:
 		r.walkMembers(scope, d.Actions)
 		return true
-	case *ast.DeferMember:
-		// A deferred event is a trigger like a transition's, so it resolves the
-		// same way: typed payloads resolve, while bare signal names are left to
-		// lowering.
-		for _, trigger := range d.Triggers {
-			r.resolveTrigger(scope, trigger)
-		}
-		return true
 	case *ast.StateNode:
 		// The state's own name is a declaration, not a reference. Its body
 		// resolves in the scope the state owns, which holds its substates and
@@ -463,8 +455,8 @@ func isImplicitCalcResult(scope *symbols.Scope, node ast.Node) bool {
 
 // resolveTrigger resolves the references a transition trigger carries.
 //
-// Bare names in the OpenSysML transition spelling `when` and in `defer` are
-// injected signals, so they remain unresolved here.
+// Bare names in the OpenSysML transition spelling `when` are injected
+// signals, so they remain unresolved here.
 // A bare name after `accept` is a typed payload usage and resolves normally.
 func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {

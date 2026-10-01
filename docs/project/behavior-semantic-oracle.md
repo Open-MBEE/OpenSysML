@@ -1358,7 +1358,7 @@ a state's do behavior — a statement of an inline body, a step of a do behavior
 action, a token inside a nested perform — drawn against the dispatch the machine would make now
 (`do <state>` naming the due states, then `dispatch <event>`), and the draw is made again after
 every move while a do behavior is due, so the dispatch may cut the flow anywhere or wait for it
-to rest. A dispatch that would drop or defer its occurrence is not drawn ahead
+to rest. A dispatch that would drop its occurrence is not drawn ahead
 of a due do step; it waits until no do move is due, as under the fixed policies, so an occurrence a
 do behavior is about to accept — `Tick` in `state_join_completion_segment_waits_for_do_behavior`,
 `b1`'s timer in `state_join_completion_is_not_a_timers_expiry` — is not lost to the draw, and

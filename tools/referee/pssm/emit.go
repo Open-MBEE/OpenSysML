@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/deferred"
 )
 
 // Model is one test's state machine spelled in SysML v2 textual notation,
@@ -163,11 +164,27 @@ func (e *emitter) nameVertices(regions []*Region) {
 
 // take claims base as an emitted name, suffixed while an earlier name has it.
 func (e *emitter) take(base string) string {
+	return e.takeAvoiding(base, nil)
+}
+
+// takeAvoiding is take, suffixing past the names in avoid as well.
+func (e *emitter) takeAvoiding(base string, avoid map[string]bool) string {
 	name := base
-	for n := 2; e.taken[name]; n++ {
+	for n := 2; e.taken[name] || avoid[name]; n++ {
 		name = fmt.Sprintf("%s_%d", base, n)
 	}
 	e.taken[name] = true
+	return name
+}
+
+// unshadowed suffixes base while it is a name in avoid: a generated member so
+// named would hide the signal from the references the encoding writes to it,
+// `accept kept : kept` binding the payload to its own name.
+func unshadowed(base string, avoid map[string]bool) string {
+	name := base
+	for n := 2; avoid[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
 	return name
 }
 
@@ -449,12 +466,22 @@ func regionParent(r *Region) *Region {
 }
 
 // stateBody emits `state <name> [parallel] { ... }` for a state or the machine:
-// its attributes, entry/do/exit behaviors, deferred triggers, vertices and
-// transitions, with an orthogonal state's regions as parallel substates.
+// its attributes, entry/do/exit behaviors, the encoding of its deferred
+// signals, vertices and transitions, with an orthogonal state's regions as
+// parallel substates.
 func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, state *Vertex, regions []*Region, attrs []string) error {
 	ind := strings.Repeat("    ", depth)
+	inner := ind + "    "
 	where := "state " + path
-	parts, err := e.stateParts(state, ind+"    ", where)
+	kept, err := e.kept(state, where)
+	if err != nil {
+		return err
+	}
+	exitInd := inner
+	if kept != nil {
+		exitInd += "    "
+	}
+	parts, err := e.stateParts(state, inner, exitInd, where)
 	if err != nil {
 		return err
 	}
@@ -463,9 +490,12 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 		parallel = " parallel"
 	}
 	fmt.Fprintf(b, "%sstate %s%s {\n", ind, spell(name), parallel)
-	inner := ind + "    "
 	for _, a := range attrs {
 		b.WriteString(inner + a + "\n")
+	}
+	w := &indentWriter{b: b, ind: inner}
+	if kept != nil {
+		kept.Items(w)
 	}
 	entryName := "initial"
 	if path != "" {
@@ -478,16 +508,19 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 		}
 	}
 	writeEntry(b, inner, entryName, parts.entry, initialTarget)
-	if state != nil && state.Do != nil {
-		if err := e.doBody(b, inner, state.Do, where+" do"); err != nil {
+	if kept != nil {
+		if err := e.keptBehaviors(w, kept, state, parts.exit, where); err != nil {
 			return err
 		}
-	}
-	if parts.exit != "" {
-		fmt.Fprintf(b, "%sexit action%s\n", inner, parts.exit)
-	}
-	if err := e.writeDeferred(b, inner, parts.deferred, where); err != nil {
-		return err
+	} else {
+		if state != nil && state.Do != nil {
+			if err := e.doBody(b, inner, "do action", state.Do, where+" do"); err != nil {
+				return err
+			}
+		}
+		if parts.exit != "" {
+			fmt.Fprintf(b, "%sexit action%s\n", inner, parts.exit)
+		}
 	}
 	if len(regions) == 1 {
 		if err := e.region(b, depth+1, regions[0], path); err != nil {
@@ -504,6 +537,126 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	fmt.Fprintf(b, "%s}\n", ind)
 	return nil
 }
+
+// keeping is a state's deferred-signal encoding with the name of the state's
+// own behavior nested in the encoding's actions.
+type keeping struct {
+	*deferred.Encoding
+	run string
+}
+
+// kept is the standard encoding of a state's deferred signals, nil when it
+// defers none: each is kept in an ordered buffer by an accept loop of the
+// state's do action and sent back to the machine by its exit action. The
+// buffer is an attribute, as the suite's signals are attribute definitions.
+// Triggers deferring one signal share its buffer and loop, as two loops would
+// keep each occurrence twice. No name the encoding makes up is a kept signal's,
+// as the encoding refers to each signal from within the members it makes up. A
+// deferred call has no such spelling, the encoding keeping signals only, nor
+// has a deferral in a state an unguarded completion transition leaves.
+func (e *emitter) kept(state *Vertex, where string) (*keeping, error) {
+	if state == nil || len(state.Deferred) == 0 {
+		return nil, nil
+	}
+	if unguardedCompletionOutOf(state) {
+		return nil, e.fail(where, "a deferral in a state left by an unguarded completion transition has no standard spelling: the accept loop keeping the signal never completes, so the completion transition would never fire")
+	}
+	var names []string
+	seen := map[string]bool{}
+	for _, trig := range state.Deferred {
+		if trig.Event == nil || trig.Event.Kind != EventSignal || trig.Event.Signal == nil {
+			return nil, e.fail(where, fmt.Sprintf("deferring %s has no standard spelling: an ordered buffer keeps signals only", trig.Event.Describe()))
+		}
+		if name := trig.Event.Signal.Name; !seen[name] {
+			seen[name] = true
+			names = append(names, name)
+		}
+	}
+	enc := &deferred.Encoding{Including: "SequenceFunctions::including"}
+	for _, name := range names {
+		e.signals[name] = true
+		base := "deferred"
+		suffix := ""
+		if len(names) > 1 {
+			base += identifier(name)
+			suffix = identifier(name)
+		}
+		payload := unshadowed(deferredPayload+suffix, seen)
+		enc.Signals = append(enc.Signals, deferred.Signal{
+			Ref:    spell(name),
+			Kind:   "attribute",
+			Buffer: e.takeAvoiding(base, seen),
+			Item:   payload,
+			Clear:  unshadowed("clear"+suffix, seen),
+			Loops: []deferred.Loop{{
+				Receive: unshadowed("receive"+suffix, seen),
+				Keep:    unshadowed("keep"+suffix, seen),
+				Payload: payload,
+				Accept:  spell(name),
+			}},
+		})
+	}
+	enc.Buffer = e.takeAvoiding("buffer", seen)
+	enc.Flush = e.takeAvoiding("flush", seen)
+	enc.Split = unshadowed("split", seen)
+	return &keeping{Encoding: enc, run: unshadowed(keptRun, seen)}, nil
+}
+
+// deferredPayload is the base name of a generated accept's parameter and of a
+// generated flush loop's variable; keptRun names the state's own behavior
+// nested in the encoding's actions.
+const (
+	deferredPayload = "kept"
+	keptRun         = "run"
+)
+
+// keptBehaviors writes a deferring state's do and exit actions: the encoding's,
+// the state's own do behavior forked beside the accept loops and its own exit
+// behavior run before the flush.
+func (e *emitter) keptBehaviors(w *indentWriter, kept *keeping, state *Vertex, exit, where string) error {
+	var own func() deferred.Own
+	var err error
+	if state.Do != nil {
+		own = func() deferred.Own {
+			var text strings.Builder
+			err = e.doBody(&text, w.ind, "action "+kept.run, state.Do, where+" do")
+			return deferred.Own{Text: text.String(), Written: text.Len() > 0, Run: kept.run}
+		}
+	}
+	kept.Do(w, own)
+	if err != nil {
+		return err
+	}
+	var exitOwn func() deferred.Own
+	if exit != "" {
+		exitOwn = func() deferred.Own {
+			return deferred.Own{Text: w.ind + "action " + kept.run + exit + "\n", Written: true, Run: kept.run}
+		}
+	}
+	kept.Exit(w, exitOwn)
+	return nil
+}
+
+// indentWriter writes the shared deferral encoding into the model's text at
+// the indentation of the body being written.
+type indentWriter struct {
+	b   *strings.Builder
+	ind string
+}
+
+func (w *indentWriter) Line(s string) { w.b.WriteString(w.ind + s + "\n") }
+
+func (w *indentWriter) Block(header string, body func()) {
+	w.Line(header + " {")
+	w.ind += "    "
+	body()
+	w.ind = strings.TrimSuffix(w.ind, "    ")
+	w.Line("}")
+}
+
+func (w *indentWriter) Raw(text string) { w.b.WriteString(text) }
+
+func (w *indentWriter) MadeUp(string) {}
 
 // startEntry spells a single region's initial transition as the destination of
 // the state's entry; an empty region contributes no destination.
@@ -534,14 +687,13 @@ func regionWhere(name string) string {
 // stateParts is what a state's own declaration contributes to its body: the
 // entry and exit actions' text after `action` ("" for none).
 type stateParts struct {
-	entry    string
-	exit     string
-	deferred []*Trigger
+	entry, exit string
 }
 
-// stateParts translates a state's entry and exit behaviors and reads its
-// deferred triggers; the machine itself (state nil) contributes nothing.
-func (e *emitter) stateParts(state *Vertex, ind, where string) (stateParts, error) {
+// stateParts translates a state's entry and exit behaviors, the exit's body
+// indented at exitInd where the encoding of a deferral nests it; the machine
+// itself (state nil) contributes nothing.
+func (e *emitter) stateParts(state *Vertex, ind, exitInd, where string) (stateParts, error) {
 	var parts stateParts
 	if state == nil {
 		return parts, nil
@@ -556,15 +708,11 @@ func (e *emitter) stateParts(state *Vertex, ind, where string) (stateParts, erro
 		return parts, err
 	}
 	if hasParams(state.Exit) {
-		parts.exit, err = e.boundExit(state, ind, where+" exit", state.Path()+" exit")
+		parts.exit, err = e.boundExit(state, exitInd, where+" exit", state.Path()+" exit")
 	} else {
-		parts.exit, err = e.plainAction(state.Exit, ind, where+" exit")
+		parts.exit, err = e.plainAction(state.Exit, exitInd, where+" exit")
 	}
-	if err != nil {
-		return parts, err
-	}
-	parts.deferred = state.Deferred
-	return parts, nil
+	return parts, err
 }
 
 // plainAction spells a behavior without parameters as the text after `action`:
@@ -591,32 +739,6 @@ func writeEntry(b *strings.Builder, inner, entryName, entry, initialTarget strin
 	case entry != "":
 		fmt.Fprintf(b, "%sentry action%s\n", inner, entry)
 	}
-}
-
-// writeDeferred emits a state's deferred signals and calls, if any: a signal by
-// name, a call as the operation with its input parameters, as a trigger accepts it.
-func (e *emitter) writeDeferred(b *strings.Builder, inner string, deferred []*Trigger, where string) error {
-	if len(deferred) == 0 {
-		return nil
-	}
-	names := make([]string, len(deferred))
-	for i, trig := range deferred {
-		if trig.Event == nil || trig.Event.Kind != EventSignal && trig.Event.Kind != EventCall {
-			return e.fail(where, "a deferred trigger that is not a signal or call event has no spelling")
-		}
-		if trig.Event.Kind == EventSignal && trig.Event.Signal != nil {
-			e.signals[trig.Event.Signal.Name] = true
-			names[i] = trig.Event.Signal.Name
-			continue
-		}
-		accept, _, err := e.trigger(trig, where+" defer")
-		if err != nil {
-			return err
-		}
-		names[i] = accept
-	}
-	fmt.Fprintf(b, "%sdefer %s;\n", inner, strings.Join(names, ", "))
-	return nil
 }
 
 // parallelRegion emits one region of an orthogonal state as a parallel substate
@@ -957,12 +1079,9 @@ var alfGuard = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9
 // the unguarded default.
 func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 	switch {
-	case g == nil, g.Kind == GuardElse:
+	case g.unconditional():
 		return "", nil
 	case g.Kind == GuardLiteral:
-		if g.Literal {
-			return "", nil
-		}
 		return " if false", nil
 	case g.Kind == GuardOpaque:
 		if guardSideEffect(g) {
@@ -1252,9 +1371,10 @@ func (e *emitter) method(st Statement) *Behavior {
 	return nil
 }
 
-// doBody emits a do activity: a plain body, or one action per statement when
-// the body waits for signals or declares inputs (so a declaration is no step).
-func (e *emitter) doBody(b *strings.Builder, ind string, do *Behavior, where string) error {
+// doBody emits a do activity declared by header (`do action`, or `action run`
+// nested in a deferral's do action): a plain body, or one action per statement
+// when the body waits for signals or declares inputs (so a declaration is no step).
+func (e *emitter) doBody(b *strings.Builder, ind, header string, do *Behavior, where string) error {
 	if do.Body == nil {
 		return e.fail(where, "an opaque do behavior has no translation")
 	}
@@ -1290,13 +1410,13 @@ func (e *emitter) doBody(b *strings.Builder, ind string, do *Behavior, where str
 		if len(stmts) == 0 {
 			return nil
 		}
-		fmt.Fprintf(b, "%sdo action {\n", ind)
+		fmt.Fprintf(b, "%s%s {\n", ind, header)
 		writeStmts(b, ind+"    ", params)
 		writeStmts(b, ind+"    ", stmts)
 		fmt.Fprintf(b, "%s}\n", ind)
 		return nil
 	}
-	fmt.Fprintf(b, "%sdo action {\n", ind)
+	fmt.Fprintf(b, "%s%s {\n", ind, header)
 	writeStmts(b, ind+"    ", params)
 	fmt.Fprintf(b, "%s    first start;\n", ind)
 	for i, s := range steps {

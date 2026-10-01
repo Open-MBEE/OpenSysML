@@ -1,7 +1,6 @@
 package lower
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -30,78 +29,30 @@ func TestToStateGraph_KeepsValuelessAttributes(t *testing.T) {
 	}
 }
 
-// The textual `defer` notation reaches the graph as the deferral of the state
-// declaring it, normalized the same way a transition trigger is.
-func TestToStateGraph_DeferNotation(t *testing.T) {
+// `defer` is an ordinary name: a state so named lowers as any state does.
+func TestToStateGraph_DeferIsAnOrdinaryName(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {
 			state Machine {
-				entry; then start;
-				state start;
-				state busy {
-					defer Ping, setSpeed(value);
-				}
-				succession first start then busy;
+				entry; then defer;
+				state defer;
+				state busy;
+				transition first defer accept Go then busy;
 			}
 		}
 	`), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-
-	var busy *ast.StateNode
+	var names []string
 	for _, state := range graph.States {
-		if state.Name == "busy" {
-			busy = state
-		}
+		names = append(names, state.Name)
 	}
-	if busy == nil {
-		t.Fatal("state busy is not in the graph")
+	if len(names) != 2 || names[0] != "defer" || names[1] != "busy" {
+		t.Fatalf("states = %v, want [defer busy]", names)
 	}
-
-	deferred := graph.Deferred[busy]
-	if len(deferred) != 2 {
-		t.Fatalf("expected busy to defer 2 events, got %d", len(deferred))
-	}
-	accept, ok := deferred[0].(*ast.AcceptEvent)
-	if !ok {
-		t.Fatalf("expected the first deferral to be a signal event, got %T", deferred[0])
-	}
-	if name := ast.SimpleName(accept.SignalType); name != "Ping" {
-		t.Errorf("expected the deferred signal to be Ping, got %q", name)
-	}
-	call, ok := deferred[1].(*ast.CallEvent)
-	if !ok {
-		t.Fatalf("expected the second deferral to be a call event, got %T", deferred[1])
-	}
-	if name := ast.SimpleName(call.Operation); name != "setSpeed" {
-		t.Errorf("expected the deferred call to be setSpeed, got %q", name)
-	}
-	if len(call.Parameters) != 1 || call.Parameters[0].Text != "value" {
-		t.Errorf("expected the deferred call to carry the parameter value, got %v", call.Parameters)
-	}
-}
-
-// A `defer` in the machine's own body has no state to defer for: the event
-// would be retained for the whole run and never redelivered, so lowering
-// reports it rather than dropping it.
-func TestToStateGraph_DeferInMachineBodyIsReported(t *testing.T) {
-	_, err := ToStateGraph(stateUsageIn(t, `
-		package test {
-			state Machine {
-				entry; then start;
-				state start;
-				defer Ping;
-				state busy;
-				succession first start then busy;
-			}
-		}
-	`), nil)
-	if err == nil {
-		t.Fatal("expected an error for a defer in the state machine body")
-	}
-	if !strings.Contains(err.Error(), "defer must be declared inside a state") {
-		t.Errorf("expected a placement error, got: %v", err)
+	if graph.Initial == nil || graph.Initial.Name != "defer" {
+		t.Fatalf("initial = %v, want the state named defer", graph.Initial)
 	}
 }
 

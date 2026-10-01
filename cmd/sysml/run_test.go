@@ -172,6 +172,44 @@ const quantityModel = `package Orbit {
 }
 `
 
+// dimensionOneModel declares a generator whose efficiency is a DimensionOneValue,
+// written once in the library's `one` and once as a bare number.
+const dimensionOneModel = `package P {
+    private import ISQ::*;
+    private import SI::*;
+    private import MeasurementReferences::*;
+    part def Gen {
+        attribute power : PowerValue;
+        attribute efficiency : DimensionOneValue;
+        calc deliveredEnergy { in duration : DurationValue; return : EnergyValue = power * duration * efficiency; }
+    }
+    part rated : Gen { attribute :>> power = 800.0 [W]; attribute :>> efficiency = 0.7 [one]; }
+    part rated2 : Gen { attribute :>> power = 800.0 [W]; attribute :>> efficiency = 0.7; }
+}
+`
+
+// TestRunEvalDimensionOneIdentity checks that a factor in `MeasurementReferences::one`
+// is absorbed as the identity of the unit product, so the result folds to the
+// derived unit the product without it reaches.
+func TestRunEvalDimensionOneIdentity(t *testing.T) {
+	binary := buildCLI(t)
+
+	cases := []struct{ expr, want string }{
+		{"P::rated.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
+		{"P::rated2.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
+		{"P::rated.power * P::rated.efficiency", "= 560.0 [W]"},
+		{"0.7 [MeasurementReferences::one] * 800.0 [SI::W]", "= 560.0 [SI::W]"},
+		{"800.0 [SI::W] / 0.5 [MeasurementReferences::one]", "= 1600.0 [SI::W]"},
+		{"2 [MeasurementReferences::one] * 3 [MeasurementReferences::one]", "= 6 [MeasurementReferences::one]"},
+		{"3 [SI::rad] * 1 [MeasurementReferences::one]", "= 3 [SI::rad]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			wantReport(t, check(t, binary, dimensionOneModel, "-e", tc.expr), 0, tc.want)
+		})
+	}
+}
+
 // TestRunCalcQuantity checks that a calculation's quantity result is reported in
 // the coherent unit of its dimension, a prefix folded into the magnitude.
 func TestRunCalcQuantity(t *testing.T) {

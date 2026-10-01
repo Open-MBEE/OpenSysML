@@ -91,11 +91,8 @@ what those guards read (`TestExploreStaticJunctionBranches`,
 `state_junction_beyond_a_draw_read_once`). A history's default transition through such a
 junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
-Two things that look like openings are determined and are never recorded. Deferral: a state in the
-active configuration that defers the occurrence dispatched holds it back from every enabled
-transition except one sourced by that state or by a state nested in it (`deferralOutranks`); the
-occurrence is deferred, or consumed by the nested transition, by rule, with nothing for the policy
-to draw. A composite state's completion: once its do behavior and every one of its regions have
+One thing that looks like an opening is determined and is never recorded. A composite state's
+completion: once its do behavior and every one of its regions have
 ended, its nil-trigger transitions are queued as completion events at the current instant, ordered
 as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
 (`completeIfDone` → `scheduleCompletedComposites`).

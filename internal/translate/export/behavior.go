@@ -29,7 +29,13 @@ const (
 	mActionExecution = "ActionExecutionNode"
 	mIfBranch        = "IfBranch"
 	mPseudostate     = "Pseudostate"
-	mDeferMember     = "DeferMember"
+)
+
+// The terms an earlier mapping wrote for the removed `defer <event>;` state
+// member; a graph carrying either is refused (see checkRemovedNotation).
+const (
+	mDeferMember   = "DeferMember"
+	xDeferredEvent = "deferredEvent"
 )
 
 // The OMG metaclasses of the behavioral nodes that have one.
@@ -74,7 +80,6 @@ const (
 	xHasEffect        = "hasEffect"
 	xBracedEffect     = "bracedEffect" // an older mapping's flat braced effect, refused
 	xBodyMember       = "bodyMember"
-	xDeferredEvent    = "deferredEvent"
 	xAssignOperator   = "assignmentOperator"
 	xPayload          = "payload"
 	xReceiver         = "receiver"
@@ -223,13 +228,6 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.ExitMember:
 		return true, e.encodeSubaction(n, n.Actions, "exit", head, subject, fqn)
-
-	case *ast.DeferMember:
-		head(rdf.OpenSysMLTerm(mDeferMember))
-		for _, trigger := range n.Triggers {
-			e.graph.Add(subject, e.sysx(xDeferredEvent), rdf.String(e.text(trigger)))
-		}
-		return true, nil
 
 	case *ast.PseudostateNode:
 		head(rdf.OpenSysMLTerm(mPseudostate))
@@ -878,8 +876,8 @@ func bareAcceptNode(n *ast.Usage, text string) bool {
 // per kind, back into the order they were written in.
 func stateBody(n *ast.StateNode) []ast.Node {
 	members := make([]ast.Node, 0,
-		len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Defer)+len(n.Substates)+len(n.Regions))
-	for _, bucket := range [][]ast.Node{n.Entry, n.Do, n.Exit, n.Defer, n.Substates} {
+		len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Substates)+len(n.Regions))
+	for _, bucket := range [][]ast.Node{n.Entry, n.Do, n.Exit, n.Substates} {
 		members = append(members, bucket...)
 	}
 	for _, region := range n.Regions {
@@ -1025,17 +1023,6 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 			words = append(words, target)
 		}
 		return strings.Join(words, " "), true, nil
-
-	case mDeferMember:
-		events := d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xDeferredEvent)
-		if len(events) == 0 {
-			return "", true, d.missing(el, "sysx:"+xDeferredEvent, "a defer member names the events it defers")
-		}
-		names := make([]string, 0, len(events))
-		for _, event := range events {
-			names = append(names, event.Value)
-		}
-		return "defer " + strings.Join(names, ", "), true, nil
 
 	case mPseudostate:
 		kind, ok := d.stringOf(el, rdf.OpenSysML+xPseudostateKind)
@@ -1415,7 +1402,7 @@ func isSuccessionSource(el *element) bool {
 		return true
 	case mMembership:
 		return el.membershipKeyword != "alias"
-	case mAlias, mFilter, mMultiplicity, mMultiplicityClass, mMultiplicityRange, mDeferMember:
+	case mAlias, mFilter, mMultiplicity, mMultiplicityClass, mMultiplicityRange:
 		return false
 	}
 	if _, declared := ontology.LookupClass(el.metaclass); declared {

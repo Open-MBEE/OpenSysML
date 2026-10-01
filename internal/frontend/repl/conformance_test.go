@@ -10,7 +10,7 @@ import (
 
 // stateExtension is notation of ours: a warning at the prompt by default, an
 // error when the prompt is asked strictly.
-const stateExtension = "attribute def Alarm; state def S { state a { defer Alarm; } }\n"
+const stateExtension = "state def S { state idle; state on; choice evaluate; transition first idle then evaluate; transition first evaluate then on; }\n"
 
 func TestStrictMetaCommandReportsAndSetsTheMode(t *testing.T) {
 	s := NewSession()
@@ -63,7 +63,7 @@ func TestStrictMetaCommandRepeatsTheDiagnostics(t *testing.T) {
 	s := NewSession()
 	s.Submit(stateExtension)
 	out := strings.Join(meta(t, s, "%strict on"), "\n")
-	if !strings.Contains(out, passes.CodeNonstandardNotation) && !strings.Contains(out, "defer") {
+	if !strings.Contains(out, passes.CodeNonstandardNotation) && !strings.Contains(out, "choice") {
 		t.Fatalf("%%strict on = %q, want the buffer's findings restated", out)
 	}
 }

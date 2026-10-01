@@ -2,7 +2,6 @@ package passes
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -147,7 +146,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	var previous ast.Node
-	for i, member := range members {
+	for _, member := range members {
 		unwrapped := kit.UnwrapMembership(member)
 		w.targetSuccession(unwrapped, previous)
 		if !isMemberAttachedSuccession(unwrapped) {
@@ -195,8 +194,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.stateNode(n)
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
-		case *ast.DeferMember:
-			w.deferredMember(n, members, i)
 		case *ast.InitialNode:
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
@@ -401,7 +398,6 @@ func (w *notationWalker) stateNode(n *ast.StateNode) {
 	w.walkActionBody(n.Entry)
 	w.walkActionBody(n.Do)
 	w.walkActionBody(n.Exit)
-	w.walk(n.Defer)
 	w.walk(n.Substates)
 	for _, region := range n.Regions {
 		w.walk([]ast.Node{region})
@@ -452,118 +448,6 @@ var pseudostateAnnotations = map[ast.PseudostateKind]string{
 	ast.PseudostateJunction:       "junction",
 	ast.PseudostateShallowHistory: "shallowHistory",
 	ast.PseudostateDeepHistory:    "deepHistory",
-}
-
-// deferredMember reports `defer <event>[, <event>]*;`, which the StateMachines
-// library writes as one `#deferred ref : <event>;` per trigger.
-func (w *notationWalker) deferredMember(n *ast.DeferMember, members []ast.Node, i int) {
-	refs := make([]string, 0, len(n.Triggers))
-	spelled := make([]string, 0, len(n.Triggers))
-	needsImport := false
-	// A member named `deferred` in an enclosing body shadows the metadata, so
-	// the annotation is spelled qualified for every ref and needs no import;
-	// a `StateMachines` member hides the library itself, spelled `$::`.
-	prefix := "StateMachines::"
-	if w.shadowsStateMachines() {
-		prefix = "$::StateMachines::"
-	}
-	qualified := prefix != "StateMachines::" || w.shadowsAnnotation("deferred")
-	for _, trigger := range n.Triggers {
-		name := deferredRefTarget(trigger)
-		if name == "" {
-			continue
-		}
-		spelled = append(spelled, triggerText(trigger))
-		if name == "deferred" || qualified {
-			refs = append(refs, fmt.Sprintf("`#%sdeferred ref : %s;`", prefix, name))
-		} else {
-			needsImport = true
-			refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
-		}
-	}
-	if len(refs) == 0 {
-		w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
-			"no notation states a deferred event")
-		return
-	}
-	importNote := ""
-	if needsImport {
-		importNote = " (with `private import StateMachines::*;`)"
-	}
-	w.extensionFix(keywordSpan(n, "defer"), fmt.Sprintf(
-		"`defer %s;` is an OpenSysML extension; write %s%s",
-		strings.Join(spelled, ", "), strings.Join(refs, " and "), importNote),
-		"DeferredMetadata", needsImport, w.deferEdits(n, members, i, refs)...)
-}
-
-// deferEdits rewrites the defer member in place, or, when a positional chain
-// follows it, deletes the member and writes the refs ahead of the member the
-// chain leaves, so the succession still sequences from it.
-func (w *notationWalker) deferEdits(n *ast.DeferMember, members []ast.Node, i int, refs []string) []diag.Edit {
-	if i+1 < len(members) && positionalChainMember(kit.UnwrapMembership(members[i+1])) {
-		if start := chainStartMember(members, i); start != nil {
-			return []diag.Edit{w.deleteMemberEdit(n, members[i+1]), w.insertRefsEdit(start, refs)}
-		}
-	}
-	return []diag.Edit{diag.Replace(n.Span(), w.deferredRefLines(n, refs))}
-}
-
-// positionalChainMember reports whether member sequences positionally from the
-// member before it: a one-name target succession or a sourceless transition.
-func positionalChainMember(member ast.Node) bool {
-	if targetSuccessionKeyword(member) != "" {
-		return true
-	}
-	tr, ok := member.(*ast.TransitionMember)
-	return ok && tr.Source == nil
-}
-
-// chainStartMember returns the member the positional chain defer sits inside
-// hangs from, nil when it hangs from nothing the refs can be written before.
-func chainStartMember(members []ast.Node, i int) ast.Node {
-	j := i
-	for j > 0 {
-		m := kit.UnwrapMembership(members[j-1])
-		if !positionalChainMember(m) && !isMemberAttachedSuccession(m) {
-			break
-		}
-		j--
-	}
-	if j == 0 {
-		return nil
-	}
-	return members[j-1]
-}
-
-// deleteMemberEdit deletes the defer member: the whole line, newline included,
-// when the source lookup shows nothing else on it, else its own span.
-func (w *notationWalker) deleteMemberEdit(n *ast.DeferMember, next ast.Node) diag.Edit {
-	span := n.Span()
-	if w.lookup != nil {
-		prefix := w.lookup(w.doc, source.Span{Offset: 0, Len: span.Offset})
-		line := prefix[strings.LastIndex(prefix, "\n")+1:]
-		gap := w.lookup(w.doc, source.Span{Offset: span.End(), Len: next.Span().Offset - span.End()})
-		if k := strings.IndexByte(gap, '\n'); k >= 0 && strings.TrimSpace(line) == "" && strings.TrimSpace(gap[:k]) == "" {
-			start := span.Offset - len(line)
-			return diag.Replace(source.Span{Offset: start, Len: span.End() + k + 1 - start}, "")
-		}
-	}
-	return diag.Replace(span, "")
-}
-
-// insertRefsEdit writes the `#deferred ref` members ahead of member: each on
-// its own line indented like member's when the lookup reads it, else inline.
-func (w *notationWalker) insertRefsEdit(member ast.Node, refs []string) diag.Edit {
-	lines := make([]string, 0, len(refs))
-	for _, ref := range refs {
-		lines = append(lines, strings.Trim(ref, "`"))
-	}
-	offset := member.Span().Offset
-	if w.lookup != nil {
-		indent := w.indentOf(offset)
-		return diag.Insert(offset, strings.Join(lines, "\n"+indent)+"\n"+indent)
-	}
-	return diag.Insert(offset, strings.Join(lines, " ")+" ")
 }
 
 // shadowsAnnotation reports whether a member of an enclosing body declares
@@ -627,59 +511,6 @@ func memberDeclaredName(member ast.Node) string {
 		return n.Name
 	case *ast.TransitionMember:
 		return n.Name
-	}
-	return ""
-}
-
-// deferredRefLines spells the `#deferred ref` members a `defer` member rewrites
-// as, one per trigger, each on its own line indented like the member when the
-// source text can be read, else on one line.
-func (w *notationWalker) deferredRefLines(n *ast.DeferMember, refs []string) string {
-	lines := make([]string, 0, len(refs))
-	for _, ref := range refs {
-		lines = append(lines, strings.Trim(ref, "`"))
-	}
-	if w.lookup != nil {
-		return strings.Join(lines, "\n"+w.indentOf(n.Span().Offset))
-	}
-	return strings.Join(lines, " ")
-}
-
-// indentOf returns the leading whitespace of the line offset opens, or "" when
-// the member sits mid-line.
-func (w *notationWalker) indentOf(offset int) string {
-	prefix := w.lookup(w.doc, source.Span{Offset: 0, Len: offset})
-	line := prefix[strings.LastIndex(prefix, "\n")+1:]
-	if strings.TrimLeft(line, " \t") != "" {
-		return ""
-	}
-	return line
-}
-
-// deferredRefTarget names the occurrence a deferred trigger defers: the signal
-// a bare name accepts, or the operation a call event invokes (its arguments are
-// dropped, matching what `#deferred ref` carries).
-func deferredRefTarget(trigger ast.Node) string {
-	switch t := trigger.(type) {
-	case *ast.QualifiedName:
-		return qualifiedNameText(t)
-	case *ast.CallEvent:
-		return qualifiedNameText(t.Operation)
-	}
-	return ""
-}
-
-// triggerText spells a deferred trigger as it was written, for the message.
-func triggerText(trigger ast.Node) string {
-	switch t := trigger.(type) {
-	case *ast.QualifiedName:
-		return qualifiedNameText(t)
-	case *ast.CallEvent:
-		params := make([]string, 0, len(t.Parameters))
-		for _, p := range t.Parameters {
-			params = append(params, p.Text)
-		}
-		return fmt.Sprintf("%s(%s)", qualifiedNameText(t.Operation), strings.Join(params, ", "))
 	}
 	return ""
 }

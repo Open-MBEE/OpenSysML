@@ -336,8 +336,6 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		state.Do = append(state.Do, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.ExitMember:
 		state.Exit = append(state.Exit, g.behaviorsIn(m.Actions, scope)...)
-	case *ast.DeferMember:
-		state.Defer = append(state.Defer, m.Triggers...)
 	case *ast.StateRegion:
 		if !copied {
 			state.Regions = append(state.Regions, m)
@@ -375,8 +373,6 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 	case *ast.Usage:
 		pseudostateKind, isPseudostate := g.pseudostateKindOf(m, scope)
 		switch {
-		case g.deferredRefOf(m, scope):
-			state.Defer = append(state.Defer, g.deferredTrigger(m, scope))
 		case isPseudostate:
 			ps := pseudostateFromUsage(m, pseudostateKind)
 			g.copyInherited(ps, m, scope)
@@ -420,7 +416,7 @@ func unsupportedInherited(inherited bool, member ast.Node, state *ast.StateNode)
 	if !inherited || loweredElsewhere(member) {
 		return nil
 	}
-	return fmt.Errorf("%w: %s cannot be inherited by the state %s; a state usage inherits its definition's substates, behaviors, transitions, deferred events and attributes",
+	return fmt.Errorf("%w: %s cannot be inherited by the state %s; a state usage inherits its definition's substates, behaviors, transitions and attributes",
 		ErrUnsupportedStateContent, DescribeMember(member), state.Name)
 }
 
@@ -462,7 +458,6 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 		Entry:    g.behaviorsIn(node.Entry, childScope(scope, node)),
 		Do:       g.behaviorsIn(node.Do, childScope(scope, node)),
 		Exit:     g.behaviorsIn(node.Exit, childScope(scope, node)),
-		Defer:    node.Defer,
 	}
 	g.declOf[clone] = node
 	g.scopeOf[clone] = childScope(scope, node)
@@ -513,7 +508,6 @@ func redeclare(state *ast.StateNode, inherited, own *ast.StateNode) map[ast.Node
 	state.Entry = pickBehaviors(inherited.Entry, own.Entry)
 	state.Do = pickBehaviors(inherited.Do, own.Do)
 	state.Exit = pickBehaviors(inherited.Exit, own.Exit)
-	state.Defer = append(append([]ast.Node{}, inherited.Defer...), own.Defer...)
 	state.Substates = append(keptSubstates(inherited.Substates, own.Substates), own.Substates...)
 	state.Regions = append(keptRegions(inherited.Regions, own.Regions), own.Regions...)
 	return replacedSubstates(inherited.Substates, own.Substates)

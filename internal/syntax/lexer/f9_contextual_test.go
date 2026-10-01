@@ -30,16 +30,15 @@ func TestContextualWordsDifferPerLanguage(t *testing.T) {
 	if !has(kerml, "var") {
 		t.Error("`var` is not offered for KerML; KerML.xtext BasicFeaturePrefix takes it")
 	}
-	for _, w := range []string{"chain", "defer"} {
-		if !has(sysml, w) || !has(kerml, w) {
-			t.Errorf("%q is read as syntax in both languages but is not offered in both", w)
-		}
+	if !has(sysml, "chain") || !has(kerml, "chain") {
+		t.Error("`chain` is read as syntax in both languages but is not offered in both")
 	}
 	// `on` is a literal in neither pinned grammar and syntax in no position of
 	// ours, so it is a plain name and must not be offered as syntax. `initial`,
 	// `region` and `point` are the same now that neither the markers they spelled,
-	// the orthogonal-region member nor the entry/exit point pseudostate is accepted.
-	for _, w := range []string{"on", "initial", "region", "final", "point"} {
+	// the orthogonal-region member nor the entry/exit point pseudostate is accepted,
+	// and `defer` since the deferral extension it spelled was removed.
+	for _, w := range []string{"on", "initial", "region", "final", "point", "defer"} {
 		if has(sysml, w) || has(kerml, w) {
 			t.Errorf("%q is offered as a contextual word; it is an ordinary name", w)
 		}

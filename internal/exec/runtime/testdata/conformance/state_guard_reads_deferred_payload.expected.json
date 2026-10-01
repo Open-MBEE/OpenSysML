@@ -1,7 +1,9 @@
 {
   "type": "state",
+  "libraries": true,
+  "trace": true,
   "events": [
-    {"signal": "Level", "value": {"type": "Integer", "value": 8}},
+    {"signal": "Level", "args": {"level": {"type": "Integer", "value": 8}}},
     {"signal": "Go", "args": null}
   ],
   "finalState": "done",

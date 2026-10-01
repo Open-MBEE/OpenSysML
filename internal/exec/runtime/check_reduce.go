@@ -106,9 +106,6 @@ func dispatchFootprint(e *StateExecutor) lower.Footprint {
 					fp.Accepts = append(fp.Accepts, channel)
 				}
 			}
-			if len(e.graph.Deferred[state]) > 0 {
-				fp.Accepts = append(fp.Accepts, lower.Channel{})
-			}
 		}
 	}
 	return fp
@@ -164,9 +161,6 @@ func (c *checker) machineFuture(e *StateExecutor) lower.Footprint {
 	}
 	for _, fp := range e.graph.BehaviorFootprints() {
 		future = unionFootprints(future, fp)
-	}
-	if len(e.graph.Deferred) > 0 {
-		future.Accepts = append(future.Accepts, lower.Channel{})
 	}
 	c.machineFutures[e.graph] = future
 	return future

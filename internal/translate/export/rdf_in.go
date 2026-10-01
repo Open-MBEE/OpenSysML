@@ -94,6 +94,9 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if err := checkSupersededPredicates(graph); err != nil {
 		return nil, err
 	}
+	if err := checkRemovedNotation(graph); err != nil {
+		return nil, err
+	}
 	metaclasses, err := checkTypes(graph)
 	if err != nil {
 		return nil, err
@@ -242,6 +245,36 @@ func checkSupersededPredicates(graph *rdf.Graph) error {
 	return nil
 }
 
+// removedDeferNote says what a graph recording the removed `defer <event>;`
+// extension is to be written as instead.
+const removedDeferNote = "it records the OpenSysML `defer <event>;` extension, which was removed; " +
+	"SysML v2 has no deferral notation, so model the deferred signal in source with an ordered buffer " +
+	"(`item deferred : Sig[*] ordered;`), a do action whose accept loop keeps each occurrence while the " +
+	"state is active, and an exit action that sends each kept occurrence to self " +
+	"(docs/reference/sysml-v1-migration.md, Deferred signals), then convert the model again"
+
+// checkRemovedNotation refuses a graph carrying the terms an earlier mapping
+// wrote for notation the language no longer has — a sysx:DeferMember or a
+// sysx:deferredEvent — which would otherwise be dropped or refused as a
+// metaclass with no notation, neither of which tells the reader what to do.
+func checkRemovedNotation(graph *rdf.Graph) error {
+	for _, triple := range graph.Triples() {
+		switch {
+		case triple.Predicate.Value == rdf.RDFType && triple.Object.IsIRI() && triple.Object.Value == rdf.OpenSysML+mDeferMember:
+			return &UnsupportedError{
+				What: fmt.Sprintf("the element <%s> of type sysx:%s", triple.Subject.Value, mDeferMember),
+				Note: removedDeferNote,
+			}
+		case triple.Predicate.Kind == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
+			return &UnsupportedError{
+				What: fmt.Sprintf("the property sysx:%s of <%s>", xDeferredEvent, triple.Subject.Value),
+				Note: removedDeferNote,
+			}
+		}
+	}
+	return nil
+}
+
 // checkTypes settles the one metaclass each subject is written as, keyed by
 // subject. An rdf:type that is no term of the SysML vocabulary or of this
 // mapping's extension is refused: a class of another vocabulary names no
@@ -356,7 +389,6 @@ func checkLiterals(graph *rdf.Graph, metaclasses map[rdf.Term]string) error {
 var multiValuedProperties = map[string]bool{
 	xBodyMember:     true,
 	xBodyParameter:  true,
-	xDeferredEvent:  true,
 	xEffectMember:   true,
 	xRelatedFeature: true,
 }
