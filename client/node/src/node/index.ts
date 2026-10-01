@@ -149,13 +149,15 @@ async function migrationFiles(
     );
   }
   const base = resolve(dirname(path));
+  const landedBase = await landing(base);
   const files: [string, Uint8Array][] = [];
   for (const [relative, data] of migration.files) {
     const segments = relative.split("/");
     const file = resolve(base, ...segments);
     if (
       segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("\\")) ||
-      !file.startsWith(base + sep)
+      !file.startsWith(base + sep) ||
+      !(await landing(file)).startsWith(landedBase + sep)
     ) {
       throw new RangeError(`the migration's image ${relative} would land outside ${base}`);
     }
@@ -181,15 +183,23 @@ async function samePath(a: string, b: string): Promise<boolean> {
   return (await landing(a)) === (await landing(b));
 }
 
-/** The absolute path a write to `path` lands on, every symbolic link on the way followed. */
+/**
+ * The absolute path a write to `path` lands on: every symbolic link on the way
+ * followed, through the deepest ancestor that exists, whatever below it does not.
+ */
 async function landing(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
+  let head = resolve(path);
+  const tail: string[] = [];
+  for (;;) {
     try {
-      return join(await realpath(dirname(path)), basename(path));
+      return join(await realpath(head), ...tail);
     } catch {
-      return resolve(path);
+      const parent = dirname(head);
+      if (parent === head) {
+        return join(head, ...tail);
+      }
+      tail.unshift(basename(head));
+      head = parent;
     }
   }
 }

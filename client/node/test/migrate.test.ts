@@ -2,7 +2,7 @@
 // and writing the result out with its image files.
 
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -282,4 +282,22 @@ test("save refuses an image that would escape the directory or replace the model
   );
   assert.ok(!existsSync(path), "nothing is written when an image is refused");
   assert.ok(!existsSync(join(dir, "escaped.png")));
+
+  const outside = mkdtempSync(join(tmpdir(), "opensysml-outside-"));
+  symlinkSync(outside, join(dir, "images"), "dir");
+  mkdirSync(join(dir, "nested"));
+  symlinkSync(outside, join(dir, "nested", "link"), "dir");
+  for (const linked of ["images/escaped.png", "nested/link/deeper/escaped.png"]) {
+    await assert.rejects(
+      () => save(withFiles([[linked, png]]), path),
+      (error: unknown) => {
+        assert.ok(error instanceof RangeError);
+        assert.equal(error.message, `the migration's image ${linked} would land outside ${dir}`);
+        return true;
+      },
+    );
+  }
+  assert.ok(!existsSync(path));
+  assert.ok(!existsSync(join(outside, "escaped.png")));
+  assert.ok(!existsSync(join(outside, "deeper")));
 });
