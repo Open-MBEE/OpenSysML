@@ -106,6 +106,8 @@ var packageLayer = map[string]string{
 	"internal/doc/docpdf":     "doc",
 
 	"internal/workspace/model":       "workspace",
+	"internal/workspace/modelrt":     "workspace",
+	"internal/workspace/modeldoc":    "workspace",
 	"internal/semantic/highlight":    "semantic",
 	"internal/workspace/libs":        "workspace",
 	"internal/workspace/libs/errata": "workspace",
@@ -146,6 +148,7 @@ var removed = map[string][]string{
 	"internal/exec/analysis":            {"internal/translate/export"},
 	"internal/exec/analysis/enginewire": {"internal/translate/export"},
 	"internal/translate/export":         {"internal/translate/migrate", "internal/exec/runtime", "internal/ir/lower"},
+	"internal/workspace/model":          {"internal/exec/runtime", "internal/doc/queryexec", "internal/doc/docir", "internal/doc/docrender", "internal/translate/filename"},
 	"internal/check/passes/kit":         {"internal/check/passes"},
 	"internal/check/passes/document":    {"internal/check/passes"},
 	"internal/check/passes/diagram":     {"internal/check/passes"},

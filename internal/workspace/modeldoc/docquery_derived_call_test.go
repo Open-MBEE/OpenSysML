@@ -1,10 +1,11 @@
-package model
+package modeldoc_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // callValuedDocumentModel renders a table over an attribute whose value is a
@@ -47,7 +48,7 @@ package Observatory {
 // semantic model, whose argument typing selects the call.
 func TestRenderDocumentMarkdownReadsCallValuedAttributes(t *testing.T) {
 	ws := openDoc(t, "report.sysml", callValuedDocumentModel)
-	markdown, err := ws.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "Observatory::MassReport", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("RenderDocumentMarkdown: %v", err)
 	}

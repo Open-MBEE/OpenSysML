@@ -219,11 +219,11 @@ func TestReferencesAndRuntimeHydrate(t *testing.T) {
 
 	ws = NewWorkspace(WithRecordCache(cache))
 	ws.OpenAll(hydrateInputs())
-	if _, err := ws.NewRuntime(); err != nil {
+	if _, err := ws.Detach(); err != nil {
 		t.Fatal(err)
 	}
 	if ws.Recorded("base.sysml") || ws.Recorded("user.sysml") {
-		t.Fatal("a runtime was built over a recorded document")
+		t.Fatal("detaching left a recorded document")
 	}
 }
 

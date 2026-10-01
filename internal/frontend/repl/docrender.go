@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
@@ -97,7 +98,7 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 		for _, sibling := range s.documentSymbols(idx, sem) {
 			names = append(names, symbols.FQNOf(sibling))
 		}
-		if files, err = model.DocumentFiles(names, extension); err != nil {
+		if files, err = modeldoc.DocumentFiles(names, extension); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -160,7 +161,7 @@ func (s *Session) renderDocumentSet(
 	for _, sym := range syms {
 		names = append(names, symbols.FQNOf(sym))
 	}
-	files, err := model.DocumentFiles(names, extension)
+	files, err := modeldoc.DocumentFiles(names, extension)
 	if err != nil {
 		return nil, err
 	}

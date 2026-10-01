@@ -18,12 +18,12 @@ const (
 	passesPkg  = "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
-// Frontends whose runtime models the check must keep seeing; a restructuring
-// that hides one of these construction sites from the walk fails here.
-var runtimeModelFrontends = []string{
+// Runtime model builders whose construction sites the check must keep seeing;
+// a restructuring that hides one of these sites from the walk fails here.
+var runtimeModelBuilders = []string{
 	"internal/frontend/repl/session.go",
 	"internal/frontend/grpc/cache.go",
-	"internal/workspace/model/runtime.go",
+	"internal/workspace/modelrt/modelrt.go",
 }
 
 // Runtime constructors that call NewModel on a semantic model handed to them,
@@ -36,7 +36,8 @@ var runtimeModelForwarders = map[string][]string{
 
 // TestRuntimeModelsCarryArgumentTyping pins that every production site that
 // hands a semantic model to runtime.NewModel built it with passes.NewTypedModel,
-// so the runtime selects overloads with the checker's argument typing and its
+// directly or through a detached model's typed Semantics accessor, so the
+// runtime selects overloads with the checker's argument typing and its
 // missing-typer error stays unreachable from the shipped frontends. Inside the
 // runtime package, every unqualified NewModel call must sit in a constructor
 // listed in runtimeModelForwarders, whose callers are in turn confined to the
@@ -49,6 +50,10 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 		t.Fatalf("go list: %v", err)
 	}
 	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	detachedSemanticsTyped, err := detachedSemanticsIsTyped(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +82,7 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 				}
 				continue
 			}
-			for _, site := range runtimeModelSites(file) {
+			for _, site := range runtimeModelSites(file, detachedSemanticsTyped) {
 				sites[rel] = true
 				if !site.typed {
 					t.Errorf("%s: runtime.NewModel receives a semantic model not built by passes.NewTypedModel (%s)",
@@ -96,7 +101,7 @@ func TestRuntimeModelsCarryArgumentTyping(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range runtimeModelFrontends {
+	for _, want := range runtimeModelBuilders {
 		if !sites[want] {
 			t.Errorf("%s: expected a runtime.NewModel construction site", want)
 		}
@@ -177,9 +182,9 @@ type runtimeModelSite struct {
 }
 
 // runtimeModelSites lists the runtime.NewModel calls in file and whether each
-// first argument is a passes.NewTypedModel call, directly or through a local
-// assigned from one and never reassigned within the enclosing declaration.
-func runtimeModelSites(file *ast.File) []runtimeModelSite {
+// first argument is a passes.NewTypedModel call, a local assigned from one, or
+// the typed Semantics accessor on a value returned from Detach.
+func runtimeModelSites(file *ast.File, detachedSemanticsTyped bool) []runtimeModelSite {
 	runtimeName, passesName := "", ""
 	for _, imp := range file.Imports {
 		path, _ := strconv.Unquote(imp.Path.Value)
@@ -204,8 +209,9 @@ func runtimeModelSites(file *ast.File) []runtimeModelSite {
 			switch arg := call.Args[0].(type) {
 			case *ast.CallExpr:
 				site.typed = passesName != "" && isSelectorCall(arg, passesName, "NewTypedModel")
+				site.typed = site.typed || detachedSemanticsTyped && detachedSemanticsCall(arg, decl)
 				if !site.typed {
-					site.reason = "argument is a call other than passes.NewTypedModel"
+					site.reason = "argument is neither passes.NewTypedModel nor a typed Detached.Semantics"
 				}
 			case *ast.Ident:
 				site.typed, site.reason = assignedFromTypedModel(decl, arg.Name, passesName)
@@ -217,6 +223,113 @@ func runtimeModelSites(file *ast.File) []runtimeModelSite {
 		})
 	}
 	return sites
+}
+
+func detachedSemanticsCall(call *ast.CallExpr, decl ast.Decl) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Semantics" {
+		return false
+	}
+	receiver, ok := sel.X.(*ast.Ident)
+	return ok && assignedFromDetach(decl, receiver.Name)
+}
+
+func assignedFromDetach(decl ast.Decl, name string) bool {
+	assigned, detached := 0, 0
+	ast.Inspect(decl, func(n ast.Node) bool {
+		as, ok := n.(*ast.AssignStmt)
+		if !ok {
+			return true
+		}
+		for i, lhs := range as.Lhs {
+			id, ok := lhs.(*ast.Ident)
+			if !ok || id.Name != name {
+				continue
+			}
+			assigned++
+			if i == 0 && len(as.Rhs) == 1 {
+				call, ok := as.Rhs[i].(*ast.CallExpr)
+				if !ok {
+					continue
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if ok && sel.Sel.Name == "Detach" {
+					detached++
+				}
+			}
+		}
+		return true
+	})
+	return assigned == 1 && detached == 1
+}
+
+func detachedSemanticsIsTyped(root string) (bool, error) {
+	path := filepath.Join(root, "internal/workspace/model/detached.go")
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	if err != nil {
+		return false, err
+	}
+	typedAssignment, stored, accessor := false, false, false
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		switch fn.Name.Name {
+		case "detachLocked":
+			typedAssignment, _ = assignedFromTypedModel(fn, "sem", "passes")
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				switch n := n.(type) {
+				case *ast.KeyValueExpr:
+					key, keyOK := n.Key.(*ast.Ident)
+					value, valueOK := n.Value.(*ast.Ident)
+					stored = stored || keyOK && valueOK && key.Name == "semantics" && value.Name == "sem"
+				}
+				return true
+			})
+		case "Semantics":
+			if fn.Recv != nil && len(fn.Recv.List) == 1 &&
+				isPointerIdentType(fn.Recv.List[0].Type, "Detached") &&
+				len(fn.Type.Results.List) == 1 && isPointerSelectorType(fn.Type.Results.List[0].Type, "semantics", "Model") {
+				ast.Inspect(fn.Body, func(n ast.Node) bool {
+					ret, ok := n.(*ast.ReturnStmt)
+					if !ok || len(ret.Results) != 1 {
+						return true
+					}
+					field, ok := ret.Results[0].(*ast.SelectorExpr)
+					if !ok {
+						return true
+					}
+					receiver, receiverOK := field.X.(*ast.Ident)
+					accessor = accessor || receiverOK && receiver.Name == "d" && field.Sel.Name == "semantics"
+					return true
+				})
+			}
+		}
+	}
+	return typedAssignment && stored && accessor, nil
+}
+
+func isPointerIdentType(expr ast.Expr, name string) bool {
+	ptr, ok := expr.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	id, ok := ptr.X.(*ast.Ident)
+	return ok && id.Name == name
+}
+
+func isPointerSelectorType(expr ast.Expr, pkg, name string) bool {
+	ptr, ok := expr.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := ptr.X.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != name {
+		return false
+	}
+	pkgName, ok := sel.X.(*ast.Ident)
+	return ok && pkgName.Name == pkg
 }
 
 func importName(imp *ast.ImportSpec, base string) string {

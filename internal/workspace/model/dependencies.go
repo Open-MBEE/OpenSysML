@@ -19,42 +19,42 @@ type Dependency struct {
 }
 
 // Dependencies lists the declarations a run from roots reads: the roots, what
-// their text names, what that names in turn — in the runtime's documents alone,
+// their text names, what that names in turn — in the detached model's documents alone,
 // as no edit reaches a library — sorted by document then name, each listed as
 // the nearest declaration its document names (see dependencyWalk.declaration).
-func (r *Runtime) Dependencies(roots ...*symbols.Symbol) []Dependency {
-	held := func(doc string) bool { _, ok := r.versions[doc]; return ok }
-	return newDependencyWalk(r.index, r.resolver, held, r.model.Text()).closure(roots)
+func (d *Detached) Dependencies(roots ...*symbols.Symbol) []Dependency {
+	held := func(doc string) bool { _, ok := d.versions[doc]; return ok }
+	return newDependencyWalk(d.index, d.resolver, held, d.text).closure(roots)
 }
 
 // DeclarationOf is the dependency sym is listed as: the nearest declaration its
-// document names around it; false when the workspace does not hold its document
+// document names around it; false when the detached model does not hold its document
 // or names nothing around it.
-func (r *Runtime) DeclarationOf(sym *symbols.Symbol) (Dependency, bool) {
+func (d *Detached) DeclarationOf(sym *symbols.Symbol) (Dependency, bool) {
 	if sym == nil {
 		return Dependency{}, false
 	}
-	if _, held := r.versions[sym.DocName]; !held {
+	if _, held := d.versions[sym.DocName]; !held {
 		return Dependency{}, false
 	}
-	held := func(doc string) bool { _, ok := r.versions[doc]; return ok }
-	dep, _ := newDependencyWalk(r.index, r.resolver, held, r.model.Text()).declaration(sym)
+	held := func(doc string) bool { _, ok := d.versions[doc]; return ok }
+	dep, _ := newDependencyWalk(d.index, d.resolver, held, d.text).declaration(sym)
 	return dep, dep.FQN != ""
 }
 
 // Referenced is the symbols expr's names reach when resolved in scope, as the
-// runtime's index has them.
-func (r *Runtime) Referenced(scope *symbols.Scope, expr ast.Node) []*symbols.Symbol {
+// detached model's index has them.
+func (d *Detached) Referenced(scope *symbols.Scope, expr ast.Node) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, ref := range resolve.ExpressionReferences(scope, expr) {
-		if sym, ok := r.resolver.ResolveReference(ref); ok {
+		if sym, ok := d.resolver.ResolveReference(ref); ok {
 			out = append(out, sym)
 		}
 	}
 	return out
 }
 
-// Dependencies is Runtime.Dependencies over the documents as read.
+// Dependencies is Detached.Dependencies over the documents as read.
 func (r *Reading) Dependencies(roots ...*symbols.Symbol) []Dependency {
 	held := func(doc string) bool { return r.w.docs[doc] != nil }
 	resolver, _ := r.w.semanticsLocked()

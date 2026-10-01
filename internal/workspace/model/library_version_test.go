@@ -92,7 +92,7 @@ func TestWorkspaceLibraryVersionStandsInForBundledFile(t *testing.T) {
 	}
 }
 
-// A runtime's private index holds a version as the workspace does: it alone declares
+// A detached model's private index holds a version as the workspace does: it alone declares
 // the library's names, marked as the library, with the bundled file displaced.
 func TestRuntimeIndexHoldsLibraryVersion(t *testing.T) {
 	ws := NewWorkspace()
@@ -102,18 +102,18 @@ func TestRuntimeIndexHoldsLibraryVersion(t *testing.T) {
 	}
 	ws.Open("copy.kerml", lib.Content, 1)
 	ws.Open("main.sysml", []byte("package Main { attribute x : ScalarValues::Real; }\n"), 1)
-	rt, err := ws.NewRuntime()
+	rt, err := ws.Detach()
 	if err != nil {
-		t.Fatalf("NewRuntime: %v", err)
+		t.Fatalf("Detach: %v", err)
 	}
-	if syms := rt.index.LookupQualified("ScalarValues::Real"); len(syms) != 1 || syms[0].DocName != "copy.kerml" {
-		t.Fatalf("runtime's ScalarValues::Real = %v, want the copy's alone", syms)
+	if syms := rt.Index().LookupQualified("ScalarValues::Real"); len(syms) != 1 || syms[0].DocName != "copy.kerml" {
+		t.Fatalf("detached model's ScalarValues::Real = %v, want the copy's alone", syms)
 	}
-	if rt.index.DocumentRoot(scalarValues) != nil {
-		t.Error("the runtime's index still holds the displaced bundled file")
+	if rt.Index().DocumentRoot(scalarValues) != nil {
+		t.Error("the detached model's index still holds the displaced bundled file")
 	}
-	if !rt.index.IsLibraryDocument("copy.kerml") {
-		t.Error("the copy is not marked as the library in the runtime's index")
+	if !rt.Index().IsLibraryDocument("copy.kerml") {
+		t.Error("the copy is not marked as the library in the detached model's index")
 	}
 	if sym, err := rt.Named("main.sysml", "ScalarValues::Real"); err != nil || sym == nil || sym.DocName != "copy.kerml" {
 		t.Errorf("Named(main.sysml, ScalarValues::Real) = %v, %v; want the copy's, a held document", sym, err)
