@@ -1,12 +1,8 @@
 package model
 
 import (
-	"fmt"
 	"sort"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -39,47 +35,6 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].FQN < out[j].FQN })
 	return out
-}
-
-// RenderDocumentMarkdown compiles the named document definition, evaluates its
-// queries against the workspace model, and renders the result as Markdown,
-// linking the other documents by the files a Markdown set writes them to.
-func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOptions) (string, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	matches := symbols.PreferDeclared(w.index.LookupQualified(fqn))
-	if len(matches) == 0 {
-		return "", fmt.Errorf("no element named %s", fqn)
-	}
-	if len(matches) > 1 {
-		return "", fmt.Errorf("%s names %d elements; rename one so the name is unambiguous", fqn, len(matches))
-	}
-	sym := matches[0]
-	var out string
-	var err error
-	w.queryLocked(sym.DocName, func(resolver *resolve.Resolver, sem *semantics.Model) {
-		if !docplan.IsDocumentDefinition(w.index, sem, sym) {
-			err = fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", fqn)
-			return
-		}
-		var plan *docplan.Plan
-		if plan, err = docplan.Compile(w.index, sem, resolver, sym); err != nil {
-			return
-		}
-		if opts.Files, err = DocumentFiles(DocumentNames(w.index, sem), ".md"); err != nil {
-			return
-		}
-		var document *docir.Document
-		document, err = docir.EvaluateLinked(plan,
-			SiblingDocumentPlans(w.index, sem, resolver, sym),
-			queryexec.Context{Index: w.index, Resolver: resolver, Model: sem},
-			queryexec.Options{}, w.sourceText())
-		if err != nil {
-			return
-		}
-		out, err = docrender.Markdown(document, opts)
-	})
-	return out, err
 }
 
 // QueryBindingParameter resolves the parameter a document query binding names:

@@ -288,7 +288,7 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 	text := strings.TrimSpace(v)
 	switch sv {
 	case "", "String":
-		return source.StringText(commentText(v)), ""
+		return source.StringText(m.proseText(v, t)), ""
 	case "Boolean":
 		switch text {
 		case "true", "false":

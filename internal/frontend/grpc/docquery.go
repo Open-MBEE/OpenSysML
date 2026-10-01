@@ -19,6 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // RunDocumentQuery runs a named document query with parameter bindings, the
@@ -121,7 +122,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if form == renderFormHTML {
 		extension = ".html"
 	}
-	files, err := model.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
+	files, err := modeldoc.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
 	if err != nil {
 		return nil, documentStatus(err)
 	}

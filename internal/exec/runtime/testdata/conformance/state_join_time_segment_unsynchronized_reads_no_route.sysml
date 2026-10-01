@@ -1,7 +1,6 @@
-// A timer's expiry enables one segment into a join but not the other, which
-// waits for a signal: the join does not fire, and the route out of it is not
-// resolved, so the junction beyond it, whose only guard is false, is not read
-// and the expiry aborts nothing. The signal holds the join the same way.
+// The timer-triggered segment arrives without resolving the join's outgoing
+// route. When the signal-triggered segment later completes the join, its dead
+// route disables that transition rather than failing the run.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;

@@ -778,9 +778,53 @@ reads the branches when it selects the transition out of `idle`, takes the first
 records the choice at the junction as the transition fires, before `idle` is exited (`choice
 junction split: transitions 1->left, 2->right (unordered; took 1->left)`); the golden pins that
 linearization, `seed:1` the other one.
-As at a choice, branches after the first enabled one are read in a preview that is undone. A
-junction with no enabled branch fails the run at that instant with a typed error naming the
-junction (`robustness_test.go:region_pseudostate_without_satisfied_guard`).
+As at a choice, branches after the first enabled one are read in a preview that is undone. If no
+branch has a way through, the compound transition is unenabled and the occurrence is handled as
+unmatched; a junction reached only past a choice remains a run error. The distinction and its
+fixtures are pinned in the no-way-through section above.
+
+### A junction with no way through: the transition is not enabled, and the occurrence is handled as unmatched
+
+Fixture: `state_junction_no_way_through_unmatched` (trace golden),
+`state_junction_no_way_through_other_transition_fires`,
+`state_junction_no_way_through_deferred`, `state_junction_dead_branch_not_drawn`,
+`state_completion_no_way_through_dropped`, `state_history_default_no_way_through`,
+`state_history_self_transition_default_no_way_through_restores`, and
+`state_join_no_way_out_disables_last_segment` (explored outcomes).
+
+Derived constraints:
+
+- UML 2.5.1 §14.2.3.7 (junction) and §14.2.3.8.1 (compound transition) are the extension's
+  reference for static route availability. The library declares
+  `feature outgoingHBLink: HappensBefore[1]` (`ControlPerformances.kerml`), but does not define
+  a state-machine junction's enablement or unmatched-event behavior.
+- The runtime checks a route before selecting its transition, only as far as the first choice.
+  A junction with no way through, or a join whose completing occurrence has no route out, leaves
+  the compound transition unenabled; `errNoWayThrough` is the only route error that disables it.
+  The occurrence can then select another enabled transition, remain deferred, or be discarded as
+  unmatched. A completion with no way through is dropped.
+- A branch that reaches a later junction with no way through is removed from the current
+  junction's drawable branches; if one branch remains, it is followed without a draw. Cycles,
+  unevaluable guards and binding failures remain run errors. A route stays open at the first
+  choice: choices resolve dynamically on arrival and retain `ErrChoiceWithoutBranch`; a dead
+  junction reached beyond a choice remains a run error.
+- A history default with no recorded history is statically checked only when the source is
+  outside the history owner. A transition from the owner or one of its descendants can exit the
+  owner, record history, then restore it instead of being disabled based on a record that does
+  not exist yet.
+
+Open: when more than one ordinary transition can take an occurrence after a dead route is
+disabled, the existing transition-selection policy decides among them; this rule adds no new
+choice point for the unavailable route.
+
+Pinned outcome: `state_junction_no_way_through_unmatched` leaves the machine in `s2`, logs
+`T3`, and reports the original `Start` as unmatched. In
+`state_junction_no_way_through_other_transition_fires`, the other `Start` transition fires; in
+`state_junction_no_way_through_deferred`, the occurrence remains deferred. The dead branch in
+`state_junction_dead_branch_not_drawn` is not drawn when the other route remains available.
+`state_completion_no_way_through_dropped` keeps the source state active until a later signal;
+the outside-owner history default is disabled, while the owner self-transition fixture restores
+its recorded history. The join fixture ends in `S3` with either `T1.2 T5` or `T1.4 T5`.
 
 ### A junction with two branches enabled in a region another region's reaction may disarm: drawn only as its transition fires
 
@@ -1116,45 +1160,80 @@ other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
 
 ### Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open
 
-Fixture: `state_join_runs_every_incoming_effect` (golden, explored).
+Fixture: `state_join_runs_every_incoming_effect` (golden, explored),
+`state_join_segment_fires_on_own_signal` (trace golden), and
+`state_join_segments_arrive_together_on_one_occurrence` and
+`state_join_segment_not_chosen_does_not_arrive` (golden, explored).
 
 ```
 Outer { exit { log += "outer(exit) " }
-        Work parallel { left:  l1 ─ do log += "left(effect) "  → sync
-                        right: r1 ─ do log += "right(effect) " → sync }
-        sync join ─ do log += "sync(effect) " → Rest { entry { log += "rest(entry)" } } }
+        Work parallel { left:  l1 ─ accept X: exit + effect → sync
+                        right: r1 ─ accept Y: exit + effect → sync }
+        sync join ─ effect → Rest { entry { log += "rest(entry)" } } }
 ```
 
 Derived constraints:
 
 - The library has no join among states (`fork` and `join` are action nodes, `Actions.sysml`
-  `ForkAction` / `JoinAction`); the state-body form follows UML, where the transitions into a
-  join and the one out of it are segments of one compound transition (UML 2.5.1 §14.2.3.8.1) and
-  the join is enabled only once every incoming segment is (PSSM §8.5.7 `JoinPseudostateActivation`).
-  Each incoming segment is a `StateTransitionPerformance`, so its effect follows its own source's
-  exit (`TransitionPerformances.kerml`, `transitionLinkSource then effect`), and the segments are
-  the last steps of two regions' substate performances.
-- Every step of a substate is an `enclosedPerformance` of the enclosing state performance,
-  "happening during the state performance" (`StatePerformances.kerml`), whose exit is its last
-  step (`succession [*] middle then [1] exit`): both incoming segments — effects included — end
-  before `Work` is left, and `Work` before `Outer`, so `outer(exit)` follows both incoming
-  effects and precedes the outgoing segment's `sync(effect)` and `Rest`'s entry
-  (`effect then transitionLink.laterOccurrence`, `entry then middle`).
-- No succession joins `left`'s segment to `right`'s, so the library orders nothing between the
-  two incoming effects.
+  `ForkAction` / `JoinAction`); the state-body form follows UML 2.5.1 §14.2.3.8.1 and PSSM
+  §8.5.7 `JoinPseudostateActivation`. Each incoming segment is its own
+  `StateTransitionPerformance`, with its own `feature trigger: MessageTransfer[*];` and
+  `private succession [1] transitionLinkSource then [*] effect;`
+  (`TransitionPerformances.kerml`): the source exits before that segment's effect, and a later
+  trigger can fire another segment independently. A completion segment fires on its own
+  completion; it is not combined with another completion event.
+- The library does not state that one segment's occurrence waits for another, or provide a
+  succession connecting the segments across regions. The independent-occurrence join rule is
+  therefore UML's extension reference, not a claim supplied by the KerML library: arrived
+  segments plus those enabled by the current occurrence and chosen by their regions in that
+  dispatch complete the join only when all incoming segments are covered. A not-yet-arrived
+  segment fires only when its source is active, its trigger
+  takes the occurrence, its guard holds, and its region's dispatch chose that transition; a
+  competing or nested transition chosen by the region is not displaced by a sibling's join firing.
+- At selection, probes count only the candidate segment plus prior arrivals, and check the way
+  out only if they complete the join. In signal/change dispatches, same-occurrence peers count
+  only when their regions chose them; firing checks completion against those peers, and a dead
+  route fires none. Timer expiries are separate occurrences even when due at the same instant;
+  a dead completing segment is not enabled, leaving its timer group's alternatives available.
+  `state_join_peer_not_chosen_does_not_block_arrival`,
+  `state_join_time_segments_expire_together` and
+  `state_join_dead_timer_join_keeps_group_alternative` pin these distinctions.
+- A substate's steps are enclosed in its owner's state performance and are "and hence happening
+  during the state performance" (`StatePerformances.kerml`); the library orders the owner's
+  middle steps before its exit with `private succession [*] middle then [1] exit;`. Thus the
+  runtime leaves `Work` and then `Outer` after the last incoming segment effect, before the
+  outgoing segment's effect and `Rest`'s entry. PSSM instead leaves the owner before the final
+  segment effect; the runtime's owner-exit ordering is the extension's reading recorded under
+  SM34.
 
-Open: which incoming segment fires first. The two orders reach two values of `log`.
+Open: which segment fires first when one occurrence enables several; the library orders neither
+segment against its sibling.
 
-Pinned outcome: the admissible set `{left(effect) right(effect) …, right(effect) left(effect) …}`
-each ending `outer(exit) sync(effect) rest(entry)`, stated as `outcomes` citing this section. The
-order is a choice point under every policy, reported as `choice join sync: states l1, r1 react
-(unordered; took l1 first)`: `declared` and `reverse` take source declaration order — a tool-defined
-order — and the default golden pins that linearization (`left` first); `seed:<n>` draws the order,
-the `seed:1` golden's draw falling on the same one after entering the regions right first;
-`explore` varies it and must reach both outcomes and no
-other, in two runs. Each segment exits its source and runs its effect before the next segment is
-drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
-interleave with the sources' exits only as the segments do, never across one segment.
+Pinned outcome: `state_join_runs_every_incoming_effect` pins both incoming-effect orders, each
+ending with `outer(exit) sync(effect) rest(entry)`; exploration reaches exactly both. In
+`state_join_segment_fires_on_own_signal`, signal X logs its source exit and effect, then waits
+without running Y's segment; signal Y logs its source exit and effect, followed by the owner exit
+and outgoing effect. `state_join_segments_arrive_together_on_one_occurrence` shows one Go
+occurrence firing both enabled segments in either `join sync` order, recording both arrivals;
+Finish then fires the last segment, leaves the owner and runs the outgoing effect. Each segment's
+source exit and effect are one ordered unit, while arrivals are retained until the incoming set
+is complete.
+`state_join_segment_not_chosen_does_not_arrive` shows that Go fires A's segment while the middle
+region takes its nested `b1` transition; Finish records C, and the later Go fires B's segment and
+completes the join. `state_join_peer_not_chosen_does_not_block_arrival` shows that an unchosen
+peer cannot make a dead way out disable A when A would arrive alone. The region's first dispatch
+does not also fire the unchosen B segment.
+
+### Same-instant timer expiries are separate join occurrences
+
+Each queued timer expiry is its own occurrence, even when several timers are due at the same
+instant. Selection checks a segment with only the arrivals already recorded: an incomplete
+segment arrives on its own expiry, while a later expiry completes the join. If that completion
+has no way out, its segment is disabled and the other transitions in its source's timer group
+remain available. If B's expiry is dispatched before A's, B's group can choose either its
+incomplete join segment or its alternative. `state_join_time_segments_expire_together` pins the
+separate arrivals; `state_join_dead_timer_join_keeps_group_alternative` pins the dead-exit
+alternative and its admissible outcomes.
 
 ### A merge is re-entered on every traversal of a loop
 

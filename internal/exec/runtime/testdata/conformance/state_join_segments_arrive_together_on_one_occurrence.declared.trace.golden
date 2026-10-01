@@ -1,0 +1,43 @@
+choice join sync: states a, b react (unordered; took a first)
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "A-exit " -> "A-exit "
+    eval operator + -> "A-exit "
+stmt assign log
+    eval feature log -> "A-exit "
+    eval literal "A-effect " -> "A-effect "
+  eval operator + -> "A-exit A-effect "
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect "
+      eval literal "B-exit " -> "B-exit "
+    eval operator + -> "A-exit A-effect B-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect B-exit "
+    eval literal "B-effect " -> "B-effect "
+  eval operator + -> "A-exit A-effect B-exit B-effect "
+exit: c (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect B-exit B-effect "
+      eval literal "C-exit " -> "C-exit "
+    eval operator + -> "A-exit A-effect B-exit B-effect C-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect B-exit B-effect C-exit "
+    eval literal "C-effect " -> "C-effect "
+  eval operator + -> "A-exit A-effect B-exit B-effect C-exit C-effect "
+exit: Owner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect B-exit B-effect C-exit C-effect "
+      eval literal "owner-exit " -> "owner-exit "
+    eval operator + -> "A-exit A-effect B-exit B-effect C-exit C-effect owner-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect B-exit B-effect C-exit C-effect owner-exit "
+    eval literal "out" -> "out"
+  eval operator + -> "A-exit A-effect B-exit B-effect C-exit C-effect owner-exit out"
+enter: done
+transition: Owner -> done (event: accept Finish)
