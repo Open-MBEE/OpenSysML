@@ -101,7 +101,7 @@ func (m *migration) metadataAttribute(p *sysmlv1.Element) {
 	}
 	mult, mnote := m.declaredMultiplicity(p)
 	note = joinNotes(note, mnote)
-	decl += mult + collection(p)
+	decl += mult + collection(p, false)
 	m.add(p, verdictFor(note), m.v2Name(p), note)
 	m.w.block(decl, func() {
 		saved := m.scope

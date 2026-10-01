@@ -3015,9 +3015,12 @@ elmt:Constraints__Rover__lightEnough___404
     sysml:owner elmt:Constraints__Rover__lightEnough ;
     sysml:owningRelationship elmt:Constraints__Rover__lightEnough___404_om ;
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___404_om ;
-    sysx:condition expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___404_pcondition_om ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___404_pcondition_om ;
+    sysml:references elmt:Constraints__MassLimit ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Constraints__Rover__lightEnough___404_rs ;
+    sysml:ownedSubsetting elmt:Constraints__Rover__lightEnough___404_rs ;
+    sysml:ownedSpecialization elmt:Constraints__Rover__lightEnough___404_rs ;
+    sysml:ownedRelationship elmt:Constraints__Rover__lightEnough___404_rs ;
     sysx:sourceText "            require MassLimit;\n" .
 
 elmt:Constraints__Rover__lightEnough___404_om
@@ -3033,52 +3036,6 @@ elmt:Constraints__Rover__lightEnough___404_om
     sysml:ownedConstraint elmt:Constraints__Rover__lightEnough___404 ;
     sysml:ownedMemberFeature elmt:Constraints__Rover__lightEnough___404 ;
     sysml:owningType elmt:Constraints__Rover__lightEnough .
-
-expr:Constraints__Rover__lightEnough___404_pcondition
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "MassLimit" ;
-    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition" ;
-    sysml:referent elmt:Constraints__MassLimit ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___404_pcondition_pout_om, expr:Constraints__Rover__lightEnough___404_pcondition_preferent ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:result expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
-    sysml:owningRelationship expr:Constraints__Rover__lightEnough___404_pcondition_om ;
-    sysml:owningMembership expr:Constraints__Rover__lightEnough___404_pcondition_om ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___404_pcondition_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___404_pcondition_preferent\"}]" .
-
-expr:Constraints__Rover__lightEnough___404_pcondition_pout
-    a sysml:Feature ;
-    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_pout" ;
-    sysml:direction "out" ;
-    sysml:owner expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:owningRelationship expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
-    sysml:owningMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om .
-
-expr:Constraints__Rover__lightEnough___404_pcondition_pout_om
-    a sysml:ReturnParameterMembership ;
-    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_pout_om" ;
-    sysml:owner expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:memberElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
-    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___404_pcondition_pout .
-
-expr:Constraints__Rover__lightEnough___404_pcondition_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_om" ;
-    sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
-    sysml:memberElement expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___404 ;
-    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___404 .
 
 elmt:Constraints__Rover__lightEnough___405
     a sysml:ConstraintUsage ;
@@ -3700,12 +3657,22 @@ expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_preferent
     sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
     sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 .
 
-expr:Constraints__Rover__lightEnough___404_pcondition_preferent
-    a sysml:Membership ;
-    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_preferent" ;
-    sysml:memberElement elmt:Constraints__MassLimit ;
-    sysml:owner expr:Constraints__Rover__lightEnough___404_pcondition ;
-    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition .
+elmt:Constraints__Rover__lightEnough___404_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Constraints__Rover__lightEnough___404_rs" ;
+    sysml:referencingFeature elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:subsettingFeature elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:owningFeature elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:specific elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:source elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:referencedFeature elmt:Constraints__MassLimit ;
+    sysml:subsettedFeature elmt:Constraints__MassLimit ;
+    sysml:general elmt:Constraints__MassLimit ;
+    sysml:target elmt:Constraints__MassLimit ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:relatedElement elmt:Constraints__Rover__lightEnough___404, elmt:Constraints__MassLimit ;
+    json:relatedElement "[{\"@id\":\"Constraints__Rover__lightEnough___404\"},{\"@id\":\"Constraints__MassLimit\"}]" .
 
 elmt:Constraints__Rover__lightEnough___405_rs
     a sysml:ReferenceSubsetting ;

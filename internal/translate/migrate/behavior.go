@@ -290,10 +290,10 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	}
 	mult, mnote := m.multiplicity(p)
 	tm := m.typeModifier(p)
-	if shape := tm.shape(); shape != "" {
+	if shape := tm.shape(false); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult = shaped(mult, p, dir != "")
+		mult = shaped(mult, p, dir != "", false)
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
