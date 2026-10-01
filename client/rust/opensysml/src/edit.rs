@@ -1905,3 +1905,258 @@ pub(crate) fn edit_result_of(response: wire::ApplyEditsResponse) -> Result<EditR
         wire,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn capabilities(names: &[&str]) -> Capabilities {
+        Capabilities::new(wire::ServerInfoResponse {
+            capabilities: names.iter().map(|name| (*name).to_owned()).collect(),
+            ..Default::default()
+        })
+    }
+
+    fn operation(operation: Operation) -> wire::EditOperation {
+        wire::EditOperation {
+            operation: Some(operation),
+        }
+    }
+
+    fn missing(names: &[&str], operations: &[wire::EditOperation]) -> String {
+        let capabilities = capabilities(names);
+        let result = EditCapabilities::new(&capabilities).and_then(|mut reader| {
+            for op in operations {
+                reader.read(op)?;
+            }
+            reader.finish()
+        });
+        match result {
+            Err(Error::MissingCapability { capability, remedy }) => {
+                assert!(!remedy.is_empty());
+                capability
+            }
+            other => panic!("expected a missing capability, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn apply_edits_is_required_before_anything_else() {
+        assert_eq!(
+            missing(&[], &[operation(Operation::Delete(Default::default()))]),
+            CAPABILITY_APPLY_EDITS
+        );
+    }
+
+    #[test]
+    fn each_operation_requires_its_authoring_capability() {
+        let base = [CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING];
+        let cases = [
+            (
+                Operation::AddConnection(Default::default()),
+                CAPABILITY_CONNECTION_AUTHORING,
+            ),
+            (
+                Operation::AddSatisfy(Default::default()),
+                CAPABILITY_SATISFY_AUTHORING,
+            ),
+            (
+                Operation::AddTransition(Default::default()),
+                CAPABILITY_TRANSITION_AUTHORING,
+            ),
+            (
+                Operation::AddImport(Default::default()),
+                CAPABILITY_IMPORT_AUTHORING,
+            ),
+            (
+                Operation::AddComment(Default::default()),
+                CAPABILITY_COMMENT_AUTHORING,
+            ),
+            (
+                Operation::AddMetadataPrefix(Default::default()),
+                CAPABILITY_METADATA_PREFIX_AUTHORING,
+            ),
+        ];
+        for (op, expected) in cases {
+            assert_eq!(missing(&base, &[operation(op)]), expected);
+        }
+    }
+
+    #[test]
+    fn whole_request_capabilities_are_judged_after_every_operation() {
+        let caps = [
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_IMPORT_AUTHORING,
+        ];
+        let modified = operation(Operation::AddMember(wire::AddMemberEdit {
+            kind: "part".to_owned(),
+            name: "p".to_owned(),
+            is_abstract: true,
+            ..Default::default()
+        }));
+        let import = operation(Operation::AddImport(Default::default()));
+        assert_eq!(
+            missing(&caps, &[modified, import]),
+            CAPABILITY_MEMBER_MODIFIERS
+        );
+    }
+
+    #[test]
+    fn a_granted_request_reports_its_capabilities_in_order() {
+        let caps = capabilities(EDIT_CAPABILITY_ORDER);
+        let mut reader = EditCapabilities::new(&caps).unwrap();
+        reader
+            .read(&operation(Operation::AddImport(Default::default())))
+            .unwrap();
+        reader
+            .read(&operation(Operation::AddConnection(Default::default())))
+            .unwrap();
+        assert_eq!(
+            reader.finish().unwrap(),
+            vec![
+                CAPABILITY_APPLY_EDITS,
+                CAPABILITY_AUTHORING,
+                CAPABILITY_CONNECTION_AUTHORING,
+                CAPABILITY_IMPORT_AUTHORING,
+            ]
+        );
+    }
+
+    #[test]
+    fn an_operation_naming_no_edit_is_invalid() {
+        let caps = capabilities(&[CAPABILITY_APPLY_EDITS]);
+        let mut reader = EditCapabilities::new(&caps).unwrap();
+        assert!(matches!(
+            reader.read(&wire::EditOperation { operation: None }),
+            Err(Error::InvalidRequest(_))
+        ));
+    }
+
+    #[test]
+    fn a_nested_statement_needs_action_body_authoring() {
+        let mut inner = Body::new();
+        inner
+            .add_assign("x", "1", &StatementOptions::default())
+            .unwrap();
+        let mut outer = Body::new();
+        outer
+            .add_loop(&inner, None, &StatementOptions::default())
+            .unwrap();
+        let mut nested = outer.operations()[0].clone();
+        nested.keyword = String::new();
+        nested.member_kind = String::new();
+        nested.until = String::new();
+        let op = operation(Operation::AddSequence(nested));
+        assert_eq!(
+            missing(
+                &[
+                    CAPABILITY_APPLY_EDITS,
+                    CAPABILITY_AUTHORING,
+                    CAPABILITY_SEQUENCE_AUTHORING
+                ],
+                &[op]
+            ),
+            CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING
+        );
+    }
+
+    #[test]
+    fn a_body_nested_too_deep_is_refused() {
+        let mut body = Body::new();
+        body.add_first("a");
+        for _ in 0..=MAX_BODY_DEPTH + 1 {
+            let mut outer = Body::new();
+            outer
+                .add_loop(&body, None, &StatementOptions::default())
+                .unwrap();
+            body = outer;
+        }
+        assert!(matches!(
+            extended_sequence(&body.operations()[0], 0),
+            Err(Error::InvalidRequest(_))
+        ));
+    }
+
+    #[test]
+    fn a_body_statement_takes_no_after_and_joins_by_default() {
+        let mut body = Body::new();
+        let after = StatementOptions {
+            after: Some("a".to_owned()),
+            ..Default::default()
+        };
+        assert!(matches!(
+            body.add_terminate(None, &after),
+            Err(Error::InvalidRequest(_))
+        ));
+        body.add_terminate(None, &StatementOptions::default())
+            .unwrap();
+        body.add_terminate(None, &StatementOptions::default())
+            .unwrap();
+        let keywords: Vec<_> = body
+            .operations()
+            .iter()
+            .map(|op| op.keyword.as_str())
+            .collect();
+        assert_eq!(keywords, vec!["", "then"]);
+    }
+
+    #[test]
+    fn a_refused_edit_carries_its_typed_failure_and_referrers() {
+        let error = edit_result_of(wire::ApplyEditsResponse {
+            error: "P::a is referred to".to_owned(),
+            failure: wire::EditFailure::ReferencedElsewhere as i32,
+            referring_elements: vec!["Q::b".to_owned()],
+            referrers: vec![wire::Referrer {
+                name: "Q::b".to_owned(),
+                document: "q.sysml".to_owned(),
+            }],
+            ..Default::default()
+        })
+        .unwrap_err();
+        let Error::Edit(error) = error else {
+            panic!("not an edit error: {error:?}");
+        };
+        assert_eq!(error.failure, EditFailure::ReferencedElsewhere);
+        assert!(!error.failure.is_target_error() && !error.failure.is_invalid_edit());
+        assert_eq!(error.referrers[0].document, "q.sysml");
+        assert_eq!(error.referring_elements, vec!["Q::b".to_owned()]);
+    }
+
+    #[test]
+    fn an_unknown_failure_keeps_its_wire_number() {
+        let failure = EditFailure::from_wire(9999);
+        assert_eq!(failure, EditFailure::Other(9999));
+        assert_eq!(failure.code(), 9999);
+    }
+
+    #[test]
+    fn an_edit_result_keeps_every_document_and_applied_span() {
+        let result = edit_result_of(wire::ApplyEditsResponse {
+            applied: vec![wire::AppliedEdit {
+                operation_index: 0,
+                target: "P::a".to_owned(),
+                offset: 3,
+                length: 1,
+                old_text: "a".to_owned(),
+                new_text: "b".to_owned(),
+                document: "p.sysml".to_owned(),
+            }],
+            documents: vec![
+                wire::EditedDocument {
+                    name: "p.sysml".to_owned(),
+                    content: "package P { part b; }".to_owned(),
+                },
+                wire::EditedDocument {
+                    name: "q.sysml".to_owned(),
+                    content: "package Q;".to_owned(),
+                },
+            ],
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(result.applied[0].document, "p.sysml");
+        assert_eq!(result.documents.len(), 2);
+        assert_eq!(result.wire().documents.len(), 2);
+    }
+}

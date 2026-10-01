@@ -17,10 +17,9 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and so does Python; Node and Rust cover
-that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
-those two only Node has an escape hatch to the rest, through the generated Connect client it
-exposes. Only Python and Go are published so far.
+query methods — and so do Python and Rust; Node covers
+that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), with an escape hatch to
+the rest through the generated Connect client it exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
@@ -283,7 +282,8 @@ constraint is neither — it is an answer about the model.
 
 === "Rust"
 
-    One `Error` enum: `Error::Service` for the first, `Error::Model` for the second.
+    One `Error` enum: `Error::Service` for the first; `Error::Model`, `Error::Execution` (with its
+    `FailureReason`) and `Error::SymbolNotFound` for the second.
 
 ## From Go
 

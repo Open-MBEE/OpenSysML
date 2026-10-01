@@ -42,14 +42,14 @@ The protocols and what the service serves on a single port are described in
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach — and so does the Python client; the Node and Rust clients cover the v1 subset described below.
+out of reach — and so do the Python and Rust clients; the Node client covers the v1 subset described below.
 
 ## What the newer surfaces cover
 
-The Node and Rust clients are v1 surfaces with the same scope: connection lifecycle,
+The Node client is a v1 surface: connection lifecycle,
 capability negotiation, parsing (a file or inline source), diagnostics, symbol lookup, expression
-evaluation and instantiation. The following are deliberately **not** in v1, in both clients
-rather than half-implemented in some:
+evaluation and instantiation. The following are deliberately **not** in its v1 rather than
+half-implemented:
 
 - the edit API (`ApplyEdits`) and generated model-ergonomics types;
 - RDF conversion (`Convert`);
@@ -77,6 +77,11 @@ The Java client covers the whole service surface, as typed immutable results:
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.
 
+The Rust client covers the same service surface as typed results — `parse_sources`, `convert`,
+`query`/`query_oslc`, the document calls, behaviour execution and exploration, verification,
+`calc`, `run_analysis`, `run_sweep`, `list_engines` and an `Editor` over `ApplyEdits` — as the
+[Rust API](rust-api.md) describes.
+
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
 `ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
@@ -85,15 +90,12 @@ A request must set `accept_documents` for that; one that does not is refused on 
 documents as before, so a client of the previous schema is answered as it always was. The service
 advertises the `edit_documents` capability for it; one without the capability answers `content`
 alone and refuses a model of several documents, so a client reads `documents` only from a service
-that advertises it. The Go, Python and Java clients set it and expose the documents; the Node and
-Rust clients carry the new fields in their generated messages only, since v1 of each parses one
-document at a time, and their conformance runners skip the multi-document scenarios naming that
-reason.
+that advertises it. The Go, Python, Java and Rust clients set it and expose the documents; the Node
+client carries the new fields in its generated messages only, since its v1 parses one document at a
+time, and its conformance runner skips the multi-document scenarios naming that reason.
 
-Only the Node client offers an escape hatch to them:
-`connection.rpc` is the generated Connect client. The Rust client ships the protobuf
-messages but no public call that sends one, so from that language, reach these RPCs through the
-Go, Java or Python client until they are wrapped. Each client's conformance report names, per
+The Node client offers an escape hatch to them:
+`connection.rpc` is the generated Connect client. Each client's conformance report names, per
 scenario,
 which of these gaps a skip belongs to, so a shrinking surface cannot pass quietly.
 
