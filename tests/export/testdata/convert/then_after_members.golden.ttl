@@ -7989,12 +7989,16 @@ elmt:ThenAfterMembers__Lamp___403
     sysml:owningRelationship elmt:ThenAfterMembers__Lamp___403_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Lamp___403_om ;
     sysx:transitionSyntax "first" ;
+    sysml:ownedRelationship expr:ThenAfterMembers__Lamp___403_psourcemember, expr:ThenAfterMembers__Lamp___403_plinkparam_om, elmt:ThenAfterMembers__Lamp___403_succession_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__Lamp___403_psourcemember, expr:ThenAfterMembers__Lamp___403_plinkparam_om, elmt:ThenAfterMembers__Lamp___403_succession_om ;
+    sysml:ownedFeatureMembership expr:ThenAfterMembers__Lamp___403_plinkparam_om ;
+    sysml:ownedFeature expr:ThenAfterMembers__Lamp___403_plinkparam ;
     sysml:succession elmt:ThenAfterMembers__Lamp___403_succession ;
-    sysml:ownedRelationship elmt:ThenAfterMembers__Lamp___403_succession_om ;
-    sysml:ownedMembership elmt:ThenAfterMembers__Lamp___403_succession_om ;
     sysml:source elmt:ThenAfterMembers__Lamp__on ;
     sysml:target elmt:ThenAfterMembers__Lamp__off ;
-    sysx:sourceText "        transition first on then off;\n" .
+    sysx:sourceText "        transition first on then off;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__Lamp___403_psourcemember\"},{\"@id\":\"ThenAfterMembers__Lamp___403_plinkparam_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ThenAfterMembers__Lamp___403_psourcemember\"},{\"@id\":\"ThenAfterMembers__Lamp___403_plinkparam_om\"},{\"@id\":\"ThenAfterMembers__Lamp___403_succession_om\"}]" .
 
 elmt:ThenAfterMembers__Lamp___403_om
     a sysml:FeatureMembership ;
@@ -8007,6 +8011,34 @@ elmt:ThenAfterMembers__Lamp___403_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp ;
     sysml:ownedMemberFeature elmt:ThenAfterMembers__Lamp___403 ;
     sysml:owningType elmt:ThenAfterMembers__Lamp .
+
+expr:ThenAfterMembers__Lamp___403_psourcemember
+    a sysml:Membership ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_psourcemember" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:memberElement elmt:ThenAfterMembers__Lamp__on ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp___403 .
+
+expr:ThenAfterMembers__Lamp___403_plinkparam
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_plinkparam" ;
+    sysml:direction "in" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:owningRelationship expr:ThenAfterMembers__Lamp___403_plinkparam_om ;
+    sysml:owningMembership expr:ThenAfterMembers__Lamp___403_plinkparam_om .
+
+expr:ThenAfterMembers__Lamp___403_plinkparam_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "ThenAfterMembers__Lamp___403_plinkparam_om" ;
+    sysml:owner elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:memberElement expr:ThenAfterMembers__Lamp___403_plinkparam ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__Lamp___403_plinkparam ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__Lamp___403_plinkparam ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Lamp___403 ;
+    sysml:ownedMemberFeature expr:ThenAfterMembers__Lamp___403_plinkparam ;
+    sysml:ownedMemberParameter expr:ThenAfterMembers__Lamp___403_plinkparam .
 
 elmt:ThenAfterMembers__Lamp___403_succession
     a sysml:SuccessionAsUsage ;

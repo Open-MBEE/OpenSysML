@@ -731,6 +731,18 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			Note: "it owns no element, so the expression it relates cannot be told",
 		}
 	}
+	// A transition's FeatureChainMember names its source state, the member
+	// sysml:source restates.
+	if d.metaclass(owner) == mTransition {
+		source, ok := d.graph.Object(owner, rdf.SysML+pSource)
+		if !ok || source == member || !source.IsIRI() {
+			return nil
+		}
+		return &UnsupportedError{
+			What: fmt.Sprintf("the membership <%s>", subject.Value),
+			Note: fmt.Sprintf("its member is <%s>, and the transition <%s> it names the source of states sysml:source <%s>; the notation writes the source once, so writing one would drop the other", member.Value, owner.Value, source.Value),
+		}
+	}
 	stated := false
 	for _, property := range []string{pReferent, pTargetFeature, pFunction} {
 		objects := d.graph.Objects(owner, rdf.SysML+property)
@@ -808,6 +820,23 @@ func (d *decoder) rangeOwner(subject rdf.Term) (rdf.Term, bool) {
 	return rdf.IRI(m.owner), true
 }
 
+// chainTail is the feature the last link of a chain feature names, or term
+// itself when it is no chain.
+func (d *decoder) chainTail(term rdf.Term) (rdf.Term, error) {
+	if !term.IsIRI() {
+		return term, nil
+	}
+	isChain, err := d.chainFeatureTerm(term)
+	if err != nil || !isChain {
+		return term, err
+	}
+	links, err := d.chainLinks(term)
+	if err != nil || len(links) == 0 {
+		return term, err
+	}
+	return links[len(links)-1], nil
+}
+
 // headEnd reports whether el is an unnamed end a connector owns through an
 // EndFeatureMembership: the head writes it (`connect a to b`, `first a then b`).
 func (d *decoder) headEnd(el, parent *element) bool {
@@ -837,6 +866,11 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if err != nil || !hasHead {
 			return false, err
 		}
+		// A chain (`first a.b`, `then b.c`) reaches the feature its last link names.
+		stated, err = d.chainTail(stated)
+		if err != nil {
+			return false, err
+		}
 		if stated != head {
 			return false, &UnsupportedError{
 				What: what,
@@ -852,6 +886,12 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, nil
 		}
 		return agree(pSource, source, "source")
+	case el.metaclass == mFeature && owning == mOwningMembership:
+		// `first a.b`: the FeatureChainMember owns the chain it names.
+		if isChain, err := d.chainFeatureTerm(subject); err != nil || !isChain {
+			return false, err
+		}
+		return agree(pSource, subject, "source")
 	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
 		direction, _ := d.stringOf(el, rdf.SysML+pDirection)
 		return direction == "in" && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&

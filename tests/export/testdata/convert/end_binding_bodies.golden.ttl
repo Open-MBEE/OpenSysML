@@ -3571,20 +3571,22 @@ elmt:Bodies__Ctx__Machine__t1
     sysml:owningMembership elmt:Bodies__Ctx__Machine__t1_om ;
     sysml:declaredName "t1" ;
     sysx:transitionSyntax "first" ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine__t1_psourcemember, expr:Bodies__Ctx__Machine__t1_plinkparam_om, elmt:Bodies__Ctx__Machine__t1_succession_om, elmt:Bodies__Ctx__Machine__t1__w_om ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine__t1_psourcemember, expr:Bodies__Ctx__Machine__t1_plinkparam_om, elmt:Bodies__Ctx__Machine__t1_succession_om, elmt:Bodies__Ctx__Machine__t1__w_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine__t1_plinkparam_om, elmt:Bodies__Ctx__Machine__t1__w_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine__t1_plinkparam, elmt:Bodies__Ctx__Machine__t1__w ;
     sysml:succession elmt:Bodies__Ctx__Machine__t1_succession ;
     sysx:bodyMember elmt:Bodies__Ctx__Machine__t1__w ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Bodies__Ctx__Machine__t1_succession_om, elmt:Bodies__Ctx__Machine__t1__w_om ;
-    sysml:ownedMembership elmt:Bodies__Ctx__Machine__t1_succession_om, elmt:Bodies__Ctx__Machine__t1__w_om ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine__t1__w ;
-    sysml:ownedFeature elmt:Bodies__Ctx__Machine__t1__w ;
-    sysml:ownedFeatureMembership elmt:Bodies__Ctx__Machine__t1__w_om ;
     sysml:source elmt:Bodies__Ctx__Machine__off ;
     sysml:target elmt:Bodies__Ctx__Machine__on ;
     sysx:sourceText "            transition t1 first off then on {\n" ;
     sysx:sourceTail "            }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine__t1_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine__t1_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine__t1_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine__t1_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine__t1_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine__t1_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine__t1_plinkparam\"},{\"@id\":\"Bodies__Ctx__Machine__t1__w\"}]" .
 
 elmt:Bodies__Ctx__Machine__t1_om
     a sysml:FeatureMembership ;
@@ -3597,6 +3599,34 @@ elmt:Bodies__Ctx__Machine__t1_om
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine ;
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine__t1 ;
     sysml:owningType elmt:Bodies__Ctx__Machine .
+
+expr:Bodies__Ctx__Machine__t1_psourcemember
+    a sysml:Membership ;
+    sysml:elementId "Bodies__Ctx__Machine__t1_psourcemember" ;
+    sysml:owner elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:memberElement elmt:Bodies__Ctx__Machine__off ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine__t1 .
+
+expr:Bodies__Ctx__Machine__t1_plinkparam
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Bodies__Ctx__Machine__t1_plinkparam" ;
+    sysml:direction "in" ;
+    sysml:owner elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine__t1_plinkparam_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine__t1_plinkparam_om .
+
+expr:Bodies__Ctx__Machine__t1_plinkparam_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine__t1_plinkparam_om" ;
+    sysml:owner elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:memberElement expr:Bodies__Ctx__Machine__t1_plinkparam ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine__t1_plinkparam ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine__t1_plinkparam ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine__t1 ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine__t1_plinkparam ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine__t1_plinkparam .
 
 elmt:Bodies__Ctx__Machine__t1_succession
     a sysml:SuccessionAsUsage ;
@@ -3732,21 +3762,23 @@ elmt:Bodies__Ctx__Machine___403
     sysml:owningRelationship elmt:Bodies__Ctx__Machine___403_om ;
     sysml:owningMembership elmt:Bodies__Ctx__Machine___403_om ;
     sysx:transitionSyntax "first" ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___403_psourcemember, expr:Bodies__Ctx__Machine___403_plinkparam_om, elmt:Bodies__Ctx__Machine___403___400_om, elmt:Bodies__Ctx__Machine___403_succession_om ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___403_psourcemember, expr:Bodies__Ctx__Machine___403_plinkparam_om, elmt:Bodies__Ctx__Machine___403___400_om, elmt:Bodies__Ctx__Machine___403_succession_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___403_plinkparam_om, elmt:Bodies__Ctx__Machine___403___400_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___403_plinkparam, elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:succession elmt:Bodies__Ctx__Machine___403_succession ;
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:Bodies__Ctx__Machine___403___400 ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:effectAction elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine___403___400 ;
-    sysml:ownedMembership elmt:Bodies__Ctx__Machine___403___400_om, elmt:Bodies__Ctx__Machine___403_succession_om ;
-    sysml:ownedRelationship elmt:Bodies__Ctx__Machine___403___400_om, elmt:Bodies__Ctx__Machine___403_succession_om ;
-    sysml:ownedFeature elmt:Bodies__Ctx__Machine___403___400 ;
-    sysml:ownedFeatureMembership elmt:Bodies__Ctx__Machine___403___400_om ;
     sysml:source elmt:Bodies__Ctx__Machine__on ;
     sysml:target elmt:Bodies__Ctx__Machine__off ;
     sysx:sourceText "            transition first on do assign x.a := 1 then off {\n            }\n" ;
-    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___403___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine___403_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___403_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine___403_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___403_succession_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___403_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___403_plinkparam\"},{\"@id\":\"Bodies__Ctx__Machine___403___400\"}]" .
 
 elmt:Bodies__Ctx__Machine___403_om
     a sysml:FeatureMembership ;
@@ -3759,6 +3791,34 @@ elmt:Bodies__Ctx__Machine___403_om
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine ;
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___403 ;
     sysml:owningType elmt:Bodies__Ctx__Machine .
+
+expr:Bodies__Ctx__Machine___403_psourcemember
+    a sysml:Membership ;
+    sysml:elementId "Bodies__Ctx__Machine___403_psourcemember" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___403 ;
+    sysml:memberElement elmt:Bodies__Ctx__Machine__on ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___403 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___403 .
+
+expr:Bodies__Ctx__Machine___403_plinkparam
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Bodies__Ctx__Machine___403_plinkparam" ;
+    sysml:direction "in" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___403 ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___403_plinkparam_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___403_plinkparam_om .
+
+expr:Bodies__Ctx__Machine___403_plinkparam_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___403_plinkparam_om" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___403 ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___403_plinkparam ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___403_plinkparam ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___403_plinkparam ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___403 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___403 ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___403_plinkparam ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___403_plinkparam .
 
 elmt:Bodies__Ctx__Machine___403_succession
     a sysml:SuccessionAsUsage ;
@@ -4039,6 +4099,10 @@ elmt:Bodies__Ctx__Machine___404
     sysml:owningRelationship elmt:Bodies__Ctx__Machine___404_om ;
     sysml:owningMembership elmt:Bodies__Ctx__Machine___404_om ;
     sysx:transitionSyntax "first" ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___404_psourcemember, expr:Bodies__Ctx__Machine___404_plinkparam_om, elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404_succession_om, elmt:Bodies__Ctx__Machine___404__w_om ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___404_psourcemember, expr:Bodies__Ctx__Machine___404_plinkparam_om, elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404_succession_om, elmt:Bodies__Ctx__Machine___404__w_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___404_plinkparam_om, elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404__w_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___404_plinkparam, elmt:Bodies__Ctx__Machine___404___400, elmt:Bodies__Ctx__Machine___404__w ;
     sysml:succession elmt:Bodies__Ctx__Machine___404_succession ;
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:Bodies__Ctx__Machine___404___400 ;
@@ -4046,18 +4110,14 @@ elmt:Bodies__Ctx__Machine___404
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:effectAction elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine___404___400, elmt:Bodies__Ctx__Machine___404__w ;
-    sysml:ownedMembership elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404_succession_om, elmt:Bodies__Ctx__Machine___404__w_om ;
-    sysml:ownedRelationship elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404_succession_om, elmt:Bodies__Ctx__Machine___404__w_om ;
-    sysml:ownedFeature elmt:Bodies__Ctx__Machine___404___400, elmt:Bodies__Ctx__Machine___404__w ;
-    sysml:ownedFeatureMembership elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404__w_om ;
     sysml:source elmt:Bodies__Ctx__Machine__off ;
     sysml:target elmt:Bodies__Ctx__Machine__on ;
     sysx:sourceText "            transition first off do {\n                assign x.a := 2;\n            } then on {\n                attribute w : Prio;\n            }\n" ;
-    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Machine___404___400\"},{\"@id\":\"Bodies__Ctx__Machine___404__w\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___404___400\"},{\"@id\":\"Bodies__Ctx__Machine___404__w\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine___404_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___404_psourcemember\"},{\"@id\":\"Bodies__Ctx__Machine___404_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404_succession_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___404_plinkparam_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400_om\"},{\"@id\":\"Bodies__Ctx__Machine___404__w_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___404_plinkparam\"},{\"@id\":\"Bodies__Ctx__Machine___404___400\"},{\"@id\":\"Bodies__Ctx__Machine___404__w\"}]" ;
+    json:ownedMember "[{\"@id\":\"Bodies__Ctx__Machine___404___400\"},{\"@id\":\"Bodies__Ctx__Machine___404__w\"}]" .
 
 elmt:Bodies__Ctx__Machine___404_om
     a sysml:FeatureMembership ;
@@ -4070,6 +4130,34 @@ elmt:Bodies__Ctx__Machine___404_om
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine ;
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___404 ;
     sysml:owningType elmt:Bodies__Ctx__Machine .
+
+expr:Bodies__Ctx__Machine___404_psourcemember
+    a sysml:Membership ;
+    sysml:elementId "Bodies__Ctx__Machine___404_psourcemember" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___404 ;
+    sysml:memberElement elmt:Bodies__Ctx__Machine__off ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___404 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___404 .
+
+expr:Bodies__Ctx__Machine___404_plinkparam
+    a sysml:ReferenceUsage ;
+    sysml:elementId "Bodies__Ctx__Machine___404_plinkparam" ;
+    sysml:direction "in" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___404 ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___404_plinkparam_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___404_plinkparam_om .
+
+expr:Bodies__Ctx__Machine___404_plinkparam_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___404_plinkparam_om" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___404 ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___404_plinkparam ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___404_plinkparam ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___404_plinkparam ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___404 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___404 ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___404_plinkparam ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___404_plinkparam .
 
 elmt:Bodies__Ctx__Machine___404_succession
     a sysml:SuccessionAsUsage ;

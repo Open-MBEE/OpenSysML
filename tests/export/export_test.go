@@ -4061,8 +4061,10 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
 		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
-		"sysml:target elmt:Machines__Lamp__on__light__bright .",
-		"sysml:target elmt:Machines__Lamp__on__heat__hot .",
+		// A transition's own target, ahead of the order annotations its
+		// several owned relationships carry.
+		"sysml:target elmt:Machines__Lamp__on__light__bright ;\n    json:ownedRelationship",
+		"sysml:target elmt:Machines__Lamp__on__heat__hot ;\n    json:ownedRelationship",
 		"sysml:source elmt:Machines__Lamp__on__heat__hot ;",
 	} {
 		if !strings.Contains(turtle, want) {
