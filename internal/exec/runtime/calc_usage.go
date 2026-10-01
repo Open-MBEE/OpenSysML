@@ -676,7 +676,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 			}
 			for _, name := range shape.ParamNames {
 				if value, held := start.occurrence.params.lookup(name); held {
-					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+					if err := inst.BindFeatureValue(ctx, name, value); err != nil {
 						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 							ErrActionPerformanceOccurrence, name, inst.ID, err)
 					}

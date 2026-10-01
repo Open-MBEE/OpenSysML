@@ -174,14 +174,14 @@ func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func
 		if _, ok := occ.inst.FeatureValues[name]; !ok {
 			return nil
 		}
-		return occ.inst.SetFeatureValue(ctx, name, value)
+		return occ.inst.BindFeatureValue(ctx, name, value)
 	}
 }
 
 func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	if h.occ != nil && h.occ.inst != nil {
 		if _, ok := h.occ.inst.FeatureValues[name]; ok {
-			return h.occ.inst.SetFeatureValue(h.ctx, name, value)
+			return h.occ.inst.BindFeatureValue(h.ctx, name, value)
 		}
 	}
 	return nil
@@ -329,6 +329,12 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 
 // returnAround writes a returned output as assignAround does: a case has no caller to keep it for.
 func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
+	if h.declaredOutput(name) || h.env.data.has(name) {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
+		if err := h.ctx.checkMutable(h.shape.bodyScope(), what, name); err != nil {
+			return true, err
+		}
+	}
 	return h.assignAround(name, value)
 }
 

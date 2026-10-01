@@ -79,6 +79,7 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `Actions.sysml` `JoinAction` | "Join behavior results from requiring that the source multiplicity of all incoming succession connectors be 1..1" | Each join performance follows exactly one performance of every source, one per incoming succession |
 | `Actions.sysml` `MergeAction`, `ControlPerformances.kerml` `MergePerformance` | "Incoming succession connectors to a MergeAction must have source multiplicity 0..1"; "For each instance of MergePerformance, the incomingHBLink is an instance of exactly one of the Successions, ordering the MergePerformance as happening after an instance of the source of that Succession" | A merge performance follows one source performance; a source a given merge performance was not reached from need not exist |
 | `Actions.sysml` `DecisionAction`, `ControlPerformances.kerml` `DecisionPerformance` | "For each instance of DecisionPerformance, the outgoingHBLink is an instance of exactly one of the Successions, ordering the DecisionPerformance as happening before an instance of the target of that Succession" | Each decision performance is followed by a performance of the one target whose guard held |
+| `Stochastic.sysml` `Probability` | "A seeded run draws a branch by these weights, an unseeded run takes the most probable, and a weighted branch whose guard does not hold is left out of the draw, the others' weights renormalized." | These weights belong to model draws; they do not assign probabilities to unresolved scheduling choices |
 | KerML 1.0 §7.4.5 | A feature with no declared multiplicity holds exactly one value | A plain step is one performance per performance of its owner, however many successions reach it |
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
@@ -108,6 +109,35 @@ list omits, and on a budget hit. An openness that is not observable is pinned by
 expected outcome; such a fixture has no `outcomes` and the harness does not explore it, so the
 `explore` figures quoted for it below come from running the fixture under the `explore` policy,
 not from the suite.
+
+### Exploration separates scheduler choices from model weights
+
+Fixture: `action_explore_mixed_scheduler_weighted_probability` (conformance case).
+
+```
+start → fork ─┬─ a: x := 1 ─┐
+              └─ b: x := 2 ─┴─ join → decide
+                                      x == 1 → weighted draw: y := 1 (0.3) | y := 2 (0.7)
+                                      x == 2 → y := 0
+```
+
+Derived admissible outcomes:
+
+- `ForkAction` requires one performance of each outgoing succession target, but does not order
+  the branches. The writes race, so the scheduler may leave `x = 1` or `x = 2` at the join.
+- `DecisionAction` / `DecisionPerformance` requires exactly one outgoing succession for each
+  decision performance. The `x == 1` route reaches the weighted decision; its two weights sum
+  to one, so the model gives `y = 1` probability `0.3` and `y = 2` probability `0.7`. The
+  `x == 2` route instead completes with `y = 0`.
+- Scheduler choices have no probability. Over schedulers, `{x=1,y=1}` therefore has range
+  `[0, 0.3]`, `{x=1,y=2}` has `[0, 0.7]`, and `{x=2,y=0}` has `[0, 1]`: each minimum is zero
+  because a scheduler can choose the other write last, while each maximum is the model's
+  weighted probability when the `x = 1` route is selected or certainty when `x = 2` is selected.
+  This is the min/max at scheduling nodes and weighted sum at weighted nodes, not a uniform
+  distribution over linearizations.
+
+The conformance schema has no error member in `outcomes`; runtime-error outcomes are not
+expressible by this expectation format and are rejected as unexpected.
 
 ### A join follows one performance of every source, however long each branch takes
 

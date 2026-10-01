@@ -24,9 +24,10 @@ type Outcome struct {
 	Error string
 	// Linearizations is how many runs within the budget reached this outcome.
 	Linearizations int
-	// Probability is the share of the schedule space the linearizations reaching
-	// this outcome carry; a lower bound while the exploration is incomplete.
+	// Probability is the exact model-draw probability, or zero when inexact or absent.
 	Probability float64
+	// ProbabilityRange bounds the model-draw probability over schedulers.
+	ProbabilityRange *ProbabilityRange
 	// Witness is one run's choices in run order, one per choice point it
 	// resolved, each spelling the alternatives and the one taken.
 	Witness []string
@@ -53,6 +54,8 @@ type Exploration struct {
 	// may make, and choice points one run may resolve.
 	RunsBudget  int
 	DepthBudget int
+	// FailedLinearizations counts runs whose outcomes carry runtime errors.
+	FailedLinearizations int
 	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower
 	// bounds: a budget kept some linearizations unexplored.
 	ProbabilitiesLowerBound bool
@@ -72,8 +75,18 @@ func (e *Exploration) Status() string {
 		}
 		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 	}
-	return fmt.Sprintf("incomplete: %s hit after %d runs; probabilities are lower bounds", strings.Join(named, " and "), e.Runs)
+	status := fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), e.Runs)
+	if e.ProbabilitiesLowerBound {
+		status += "; probabilities are lower bounds"
+	}
+	return status
 }
+
+// ProbabilityRange bounds a model-draw probability over schedulers.
+type ProbabilityRange struct{ Min, Max float64 }
+
+// Exact reports whether the range is a single probability, within floating-point tolerance.
+func (r ProbabilityRange) Exact() bool { return r.Max-r.Min <= 1e-12 }
 
 // explores reports a policy spelled as the explore schedule, with or without
 // its budget.
@@ -253,15 +266,20 @@ func (c *client) ExploreAnalysis(
 func explorationFromProto(outcomes []*pb.Outcome, status *pb.ExplorationStatus) *Exploration {
 	out := &Exploration{Outcomes: make([]Outcome, 0, len(outcomes))}
 	for _, outcome := range outcomes {
+		var probabilityRange *ProbabilityRange
+		if r := outcome.ProbabilityRange; r != nil {
+			probabilityRange = &ProbabilityRange{Min: r.Min, Max: r.Max}
+		}
 		out.Outcomes = append(out.Outcomes, Outcome{
-			Outputs:        valuesFromProto(outcome.Outputs),
-			FinalState:     outcome.FinalState,
-			Visited:        append([]string(nil), outcome.StatesVisited...),
-			Error:          outcome.Error,
-			Linearizations: int(outcome.Linearizations),
-			Probability:    outcome.Probability,
-			Witness:        append([]string(nil), outcome.Witness...),
-			Diagnostics:    diagnosticsFromProto(outcome.Diagnostics),
+			Outputs:          valuesFromProto(outcome.Outputs),
+			FinalState:       outcome.FinalState,
+			Visited:          append([]string(nil), outcome.StatesVisited...),
+			Error:            outcome.Error,
+			Linearizations:   int(outcome.Linearizations),
+			Probability:      outcome.Probability,
+			ProbabilityRange: probabilityRange,
+			Witness:          append([]string(nil), outcome.Witness...),
+			Diagnostics:      diagnosticsFromProto(outcome.Diagnostics),
 		})
 	}
 	if status != nil {
@@ -271,6 +289,7 @@ func explorationFromProto(outcomes []*pb.Outcome, status *pb.ExplorationStatus) 
 		out.RunsBudget = int(status.RunsBudget)
 		out.DepthBudget = int(status.DepthBudget)
 		out.ProbabilitiesLowerBound = status.ProbabilitiesLowerBound
+		out.FailedLinearizations = int(status.FailedLinearizations)
 	}
 	return out
 }

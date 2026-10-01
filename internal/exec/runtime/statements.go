@@ -367,6 +367,9 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		if s.Target == "" {
 			return flowNext, fmt.Errorf("%s: unsupported assignment target", e.host.describe())
 		}
+		if err := e.ctx.checkAssignable(e.host.describe(), s); err != nil {
+			return flowNext, err
+		}
 		value, err := e.evalIn(s.Scope).Eval(s.Value)
 		if err != nil {
 			return flowNext, fmt.Errorf("eval assignment RHS: %w", err)

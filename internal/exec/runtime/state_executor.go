@@ -474,7 +474,7 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	for _, attr := range e.graph.Attributes {
 		if value, held := e.stateData[attr.Name]; held {
-			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
 			}
@@ -492,7 +492,7 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	if e.occurrence == nil || !e.declaresAttribute(name) {
 		return value, nil
 	}
-	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+	if err := e.occurrence.BindFeatureValue(e.ctx, name, value); err != nil {
 		return value, fmt.Errorf("%w: write %s of object #%d: %w",
 			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
 	}
@@ -516,10 +516,16 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 				ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
 		}
 		value = fv.HeldValue()
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, "state machine "+symbolText(e.stateMachine), name, &value); err != nil {
+	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
-		return err
+		where := "state machine " + symbolText(e.stateMachine)
+		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return where + ": assignment to " + name }, name); err != nil {
+			return err
+		}
+		if err := e.ctx.checkNamedWrite(e.graph.Scope, where, name, &value); err != nil {
+			return err
+		}
 	}
 	e.stateData[name] = value
 	return nil
@@ -2012,6 +2018,11 @@ func (e *StateExecutor) bindAcceptPayload(name string, accept *ast.AcceptEvent, 
 	value, err := e.ctx.acceptedValueAs(&msg, ast.AsQualifiedName(accept.SignalType), scope)
 	if err != nil {
 		return fmt.Errorf("accept %s: %w", name, err)
+	}
+	if e.declaresAttribute(name) {
+		if err := e.ctx.checkMutable(e.graph.Scope, func() string { return "accept " + name }, name); err != nil {
+			return err
+		}
 	}
 	event.Payload = msg
 	e.bindData(name, value)
@@ -4602,8 +4613,26 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 	return nil
 }
 
+func (e *StateExecutor) checkStart() error {
+	if len(e.graph.TopRegions) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 {
+			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
+		}
+		return nil
+	}
+	for _, region := range e.graph.TopRegions {
+		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+			return fmt.Errorf("region %s has no initial state", region.Name)
+		}
+	}
+	return nil
+}
+
 // initialize sets current state to initial state and enters it.
 func (e *StateExecutor) initialize() (err error) {
+	if err := e.checkStart(); err != nil {
+		return err
+	}
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
@@ -4615,9 +4644,6 @@ func (e *StateExecutor) initialize() (err error) {
 	// A machine without orthogonal regions of its own starts in the state its
 	// body's entry transitions choose, then in that state's own start, and so on.
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 {
-			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
-		}
 		if err := e.enterMachine(); err != nil {
 			return fmt.Errorf("enter state machine: %w", err)
 		}

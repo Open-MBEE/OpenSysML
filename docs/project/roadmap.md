@@ -1186,18 +1186,19 @@ afresh after each move, and `complete` covers every interleaving at body granula
 sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
 granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
-The track's last mile: the open picks carry the odds
-a model states. `Stochastic::Probability` weights a transition the way it already weighted a
-decision's succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated
-by `explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
-dispatch, so innermost-wins still resolves before any weighting. And where the table once
-stopped at the set, `explore` now reports each outcome's probability — a linearization carrying
-the product of its picks' shares, a weighted pick's stated weight's share and an unweighted
-choice's uniform `1/n`, `≥`-marked while the search is incomplete — and `check` the probability
-mass of the paths reaching each violation (`mass` beside `massLowerBound` in the JSON report,
-`Outcome.probability` / `ExplorationStatus.probabilities_lower_bound` on the wire, and an
-optional `probability` per `outcomes` entry in the conformance schema, exercised by the weighted
-transition fixture).
+The track's last mile: the open picks carry the odds a model states.
+`Stochastic::Probability` weights a transition the way it already weighted a decision's
+succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated by
+`explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
+dispatch, so innermost-wins still resolves before any weighting. Exploration now reports
+probability only for model-weighted draws: scheduling alternatives have no probability, and each
+outcome's range is the minimum and maximum model-draw probability across schedulers. An
+incomplete weighted exploration marks these lower bounds; an incomplete search with no weighted
+draw does not. `check` continues reporting the probability mass of paths reaching each violation
+with its existing semantics (`mass` beside `massLowerBound` in JSON and
+`Outcome.probability` / `ExplorationStatus.probabilities_lower_bound` on the wire). The
+conformance schema can state an exact `probability` or a `probabilityRange` for a weighted
+exploration.
 
 ---
 

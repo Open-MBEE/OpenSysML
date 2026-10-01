@@ -127,11 +127,17 @@ func TestExploreThreeWritersReachEveryOutcomeOnce(t *testing.T) {
 	if !x.Complete() || x.Runs != 6 {
 		t.Fatalf("status %q, want complete after the 6 orders of three tokens", x.Status())
 	}
+	if x.Weighted() {
+		t.Fatal("fork-only exploration reports Weighted() = true")
+	}
 	want := []string{"x = 1", "x = 2", "x = 3"}
 	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
 	for _, o := range x.Outcomes {
+		if o.Probability != nil {
+			t.Errorf("%s has probability range %+v, want nil for fork-only exploration", o.Outcome, o.Probability)
+		}
 		if o.Linearizations != 2 {
 			t.Errorf("%s reached by %d linearizations, want 2 (the writer last, the other two either way)", o.Outcome, o.Linearizations)
 		}
@@ -186,10 +192,10 @@ func TestExploreNoChoicePointsIsOneRun(t *testing.T) {
 func TestExploreRunsBudgetIsIncomplete(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
 	x := m.exploreAction(t, "explore:runs=1", "race")
-	if x.Complete() || x.Runs != 1 || !x.ProbabilitiesBounded() {
-		t.Fatalf("status %q, want incomplete after 1 run with bounded probabilities", x.Status())
+	if x.Complete() || x.Runs != 1 || x.ProbabilitiesBounded() || x.Weighted() {
+		t.Fatalf("status %q, want incomplete after 1 unweighted run", x.Status())
 	}
-	if want := "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds"; x.Status() != want {
+	if want := "incomplete: runs budget 1 hit after 1 runs"; x.Status() != want {
 		t.Fatalf("status %q, want %q", x.Status(), want)
 	}
 	if len(x.Outcomes) != 1 {
@@ -200,10 +206,10 @@ func TestExploreRunsBudgetIsIncomplete(t *testing.T) {
 func TestExploreDepthZeroIsIncomplete(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
 	x := m.exploreAction(t, "explore:depth=0", "race")
-	if x.Complete() || x.Runs != 1 || !x.ProbabilitiesBounded() {
-		t.Fatalf("status %q, want incomplete after the one run that varied nothing, with bounded probabilities", x.Status())
+	if x.Complete() || x.Runs != 1 || x.ProbabilitiesBounded() || x.Weighted() {
+		t.Fatalf("status %q, want incomplete after the one unweighted run that varied nothing", x.Status())
 	}
-	if want := "incomplete: depth budget 0 hit after 1 runs; probabilities are lower bounds"; x.Status() != want {
+	if want := "incomplete: depth budget 0 hit after 1 runs"; x.Status() != want {
 		t.Fatalf("status %q, want %q", x.Status(), want)
 	}
 }
