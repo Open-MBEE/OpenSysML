@@ -66,3 +66,29 @@ func TestBigIntInputsNeedTheirCapability(t *testing.T) {
 		t.Errorf("B::narrow without the capability = %#v, %v; want Int 2**62", got, err)
 	}
 }
+
+// A document query bound to an Integer beyond int64, bare or as a quantity
+// magnitude, is refused before it is sent to a service without big_int_values.
+func TestBigIntDocumentBindingsNeedTheirCapability(t *testing.T) {
+	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityBigIntValues})
+	if err != nil {
+		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
+	}
+	t.Cleanup(svc.Close)
+	mux := http.NewServeMux()
+	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc)))
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	wide := opensysml.NewInteger(new(big.Int).Lsh(big.NewInt(1), 70)).(opensysml.BigInt)
+	client := dialClient(t, server.URL)
+	ctx := context.Background()
+	model := parse(t, client, bigIntCapabilitySource)
+	for label, bound := range map[string]opensysml.Cell{
+		"bare":     wide,
+		"quantity": opensysml.Quantity{Magnitude: wide, Unit: "m"},
+	} {
+		_, err := client.RunDocumentQuery(ctx, model, "B::NoSuchQuery", opensysml.Bind("x", bound))
+		wantCapabilityRefusal(t, "RunDocumentQuery "+label, err, opensysml.CapabilityBigIntValues)
+	}
+}

@@ -535,12 +535,15 @@ func ValueCarriesBigInt(pv *pb.Value) bool {
 }
 
 // ValueHoldsBigInt reports whether a value is itself an Integer beyond int64 or
-// carries one as a quantity magnitude, its own or a component's; a collection's
-// elements are values of their own, which it leaves to the caller.
+// carries one as a vector component or a quantity magnitude, its own or a
+// component's; a collection's elements are values of their own, which it
+// leaves to the caller.
 func ValueHoldsBigInt(pv *pb.Value) bool {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_BigIntValue:
 		return true
+	case *pb.Value_Vector:
+		return slices.ContainsFunc(k.Vector.GetComponents(), isBigIntValue)
 	case *pb.Value_Quantity:
 		return quantityHoldsBigInt(k.Quantity)
 	case *pb.Value_VectorQuantity:
@@ -551,6 +554,25 @@ func ValueHoldsBigInt(pv *pb.Value) bool {
 		return k.EnumLiteral.GetValue() != nil && ValueCarriesBigInt(k.EnumLiteral.GetValue())
 	}
 	return false
+}
+
+// DocumentValueHoldsBigInt reports whether a document value is an Integer
+// beyond int64, a quantity whose magnitude is one, or an event row whose time is.
+func DocumentValueHoldsBigInt(dv *pb.DocumentValue) bool {
+	switch k := dv.GetKind().(type) {
+	case *pb.DocumentValue_BigIntValue:
+		return true
+	case *pb.DocumentValue_Quantity:
+		return quantityHoldsBigInt(k.Quantity)
+	case *pb.DocumentValue_Event:
+		return DocumentValueHoldsBigInt(k.Event.GetTime())
+	}
+	return false
+}
+
+func isBigIntValue(pv *pb.Value) bool {
+	_, ok := pv.GetKind().(*pb.Value_BigIntValue)
+	return ok
 }
 
 func quantityHoldsBigInt(q *pb.Quantity) bool {

@@ -3,7 +3,6 @@ package opensysml
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"sync"
 
@@ -597,19 +596,7 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	if len(needed) == 0 {
 		return nil
 	}
-	info, err := c.serverInfo(ctx)
-	if err != nil {
-		return err
-	}
-	for _, capability := range needed {
-		if !info.Has(capability) {
-			return &StatusError{
-				Code:    CodeUnimplemented,
-				Message: fmt.Sprintf("capability %q is unavailable", capability),
-			}
-		}
-	}
-	return nil
+	return c.requireCapabilities(ctx, needed...)
 }
 
 // serverInfo is ServerInfo asked at most once per client. A service that

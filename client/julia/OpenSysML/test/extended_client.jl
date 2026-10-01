@@ -413,6 +413,10 @@ end
         Dict("bigIntValue" => "1180591620717411303424"),
         Dict("bigIntValue" => "-9223372036854775809"),
         Dict("intValue" => "9223372036854775807")]
+    @test OpenSysML._binding_holds_big_int(wide[1])
+    @test OpenSysML._binding_holds_big_int(build_document_bindings(
+        Dict("m" => Quantity(big(2)^70, "", nothing)))[1])
+    @test !OpenSysML._binding_holds_big_int(build_document_bindings(Dict("n" => typemax(Int64)))[1])
     @test format_of_path("model.ttl") == "ttl"
     @test_throws ArgumentError format_of_path("model.unknown")
 end

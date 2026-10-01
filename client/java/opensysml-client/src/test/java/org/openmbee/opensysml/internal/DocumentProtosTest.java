@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +40,31 @@ class DocumentProtosTest {
             .build();
     assertEquals(new DocumentValue.ElementRef("", "PartUsage"), Protos.documentValue(proto));
     assertEquals(proto, Protos.proto(new DocumentValue.ElementRef("", "PartUsage")));
+  }
+
+  @Test
+  void aBindingBeyondInt64NeedsBigIntValues() {
+    java.math.BigInteger wide = java.math.BigInteger.TWO.pow(70);
+    assertTrue(
+        Protos.holdsBigInt(binding(Protos.proto(new DocumentValue.BigIntegerValue(wide)))));
+    assertTrue(
+        Protos.holdsBigInt(
+            binding(
+                org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                    .setQuantity(
+                        org.openmbee.opensysml.proto.Quantity.newBuilder()
+                            .setBigIntMagnitude(wide.toString()))
+                    .build())));
+    assertFalse(
+        Protos.holdsBigInt(binding(Protos.proto(new DocumentValue.IntegerValue(Long.MAX_VALUE)))));
+  }
+
+  private static org.openmbee.opensysml.proto.DocumentQueryBinding binding(
+      org.openmbee.opensysml.proto.DocumentValue value) {
+    return org.openmbee.opensysml.proto.DocumentQueryBinding.newBuilder()
+        .setParameter("x")
+        .addValues(value)
+        .build();
   }
 
   @Test

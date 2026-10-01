@@ -5,6 +5,7 @@ import { Code, ConnectError, createClient, type Client, type Transport } from "@
 import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -77,6 +78,7 @@ import {
 } from "./conversion.js";
 import { buildQuery, elementsOf, type QueryElement, type QueryForm, type QueryPayload } from "./query.js";
 import {
+  bindingHoldsBigInt,
   buildBindings,
   documentResult,
   type BindingValues,
@@ -401,12 +403,16 @@ export class Connection {
       CAPABILITY_DOCUMENT_QUERY,
       upgradeRemedy(CAPABILITY_DOCUMENT_QUERY),
     );
+    const wire = buildBindings(bindings);
+    if (wire.some(bindingHoldsBigInt)) {
+      requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
+    }
     const response = await callRpc(
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
           modelHash,
           queryId,
-          bindings: buildBindings(bindings),
+          bindings: wire,
         }),
         this.callOptions(),
       ),

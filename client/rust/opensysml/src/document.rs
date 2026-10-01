@@ -270,6 +270,19 @@ pub(crate) fn bindings_to_wire<K: AsRef<str>>(
         .collect()
 }
 
+/// Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`.
+pub(crate) fn binding_holds_big_int(binding: &wire::DocumentQueryBinding) -> bool {
+    use wire::document_value::Kind;
+    binding.values.iter().any(|value| match &value.kind {
+        Some(Kind::BigIntValue(_)) => true,
+        Some(Kind::Quantity(quantity)) => matches!(
+            quantity.magnitude,
+            Some(wire::quantity::Magnitude::BigIntMagnitude(_))
+        ),
+        _ => false,
+    })
+}
+
 fn bound_value(parameter: &str, value: &DocumentValue) -> Result<wire::DocumentValue, Error> {
     use wire::document_value::Kind;
     let refuse = |why: &str| {
@@ -529,9 +542,23 @@ mod tests {
             bound[0].values[0].kind,
             Some(Kind::BigIntValue("1180591620717411303424".to_owned()))
         );
+        assert!(binding_holds_big_int(&bound[0]));
         let read = DocumentValue::try_from(bound[0].values[0].clone()).unwrap();
-        assert_eq!(read, DocumentValue::BigInteger(wide));
+        assert_eq!(read, DocumentValue::BigInteger(wide.clone()));
         assert_eq!(read.to_string(), "1180591620717411303424");
+
+        let magnitude = bindings_to_wire(&[(
+            "m",
+            vec![DocumentValue::Quantity(Quantity {
+                magnitude: Magnitude::BigInteger(wide),
+                unit: String::new(),
+                unit_term: None,
+            })],
+        )])
+        .unwrap();
+        assert!(binding_holds_big_int(&magnitude[0]));
+        let narrow = bindings_to_wire(&[("n", vec![DocumentValue::Integer(i64::MAX)])]).unwrap();
+        assert!(!binding_holds_big_int(&narrow[0]));
     }
 
     #[test]

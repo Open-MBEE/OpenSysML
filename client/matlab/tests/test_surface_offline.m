@@ -199,6 +199,16 @@ function test_surface_offline()
     assert_equal(wide{1}.values{1}.bigIntValue, '9223372036854775808', 'Integer binding beyond int64');
     decodedWide = opensysml.internal.decodeDocumentValue(struct('bigIntValue', '-1180591620717411303424'));
     assert_equal(decodedWide.bigInteger, '-1180591620717411303424', 'document Integer beyond int64');
+    queryConn = opensysml.external('127.0.0.1:1');
+    queryConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
+        {{'document_query'}}));
+    queryModel = opensysml.Model(queryConn, 'offline-hash', {});
+    wideBound = struct('bigInteger', '9223372036854775808');
+    for bound = {wideBound, struct('magnitude', wideBound, 'unit', '')}
+        assert_error(@() opensysml.runDocumentQuery(queryModel, 'Q::q', ...
+            'bindings', struct('n', {bound})), ...
+            'opensysml:missingCapability', 'document binding beyond int64 without big_int_values');
+    end
     assert_error(@() opensysml.buildDocumentBindings(struct('bad', {struct('type', 'verdict')})), ...
         'opensysml:argument', 'unsupported document binding');
 

@@ -1508,6 +1508,21 @@ public final class Protos {
   }
 
   /**
+   * Whether a document-query binding sends an Integer beyond int64, which a service reads only
+   * when it advertises {@code big_int_values}.
+   *
+   * @param binding the wire binding
+   * @return whether a value or a quantity magnitude is a {@code big_int_value}
+   */
+  public static boolean holdsBigInt(org.openmbee.opensysml.proto.DocumentQueryBinding binding) {
+    return binding.getValuesList().stream()
+        .anyMatch(
+            value ->
+                value.hasBigIntValue()
+                    || (value.hasQuantity() && value.getQuantity().hasBigIntMagnitude()));
+  }
+
+  /**
    * A document-query value as a request's binding carries it.
    *
    * @param value the immutable value

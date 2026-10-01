@@ -11,6 +11,7 @@ import pytest
 
 from opensysml.capabilities import (
     CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_SET_VALUES,
     CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_TENSOR_VALUES,
@@ -142,3 +143,14 @@ def test_a_big_integer_is_not_sent_to_a_service_without_the_capability():
 def test_a_big_integer_is_sent_to_a_service_with_the_capability():
     conn = make_connection(Mock(), OLD + (CAPABILITY_BIG_INT_VALUES,))
     assert conn._python_to_value([1, 2 ** 70]).sequence.elements[1].big_int_value == str(2 ** 70)
+
+
+def test_a_big_integer_document_binding_needs_the_capability():
+    kg = Unit(text="kg", factors=(UnitFactor("SI::kg", 1),), reduction_given=True)
+    stub = Mock()
+    conn = make_connection(stub, OLD + (CAPABILITY_DOCUMENT_QUERY,))
+    for value in (2 ** 70, [1, 2 ** 70], Quantity(2 ** 70, kg)):
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            conn.run_document_query("hash", "Q::q", bindings={"x": value})
+        assert excinfo.value.capability == CAPABILITY_BIG_INT_VALUES
+    stub.RunDocumentQuery.assert_not_called()

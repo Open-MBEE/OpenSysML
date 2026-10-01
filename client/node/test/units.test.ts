@@ -203,6 +203,23 @@ test("a bound Integer beyond int64 goes out as its decimal, in a value or a magn
   assert.deepEqual(edge.values[0].kind, { case: "intValue", value: (1n << 63n) - 1n });
 });
 
+test("a document query bound to an Integer beyond int64 needs big_int_values", async () => {
+  const conn = await fakeConnection(["document_query"]);
+  for (const bound of [
+    1n << 63n,
+    { kind: "quantity", magnitude: { kind: "int", value: 1n << 70n }, unit: "kg" },
+  ] as const) {
+    await assert.rejects(
+      () => conn.runDocumentQuery("hash", "Q::q", { x: bound }),
+      (error: unknown) => {
+        assert.ok(error instanceof MissingCapabilityError);
+        assert.equal(error.capability, CAPABILITY_BIG_INT_VALUES);
+        return true;
+      },
+    );
+  }
+});
+
 test("bound quantity values go out as wire quantities", () => {
   const bindings = buildBindings({
     mass: { kind: "quantity", magnitude: { kind: "real", value: 1.5 }, unit: "kg" },

@@ -21,6 +21,15 @@ import {
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
 import { decodeBigInteger, fitsInt64, formatValue, type SysMLValue } from "./values.js";
 
+/** Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`. */
+export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
+  return binding.values.some(
+    (value) =>
+      value.kind.case === "bigIntValue" ||
+      (value.kind.case === "quantity" && value.kind.value.magnitude.case === "bigIntMagnitude"),
+  );
+}
+
 /** A model element, named by qualified name. */
 export class ElementRef {
   /** Qualified name of the element. */

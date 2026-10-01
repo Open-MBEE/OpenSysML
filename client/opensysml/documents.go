@@ -3,9 +3,11 @@ package opensysml
 import (
 	"context"
 	"math/big"
+	"slices"
 	"strconv"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // Cell is one typed document-query value: Element, Object, String, Int, Real,
@@ -218,6 +220,12 @@ type Row struct {
 	Cells [][]Cell
 }
 
+// bindingHoldsBigInt reports whether a binding sends an Integer beyond int64,
+// which only a service offering big_int_values reads.
+func bindingHoldsBigInt(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsBigInt)
+}
+
 func (c *client) RunDocumentQuery(
 	ctx context.Context,
 	model *Model,
@@ -239,6 +247,11 @@ func (c *client) RunDocumentQuery(
 			bound.Values = append(bound.Values, sent)
 		}
 		req.Bindings = append(req.Bindings, bound)
+	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
+		if err := c.requireCapabilities(ctx, CapabilityBigIntValues); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := c.caller.runDocumentQuery(ctx, req)
 	if err != nil {

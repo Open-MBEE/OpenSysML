@@ -201,12 +201,20 @@ function build_document_bindings(bindings=Dict())
     result
 end
 
+# Whether a wire binding sends an Integer beyond int64, which needs big_int_values.
+_binding_holds_big_int(binding) = any(binding["values"]) do value
+    haskey(value, "bigIntValue") ||
+        (haskey(value, "quantity") && haskey(value["quantity"], "bigIntMagnitude"))
+end
+
 """Run a document query with optional parameter bindings."""
 function run_document_query(model::Model, query_id::AbstractString; bindings=Dict())
     conn = model.connection
     require_capability(conn, CAPABILITY_DOCUMENT_QUERY)
+    wire = build_document_bindings(bindings)
+    any(_binding_holds_big_int, wire) && require_capability(conn, CAPABILITY_BIG_INT_VALUES)
     request = Dict{String,Any}("modelHash" => model.hash, "queryId" => String(query_id),
-        "bindings" => build_document_bindings(bindings))
+        "bindings" => wire)
     answer = _translate(; not_found=SymbolNotFoundError,
         capabilities=(CAPABILITY_DOCUMENT_QUERY,), connection=conn) do
         call(conn, "RunDocumentQuery", request)

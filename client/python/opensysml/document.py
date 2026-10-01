@@ -253,6 +253,20 @@ class DocumentQueryResult:
         return len(self.rows)
 
 
+def binding_holds_big_int(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
+    """Whether a wire binding sends an Integer beyond int64, which needs ``big_int_values``."""
+    return any(_document_holds_big_int(value) for value in binding.values)
+
+
+def _document_holds_big_int(value: "sysml_pb2.DocumentValue") -> bool:
+    kind = value.WhichOneof("kind")
+    if kind == "big_int_value":
+        return True
+    if kind == "quantity":
+        return value.quantity.WhichOneof("magnitude") == "big_int_magnitude"
+    return False
+
+
 def build_bindings(bindings=None):
     """Translate a bindings mapping into the RPC's protobuf.
 

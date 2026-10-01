@@ -70,7 +70,7 @@ from opensysml.conversion import (
     is_experimental,
 )
 from opensysml.diagnostic import Diagnostic
-from opensysml.document import build_bindings, result_of as document_result
+from opensysml.document import binding_holds_big_int, build_bindings, result_of as document_result
 from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
@@ -1619,6 +1619,12 @@ class Connection:
             query_id=query_id,
             bindings=build_bindings(bindings),
         )
+        if any(binding_holds_big_int(binding) for binding in request.bindings):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
             unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
