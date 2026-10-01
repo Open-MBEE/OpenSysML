@@ -45,6 +45,7 @@ func (m *Model) CoherentQuantity(q Quantity, declared *symbols.Symbol) (Quantity
 			return Quantity{}, err
 		}
 	}
+	coherent.Product.Identity = q.Unit.Product.Identity
 	return Quantity{Num: num, Unit: coherent}, nil
 }
 
@@ -63,6 +64,7 @@ func (m *Model) CoherentSpelling(q Quantity, declared *symbols.Symbol) Quantity 
 	if !ok || !q.Unit.Term.Same(coherent.Term) {
 		return q
 	}
+	coherent.Product.Identity = q.Unit.Product.Identity
 	return Quantity{Num: q.Num, Unit: coherent}
 }
 

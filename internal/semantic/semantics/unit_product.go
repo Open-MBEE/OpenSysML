@@ -26,6 +26,9 @@ type UnitPower struct {
 // the canonical display form (`N*m`, `m**2`); UnitTerm, not this, decides conversion.
 type UnitProduct struct {
 	Powers []UnitPower
+	// Identity is the identity power (`one`) the product absorbed, kept apart from
+	// the powers so that it is the unit again once every other power cancels.
+	Identity *UnitPower
 }
 
 // NamedUnitProduct is the product of one named unit to the first power, spelt
@@ -78,6 +81,10 @@ func (p UnitProduct) Clone() UnitProduct {
 			out.Powers[i].Reduces = &reduces
 		}
 	}
+	if p.Identity != nil {
+		identity := *p.Identity
+		out.Identity = &identity
+	}
 	return out
 }
 
@@ -90,7 +97,18 @@ func (p UnitProduct) ShortSpelling() UnitProduct {
 			out.Powers[i].Name = unitNameSpelling(unitShortName(f.Unit))
 		}
 	}
+	if out.Identity != nil && out.Identity.Unit != nil {
+		out.Identity.Name = unitNameSpelling(unitShortName(out.Identity.Unit))
+	}
 	return out
+}
+
+// AllPowers is the powers with the identity the product absorbed among them, where it did.
+func (p UnitProduct) AllPowers() []UnitPower {
+	if p.Identity == nil {
+		return p.Powers
+	}
+	return append(slices.Clone(p.Powers), *p.Identity)
 }
 
 // Times returns the product of two unit products.
@@ -102,7 +120,7 @@ func (p UnitProduct) DividedBy(q UnitProduct) UnitProduct { return combineProduc
 // Pow raises every power of the product to exp.
 func (p UnitProduct) Pow(exp float64) UnitProduct {
 	out := UnitProduct{}
-	for _, f := range p.Powers {
+	for _, f := range p.AllPowers() {
 		f.Exponent *= exp
 		out.Powers = append(out.Powers, f)
 	}
@@ -205,8 +223,8 @@ func afterNameSegment(name string) (string, bool) {
 // signed by sign so that division shares multiplication's accumulation.
 func combineProducts(a, b UnitProduct, sign float64) UnitProduct {
 	out := UnitProduct{}
-	out.Powers = append(out.Powers, a.Powers...)
-	for _, f := range b.Powers {
+	out.Powers = append(out.Powers, a.AllPowers()...)
+	for _, f := range b.AllPowers() {
 		f.Exponent *= sign
 		out.Powers = append(out.Powers, f)
 	}
@@ -215,6 +233,8 @@ func combineProducts(a, b UnitProduct, sign float64) UnitProduct {
 
 // normalizeProduct merges repeated units (by symbol, or by name and reduction
 // where both are unresolved), drops cancelled powers and orders the rest by name.
+// The identity (`one`, any power of it) leaves a product it shares with any other
+// unit, remembered aside; a product of nothing but the identity is the identity.
 func normalizeProduct(p UnitProduct) UnitProduct {
 	merged := make([]UnitPower, 0, len(p.Powers))
 	for _, f := range p.Powers {
@@ -224,35 +244,29 @@ func normalizeProduct(p UnitProduct) UnitProduct {
 			continue
 		}
 		merged[at].Exponent += f.Exponent
-		merged[at].Name = shorterSpelling(merged[at].Name, f.Name)
+		if shorterSpelling(merged[at].Name, f.Name) == f.Name {
+			merged[at].Name, merged[at].Unit = f.Name, f.Unit
+		}
 		if merged[at].Reduces == nil {
 			merged[at].Reduces = f.Reduces
 		}
 	}
+	var identity *UnitPower
 	kept := merged[:0]
 	for _, f := range merged {
-		if f.Exponent != 0 {
+		switch {
+		case f.Identity:
+			f.Exponent = 1
+			identity = &f
+		case f.Exponent != 0:
 			kept = append(kept, f)
 		}
 	}
-	kept = absorbIdentity(kept)
+	if len(kept) == 0 && identity != nil {
+		return UnitProduct{Powers: []UnitPower{*identity}}
+	}
 	slices.SortStableFunc(kept, func(a, b UnitPower) int { return strings.Compare(a.Name, b.Name) })
-	return UnitProduct{Powers: kept}
-}
-
-// absorbIdentity applies `one` as the identity of the product: it leaves a product
-// it shares with any other unit, and any power of it alone is itself.
-func absorbIdentity(powers []UnitPower) []UnitPower {
-	isIdentity := func(f UnitPower) bool { return f.Identity }
-	if !slices.ContainsFunc(powers, isIdentity) {
-		return powers
-	}
-	if others := slices.DeleteFunc(slices.Clone(powers), isIdentity); len(others) > 0 {
-		return others
-	}
-	one := powers[0]
-	one.Exponent = 1
-	return []UnitPower{one}
+	return UnitProduct{Powers: kept, Identity: identity}
 }
 
 // shorterSpelling picks, of two spellings of one unit, the one with fewer
@@ -273,10 +287,14 @@ func shorterSpelling(a, b string) string {
 	return min(a, b)
 }
 
-// sameUnit: two resolved powers are one unit by symbol; two unresolved ones by
-// text, unless both are known to reduce differently; a resolved and an
-// unresolved power are never the same unit.
+// sameUnit: two identity powers are one unit, whatever declares them; two other
+// resolved powers are one unit by symbol; two unresolved ones by text, unless
+// both are known to reduce differently; a resolved and an unresolved power are
+// never the same unit.
 func sameUnit(f, g UnitPower) bool {
+	if f.Identity && g.Identity {
+		return true
+	}
 	if f.Unit != nil || g.Unit != nil {
 		return f.Unit == g.Unit
 	}

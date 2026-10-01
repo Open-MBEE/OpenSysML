@@ -356,9 +356,13 @@ product: a factor written in it leaves the product (`0.7 [one] * 800 [W]` is `56
 (`2 [one] * 3 [one]` is `6 [one]`), and the rest folds as if the factor were not there — an
 efficiency declared `attribute :>> efficiency = 0.7 [one];` reads `67200.0 [SI::J]` in
 `power * duration * efficiency` bound to an `EnergyValue`, the same as `0.7` with no unit. The
-identity is recognised by the unit's structure — a plain `DimensionOneUnit` at scale one — not
-by its name, so a dimension-one unit of another kind (`rad`, `sr`) or one that scales `one` by
-a `unitConversion` (a percent) is kept in the product like `rad` is.
+identity a product absorbed is the unit again once every other unit cancels, however the
+operations are grouped: `(2 [one] * 3 [m]) / 3 [m]` and `2 [one] * (3 [m] / 3 [m])` are both
+`2.0 [one]`, where `3 [m] / 3 [m]` alone is the plain number `1.0`. The identity is recognised
+by the unit's structure — a plain `DimensionOneUnit` at scale one — not by its name, so a
+dimension-one unit of another kind (`rad`, `sr`) or one that scales `one` by a `unitConversion`
+(a percent) is kept in the product like `rad` is, while a unit a model declares as
+`attribute unity : DimensionOneUnit = one;` is the same identity as `one`.
 
 Writing a quantity to a feature typed by a quantity kind checks its reduced dimension, not its
 spelling: `10 [N] / 2 [kg]` is admitted to an `AccelerationValue`, and an `L·T^-1` value written

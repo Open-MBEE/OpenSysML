@@ -240,11 +240,15 @@ func TestIsIdentityUnit(t *testing.T) {
 }
 
 // TestUnitProductAbsorbsIdentity: the identity power leaves any product it shares
-// with another unit, from either side of a product or quotient; alone it stays,
-// to the first power, whatever power it is raised to, with every root itself.
+// with another unit, from either side of a product or quotient, and is the unit
+// again once every other power cancels, however the operations are grouped; alone
+// it stays, to the first power, whatever power it is raised to, with every root
+// itself. Two identity units a model spells differently are one unit.
 func TestUnitProductAbsorbsIdentity(t *testing.T) {
 	one := NamedUnitProduct(nil, "one", true)
 	one.Powers[0].Identity = true
+	unity := NamedUnitProduct(nil, "unity", true)
+	unity.Powers[0].Identity = true
 	m := NamedUnitProduct(nil, "m", false)
 	rad := NamedUnitProduct(nil, "rad", true)
 	cases := []struct {
@@ -256,18 +260,33 @@ func TestUnitProductAbsorbsIdentity(t *testing.T) {
 		{m.DividedBy(one), "m"},
 		{one.DividedBy(m), "1/m"},
 		{one.Times(one), "one"},
-		{one.DividedBy(one), "1"},
+		{one.DividedBy(one), "one"},
 		{one.Pow(3), "one"},
 		{one.Pow(-2), "one"},
-		{one.Pow(0), "1"},
+		{one.Pow(0), "one"},
 		{one.Times(rad), "rad"},
 		{rad.Times(one).Times(m), "m*rad"},
 		{one.Times(m).Times(one).DividedBy(one), "m"},
+		{one.Times(m).DividedBy(m), "one"},
+		{one.Times(m.DividedBy(m)), "one"},
+		{m.DividedBy(m), "1"},
+		{m.Times(one).Pow(2).DividedBy(m.Pow(2)), "one"},
+		{one.Times(rad).DividedBy(rad), "one"},
+		{one.Times(m).DividedBy(one.Times(m)), "one"},
+		{one.Times(unity), "one"},
+		{unity.Times(one), "one"},
+		{unity.Times(m).DividedBy(m), "unity"},
 	}
 	for _, tc := range cases {
 		if s := tc.got.String(); s != tc.want {
 			t.Errorf("got %s, want %s", s, tc.want)
 		}
+	}
+	if !one.Equal(unity) || !unity.Times(m).Equal(one.Times(m)) {
+		t.Error("two identity units are not one unit")
+	}
+	if !one.Times(m).Equal(m) || one.Times(m).ShortSpelling().Identity == nil {
+		t.Error("the identity a product absorbed is not kept aside from its powers")
 	}
 	root, ok := one.Root(2)
 	if !ok || root.String() != "one" {

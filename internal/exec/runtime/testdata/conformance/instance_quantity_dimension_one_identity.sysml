@@ -1,8 +1,9 @@
 // A quantity written in MeasurementReferences::one multiplies and divides as the
 // identity of the unit product: the product it enters folds to the derived unit
 // the same product without it reaches, and holds a real reference to that unit.
-// Units of dimension one that are not the identity (rad; a percent scaling one)
-// stay in the product.
+// Once every other unit cancels, the identity is the unit again, however the
+// operations were grouped. Units of dimension one that are not the identity
+// (rad; a percent scaling one) stay in the product.
 package test {
     private import ISQ::*;
     private import SI::*;
@@ -25,6 +26,9 @@ package test {
         attribute leading : PowerValue = rated.efficiency * rated.power;
         attribute perOne : PowerValue = rated.power / 0.5 [one];
         attribute squared : DimensionOneValue = 0.5 [one] * 0.5 [one];
+        attribute ratio : DimensionOneValue = (2 [one] * 3 [m]) / 3 [m];
+        attribute ratioGrouped : DimensionOneValue = 2 [one] * (3 [m] / 3 [m]);
+        attribute recovered : DimensionOneValue = delivered / (rated.power * 120.0 [s]);
         attribute swept = 3 [rad] * 1 [one];
         attribute share = 50 ['%'] * 800.0 [W];
     }

@@ -11,6 +11,9 @@
     "leading": {"type": "Quantity", "value": 560.0, "unit": "W"},
     "perOne": {"type": "Quantity", "value": 1600.0, "unit": "W"},
     "squared": {"type": "Quantity", "value": 0.25, "unit": "one"},
+    "ratio": {"type": "Quantity", "value": 2.0, "unit": "one"},
+    "ratioGrouped": {"type": "Quantity", "value": 2.0, "unit": "one"},
+    "recovered": {"type": "Quantity", "value": 0.7, "unit": "one"},
     "swept": {"type": "Quantity", "value": 3, "unit": "rad"},
     "share": {"type": "Quantity", "value": 40000.0, "unit": "'%'*W"}
   }
