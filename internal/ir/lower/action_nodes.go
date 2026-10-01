@@ -54,13 +54,14 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 
 func newActionGraph(scope *symbols.Scope) *ActionGraph {
 	return &ActionGraph{
-		Scope:     scope,
-		Nodes:     make([]ast.Node, 0),
-		Edges:     make(map[ast.Node][]ActionEdge),
-		DataFlows: make(map[ast.Node][]ObjectFlow),
-		Bodies:    make(map[ast.Node][]Statement),
-		Accepts:   make(map[ast.Node]Accept),
-		Finals:    make([]ast.Node, 0),
+		Scope:          scope,
+		Nodes:          make([]ast.Node, 0),
+		Edges:          make(map[ast.Node][]ActionEdge),
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		DataFlows:      make(map[ast.Node][]ObjectFlow),
+		Bodies:         make(map[ast.Node][]Statement),
+		Accepts:        make(map[ast.Node]Accept),
+		Finals:         make([]ast.Node, 0),
 	}
 }
 
@@ -109,9 +110,11 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 			switch {
 			case n.Kind == ast.UsageAction:
 				graph.Nodes = append(graph.Nodes, n)
+				recordNodeMultiplicity(graph, n)
 				lowerActionNode(graph, n, childScope(scope, n))
 			case IsCaseNode(n):
 				graph.Nodes = append(graph.Nodes, n)
+				recordNodeMultiplicity(graph, n)
 				recordNodeScope(graph, n, childScope(scope, n))
 			}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
@@ -191,6 +194,7 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
+		recordNodeMultiplicity(graph, n)
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)

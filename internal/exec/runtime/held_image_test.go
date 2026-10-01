@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // lampBulb materializes a Bulb over lampSource and answers the document root with it.
@@ -686,6 +687,82 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	}
 	if got := featureInt(t, src, waiter, "woken"); got != 0 {
 		t.Errorf("the source's woken = %d, want 0", got)
+	}
+}
+
+func TestHeldImageCarriesRepeatedActionBarrier(t *testing.T) {
+	const source = `package test {
+		private import ScalarValues::*;
+		part def Repeater {
+			attribute c : Integer = 0;
+			perform action run {
+				first start then a;
+				action a[3] {
+					first start then wait;
+					action wait accept g : Integer;
+					then increment;
+					action increment { assign c := c + 1; }
+					then done;
+				}
+				then done;
+			}
+		}
+	}`
+	index, _, src := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, source))
+	repeater, err := src.Instantiate(findSymbolByName(index.DocumentRoot("<test>"), "Repeater", ast.DefPart))
+	if err != nil {
+		t.Fatalf("Instantiate Repeater: %v", err)
+	}
+	behavior, ok := repeater.Behavior("run")
+	if !ok || behavior.Action == nil {
+		t.Fatal("Repeater has no run action")
+	}
+	action := behavior.Action
+	var repeated ast.Node
+	for _, node := range action.Graph().Nodes {
+		if ActionNodeName(node) == "a" {
+			repeated = node
+			break
+		}
+	}
+	if repeated == nil {
+		t.Fatal("run graph has no repeated a step")
+	}
+	for i := 0; i < 20 && action.State() != StateWaiting; i++ {
+		if err := action.Step(); err != nil {
+			t.Fatalf("Step(source): %v", err)
+		}
+	}
+	if action.State() != StateWaiting {
+		t.Fatalf("source action state = %v, want waiting at repeated accepts", action.State())
+	}
+	repetition := action.root.repeats[repeated]
+	if repetition == nil || repetition.remaining != 3 || len(repetition.live) != 3 {
+		t.Fatalf("source repetition barrier = %+v, want three live performances", repetition)
+	}
+
+	dst := imageInto(t, src, repeater)
+	copied, ok := dst.Instance(repeater.ID)
+	if !ok {
+		t.Fatal("image has no copied Repeater")
+	}
+	imagedBehavior, ok := copied.Behavior("run")
+	if !ok || imagedBehavior.Action == nil {
+		t.Fatal("copied Repeater has no run action")
+	}
+	imagedRepetition := imagedBehavior.Action.root.repeats[repeated]
+	if imagedRepetition == nil || imagedRepetition.remaining != 3 || len(imagedRepetition.live) != 3 {
+		t.Fatalf("imaged repetition barrier = %+v, want three live performances", imagedRepetition)
+	}
+	value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	for i := 0; i < 3; i++ {
+		dst.PostMessage(Message{SignalType: "Integer", Object: copied.ID, Value: &value})
+	}
+	if err := imagedBehavior.Action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(imaged): %v", err)
+	}
+	if got := featureInt(t, dst, copied, "c"); got != 3 {
+		t.Errorf("imaged c = %d, want 3", got)
 	}
 }
 

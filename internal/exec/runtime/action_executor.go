@@ -46,6 +46,7 @@ type ActionExecutor struct {
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
+	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features    []lower.Attribute
@@ -224,6 +225,7 @@ func newActionExecutorOn(
 		dynamicsKind: ctx.stateSpaceKindOf(action),
 		occurrence:   occurrence,
 		graph:        graph,
+		stepCounts:   make(map[stepMultiplicityKey]stepMultiplicityResult),
 		tokens:       make([]Token, 0),
 		state:        StateReady,
 		nextTokenID:  1,
@@ -1562,7 +1564,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
-	if e.dynamics == nil && e.tokens[tokenIdx].body == nil {
+	if e.dynamics == nil && e.tokens[tokenIdx].body == nil && e.tokens[tokenIdx].repetition == 0 {
 		var ready bool
 		if tokenIdx, ready = e.synchronize(tokenIdx); !ready {
 			return nil
@@ -2326,6 +2328,16 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	// arrives the token parks here: the action is suspended, not failed, and
 	// the next step retries the match.
 	graph := e.graphOf(token.frame)
+	count, err := e.stepMultiplicity(graph, usage)
+	if err != nil {
+		return err
+	}
+	if token.repetition == 0 && count != 1 {
+		if count == 0 {
+			return e.passZeroStep(tokenIdx, usage)
+		}
+		return e.splitRepeatedStep(tokenIdx, count, usage)
+	}
 	accept, isAccept := graph.Accepts[usage]
 	var payload *Value
 	if isAccept && accept.Trigger != nil {
@@ -2397,6 +2409,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	if err != nil {
 		return err
 	}
+	e.trackRepeated(token.ID, perf)
 	// The payload is the accept's own output pin as well, for a flow out of the node.
 	if payload != nil {
 		if err := e.setFrameFeature(perf, accept.ParamName, *payload); err != nil {
@@ -2420,6 +2433,20 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	frame := e.tokens[tokenIdx].frame
 	node := perf.node
+	if e.tokens[tokenIdx].repetition > 0 {
+		state := frame.repeats[node]
+		if state == nil || state.remaining <= 0 {
+			return fmt.Errorf("action node %s completed without its repetition barrier", ActionNodeName(node))
+		}
+		state.remaining--
+		state.live = slices.DeleteFunc(state.live, func(live *actionFrame) bool { return live == perf })
+		if state.remaining > 0 {
+			e.tokens[tokenIdx].repetition = 0
+			return e.retireToken(tokenIdx)
+		}
+		delete(frame.repeats, node)
+		e.tokens[tokenIdx].repetition = 0
+	}
 
 	// Advance to a succession its guard, where it carries one, leaves enabled.
 	successors, err := e.enabledSuccessions(frame, node)

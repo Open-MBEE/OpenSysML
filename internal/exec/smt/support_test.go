@@ -115,6 +115,18 @@ func TestAnalyzeRefusesMessages(t *testing.T) {
 	}
 }
 
+func TestAnalyzeRefusesRepeatedActionSteps(t *testing.T) {
+	graph := conformanceAction(t, "action_step_multiplicity_exact.sysml", "test::Rep")
+	_, err := Analyze(graph, 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+	}
+	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
+		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	}
+}
+
 // TestAnalyzeRecordsBodyLoops: a body `while` is recorded as a loop to unroll,
 // under the node whose body it is in.
 func TestAnalyzeRecordsBodyLoops(t *testing.T) {

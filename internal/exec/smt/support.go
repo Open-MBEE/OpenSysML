@@ -1,6 +1,7 @@
 package smt
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -138,6 +139,25 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 		}
 	}
 	for _, node := range f.Nodes {
+		if frame := f.FrameOf[node]; frame != nil && frame.Graph.Multiplicities[node] != nil {
+			count, err := frame.Graph.StepCount(node, nil)
+			if err != nil || count != 1 {
+				multiplicity := frame.Graph.MultiplicityText(node, nil)
+				reason := "the SMT engine does not encode a step performed " + fmt.Sprint(count) + " times"
+				if err != nil {
+					var stepErr *lower.StepMultiplicityError
+					if errors.As(err, &stepErr) {
+						multiplicity = stepErr.Multiplicity
+					}
+					reason = "the SMT engine requires a fixed single-performance step"
+				}
+				return nil, &UnsupportedError{
+					Node:      nodeLabel(node),
+					Construct: "action step multiplicity " + multiplicity,
+					Reason:    reason,
+				}
+			}
+		}
 		if err := f.checkNode(node); err != nil {
 			return nil, err
 		}

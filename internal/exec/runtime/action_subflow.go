@@ -45,6 +45,8 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token.Location = perf.graph.Initial
 	token.Via = lower.ActionEdge{}
 	token.moved = e.sweep
+	perf.repetition = token.repetition
+	token.repetition = 0
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
@@ -503,6 +505,7 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 	token.Location = frame.node
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
+	token.repetition = frame.repetition
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(ActionNodeName(frame.node))
 	}

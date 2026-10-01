@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 63;
+        attribute passCount : Integer = 64;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -296,6 +296,10 @@ package OpenSysMLPipeline {
         part kermlSpecialization : TypeCheck { attribute :>> goType = "W11AKerMLSpecializationPass"; }
         part controlNodeSuccessions : ConstraintCheck {
             attribute :>> goType = "ControlNodeSuccessionPass";
+            attribute :>> elementScoped = true;
+        }
+        part actionStepMultiplicity : ConstraintCheck {
+            attribute :>> goType = "ActionStepMultiplicityPass";
             attribute :>> elementScoped = true;
         }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }

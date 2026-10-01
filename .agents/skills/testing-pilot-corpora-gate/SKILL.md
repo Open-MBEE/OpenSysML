@@ -12,7 +12,7 @@ Four pinned OMG model roots, **one mechanism, two policies** (`tests/corpus/corp
 
 | root | dir | policy | expectation file |
 |---|---|---|---|
-| training | `examples/sysml-v2-training` | **assertion** — errors only, `.sysml` only, must be 100% clean, no per-file counts allowed | `testdata/training_examples_expected.txt` |
+| training | `examples/sysml-v2-training` | **assertion** — zero semantic errors, `.sysml` only; warnings are outside the gate, no per-file counts allowed | `testdata/training_examples_expected.txt` |
 | sysml-examples | `examples/pilot-corpora/sysml-examples` | per-file **ratchet**, every severity | `testdata/pilot_corpora_expected.txt` |
 | sysml-validation | `examples/pilot-corpora/sysml-validation` | ratchet | same |
 | kerml-examples | `examples/pilot-corpora/kerml-examples` | ratchet | same |
@@ -33,7 +33,7 @@ examples/sysml-v2-training /tmp/pristine/`) — every absence/mutation test move
 Expect `--- PASS` for `TestTrainingExamplesSemanticErrors`, `TestPilotCorporaDiagnostics` and
 `TestCorpusGatesCacheStateIndependent` (subtests `training` and `pilot-corpora` — the older
 `TestTrainingExamplesCacheStateIndependent` / `TestPilotCorporaCacheStateIndependent` no longer
-exist), plus `100/100 training files clean` and three `N/M pilot corpus files clean` lines
+exist), plus the error-only `100/100 training files clean` line and three `N/M pilot corpus files clean` lines
 (observed 2026-08: sysml-examples 76/98, sysml-validation 52/56, kerml-examples 51/58 — these move
 whenever diagnostics change, so read the current numbers from `docs/project/pilot-corpora.md`
 rather than hard-coding them).
@@ -183,8 +183,8 @@ gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)`
 
 `actionlint`, `shellcheck`, `python3 scripts/check-doc-links.py`, `gofmt`, `go vet`,
 `go run -C tools ./cmd/pilot-diff` (validators pre-downloaded; ~4min, prints e.g.
-the headline the committed baseline holds — `380 file(s), 345 fully agreeing; 38 agreed
-diagnostic(s), 40 only ours, 1616 only the pilot's` at the `2026-08` pin, so read it from
+the headline the committed baseline holds — `380 file(s), 343 fully agreeing; 38 agreed
+diagnostic(s), 42 only ours, 1616 only the pilot's` at the `2026-08` pin, so read it from
 `docs/project/pilot-differential-baseline.json` rather than from this line)
 and `make lint` (staticcheck+gosec, ~2min) all work. There is **no** `yamllint` and **no**
 `circleci` CLI, so `.circleci/config.yml` can only be parsed as YAML, not schema-validated — say so

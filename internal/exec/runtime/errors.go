@@ -29,6 +29,10 @@ var (
 	// ErrAmbiguousReference is returned when a qualified name names several elements.
 	ErrAmbiguousReference = errors.New("ambiguous reference")
 
+	// ErrActionStepMultiplicity reports an action step the executor cannot perform
+	// with the declared multiplicity or its surrounding flow.
+	ErrActionStepMultiplicity = errors.New("unsupported action step multiplicity")
+
 	// ErrTypeMismatch is returned when an operation receives a value of unexpected type.
 	ErrTypeMismatch = errors.New("type mismatch")
 

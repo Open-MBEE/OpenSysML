@@ -1,0 +1,21 @@
+step 1: token 1@p
+step 2: token 1@p, token 2@p
+step 1: token 1@increment
+stmt assign c
+      eval literal 0 -> 0
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens
+step 1: token 1@increment
+stmt assign c
+      eval literal 0 -> 0
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens
+choice step 3: tokens 1@p, 2@p (unordered; took 2@p first)
+step 3: token 1@done
+step 4: no active tokens

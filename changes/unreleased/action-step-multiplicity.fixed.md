@@ -1,0 +1,1 @@
+- **Honor exact multiplicities on action-step usages.** Declared finite counts now produce the corresponding performances, validation reports unsupported or ambiguous execution, and the SMT engine returns a typed refusal when it cannot encode a non-singleton count.

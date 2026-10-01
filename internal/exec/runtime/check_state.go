@@ -414,6 +414,9 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	if perf.inBody {
 		b.WriteString(" body")
 	}
+	if perf.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", perf.repetition)
+	}
 	fmt.Fprintf(&b, " live=%d", perf.live)
 	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
 	for _, local := range perf.locals {
@@ -442,6 +445,17 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	}
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	}
+	for _, node := range sortedNodes(perf.repeats) {
+		state := perf.repeats[node]
+		fmt.Fprintf(&b, " repeat{%s remaining=%d live=", s.node(perf.graph, node), state.remaining)
+		for i, repeated := range state.live {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(s.frameLabel(repeated))
+		}
+		b.WriteByte('}')
 	}
 	streamed := slices.Sorted(maps.Keys(perf.streamed))
 	if len(streamed) > 0 {
@@ -500,6 +514,9 @@ func (s *stateSpeller) token(t Token) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "token %s in %s", s.node(graph, t.Location), s.frameLabel(t.frame))
+	if t.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", t.repetition)
+	}
 	if t.Via != (lower.ActionEdge{}) {
 		fmt.Fprintf(&b, " via %s", s.edge(graph, t.Via))
 	}

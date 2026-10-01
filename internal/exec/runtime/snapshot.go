@@ -512,6 +512,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 			for _, sub := range perf.subactions {
 				visit(sub)
 			}
+			for _, state := range perf.repeats {
+				for _, repeated := range state.live {
+					visit(repeated)
+				}
+			}
 		}
 	}
 	visit(e.root)
@@ -545,6 +550,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.aliases = maps.Clone(perf.aliases)
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
+	c.saved.repeats = cloneStepRepetitions(perf.repeats)
 	c.saved.pending = clonePending(perf.pending)
 	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
@@ -568,12 +574,27 @@ func (c frameCapture) restore() {
 	perf.aliases = maps.Clone(c.saved.aliases)
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
+	perf.repeats = cloneStepRepetitions(c.saved.repeats)
 	perf.pending = clonePending(c.saved.pending)
 	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
 	perf.streamed = maps.Clone(c.saved.streamed)
 	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
+}
+
+func cloneStepRepetitions(repeats map[ast.Node]*stepRepetition) map[ast.Node]*stepRepetition {
+	if repeats == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node]*stepRepetition, len(repeats))
+	for node, state := range repeats {
+		if state == nil {
+			continue
+		}
+		cloned[node] = &stepRepetition{remaining: state.remaining, live: slices.Clone(state.live)}
+	}
+	return cloned
 }
 
 func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[string][]Value {

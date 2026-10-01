@@ -62,9 +62,15 @@ type imagedFrame struct {
 	data       map[string]Value
 	outer      []imagedOuter
 	subactions map[ast.Node]int
+	repeats    map[ast.Node]imagedRepetition
 	pending    map[ast.Node]map[string][]Value
 	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
+}
+
+type imagedRepetition struct {
+	remaining int64
+	live      []int
 }
 
 // imagedStaged is a staged streaming write, its source performance by position.
@@ -217,7 +223,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil
+	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -244,6 +250,16 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		f.subactions = make(map[ast.Node]int, len(perf.subactions))
 		for node, sub := range perf.subactions {
 			f.subactions[node] = at(sub)
+		}
+	}
+	if perf.repeats != nil {
+		f.repeats = make(map[ast.Node]imagedRepetition, len(perf.repeats))
+		for node, state := range perf.repeats {
+			repeated := imagedRepetition{remaining: state.remaining, live: make([]int, 0, len(state.live))}
+			for _, live := range state.live {
+				repeated.live = append(repeated.live, at(live))
+			}
+			f.repeats[node] = repeated
 		}
 	}
 	if err := t.nestedValues(perf.pending); err != nil {
@@ -604,6 +620,16 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		perf.subactions = make(map[ast.Node]*actionFrame, len(img.subactions))
 		for node, at := range img.subactions {
 			perf.subactions[node] = frameAt(at)
+		}
+	}
+	if img.repeats != nil {
+		perf.repeats = make(map[ast.Node]*stepRepetition, len(img.repeats))
+		for node, repeated := range img.repeats {
+			state := &stepRepetition{remaining: repeated.remaining, live: make([]*actionFrame, 0, len(repeated.live))}
+			for _, at := range repeated.live {
+				state.live = append(state.live, frameAt(at))
+			}
+			perf.repeats[node] = state
 		}
 	}
 	if err := m.pending(perf, img.pending); err != nil {

@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 10},
+		"sum": {"type": "Integer", "value": 30},
+		"after": {"type": "Integer", "value": 30}
+	}
+}
