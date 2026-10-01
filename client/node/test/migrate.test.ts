@@ -2,7 +2,15 @@
 // and writing the result out with its image files.
 
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -243,6 +251,14 @@ test("save refuses to replace the v1 model with its migration", async () => {
   assert.equal(inline.sourcePath, "");
   await save(inline, source);
   assert.equal(readFileSync(source, "utf8"), inline.content);
+
+  const moved = join(dir, "Moved.xmi");
+  copyFileSync(VEHICLE_XMI, moved);
+  const ofMoved = await connection.migrate("sysml", { path: moved });
+  renameSync(moved, moved + ".bak");
+  await save(ofMoved, moved);
+  assert.equal(readFileSync(moved, "utf8"), ofMoved.content, "a vacated source path protects nothing");
+  assert.deepEqual(readFileSync(moved + ".bak"), readFileSync(VEHICLE_XMI));
 });
 
 test("save refuses an image that would escape the directory or replace the model, writing nothing", async () => {
@@ -300,4 +316,20 @@ test("save refuses an image that would escape the directory or replace the model
   assert.ok(!existsSync(path));
   assert.ok(!existsSync(join(outside, "escaped.png")));
   assert.ok(!existsSync(join(outside, "deeper")));
+
+  mkdirSync(join(dir, "dangling"));
+  symlinkSync(join(outside, "created.png"), join(dir, "dangling", "file.png"), "file");
+  symlinkSync(join(outside, "missing"), join(dir, "dangling", "dir"), "dir");
+  for (const dangling of ["dangling/file.png", "dangling/dir/escaped.png"]) {
+    await assert.rejects(
+      () => save(withFiles([[dangling, png]]), path),
+      (error: unknown) => {
+        assert.ok(error instanceof RangeError);
+        assert.equal(error.message, `the migration's image ${dangling} would land outside ${dir}`);
+        return true;
+      },
+    );
+  }
+  assert.ok(!existsSync(join(outside, "created.png")));
+  assert.ok(!existsSync(join(outside, "missing")));
 });

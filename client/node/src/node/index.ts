@@ -1,7 +1,7 @@
 // Node entry point: everything the core does, plus the private-child lifecycle.
 
-import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createConnectTransport, createGrpcTransport } from "@connectrpc/connect-node";
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
@@ -137,13 +137,15 @@ export async function save(
 /**
  * Where a migration's image files land when its model is written to `path`,
  * refusing any that would escape the model's directory or replace the model
- * or the v1 source, and refusing `path` itself when it is the source.
+ * or the v1 source, and refusing `path` itself when it is the source. A source
+ * no longer at its path protects nothing: nothing of it would be replaced.
  */
 async function migrationFiles(
   migration: Migration,
   path: string,
 ): Promise<[string, Uint8Array][]> {
-  if (migration.sourcePath !== "" && (await samePath(path, migration.sourcePath))) {
+  const source = (await exists(migration.sourcePath)) ? migration.sourcePath : "";
+  if (source !== "" && (await samePath(path, source))) {
     throw new RangeError(
       `${path} names the model being migrated; the v1 model would be replaced by its migration`,
     );
@@ -151,24 +153,35 @@ async function migrationFiles(
   const base = resolve(dirname(path));
   const landedBase = await landing(base);
   const files: [string, Uint8Array][] = [];
-  for (const [relative, data] of migration.files) {
-    const segments = relative.split("/");
+  for (const [name, data] of migration.files) {
+    const segments = name.split("/");
     const file = resolve(base, ...segments);
     if (
       segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("\\")) ||
-      !file.startsWith(base + sep) ||
-      !(await landing(file)).startsWith(landedBase + sep)
+      !within(base, file) ||
+      !within(landedBase, await landing(file))
     ) {
-      throw new RangeError(`the migration's image ${relative} would land outside ${base}`);
+      throw new RangeError(`the migration's image ${name} would land outside ${base}`);
     }
-    for (const guarded of [path, migration.sourcePath]) {
+    for (const guarded of [path, source]) {
       if (guarded !== "" && (await samePath(file, guarded))) {
-        throw new RangeError(`the migration's image ${relative} would replace ${guarded}`);
+        throw new RangeError(`the migration's image ${name} would replace ${guarded}`);
       }
     }
     files.push([file, data]);
   }
   return files;
+}
+
+/** Whether `path` names something: an empty path, or one that is gone, does not. */
+async function exists(path: string): Promise<boolean> {
+  return path !== "" && (await stat(path).then(() => true, () => false));
+}
+
+/** Whether `file` lies strictly below the directory `base`, both absolute. */
+function within(base: string, file: string): boolean {
+  const below = relative(base, file);
+  return below !== "" && !isAbsolute(below) && below !== ".." && !below.startsWith(".." + sep);
 }
 
 /** Whether a write to `a` lands on `b`: the same file when both exist, else the same resolved path. */
@@ -185,15 +198,21 @@ async function samePath(a: string, b: string): Promise<boolean> {
 
 /**
  * The absolute path a write to `path` lands on: every symbolic link on the way
- * followed, through the deepest ancestor that exists, whatever below it does not.
+ * followed, a dangling one included, through the deepest ancestor that exists,
+ * whatever below it does not.
  */
 async function landing(path: string): Promise<string> {
   let head = resolve(path);
   const tail: string[] = [];
-  for (;;) {
+  for (let hops = 0; hops < 64; hops++) {
     try {
       return join(await realpath(head), ...tail);
     } catch {
+      const target = await readlink(head).catch(() => undefined);
+      if (target !== undefined) {
+        head = resolve(dirname(head), target);
+        continue;
+      }
       const parent = dirname(head);
       if (parent === head) {
         return join(head, ...tail);
@@ -202,6 +221,7 @@ async function landing(path: string): Promise<string> {
       head = parent;
     }
   }
+  throw new RangeError(`${path}: too many levels of symbolic links`);
 }
 
 export async function load(path: string, options: ConnectOptions & ParseOptions = {}): Promise<Model> {
