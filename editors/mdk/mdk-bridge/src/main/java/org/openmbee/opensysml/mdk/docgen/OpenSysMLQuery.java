@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.mdk.docgen;
 
 import com.nomagic.magicdraw.core.Application;
+import com.nomagic.magicdraw.uml.BaseElement;
 import com.nomagic.uml2.ext.jmi.helpers.StereotypesHelper;
 import com.nomagic.uml2.ext.magicdraw.actions.mdbasicactions.CallBehaviorAction;
 import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
@@ -11,7 +12,8 @@ import org.openmbee.mdk.docgen.docbook.DocumentElement;
 import org.openmbee.mdk.model.Query;
 
 /**
- * A DocGen «JavaExtension» query that runs one OpenSysML operation on each target element. MDK
+ * A DocGen «JavaExtension» query that runs one OpenSysML operation on each target element, UML or
+ * SysML v2 — any {@code BaseElement}; the plugin decides which path can run it. MDK
  * instantiates the subclass named by the applied stereotype (its fully qualified class name),
  * sets the targets, then calls {@link #visit}; each target yields a summary, an outcome table and
  * any diagnostics, and a failure yields an error paragraph rather than aborting the document.
@@ -47,7 +49,7 @@ public abstract class OpenSysMLQuery extends Query {
     }
     String arguments = arguments();
     for (Object target : targets) {
-      if (!(target instanceof Element element)) {
+      if (!(target instanceof BaseElement element)) {
         elements.add(new DBParagraph(
             "OpenSysML " + operationLabel + ": skipped " + target + ", not a model element."));
         continue;

@@ -25,8 +25,8 @@ class DocGenExtensionsTest {
   @Test
   void reportListsCreatedExistingAndNotes() {
     DocGenExtensions.Report report = new DocGenExtensions.Report(
-        List.of("package OpenSysML MDK DocGen", "«a»"), List.of("«b»"), List.of("String type missing."));
-    assertEquals("Created: package OpenSysML MDK DocGen, «a»\nAlready present: «b»\nString type missing.",
+        List.of("profile OpenSysML MDK DocGen", "«a»"), List.of("«b»"), List.of("String type missing."));
+    assertEquals("Created: profile OpenSysML MDK DocGen, «a»\nAlready present: «b»\nString type missing.",
         report.describe());
     assertEquals("", new DocGenExtensions.Report(List.of(), List.of(), List.of()).describe());
   }

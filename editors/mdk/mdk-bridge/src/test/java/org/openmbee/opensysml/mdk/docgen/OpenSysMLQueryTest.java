@@ -29,6 +29,19 @@ class OpenSysMLQueryTest {
   }
 
   @Test
+  void sysmlV2TargetsReachThePluginToo() {
+    List<String> calls = new ArrayList<>();
+    OpenSysMLQuery query = query((element, operation, args) -> {
+      calls.add(element.getHumanName());
+      return Flat.verify(element.getHumanName(), "PASSED");
+    });
+    query.setTargets(new ArrayList<>(List.of(new FakeV2Element("Vehicle"), new FakeElement("A"))));
+    List<DocumentElement> elements = query.visit(false, null);
+    assertEquals(List.of("Part Def Vehicle", "Part A"), calls);
+    assertEquals("OpenSysML Verify of Part Def Vehicle: PASSED (42 ms)", ((DBParagraph) elements.get(0)).getText());
+  }
+
+  @Test
   void reportsMissingTargetsAndSkipsNonElements() {
     OpenSysMLQuery query = query((element, operation, args) -> Flat.verify("x", "PASSED"));
     assertEquals("OpenSysML Verify: no target elements.",

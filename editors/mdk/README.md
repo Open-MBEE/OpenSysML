@@ -65,14 +65,15 @@ bridge defines one `Query` per operation, in package `org.openmbee.opensysml.mdk
 To use one in a document:
 
 1. Make sure the project uses MDK's *SysML Extensions* profile, then right-click the model root
-   and choose *OpenSysML ▸ Add MDK DocGen extension stereotypes*. This creates, once, a package
-   `OpenSysML MDK DocGen` holding a stereotype per operation; each specialises MDK's
-   «JavaExtension» and is named after the class MDK must load
+   and choose *OpenSysML ▸ Add MDK DocGen extension stereotypes*. This creates, once, a profile
+   `OpenSysML MDK DocGen` applied to the model, holding a stereotype per operation; each
+   specialises MDK's «JavaExtension» and is named after the class MDK must load
    (e.g. `org.openmbee.opensysml.mdk.docgen.Verify`). `EvaluateCalc` carries an `arguments` tag,
    a comma-separated argument list.
 2. In a viewpoint method, apply the stereotype to an activity (or to a call behavior action
    whose behavior carries it) and feed it the elements to run on, exactly as for any other DocGen
-   query.
+   query. Targets may be UML elements (the SysML v1 path) or SysML v2 elements (the textual
+   path), as for the context-menu operations.
 
 For every target the generated section gets a one-line summary (operation, element, status,
 elapsed time, final time), a table of outcomes with their status, a table of diagnostics with
@@ -81,7 +82,7 @@ fails to run yields an error paragraph in its place; the rest of the document is
 
 The bridge jar lives in MDK's extension classloader and holds neither the Java client nor the
 service binary: it finds the OpenSysML plugin through Cameo's plugin registry and calls its one
-facade method, `OpenSysMLPlugin.docGen(Element, String, String)`, whose result is a map of JDK
+facade method, `OpenSysMLPlugin.docGen(BaseElement, String, String)`, whose result is a map of JDK
 types. Only Cameo and JDK types cross between the two plugins, so the plugin keeps its own
 classloader and the bridge is inert — never loaded — when MDK is not installed.
 

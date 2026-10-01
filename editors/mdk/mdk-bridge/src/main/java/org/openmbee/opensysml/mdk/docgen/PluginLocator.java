@@ -2,7 +2,7 @@ package org.openmbee.opensysml.mdk.docgen;
 
 import com.nomagic.magicdraw.plugins.Plugin;
 import com.nomagic.magicdraw.plugins.PluginUtils;
-import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
+import com.nomagic.magicdraw.uml.BaseElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -28,11 +28,11 @@ public final class PluginLocator implements BridgeRunner {
   }
 
   @Override
-  public Map<String, Object> run(Element element, String operation, String calcArguments) {
+  public Map<String, Object> run(BaseElement element, String operation, String calcArguments) {
     Plugin plugin = plugin();
     Method method;
     try {
-      method = plugin.getClass().getMethod(METHOD, Element.class, String.class, String.class);
+      method = plugin.getClass().getMethod(METHOD, BaseElement.class, String.class, String.class);
     } catch (NoSuchMethodException missing) {
       throw new IllegalStateException(
           "the installed OpenSysML MDK plugin has no " + METHOD + " entry point; update it to match this extension",

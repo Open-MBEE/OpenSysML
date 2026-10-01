@@ -1,7 +1,7 @@
 package org.openmbee.opensysml.mdk.bridge;
 
 import com.nomagic.magicdraw.core.Project;
-import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
+import com.nomagic.magicdraw.uml.BaseElement;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,12 +41,13 @@ public final class DocGenBridge {
   }
 
   /**
-   * Runs {@code operation} (an {@link Operation} name) on {@code element} and flattens the result.
+   * Runs {@code operation} (an {@link Operation} name) on {@code element} — a UML element on the v1
+   * path or a SysML v2 element on the textual path — and flattens the result.
    *
    * @throws IllegalArgumentException when the operation is unknown, the element is not a model
    *     element OpenSysML can run, or the calc arguments do not parse
    */
-  public Map<String, Object> run(Project project, Element element, String operation, String calcArguments) {
+  public Map<String, Object> run(Project project, BaseElement element, String operation, String calcArguments) {
     Operation parsed = operation(operation);
     List<Value> args = parsed == Operation.EVALUATE_CALC ? CalcArguments.parse(calcArguments) : List.of();
     Selection selection = resolver.resolve(project, element).orElseThrow(() -> new IllegalArgumentException(

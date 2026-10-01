@@ -894,20 +894,22 @@ mdk-bridge (MDK's extension classloader)        plugin (its own classloader)
   <Operation>Query.visit(…)
     PluginLocator: PluginUtils.getPlugins()
       → descriptor id org.openmbee.opensysml.mdk
-      → Method docGen(Element, String, String)  ──►  OpenSysMLPlugin.docGen
+      → Method docGen(BaseElement, String, String) ─►  OpenSysMLPlugin.docGen
                                                         DocGenBridge: SelectionResolver → Engine.run
                                                         RunResult → Map<String,Object> (JDK types only)
     BridgeResult.parse(map) ◄───────────────────────────┘
     DocBookRenderer → DBParagraph / DBTable
 ```
 
-Only Cameo OpenAPI types (`Element`) and JDK types (`String`, `Map`, `List`, `Long`) cross the
-boundary, both of which are loaded once, by Cameo's shared classloader, so no
-`ClassCastException` can arise. The facade is a single public method on the `Plugin` instance,
+Only Cameo OpenAPI types and JDK types (`String`, `Map`, `List`, `Long`) cross the boundary,
+both of which are loaded once, by Cameo's shared classloader, so no `ClassCastException` can
+arise. The target is typed `com.nomagic.magicdraw.uml.BaseElement`, the supertype of both the
+UML `Element` and the KerML API `Element`, so a SysML v2 target takes the textual path through
+the same `SelectionResolver` as the context menu (§7) and the bridge never loads a KerML class. The facade is a single public method on the `Plugin` instance,
 found reflectively, so the bridge needs no compile-time dependency on the plugin and an older
 plugin without the method fails with a readable message rather than a `NoSuchMethodError`.
 
-Failure handling is per target: a target that is not an `Element`, an operation the plugin
+Failure handling is per target: a target that is not a `BaseElement`, an operation the plugin
 does not know, a service failure or a failed export each become one error paragraph; the rest
 of the document still generates. A result whose temporary export could not be removed carries
 an `export-cleanup` warning diagnostic, as the context-menu path does.
@@ -916,9 +918,10 @@ an `export-cleanup` warning diagnostic, as the context-menu path does.
 
 MDK resolves the extension class from the applied stereotype's *name*, so the model needs one
 stereotype per operation, each specialising `«JavaExtension»`. Shipping them as a profile
-would pin a profile `.mdzip` into the distribution; instead the plugin creates them in the
-project on demand (*OpenSysML ▸ Add MDK DocGen extension stereotypes* on the model root):
-a package `OpenSysML MDK DocGen` under the primary model with stereotypes
+as a module would pin a profile `.mdzip` into the distribution; instead the plugin creates them
+in the project on demand (*OpenSysML ▸ Add MDK DocGen extension stereotypes* on the model root):
+a `Profile` named `OpenSysML MDK DocGen` under the primary model, applied to it with
+`StereotypesHelper.applyProfile` so its stereotypes are applicable, with stereotypes
 `org.openmbee.opensysml.mdk.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis}`,
 each extending `Activity` and `CallBehaviorAction` with a generalization to `«JavaExtension»`;
 `EvaluateCalc` adds a `String` tag `arguments`. The action is idempotent and runs inside one

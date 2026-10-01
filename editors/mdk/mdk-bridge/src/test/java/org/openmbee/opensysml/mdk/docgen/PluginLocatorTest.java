@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nomagic.magicdraw.plugins.Plugin;
 import com.nomagic.magicdraw.plugins.PluginDescriptor;
-import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
+import com.nomagic.magicdraw.uml.BaseElement;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -80,7 +80,7 @@ class PluginLocatorTest {
   public static final class OpenSysML extends Described {
     OpenSysML() { super(PluginLocator.PLUGIN_ID); }
 
-    public Map<String, Object> docGen(Element element, String operation, String calcArguments) {
+    public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments) {
       return Flat.verify(element.getHumanName(), "PASSED");
     }
   }
@@ -88,7 +88,7 @@ class PluginLocatorTest {
   public static final class Failing extends Described {
     Failing() { super(PluginLocator.PLUGIN_ID); }
 
-    public Map<String, Object> docGen(Element element, String operation, String calcArguments) {
+    public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments) {
       throw new IllegalArgumentException("unknown OpenSysML operation: " + operation);
     }
   }

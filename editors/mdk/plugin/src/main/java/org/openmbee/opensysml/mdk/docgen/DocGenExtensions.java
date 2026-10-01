@@ -24,12 +24,13 @@ import org.openmbee.opensysml.mdk.engine.Operation;
 /**
  * Adds to a project the stereotypes MDK's DocGen needs before it will call the OpenSysML
  * extension: one per operation, each specialising MDK's abstract «JavaExtension» and named after
- * the extension class it loads. Running it again is a no-op for stereotypes that already exist.
+ * the extension class it loads. They live in a profile of their own, applied to the primary model
+ * so they are applicable; running it again is a no-op for what already exists.
  */
 public final class DocGenExtensions {
   public static final String MDK_PROFILE = "SysML Extensions";
   public static final String BASE_STEREOTYPE = "JavaExtension";
-  public static final String PACKAGE_NAME = "OpenSysML MDK DocGen";
+  public static final String PROFILE_NAME = "OpenSysML MDK DocGen";
   public static final String ARGUMENTS_TAG = "arguments";
   static final String EXTENSION_PACKAGE = "org.openmbee.opensysml.mdk.docgen";
   static final String STRING_TYPE = "UML Standard Profile::UML2 Metamodel::PrimitiveTypes::String";
@@ -101,13 +102,13 @@ public final class DocGenExtensions {
     ElementsFactory factory = project.getElementsFactory();
     ModelElementsManager elements = ModelElementsManager.getInstance();
     Package root = project.getPrimaryModel();
-    Package container = child(root, PACKAGE_NAME).filter(Package.class::isInstance).map(Package.class::cast)
+    Profile container = child(root, PROFILE_NAME).filter(Profile.class::isInstance).map(Profile.class::cast)
         .orElse(null);
     if (container == null) {
-      container = factory.createPackageInstance();
-      container.setName(PACKAGE_NAME);
+      container = factory.createProfileInstance();
+      container.setName(PROFILE_NAME);
       elements.addElement(container, root);
-      created.add("package " + PACKAGE_NAME);
+      created.add("profile " + PROFILE_NAME);
     }
     List<com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Class> metaclasses = new ArrayList<>();
     for (String name : METACLASSES) {
@@ -138,6 +139,10 @@ public final class DocGenExtensions {
         elements.addElement(arguments, stereotype);
       }
       created.add("«" + name + "»");
+    }
+    if (!StereotypesHelper.getAppliedProfiles(root).contains(container)) {
+      StereotypesHelper.applyProfile(root, container);
+      created.add("application of " + PROFILE_NAME + " to " + root.getName());
     }
     return new Report(created, existing, notes);
   }

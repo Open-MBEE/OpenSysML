@@ -3,7 +3,7 @@ package org.openmbee.opensysml.mdk;
 import com.nomagic.magicdraw.actions.ActionsConfiguratorsManager;
 import com.nomagic.magicdraw.core.Project;
 import com.nomagic.magicdraw.plugins.Plugin;
-import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
+import com.nomagic.magicdraw.uml.BaseElement;
 import java.nio.file.Path;
 import java.util.Map;
 import org.openmbee.opensysml.Connection;
@@ -46,7 +46,7 @@ public final class OpenSysMLPlugin extends Plugin {
   }
 
   /** Runs one operation for MDK DocGen; see {@link DocGenBridge#run}. */
-  public Map<String, Object> docGen(Element element, String operation, String calcArguments) {
+  public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments) {
     return new DocGenBridge(this::engine).run(Project.getProject(element), element, operation, calcArguments);
   }
 
