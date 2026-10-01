@@ -1744,14 +1744,14 @@ func (m *migration) instanceOf(classifiers []*sysmlv1.Element, t *sysmlv1.Elemen
 }
 
 // slotConflict notes how slot values contradict their feature: a count outside
-// its multiplicity or a repeat on a unique feature. Both v1 and v2 reject them.
+// its multiplicity or a repeat on a feature written unique. v2 rejects both.
 func (m *migration) slotConflict(f *sysmlv1.Element, vals []string) string {
 	n := len(vals)
 	lower, upper, ok := bounds(f)
 	if ok && (n < lower || (upper >= 0 && n > upper)) {
 		return fmt.Sprintf("the slot holds %d value(s) for a feature of multiplicity %s", n, boundsText(lower, upper))
 	}
-	if dup := repeated(vals); dup != "" && f.Attrs["isUnique"] != "false" {
+	if dup := repeated(vals); dup != "" && m.featureWrittenUnique(f, map[*sysmlv1.Element]bool{}) {
 		return "the slot repeats the value " + dup + " on a unique feature"
 	}
 	return ""
