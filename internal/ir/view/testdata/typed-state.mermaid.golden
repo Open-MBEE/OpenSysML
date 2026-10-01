@@ -1,5 +1,6 @@
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"

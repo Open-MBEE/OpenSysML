@@ -297,7 +297,8 @@ func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 	for _, tc := range cases {
 		rendering := &Rendering{View: "V", Kind: tc.kind, Roots: tc.roots}
 		mermaid := rendering.Mermaid()
-		if !strings.HasPrefix(mermaid, "---\nconfig:\n  theme: base\n") || !strings.Contains(mermaid, "%% V — ") {
+		if !strings.HasPrefix(mermaid, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
+			!strings.Contains(mermaid, "%% V — ") {
 			t.Errorf("%s: Mermaid lacks its frontmatter or header:\n%s", tc.name, mermaid)
 		}
 		if tc.margin > 0 && !strings.Contains(mermaid, fmt.Sprintf("subGraphTitleMargin:\n      bottom: %d\n", tc.margin)) {

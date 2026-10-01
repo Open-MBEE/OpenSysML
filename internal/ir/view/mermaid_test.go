@@ -114,20 +114,28 @@ func TestMermaidFrontmatterAndPaletteClasses(t *testing.T) {
 		{KindSequence, []string{"actorBkg", "signalColor", "activationBkgColor"}, []string{"clusterBkg", "stateBkg", "transitionColor", "themeCSS:"}},
 	} {
 		kind := tc.kind
-		source := (&Rendering{Kind: kind, Roots: []*Node{{ID: "n", Kind: "state", Name: "n"}}}).Mermaid()
-		if !strings.HasPrefix(source, "---\nconfig:\n  theme: base\n") ||
-			!strings.Contains(source, `fontFamily: "Helvetica, Arial, sans-serif"`) ||
-			!strings.Contains(source, `fontSize: "14px"`) {
-			t.Errorf("%s frontmatter:\n%s", kind, source)
-		}
-		for _, key := range tc.has {
-			if !strings.Contains(source, key) {
-				t.Errorf("%s frontmatter missing %q:\n%s", kind, key, source)
+		rendering := &Rendering{Kind: kind, Roots: []*Node{{ID: "n", Kind: "state", Name: "n"}}}
+		for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+			font, size := "Helvetica, Arial, sans-serif", "14px"
+			if style == StyleCameo {
+				font, size = "Arial, Helvetica, sans-serif", "11px"
 			}
-		}
-		for _, key := range tc.absent {
-			if strings.Contains(source, key) {
-				t.Errorf("%s frontmatter has unrelated %q:\n%s", kind, key, source)
+			source := rendering.MermaidWith(Options{Style: style})
+			configFont := fmt.Sprintf("---\nconfig:\n  fontFamily: %q\n  theme: base\n", font)
+			if !strings.HasPrefix(source, configFont) ||
+				strings.Count(source, fmt.Sprintf(`fontFamily: %q`, font)) != 2 ||
+				!strings.Contains(source, fmt.Sprintf(`fontSize: %q`, size)) {
+				t.Errorf("%s %s frontmatter font:\n%s", kind, style, source)
+			}
+			for _, key := range tc.has {
+				if !strings.Contains(source, key) {
+					t.Errorf("%s %s frontmatter missing %q:\n%s", kind, style, key, source)
+				}
+			}
+			for _, key := range tc.absent {
+				if strings.Contains(source, key) {
+					t.Errorf("%s %s frontmatter has unrelated %q:\n%s", kind, style, key, source)
+				}
 			}
 		}
 	}

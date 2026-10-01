@@ -389,7 +389,7 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 		primary = strings.SplitN(cameoBlockFill, ":", 2)[0]
 		primaryBorder, text, line, clusterBorder, noteFill, noteBorder = cameoBlockLine, cameoTextColor, cameoEdgeColor, cameoFrameColor, cameoNoteFill, cameoLineColor
 	}
-	b.WriteString("---\nconfig:\n  theme: base\n")
+	fmt.Fprintf(b, "---\nconfig:\n  fontFamily: \"%s\"\n  theme: base\n", font)
 	if r.Kind != KindState && r.Kind != KindSequence {
 		b.WriteString("  themeCSS: \".edgeLabel rect { opacity: 1 !important; }\"\n")
 	}
