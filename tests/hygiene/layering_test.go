@@ -49,6 +49,7 @@ var packageLayer = map[string]string{
 
 	"internal/syntax/lexer":  "syntax",
 	"internal/syntax/parser": "syntax",
+	"internal/syntax/semtok": "syntax",
 	"internal/syntax/format": "syntax",
 
 	"internal/semantic/symbols":   "semantic",
@@ -120,12 +121,15 @@ var packageLayer = map[string]string{
 	"internal/frontend/lsp":       "frontend",
 	"internal/frontend/grpc":      "frontend",
 	"internal/frontend/engine":    "frontend",
+	"internal/frontend/jsonrpc":   "frontend",
+	"internal/frontend/syntax":    "frontend",
 	"internal/frontend/stdiorpc":  "frontend",
 	"internal/frontend/usage":     "frontend",
 	"cmd/sysml":                   "frontend",
 	"cmd/sysml-grpc":              "frontend",
 	"cmd/sysml-lsp":               "frontend",
 	"cmd/sysml-engine":            "frontend",
+	"cmd/sysml-syntax":            "frontend",
 }
 
 // tolerated is the imports the layer table does not permit and that still

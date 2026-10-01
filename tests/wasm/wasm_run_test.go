@@ -764,6 +764,9 @@ func TestWasmRuns(t *testing.T) {
 			// on both targets, and on js the globalThis host surface plus the size
 			// budget that surface exists to keep.
 			engineSubtests(t, target, r, bins)
+
+			// sysml-syntax's half: the same session shape over the syntactic RPCs.
+			syntaxSubtests(t, target, r, bins)
 		})
 	}
 }

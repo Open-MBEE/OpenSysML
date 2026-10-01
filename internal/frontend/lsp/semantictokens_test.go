@@ -8,7 +8,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/highlight"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -260,7 +260,7 @@ func TestSemanticTokensFullUnknownDocument(t *testing.T) {
 // order their indices mean, or an editor colors the wrong tokens.
 func TestSemanticTokensLegendCoversTheClassifier(t *testing.T) {
 	legend := semanticTokensLegend()
-	classes := highlight.Classes()
+	classes := semtok.Classes()
 	if len(legend.TokenTypes) != len(classes) {
 		t.Fatalf("legend types = %d, want %d", len(legend.TokenTypes), len(classes))
 	}
@@ -269,7 +269,7 @@ func TestSemanticTokensLegendCoversTheClassifier(t *testing.T) {
 			t.Errorf("legend type %d = %q, want %q", i, got, class)
 		}
 	}
-	mods := highlight.Modifiers()
+	mods := semtok.Modifiers()
 	if len(legend.TokenModifiers) != len(mods) {
 		t.Fatalf("legend modifiers = %d, want %d", len(legend.TokenModifiers), len(mods))
 	}
@@ -279,19 +279,6 @@ func TestSemanticTokensLegendCoversTheClassifier(t *testing.T) {
 		}
 		if mod != 1<<uint(i) {
 			t.Errorf("modifier %q has bit %d, want %d", mod, mod, 1<<uint(i))
-		}
-	}
-}
-
-// The cursor answers what a scan from the start of the document answers, for
-// offsets in order and out of it, so encoding stays linear without changing.
-func TestLineCursorMatchesAScanFromTheStart(t *testing.T) {
-	content := []byte("package P {\n    // 🚗 é note\n    part def Wheel;\n\n    part w : Wheel;\n}\n")
-	offsets := []int{0, 7, 12, 16, 30, 40, 55, len(content), 3, 0, len(content) - 1}
-	cursor := &lineCursor{content: content}
-	for _, off := range offsets {
-		if got, want := cursor.positionAt(off), offsetToPosition(content, off); got != want {
-			t.Errorf("positionAt(%d) = %v, want %v", off, got, want)
 		}
 	}
 }

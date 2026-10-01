@@ -10,13 +10,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
+
 	"os"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
+	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -31,32 +33,26 @@ import (
 // The canonical gRPC status codes an answer is reported under, numbered as
 // every transport of the service numbers them.
 const (
-	codeCanceled           = 1
-	codeUnknown            = 2
-	codeInvalidArgument    = 3
-	codeDeadlineExceeded   = 4
-	codeNotFound           = 5
-	codeResourceExhausted  = 8
-	codeFailedPrecondition = 9
-	codeUnimplemented      = 12
-	codeInternal           = 13
+	codeCanceled           = jsonrpc.CodeCanceled
+	codeUnknown            = jsonrpc.CodeUnknown
+	codeInvalidArgument    = jsonrpc.CodeInvalidArgument
+	codeDeadlineExceeded   = jsonrpc.CodeDeadlineExceeded
+	codeNotFound           = jsonrpc.CodeNotFound
+	codeResourceExhausted  = jsonrpc.CodeResourceExhausted
+	codeFailedPrecondition = jsonrpc.CodeFailedPrecondition
+	codeUnimplemented      = jsonrpc.CodeUnimplemented
+	codeInternal           = jsonrpc.CodeInternal
 )
 
 // Error is a refused call: the canonical status code and its message.
-type Error struct {
-	Code    uint32
-	Message string
-}
-
-// Error returns the status message.
-func (e *Error) Error() string { return e.Message }
+type Error = jsonrpc.Error
 
 func statusError(code uint32, message string) *Error {
 	return &Error{Code: code, Message: message}
 }
 
 func statusErrorf(code uint32, format string, args ...any) *Error {
-	return &Error{Code: code, Message: fmt.Sprintf(format, args...)}
+	return jsonrpc.Errorf(code, format, args...)
 }
 
 // contextError reports a caller-gone context under the codes connect.CodeOf
@@ -276,13 +272,7 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 // decode reads the request body as protojson does over the lowerCamel field
 // names: unknown fields are ignored, absent params are the empty request.
 func decode(params []byte, into any) *Error {
-	if len(params) == 0 {
-		return nil
-	}
-	if err := json.Unmarshal(params, into); err != nil {
-		return statusError(codeInvalidArgument, err.Error())
-	}
-	return nil
+	return jsonrpc.Decode(params, into)
 }
 
 // marshal writes the response; the engine's messages marshal only valid protojson.
@@ -479,7 +469,7 @@ func (e *Engine) evaluate(ctx context.Context, req *JEvaluateRequest) ([]byte, e
 	if len(p.Diagnostics) > 0 {
 		var diags []*JDiagnostic
 		for _, d := range p.Diagnostics {
-			diags = append(diags, parserDiagnosticToProto(d, exprSource))
+			diags = append(diags, fsyntax.ParserDiagnostic(d, exprSource))
 		}
 		return marshal(&JEvaluateResponse{
 			Diagnostics: diags,
@@ -820,66 +810,13 @@ func modelDiagnostics(model *cachedModel) []*JDiagnostic {
 	var diags []*JDiagnostic
 	for _, doc := range model.Documents {
 		for _, d := range doc.Errors {
-			diags = append(diags, parserDiagnosticToProto(d, doc.Source))
+			diags = append(diags, fsyntax.ParserDiagnostic(d, doc.Source))
 		}
 		for _, d := range parser.AsDiagnostics(nil, doc.Warnings) {
-			diags = append(diags, diagnosticToProto(d, doc.Source))
+			diags = append(diags, fsyntax.FromDiag(d, doc.Source))
 		}
 	}
 	return diags
-}
-
-// int32Clamp narrows a line or column number to the proto's int32, saturating
-// rather than wrapping: a position past 2^31 would otherwise be reported as a
-// negative one.
-func int32Clamp(n int) int32 {
-	if n > math.MaxInt32 {
-		return math.MaxInt32
-	}
-	if n < math.MinInt32 {
-		return math.MinInt32
-	}
-	return int32(n)
-}
-
-// diagnosticToProto converts a diag.Diagnostic to the Diagnostic message.
-func diagnosticToProto(d diag.Diagnostic, sf *source.SourceFile) *JDiagnostic {
-	li := sf.Lines()
-	start := li.PosAt(d.Span.Offset)
-	end := li.PosAt(d.Span.End())
-
-	return &JDiagnostic{
-		Severity: d.Severity.String(),
-		Message:  d.Message,
-		Code:     d.Code,
-		Span: &JSpan{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
-	}
-}
-
-// parserDiagnosticToProto converts a parser error to the Diagnostic message.
-func parserDiagnosticToProto(d parser.Diagnostic, sf *source.SourceFile) *JDiagnostic {
-	li := sf.Lines()
-	start := li.PosAt(d.Span.Offset)
-	end := li.PosAt(d.Span.End())
-
-	return &JDiagnostic{
-		Severity: "error", // Parser diagnostics are always errors
-		Message:  d.Message,
-		Code:     d.ErrorCode(),
-		Span: &JSpan{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
-	}
 }
 
 // runNoteDiagnosticsToProto converts what a run noted about itself — its choice
@@ -894,7 +831,7 @@ func runNoteDiagnosticsToProto(notes []runtime.RunNote, model *cachedModel) []*J
 		d := n.Diagnostic()
 		file, _ := n.Location()
 		if sf := model.document(file); sf != nil {
-			diags = append(diags, diagnosticToProto(d, sf))
+			diags = append(diags, fsyntax.FromDiag(d, sf))
 			continue
 		}
 		diags = append(diags, &JDiagnostic{Severity: d.Severity.String(), Message: d.Message, Code: d.Code})
