@@ -197,7 +197,7 @@ func (e *executor) instantArgument(expression queryplan.Expression, name string)
 	var instant float64
 	switch {
 	case bound.kind == ValueInteger:
-		instant = float64(bound.integer)
+		instant = bound.integer.AsReal()
 	case bound.kind == ValueReal:
 		instant = bound.real
 	case bound.kind == ValueQuantity:

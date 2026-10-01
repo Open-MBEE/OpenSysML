@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -11,9 +12,10 @@ import (
 )
 
 // TestRuntimeRobustnessCeiling covers OpenSysMLMathFunctions::ceiling: a result
-// outside the Integer range, a non-numeric operand, and the least Integer as a value.
+// beyond int64, an infinity, a non-numeric operand, and the least int64 as a value.
 func TestRuntimeRobustnessCeiling(t *testing.T) {
-	t.Run("ceiling_beyond_the_integer_range", testCeilingBeyondTheIntegerRange)
+	t.Run("ceiling_beyond_int64", testCeilingBeyondInt64)
+	t.Run("ceiling_of_an_infinity", testCeilingOfAnInfinity)
 	t.Run("ceiling_of_the_least_integer", testCeilingOfTheLeastInteger)
 	t.Run("ceiling_of_a_boolean", testCeilingOfABoolean)
 }
@@ -41,12 +43,32 @@ func ceilingCalc(t *testing.T, xType string) func(x semantics.Value) (Value, err
 	}
 }
 
-// A ceiling at or beyond 2^63, or below -2^63, is an overflow, never a wrap.
-func testCeilingBeyondTheIntegerRange(t *testing.T) {
+// A ceiling at or beyond 2^63, or below -2^63, is the Integer it is, in full:
+// Integers are unbounded, so it is never a wrap and never an overflow.
+func testCeilingBeyondInt64(t *testing.T) {
 	whole := ceilingCalc(t, "Real")
-	for _, x := range []float64{-float64(math.MinInt64), 1e20, -1e20, math.Inf(1)} {
+	for _, tc := range []struct {
+		x    float64
+		want string
+	}{
+		{-float64(math.MinInt64), "9223372036854775808"},
+		{1e20, "100000000000000000000"},
+		{-1e20, "-100000000000000000000"},
+		{math.Ldexp(1, 200), new(big.Int).Lsh(big.NewInt(1), 200).String()},
+	} {
+		got, err := whole(semantics.Value{Kind: semantics.ValReal, Real: tc.x})
+		if err != nil || got.Const.Kind != semantics.ValInt || got.Const.FormatInt() != tc.want {
+			t.Fatalf("ceiling(%v) = %+v, %v; want %s", tc.x, got, err, tc.want)
+		}
+	}
+}
+
+// An infinity is no Integer: its ceiling is a typed overflow, not a value.
+func testCeilingOfAnInfinity(t *testing.T) {
+	whole := ceilingCalc(t, "Real")
+	for _, x := range []float64{math.Inf(1), math.Inf(-1)} {
 		got, err := whole(semantics.Value{Kind: semantics.ValReal, Real: x})
-		if !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "exceeds the Integer range") {
+		if !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "is no Integer") {
 			t.Fatalf("ceiling(%v) = %+v, %v; want an overflow error", x, got, err)
 		}
 	}

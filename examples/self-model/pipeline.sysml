@@ -445,7 +445,7 @@ package OpenSysMLPipeline {
     #Backend part def Runtime :> Stage {
         attribute :>> goPackage = "internal/exec/runtime";
         attribute stepBudgeted : Boolean = true;
-        attribute budgetCount : Integer = 7;
+        attribute budgetCount : Integer = 8;
         attribute splitsModelFromRun : Boolean = true;
 
         // The instance layer and scheduler are modelled in execution.sysml.
@@ -498,6 +498,12 @@ package OpenSysMLPipeline {
             attribute :>> envVar = "OPENSYSML_MAX_SWEEP_RUNS";
             attribute :>> defaultBound = 1000;
             attribute :>> exhaustion = "sweep run budget exceeded";
+        }
+        part integerBits : Budget {
+            attribute :>> counts = "bits of the magnitude of one Integer result";
+            attribute :>> envVar = "OPENSYSML_MAX_INTEGER_BITS";
+            attribute :>> defaultBound = 1048576;
+            attribute :>> exhaustion = "integer size limit exceeded";
         }
 
         in item actionGraph : ActionGraph;

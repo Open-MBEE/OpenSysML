@@ -482,5 +482,37 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder();
 
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  boolean hasBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  java.lang.String getBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  com.google.protobuf.ByteString
+      getBigIntValueBytes();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

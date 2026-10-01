@@ -56,7 +56,7 @@ package OpenSysMLInvariants {
              * that exhausts one reports which rather than hanging. */
         subject runtime : Runtime;
         require constraint {
-            runtime.stepBudgeted and runtime.budgetCount == 7
+            runtime.stepBudgeted and runtime.budgetCount == 8
                 and runtime.evaluationSteps.defaultBound > 0
                 and runtime.actionSteps.defaultBound > 0
                 and runtime.stateEvents.defaultBound > 0
@@ -64,6 +64,7 @@ package OpenSysMLInvariants {
                 and runtime.elements.defaultBound > 0
                 and runtime.calcDepth.defaultBound > 0
                 and runtime.sweepRuns.defaultBound > 0
+                and runtime.integerBits.defaultBound > 0
         }
     }
 

@@ -93,12 +93,13 @@ A `Model` exposes `hash`, `connection`, `diagnostics`, `documents`,
 
 ## Values
 
-`opensysml.decodeValue` reads all nineteen `Value` arms;
+`opensysml.decodeValue` reads all twenty-two `Value` arms;
 `opensysml.encodeValue` writes request values.
 
 | Wire arm | MATLAB/Octave value |
 | --- | --- |
 | `intValue` | Exact `int64`; JSON decimal digits are never routed through a double. |
+| `bigIntValue` | `struct('bigInteger', char)`: an Integer beyond `int64`, kept as its decimal digits since no MATLAB number holds it, and sent back as written. A quantity's `bigIntMagnitude` and a vector component decode the same way. |
 | `realValue` | `double`, including `"NaN"`, `"Infinity"`, and `"-Infinity"`. |
 | `boolValue` / `stringValue` | `logical` / `char`. |
 | `instanceId` | `struct('instanceRef', int64)`. |

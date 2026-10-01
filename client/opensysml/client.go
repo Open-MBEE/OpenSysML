@@ -3,7 +3,6 @@ package opensysml
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"sync"
 
@@ -591,22 +590,13 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	if slices.ContainsFunc(values, carriesMetaobject) {
 		needed = append(needed, CapabilityMetaobjectValues)
 	}
+	if slices.ContainsFunc(values, carriesBigInt) {
+		needed = append(needed, CapabilityBigIntValues)
+	}
 	if len(needed) == 0 {
 		return nil
 	}
-	info, err := c.serverInfo(ctx)
-	if err != nil {
-		return err
-	}
-	for _, capability := range needed {
-		if !info.Has(capability) {
-			return &StatusError{
-				Code:    CodeUnimplemented,
-				Message: fmt.Sprintf("capability %q is unavailable", capability),
-			}
-		}
-	}
-	return nil
+	return c.requireCapabilities(ctx, needed...)
 }
 
 // serverInfo is ServerInfo asked at most once per client. A service that
@@ -694,6 +684,33 @@ func carriesMetaobject(value Value) bool {
 	}
 	return slices.ContainsFunc(nestedValues(value), carriesMetaobject)
 }
+
+// carriesBigInt reports whether a value, or any value nested in it, holds an
+// integer beyond int64, as itself or as a quantity's magnitude.
+func carriesBigInt(value Value) bool {
+	switch v := value.(type) {
+	case BigInt:
+		return true
+	case Quantity:
+		return isBigInt(v.Magnitude)
+	case Vector:
+		return slices.ContainsFunc(v, isBigInt)
+	case VectorQuantity:
+		return slices.ContainsFunc(v, quantityIsBigInt)
+	case TensorQuantity:
+		return slices.ContainsFunc(v.Components, quantityIsBigInt)
+	case EnumLiteral:
+		return v.Value != nil && carriesBigInt(v.Value)
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesBigInt)
+}
+
+func isBigInt(n Number) bool {
+	_, ok := n.(BigInt)
+	return ok
+}
+
+func quantityIsBigInt(q Quantity) bool { return isBigInt(q.Magnitude) }
 
 // nestedValues are the values a value holds: a sequence's or a set's elements,
 // an array's.

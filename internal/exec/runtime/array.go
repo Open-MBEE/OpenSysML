@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math"
+	"math/big"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -51,6 +52,17 @@ func flattenedSize(dimensions []int64) (int64, bool) {
 	return size, true
 }
 
+// unaddressableSize is the typed refusal of dimensions whose flattenedSize, an
+// Integer of any magnitude, is beyond the number of elements anything can hold.
+func unaddressableSize(op string, dimensions []int64) error {
+	size := big.NewInt(1)
+	for _, d := range dimensions {
+		size.Mul(size, big.NewInt(d))
+	}
+	return fmt.Errorf("%w: %s: flattenedSize of dimensions %s is %s",
+		ErrIntegerUnaddressable, op, FormatValue(intSequence(dimensions)), size)
+}
+
 // at is the element at one one-based index per dimension, row-major (the last
 // index varies fastest) as CollectionFunctions::'array#' computes it.
 func (a *Array) at(op string, indexes []int64) (Value, error) {
@@ -70,10 +82,7 @@ func (a *Array) at(op string, indexes []int64) (Value, error) {
 		}
 		next, ok := rowMajorOffset(offset, a.Dimensions[i], index-1)
 		if !ok {
-			return Value{}, fmt.Errorf(
-				"%w: %s: the row-major offset of %s in dimensions %s exceeds the Integer range",
-				semantics.ErrArithmeticOverflow, op, FormatValue(intSequence(indexes)), FormatValue(intSequence(a.Dimensions)),
-			)
+			return Value{}, unaddressableSize(op, a.Dimensions)
 		}
 		offset = next
 	}
@@ -643,6 +652,8 @@ func keyBytes(k valueKey) []byte {
 	buf = binary.LittleEndian.AppendUint64(buf, math.Float64bits(k.imagVal))
 	buf = binary.LittleEndian.AppendUint64(buf, flag(k.boolVal)<<1|flag(k.infVal))
 	buf = binary.LittleEndian.AppendUint64(buf, k.colHash)
+	buf = binary.LittleEndian.AppendUint64(buf, uint64(len(k.bigVal)))
+	buf = append(buf, k.bigVal...)
 	return append(buf, k.strVal...)
 }
 
@@ -732,10 +743,7 @@ func arrayOf(op string, dimensions []int64, elements []Value) (Value, error) {
 	}
 	want, ok := flattenedSize(dimensions)
 	if !ok {
-		return Value{}, fmt.Errorf(
-			"%w: %s: flattenedSize of dimensions %s exceeds the Integer range",
-			semantics.ErrArithmeticOverflow, op, FormatValue(intSequence(dimensions)),
-		)
+		return Value{}, unaddressableSize(op, dimensions)
 	}
 	if want != int64(len(elements)) {
 		return Value{}, fmt.Errorf(

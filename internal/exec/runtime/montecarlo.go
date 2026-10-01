@@ -73,7 +73,7 @@ func (ctx *Context) runBindings(plan SweepPlan, limit int64) ([][]SweepBinding, 
 func RunNumber(bindings []SweepBinding) (int64, bool) {
 	for _, b := range bindings {
 		if b.Param == RunParam && b.Value.Kind == ValConst && b.Value.Const.Kind == semantics.ValInt {
-			return b.Value.Const.Int, true
+			return b.Value.Const.Int64()
 		}
 	}
 	return 0, false
@@ -107,42 +107,40 @@ type HistogramBin struct {
 const HistogramBins = 8
 
 // Distribute summarises numbers in any order, nil for none: all Integers make an
-// integral distribution computed on int64, a Real among them one over Reals.
+// integral distribution computed exactly, a Real among them one over Reals.
 func Distribute(numbers []semantics.Value) *Distribution {
 	if len(numbers) == 0 {
 		return nil
 	}
-	ints := make([]int64, 0, len(numbers))
 	for _, v := range numbers {
 		if v.Kind != semantics.ValInt {
 			return distributeReals(numbers)
 		}
-		ints = append(ints, v.Int)
 	}
-	return distributeInts(ints)
+	return distributeInts(numbers)
 }
 
 // distributeInts summarises Integers on the Integers themselves; only the mean
 // rounds, once, after an exact sum.
-func distributeInts(values []int64) *Distribution {
+func distributeInts(values []semantics.Value) *Distribution {
 	sorted := slices.Clone(values)
-	slices.Sort(sorted)
+	slices.SortFunc(sorted, semantics.CompareInt)
 	n := len(sorted)
 	sum := new(big.Int)
 	for _, v := range sorted {
-		sum.Add(sum, big.NewInt(v))
+		sum.Add(sum, v.BigInt())
 	}
 	exactMean := new(big.Rat).SetFrac(sum, big.NewInt(int64(n)))
 	mean, _ := exactMean.Float64()
 	return &Distribution{
 		Count:     n,
 		Integral:  true,
-		Min:       drawnInt(sorted[0]),
+		Min:       sorted[0],
 		Mean:      mean,
 		Deviation: intDeviationOf(sorted, exactMean),
-		Max:       drawnInt(sorted[n-1]),
-		P50:       drawnInt(nearestRank(sorted, 0.5)),
-		P90:       drawnInt(nearestRank(sorted, 0.9)),
+		Max:       sorted[n-1],
+		P50:       nearestRank(sorted, 0.5),
+		P90:       nearestRank(sorted, 0.9),
 		Histogram: integralHistogram(sorted),
 	}
 }
@@ -263,13 +261,13 @@ func PooledDeviation(mean float64, spreads []Spread, dof int) float64 {
 
 // intDeviationOf is the sample standard deviation of Integers about their exact mean,
 // the squared deviations summed exactly so only the root rounds; 0 under two values.
-func intDeviationOf(values []int64, mean *big.Rat) float64 {
+func intDeviationOf(values []semantics.Value, mean *big.Rat) float64 {
 	if len(values) < 2 {
 		return 0
 	}
 	sum := new(big.Rat)
 	for _, v := range values {
-		d := new(big.Rat).Sub(new(big.Rat).SetInt64(v), mean)
+		d := new(big.Rat).Sub(new(big.Rat).SetInt(v.BigInt()), mean)
 		sum.Add(sum, d.Mul(d, d))
 	}
 	variance, _ := sum.Quo(sum, big.NewRat(int64(len(values)-1), 1)).Float64()
@@ -328,39 +326,31 @@ func distinctHistogram(sorted []float64) []HistogramBin {
 
 // integralHistogram bins sorted Integers by whole widths, both bounds included;
 // offsets from the minimum are unsigned so the whole int64 range stays exact.
-func integralHistogram(sorted []int64) []HistogramBin {
-	lo, hi := sorted[0], sorted[len(sorted)-1]
-	span := unsignedInt(hi) - unsignedInt(lo)
-	if span == math.MaxUint64 {
-		return []HistogramBin{{Lo: drawnInt(lo), Hi: drawnInt(hi), Count: len(sorted)}}
-	}
-	width := ceilDiv(span+1, HistogramBins)
+func integralHistogram(sorted []semantics.Value) []HistogramBin {
+	lo := sorted[0].BigInt()
+	span := new(big.Int).Sub(sorted[len(sorted)-1].BigInt(), lo)
+	// width is ⌈(span+1) / HistogramBins⌉.
+	width := new(big.Int).Add(span, big.NewInt(HistogramBins))
+	width.Quo(width, big.NewInt(HistogramBins))
 	var bins []HistogramBin
-	for from := uint64(0); from <= span; from += width {
-		to := span
-		if span-from >= width {
-			to = from + width - 1
+	for from := new(big.Int); from.Cmp(span) <= 0; from = new(big.Int).Add(from, width) {
+		to := new(big.Int).Add(from, width)
+		to.Sub(to, big.NewInt(1))
+		if to.Cmp(span) > 0 {
+			to.Set(span)
 		}
 		bins = append(bins, HistogramBin{
-			Lo: drawnInt(signedInt(unsignedInt(lo) + from)),
-			Hi: drawnInt(signedInt(unsignedInt(lo) + to)),
+			Lo: semantics.BigIntValue(new(big.Int).Add(lo, from)),
+			Hi: semantics.BigIntValue(new(big.Int).Add(lo, to)),
 		})
-		if to == span {
-			break
-		}
 	}
 	for _, v := range sorted {
-		bin := min((unsignedInt(v)-unsignedInt(lo))/width, HistogramBins-1)
+		offset := new(big.Int).Sub(v.BigInt(), lo)
+		bin := HistogramBins - 1
+		if q := offset.Quo(offset, width); q.IsInt64() && q.Int64() < HistogramBins-1 {
+			bin = int(q.Int64())
+		}
 		bins[bin].Count++
 	}
 	return bins
-}
-
-// ceilDiv is ⌈n / d⌉ for d > 0, without overflowing near the top of uint64.
-func ceilDiv(n, d uint64) uint64 {
-	q := n / d
-	if n%d != 0 {
-		q++
-	}
-	return q
 }

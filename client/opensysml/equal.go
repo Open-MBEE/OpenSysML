@@ -25,7 +25,7 @@ func Equal(a, b Value) bool {
 	switch x := a.(type) {
 	case nil:
 		return b == nil
-	case Int, Real, Complex:
+	case Int, BigInt, Real, Complex:
 		return numbersEqual(a, b)
 	case Sequence:
 		y, ok := b.(Sequence)
@@ -114,28 +114,43 @@ func numbersEqual(a, b Value) bool {
 		}
 		b = Real(real(z))
 	}
-	switch x := a.(type) {
-	case Int:
-		switch y := b.(type) {
-		case Int:
+	if x, ok := a.(Real); ok {
+		if y, ok := b.(Real); ok {
 			return x == y
-		case Real:
-			return realIsInt(float64(y), int64(x))
 		}
+		a, b = b, a
+	}
+	x, ok := integerOf(a)
+	if !ok {
+		return false
+	}
+	switch y := b.(type) {
+	case Int, BigInt:
+		n, _ := integerOf(y)
+		return x.Cmp(n) == 0
 	case Real:
-		switch y := b.(type) {
-		case Int:
-			return realIsInt(float64(x), int64(y))
-		case Real:
-			return x == y
-		}
+		return realIsInt(float64(y), x)
 	}
 	return false
 }
 
+// integerOf is the integer an Int or BigInt holds.
+func integerOf(v Value) (*big.Int, bool) {
+	switch n := v.(type) {
+	case Int:
+		return big.NewInt(int64(n)), true
+	case BigInt:
+		return n.Int(), true
+	}
+	return nil, false
+}
+
 // realIsInt reports whether r is exactly the integer n, never rounding n.
-func realIsInt(r float64, n int64) bool {
-	return r == math.Trunc(r) && r >= math.MinInt64 && r < -math.MinInt64 && int64(r) == n
+func realIsInt(r float64, n *big.Int) bool {
+	if math.IsInf(r, 0) || math.IsNaN(r) || r != math.Trunc(r) {
+		return false
+	}
+	return new(big.Float).SetFloat64(r).Cmp(new(big.Float).SetInt(n)) == 0
 }
 
 func quantityEqual(a, b Quantity) bool {
@@ -154,12 +169,12 @@ func quantityEqual(a, b Quantity) bool {
 // exactBaseMagnitudes expresses two Int magnitudes over their base units as
 // rationals, which is exact only while both scales are whole.
 func exactBaseMagnitudes(a, b Quantity) (*big.Rat, *big.Rat, bool) {
-	x, xok := a.Magnitude.(Int)
-	y, yok := b.Magnitude.(Int)
+	x, xok := integerOf(a.Magnitude)
+	y, yok := integerOf(b.Magnitude)
 	if !xok || !yok || !a.Term.whole() || !b.Term.whole() {
 		return nil, nil, false
 	}
-	return a.Term.scaled(int64(x)), b.Term.scaled(int64(y)), true
+	return a.Term.scaled(x), b.Term.scaled(y), true
 }
 
 func (q Quantity) baseMagnitude() float64 {
@@ -167,6 +182,8 @@ func (q Quantity) baseMagnitude() float64 {
 	switch x := q.Magnitude.(type) {
 	case Int:
 		m = float64(x)
+	case BigInt:
+		m, _ = new(big.Float).SetInt(x.Int()).Float64()
 	case Real:
 		m = float64(x)
 	}
@@ -230,9 +247,9 @@ func (t UnitTerm) whole() bool { return isWhole(t.ScaleNum) && isWhole(t.ScaleDe
 func isWhole(f float64) bool { return f == math.Trunc(f) && !math.IsInf(f, 0) }
 
 // scaled is magnitude times the term's scale, exactly; the scale must be whole.
-func (t UnitTerm) scaled(magnitude int64) *big.Rat {
+func (t UnitTerm) scaled(magnitude *big.Int) *big.Rat {
 	num, den := new(big.Rat).SetFloat64(t.ScaleNum), new(big.Rat).SetFloat64(t.ScaleDen)
-	m := new(big.Rat).SetInt64(magnitude)
+	m := new(big.Rat).SetInt(magnitude)
 	return m.Mul(m, num.Quo(num, den))
 }
 

@@ -80,6 +80,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 	if value == nil {
 		return
 	}
+	if !s.capabilities.has(CapabilityBigIntValues) && protoconv.ValueHoldsBigInt(value) {
+		value.Kind = protoconv.UnsupportedShown(displayValue(value))
+		return
+	}
 	switch kind := value.GetKind().(type) {
 	case *pb.Value_Sequence:
 		for _, element := range kind.Sequence.GetElements() {
@@ -230,7 +234,11 @@ func displayQuantity(pq *pb.Quantity) runtime.Value {
 	var num semantics.Value
 	switch m := pq.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
-		num = semantics.Value{Kind: semantics.ValInt, Int: m.IntMagnitude}
+		num = semantics.IntValue(m.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		if big, err := protoconv.ProtoToBigInteger(m.BigIntMagnitude); err == nil {
+			num = big
+		}
 	case *pb.Quantity_RealMagnitude:
 		num = semantics.Value{Kind: semantics.ValReal, Real: m.RealMagnitude}
 	}

@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::domain::{quantity_from_wire, Quantity};
+use crate::domain::{quantity_from_wire, BigInteger, Quantity};
 use crate::encode::quantity_to_wire;
 use crate::error::Error;
 use crate::wire;
@@ -171,6 +171,8 @@ pub enum DocumentValue {
     Text(String),
     /// An integer.
     Integer(i64),
+    /// An Integer beyond `i64`.
+    BigInteger(BigInteger),
     /// A real number.
     Real(f64),
     /// A boolean.
@@ -194,6 +196,7 @@ impl fmt::Display for DocumentValue {
             Self::Object(v) => v.fmt(f),
             Self::Text(v) => f.write_str(v),
             Self::Integer(v) => v.fmt(f),
+            Self::BigInteger(v) => v.fmt(f),
             Self::Real(v) => v.fmt(f),
             Self::Boolean(v) => v.fmt(f),
             Self::Quantity(v) => v.fmt(f),
@@ -267,6 +270,19 @@ pub(crate) fn bindings_to_wire<K: AsRef<str>>(
         .collect()
 }
 
+/// Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`.
+pub(crate) fn binding_holds_big_int(binding: &wire::DocumentQueryBinding) -> bool {
+    use wire::document_value::Kind;
+    binding.values.iter().any(|value| match &value.kind {
+        Some(Kind::BigIntValue(_)) => true,
+        Some(Kind::Quantity(quantity)) => matches!(
+            quantity.magnitude,
+            Some(wire::quantity::Magnitude::BigIntMagnitude(_))
+        ),
+        _ => false,
+    })
+}
+
 fn bound_value(parameter: &str, value: &DocumentValue) -> Result<wire::DocumentValue, Error> {
     use wire::document_value::Kind;
     let refuse = |why: &str| {
@@ -288,6 +304,7 @@ fn bound_value(parameter: &str, value: &DocumentValue) -> Result<wire::DocumentV
         }
         DocumentValue::Text(text) => Kind::StringValue(text.clone()),
         DocumentValue::Integer(v) => Kind::IntValue(*v),
+        DocumentValue::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
         DocumentValue::Real(v) => Kind::RealValue(*v),
         DocumentValue::Boolean(v) => Kind::BoolValue(*v),
         DocumentValue::Quantity(quantity) => {
@@ -424,6 +441,7 @@ fn value_of(value: wire::DocumentValue) -> Result<DocumentValue, Error> {
         Some(Kind::ElementId(id)) => DocumentValue::Element(ElementRef { id, element_type }),
         Some(Kind::StringValue(v)) => DocumentValue::Text(v),
         Some(Kind::IntValue(v)) => DocumentValue::Integer(v),
+        Some(Kind::BigIntValue(v)) => DocumentValue::BigInteger(BigInteger::parse(&v)?),
         Some(Kind::RealValue(v)) => DocumentValue::Real(v),
         Some(Kind::BoolValue(v)) => DocumentValue::Boolean(v),
         Some(Kind::Infinity(true)) => DocumentValue::Infinity,
@@ -512,6 +530,35 @@ mod tests {
         .unwrap();
         assert_eq!(bound[0].parameter, "x");
         assert_eq!(bound[0].values.len(), 4);
+    }
+
+    #[test]
+    fn a_wide_integer_crosses_as_big_int_value() {
+        use wire::document_value::Kind;
+        let wide = BigInteger::parse("1180591620717411303424").unwrap();
+        let bound =
+            bindings_to_wire(&[("n", vec![DocumentValue::BigInteger(wide.clone())])]).unwrap();
+        assert_eq!(
+            bound[0].values[0].kind,
+            Some(Kind::BigIntValue("1180591620717411303424".to_owned()))
+        );
+        assert!(binding_holds_big_int(&bound[0]));
+        let read = DocumentValue::try_from(bound[0].values[0].clone()).unwrap();
+        assert_eq!(read, DocumentValue::BigInteger(wide.clone()));
+        assert_eq!(read.to_string(), "1180591620717411303424");
+
+        let magnitude = bindings_to_wire(&[(
+            "m",
+            vec![DocumentValue::Quantity(Quantity {
+                magnitude: Magnitude::BigInteger(wide),
+                unit: String::new(),
+                unit_term: None,
+            })],
+        )])
+        .unwrap();
+        assert!(binding_holds_big_int(&magnitude[0]));
+        let narrow = bindings_to_wire(&[("n", vec![DocumentValue::Integer(i64::MAX)])]).unwrap();
+        assert!(!binding_holds_big_int(&narrow[0]));
     }
 
     #[test]

@@ -131,7 +131,7 @@ func literalText(t *solve.Term) string {
 	case solve.OpBool:
 		return fmt.Sprint(t.Bool)
 	case solve.OpInt:
-		return fmt.Sprint(t.Int)
+		return t.IntBig().String()
 	case solve.OpReal:
 		return t.Real.RatString()
 	case solve.OpString:

@@ -704,17 +704,9 @@ func numericAbs(args []semantics.Value) (semantics.Value, error) {
 }
 
 // integerAbs is the absolute value over the Integer integerDomain admits, which
-// IntegerFunctions declares as returning Natural. The most negative int64 has no
-// positive counterpart, so it overflows rather than wrapping to itself.
+// IntegerFunctions declares as returning Natural.
 func integerAbs(args []semantics.Value) (semantics.Value, error) {
-	x := args[0].Int
-	if x == math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: abs(%d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x)
-	}
-	if x < 0 {
-		x = -x
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: x}, nil
+	return semantics.IntAbs(args[0]), nil
 }
 
 // numericExtremum is the kind-preserving max (larger=true) or min that
@@ -733,27 +725,22 @@ func numericExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 // parameters' domains admit.
 func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, error) {
 	return func(args []semantics.Value) (semantics.Value, error) {
-		x, y := args[0].Int, args[1].Int
-		res := y
-		if (larger && x > y) || (!larger && x < y) {
-			res = x
+		order := semantics.CompareInt(args[0], args[1])
+		if (larger && order > 0) || (!larger && order < 0) {
+			return args[0], nil
 		}
-		return semantics.Value{Kind: semantics.ValInt, Int: res}, nil
+		return args[1], nil
 	}
 }
 
 // integerQuotient is OpenSysMLMathFunctions::quotient, the exact ratio of two
-// Integers truncated toward zero. The one quotient outside the Integer range,
-// the most negative Integer by -1, is reported rather than wrapped to itself.
+// Integers truncated toward zero.
 func integerQuotient(args []semantics.Value) (semantics.Value, error) {
-	x, y := args[0].Int, args[1].Int
-	if y == 0 {
+	q, ok := semantics.IntDivTrunc(args[0], args[1])
+	if !ok {
 		return semantics.Value{}, ErrDivisionByZero
 	}
-	if x == math.MinInt64 && y == -1 {
-		return semantics.Value{}, fmt.Errorf("%w: quotient(%d, %d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x, y)
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: x / y}, nil
+	return q, nil
 }
 
 // integerDomain is the domain of an Integer parameter: a Real does not conform.
@@ -768,8 +755,8 @@ func naturalDomain(v semantics.Value) error {
 	if err != nil {
 		return err
 	}
-	if x < 0 {
-		return fmt.Errorf("%w: requires Natural arguments, got %d", ErrTypeMismatch, x)
+	if x.IntSign() < 0 {
+		return fmt.Errorf("%w: requires Natural arguments, got %s", ErrTypeMismatch, x.FormatInt())
 	}
 	return nil
 }
@@ -796,34 +783,30 @@ func pickReal(larger bool, a, b float64) float64 {
 // Integer :> Rational :> Real, so an Integer argument conforms to a Real
 // parameter.
 func asReal(v semantics.Value) float64 {
-	if v.Kind == semantics.ValInt {
-		return float64(v.Int)
-	}
-	return v.Real
+	return v.AsReal()
 }
 
 // asInteger requires an Integer value: a Real does not conform to an Integer
 // parameter, and silently truncating it would compute something the model did
 // not ask for.
-func asInteger(v semantics.Value) (int64, error) {
+func asInteger(v semantics.Value) (semantics.Value, error) {
 	if v.Kind != semantics.ValInt {
-		return 0, fmt.Errorf("%w: requires an Integer argument, got a Real", ErrTypeMismatch)
+		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got a Real", ErrTypeMismatch)
 	}
-	return v.Int, nil
+	return v, nil
 }
 
-// integerResult wraps a whole Real as an Integer, reporting a value outside the
-// Integer range rather than wrapping it.
+// integerResult is the Integer a whole Real is, of any magnitude; an infinity
+// is no Integer and is reported as overflow.
 func integerResult(x float64) (semantics.Value, error) {
 	if math.IsNaN(x) {
 		return semantics.Value{}, fmt.Errorf("%w: argument outside the function's domain", semantics.ErrArithmeticDomain)
 	}
-	// MaxInt64 has no float64, so compare against 2^63, the next value up, which
-	// does: a whole Real reaching it is already outside the Integer range.
-	if math.IsInf(x, 0) || x >= -float64(math.MinInt64) || x < math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: %v exceeds the Integer range", semantics.ErrArithmeticOverflow, x)
+	n, ok := semantics.IntegerOfReal(x)
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %v is no Integer", semantics.ErrArithmeticOverflow, x)
 	}
-	return semantics.Value{Kind: semantics.ValInt, Int: int64(x)}, nil
+	return n, nil
 }
 
 // libraryFeature is the value this runtime supplies for one library feature: a
@@ -1198,7 +1181,7 @@ func stringPositionArg(name, param string, val Value) (int64, error) {
 			ErrTypeMismatch, name, param, describeOperand(val),
 		)
 	}
-	return val.Const.Int, nil
+	return addressableInteger(name, param, val.Const)
 }
 
 // stringConcat is StringFunctions::'+', which declares both operands String[1].

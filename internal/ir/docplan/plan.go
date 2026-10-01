@@ -5,6 +5,7 @@ package docplan
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -175,7 +176,7 @@ type BindingValue struct {
 	kind    BindingKind
 	element *symbols.Symbol
 	text    string
-	integer int64
+	integer semantics.Value
 	real    float64
 	boolean bool
 	origin  symbols.Origin
@@ -192,8 +193,20 @@ func (v BindingValue) Element() (*symbols.Symbol, bool) {
 // String returns the bound text when the value is a string.
 func (v BindingValue) String() (string, bool) { return v.text, v.kind == BindingString }
 
-// Integer returns the bound integer when the value is an integer.
-func (v BindingValue) Integer() (int64, bool) { return v.integer, v.kind == BindingInteger }
+// Integer returns the bound integer when the value is an integer within int64;
+// IntegerConst reads any integer.
+func (v BindingValue) Integer() (int64, bool) {
+	if v.kind != BindingInteger {
+		return 0, false
+	}
+	return v.integer.Int64()
+}
+
+// IntegerConst returns the bound Integer, of any size, when the value is an
+// integer.
+func (v BindingValue) IntegerConst() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingInteger
+}
 
 // Real returns the bound real when the value is a real.
 func (v BindingValue) Real() (float64, bool) { return v.real, v.kind == BindingReal }

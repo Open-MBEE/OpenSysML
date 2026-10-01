@@ -3,7 +3,6 @@ package queryexec
 import (
 	"errors"
 	"math"
-	"math/big"
 	"regexp"
 	"sort"
 	"strconv"
@@ -815,7 +814,7 @@ func (e *executor) filterValue(value symbols.FilterValue, sym *symbols.Symbol) (
 	case symbols.FilterValueBool:
 		result = BooleanValue(value.Bool)
 	case symbols.FilterValueInt:
-		result = IntegerValue(value.Int)
+		result = IntegerOf(semantics.FilterInteger(value))
 	case symbols.FilterValueReal:
 		result = RealValue(value.Real)
 	case symbols.FilterValueString:
@@ -948,8 +947,8 @@ func parseNumericValue(text string) (Value, error) {
 		return Value{kind: ValueInfinity}, nil
 	}
 	text = strings.ReplaceAll(text, "_", "")
-	if integer, err := strconv.ParseInt(text, 10, 64); err == nil {
-		return IntegerValue(integer), nil
+	if integer, ok := semantics.ParseInteger(text); ok {
+		return IntegerOf(integer), nil
 	}
 	realVal, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(realVal) || math.IsInf(realVal, 0) {
@@ -1023,40 +1022,24 @@ func compareNumeric(left, right Value) int {
 		return -1
 	}
 	if left.Kind() == ValueInteger && right.Kind() == ValueReal {
-		l, _ := left.Integer()
+		l, _ := left.IntegerConst()
 		r, _ := right.Real()
-		return compareIntReal(l, r)
+		return semantics.CompareIntReal(l, r)
 	}
 	if left.Kind() == ValueReal && right.Kind() == ValueInteger {
 		l, _ := left.Real()
-		r, _ := right.Integer()
-		return -compareIntReal(r, l)
+		r, _ := right.IntegerConst()
+		return -semantics.CompareIntReal(r, l)
 	}
 	switch left.Kind() {
 	case ValueInteger:
-		l, _ := left.Integer()
-		r, _ := right.Integer()
-		return compareInt(l, r)
+		l, _ := left.IntegerConst()
+		r, _ := right.IntegerConst()
+		return semantics.CompareInt(l, r)
 	case ValueReal:
 		l, _ := left.Real()
 		r, _ := right.Real()
 		return compareFloat(l, r)
-	}
-	return 0
-}
-
-func compareIntReal(integer int64, realVal float64) int {
-	left := new(big.Rat).SetInt64(integer)
-	right := new(big.Rat).SetFloat64(realVal)
-	return left.Cmp(right)
-}
-
-func compareInt(left, right int64) int {
-	if left < right {
-		return -1
-	}
-	if left > right {
-		return 1
 	}
 	return 0
 }

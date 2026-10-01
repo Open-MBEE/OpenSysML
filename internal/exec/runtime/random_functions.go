@@ -60,7 +60,12 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 // the whole Integer range stays exact. The average is the midpoint, a half
 // rounded toward hi.
 func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
-	lo, hi := args[0].Int, args[1].Int
+	lo, loSmall := args[0].Int64()
+	hi, hiSmall := args[1].Int64()
+	if !loSmall || !hiSmall {
+		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%s, %s): a bound is beyond the 64-bit range a draw spans",
+			ErrRandomDomain, args[0].FormatInt(), args[1].FormatInt())
+	}
 	if lo > hi {
 		return semantics.Value{}, fmt.Errorf("%w: uniformInteger(%d, %d): lo exceeds hi", ErrRandomDomain, lo, hi)
 	}
@@ -69,7 +74,10 @@ func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (sema
 		draw: func(rng *rand.Rand) semantics.Value {
 			return semantics.Value{Kind: semantics.ValInt, Int: signedInt(unsignedInt(lo) + drawOffset(rng, span))}
 		},
-		admits: func(v semantics.Value) bool { return v.Kind == semantics.ValInt && lo <= v.Int && v.Int <= hi },
+		admits: func(v semantics.Value) bool {
+			n, ok := v.Int64()
+			return ok && lo <= n && n <= hi
+		},
 		fixed: func(policy DrawPolicy) (semantics.Value, bool) {
 			var n int64
 			switch policy {

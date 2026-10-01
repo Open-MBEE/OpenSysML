@@ -364,7 +364,7 @@ func (m *Model) UnitProductOfExprBy(node ast.Node, lookup UnitLookup) (UnitProdu
 	case *ast.OperatorExpr:
 		return m.unitProductOfOperator(n, lookup)
 	case *ast.LiteralInteger:
-		if val, ok := m.Eval(n); ok && val.Kind == ValInt && val.Int == 1 {
+		if val, ok := m.Eval(n); ok && val.Equal(IntValue(1)) {
 			return UnitProduct{}, nil
 		}
 	}

@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "evaluate": "test::Doubling",
+  "finalState": "done",
+  "outputs": {
+    "n": {"type": "Integer", "value": "1180591620717411303424"},
+    "doublings": {"type": "Integer", "value": 8}
+  }
+}

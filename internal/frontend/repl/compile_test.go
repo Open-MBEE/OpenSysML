@@ -190,6 +190,30 @@ var compiledCases = []compiledCase{
 	// The domain is computed before Sample's frame: the entry calc and Deep n+1 times.
 	{"Fn::DeepRange", []string{"9998"}}, {"Fn::DeepRange", []string{"9999"}},
 	{"Fn::DeepDomain", []string{"9998"}}, {"Fn::DeepDomain", []string{"9999"}},
+	{"Lib::IntExt", []string{"18446744073709551616", "-18446744073709551616"}},
+	{"Wide::Lit", []string{"3"}}, {"Wide::Lit", []string{"0"}},
+	{"Wide::Pow", []string{"2"}}, {"Wide::Pow", []string{"-3"}}, {"Wide::Pow", []string{"1"}},
+	{"Wide::Halves", []string{"2"}}, {"Wide::Halves", []string{"-7"}},
+	{"Wide::Mod", []string{"2"}}, {"Wide::Mod", []string{"-3"}},
+	{"Wide::Huge", []string{"1"}}, {"Wide::Huge", []string{"2"}}, // the second exceeds the Integer size limit
+	{"Wide::Sum", []string{"(9223372036854775807,9223372036854775807,-18446744073709551614)"}},
+	{"Wide::Sum", []string{"(9223372036854775807,9223372036854775807)"}},
+	{"Wide::Product", []string{"(4294967296,4294967296,4294967296)"}},
+	{"Wide::Idx", []string{"(1,2)", "2"}}, {"Wide::Idx", []string{"(1,2)", "9223372036854775808"}},
+	{"Wide::Idx", []string{"(18446744073709551616,2)", "1"}},
+	{"Wide::Rng", []string{"9223372036854775806"}}, {"Wide::Rng", []string{"-9223372036854775809"}},
+	{"Wide::Uniq", []string{"(18446744073709551616,18446744073709551617)"}},
+	{"Wide::Uniq", []string{"(18446744073709551616,18446744073709551616)"}},
+	{"Wide::Has", []string{"(18446744073709551616,3)", "18446744073709551616"}},
+	{"Wide::Has", []string{"(18446744073709551616,3)", "18446744073709551617"}},
+	{"Wide::Gt", []string{"9007199254740993", "9007199254740992.0"}}, {"Wide::Gt", []string{"9223372036854775807", "9223372036854775807.0"}},
+	{"Wide::Gt", []string{"18446744073709551617", "18446744073709551616.0"}}, {"Wide::Gt", []string{"-18446744073709551617", "-1e300"}},
+	{"Wide::Lt", []string{"9007199254740992.0", "9007199254740993"}}, {"Wide::Lt", []string{"1e300", "18446744073709551616"}},
+	{"Wide::Widen", []string{"9007199254740993"}}, {"Wide::Widen", []string{"18446744073709551617"}},
+	{"Wide::Nat", []string{"4294967296"}}, {"Wide::Nat", []string{"-18446744073709551616"}},
+	{"Wide::Least", []string{"(18446744073709551616,-18446744073709551616,3)"}},
+	{"Wide::Compare", []string{"-18446744073709551616", "18446744073709551616"}}, {"Wide::Compare", []string{"18446744073709551616", "18446744073709551616"}},
+	{"Loop::Churn", []string{"7.0"}}, {"Loop::ChurnFor", []string{"9"}}, {"Loop::ChurnNest", []string{"5.0"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the
@@ -216,7 +240,7 @@ func withinUlps(a, b string, n uint64) bool {
 // class of a scalar fault, else the whole message once the interpreter's
 // context labels and the program's calc name are stripped.
 func failureClass(calc, msg string) string {
-	for _, class := range []string{"arithmetic overflow", "arithmetic domain", "division by zero", "calc recursion limit exceeded", "typed by Natural", "typed by Positive", "requires Natural", "collection element limit exceeded"} {
+	for _, class := range []string{"integer size limit exceeded", "arithmetic overflow", "arithmetic domain", "division by zero", "calc recursion limit exceeded", "typed by Natural", "typed by Positive", "requires Natural", "collection element limit exceeded"} {
 		if strings.Contains(msg, class) {
 			return class
 		}
@@ -277,6 +301,40 @@ func compiledRun(t *testing.T, exe string, c compiledCase) (value, failure strin
 	return "", failureClass(c.calc, text)
 }
 
+// beyondInt64 reports whether an argument holds an Integer literal outside
+// int64, which a compiled C program refuses as input.
+func beyondInt64(args []string) bool {
+	for _, arg := range args {
+		for _, tok := range strings.FieldsFunc(arg, func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
+			if !strings.ContainsAny(tok, ".eE") && strings.Trim(tok, "-0123456789") == "" {
+				if _, err := strconv.ParseInt(tok, 10, 64); err != nil {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// buildCalc compiles calc for target into exe, reporting false when the C target
+// refuses it for Integer arithmetic that may leave int64: the Go target, which
+// computes it exactly, must accept every calc.
+func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) bool {
+	t.Helper()
+	program, err := s.CompileCalc("Compiled::" + calc)
+	if err != nil {
+		t.Fatalf("compile %s: %v", calc, err)
+	}
+	err = codegen.Build(program, target, exe)
+	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
+		return false
+	}
+	if err != nil {
+		t.Fatalf("build %s: %v", calc, err)
+	}
+	return true
+}
+
 // loadCompileFixture loads the fixture into a session whose step budget is
 // lifted: compiled code has none, so the oracle must run each case to its end.
 func loadCompileFixture(t testing.TB) *Session {
@@ -310,19 +368,28 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			s := loadCompileFixture(t)
 			exes := map[string]string{}
+			refused := map[string]bool{}
 			dir := t.TempDir()
 			for _, c := range compiledCases {
+				if refused[c.calc] {
+					continue
+				}
 				exe, built := exes[c.calc]
 				if !built {
-					program, err := s.CompileCalc("Compiled::" + c.calc)
-					if err != nil {
-						t.Fatalf("compile %s: %v", c.calc, err)
-					}
 					exe = filepath.Join(dir, c.calc)
-					if err := codegen.Build(program, target, exe); err != nil {
-						t.Fatalf("build %s: %v", c.calc, err)
+					if !buildCalc(t, s, c.calc, target, exe) {
+						refused[c.calc] = true
+						continue
 					}
 					exes[c.calc] = exe
+				}
+				if target == codegen.TargetC && beyondInt64(c.args) {
+					out, err := exec.Command(exe, c.args...).CombinedOutput()
+					var exit *exec.ExitError
+					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is beyond int64") {
+						t.Errorf("%s(%s): got %v %q, want the argument refused as beyond int64 with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
+					}
+					continue
 				}
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
@@ -334,8 +401,11 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
+			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
+				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
+			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
-				out, err := exec.Command(exes["Fib"], "--repeat", repeat, "10").CombinedOutput()
+				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
 				var exit *exec.ExitError
 				if !errors.As(err, &exit) || exit.ExitCode() != 2 {
 					t.Errorf("--repeat %q: got %v %q, want usage and exit status 2", repeat, err, out)
@@ -348,7 +418,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 					t.Errorf("Hypot(%q, 4.0): got %v %q, want not a Real and exit status 2", arg, err, out)
 				}
 			}
-			if out, err := exec.Command(exes["Fib"], "--repeat", "3", "10").Output(); err != nil || strings.TrimSpace(string(out)) != "55" {
+			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
 			}
 		})
@@ -391,16 +461,17 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			t.Setenv(runtime.MaxElementsEnvVar, strconv.Itoa(limit))
 			dir := t.TempDir()
 			exes := map[string]string{}
+			refused := map[string]bool{}
 			for _, c := range cases {
+				if refused[c.calc] {
+					continue
+				}
 				exe, built := exes[c.calc]
 				if !built {
-					program, err := s.CompileCalc("Compiled::" + c.calc)
-					if err != nil {
-						t.Fatalf("compile %s: %v", c.calc, err)
-					}
 					exe = filepath.Join(dir, c.calc)
-					if err := codegen.Build(program, target, exe); err != nil {
-						t.Fatalf("build %s: %v", c.calc, err)
+					if !buildCalc(t, s, c.calc, target, exe) {
+						refused[c.calc] = true
+						continue
 					}
 					exes[c.calc] = exe
 				}
@@ -453,8 +524,8 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	}
 	s := loadCompileFixture(t)
 	dir := t.TempDir()
-	for calc, arg := range map[string]string{"Churn": "50000", "ChurnFor": "50000", "ChurnNest": "10000"} {
-		program, err := s.CompileCalc("Compiled::Seq::" + calc)
+	for calc, arg := range map[string]string{"Churn": "50000.0", "ChurnFor": "50000", "ChurnNest": "10000.0"} {
+		program, err := s.CompileCalc("Compiled::Loop::" + calc)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -581,10 +652,49 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	}
 }
 
+// The C target holds int64, so it refuses, naming the construct, a calc whose
+// Integer result may leave it; the Go target computes the same calc exactly.
+func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
+	s := loadCompileFixture(t)
+	for _, tc := range []struct{ calc, construct string }{
+		{"Fib", "Integer `-`"},
+		{"SumTo", "Integer `+`"},
+		{"Arith", "Integer `+`"},
+		{"Pow", "Integer `**`"},
+		{"Neg", "Integer negation"},
+		{"Lib::IntAbs", "the Integer result of abs"},
+		{"Lib::Floor", "the Integer result of floor"},
+		{"Seq::Rng2", "the Integer sum"},
+		{"Wide::Product", "the Integer product"},
+		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
+	} {
+		program, err := s.CompileCalc("Compiled::" + tc.calc)
+		if err != nil {
+			t.Fatalf("compile %s: %v", tc.calc, err)
+		}
+		_, err = codegen.Source(program, codegen.TargetC)
+		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
+			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
+		}
+		if _, err := codegen.Source(program, codegen.TargetGo); err != nil {
+			t.Errorf("Go source of %s: %v", tc.calc, err)
+		}
+	}
+	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
+		program, err := s.CompileCalc("Compiled::" + calc)
+		if err != nil {
+			t.Fatalf("compile %s: %v", calc, err)
+		}
+		if _, err := codegen.Source(program, codegen.TargetC); err != nil {
+			t.Errorf("C source of %s: %v, want it compiled: no Integer result leaves int64", calc, err)
+		}
+	}
+}
+
 // The generated source is deterministic and names the calc it came from.
 func TestCompiledSourceNamesTheCalc(t *testing.T) {
 	s := loadCompileFixture(t)
-	program, err := s.CompileCalc("Compiled::Fib")
+	program, err := s.CompileCalc("Compiled::Hypot")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -597,8 +707,8 @@ func TestCompiledSourceNamesTheCalc(t *testing.T) {
 		if string(src) != string(again) {
 			t.Errorf("%s: two renderings differ", target)
 		}
-		if !strings.Contains(string(src), "Compiled::Fib") {
-			t.Errorf("%s: source does not name Compiled::Fib", target)
+		if !strings.Contains(string(src), "Compiled::Hypot") {
+			t.Errorf("%s: source does not name Compiled::Hypot", target)
 		}
 	}
 }
