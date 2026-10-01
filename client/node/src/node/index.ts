@@ -165,29 +165,33 @@ async function connectPrivate(options: ConnectOptions): Promise<Connection> {
       process.emitWarning(message, type);
     },
   };
+  // The open owns release from here on: a failure inside Connection.open
+  // releases exactly once, so a refusal cannot drop another connection's hold.
+  let transport: Transport;
   try {
-    return await Connection.open({
-      transport: transportFor(baseUrl(service.address), options),
-      encoding,
-      backend,
-      timeoutMs,
-      ...(required === undefined ? {} : { requiredVersion: required }),
-      ...(options.requireCapabilities === undefined
-        ? {}
-        : { requiredCapabilities: options.requireCapabilities }),
-      stale: {
-        address: service.address,
-        remedy:
-          `the binary this client started, ${service.binary.path}, is not ` +
-          `${required ?? "the release asked for"}: make that release available (its ` +
-          `download is cached under ~/.opensysml/bin), or accept what is installed ` +
-          `by passing version: undefined and unsetting $${VERSION_ENV}`,
-      },
-    });
+    transport = transportFor(baseUrl(service.address), options);
   } catch (error) {
     await service.release();
     throw error;
   }
+  return Connection.open({
+    transport,
+    encoding,
+    backend,
+    timeoutMs,
+    ...(required === undefined ? {} : { requiredVersion: required }),
+    ...(options.requireCapabilities === undefined
+      ? {}
+      : { requiredCapabilities: options.requireCapabilities }),
+    stale: {
+      address: service.address,
+      remedy:
+        `the binary this client started, ${service.binary.path}, is not ` +
+        `${required ?? "the release asked for"}: make that release available (its ` +
+        `download is cached under ~/.opensysml/bin), or accept what is installed ` +
+        `by passing version: undefined and unsetting $${VERSION_ENV}`,
+    },
+  });
 }
 
 async function connectExternal(address: string, options: ConnectOptions): Promise<Connection> {

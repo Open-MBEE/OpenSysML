@@ -194,8 +194,9 @@ export class Connection {
     stale?: { address: string; remedy: string };
   }): Promise<Connection> {
     const rpc = createClient(SysMLService, init.transport);
-    const info = await handshake(rpc, init.backend.origin, init.timeoutMs);
+    let info: ServerInfo;
     try {
+      info = await handshake(rpc, init.backend.origin, init.timeoutMs);
       const reason = mismatchReason(info, {
         ...(init.requiredVersion === undefined ? {} : { version: init.requiredVersion }),
       });

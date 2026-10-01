@@ -1,8 +1,10 @@
 // The connect-time requirements: a release the service cannot report, a
 // capability it does not have, and the model's own error surface.
 
+import type { Transport } from "@connectrpc/connect";
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
+import { Connection } from "../src/core/connection.js";
 import {
   MissingCapabilityError,
   ParseError,
@@ -10,6 +12,7 @@ import {
   connect,
   currentPrivateService,
 } from "../src/node/index.js";
+import { fakeTransport } from "./support/fake.js";
 import { SAMPLE, useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -53,6 +56,79 @@ test("a refused private connection does not keep the child", async () => {
   const before = currentPrivateService()?.refs ?? 0;
   await assert.rejects(() => connect({ version: "no-such-release-tag" }), StaleServiceError);
   assert.equal(currentPrivateService()?.refs ?? 0, before);
+});
+
+function countingBackend(): { backend: { origin: string; release(): Promise<void> }; releases: () => number } {
+  let releases = 0;
+  return {
+    backend: {
+      origin: "the counting fake backend",
+      release: () => {
+        releases += 1;
+        return Promise.resolve();
+      },
+    },
+    releases: () => releases,
+  };
+}
+
+test("a handshake that never answers releases the backend exactly once", async () => {
+  const counting = countingBackend();
+  const transport = {
+    unary: () => Promise.reject(new Error("the service is away")),
+    stream: () => Promise.reject(new Error("no streams")),
+  } as unknown as Transport;
+  await assert.rejects(
+    Connection.open({ transport, backend: counting.backend, encoding: "protobuf" }),
+  );
+  assert.equal(counting.releases(), 1);
+});
+
+test("a refused capability releases the backend exactly once", async () => {
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({
+      transport: fakeTransport({ version: "test", capabilities: [] }, () => {
+        throw new Error("the fake service answers nothing for this method");
+      }),
+      backend: counting.backend,
+      encoding: "protobuf",
+      requiredCapabilities: ["never_a_capability"],
+    }),
+    MissingCapabilityError,
+  );
+  assert.equal(counting.releases(), 1);
+});
+
+test("a release the service does not report releases the backend exactly once", async () => {
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({
+      transport: fakeTransport({ version: "test", capabilities: [] }, () => {
+        throw new Error("the fake service answers nothing for this method");
+      }),
+      backend: counting.backend,
+      encoding: "protobuf",
+      requiredVersion: "no-such-release-tag",
+    }),
+    StaleServiceError,
+  );
+  assert.equal(counting.releases(), 1);
+});
+
+test("a refused private connection keeps an earlier hold on the shared child", async () => {
+  await using keepAlive = await connect();
+  const refs = currentPrivateService()?.refs;
+  assert.ok(refs !== undefined && refs > 0);
+  await assert.rejects(
+    () => connect({ requireCapabilities: ["no_such_capability"] }),
+    MissingCapabilityError,
+  );
+  const info = await keepAlive.serverInfo();
+  assert.ok(info.answered);
+  const model = await keepAlive.loads(SAMPLE);
+  assert.equal(model.ok, true);
+  assert.equal(currentPrivateService()?.refs, refs);
 });
 
 test("raiseForErrors throws a ParseError carrying the model", async () => {
