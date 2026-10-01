@@ -96,4 +96,39 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 			t.Fatalf("join arrivals after source exit failure = %v, want none", exec.joinArrived)
 		}
 	})
+
+	t.Run("join_same_occurrence_exit_failure_records_no_arrivals", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			private import ScalarValues::*;
+			attribute def Go;
+			state Machine {
+				attribute zero : Integer = 0;
+				entry; then owner;
+				state owner parallel {
+					state left {
+						entry; then first;
+						state first;
+						transition first first accept Go then sync;
+					}
+					state right {
+						entry; then second;
+						state second {
+							exit { assign zero := 1 / zero; }
+						}
+						transition first second accept Go then sync;
+					}
+					join sync;
+					transition first sync then done;
+				}
+				state done;
+			}
+		}`)
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); !errors.Is(err, ErrDivisionByZero) {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrDivisionByZero", err)
+		}
+		if len(exec.joinArrived) != 0 {
+			t.Fatalf("join arrivals after segment exit failure = %v, want none", exec.joinArrived)
+		}
+	})
 }

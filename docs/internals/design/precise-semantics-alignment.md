@@ -845,10 +845,10 @@ yet arrived whose source is active, whose trigger takes the same signal, call, t
 change rise and whose guard holds — a completion segment fires only on its own completion, never
 pulled into another occurrence — and reports whether, with the segments already arrived, they
 complete the join. When they do not, `resolveRoute` ends the route at the join as an arrival, and
-`fireJoinTransition` fires the segment alone — its source and the states between it and the
-owner exited, then its effect (`fireJoinSegment`) — and records it among the join's arrivals
-(`joinArrived`), which snapshots, held images and the checker's canonical state (`check_state.go`)
-carry. A region whose segment has arrived holds no active state but waits at the join, so it does
+`fireJoinTransition` fires every not-yet-arrived segment enabled by the occurrence in the
+`join <name>` order (`fireJoinIncoming`), exiting each source and running its effect, then records
+each among the join's arrivals (`joinArrived`), which snapshots, held images and the checker's
+canonical state (`check_state.go`) carry. A region whose segment has arrived holds no active state but waits at the join, so it does
 not count its owner complete (`regionWaitingAtJoin`); an arrival is dropped when its region is
 entered again (`setRegionState`) or the owner is left by another transition
 (`clearJoinArrivalsOwnedBy`). When they do complete it, the route out of the join is resolved and
@@ -875,6 +875,7 @@ Transitions originating from Vertices in different orthogonal Regions", so every
 when the join does and none is an alternative to another (`lower/join_check.go`). `state_fork_join_pseudostate`,
 `state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored: the two completions
 follow the regions' entry order), `state_join_segment_fires_on_own_signal`,
+`state_join_segments_arrive_together_on_one_occurrence`,
 `state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched` (each
 segment arrives on its own trigger), `state_join_time_segment_needs_same_occurrence`,
 `state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` (each expiry

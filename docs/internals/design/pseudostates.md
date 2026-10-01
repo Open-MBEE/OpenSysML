@@ -315,16 +315,19 @@ becomes its branch target instead of the region's initial state.
 
 **Join** (`fireJoinTransition`): each incoming segment fires on its own occurrence:
 its source exits, its effect runs, and the segment is recorded in `joinArrived`.
-The join completes when the arrived segments plus those enabled by the current
-occurrence cover every incoming segment and the outgoing route is available. The
-segments firing on that occurrence are drawn as `join <name>`; then arrivals
-clear, the owner is left after the last segment's effect, and the outgoing
-segment fires. A completion segment fires only on its own completion, a region
-waiting at a join does not complete its owner, and arrivals clear on region
-re-entry or when another transition leaves the owner. Snapshots, held images and
-the canonical check state preserve arrivals. PSSM instead leaves the owner
-before the last segment's effect; the runtime's ordering is the extension's
-reading in the alignment note, SM34.
+Before the join completes, each occurrence fires every not-yet-arrived segment
+it enables, in the `join <name>` order, and records each as arrived. The join
+completes when the arrived segments plus those enabled by the current occurrence
+cover every incoming segment and the outgoing route is available. The segments
+firing on that occurrence are drawn as `join <name>`; then arrivals clear, the
+owner is left after the last segment's effect, and the outgoing segment fires.
+`state_join_segments_arrive_together_on_one_occurrence` covers two segments
+arriving together on Go before Finish completes the join. A completion segment
+fires only on its own completion, a region waiting at a join does not complete
+its owner, and arrivals clear on region re-entry or when another transition
+leaves the owner. Snapshots, held images and the canonical check state preserve
+arrivals. PSSM instead leaves the owner before the last segment's effect; the
+runtime's ordering is the extension's reading in the alignment note, SM34.
 
 **History** (`ast.PseudostateShallowHistory`, `ast.PseudostateDeepHistory`) is
 owned by the composite state it restores — `lower.StateGraph.PseudostateOwner`

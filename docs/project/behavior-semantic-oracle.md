@@ -1080,8 +1080,9 @@ other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
 
 ### Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open
 
-Fixture: `state_join_runs_every_incoming_effect` (golden, explored) and
-`state_join_segment_fires_on_own_signal` (trace golden).
+Fixture: `state_join_runs_every_incoming_effect` (golden, explored),
+`state_join_segment_fires_on_own_signal` (trace golden), and
+`state_join_segments_arrive_together_on_one_occurrence` (golden, explored).
 
 ```
 Outer { exit { log += "outer(exit) " }
@@ -1120,8 +1121,11 @@ Pinned outcome: `state_join_runs_every_incoming_effect` pins both incoming-effec
 ending with `outer(exit) sync(effect) rest(entry)`; exploration reaches exactly both. In
 `state_join_segment_fires_on_own_signal`, signal X logs its source exit and effect, then waits
 without running Y's segment; signal Y logs its source exit and effect, followed by the owner exit
-and outgoing effect. Each segment's source exit and effect are one ordered unit, while arrivals
-are retained until the incoming set is complete.
+and outgoing effect. `state_join_segments_arrive_together_on_one_occurrence` shows one Go
+occurrence firing both enabled segments in either `join sync` order, recording both arrivals;
+Finish then fires the last segment, leaves the owner and runs the outgoing effect. Each segment's
+source exit and effect are one ordered unit, while arrivals are retained until the incoming set
+is complete.
 
 ### A merge is re-entered on every traversal of a loop
 

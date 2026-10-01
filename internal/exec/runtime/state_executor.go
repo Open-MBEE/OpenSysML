@@ -2999,10 +2999,10 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	if r.arrival == join {
 		return true, e.moveWhole(func() error {
 			r = e.transitionDecided(r)
-			if err := e.fireJoinSegment(trans, plan); err != nil {
+			if err := e.fireJoinIncoming(join, plan, firingNow); err != nil {
 				return err
 			}
-			e.joinArrived[join] = append(e.joinArrived[join], trans)
+			e.joinArrived[join] = append(e.joinArrived[join], firingNow...)
 			return nil
 		})
 	}
