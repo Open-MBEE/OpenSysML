@@ -80,6 +80,10 @@ export interface QueryForm {
   scope?: readonly ScopeEntry[];
   select?: readonly string[];
   where?: ConstraintPayload;
+  /** An OSLC query text, evaluated instead of the structured query. */
+  oslc?: string;
+  /** A query already decoded for the wire; passes through as written. */
+  query?: Query;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

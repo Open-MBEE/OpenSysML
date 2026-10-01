@@ -449,6 +449,18 @@ export class Model {
     return this.connection.runSweep(this.hash, symbolId, ranges, options);
   }
 
+  /** The diagnostics the service reports for this model now — for a model of
+   * several documents, or one parsed before later edits changed it. */
+  async refreshDiagnostics(): Promise<ModelDiagnostic[]> {
+    const response = await callRpc(
+      this.connection.rpc.getDiagnostics(
+        { modelHash: this.hash },
+        this.connection.callOptions(),
+      ),
+    );
+    return response.diagnostics.map(decodeDiagnostic);
+  }
+
   /** Looks a symbol up by its qualified name, in one call. */
   async symbolById(id: string): Promise<ModelSymbol> {
     const response = await callRpc(

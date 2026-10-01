@@ -137,7 +137,7 @@ function notFoundError(
     return new ModelNotFoundError(message, { cause, code: status });
   }
   if (lowered.includes("symbol not found")) {
-    return new SymbolNotFoundError(symbolNameIn(message));
+    return new SymbolNotFoundError(symbolNameIn(message), [], { cause });
   }
   const cls = notFound === "file" ? ModelFileNotFoundError : ModelNotFoundError;
   return new cls(message, { cause, code: status });

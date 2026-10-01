@@ -147,9 +147,16 @@ export class SymbolNotFoundError extends OpenSysMLError {
   /** Names the model declares that are close enough to be typos of it. */
   readonly suggestions: readonly string[];
 
-  constructor(name: string, near: readonly string[] = []) {
+  constructor(
+    name: string,
+    near: readonly string[] = [],
+    options: { cause?: unknown } = {},
+  ) {
     const hint = near.length > 0 ? `; did you mean ${near.join(", ")}?` : "";
-    super(`the model declares no symbol named ${JSON.stringify(name)}${hint}`);
+    super(
+      `the model declares no symbol named ${JSON.stringify(name)}${hint}`,
+      options.cause === undefined ? {} : { cause: options.cause },
+    );
     this.symbolName = name;
     this.suggestions = [...near];
   }

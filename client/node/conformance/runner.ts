@@ -6,17 +6,56 @@ import { readFileSync } from "node:fs";
 import { isAbsolute, join, normalize, resolve as resolvePath, sep } from "node:path";
 import type { DescMessage, Message } from "@bufbuild/protobuf";
 
-import { SysMLService } from "../src/generated/sysml_pb.js";
+import { fromJson } from "@bufbuild/protobuf";
+import type { JsonValue } from "@bufbuild/protobuf";
+import {
+  DocumentValueSchema,
+  EditOperationSchema,
+  QuerySchema,
+  SysMLService,
+  ValueSchema,
+} from "../src/generated/sysml_pb.js";
+import type { DocumentValue as PbDocumentValue, Value } from "../src/generated/sysml_pb.js";
 import type { Connection } from "../src/core/connection.js";
 import { Model } from "../src/core/model.js";
+import {
+  ElementRef,
+  ObjectRef,
+  type DocumentValue,
+} from "../src/core/document.js";
+import { SourceDocument } from "../src/core/sources.js";
+import type { SysMLValue } from "../src/core/values.js";
 import { statusName } from "../src/core/status.js";
 import { check, render } from "./compare.js";
 import { byCodeUnit } from "./order.js";
 import { MODEL_HASH_PLACEHOLDER, Normalizer } from "./normalize.js";
 import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } from "./scenarios.js";
 
-/** The RPCs v1 of this client covers. Everything else is a stated skip. */
-export const COVERED_RPCS = ["GetServerInfo", "ParseFile", "GetSymbol", "Evaluate", "Instantiate"] as const;
+/** The RPCs this client covers. Everything else is a stated skip. */
+export const COVERED_RPCS = [
+  "ApplyEdits",
+  "Convert",
+  "Evaluate",
+  "EvaluateCalc",
+  "ExecuteAction",
+  "ExecuteState",
+  "GetDiagnostics",
+  "GetServerInfo",
+  "GetSymbol",
+  "Instantiate",
+  "ListEngines",
+  "ParseFile",
+  "ParseSources",
+  "Query",
+  "RenderDocument",
+  "RunAnalysis",
+  "RunDocumentQuery",
+  "RunSweep",
+  "ValidateInstance",
+  "VerifyConstraint",
+  "VerifyRequirement",
+  "VerifySatisfaction",
+] as const;
 
 /** One scenario's outcome. The shape tools/cmd/conformance writes. */
 export interface Result {
@@ -180,13 +219,6 @@ export class Runner {
       result.reason = `the service does not report ${missing.join(", ")}, so the without-capability expectation applies`;
     }
 
-    if (scenario.model?.fixtures !== undefined) {
-      result.outcome = "skip";
-      result.status = "-";
-      result.reason = "v1 of this client parses one document at a time, not a model of several";
-      return finish();
-    }
-
     let modelHash = "";
     let request: Record<string, unknown>;
     try {
@@ -261,7 +293,7 @@ export class Runner {
     scenario: Scenario,
   ): Promise<Attempt> {
     if (!COVERED_RPCS.includes(rpc as (typeof COVERED_RPCS)[number])) {
-      return { kind: "skip", reason: `v1 of this client does not cover ${rpc}` };
+      return { kind: "skip", reason: `this client does not cover ${rpc}` };
     }
     const unsupported = this.unsupported(rpc, request);
     if (unsupported !== undefined) {
@@ -291,11 +323,23 @@ export class Runner {
 
   /** Why the public API cannot express this request, when it cannot. */
   private unsupported(rpc: string, request: Record<string, unknown>): string | undefined {
-    if (rpc !== "ParseFile") {
+    if (rpc === "ParseFile") {
+      if (typeof request["content"] !== "string" && typeof request["file_path"] !== "string") {
+        return "the client's load()/loads() always name a source, so a request naming neither cannot be made through it";
+      }
       return undefined;
     }
-    if (typeof request["content"] !== "string" && typeof request["file_path"] !== "string") {
-      return "the client's load()/loads() always name a source, so a request naming neither cannot be made through it";
+    if (rpc === "ParseSources") {
+      const documents = request["documents"];
+      if (!Array.isArray(documents) || documents.length === 0) {
+        return "the client's parseSources() refuses an empty document list before asking the service";
+      }
+      const names = documents.map((entry) =>
+        String((entry as Record<string, unknown>)["filePath"] ?? (entry as Record<string, unknown>)["name"] ?? ""),
+      );
+      if (new Set(names).size !== names.length) {
+        return "the client's parseSources() refuses two documents of one name before asking the service";
+      }
     }
     return undefined;
   }
@@ -337,6 +381,137 @@ export class Runner {
       case "Instantiate":
         await this.model(request, modelHash, scenario).instantiate(String(request["symbol_id"]));
         return;
+      case "ParseSources": {
+        const documents = (request["documents"] as Record<string, unknown>[] | undefined) ?? [];
+        await this.connection.parseSources(
+          documents.map((entry) => {
+            if (typeof entry["content"] === "string") {
+              return SourceDocument.inline(String(entry["name"] ?? ""), entry["content"]);
+            }
+            return SourceDocument.file(String(entry["filePath"] ?? entry["file_path"] ?? ""));
+          }),
+          { strictConformance: request["strict_conformance"] === true },
+        );
+        return;
+      }
+      case "GetDiagnostics":
+        await this.model(request, modelHash, scenario).refreshDiagnostics();
+        return;
+      case "ExecuteAction":
+        await this.model(request, modelHash, scenario).executeAction(String(request["action_symbol_id"]), {
+          inputs: valueMap(request["inputs"]),
+          ...(typeof request["schedule"] === "string" ? { schedule: request["schedule"] } : {}),
+        });
+        return;
+      case "ExecuteState":
+        await this.model(request, modelHash, scenario).executeState(String(request["state_machine_symbol_id"]), {
+          ...(typeof request["schedule"] === "string" ? { schedule: request["schedule"] } : {}),
+        });
+        return;
+      case "Convert": {
+        const toFormat = String(request["to_format"] ?? "");
+        const source =
+          typeof request["content"] === "string"
+            ? { content: request["content"] as string }
+            : typeof request["file_path"] === "string"
+              ? { path: request["file_path"] as string }
+              : { modelHash };
+        await this.connection.convert(toFormat, source, {
+          ...(typeof request["from_format"] === "string"
+            ? { fromFormat: request["from_format"] }
+            : {}),
+        });
+        return;
+      }
+      case "ApplyEdits": {
+        const operations = (request["operations"] as unknown[] | undefined) ?? [];
+        await this.connection.applyEdits(
+          modelHash === "" ? String(request["model_hash"] ?? "") : modelHash,
+          operations.map((entry) => fromJson(EditOperationSchema, entry as Record<string, JsonValue>)),
+          {
+            acceptDocuments: request["accept_documents"] === true,
+            ...(typeof request["document"] === "string" ? { document: request["document"] } : {}),
+          },
+        );
+        return;
+      }
+      case "VerifyConstraint":
+        await this.model(request, modelHash, scenario).verifyConstraint(String(request["symbol_id"]), {
+          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
+          ...(typeof request["question"] === "string" ? { question: request["question"] } : {}),
+        });
+        return;
+      case "VerifyRequirement":
+        await this.model(request, modelHash, scenario).verifyRequirement(String(request["symbol_id"]), {
+          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
+          ...(typeof request["question"] === "string" ? { question: request["question"] } : {}),
+        });
+        return;
+      case "VerifySatisfaction":
+        await this.model(request, modelHash, scenario).verifySatisfaction({
+          ...(typeof request["symbol_id"] === "string" ? { symbolId: request["symbol_id"] } : {}),
+        });
+        return;
+      case "ValidateInstance":
+        await this.model(request, modelHash, scenario).validateInstance(String(request["symbol_id"]));
+        return;
+      case "EvaluateCalc":
+        await this.model(request, modelHash, scenario).calc(String(request["symbol_id"]), {
+          arguments: valueList(request["arguments"]),
+        });
+        return;
+      case "Query":
+        await this.model(request, modelHash, scenario).query({
+          ...(request["query"] !== undefined
+            ? { query: fromJson(QuerySchema, request["query"] as Record<string, JsonValue>) }
+            : {}),
+          ...(typeof request["oslc_query"] === "string" ? { oslc: request["oslc_query"] } : {}),
+        });
+        return;
+      case "RunDocumentQuery": {
+        const bindings: Record<string, DocumentValue[]> = {};
+        for (const binding of (request["bindings"] as Record<string, unknown>[] | undefined) ?? []) {
+          bindings[String(binding["parameter"])] = (
+            (binding["values"] as Record<string, JsonValue>[] | undefined) ?? []
+          ).map((value) => bindingValue(fromJson(DocumentValueSchema, value)));
+        }
+        await this.model(request, modelHash, scenario).runDocumentQuery(
+          String(request["query_id"]),
+          bindings,
+        );
+        return;
+      }
+      case "RenderDocument":
+        await this.model(request, modelHash, scenario).renderDocument(String(request["document_id"]));
+        return;
+      case "RunAnalysis":
+        await this.model(request, modelHash, scenario).runAnalysis(String(request["symbol_id"]), {
+          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
+          arguments: valueList(request["arguments"]),
+          namedArguments: valueMap(request["named_arguments"]),
+        });
+        return;
+      case "RunSweep": {
+        const ranges: Record<string, [Value, Value] | [Value, Value, Value]> = {};
+        for (const range of (request["ranges"] as Record<string, JsonValue>[] | undefined) ?? []) {
+          const start = fromJson(ValueSchema, range["start"] as Record<string, JsonValue>);
+          const end = fromJson(ValueSchema, range["end"] as Record<string, JsonValue>);
+          ranges[String(range["parameter"])] =
+            range["step"] === undefined
+              ? [start, end]
+              : [start, end, fromJson(ValueSchema, range["step"] as Record<string, JsonValue>)];
+        }
+        await this.model(request, modelHash, scenario).runSweep(String(request["symbol_id"]), ranges, {
+          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
+          arguments: valueList(request["arguments"]),
+          ...(typeof request["samples"] === "number" ? { samples: request["samples"] } : {}),
+          ...(typeof request["seed"] === "number" ? { seed: request["seed"] } : {}),
+        });
+        return;
+      }
+      case "ListEngines":
+        await this.connection.listEngines();
+        return;
       default:
         throw new Error(`the runner covers ${COVERED_RPCS.join(", ")}, not ${rpc}`);
     }
@@ -357,25 +532,36 @@ export class Runner {
 
   /** Parses a scenario's fixture once per run and remembers the hash. */
   private async modelHash(model: ScenarioModel): Promise<string> {
-    if (model.fixture === undefined) {
+    if (model.fixture === undefined && model.fixtures === undefined) {
       throw new Error("a model names no fixture");
     }
-    const key = `${model.fixture}|${model.language ?? ""}|${String(model.strict_conformance ?? false)}`;
+    const key =
+      `${model.fixture ?? ""}|${(model.fixtures ?? []).join(",")}|${model.language ?? ""}|` +
+      String(model.strict_conformance ?? false);
     const known = this.hashes.get(key);
     if (known !== undefined) {
       return known;
     }
-    const source = this.fixture(model.fixture);
-    const parsed = await this.connection.loads(source, {
-      ...(model.language === undefined ? {} : { language: model.language }),
-      ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
-    });
+    const parsed =
+      model.fixtures === undefined
+        ? await this.connection.loads(this.fixture(model.fixture ?? ""), {
+            ...(model.language === undefined ? {} : { language: model.language }),
+            ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
+          })
+        : await this.connection.parseSources(
+            model.fixtures.map((name) => SourceDocument.inline(name, this.fixture(name))),
+            {
+              ...(model.strict_conformance === undefined
+                ? {}
+                : { strictConformance: model.strict_conformance }),
+            },
+          );
     const failure = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     if (failure !== undefined) {
-      throw new Error(`fixture ${JSON.stringify(model.fixture)} does not parse clean: ${failure.message}`);
+      throw new Error(`fixture ${JSON.stringify(model.fixture ?? model.fixtures)} does not parse clean: ${failure.message}`);
     }
     if (parsed.hash === "") {
-      throw new Error(`parsing fixture ${JSON.stringify(model.fixture)} returned no model hash`);
+      throw new Error(`parsing fixture ${JSON.stringify(model.fixture ?? model.fixtures)} returned no model hash`);
     }
     this.hashes.set(key, parsed.hash);
     this.parsed.set(parsed.hash, parsed);
@@ -405,6 +591,9 @@ export class Runner {
       if (reference !== null) {
         return this.fixture(reference[1]);
       }
+    }
+    if (tree instanceof Literal) {
+      return tree.toJSON();
     }
     return tree;
   }
@@ -463,6 +652,68 @@ function asConnectError(error: unknown): ConnectError | undefined {
     return error.cause;
   }
   return undefined;
+}
+
+/** A scenario's `inputs` or `named_arguments` object, each value a wire Value JSON. */
+function valueMap(json: unknown): Record<string, Value> {
+  const out: Record<string, Value> = {};
+  for (const [name, entry] of Object.entries((json as Record<string, JsonValue> | undefined) ?? {})) {
+    out[name] = fromJson(ValueSchema, entry as Record<string, JsonValue>);
+  }
+  return out;
+}
+
+/** A scenario's `arguments` list, each element a wire Value JSON. */
+function valueList(json: unknown): Value[] {
+  return ((json as Record<string, JsonValue>[] | undefined) ?? []).map((entry) =>
+    fromJson(ValueSchema, entry),
+  );
+}
+
+/** A wire DocumentValue as the document API's binding value type. */
+function bindingValue(pb: PbDocumentValue): DocumentValue {
+  switch (pb.kind.case) {
+    case "elementId":
+      return new ElementRef(pb.kind.value);
+    case "object":
+      return new ObjectRef({ id: pb.kind.value.instanceId, path: pb.kind.value.path });
+    case "boolValue":
+      return pb.kind.value;
+    case "stringValue":
+      return pb.kind.value;
+    case "intValue":
+      return pb.kind.value;
+    case "realValue":
+      return pb.kind.value;
+    case "infinity":
+      return { kind: "infinity" };
+    case "quantity": {
+      const quantity = pb.kind.value;
+      const value: SysMLValue = {
+        kind: "quantity",
+        magnitude:
+          quantity.magnitude.case === "intMagnitude"
+            ? { kind: "int", value: quantity.magnitude.value }
+            : { kind: "real", value: quantity.magnitude.case === "realMagnitude" ? quantity.magnitude.value : 0 },
+        unit: quantity.unit,
+        ...(quantity.unitTerm === undefined
+          ? {}
+          : {
+              unitTerm: {
+                scaleNum: quantity.unitTerm.scaleNum,
+                scaleDen: quantity.unitTerm.scaleDen,
+                factors: quantity.unitTerm.factors.map((factor) => ({
+                  unitId: factor.unitId,
+                  exponent: factor.exponent,
+                })),
+              },
+            }),
+      };
+      return value;
+    }
+    default:
+      throw new Error(`a binding cannot carry ${String(pb.kind.case)}`);
+  }
 }
 
 function errored(result: Result, error: unknown): Result {

@@ -113,6 +113,7 @@ import {
   type EditOperationData,
   type EditResult,
 } from "./edit.js";
+import type { EditOperation } from "../generated/sysml_pb.js";
 
 /** Wire encoding of the request and response bodies. Protobuf is the default. */
 export type Encoding = "protobuf" | "json";
@@ -373,7 +374,15 @@ export class Connection {
       this.rpc.query(
         create(QueryRequestSchema, {
           modelHash,
-          query: buildQuery(options),
+          oslcQuery: options.oslc ?? "",
+          ...(options.query !== undefined
+            ? { query: options.query }
+            : options.payload !== undefined ||
+                options.scope !== undefined ||
+                options.select !== undefined ||
+                options.where !== undefined
+              ? { query: buildQuery(options) }
+              : {}),
         }),
         this.callOptions(),
       ),
@@ -409,10 +418,13 @@ export class Connection {
     return documentResult(response);
   }
 
-  /** Applies source-preserving edits to a loaded model. */
+  /** Applies source-preserving edits to a loaded model. Operations are the
+   * tuple form the {@link Editor} builds, or wire `EditOperation` messages,
+   * which pass through as written. */
   async applyEdits(
     modelHash: string,
-    operations: readonly EditOperationData[],
+    operations: readonly (EditOperationData | EditOperation)[],
+    options: { acceptDocuments?: boolean; document?: string } = {},
   ): Promise<EditResult> {
     requireCapability(
       this.info,
@@ -425,7 +437,8 @@ export class Connection {
         create(ApplyEditsRequestSchema, {
           modelHash,
           operations: built,
-          acceptDocuments: true,
+          acceptDocuments: options.acceptDocuments ?? true,
+          document: options.document ?? "",
         }),
         this.callOptions(),
       ),

@@ -1902,6 +1902,33 @@ function memberExtras(extra: readonly unknown[]): [string[], string, string] {
   return [metadata as string[], bodyExpression, doc];
 }
 
+/** Whether a wire-form sequence member carries an action-body statement. */
+function wireSequenceExtended(add: AddSequenceEdit, depth = 0): boolean {
+  if (depth > 128) {
+    throw new RangeError("nested action-body items exceed the maximum depth");
+  }
+  let extended =
+    add.keyword === "if" ||
+    add.keyword === "else" ||
+    (add.keyword === "" && add.memberKind !== "") ||
+    ACTION_BODY_MEMBER_KINDS.has(add.memberKind);
+  extended =
+    extended ||
+    add.condition !== "" ||
+    add.value !== "" ||
+    add.target !== "" ||
+    add.via !== "" ||
+    add.until !== "" ||
+    add.multiplicity !== "" ||
+    add.parameter !== "" ||
+    add.body.length > 0 ||
+    add.elseBody.length > 0;
+  for (const child of [...add.body, ...add.elseBody]) {
+    extended = wireSequenceExtended(child, depth + 1) || extended;
+  }
+  return extended;
+}
+
 function addSequenceMessage(add: AddSequenceEdit, operationData: unknown, depth = 0): boolean {
   if (depth > 128) {
     throw new RangeError("nested action-body items exceed the maximum depth");
@@ -1974,13 +2001,20 @@ export class EditRequestBuilder {
     this.#info = info;
   }
 
-  /** The operations the tuples describe, and the capabilities they need. */
-  build(operations: readonly EditOperationData[]): { operations: EditOperation[]; capabilities: string[] } {
+  /** The operations the tuples describe, and the capabilities they need. A
+   * wire `EditOperation` passes through as written — how a caller sends an
+   * operation the tuple form cannot write — gated on the fields it carries. */
+  build(
+    operations: readonly (EditOperationData | EditOperation)[],
+  ): { operations: EditOperation[]; capabilities: string[] } {
     const built = operations.map((data) => this.add(data));
     return { operations: built, capabilities: this.finish() };
   }
 
-  add(operationData: EditOperationData): EditOperation {
+  add(operationData: EditOperationData | EditOperation): EditOperation {
+    if (typeof operationData === "object" && "$typeName" in operationData) {
+      return this.wire(operationData);
+    }
     const operation = create(EditOperationSchema);
     switch (operationData[0]) {
       case "set_value": this.#setValue(operation, operationData); break;
@@ -2006,6 +2040,94 @@ export class EditRequestBuilder {
             "add_member, add_connection, add_satisfy, add_requirement_constraint, " +
             "add_transition, add_verify, add_metadata, add_metadata_prefix, add_sequence, " +
             "add_import, add_documentation, add_comment, add_note, delete or move",
+        );
+    }
+    return operation;
+  }
+
+  /** Gate an operation already in wire form on the fields it carries. */
+  wire(operation: EditOperation): EditOperation {
+    const detail = operation.operation.value as unknown as Record<string, unknown>;
+    switch (operation.operation.case) {
+      case "setValue":
+      case "rename":
+        break;
+      case "addMember":
+        this.#require(CAPABILITY_AUTHORING);
+        this.#note(CAPABILITY_IMPLICIT_PARAMETERS, detail["kind"] === "");
+        if (detail["kind"] === "objective" && detail["name"] === "") {
+          this.#require(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING);
+        }
+        if (detail["doc"] !== undefined && detail["doc"] !== "") {
+          this.#require(CAPABILITY_DOCUMENTATION_AUTHORING);
+        }
+        if ((detail["metadataPrefixes"] as readonly string[] | undefined ?? []).length > 0) {
+          this.#require(CAPABILITY_METADATA_AUTHORING);
+        }
+        if (
+          detail["bodyExpression"] !== "" ||
+          ASSERTED_CONSTRAINT_KINDS.has(detail["kind"] as string)
+        ) {
+          this.#require(CAPABILITY_CONSTRAINT_BODY_AUTHORING);
+        }
+        if (STATE_ACTION_KINDS.has(detail["kind"] as string)) {
+          this.#require(CAPABILITY_STATE_ACTION_AUTHORING);
+        }
+        this.#note(
+          CAPABILITY_MEMBER_MODIFIERS,
+          detail["isAbstract"] === true ||
+            (detail["redefines"] as readonly string[] | undefined ?? []).length > 0 ||
+            detail["isDefault"] === true ||
+            detail["direction"] !== "" ||
+            detail["kind"] === "ref" ||
+            detail["kind"] === "return",
+        );
+        break;
+      case "addConnection":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_CONNECTION_AUTHORING);
+        break;
+      case "addSatisfy":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_SATISFY_AUTHORING);
+        break;
+      case "addRequirementConstraint":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING);
+        break;
+      case "addTransition":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_TRANSITION_AUTHORING);
+        break;
+      case "addVerify":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING);
+        break;
+      case "addMetadata":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_METADATA_AUTHORING);
+        break;
+      case "addMetadataPrefix":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_METADATA_PREFIX_AUTHORING);
+        break;
+      case "addSequence":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_SEQUENCE_AUTHORING);
+        this.#note(
+          CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING,
+          wireSequenceExtended(detail as unknown as AddSequenceEdit),
+        );
+        break;
+      case "addImport":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_IMPORT_AUTHORING);
+        break;
+      case "addDocumentation":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_DOCUMENTATION_AUTHORING);
+        break;
+      case "addComment":
+      case "addNote":
+        this.#require(CAPABILITY_AUTHORING, CAPABILITY_COMMENT_AUTHORING);
+        break;
+      case "delete":
+      case "move":
+        this.#require(CAPABILITY_AUTHORING);
+        break;
+      default:
+        throw new RangeError(
+          `unknown edit operation ${JSON.stringify(operation.operation.case)}`,
         );
     }
     return operation;

@@ -1109,8 +1109,10 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
   });
 }
 
-/** What a caller may pass as an argument or input to a run. */
-export type ValueInput = SysMLValue | boolean | string | bigint | number;
+/** What a caller may pass as an argument or input to a run. A wire `Value`
+ * passes through untouched, which is how a caller sends a shape the typing
+ * layer would normalize away — including one the service is meant to refuse. */
+export type ValueInput = SysMLValue | Value | boolean | string | bigint | number;
 
 /**
  * Encodes a caller-facing value for the wire, requiring of `info` each
@@ -1119,6 +1121,9 @@ export type ValueInput = SysMLValue | boolean | string | bigint | number;
  * itself; a boolean, string, bigint and number encode as the scalar arms.
  */
 export function toValue(input: ValueInput, info: ServerInfo): Value {
+  if (typeof input === "object" && "$typeName" in input) {
+    return input;
+  }
   if (typeof input === "boolean") {
     return encodeValue({ kind: "boolean", value: input });
   }
