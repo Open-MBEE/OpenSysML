@@ -6,8 +6,6 @@ function model = parseFile(conn, path, varargin)
     request = struct('filePath', char(path));
     if ~isempty(options.language)
         validateLanguage(options.language);
-        conn.require('inline_language');
-        capabilities{end+1} = 'inline_language';
         request.language = char(options.language);
     end
     if options.strictConformance

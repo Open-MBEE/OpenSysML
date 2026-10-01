@@ -18,6 +18,9 @@ function test_surface_live()
     simple = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'simple_part.sysml')), ...
         'name', 'simple_part.sysml');
     assert_equal(simple.ok(), true, 'model ok');
+    parsedFile = opensysml.parseFile(conn, 'conformance/fixtures/simple_part.sysml', ...
+        'language', 'sysml');
+    assert_equal(parsedFile.ok(), true, 'parseFile language option');
     assert_equal(isempty(simple.errors()), true, 'model errors');
     assert_equal(isempty(simple.raiseForErrors()), false, 'raiseForErrors result');
     symbol = simple.symbol('Test::SimplePart');
@@ -78,8 +81,15 @@ function test_surface_live()
     textRows = opensysml.query(queryModel, ...
         'oslc.where=rdf:type="PartUsage"&oslc.select=sysml:name');
     structuredRows = queryModel.query('scope', {'Demo::vehicle'}, 'select', {'name'});
+    filter = struct('property', 'name', 'operator', '=', 'value', 'vehicle');
+    optionRows = queryModel.query('where', filter);
+    builtRows = queryModel.query(opensysml.buildQuery([], 'where', filter));
     assert_equal(isstruct(textRows) && ~isempty(textRows.elements), true, 'OSLC query');
     assert_equal(iscell(structuredRows), true, 'structured Model.query');
+    assert_equal(~isempty(optionRows), true, 'structured query where rows');
+    optionIds = cellfun(@(item) item.id, optionRows, 'UniformOutput', false);
+    builtIds = cellfun(@(item) item.id, builtRows, 'UniformOutput', false);
+    assert_equal(isequal(optionIds, builtIds), true, 'built structured Model.query');
 
     documentPath = fullfile(repo, 'internal', 'doc', 'docrender', ...
         'testdata', 'telescope_report.sysml');
@@ -93,6 +103,16 @@ function test_surface_live()
     assert_equal(iscell(documentQuery.columns), true, 'document query columns');
     assert_equal(numel(documentQuery.rows) > 0, true, 'document query rows');
     assert_equal(numel(methodQuery.rows), numel(documentQuery.rows), 'Model.runDocumentQuery');
+    statePath = fullfile(repo, 'internal', 'doc', 'docrender', ...
+        'testdata', 'state_report.sysml');
+    stateModel = opensysml.parseSource(conn, fileread(statePath), ...
+        'name', 'state_report.sysml');
+    stateModel.instantiate('Lamps::lamp1');
+    stateResult = stateModel.runDocumentQuery('Lamps::CurrentStates');
+    stateRow = stateResult.rows{1};
+    assert_equal(stateRow.state.type, 'state', 'document state row');
+    assert_equal(stateRow.object.type, 'object', 'document state object');
+    assert_equal(stateRow.element.id, 'Lamps::lamp1', 'document state row element');
     markdown = opensysml.renderDocument(documentModel, 'Observatory::MassReport');
     html = documentModel.renderDocument('Observatory::MassReport', 'form', 'html');
     assert_equal(~isempty(strfind(markdown, 'Telescope Mass Report')), true, ...

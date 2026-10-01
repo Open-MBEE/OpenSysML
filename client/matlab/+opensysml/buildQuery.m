@@ -69,6 +69,13 @@ function out = constraint(payload)
     if ~isstruct(payload) && ~isa(payload, 'containers.Map')
         queryError(sprintf('a constraint is an object, not %s', class(payload)));
     end
+    if isstruct(payload) && isscalar(payload)
+        fields = fieldnames(payload);
+        if numel(fields) == 1 && any(strcmp(fields{1}, {'primitive', 'composite'}))
+            out = payload;
+            return;
+        end
+    end
     declared = payloadGet(payload, '@type', payloadGet(payload, 'type', ''));
     if isempty(declared)
         if ~isempty(payloadGet(payload, 'constraint', []))

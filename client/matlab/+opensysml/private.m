@@ -67,23 +67,37 @@ function conn = private(varargin)
         if ~complete, pause(0.05); end
     end
     if isempty(line) || ~complete
-        proc.getOutputStream().close();
+        stopProcess(proc);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('sysml-grpc reported no address within %ds', timeoutSec), ...
+            struct('service', binary));
+    end
+    try
+        conn = opensysml.external(char(line), options{:});
+        conn.timeout = timeoutSec;
+        conn.privateService = true;
+        conn.origin = binary;
+        conn.serverInfo();
+    catch e
+        stopProcess(proc);
+        rethrow(e);
+    end
+    conn.process = proc;
+    conn.childStdin = proc.getOutputStream();
+end
+
+function stopProcess(proc)
+    try, proc.getOutputStream().close(); catch, end
+    try
         proc.destroy();
         if ~proc.waitFor(2, javaMethod('valueOf', 'java.util.concurrent.TimeUnit', 'SECONDS'))
             proc.destroyForcibly();
             proc.waitFor();
         end
-        opensysml.internal.raise('opensysml:transport', ...
-            sprintf('sysml-grpc reported no address within %ds', timeoutSec), ...
-            struct('service', binary));
+    catch
+        try, proc.destroyForcibly(); catch, end
+        try, proc.waitFor(); catch, end
     end
-    conn = opensysml.external(char(line), options{:});
-    conn.timeout = timeoutSec;
-    conn.privateService = true;
-    conn.origin = binary;
-    conn.process = proc;
-    conn.childStdin = proc.getOutputStream();
-    conn.serverInfo();
 end
 
 function tf = isJavaAvailable()

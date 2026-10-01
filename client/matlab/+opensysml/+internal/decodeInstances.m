@@ -7,31 +7,65 @@ function [values, instances] = decodeInstances(conn, raw)
     if isstruct(raw), raw = num2cell(raw(:)'); end
     if ~iscell(raw), raw = {raw}; end
     conn.require('feature_values');
+    rawById = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    keysInOrder = cell(1, numel(raw));
+    for i = 1:numel(raw)
+        id = opensysml.parseInt64(raw{i}.id);
+        key = sprintf('%d', id);
+        rawById(key) = raw{i};
+        keysInOrder{i} = key;
+    end
+    decoding = containers.Map('KeyType', 'char', 'ValueType', 'logical');
     values = cell(1, numel(raw));
     for i = 1:numel(raw)
-        item = raw{i};
+        values{i} = decodeOne(keysInOrder{i});
+    end
+
+    function value = decodeOne(key)
+        if isKey(instances, key)
+            value = instances(key);
+            return;
+        end
+        if ~isKey(rawById, key) || (isKey(decoding, key) && decoding(key))
+            value = opensysml.parseInt64(key);
+            return;
+        end
+        decoding(key) = true;
+        item = rawById(key);
         features = containers.Map('KeyType', 'char', 'ValueType', 'any');
         if isfield(item, 'featureValues')
             names = fieldnames(item.featureValues);
             for j = 1:numel(names)
-                features(names{j}) = featureValue(names{j}, item.featureValues.(names{j}));
+                features(names{j}) = featureValue( ...
+                    names{j}, item.featureValues.(names{j}), @resolveOne);
             end
         end
         id = opensysml.parseInt64(item.id);
         typeId = '';
         if isfield(item, 'typeSymbolId'), typeId = item.typeSymbolId; end
         value = struct('id', id, 'type_symbol_id', typeId, 'feature_values', features);
-        values{i} = value;
-        instances(sprintf('%d', id)) = value;
+        instances(key) = value;
+        decoding(key) = false;
+    end
+
+    function value = resolveOne(id)
+        key = sprintf('%d', int64(id));
+        if ~isKey(rawById, key) || (isKey(decoding, key) && decoding(key))
+            value = int64(id);
+        elseif isKey(instances, key)
+            value = instances(key);
+        else
+            value = decodeOne(key);
+        end
     end
 end
 
-function value = featureValue(name, raw)
+function value = featureValue(name, raw, resolveInstance)
     if isfield(raw, 'error') && ~isempty(raw.error)
         value = featureError(sprintf('feature %s failed to evaluate: %s', name, raw.error));
     elseif isfield(raw, 'value')
         try
-            value = opensysml.decodeValue(raw.value);
+            value = opensysml.decodeValue(raw.value, resolveInstance);
         catch e
             value = e;
         end
@@ -40,7 +74,7 @@ function value = featureValue(name, raw)
         value = cell(1, numel(items));
         for i = 1:numel(items)
             try
-                value{i} = opensysml.decodeValue(items{i});
+                value{i} = opensysml.decodeValue(items{i}, resolveInstance);
             catch e
                 value{i} = e;
             end

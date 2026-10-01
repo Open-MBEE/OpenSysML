@@ -13,7 +13,11 @@ function result = decodeDocumentResult(raw)
 end
 
 function row = decodeRow(raw)
-    element = decodeElement(raw.element);
+    if isstruct(raw.element) && hasTypedRowValue(raw.element)
+        element = opensysml.internal.decodeDocumentValue(raw.element);
+    else
+        element = decodeElement(raw.element);
+    end
     cells = toCells(fieldOr(raw, 'cells', {}));
     decodedCells = cell(1, numel(cells));
     for i = 1:numel(cells)
@@ -43,6 +47,14 @@ function row = decodeRow(raw)
     end
     row = struct('element', element, 'cells', {decodedCells}, ...
         'verdict', verdict, 'object', object, 'state', state, 'event', event);
+end
+
+function tf = hasTypedRowValue(raw)
+    arms = {'object', 'verdict', 'state', 'event'};
+    tf = false;
+    for i = 1:numel(arms)
+        if isfield(raw, arms{i}), tf = true; return; end
+    end
 end
 
 function value = decodeElement(raw)
