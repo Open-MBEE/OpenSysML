@@ -36,9 +36,9 @@ func TestREPLDoesNotDependOnTheService(t *testing.T) {
 	}
 }
 
-// TestProtoconvImportsMessagesAndSymbolFacts keeps proto conversion on API messages,
-// shared symbol facts and core packages, never another transport.
-func TestProtoconvImportsMessagesAndSymbolFacts(t *testing.T) {
+// TestProtoconvImportsOnlyTheMessages keeps the proto conversion package a leaf of the
+// frontends: it reads the API's messages and the core packages, never a transport.
+func TestProtoconvImportsOnlyTheMessages(t *testing.T) {
 	cmd := exec.Command("go", "list", "-f", "{{join .Imports \"\\n\"}}", "./internal/frontend/protoconv")
 	cmd.Dir = "../.."
 	out, err := cmd.Output()
@@ -66,7 +66,6 @@ func TestProtoconvImportsMessagesAndSymbolFacts(t *testing.T) {
 		switch {
 		case !strings.Contains(imp, "."),
 			imp == module+"/api/proto",
-			imp == module+"/internal/frontend/symbolfacts",
 			core,
 			strings.HasPrefix(imp, "google.golang.org/protobuf/"):
 		default:
