@@ -1200,6 +1200,25 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void anEmptiedDocumentOfSeveralIsNotSavedAsOneFile(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model model =
+        connection.parseSources(
+            List.of(
+                SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                SourceDocument.inline("b.sysml", "package B;")));
+    EditResult result =
+        model
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withAcceptDocuments(true).withDocument("b.sysml"));
+    assertTrue(result.severalDocuments());
+    assertEquals("", result.content());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> result.save(target));
+    assertEquals("kept", Files.readString(target));
+  }
+
+  @Test
   void anEditorAppliesActionBodyStatementsOnce() {
     Model model = connection.load(fixture("apply_edits_action_body.sysml"));
     Editor editor =

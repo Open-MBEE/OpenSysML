@@ -1343,7 +1343,12 @@ public final class Model {
           response.getReferringElementsList(),
           Protos.referrers(response.getReferrersList()));
     }
-    return Protos.editResult(response);
+    EditResult result = Protos.editResult(response);
+    if (documents.size() > 1 && !result.severalDocuments()) {
+      return new EditResult(
+          result.content(), result.applied(), result.documents(), result.diagnostics(), true);
+    }
+    return result;
   }
 
   /** The order the capabilities an edit request needs are checked in. */

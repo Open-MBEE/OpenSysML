@@ -271,6 +271,12 @@ class EditorTest {
     EditResult emptied =
         new EditResult("", List.of(), List.of(new EditedDocument("a.sysml", "")), List.of());
     assertEquals("", Files.readString(emptied.save(target)));
+    EditResult emptiedOfSeveral =
+        new EditResult(
+            "", List.of(), List.of(new EditedDocument("a.sysml", "")), List.of(), true);
+    Files.writeString(target, "kept");
+    assertThrows(IllegalStateException.class, () -> emptiedOfSeveral.save(target));
+    assertEquals("kept", Files.readString(target));
   }
 
   @Test

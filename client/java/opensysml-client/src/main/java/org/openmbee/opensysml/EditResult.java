@@ -15,12 +15,15 @@ import java.util.Objects;
  *     first, then the others in name order; a document of several the edits left as parsed is not
  *     listed
  * @param diagnostics what the service reported while editing
+ * @param severalDocuments whether the edited model has several documents, so {@code content} is
+ *     empty and {@link #save(Path)} refuses
  */
 public record EditResult(
     String content,
     List<AppliedEdit> applied,
     List<EditedDocument> documents,
-    List<Diagnostic> diagnostics) {
+    List<Diagnostic> diagnostics,
+    boolean severalDocuments) {
 
   /**
    * Creates an edit result, copying its collections.
@@ -38,6 +41,29 @@ public record EditResult(
   }
 
   /**
+   * Creates an edit result whose model's document count is not known, inferring it from the
+   * response: several documents when {@code content} is empty while rewritten documents carry text.
+   *
+   * @param content the edited notation of a single-document model, never {@code null}
+   * @param applied the applied edits
+   * @param documents the edited documents
+   * @param diagnostics the diagnostics
+   */
+  public EditResult(
+      String content,
+      List<AppliedEdit> applied,
+      List<EditedDocument> documents,
+      List<Diagnostic> diagnostics) {
+    this(
+        content,
+        applied,
+        documents,
+        diagnostics,
+        content.isEmpty()
+            && (documents.size() > 1 || documents.stream().anyMatch(d -> !d.content().isEmpty())));
+  }
+
+  /**
    * Writes the edited notation of a single-document model to a file.
    *
    * @param path the file, created or truncated
@@ -47,9 +73,7 @@ public record EditResult(
    * @throws java.io.UncheckedIOException if the file cannot be written
    */
   public Path save(Path path) {
-    boolean rewroteOthers =
-        documents.size() > 1 || documents.stream().anyMatch(d -> !d.content().isEmpty());
-    if (content.isEmpty() && rewroteOthers) {
+    if (severalDocuments) {
       throw new IllegalStateException(
           "the edit rewrote a model of several documents; write each of documents() instead");
     }
