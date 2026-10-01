@@ -2,15 +2,34 @@ function conn = private(varargin)
 %PRIVATE Start a child sysml-grpc and connect to it. The spawn needs Java
 %   (ProcessBuilder); an Octave built without Java uses opensysml.external.
 
-    binary = ''; timeoutSec = 30;
+    binary = ''; timeoutSec = 30; options = {}; versionSpecified = false;
     for i = 1:2:numel(varargin)
-        if strcmp(varargin{i}, 'binary'), binary = varargin{i+1}; end
-        if strcmp(varargin{i}, 'timeout'), timeoutSec = varargin{i+1}; end
+        if i == numel(varargin)
+            opensysml.internal.raise('opensysml:argument', 'name-value options need a value');
+        end
+        switch char(varargin{i})
+            case 'binary', binary = varargin{i+1};
+            case 'timeout', timeoutSec = varargin{i+1};
+            case 'version'
+                options(end+1:end+2) = varargin(i:i+1);
+                versionSpecified = true;
+            case 'capabilities'
+                options(end+1:end+2) = varargin(i:i+1);
+            otherwise
+                opensysml.internal.raise('opensysml:argument', ...
+                    sprintf('unknown private option: %s', char(varargin{i})));
+        end
+    end
+    if ~versionSpecified
+        expected = getenv('OPENSYSML_GRPC_VERSION');
+        if ~isempty(expected), options(end+1:end+2) = {'version', expected}; end
     end
     if isempty(binary), binary = opensysml.resolveBinary(); end
     if ~exist('java.lang.ProcessBuilder', 'class') && ~isJavaAvailable()
-        error('opensysml:transport', ['a private service needs java.lang.ProcessBuilder; ' ...
-            'this interpreter was built without Java — start a service yourself and use opensysml.external(address)']);
+        opensysml.internal.raise('opensysml:transport', ['a private service needs java.lang.ProcessBuilder; ' ...
+            'this interpreter was built without Java ' ...
+            opensysml.internal.unicodeChar(8212) ...
+            ' start a service yourself and use opensysml.external(address)']);
     end
     args = javaObject('java.util.ArrayList');
     args.add(javaObject('java.lang.String', binary));
@@ -21,7 +40,9 @@ function conn = private(varargin)
         pb = javaObject('java.lang.ProcessBuilder', args);
         proc = pb.start();
     catch e
-        error('opensysml:transport', 'could not start %s: %s', binary, e.message);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('could not start %s: %s', binary, e.message), ...
+            struct('service', binary));
     end
     rdr = javaObject('java.io.BufferedReader', ...
                      javaObject('java.io.InputStreamReader', proc.getInputStream()));
@@ -46,19 +67,37 @@ function conn = private(varargin)
         if ~complete, pause(0.05); end
     end
     if isempty(line) || ~complete
-        proc.getOutputStream().close();
+        stopProcess(proc);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('sysml-grpc reported no address within %ds', timeoutSec), ...
+            struct('service', binary));
+    end
+    try
+        conn = opensysml.external(char(line), options{:});
+        conn.timeout = timeoutSec;
+        conn.privateService = true;
+        conn.origin = binary;
+        conn.serverInfo();
+    catch e
+        stopProcess(proc);
+        rethrow(e);
+    end
+    conn.process = proc;
+    conn.childStdin = proc.getOutputStream();
+end
+
+function stopProcess(proc)
+    try, proc.getOutputStream().close(); catch, end
+    try
         proc.destroy();
         if ~proc.waitFor(2, javaMethod('valueOf', 'java.util.concurrent.TimeUnit', 'SECONDS'))
             proc.destroyForcibly();
             proc.waitFor();
         end
-        error('opensysml:transport', 'sysml-grpc reported no address within %ds', timeoutSec);
+    catch
+        try, proc.destroyForcibly(); catch, end
+        try, proc.waitFor(); catch, end
     end
-    conn = opensysml.external(char(line));
-    conn.timeout = timeoutSec;
-    conn.privateService = true;
-    conn.process = proc;
-    conn.childStdin = proc.getOutputStream();
 end
 
 function tf = isJavaAvailable()

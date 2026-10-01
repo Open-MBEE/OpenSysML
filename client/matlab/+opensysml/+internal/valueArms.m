@@ -1,5 +1,5 @@
 function arms = valueArms()
-%VALUEARMS The nineteen Value arm names on the wire.
+%VALUEARMS The Value arm names on the wire.
 
     arms = {'intValue', 'realValue', 'boolValue', 'stringValue', 'instanceId', ...
             'sequence', 'null', 'unset', 'quantity', 'enumLiteral', 'complex', ...

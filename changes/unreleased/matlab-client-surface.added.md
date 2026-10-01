@@ -1,0 +1,1 @@
+- **Expanded the MATLAB/Octave client with model inspection, analysis, document queries, and chainable source edits.** The client now exposes these service operations and typed edit results without generated protobuf code.
