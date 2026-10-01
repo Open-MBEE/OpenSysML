@@ -1147,8 +1147,9 @@ func (d *decoder) startOf(el *element) (rdf.Term, bool) {
 }
 
 // initialEndsAgree refuses a `first a then b` whose connector ends and
-// sysml:sourceFeature/sysml:targetFeature name different features: the
-// notation states each end once, so writing one would drop the other.
+// sysml:sourceFeature/sysml:targetFeature name different features, or whose
+// end declares a name or bounds: the notation states each end once, as the
+// bare feature it names, so writing it would drop the rest.
 func (d *decoder) initialEndsAgree(el *element) error {
 	ends, err := d.standardEndFeatures(el)
 	if err != nil || len(ends) == 0 {
@@ -1167,6 +1168,22 @@ func (d *decoder) initialEndsAgree(el *element) error {
 		got, ok, err := d.standardEndTarget(ends[i], el)
 		if err != nil {
 			return err
+		}
+		// `first a then b` writes each end as the bare feature it names; a
+		// name or bounds the end declares have no place there.
+		name, err := d.standardEndName(ends[i], el)
+		if err != nil {
+			return err
+		}
+		mult, err := d.endMultiplicity(ends[i], el)
+		if err != nil {
+			return err
+		}
+		if name != "" || mult != "" {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the succession <%s>", el.iri),
+				Note: fmt.Sprintf("its connector end <%s> declares %q, which `first a then b` writes no name or multiplicity for, so writing it would drop them", ends[i].Value, strings.TrimSpace(mult+" "+name)),
+			}
 		}
 		// A literal names a feature the graph does not link, so it is no
 		// identity to compare with.

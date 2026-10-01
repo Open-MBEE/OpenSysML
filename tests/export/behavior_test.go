@@ -522,6 +522,58 @@ func TestFirstThenWithDisagreeingEndsIsRefused(t *testing.T) {
 	}
 }
 
+// A `first a then b` end declaring a name or bounds is refused, with or
+// without its source text: the notation writes each end as the bare feature
+// it names, so writing it would drop them. The declaring end is the one
+// `succession first a then … b;` exports, at the same ids.
+func TestFirstThenWithADeclaringEndIsRefused(t *testing.T) {
+	const prefix = "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n        "
+	graph := func(t *testing.T, member string) string {
+		t.Helper()
+		turtle, err := convert.Convert("m.sysml", []byte(prefix+member+"\n    }\n}\n"), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("to turtle: %v", err)
+		}
+		return string(turtle)
+	}
+	plain := graph(t, "first a then b;")
+	const end = "expr:P__A___402_pend1"
+	for _, tc := range []struct{ name, declaring, want string }{
+		{"bound", "succession first a then [2] b;", `declares "[2]"`},
+		{"name", "succession first a then tgt ::> b;", `declares "tgt ::>"`},
+	} {
+		// Swap the plain end's blocks for the declaring end's.
+		var declared []string
+		for _, block := range strings.Split(graph(t, tc.declaring), "\n\n") {
+			if strings.HasPrefix(block, end) {
+				declared = append(declared, block)
+			}
+		}
+		var blocks []string
+		for _, block := range strings.Split(plain, "\n\n") {
+			if !strings.HasPrefix(block, end) {
+				blocks = append(blocks, block)
+			}
+		}
+		edited := []byte(strings.Join(append(blocks, declared...), "\n\n"))
+		for _, form := range []struct {
+			name   string
+			turtle []byte
+		}{
+			{"with source text", edited},
+			{"graph only", withoutTriples(t, edited, "sysx:sourceText")},
+		} {
+			t.Run(tc.name+", "+form.name, func(t *testing.T) {
+				_, err := convert.Convert("m.ttl", form.turtle, convert.FormatTurtle, convert.FormatSysML)
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.want) {
+					t.Errorf("expected the end to be refused with %q, got %v", tc.want, err)
+				}
+			})
+		}
+	}
+}
+
 // A member-attached `then done;` is one SuccessionAsUsage (SysML.xtext
 // TargetSuccessionMember): its target end's ReferenceSubsetting reaches the
 // library's Actions::Action::done, the same end `succession first x then done;`
