@@ -187,7 +187,7 @@ func TestNestedTransitionRelocatesToCommonAncestor(t *testing.T) {
 		wantNote(t, r, "_region4Init", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
 		wantNote(t, r, "_crossRegionInit", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
 		wantLine(t, r.Notation, "no default entry: these regions have no written entry: 'region4'")
-		wantLine(t, r.Notation, "every initial pseudostate of the region enters an orthogonal region: nothing enters this one")
+		wantLine(t, r.Notation, "every initial pseudostate of the region enters another region: nothing enters this one")
 		if strings.Count(string(r.Notation), "then wait3;") != 1 {
 			t.Errorf("region3's entry into wait3 is not written exactly once:\n%s", r.Notation)
 		}
@@ -217,7 +217,7 @@ func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
 	for _, opts := range []migrate.Options{{}, {Strict: true}} {
 		r := migrateFixtureFileOptions(t, "orthogonal_initials", opts)
 		s := string(r.Notation)
-		for _, state := range []string{"Donate", "Coincide", "Conflict", "Nested"} {
+		for _, state := range []string{"Donate", "Coincide", "Conflict", "Nested", "Dangle"} {
 			if !strings.Contains(s, "state "+state+" {\n            entry; then regions;") {
 				t.Errorf("%s has no default entry into its regions:\n%s", state, s)
 			}
@@ -263,6 +263,21 @@ func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
 		wantLine(t, r.Notation, "state Inner {\n                        entry; then inner1;")
 		wantNote(t, r, "_naStray", migrate.Approximated, "written as the entry of the body of 'Inner', which owns its target 'inner1', not of na")
 		wantNote(t, r, "_naStrayT", migrate.Approximated, "so it is written as the entry of the body of 'Inner'")
+
+		// (f) the target region's own initial has no transition, so it is no entry: the stray one is donated.
+		wantLine(t, r.Notation, "state gb {\n                    /* not migrated: Pseudostate (_gbInit) — no transition leaves the initial pseudostate */\n                    entry; then gb1;")
+		wantNote(t, r, "_gbInit", migrate.Unmapped, "no transition leaves the initial pseudostate")
+		wantNote(t, r, "_gaStray", migrate.Approximated, "written as the entry of gb, which owns its target 'gb1', not of ga")
+
+		// (g) a target in a region of another, non-orthogonal state is refused, not donated.
+		wantLine(t, r.Notation, "state Work {\n            /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */")
+		wantNote(t, r, "_wInitT", migrate.Unmapped, "its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region")
+		if strings.Count(s, "then idle1;") != 1 {
+			t.Errorf("Idle's own entry into idle1 is not written exactly once:\n%s", s)
+		}
+		if opts.Strict {
+			wantNote(t, r, "_wInit", migrate.Unmapped, "the initial transition's target has no v2 form here")
+		}
 	}
 
 	r := migrateFixtureFile(t, "orthogonal_initials")
@@ -275,6 +290,7 @@ func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
 		{"xa1", "xb1"},
 		{"ua1"},
 		{"na1", "inner1"},
+		{"ga1", "gb1"},
 	} {
 		out := meta(t, s, "%current")
 		for _, state := range want {

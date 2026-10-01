@@ -18,7 +18,7 @@ part def Plant {
                     state wait3;
                 }
                 state region4 {
-                    /* every initial pseudostate of the region enters an orthogonal region: nothing enters this one */
+                    /* every initial pseudostate of the region enters another region: nothing enters this one */
                 }
             }
             transition first regions then done;

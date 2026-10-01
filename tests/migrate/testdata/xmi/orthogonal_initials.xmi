@@ -91,6 +91,20 @@
               <transition xmi:type="uml:Transition" xmi:id="_nbInitT" source="_nbInit" target="_inner"/>
             </region>
           </subvertex>
+          <!-- Region gb's own initial has no transition, so it is no entry; ga's stray initial donates one. -->
+          <subvertex xmi:type="uml:State" xmi:id="_dangle" name="Dangle">
+            <region xmi:type="uml:Region" xmi:id="_ga" name="ga">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gaStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gaOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ga1" name="ga1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gaStrayT" source="_gaStray" target="_gb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gaOwnT" source="_gaOwn" target="_ga1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_gb" name="gb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gbInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_gb1" name="gb1"/>
+            </region>
+          </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="_enterDonate" source="_init" target="_donate"/>
           <transition xmi:type="uml:Transition" xmi:id="_toCoincide" source="_donate" target="_coincide">
             <trigger xmi:type="uml:Trigger" xmi:id="_toCoincideTrigger" event="_nextEvent"/>
@@ -104,9 +118,36 @@
           <transition xmi:type="uml:Transition" xmi:id="_toNested" source="_duplicate" target="_nested">
             <trigger xmi:type="uml:Trigger" xmi:id="_toNestedTrigger" event="_nextEvent"/>
           </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_toDangle" source="_nested" target="_dangle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toDangleTrigger" event="_nextEvent"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <!-- Work's initial enters idle1 in the region of its sibling state Idle: no orthogonal region, so it is refused. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cross" name="Cross">
+        <region xmi:type="uml:Region" xmi:id="_crossMain" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_crossInit" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_work" name="Work">
+            <region xmi:type="uml:Region" xmi:id="_wr" name="wr">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_wInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_work1" name="work1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_wInitT" source="_wInit" target="_idle1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle">
+            <region xmi:type="uml:Region" xmi:id="_ir" name="ir">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_iInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_idle1" name="idle1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_iInitT" source="_iInit" target="_idle1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_crossInitT" source="_crossInit" target="_idle"/>
         </region>
       </ownedBehavior>
     </packagedElement>
   </uml:Model>
   <sysml:Block xmi:id="_plantBlock" base_Class="_plant"/>
+  <sysml:Block xmi:id="_siteBlock" base_Class="_site"/>
 </xmi:XMI>

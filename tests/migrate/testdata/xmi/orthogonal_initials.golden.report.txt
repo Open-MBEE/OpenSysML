@@ -1,20 +1,25 @@
 # SysML v1 to v2 migration report: orthogonal_initials.xmi
-# migrated 68 element(s): 59 mapped, 6 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 95 element(s): 81 mapped, 8 approximated, 6 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (3)
+## unmapped (6)
 Pseudostate	Plant::Life::main::Conflict::xa::<Pseudostate>	_xaStray	(the initial transition's target has no v2 form here)
 Transition	Plant::Life::main::Conflict::xa::<Transition>	_xaStrayT	(its target 'xb2' lies in xb, an orthogonal region whose own initial pseudostate enters 'xb1'; that entry is kept)
+Pseudostate	Plant::Life::main::Dangle::gb::<Pseudostate>	_gbInit	(no transition leaves the initial pseudostate)
 Pseudostate	Plant::Life::main::Duplicate::ua::<Pseudostate>	_uaInit2	(a region has one initial pseudostate; (_uaInit1) is written as it)
+Pseudostate	Site::Cross::main::Work::wr::<Pseudostate>	_wInit	(the initial transition's target has no v2 form here)
+Transition	Site::Cross::main::Work::wr::<Transition>	_wInitT	(its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region)
 
-## approximated (6)
+## approximated (8)
 Pseudostate	Plant::Life::main::Coincide::ca::<Pseudostate>	_caStray	(coincides with cb's own entry into 'cb1', which its transition also enters from this orthogonal region)
 Transition	Plant::Life::main::Coincide::ca::<Transition>	_caStrayT	(coincides with cb's own entry into 'cb1', which its transition also enters from this orthogonal region)
+Pseudostate	Plant::Life::main::Dangle::ga::<Pseudostate>	_gaStray	(written as the entry of gb, which owns its target 'gb1', not of ga, the orthogonal region that owns the pseudostate)
+Transition	Plant::Life::main::Dangle::ga::<Transition>	_gaStrayT	(its target 'gb1' lies in gb, an orthogonal region of the pseudostate's, so it is written as the entry of gb)
 Pseudostate	Plant::Life::main::Donate::da::<Pseudostate>	_daStray	(written as the entry of db, which owns its target 'db1', not of da, the orthogonal region that owns the pseudostate)
 Transition	Plant::Life::main::Donate::da::<Transition>	_daStrayT	(its target 'db1' lies in db, an orthogonal region of the pseudostate's, so it is written as the entry of db)
 Pseudostate	Plant::Life::main::Nested::na::<Pseudostate>	_naStray	(written as the entry of the body of 'Inner', which owns its target 'inner1', not of na, the orthogonal region that owns the pseudostate)
 Transition	Plant::Life::main::Nested::na::<Transition>	_naStrayT	(its target 'inner1' lies in the body of 'Inner', an orthogonal region of the pseudostate's, so it is written as the entry of the body of 'Inner')
 
-## mapped (59)
+## mapped (81)
 Model	Model	_m	(the root model's members are written at the top level)
 Signal	Next	_next	-> Next
 «Block» Class	Plant	_plant	-> Plant
@@ -26,10 +31,12 @@ Transition	Plant::Life::main::<Transition>	_toCoincide
 Transition	Plant::Life::main::<Transition>	_toConflict
 Transition	Plant::Life::main::<Transition>	_toDuplicate
 Transition	Plant::Life::main::<Transition>	_toNested
+Transition	Plant::Life::main::<Transition>	_toDangle
 Trigger	Plant::Life::main::<Transition>::<Trigger>	_toCoincideTrigger
 Trigger	Plant::Life::main::<Transition>::<Trigger>	_toConflictTrigger
 Trigger	Plant::Life::main::<Transition>::<Trigger>	_toDuplicateTrigger
 Trigger	Plant::Life::main::<Transition>::<Trigger>	_toNestedTrigger
+Trigger	Plant::Life::main::<Transition>::<Trigger>	_toDangleTrigger
 State	Plant::Life::main::Coincide	_coincide	-> Coincide
 Region	Plant::Life::main::Coincide::ca	_ca	-> ca	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Plant::Life::main::Coincide::ca::<Pseudostate>	_caOwn	(written as the entry of the region)
@@ -49,6 +56,13 @@ Pseudostate	Plant::Life::main::Conflict::xb::<Pseudostate>	_xbInit	(written as t
 Transition	Plant::Life::main::Conflict::xb::<Transition>	_xbInitT
 State	Plant::Life::main::Conflict::xb::xb1	_xb1	-> xb1
 State	Plant::Life::main::Conflict::xb::xb2	_xb2	-> xb2
+State	Plant::Life::main::Dangle	_dangle	-> Dangle
+Region	Plant::Life::main::Dangle::ga	_ga	-> ga	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Plant::Life::main::Dangle::ga::<Pseudostate>	_gaOwn	(written as the entry of the region)
+Transition	Plant::Life::main::Dangle::ga::<Transition>	_gaOwnT
+State	Plant::Life::main::Dangle::ga::ga1	_ga1	-> ga1
+Region	Plant::Life::main::Dangle::gb	_gb	-> gb	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+State	Plant::Life::main::Dangle::gb::gb1	_gb1	-> gb1
 State	Plant::Life::main::Donate	_donate	-> Donate
 Region	Plant::Life::main::Donate::da	_da	-> da	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Plant::Life::main::Donate::da::<Pseudostate>	_daOwn	(written as the entry of the region)
@@ -73,4 +87,17 @@ Transition	Plant::Life::main::Nested::nb::<Transition>	_nbInitT
 State	Plant::Life::main::Nested::nb::Inner	_inner	-> Inner
 Region	Plant::Life::main::Nested::nb::Inner::ni	_ni	(the one region is written as the body of its owner)
 State	Plant::Life::main::Nested::nb::Inner::ni::inner1	_inner1	-> inner1
+«Block» Class	Site	_site	-> Site
+StateMachine	Site::Cross	_cross	-> Site::Cross
+Region	Site::Cross::main	_crossMain	(the one region is written as the body of its owner)
+Pseudostate	Site::Cross::main::<Pseudostate>	_crossInit	(written as the entry of the region)
+Transition	Site::Cross::main::<Transition>	_crossInitT
+State	Site::Cross::main::Idle	_idle	-> Idle
+Region	Site::Cross::main::Idle::ir	_ir	(the one region is written as the body of its owner)
+Pseudostate	Site::Cross::main::Idle::ir::<Pseudostate>	_iInit	(written as the entry of the region)
+Transition	Site::Cross::main::Idle::ir::<Transition>	_iInitT
+State	Site::Cross::main::Idle::ir::idle1	_idle1	-> idle1
+State	Site::Cross::main::Work	_work	-> Work
+Region	Site::Cross::main::Work::wr	_wr	(the one region is written as the body of its owner)
+State	Site::Cross::main::Work::wr::work1	_work1	-> work1
 SignalEvent	nextEvent	_nextEvent	(written where a trigger refers to it, as accept Next)

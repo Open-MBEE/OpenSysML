@@ -336,7 +336,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 			note += "; no initial pseudostate starts the " + pluralRegion(len(withoutInitial)) + " " + strings.Join(withoutInitial, ", ") + ", which v1 too leaves inactive on entering the state"
 		}
 		if len(withoutEntry) > 0 {
-			note += "; every initial pseudostate of the " + pluralRegion(len(withoutEntry)) + " " + strings.Join(withoutEntry, ", ") + " enters an orthogonal region, so no entry is written for it"
+			note += "; no initial pseudostate of the " + pluralRegion(len(withoutEntry)) + " " + strings.Join(withoutEntry, ", ") + " enters it, so no entry is written for it"
 		}
 		return pointForm{defaultEntry: true, note: note}
 	}
@@ -650,13 +650,13 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 }
 
 // regionsWithoutEntry names the regions nothing enters: those no initial pseudostate
-// starts, and apart those whose every initial pseudostate enters an orthogonal region.
+// starts, and apart those whose initial pseudostates enter other regions or nothing.
 func (m *migration) regionsWithoutEntry(regions []*sysmlv1.Element) (withoutInitial, withoutEntry []string) {
 	for _, r := range regions {
 		e := m.regionEntry(r)
 		switch {
 		case e.init != nil:
-		case len(e.strays) == 0:
+		case len(e.strays) == 0 && len(e.dangling) == 0:
 			withoutInitial = append(withoutInitial, describe(r))
 		default:
 			withoutEntry = append(withoutEntry, describe(r))
@@ -668,17 +668,19 @@ func (m *migration) regionsWithoutEntry(regions []*sysmlv1.Element) (withoutInit
 // regionEntry is what enters a region: the initial pseudostate written as its
 // entry — one of the region's own whose transition enters it, or one a stray
 // initial of an orthogonal region donates, its donor — with the region's further
-// initials: duplicates entering it, and strays entering orthogonal regions.
+// initials: duplicates entering it, strays entering other regions, and dangling
+// ones no transition leaves.
 type regionEntry struct {
 	init, transition, donor *sysmlv1.Element
-	duplicates              []*sysmlv1.Element
+	duplicates, dangling    []*sysmlv1.Element
 	strays                  []*strayInitial
 }
 
-// strayInitial is an initial pseudostate whose transition enters an orthogonal
-// region, into: donated to it as its entry when it has none of its own,
-// coinciding with its entry into the same vertex, or in conflict with one into
-// another, ownTarget — an entry of into's own, or one donated by ownDonor.
+// strayInitial is an initial pseudostate whose transition enters another region,
+// into. One entering an orthogonal region is donated to it as its entry when it has
+// none of its own, coincides with its entry into the same vertex, or conflicts with
+// one into another, ownTarget — an entry of into's own, or one donated by ownDonor.
+// One entering a region of another state is foreign: refused.
 type strayInitial struct {
 	init, transition, target, into, ownTarget, ownDonor *sysmlv1.Element
 	fate                                                strayFate
@@ -690,6 +692,7 @@ const (
 	strayDonated strayFate = iota
 	strayCoincides
 	strayConflicts
+	strayForeign
 )
 
 // planEntries settles what enters each region of a machine before any is written, so
@@ -719,37 +722,41 @@ func (m *migration) planEntries(sm *sysmlv1.Element) {
 				continue
 			}
 			out := m.initialTransitions(v)
-			if len(out) > 0 {
-				tgt := m.model.Ref(out[0], "target")
-				if into := orthogonalRegionOf(r, tgt); into != nil && machineOf(into) == sm {
-					e.strays = append(e.strays, &strayInitial{init: v, transition: out[0], target: tgt, into: into})
-					continue
+			if len(out) == 0 {
+				e.dangling = append(e.dangling, v)
+				continue
+			}
+			tgt := m.model.Ref(out[0], "target")
+			if foreign := foreignRegionOf(r, tgt); foreign != nil {
+				st := &strayInitial{init: v, transition: out[0], target: tgt, into: foreign}
+				if !isOrthogonal(r, foreign) {
+					st.fate = strayForeign
 				}
+				e.strays = append(e.strays, st)
+				continue
 			}
 			if e.init != nil {
 				e.duplicates = append(e.duplicates, v)
 				continue
 			}
-			e.init = v
-			if len(out) > 0 {
-				e.transition = out[0]
-			}
+			e.init, e.transition = v, out[0]
 		}
 	}
 	for _, r := range regions {
 		for _, st := range m.entries[r].strays {
+			if st.fate == strayForeign {
+				continue
+			}
 			into := m.entries[st.into]
 			switch {
 			case into.init == nil:
 				into.init, into.transition, into.donor = st.init, st.transition, r
-			case into.transition != nil && m.model.Ref(into.transition, "target") == st.target:
+			case m.model.Ref(into.transition, "target") == st.target:
 				st.fate = strayCoincides
 			default:
 				st.fate = strayConflicts
 				st.ownDonor = into.donor
-				if into.transition != nil {
-					st.ownTarget = m.model.Ref(into.transition, "target")
-				}
+				st.ownTarget = m.model.Ref(into.transition, "target")
 			}
 		}
 	}
@@ -785,9 +792,9 @@ func (m *migration) initialTransitions(init *sysmlv1.Element) []*sysmlv1.Element
 	return out
 }
 
-// orthogonalRegionOf returns the region owning target when it is neither region
-// nor nested in it nor one of its ancestors: an orthogonal region; nil otherwise.
-func orthogonalRegionOf(region, target *sysmlv1.Element) *sysmlv1.Element {
+// foreignRegionOf returns the region owning target when it is neither region nor
+// nested in it nor one of its ancestors; nil otherwise.
+func foreignRegionOf(region, target *sysmlv1.Element) *sysmlv1.Element {
 	var targetRegion *sysmlv1.Element
 	for cur := target; cur != nil; cur = cur.Parent {
 		if cur.Type == "Region" {
@@ -809,6 +816,17 @@ func orthogonalRegionOf(region, target *sysmlv1.Element) *sysmlv1.Element {
 		}
 	}
 	return targetRegion
+}
+
+// isOrthogonal reports whether other lies in another region of region's owner:
+// an orthogonal region of region's, or one nested below it.
+func isOrthogonal(region, other *sysmlv1.Element) bool {
+	for cur := other; cur != nil && cur != region.Parent; cur = cur.Parent {
+		if cur.Type == "Region" && cur.Parent == region.Parent && cur != region {
+			return true
+		}
+	}
+	return false
 }
 
 // regionLabel names a region as it is written: the sub-state of a parallel
@@ -926,6 +944,9 @@ func pseudoKind(v *sysmlv1.Element) string {
 // the entry action unless the body wrote its own, which entered says.
 func (s *stateRegion) initial(entered bool) {
 	e := s.m.regionEntry(s.r)
+	for _, v := range e.dangling {
+		s.m.unmapped(v, "no transition leaves the initial pseudostate")
+	}
 	for _, v := range e.duplicates {
 		s.m.unmapped(v, "a region has one initial pseudostate; "+describe(e.init)+" is written as it")
 	}
@@ -934,20 +955,18 @@ func (s *stateRegion) initial(entered bool) {
 	}
 	init := e.init
 	if init == nil {
-		if len(e.strays) > 0 {
-			s.m.w.lines(commentLines("every initial pseudostate of the region enters an orthogonal region: nothing enters this one"))
-		} else {
+		switch {
+		case len(e.strays) > 0:
+			s.m.w.lines(commentLines("every initial pseudostate of the region enters another region: nothing enters this one"))
+		case len(e.dangling) > 0:
+			s.m.w.lines(commentLines("no transition leaves the region's initial pseudostate: nothing enters the region"))
+		default:
 			s.m.w.lines(commentLines("the region has no initial pseudostate: nothing enters it"))
 		}
 		return
 	}
-	out := s.m.initialTransitions(init)
-	if len(out) == 0 {
-		s.m.unmapped(init, "no transition leaves the initial pseudostate")
-		return
-	}
 	t := e.transition
-	for _, other := range out {
+	for _, other := range s.m.initialTransitions(init) {
 		if other != t {
 			s.m.unmapped(other, "an initial pseudostate has one outgoing transition; "+describe(t)+" is written as it")
 		}
@@ -1003,9 +1022,10 @@ func (s *stateRegion) initial(entered bool) {
 }
 
 // stray accounts for an initial pseudostate of the region whose transition enters
-// an orthogonal region: one donated to it is written and ledgered there; one
-// coinciding with that region's own entry adds nothing to it; one in conflict with
-// it is refused, since the region's own initial is kept.
+// another region: one donated to an orthogonal region is written and ledgered
+// there; one coinciding with that region's own entry adds nothing to it; one in
+// conflict with it is refused, since the region's own initial is kept; one entering
+// a region of another state is refused.
 func (s *stateRegion) stray(st *strayInitial) {
 	into := s.m.regionLabel(st.into)
 	switch st.fate {
@@ -1028,14 +1048,18 @@ func (s *stateRegion) stray(st *strayInitial) {
 			s.m.unmapped(eff, "the effect of an initial transition that coincides with "+into+"'s own entry is dropped: that entry's effect is written")
 		}
 	case strayConflicts:
-		own := "whose own initial pseudostate no transition leaves"
-		if st.ownTarget != nil {
-			own = "whose own initial pseudostate enters " + describe(st.ownTarget)
-		}
+		own := "whose own initial pseudostate enters " + describe(st.ownTarget)
 		if st.ownDonor != nil {
 			own = "whose entry, donated by " + s.m.regionLabel(st.ownDonor) + "'s initial pseudostate, enters " + describe(st.ownTarget)
 		}
 		why := "its target " + describe(st.target) + " lies in " + into + ", an orthogonal region " + own + "; that entry is kept"
+		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
+		s.m.unmapped(st.transition, why)
+		if s.m.strict {
+			s.refusedParts(st.transition, why)
+		}
+	case strayForeign:
+		why := "its target " + describe(st.target) + " lies in " + describe(st.into) + ", a region of " + describe(st.into.Parent) + " and no orthogonal region of the pseudostate's; an initial transition enters its own region"
 		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
 		s.m.unmapped(st.transition, why)
 		if s.m.strict {

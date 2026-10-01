@@ -1163,9 +1163,12 @@ naming the region written. When the target's region has an initial of its own en
 same vertex, the stray one coincides with it and nothing is written twice; when its own
 initial enters another vertex the two conflict, the region's own entry is kept and the stray
 one is refused with both targets named (`-strict` reports its triggers, guard and effect as
-refused with it). The owner's default entry into its `parallel` state is written once every
-region has an entry, its own or a donated one; a region none of whose initials enters it is
-listed in the owner's `no default entry` note.
+refused with it). An initial pseudostate no transition leaves is no entry, so a donated one
+may enter its region; an initial whose transition enters a region of another state — one that
+is not orthogonal to its own — is refused, since an initial transition enters its own region.
+The owner's default entry into its `parallel` state is written once every region has an
+entry, its own or a donated one; a region none of whose initials enters it is listed in the
+owner's `no default entry` note.
 
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every

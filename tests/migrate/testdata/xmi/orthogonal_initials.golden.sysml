@@ -74,9 +74,41 @@ part def Plant {
             transition first regions then done;
             metadata MigrationMetadata::SynthesizedName about regions;
         }
+        state Dangle {
+            entry; then regions;
+            state regions parallel {
+                state ga {
+                    entry; then ga1;
+                    state ga1;
+                }
+                state gb {
+                    /* not migrated: Pseudostate (_gbInit) — no transition leaves the initial pseudostate */
+                    entry; then gb1;
+                    state gb1;
+                }
+            }
+            transition first regions then done;
+            metadata MigrationMetadata::SynthesizedName about regions;
+        }
         transition first Donate accept Next then Coincide;
         transition first Coincide accept Next then Conflict;
         transition first Conflict accept Next then Duplicate;
         transition first Duplicate accept Next then Nested;
+        transition first Nested accept Next then Dangle;
+    }
+}
+part def Site {
+    state def Cross {
+        entry; then Idle;
+        state Work {
+            /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */
+            /* not migrated: Transition (_wInitT) — its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region */
+            /* every initial pseudostate of the region enters another region: nothing enters this one */
+            state work1;
+        }
+        state Idle {
+            entry; then idle1;
+            state idle1;
+        }
     }
 }
