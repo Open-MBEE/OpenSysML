@@ -107,17 +107,11 @@ func (g *ActionGraph) CheckStep(node ast.Node, model *semantics.Model) error {
 	}
 
 	for _, edge := range g.Incoming(node) {
-		if isStartNode(edge.Source) || isDoneNode(edge.Target) {
-			continue
-		}
 		if err := g.checkRepeatedEdge(node, edge, count, model); err != nil {
 			return err
 		}
 	}
 	for _, edge := range g.Edges[node] {
-		if isDoneNode(edge.Target) {
-			continue
-		}
 		if err := g.checkRepeatedEdge(node, edge, count, model); err != nil {
 			return err
 		}
@@ -140,6 +134,9 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 			reason = "guarded successions cannot order every performance of the repeated step"
 		}
 		return g.stepError(node, model, StepMultiplicityUnsupportedCode, reason, edge.Decl)
+	}
+	if isStartNode(edge.Source) || isDoneNode(edge.Target) {
+		return nil
 	}
 	if count == 0 {
 		return nil

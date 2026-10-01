@@ -5,6 +5,7 @@ package test {
 		attribute c : Integer = 0;
 
 		action def Increment {
+			attribute c : Integer = 0;
 			first start then increment;
 			action increment { assign c := c + 1; }
 			then done;

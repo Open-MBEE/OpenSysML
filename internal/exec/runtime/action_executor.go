@@ -2940,7 +2940,7 @@ func (e *ActionExecutor) State() ExecutionState {
 }
 
 // Results returns the values the action's features hold, under `node.pin` those of
-// each nested node's latest performance and under `part.attribute` what the one
+// each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
 	results := make(map[string]Value, len(e.root.data))

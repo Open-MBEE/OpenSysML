@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -113,6 +115,28 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 					action a[3];
 					action q;
 					succession first a if true then q;
+				}
+			}`,
+		},
+		{
+			name: "guarded-start-succession", step: "a", multiplicity: "[3]",
+			code: lower.StepMultiplicityUnsupportedCode,
+			model: `package test {
+				action def A {
+					action a[3];
+					succession first start if true then a;
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "guarded-done-succession", step: "a", multiplicity: "[3]",
+			code: lower.StepMultiplicityUnsupportedCode,
+			model: `package test {
+				action def A {
+					action a[3];
+					first start then a;
+					succession first a if true then done;
 				}
 			}`,
 		},
@@ -295,5 +319,58 @@ func TestActionStepMultiplicityExploreHasOneExactOutcome(t *testing.T) {
 	}
 	if got := exploration.Outcomes[0].Outcome.String(); !strings.Contains(got, "c = 3") {
 		t.Errorf("explored outcome = %q, want c = 3", got)
+	}
+}
+
+func TestActionStepMultiplicityExploreOmitsRepeatedLocals(t *testing.T) {
+	path := filepath.Join("testdata", "conformance", "action_step_multiplicity_shared_writers.sysml")
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read shared-writers fixture: %v", err)
+	}
+	file := parseAndBuild(t, string(text))
+	index, _, base := buildRuntimeWithLibraries(t, "<test>", file)
+	action := findSymbolByName(index.DocumentRoot("<test>"), "SharedWriters", ast.DefAction)
+	if action == nil {
+		t.Fatal("action SharedWriters not found")
+	}
+	budget := DefaultExploreBudget
+	budget.Runs = 65536
+	policy, err := ExplorePolicy(budget)
+	if err != nil {
+		t.Fatalf("explore policy: %v", err)
+	}
+	exploration, err := Explore(
+		context.Background(),
+		policy,
+		func() (*Context, error) { return NewContext(base.model, 10000), nil },
+		func(ctx *Context) (Outcome, error) {
+			exec, err := ctx.performAction(action, nil, nil)
+			if err != nil {
+				return Outcome{}, err
+			}
+			results := exec.Results()
+			if _, ok := results["a.l"]; ok {
+				t.Errorf("Results includes repeated local a.l: %v", results)
+			}
+			return ctx.ActionOutcome(results), nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("explore shared writers: %v", err)
+	}
+	if !exploration.Complete() || len(exploration.Outcomes) != 3 {
+		t.Fatalf("exploration = %s with %d outcomes, want three complete outcomes", exploration.Status(), len(exploration.Outcomes))
+	}
+	want := map[string]bool{"c = 1": true, "c = 2": true, "c = 3": true}
+	for _, explored := range exploration.Outcomes {
+		got := explored.Outcome.String()
+		if !want[got] {
+			t.Errorf("unexpected distinct outcome %q", got)
+		}
+		delete(want, got)
+	}
+	if len(want) != 0 {
+		t.Errorf("exploration did not reach expected outcomes: %v", want)
 	}
 }

@@ -1158,13 +1158,16 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 	return merged
 }
 
-// collect reports the values the performance and its subactions hold, a node's
-// under its path (`p.v`), the latest performance of each name standing for it.
+// collect reports the values the performance and its non-repeated subactions hold,
+// under their paths (`p.v`), the latest performance of each name standing for it.
 func (f *actionFrame) collect(prefix string, into map[string]Value) {
 	for name, value := range f.data {
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
+		if sub.repetition > 0 {
+			continue
+		}
 		sub.collect(prefix+name+".", into)
 	}
 }

@@ -69,6 +69,25 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
+			name: "guarded start edge",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				action a[3];
+				succession first start if true then a;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "guarded done edge",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				action a[3];
+				succession first start then a;
+				succession first a if true then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
 			name: "unevaluable succession-end count",
 			code: "action-step-multiplicity-not-fixed",
 			model: `action def A {
@@ -142,6 +161,24 @@ func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 				first start then a;
 				action a[3];
 				then done;
+			}`,
+		},
+		{
+			name: "performed action step in flow",
+			model: `package P {
+				private import ScalarValues::*;
+				action def Increment {
+					attribute c : Integer = 0;
+					first start then increment;
+					action increment { assign c := c + 1; }
+					then done;
+				}
+				action def A {
+					attribute c : Integer = 0;
+					first start then p;
+					perform action p[2] : Increment;
+					then done;
+				}
 			}`,
 		},
 		{

@@ -64,9 +64,11 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 		}
 		c.walk(child, n.Members)
 	case *ast.Usage:
-		if behavior, ok := lower.ClassifierBehaviorOf(n); ok &&
-			behavior.Kind == lower.PerformedAction && behavior.Decl.Multiplicity != nil {
-			c.checkDeclaredMultiplicity(behavior.Decl, child)
+		if classifierBehaviorScope(scope) {
+			if behavior, ok := lower.ClassifierBehaviorOf(n); ok &&
+				behavior.Kind == lower.PerformedAction && behavior.Decl.Multiplicity != nil {
+				c.checkDeclaredMultiplicity(behavior.Decl, child)
+			}
 		}
 		if n.Kind == ast.UsageAction {
 			c.checkAction(n, child)
@@ -111,6 +113,14 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 	case *ast.IfBranchNode:
 		c.walk(child, n.Body)
 	}
+}
+
+func classifierBehaviorScope(scope *symbols.Scope) bool {
+	if scope == nil || scope.Owner() == nil {
+		return false
+	}
+	definition, ok := scope.Owner().Decl.(*ast.Definition)
+	return ok && definition.Kind != ast.DefAction
 }
 
 func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbols.Scope) {
