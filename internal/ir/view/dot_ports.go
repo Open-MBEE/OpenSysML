@@ -87,11 +87,12 @@ func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
 		w.placePorts(child, ends)
 	}
 	box, ok := w.boxes[node.ID]
-	if !ok || len(node.Ports) == 0 {
+	ports := w.ports.of(node)
+	if !ok || len(ports) == 0 {
 		return
 	}
 	var free [2][]Port
-	for _, port := range node.Ports {
+	for _, port := range ports {
 		end, ok := ends[port.ID]
 		if !ok {
 			free[w.portSide(port)] = append(free[w.portSide(port)], port)
@@ -182,8 +183,8 @@ func (w *dotWriter) writePins(node *Node, indent string) {
 	if !w.pinNode(node) {
 		return
 	}
-	for _, port := range node.Ports {
-		attrs := []string{"shape=box", `label=""`, "xlabel=" + dotQuote(port.label()), "fontsize=" + strconv.Itoa(dotPinPts),
+	for _, port := range w.ports.of(node) {
+		attrs := []string{"shape=box", `label=""`, "xlabel=" + dotQuote(w.ports.pinLabel(port)), "fontsize=" + strconv.Itoa(dotPinPts),
 			"width=" + dotInches(dotPinSize), "height=" + dotInches(dotPinSize), "fixedsize=true"}
 		if w.skin.cameo {
 			attrs = append(attrs, "fillcolor="+dotQuote(cameoNoteFill), dotColorAttr(cameoActionLine))
@@ -213,14 +214,7 @@ func (w *dotWriter) portSide(port Port) int {
 // bottom (portSide), each a small bordered square named in small type, so an
 // edge can end at the cell.
 func (w *dotWriter) dotPortedLabel(node *Node, label string) string {
-	var in, out []Port
-	for _, port := range node.Ports {
-		if w.portSide(port) == 1 {
-			out = append(out, port)
-		} else {
-			in = append(in, port)
-		}
-	}
+	in, out := w.portSides(node)
 	body := strings.TrimSuffix(strings.TrimPrefix(label, "label=<"), ">")
 	rows := []string{}
 	if row := w.dotPortRow(in); row != "" {
@@ -233,10 +227,78 @@ func (w *dotWriter) dotPortedLabel(node *Node, label string) string {
 	return `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2">` + strings.Join(rows, "") + `</table>>`
 }
 
+// portSides splits the drawn ports of a node by portSide: those on the top,
+// then those on the bottom.
+func (w *dotWriter) portSides(node *Node) (in, out []Port) {
+	for _, port := range w.ports.of(node) {
+		if w.portSide(port) == 1 {
+			out = append(out, port)
+		} else {
+			in = append(in, port)
+		}
+	}
+	return in, out
+}
+
 // dotPortColumns is the columns a ported label's table has: two per port on
 // its wider row, the square and its name, at the least one for the body.
 func dotPortColumns(in, out int) int {
 	return max(1, 2*max(in, out))
+}
+
+// dotPinnedAttributes is a plain node's shape and label under the minimal
+// display: a borderless table whose body cell draws the node's box — a
+// bordered table, rounded as the skin rounds, filled and penned in the node's
+// colours, which an HTML table takes from its node — and whose row above or
+// below it sets each drawn port as a small square on the box's outer edge,
+// named beside it in small type, so an edge ends at the square
+// (`"n1":"n1.0"`) and the box itself stays the size its label needs. Graphviz
+// draws a node as one shape, so the square touches the border rather than
+// straddling it.
+func (w *dotWriter) dotPinnedAttributes(node *Node, label string) []string {
+	in, out := w.portSides(node)
+	body := strings.TrimSuffix(strings.TrimPrefix(label, "label=<"), ">")
+	columns := 3*max(len(in), len(out)) + 1
+	box := []string{`border="1"`, `cellborder="0"`, `cellspacing="0"`, `cellpadding="6"`}
+	if w.skin.rounded(node.Kind) {
+		box = append(box, `style="rounded"`)
+	}
+	rows := []string{}
+	if row := w.dotPinRow(in, columns); row != "" {
+		rows = append(rows, row)
+	}
+	rows = append(rows, fmt.Sprintf(`<tr><td colspan="%d"><table %s><tr><td>%s</td></tr></table></td></tr>`, columns, strings.Join(box, " "), body))
+	if row := w.dotPinRow(out, columns); row != "" {
+		rows = append(rows, row)
+	}
+	attrs := append([]string{"shape=plain"}, w.fillAttributes(node)...)
+	return append(attrs, `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`+strings.Join(rows, "")+`</table>>`)
+}
+
+// dotPinRow is one row of pins on a box's outer edge: a spacer cell, then for
+// each port its bordered square, its name and a spacer, the spacers sharing
+// the width the box leaves over; "" for no ports.
+func (w *dotWriter) dotPinRow(ports []Port, columns int) string {
+	if len(ports) == 0 {
+		return ""
+	}
+	cells := []string{"<td></td>"}
+	for _, port := range ports {
+		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d" bgcolor=%s></td><td align="left">%s</td><td></td>`,
+			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill()), w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))))
+	}
+	for len(cells) < columns {
+		cells = append(cells, "<td></td>")
+	}
+	return "<tr>" + strings.Join(cells, "") + "</tr>"
+}
+
+// pinFill is the fill of a pin's square: white, Cameo's note fill in its skin.
+func (w *dotWriter) pinFill() string {
+	if w.skin.cameo {
+		return cameoNoteFill
+	}
+	return "white"
 }
 
 // dotPortRow is one row of port cells: each port a bordered square cell named
@@ -248,7 +310,7 @@ func (w *dotWriter) dotPortRow(ports []Port) string {
 	var cells []string
 	for _, port := range ports {
 		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d"></td><td align="left">%s</td>`,
-			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(port.label()))))
+			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))))
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }
@@ -270,7 +332,7 @@ func (w *dotWriter) portEnd(node, port string) string {
 // collectPorts records the node each port belongs to, by port ID.
 func (w *dotWriter) collectPorts(nodes []*Node) {
 	for _, node := range nodes {
-		for _, port := range node.Ports {
+		for _, port := range w.ports.of(node) {
 			w.ported[port.ID] = node
 		}
 		w.collectPorts(node.Children)

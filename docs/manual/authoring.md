@@ -522,6 +522,12 @@ part structure : Diagram {
   participant, notes the palette as not represented, and the HTML figure
   carries it as `data-palette` either way. Any other name, or a palette on a
   table diagram, is a typed error.
+- `ports` — `"minimal"` or `"full"` — is accepted by an interconnection
+  diagram alone. `"minimal"`, the default, draws on each part the ports a
+  connector of the view ends at and no other, each a small square on the
+  part's border named beside it; `"full"` draws every port a part has,
+  labelled `name : Type`. Any other name, or `ports` on another kind, is a
+  typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds

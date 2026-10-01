@@ -125,10 +125,10 @@ skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«part»//</size>\n**imagingChain**" as n0 <<part>> <<usage>> {
   rectangle "<size:10>//«part»//</size>\n**camera : Camera**" as n1 <<part>> <<usage>> {
-    port "output : DataPort" as n1.0
+    port "output" as n1.0
   }
   rectangle "<size:10>//«part»//</size>\n**recorder : Recorder**" as n2 <<part>> <<usage>> {
-    port "input : DataPort" as n2.0
+    port "input" as n2.0
   }
 }
 n1.0 -[thickness=3]- n2.0 : link

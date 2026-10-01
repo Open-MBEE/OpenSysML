@@ -1473,6 +1473,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	portsText, portsStated, err := c.optionalText(member, "ports")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1576,6 +1580,29 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.palette = palette
+	}
+	if portsStated {
+		ports, ok := view.ParsePorts(portsText)
+		if !ok || portsText == "" {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidPorts,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   portsText,
+				Origin:   member.Origin(),
+			}
+		}
+		if !reference.kind.SupportsPorts() {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedPorts,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Expected: string(reference.kind),
+				Actual:   portsText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.ports = ports
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err

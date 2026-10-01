@@ -790,6 +790,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		rendering: rendering,
 		direction: reference.Direction(),
 		palette:   reference.Palette(),
+		ports:     reference.Ports(),
 		origin:    node.Origin(),
 	}, nil
 }

@@ -18,7 +18,12 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 // what the rendering could not represent. It is what the REPL prints. A table's
 // columns are written to fit width, wrapping their cells; WidthUnbounded writes
 // each column as wide as its widest cell.
-func (r *Rendering) TextWidth(width int) string {
+func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
+
+// textWith is the text form written to options' width, listing under each part
+// of an interconnection the ports options' Ports display draws.
+func (r *Rendering) textWith(options Options) string {
+	width := options.Width
 	var b strings.Builder
 	if r.View == "" {
 		fmt.Fprintf(&b, "%s rendering", r.Kind)
@@ -46,8 +51,9 @@ func (r *Rendering) TextWidth(width int) string {
 		b.WriteString(canvasText(c) + "\n\n")
 	}
 	labels := map[string]string{}
+	ports := r.portView(options.Ports)
 	for _, root := range r.Roots {
-		writeNodeText(&b, root, 0, labels, r.Kind == KindInterconnection)
+		writeNodeText(&b, root, 0, labels, ports)
 	}
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
@@ -147,11 +153,11 @@ func endLabel(labels map[string]string, node, port string) string {
 }
 
 // writeNodeText writes one node and its children, and records the label an edge
-// names the node by. A body's start is named by the body it starts. With ports,
-// the node's ports are written under it, each a line of its own, and recorded
-// as `node.port`; without, they are left to the edges' labels, which an
-// action's flows name their pins in.
-func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports bool) {
+// names the node by. A body's start is named by the body it starts. In an
+// interconnection, the node's ports the display draws are written under it,
+// each a line of its own, and recorded as `node.port`; elsewhere they are left
+// to the edges' labels, which an action's flows name their pins in.
+func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
 	labels[node.ID] = nodeLabel(node)
 	line := strings.Repeat("  ", depth) + node.Kind
 	if node.Name != "" {
@@ -173,10 +179,10 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	b.WriteString(line + "\n")
-	if ports {
-		for _, port := range node.Ports {
+	if ports.interconnection {
+		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
-			b.WriteString(strings.Repeat("  ", depth+1) + "port " + port.label() + "\n")
+			b.WriteString(strings.Repeat("  ", depth+1) + "port " + ports.pinLabel(port) + "\n")
 		}
 	}
 	for _, child := range node.Children {

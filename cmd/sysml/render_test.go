@@ -879,3 +879,59 @@ func TestRenderAllOOSEMViews(t *testing.T) {
 		}
 	}
 }
+
+// portedModel connects two parts at the ports their definitions declare and
+// leaves a third's port unconnected.
+const portedModel = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; port spare : Signal; }
+    part def Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+
+// -render-ports chooses how much of a part's ports an interconnection draws:
+// minimal, the default, the ports a connector ends at, named alone; full, every
+// port, typed. A name that is neither is refused with the two there are, and
+// the flag without something to render likewise.
+func TestRenderPorts(t *testing.T) {
+	binary := buildCLI(t)
+
+	minimal := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
+	if minimal.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
+	}
+	for _, want := range []string{`<font point-size="8">out1</font>`, `<font point-size="8">in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
+		if !strings.Contains(minimal.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, minimal.stdout)
+		}
+	}
+	if strings.Contains(minimal.stdout, "spare") || strings.Contains(minimal.stdout, "Signal") {
+		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal.stdout)
+	}
+
+	full := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "plantuml", "-render-ports", "full")
+	if full.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
+	}
+	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+		if !strings.Contains(full.stdout, want) {
+			t.Errorf("-render-ports full is missing %q:\n%s", want, full.stdout)
+		}
+	}
+
+	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-ports", "all")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-ports: unknown port display "all"; the displays are minimal, full`) || unknown.stdout != "" {
+		t.Errorf("an unknown port display = %d\n%s", unknown.status, unknown.output())
+	}
+
+	alone := runStreams(t, binary, portedModel, "-render-ports", "full")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-ports is how much of a part's ports -render or -render-all draws") {
+		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
+	}
+}

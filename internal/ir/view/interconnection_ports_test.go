@@ -100,12 +100,70 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
+	// By default each pin is named alone, once, beside its square; the text
+	// form names the pins again at the connections' ends.
+	forms := map[string]string{"DOT": dot, "cameo DOT": cameo, "PlantUML": plantuml, "text": rendering.Text()}
+	for label, form := range forms {
+		if strings.Contains(form, "DurationPort") {
+			t.Errorf("%s types a pin, which the full display alone does:\n%s", label, form)
+		}
+		if label == "text" {
+			continue
+		}
+		if got := strings.Count(form, "durationIn") - strings.Count(form, "durationInterface"); got != 1 {
+			t.Errorf("%s names durationIn %d times, want once:\n%s", label, got, form)
+		}
+		if got := strings.Count(form, "durationOut"); got != 1 {
+			t.Errorf("%s names durationOut %d times, want once:\n%s", label, got, form)
+		}
+	}
+	for _, want := range []string{`"n2":"n2.0" -> "n1":"n1.0" [label="durationInterface"`, `"n2":"n2.0" -> "n1":"n1.0" [label="of Real"`,
+		`<td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationIn</font></td>`} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
+		}
+	}
+	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 -[dashed]-> n1.0 : of Real", "port \"durationIn\" as n1.0"} {
+		if !strings.Contains(plantuml, want) {
+			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
+		}
+	}
+	checkPlantUMLRenders(t, plantuml)
+	for _, want := range []string{"  part heating : HeatingSystem\n    port durationIn\n",
+		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
+		if !strings.Contains(forms["text"], want) {
+			t.Errorf("text lacks %q:\n%s", want, forms["text"])
+		}
+	}
+}
+
+// The full display types every pin, `name : Type`, the conjugation kept, and
+// the connectors end at the pins as before.
+func TestTheFullDisplayTypesThePins(t *testing.T) {
+	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::toasterView")
+	full := Options{Ports: PortsFull}
+	dot, err := rendering.DOTWith(full)
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	cameo, err := rendering.DOTWith(Options{Style: StyleCameo, Ports: PortsFull})
+	if err != nil {
+		t.Fatalf("cameo DOT: %v", err)
+	}
+	plantuml, err := rendering.PlantUMLWith(full)
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	text, err := rendering.WriteWith(FormText, full)
+	if err != nil {
+		t.Fatalf("text: %v", err)
+	}
 	// PlantUML writes the tilde, a creole marker, as its code point.
 	forms := map[string][2]string{
 		"DOT":       {dot, "durationIn : ~DurationPort"},
 		"cameo DOT": {cameo, "durationIn : ~DurationPort"},
 		"PlantUML":  {plantuml, "durationIn : <U+007E>DurationPort"},
-		"text":      {rendering.Text(), "durationIn : ~DurationPort"},
+		"text":      {text, "durationIn : ~DurationPort"},
 	}
 	for label, form := range forms {
 		for _, want := range []string{form[1], "durationOut : DurationPort", "durationInterface", "of Real"} {
@@ -133,8 +191,8 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 	checkPlantUMLRenders(t, plantuml)
 	for _, want := range []string{"  part heating : HeatingSystem\n    port durationIn : ~DurationPort\n",
 		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
-		if !strings.Contains(forms["text"][0], want) {
-			t.Errorf("text lacks %q:\n%s", want, forms["text"][0])
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
 }
@@ -247,8 +305,8 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 	// The pins are nodes inside their parts' subgraphs and the edge runs between
 	// them, so it ends on no subgraph; the two-line titles need one line of margin.
 	for _, want := range []string{
-		"subgraph " + sensor.ID + " [\"«part»<br>sensor : Sensor\"]\n      direction LR\n      " + reading.ID + "[\"«port»<br>reading : DurationPort\"]\n",
-		"subgraph " + probe.ID + " [\"«part»<br>probe : HeatingSystem\"]\n        direction LR\n        " + in.ID + "[\"«port»<br>durationIn : ~DurationPort\"]\n      end\n",
+		"subgraph " + sensor.ID + " [\"«part»<br>sensor : Sensor\"]\n      direction LR\n      " + reading.ID + "[\"reading\"]\n",
+		"subgraph " + probe.ID + " [\"«part»<br>probe : HeatingSystem\"]\n        direction LR\n        " + in.ID + "[\"durationIn\"]\n      end\n",
 		"  " + reading.ID + " ---|\"feed\"| " + in.ID + "\n",
 		"    subGraphTitleMargin:\n      bottom: 24\n"} {
 		if !strings.Contains(mermaid, want) {

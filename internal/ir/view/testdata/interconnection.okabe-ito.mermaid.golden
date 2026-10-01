@@ -11,16 +11,13 @@ flowchart LR
     direction LR
     subgraph n1 ["«part»<br>pump : Pump"]
       direction LR
-      n1.0["«port»<br>outlet : FluidPort"]
+      n1.0["outlet"]
     end
     subgraph n2 ["«part»<br>tank : Tank"]
       direction LR
-      n2.0["«port»<br>inlet : FluidPort"]
+      n2.0["inlet"]
     end
-    subgraph n3 ["«part»<br>sensor : Pump"]
-      direction LR
-      n3.0["«port»<br>outlet : FluidPort"]
-    end
+    n3["«part»<br>sensor : Pump"]
   end
   n1.0 ---|"supply"| n2.0
   n1 -.->|"of Water"| n2

@@ -33,9 +33,12 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Unplaced.check(); err != nil {
 		return "", err
 	}
+	if err := options.Ports.check(); err != nil {
+		return "", err
+	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil)}
+		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports)}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -93,6 +96,7 @@ type plantumlWriter struct {
 	borders bool        // whether a filled node's border takes the family colour; a participant's cannot
 	fills   familyFills // the palette fills, by keyword family
 	labels  labeller    // the node labels, headed relative to the roots' namespace
+	ports   portView    // the ports drawn of each node, and how they are named
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -214,9 +218,10 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 }
 
 // writeRectangleDiagram writes an interconnection as nested rectangles: a node
-// with children or ports is a rectangle block holding them, a port a `port` on
-// the rectangle's border, a connection an undirected heavy line, a flow a
-// dashed arrow, each ending at the port it names.
+// with children or drawn ports is a rectangle block holding them, a port a
+// `port` on the rectangle's border — named alone under the minimal display,
+// `name : Type` under the full — a connection an undirected heavy line, a flow
+// a dashed arrow, each ending at the port it names.
 func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 	if r.blank() {
 		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
@@ -243,13 +248,14 @@ func portOr(port, node string) string {
 func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
-	if len(node.Children) == 0 && len(node.Ports) == 0 {
+	ports := w.ports.of(node)
+	if len(node.Children) == 0 && len(ports) == 0 {
 		w.b.WriteString("\n")
 		return
 	}
 	w.b.WriteString(" {\n")
-	for _, port := range node.Ports {
-		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(port.label())), port.ID)
+	for _, port := range ports {
+		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(w.ports.pinLabel(port))), port.ID)
 	}
 	for _, child := range node.Children {
 		w.writeRectangleNode(child, depth+1)

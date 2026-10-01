@@ -277,14 +277,28 @@ digraph "VehicleViews::vehicleView" {
   itself, or a part def's own, stays a nested `port` node as before. A connector, interface,
   flow or binding end that names such a port — `heating.durationIn`, a chain over the part —
   ends at the pin (`Edge.FromPort`/`Edge.ToPort`; `featureWalk.endNode`, `memberEnd`), and one
-  naming the part, or a feature of it that is no port, at the node. The pins are drawn as an
-  action's are: record cells or pinned squares in DOT — a port no route meets sitting below its
-  part when a connector leaves it and above when one reaches it (`portSide`), the way DOT ranks
-  the edge's ends, where a pin's direction places it — `port "name : Type"` elements of the
-  part's `rectangle` in PlantUML with the connector between them (`n2.0 -[thickness=3]- n1.0`),
-  a `port name : Type` line under the part and `part.port` edge ends in text, and in Mermaid,
-  whose flowchart has no port element, a ported part is a `subgraph` holding one node per pin
-  (`n1.0["«port»<br>durationIn : ~DurationPort"]`) with the connector between the pins
+  naming the part, or a feature of it that is no port, at the node. How many of the pins are
+  drawn, and how they are named, is the `Options.Ports` display (`ports.go`: `PortsMinimal`,
+  `PortsFull`, `portView`), the interconnection's alone (`Kind.SupportsPorts`); the node keeps
+  every port, the form filtering what it draws. Under `minimal`, the default, a part draws the
+  pins an edge of the rendering ends at (`Edge.FromPort`/`Edge.ToPort`) and no other, each named
+  alone: in DOT a plain node becomes a `shape=plain` HTML table whose body cell is the part's
+  box — a bordered inner table, rounded as the skin rounds, filled and penned in the node's own
+  colours, which an HTML table takes from its node — and whose row above or below it holds a
+  10 pt square cell per pin (`<td port="n1.0" border="1" fixedsize="true" width="10"
+  height="10">`) on the box's outer edge with the name in 8 pt beside it (`dotPinnedAttributes`),
+  a pin above when a connector reaches it and below when one leaves it; a positioned part keeps
+  its separate pin squares, `xlabel`led by name alone. Graphviz draws a node as one shape, so
+  the square touches the border rather than straddling it. A part none of whose ports is
+  connected draws as a part without ports. Under `full` every port is drawn labelled
+  `name : Type`, as an action's pins always are: record cells or pinned squares in DOT — a port
+  no route meets sitting below its part when a connector leaves it and above when one reaches it
+  (`portSide`), the way DOT ranks the edge's ends, where a pin's direction places it — `port
+  "name : Type"` elements of the part's `rectangle` in PlantUML with the connector between them
+  (`n2.0 -[thickness=3]- n1.0`), a `port name : Type` line under the part and `part.port` edge
+  ends in text, and in Mermaid, whose flowchart has no port element, a ported part is a
+  `subgraph` holding one node per pin (`n1.0["«port»<br>durationIn : ~DurationPort"]`; under
+  `minimal`, `n1.0["durationIn"]`) with the connector between the pins
   (`n2.0 ---|"durationInterface"| n1.0`), so no edge ends on a subgraph — which ELK, the layout
   the pinned `mermaid-cli` applies, refuses.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
@@ -785,6 +799,7 @@ every palette, and text stays black.
 | LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; a palette also gives each node of the result its `fill` and `border`, so a client drawing its own SVG colours a node as these forms do (`Rendering.Fills`) | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 

@@ -286,6 +286,12 @@ diagrams
 Drawing style of the dot form: pilot (default), the Pilot visualizer's black
 and white, or cameo, the look of Cameo Systems Modeler; applies to \-render,
 \-render\-all and document diagrams
+.TP
+.BR \-render\-ports " \fIdisplay\fP"
+How much of a part's ports \-render or \-render\-all draws on an
+interconnection: minimal (default), the ports its connectors end at, each a
+small square on the part's border named beside it, or full, every port,
+labelled name : Type
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -799,6 +805,9 @@ sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
 # drawn as Cameo draws it
 sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
     \-render\-style cameo
+# every port of every part, typed
+sysml model.sysml \-render Views::loopView \-render\-form dot \e
+    \-render\-ports full
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 # several files, loaded as one model
@@ -828,15 +837,18 @@ viridis or cividis), keeping black text legible on every fill. \-render\-style
 names the look the DOT form draws in: pilot (default), the Pilot visualizer's,
 or cameo, the look of Cameo Systems Modeler \(em a diagram frame with a header
 tab, Arial text, gradient fills, compartments and the UML pseudo\-state
-symbols \(em for a diagram migrated from Cameo to keep its look. A
-DiagramLayout Style on a member colours it over either look, and a Note is
-drawn beside the member it is about. A view whose members carry DiagramLayout
-positions draws the placed members and the edges between them in every graph
-form, and leaves a member with no position undrawn: the DOT form pins each at
-its stated place, so nothing lands on a positioned box, while Mermaid and
-PlantUML lay the same members out themselves. \-render\-unplaced strip draws
-the unplaced members too, in rows in a strip below a DOT drawing. The same
-setting shapes the diagrams of \-render\-document and \-render\-documents.
+symbols \(em for a diagram migrated from Cameo to keep its look. An
+interconnection draws on each part the ports its connectors end at, each a
+small square on the part's border named beside it; \-render\-ports full draws
+every port a part has, labelled name : Type. A DiagramLayout Style on a member
+colours it over either look, and a Note is drawn beside the member it is
+about. A view whose members carry DiagramLayout positions draws the placed
+members and the edges between them in every graph form, and leaves a member
+with no position undrawn: the DOT form pins each at its stated place, so
+nothing lands on a positioned box, while Mermaid and PlantUML lay the same
+members out themselves. \-render\-unplaced strip draws the unplaced members
+too, in rows in a strip below a DOT drawing. The same setting shapes the
+diagrams of \-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

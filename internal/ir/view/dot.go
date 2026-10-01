@@ -64,6 +64,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	if err := options.Style.check(); err != nil {
 		return "", err
 	}
+	if err := options.Ports.check(); err != nil {
+		return "", err
+	}
 	direction := options.Direction
 	if options.Unplaced != UnplacedStrip {
 		r = withoutStandIns(r)
@@ -241,7 +244,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
+		ports: r.portView(options.Ports), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
 	w.sources = map[string]bool{}
 	for _, edge := range r.Edges {
 		if edge.FromPort != "" {
@@ -441,6 +444,7 @@ type dotWriter struct {
 	boxes     map[string]nodeBox  // node ID -> the box it is drawn in, for every node that has one
 	pins      map[string]nodeBox  // port ID -> the box its pin is drawn in, for every port of a boxed node
 	ported    map[string]*Node    // port ID -> the node it is a port of
+	ports     portView            // the ports drawn of each node, and how they are named
 	stated    map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
 	omitted   map[string]bool     // node IDs left undrawn for want of a box
 	edges     []Edge              // the rendering's edges, each route led on to the ends it stopped short of
@@ -1092,6 +1096,8 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = w.dotSymbolAttributes(node)
 	case node.Kind == "initial" || node.Kind == "final":
 		attrs = w.dotPseudostateAttributes(node)
+	case w.pinned(node):
+		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
 	default:
 		if w.skin.rounded(node.Kind) {
 			attrs = append(attrs, `style="rounded,filled"`)
@@ -1100,7 +1106,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		switch {
 		case stated:
 			attrs = append(attrs, w.dotStatedLabel(node)...)
-		case len(node.Ports) > 0 && !w.pinNode(node):
+		case len(w.ports.of(node)) > 0 && !w.pinNode(node):
 			attrs = append(attrs, w.dotPortedLabel(node, w.labels.dotLabel(node)))
 		default:
 			attrs = append(attrs, w.labels.dotLabel(node))
@@ -1109,7 +1115,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	for i, attr := range attrs {
 		attrs[i] = dotStyledLabel(attr, node.Style)
 	}
-	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...))
+	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node) || w.pinned(node))...))
 	if box, ok := w.boxes[node.ID]; ok {
 		width, height := box.size()
 		attrs = append(attrs, w.dotPin(box.centre()))
@@ -1124,6 +1130,14 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		}
 	}
 	return attrs
+}
+
+// pinned reports whether a plain node is drawn as dotPinnedAttributes draws it:
+// an unboxed node of an interconnection under the minimal display with a drawn
+// port, whose squares sit on its box's outer edge rather than in cells of it.
+func (w *dotWriter) pinned(node *Node) bool {
+	stated := node.Geometry != nil && node.Geometry.HasSize
+	return w.ports.minimal && !stated && !w.pinNode(node) && len(w.ports.of(node)) > 0
 }
 
 // dotStatedLabel is a stated box's label attributes: the label fitted to the

@@ -11,11 +11,11 @@ flowchart LR
     direction LR
     subgraph n1 ["«part»<br>heating : HeatingSystem"]
       direction LR
-      n1.0["«port»<br>durationIn : ~DurationPort"]
+      n1.0["durationIn"]
     end
     subgraph n2 ["«part»<br>control : ControlSystem"]
       direction LR
-      n2.0["«port»<br>durationOut : DurationPort"]
+      n2.0["durationOut"]
     end
     n3["«part»<br>chassis : Chassis"]
   end

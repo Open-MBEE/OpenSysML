@@ -11,7 +11,7 @@ result:
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml"],
-    "openSysmlRenderStyles": ["pilot", "cameo"] } } }
+    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -23,7 +23,9 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 `palette` named in an `opensysml/render` request colours the result's nodes
 (`fill`, `border`) as well as its Mermaid, DOT or PlantUML artifact. `openSysmlRenderForms` lists
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
-draws the DOT form in, the first the default; a server without the latter draws the Pilot look
+draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
+displays its `ports` draws an interconnection's parts with, a server without it drawing every
+port); a server without the former draws the Pilot look
 alone.
 
 A client that does not see that capability must not send these methods. That is
@@ -124,6 +126,7 @@ Renders one view of a document.
 | `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML in the Pilot visualizer's B&W style for those kinds and a `sequence`, without needing a PlantUML jar. |
 | `palette` | Optional. A palette the `mermaid`, `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` sequence artifact notes the palette as not represented; `text` and `markdown` ignore it. Whatever the form, a server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself draws them the colours the diagram forms take. |
 | `style` | Optional. The drawing style the `dot` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, compartments and the UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). A `mermaid` or `plantuml` artifact notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
+| `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -136,7 +139,8 @@ the form the kind does use. A `form` that is not one of the five is refused, and
 all five. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
-(`unknown drawing style "sketch"; the styles are pilot, cameo`).
+(`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
+display (`unknown port display "all"; the displays are minimal, full`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:

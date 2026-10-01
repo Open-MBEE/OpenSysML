@@ -22,9 +22,9 @@ digraph "PlantViews::loopView" {
       color="#99795C";
       penwidth=1;
       "n0" [shape=point, style=invis, width=0, height=0, label=""];
-      "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="9">«part»</font><br/><b>pump : Pump</b></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">outlet : FluidPort</font></td></tr></table>>];
-      "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">inlet : FluidPort</font></td></tr><tr><td colspan="2"><font point-size="9">«part»</font><br/><b>tank : Tank</b></td></tr></table>>];
-      "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n3.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">outlet : FluidPort</font></td></tr><tr><td colspan="2"><font point-size="9">«part»</font><br/><b>sensor : Pump</b></td></tr></table>>];
+      "n1" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>pump : Pump</b></td></tr></table></td></tr><tr><td></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">outlet</font></td><td></td><td></td><td></td></tr></table>>];
+      "n2" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">inlet</font></td><td></td><td></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>tank : Tank</b></td></tr></table></td></tr></table>>];
+      "n3" [label=<<font point-size="9">«part»</font><br/><b>sensor : Pump</b>>];
     }
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="supply", arrowhead=none];

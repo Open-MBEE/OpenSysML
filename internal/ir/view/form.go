@@ -146,6 +146,9 @@ type Options struct {
 	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
 	// keyword family; empty draws in black and white.
 	Palette Palette
+	// Ports is how much of a part's ports an interconnection draws; empty
+	// draws the connected ones, as PortsMinimal does.
+	Ports Ports
 	// Style is the look the DOT form draws in; empty is the Pilot's, StylePilot.
 	Style DrawingStyle
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
@@ -164,12 +167,16 @@ func (r *Rendering) Write(form Form) (string, error) {
 
 // WriteWith is the rendering in form, written with options. A form the kind
 // is not written in is a *WrongFormError, an unknown form names the ones
-// there are, and a palette outside the registry is an *UnknownPaletteError
-// on every form that fills nodes.
+// there are, a palette outside the registry is an *UnknownPaletteError
+// on every form that fills nodes, and a port display outside it an
+// *UnknownPortsError on every form.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
+	if err := options.Ports.check(); err != nil {
+		return "", err
+	}
 	switch form {
 	case FormText:
-		return r.TextWidth(options.Width), nil
+		return r.textWith(options), nil
 	case FormMermaid, FormMarkdown, FormDot, FormPlantUML:
 		if !r.Kind.SupportsForm(form) {
 			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}

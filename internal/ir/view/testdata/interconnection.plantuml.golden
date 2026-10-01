@@ -42,14 +42,12 @@ skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> {
   rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>> {
-    port "outlet : FluidPort" as n1.0
+    port "outlet" as n1.0
   }
   rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n2 <<part>> <<usage>> {
-    port "inlet : FluidPort" as n2.0
+    port "inlet" as n2.0
   }
-  rectangle "<size:10>//«part»//</size>\n**sensor : Pump**" as n3 <<part>> <<usage>> {
-    port "outlet : FluidPort" as n3.0
-  }
+  rectangle "<size:10>//«part»//</size>\n**sensor : Pump**" as n3 <<part>> <<usage>>
 }
 n1.0 -[thickness=3]- n2.0 : supply
 n1 -[dashed]-> n2 : of Water

@@ -70,11 +70,11 @@ flowchart LR
     direction LR
     subgraph n1 ["«part»<br>camera : Camera"]
       direction LR
-      n1.0["«port»<br>output : DataPort"]
+      n1.0["output"]
     end
     subgraph n2 ["«part»<br>recorder : Recorder"]
       direction LR
-      n2.0["«port»<br>input : DataPort"]
+      n2.0["input"]
     end
   end
   n1.0 ---|"link"| n2.0
