@@ -59,6 +59,7 @@ Subsystems at or above 10 kg:
 ```mermaid
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
   themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
   themeVariables:
@@ -101,6 +102,7 @@ flowchart LR
 ```mermaid
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
   themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
   themeVariables:
