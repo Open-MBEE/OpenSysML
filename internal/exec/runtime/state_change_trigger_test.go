@@ -697,7 +697,9 @@ func TestChangeTriggerDisarmedSegmentCanWaitForItsPeer(t *testing.T) {
             state a {
                 entry; then a1;
                 state a1;
+                state a2;
                 transition first a1 accept when level > 1 then sync;
+                transition first a1 accept when level > 1 then a2;
             }
             state b {
                 entry; then b1;
@@ -728,10 +730,17 @@ func TestChangeTriggerDisarmedSegmentCanWaitForItsPeer(t *testing.T) {
 	if got := activeStateNames(exec); got != "c2|b1" || len(exec.joinArrived) != 1 {
 		t.Fatalf("after first rise: configuration = %s, arrivals = %v; want a's arrival while b is disarmed", got, exec.joinArrived)
 	}
+	transitionChoice := false
 	for _, c := range ctx.Choices() {
 		if c.Kind == ChoiceTransition {
-			t.Errorf("choices include %s: each source has only one transition", c)
+			transitionChoice = true
+			if !strings.Contains(c.String(), "took 1->sync") {
+				t.Errorf("transition choice = %s, want declared policy to take the join segment", c)
+			}
 		}
+	}
+	if !transitionChoice {
+		t.Fatal("choices have no transition draw between the join segment and a2")
 	}
 
 	// Re-arming b alone does not create a new rising occurrence.

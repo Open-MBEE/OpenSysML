@@ -180,6 +180,7 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 	return e.follow(ps, outgoing[enabled[0]], r)
 }
 
+// routeAvailable reports whether a transition's static route has a way through.
 func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bool {
 	var routeErr error
 	e.preview(func() {
@@ -204,6 +205,10 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		}
 		owner, err := e.historyOwner(hist)
 		if err != nil || e.historyRecorded(owner) || len(e.graph.Transitions[hist]) == 0 {
+			return
+		}
+		source, ok := trans.Source.(*ast.StateNode)
+		if ok && (source == owner || e.nestedIn(source, owner)) {
 			return
 		}
 		_, routeErr = e.followOut(hist, route{})

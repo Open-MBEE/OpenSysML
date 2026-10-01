@@ -1617,18 +1617,6 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 			return dispatched, nil, nil
 		}
 		if !ok {
-			guardHolds, guardErr := e.passesGuard(dispatched)
-			if guardErr != nil {
-				if dispatched.Probability != nil {
-					return nil, nil, fmt.Errorf("eval completion guard: %w", guardErr)
-				}
-				drain()
-				return dispatched, nil, nil
-			}
-			if !guardHolds {
-				drain()
-				return nil, nil, nil
-			}
 			drain()
 			return nil, nil, nil
 		}
@@ -3181,11 +3169,13 @@ func (e *StateExecutor) joinIncoming(join *ast.PseudostateNode) []*lower.Transit
 	return incoming
 }
 
+// setRegionState clears arrivals from a region before its active state changes.
 func (e *StateExecutor) setRegionState(region *ast.StateRegion, state *ast.StateNode) {
 	e.clearJoinArrivalsForRegion(region)
 	e.activeConfig.regionStates[region] = state
 }
 
+// regionWaitingAtJoin reports whether an arrived segment leaves this region parked.
 func (e *StateExecutor) regionWaitingAtJoin(region *ast.StateRegion) bool {
 	for join, arrived := range e.joinArrived {
 		plan := e.graph.JoinPlans[join]
@@ -3198,6 +3188,7 @@ func (e *StateExecutor) regionWaitingAtJoin(region *ast.StateRegion) bool {
 	return false
 }
 
+// clearJoinArrivalsForRegion drops arrivals when a region becomes active again.
 func (e *StateExecutor) clearJoinArrivalsForRegion(region *ast.StateRegion) {
 	if region == nil {
 		return
@@ -3218,6 +3209,7 @@ func (e *StateExecutor) clearJoinArrivalsForRegion(region *ast.StateRegion) {
 	}
 }
 
+// clearJoinArrivalsOwnedBy drops arrivals when their join owner exits.
 func (e *StateExecutor) clearJoinArrivalsOwnedBy(owner *ast.StateNode) {
 	for join := range e.joinArrived {
 		if plan := e.graph.JoinPlans[join]; plan != nil && plan.Owner == owner {
@@ -3226,14 +3218,13 @@ func (e *StateExecutor) clearJoinArrivalsOwnedBy(owner *ast.StateNode) {
 	}
 }
 
+// clearJoinArrivals drops every segment waiting at a join.
 func (e *StateExecutor) clearJoinArrivals() {
 	clear(e.joinArrived)
 }
 
+// cloneJoinArrivals returns a non-nil copy of each join's ordered arrivals.
 func cloneJoinArrivals(arrived map[*ast.PseudostateNode][]*lower.Transition) map[*ast.PseudostateNode][]*lower.Transition {
-	if arrived == nil {
-		return nil
-	}
 	cloned := make(map[*ast.PseudostateNode][]*lower.Transition, len(arrived))
 	for join, segments := range arrived {
 		cloned[join] = slices.Clone(segments)

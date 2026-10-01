@@ -3,7 +3,17 @@ package runtime
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
+
+func TestCloneNilJoinArrivalsIsWritable(t *testing.T) {
+	arrived := cloneJoinArrivals(nil)
+	if arrived == nil {
+		t.Fatal("cloneJoinArrivals(nil) = nil, want an initialized map")
+	}
+	arrived[&ast.PseudostateNode{}] = nil
+}
 
 func TestSnapshotRestoresJoinArrivals(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {

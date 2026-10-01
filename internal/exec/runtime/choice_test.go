@@ -1490,7 +1490,9 @@ func TestCompletionTransitionArrivesAtUnreadyJoin(t *testing.T) {
 				state b {
 					entry; then ready;
 					state ready;
+					state right;
 					transition first ready then sync;
+					transition first ready then right;
 				}
 			}
 			join sync;
@@ -1504,6 +1506,13 @@ func TestCompletionTransitionArrivesAtUnreadyJoin(t *testing.T) {
 	if sym == nil {
 		t.Fatal("state machine not found")
 	}
+	policy, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(policy); err != nil {
+		t.Fatal(err)
+	}
 	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -1511,8 +1520,12 @@ func TestCompletionTransitionArrivesAtUnreadyJoin(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,ready,a2,done" {
 		t.Fatalf("visited %v, want b's completion arrival followed by a2 completing the join", visited)
 	}
-	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
-		t.Fatalf("choices = %v, want the entry order alone: each completion segment has only one route", got)
+	want := []string{
+		"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)",
+		"choice state ready: transitions 1->sync, 2->right (unordered; took 1->sync)",
+	}
+	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the completion choice to take the join segment", got)
 	}
 }
 

@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Reset"}],
+  "finalState": "active",
+  "outputs": {
+    "fired": {"type": "Boolean", "value": true}
+  }
+}
