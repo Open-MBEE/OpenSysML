@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -23,12 +24,14 @@ func transientPseudostate(kind ast.PseudostateKind) bool {
 // run, the transition first, ending at a state, open at a choice whose guards
 // are read only once those segments' effects have run, or open at a junction
 // several of whose branches its guards enabled, drawn among once the transition
-// fires. None is set for a fork, a waiting join or a history restoring.
+// fires; arrival marks a segment waiting at a join. None is set for a fork or a
+// history restoring.
 type route struct {
 	segments []*lower.Transition
 	target   *ast.StateNode
 	choice   *ast.PseudostateNode
 	draw     *junctionDraw
+	arrival  *ast.PseudostateNode
 	// crossed are the pseudostates passed, so a path back into one is a cycle.
 	crossed []*ast.PseudostateNode
 	// notes is what settling the route noted — a branch guard it could not read,
@@ -61,7 +64,7 @@ type branchBeyond struct {
 
 // settled reports whether the route has somewhere to move to.
 func (r route) settled() bool {
-	return r.target != nil || r.choice != nil || r.draw != nil || r.terminate != nil
+	return r.target != nil || r.choice != nil || r.draw != nil || r.arrival != nil || r.terminate != nil
 }
 
 // routeEffect is one effect of a compound transition and the state declaring the
@@ -88,10 +91,11 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 	return effects
 }
 
-// resolveRoute settles a transition's route before anything moves: its target, or
-// on through junctions or a join, up to the first choice; a history stays unsettled.
+// resolveRoute settles a transition's route before anything moves: its target,
+// a waiting join arrival, or its path through junctions and joins up to the first
+// choice; a history stays unsettled.
 // The guards along it are read within trans's performance, as its own guard is.
-func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
+func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (route, error) {
 	defer e.taking(trans, e.firingNotes)()
 	r := route{segments: []*lower.Transition{trans}}
 	switch target := trans.Target.(type) {
@@ -103,11 +107,12 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 		case ast.PseudostateFork, ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 			return r, nil
 		case ast.PseudostateJoin:
-			sources, err := e.joinSources(target)
+			_, completes, err := e.joinFiringNow(trans, event)
 			if err != nil {
 				return route{}, err
 			}
-			if !e.allActive(sources) {
+			if !completes {
+				r.arrival = target
 				return r, nil
 			}
 		}
@@ -150,18 +155,60 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 	}
 	r.notes = append(r.notes, notes...)
 	if len(enabled) == 0 {
-		return r, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
+		return r, fmt.Errorf("%w: %s %s: no guard evaluated to true", errNoWayThrough, ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
-		draw := &junctionDraw{at: ps, outgoing: outgoing, enabled: enabled, beyond: make([]branchBeyond, len(enabled))}
-		for i, pos := range enabled {
+		draw := &junctionDraw{at: ps, outgoing: outgoing}
+		for _, pos := range enabled {
 			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed)})
-			draw.beyond[i] = branchBeyond{route: beyond, err: err}
+			if errors.Is(err, errNoWayThrough) {
+				continue
+			}
+			draw.enabled = append(draw.enabled, pos)
+			draw.beyond = append(draw.beyond, branchBeyond{route: beyond, err: err})
+		}
+		switch len(draw.enabled) {
+		case 0:
+			return r, fmt.Errorf("%w: %s %s: no guard evaluated to true", errNoWayThrough, ps.Kind, ps.Name)
+		case 1:
+			beyond := draw.beyond[0]
+			return r.onward(beyond.route), beyond.err
 		}
 		r.draw = draw
 		return r, nil
 	}
 	return e.follow(ps, outgoing[enabled[0]], r)
+}
+
+func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bool {
+	var routeErr error
+	e.preview(func() {
+		unbind := func() {}
+		if event != nil {
+			var err error
+			unbind, err = e.bindTriggerArguments(trans, event)
+			if err != nil {
+				routeErr = err
+				return
+			}
+		}
+		defer unbind()
+
+		_, routeErr = e.resolveRoute(trans, event)
+		if routeErr != nil {
+			return
+		}
+		hist, ok := trans.Target.(*ast.PseudostateNode)
+		if !ok || hist.Kind != ast.PseudostateShallowHistory && hist.Kind != ast.PseudostateDeepHistory {
+			return
+		}
+		owner, err := e.historyOwner(hist)
+		if err != nil || e.historyRecorded(owner) || len(e.graph.Transitions[hist]) == 0 {
+			return
+		}
+		_, routeErr = e.followOut(hist, route{})
+	})
+	return !errors.Is(routeErr, errNoWayThrough)
 }
 
 // settleDraws makes the draws the route is open at, in turn, once the transition
@@ -193,7 +240,7 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 // route is open at: its segments follow, and it ends where beyond does.
 func (r route) onward(beyond route) route {
 	r.segments = append(r.segments, beyond.segments...)
-	r.target, r.choice, r.draw, r.terminate = beyond.target, beyond.choice, beyond.draw, beyond.terminate
+	r.target, r.choice, r.draw, r.arrival, r.terminate = beyond.target, beyond.choice, beyond.draw, beyond.arrival, beyond.terminate
 	r.crossed = beyond.crossed
 	r.notes = append(r.notes, beyond.notes...)
 	return r

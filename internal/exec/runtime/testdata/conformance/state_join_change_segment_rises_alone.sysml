@@ -1,7 +1,5 @@
-// A change condition rising is one occurrence: a change-triggered segment whose
-// condition rose holds the join while the other segment's condition is still
-// false, and a later rise of the other condition is a different occurrence, so
-// the join never fires and no segment's effect runs.
+// A change-triggered segment fires when its condition rises and waits; a later
+// rise of the other segment's condition completes the join.
 package Test {
 	private import ScalarValues::*;
 

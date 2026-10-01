@@ -1,0 +1,21 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [{"signal": "Another"}],
+  "outcomes": [
+    {
+      "finalState": "S3",
+      "outputs": {
+        "log": {"type": "String", "value": "T1.2 T5"}
+      }
+    },
+    {
+      "finalState": "S3",
+      "outputs": {
+        "log": {"type": "String", "value": "T1.4 T5"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}

@@ -1,0 +1,7 @@
+do: wait
+stmt action body
+enter action node: state behavior buffer
+do: wait
+materialize: Start #1
+  stmt assign stored
+    eval literal true -> true

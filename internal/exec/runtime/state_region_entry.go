@@ -137,7 +137,7 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	if err != nil {
 		return err
 	}
-	e.activeConfig.regionStates[w.region] = entry
+	e.setRegionState(w.region, entry)
 	_, deepest, err := e.enterToward(w.container, entry, w.branches)
 	if err != nil {
 		return fmt.Errorf("enter starting state in region %s: %w", w.region.Name, err)
@@ -145,7 +145,7 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	// The deepest state the region keeps active is the one on the way down that
 	// its own substates declare.
 	if branch, ok := e.branchesTo(nil, deepest)[w.region]; ok {
-		e.activeConfig.regionStates[w.region] = branch
+		e.setRegionState(w.region, branch)
 	}
 	return nil
 }

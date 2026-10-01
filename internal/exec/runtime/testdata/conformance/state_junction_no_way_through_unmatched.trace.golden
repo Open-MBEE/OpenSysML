@@ -1,0 +1,5 @@
+exit: wait
+stmt assign log
+  eval literal "T3" -> "T3"
+enter: s2
+transition: wait -> s2 (event: accept Continue)

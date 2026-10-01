@@ -4,8 +4,8 @@
     {"signal": "Go"},
     {"signal": "Nudge"}
   ],
-  "finalState": "a1+b1",
+  "finalState": "done",
   "outputs": {
-    "log": {"type": "String", "value": ""}
+    "log": {"type": "String", "value": "a b sync"}
   }
 }

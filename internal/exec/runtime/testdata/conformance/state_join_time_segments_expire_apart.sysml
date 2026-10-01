@@ -1,7 +1,5 @@
-// Two time-triggered segments into a join whose timers are due at different
-// instants are never one occurrence: the first expiry finds the other timer
-// not yet due and the second finds the first already spent, so the join does
-// not fire and neither segment's effect runs.
+// A timer-triggered segment fires at its expiry and waits; the other segment's
+// later expiry completes the join.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;
