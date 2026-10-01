@@ -3,9 +3,13 @@
 #![warn(missing_docs)]
 
 mod binary;
+mod capabilities;
 mod connection;
 mod domain;
+mod edit;
+mod encode;
 mod error;
+mod results;
 
 /// Generated protobuf protocol types; this is the protocol layer, not the ergonomic surface.
 #[allow(missing_docs)]
@@ -22,8 +26,14 @@ pub use domain::{
 };
 pub use error::{Error, Status};
 
-/// Capability for `ApplyEdits` action-body statements and succession source multiplicities.
-pub const CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING: &str = "action_body_statement_authoring";
+pub use capabilities::*;
+pub use edit::{
+    ActionOptions, AppliedEdit, Body, CalcOptions, CommentOptions, ConnectionOptions,
+    DocumentationOptions, EditError, EditFailure, EditResult, EditedDocument, Editor,
+    ImportOptions, MemberOptions, MetadataOptions, Referrer, SatisfyOptions, StateActionKind,
+    StatementOptions, ThenStep, TransitionOptions,
+};
+pub use results::*;
 
 /// Parse a SysML file using a private or externally selected service.
 pub fn load(path: impl AsRef<std::path::Path>) -> Result<Model, Error> {

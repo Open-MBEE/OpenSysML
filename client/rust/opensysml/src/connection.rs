@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
+use crate::capabilities::upgrade_remedy;
+use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
     ServerInfo, Symbol,
@@ -280,6 +282,59 @@ impl Connection {
             return Err(Error::Model(response.error.clone()));
         }
         Instantiation::from_wire(response)
+    }
+
+    /// Apply wire edit operations to a loaded model, as an [`crate::Editor`] collects them.
+    ///
+    /// Each capability an operation needs is required before anything is sent; a service
+    /// refusal of the edit is [`Error::Edit`].
+    pub fn apply_edits(
+        &self,
+        model_hash: &str,
+        operations: Vec<wire::EditOperation>,
+    ) -> Result<EditResult, Error> {
+        let mut reader = EditCapabilities::new(self.capabilities())?;
+        for operation in &operations {
+            reader.read(operation)?;
+        }
+        let requested = reader.finish()?;
+        let request = wire::ApplyEditsRequest {
+            model_hash: model_hash.to_owned(),
+            operations,
+            accept_documents: true,
+            ..Default::default()
+        };
+        let response = self.gated_rpc("ApplyEdits", request, &requested)?;
+        edit_result_of(response)
+    }
+
+    /// Call `method`, reading an `UNIMPLEMENTED` refusal as the first of `capabilities` it names.
+    pub(crate) fn gated_rpc<T, R>(
+        &self,
+        method: &str,
+        request: T,
+        capabilities: &[&str],
+    ) -> Result<R, Error>
+    where
+        T: Message,
+        R: Message + Default,
+    {
+        match self.rpc(method, request) {
+            Err(Error::Service {
+                status: Status::Unimplemented,
+                message,
+            }) if !capabilities.is_empty() => {
+                let capability = capabilities
+                    .iter()
+                    .find(|name| message.contains(**name))
+                    .unwrap_or(&capabilities[0]);
+                Err(Error::MissingCapability {
+                    capability: (*capability).to_owned(),
+                    remedy: upgrade_remedy(capability),
+                })
+            }
+            other => other,
+        }
     }
 
     fn rpc<T, R>(&self, method: &str, request: T) -> Result<R, Error>

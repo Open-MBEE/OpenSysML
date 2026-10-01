@@ -1,6 +1,10 @@
 use std::str::FromStr;
 use thiserror::Error;
 
+use crate::domain::Diagnostic;
+use crate::edit::EditError;
+use crate::results::AnalysisResult;
+
 /// Canonical status names used by gRPC and Connect.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Status {
@@ -173,9 +177,101 @@ pub enum Error {
     /// The service answered successfully but reported an in-band model error.
     #[error("model error: {0}")]
     Model(String),
+    /// A request this client refused to send: an argument or option the service cannot read
+    /// as asked. Nothing was sent.
+    #[error("invalid request: {0}")]
+    InvalidRequest(String),
+    /// A value the wire format cannot carry as an argument. Nothing was sent.
+    #[error("unsupported value: {0}")]
+    UnsupportedValue(String),
+    /// A symbol a lookup required is not in the model.
+    #[error("no symbol named {name:?} in this model{}", did_you_mean(.suggestions))]
+    SymbolNotFound {
+        /// Name that was looked up.
+        name: String,
+        /// Names in the model close enough to be typos of it.
+        suggestions: Vec<String>,
+    },
+    /// A model the service parsed has errors and the caller asked for none.
+    #[error("{message}")]
+    ModelErrors {
+        /// What failed, naming the error count.
+        message: String,
+        /// The error-severity diagnostics.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// The service could not write a model in the requested format.
+    #[error("conversion failed: {message}")]
+    Conversion {
+        /// The service's description of the failure.
+        message: String,
+        /// Diagnostics behind the failure, when the source could not be read.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// A runtime operation (execution, verification, calculation, analysis) could not be answered.
+    #[error("execution failed: {message}")]
+    Execution {
+        /// The service's description of the failure.
+        message: String,
+        /// Diagnostics reported with it.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// A call named an element of another kind than it asks about: a wrong request, not a verdict.
+    #[error("wrong kind: {message}")]
+    WrongKind {
+        /// The service's description of the mismatch.
+        message: String,
+        /// Diagnostics reported with it.
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// An analysis could not run to its end and left something to inspect.
+    #[error("analysis run failed: {message}")]
+    AnalysisRun {
+        /// The service's description of the failure.
+        message: String,
+        /// What the run established before it failed.
+        result: Box<AnalysisResult>,
+    },
+    /// The service refused an edit; nothing was written.
+    #[error(transparent)]
+    Edit(Box<EditError>),
+    /// A query is not one the SysML v2 API query model describes.
+    #[error("invalid query: {0}")]
+    Query(String),
     /// Local filesystem or process I/O failed.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+}
+
+fn did_you_mean(suggestions: &[String]) -> String {
+    if suggestions.is_empty() {
+        String::new()
+    } else {
+        format!("; did you mean {}?", suggestions.join(", "))
+    }
+}
+
+impl Error {
+    /// The diagnostics a failure carries, empty for one that carries none.
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        match self {
+            Self::ModelErrors { diagnostics, .. }
+            | Self::Conversion { diagnostics, .. }
+            | Self::Execution { diagnostics, .. }
+            | Self::WrongKind { diagnostics, .. } => diagnostics,
+            Self::AnalysisRun { result, .. } => &result.diagnostics,
+            Self::Edit(error) => &error.diagnostics,
+            _ => &[],
+        }
+    }
+
+    /// The transport status of a service refusal, `None` for every other failure.
+    pub fn status(&self) -> Option<Status> {
+        match self {
+            Self::Service { status, .. } => Some(*status),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
