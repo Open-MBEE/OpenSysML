@@ -430,6 +430,25 @@ test("a relative source path is remembered absolute", async () => {
   assert.equal(migration.sourcePath, source);
 });
 
+test("the source path is fixed before the working directory can move", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  const source = join(dir, "Vehicle.xmi");
+  copyFileSync(VEHICLE_XMI, source);
+  const other = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  copyFileSync(VEHICLE_XMI, join(other, "Vehicle.xmi"));
+  const cwd = process.cwd();
+  try {
+    process.chdir(dir);
+    await using connection = await connect();
+    const pending = connection.migrate("sysml", { path: "Vehicle.xmi" });
+    process.chdir(other);
+    const migration = await pending;
+    assert.equal(migration.sourcePath, source);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
 test("save follows an image into directories as deep as the file system allows", async () => {
   const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
   const path = join(dir, "Vehicle.sysml");
