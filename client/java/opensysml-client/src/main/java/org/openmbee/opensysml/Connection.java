@@ -386,7 +386,7 @@ public final class Connection implements AutoCloseable {
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
    *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
   public Conversion convert(String content, String toFormat) {
@@ -400,7 +400,7 @@ public final class Connection implements AutoCloseable {
    * @param toFormat the format to write
    * @param options the source format and whether unreadable notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the source format could not be inferred or the request was
    *     refused, {@link StatusCode#INVALID_ARGUMENT} naming {@code migrate} when the source is a
    *     SysML v1 model
@@ -421,7 +421,7 @@ public final class Connection implements AutoCloseable {
    * @param file the source to convert
    * @param toFormat the format to write
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service could not read the file
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -437,7 +437,7 @@ public final class Connection implements AutoCloseable {
    * @param options the source format, which overrides the file's extension, and whether unreadable
    *     notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service could not read the file, or {@link
    *     StatusCode#INVALID_ARGUMENT} naming {@code migrateFile} when the file is a SysML v1 model
    * @throws CapabilityException if the service does not advertise {@code convert}
@@ -466,7 +466,8 @@ public final class Connection implements AutoCloseable {
    *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @param options the v1 form, and what the migration is asked for beyond the model
    * @return the migration, carrying the model, its report and what else was asked for
-   * @throws ModelException if the v1 model could not be read
+   * @throws MigrationException if the v1 model could not be migrated at all; an element without a
+   *     v2 form is reported, not thrown
    * @throws ServiceException if the request was refused: {@link StatusCode#INVALID_ARGUMENT} when
    *     {@code options} name a v2 format, which is converted, not migrated, or no form at all
    * @throws CapabilityException if the service does not advertise {@code migrate}
@@ -486,7 +487,8 @@ public final class Connection implements AutoCloseable {
    * @param file the {@code .xmi}, {@code .uml} or {@code .mdzip} file to migrate
    * @param toFormat the format to write
    * @return the migration, carrying the model and its report
-   * @throws ModelException if the v1 model could not be read
+   * @throws MigrationException if the v1 model could not be migrated at all; an element without a
+   *     v2 form is reported, not thrown
    * @throws ServiceException if the service could not read the file, or {@link
    *     StatusCode#INVALID_ARGUMENT} when its extension names a v2 format, which is converted, not
    *     migrated
@@ -510,7 +512,8 @@ public final class Connection implements AutoCloseable {
    * @param options the v1 form, which overrides the file's extension, and what the migration is
    *     asked for beyond the model
    * @return the migration, carrying the model, its report and what else was asked for
-   * @throws ModelException if the v1 model could not be read
+   * @throws MigrationException if the v1 model could not be migrated at all; an element without a
+   *     v2 form is reported, not thrown
    * @throws ServiceException if the service could not read the file, or {@link
    *     StatusCode#INVALID_ARGUMENT} when the source is a v2 format, which is converted, not
    *     migrated
@@ -598,7 +601,7 @@ public final class Connection implements AutoCloseable {
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
     if (!response.getError().isEmpty()) {
-      throw new ModelException(response.getError(), diagnostics);
+      throw new ConversionException(response.getError(), diagnostics);
     }
     return Protos.conversion(response);
   }
@@ -633,7 +636,7 @@ public final class Connection implements AutoCloseable {
     MigrateResponse response =
         call("Migrate", request.build(), MigrateResponse.getDefaultInstance());
     if (!response.getError().isEmpty()) {
-      throw new ModelException(response.getError(), List.of());
+      throw new MigrationException(response.getError());
     }
     return Protos.migration(response);
   }

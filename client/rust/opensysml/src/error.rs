@@ -182,7 +182,8 @@ pub enum Error {
     /// as asked. Nothing was sent.
     #[error("invalid request: {0}")]
     InvalidRequest(String),
-    /// A value the wire format cannot carry as an argument. Nothing was sent.
+    /// A value the wire format cannot carry: an argument, so nothing was sent, or a result
+    /// the service could not send, named by the reason it gave.
     #[error("unsupported value: {0}")]
     UnsupportedValue(String),
     /// A symbol a lookup required is not in the model.

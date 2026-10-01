@@ -30,6 +30,11 @@
       <artifactId>protobuf-java-util</artifactId>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Verifies the sigstore bundle over a release's SHA256SUMS.txt, which is what lets a
          release newer than this client's pinned digests install. -->
     <dependency>
