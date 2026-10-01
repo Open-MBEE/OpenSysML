@@ -24,9 +24,17 @@ export {
   FORMAT_API_JSON,
   FORMAT_SYSML,
   FORMAT_TURTLE,
+  MIGRATED_NOT_CONVERTED,
+  MIGRATION_NOTICE,
+  Migration,
+  MigrationReport,
   formatOfPath,
   isExperimental,
+  isV1,
+  migrationReportOf,
+  pathIsV1,
 } from "./conversion.js";
+export type { MigrateOptions, MigrationEntry } from "./conversion.js";
 export {
   QueryElement,
   TYPE_COMPOSITE_CONSTRAINT,
@@ -191,6 +199,7 @@ export {
   InvalidEditError,
   InvalidRequestError,
   MemberNameTakenError,
+  MigrationError,
   MoveReferencedError,
   NoEditsError,
   OverlappingEditsError,

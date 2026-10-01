@@ -10,6 +10,7 @@ import {
   CAPABILITY_ENGINES,
   CAPABILITY_FEATURE_VALUES,
   CAPABILITY_INLINE_LANGUAGE,
+  CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PERFORMER,
   CAPABILITY_QUERY,
@@ -31,6 +32,7 @@ import {
   ConversionError,
   ExecutionError,
   InvalidRequestError,
+  MigrationError,
   ParseError,
   StaleServiceError,
   UnsupportedValueError,
@@ -41,6 +43,7 @@ import {
   ExecuteStateRequestSchema,
   ConvertRequestSchema,
   ListEnginesRequestSchema,
+  MigrateRequestSchema,
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
@@ -70,10 +73,17 @@ import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
 import {
-  EXPERIMENTAL_NOTICE,
   Conversion,
+  EXPERIMENTAL_NOTICE,
   isExperimental,
+  isV1,
+  MIGRATED_NOT_CONVERTED,
+  Migration,
+  MIGRATION_NOTICE,
+  migrationReportOf,
+  pathIsV1,
 } from "./conversion.js";
+import type { MigrateOptions } from "./conversion.js";
 import { buildQuery, elementsOf, type QueryElement, type QueryForm, type QueryPayload } from "./query.js";
 import {
   buildBindings,
@@ -319,6 +329,13 @@ export class Connection {
           (given.length > 0 ? given.join(", ") : "none"),
       );
     }
+    const fromFormat = options.fromFormat ?? "";
+    if (isV1(fromFormat) || (fromFormat === "" && "path" in source && pathIsV1(source.path))) {
+      const name = "path" in source ? source.path : "the source";
+      throw new InvalidRequestError(`${name} ${MIGRATED_NOT_CONVERTED}; call migrate() with the same source`, {
+        code: "INVALID_ARGUMENT",
+      });
+    }
     requireCapability(this.info, CAPABILITY_CONVERT, upgradeRemedy(CAPABILITY_CONVERT));
     const request = create(ConvertRequestSchema, {
       toFormat,
@@ -361,6 +378,81 @@ export class Connection {
       toFormat: response.toFormat,
       diagnostics,
       experimental,
+      experimentalNotice: notice,
+    });
+  }
+
+  /**
+   * Migrates a SysML v1 model — a Cameo/MagicDraw `.mdzip`, a UML XMI `.xmi` or
+   * an Eclipse UML2 `.uml` export — to one of the formats OpenSysML writes. A
+   * migration is ledgered, not lossless: every v1 element lands in the
+   * `Migration.report` as mapped, approximated, unmapped or skipped. Exactly one
+   * of `source.path` and `source.content` names the source; inline content is
+   * the file's bytes and needs `fromFormat` to say which form they are.
+   */
+  async migrate(
+    toFormat: string,
+    source: { path: string } | { content: Uint8Array },
+    options: MigrateOptions = {},
+  ): Promise<Migration> {
+    const given = ["path", "content"].filter(
+      (name) => (source as Record<string, unknown>)[name] !== undefined,
+    );
+    if (given.length !== 1) {
+      throw new RangeError(
+        "provide exactly one of path or content; got " + (given.length > 0 ? given.join(", ") : "none"),
+      );
+    }
+    if (options.layoutPath !== undefined && options.layoutContent !== undefined) {
+      throw new RangeError("provide at most one of layoutPath and layoutContent");
+    }
+    const fromFormat = options.fromFormat ?? "";
+    if (fromFormat !== "" && !isV1(fromFormat)) {
+      const name = "path" in source ? source.path : "the source";
+      throw new InvalidRequestError(
+        `${name} is ${fromFormat} input, which is converted, not migrated: only a SysML v1 model ` +
+          "(xmi, uml or mdzip) is migrated; call convert() with the same source",
+        { code: "INVALID_ARGUMENT" },
+      );
+    }
+    requireCapability(this.info, CAPABILITY_MIGRATE, upgradeRemedy(CAPABILITY_MIGRATE));
+    const request = create(MigrateRequestSchema, {
+      toFormat,
+      fromFormat,
+      report: options.report === true,
+      results: options.results === true,
+      imageBaseUrl: options.imageBaseUrl ?? "",
+      strict: options.strict === true,
+    });
+    if ("path" in source) {
+      request.source = { case: "filePath", value: source.path };
+    } else {
+      request.source = { case: "content", value: source.content };
+    }
+    if (options.layoutPath !== undefined) {
+      request.layout = { case: "layoutPath", value: options.layoutPath };
+    } else if (options.layoutContent !== undefined) {
+      request.layout = { case: "layoutContent", value: options.layoutContent };
+    }
+    const response = await callRpc(
+      this.rpc.migrate(request, this.callOptions()),
+      "path" in source ? "file" : "model",
+      capabilityRefusal(this.info, [CAPABILITY_MIGRATE]),
+    );
+    const notice = response.experimentalNotice !== "" ? response.experimentalNotice : MIGRATION_NOTICE;
+    // Warned before the error is raised: a refusal is the mapping's
+    // experimental behavior, not a reason to say nothing about it.
+    this.warn(notice, "ExperimentalFeatureWarning");
+    if (response.error !== "") {
+      throw new MigrationError(response.error);
+    }
+    return new Migration({
+      content: response.content,
+      fromFormat: response.fromFormat,
+      toFormat: response.toFormat,
+      report: migrationReportOf(response.report),
+      results: response.results,
+      files: new Map(response.files.map((file) => [file.path, file.content])),
       experimentalNotice: notice,
     });
   }

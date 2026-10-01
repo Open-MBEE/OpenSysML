@@ -16,6 +16,7 @@ export const ALL_CAPABILITIES = [
   "inline_language",
   "strict_conformance",
   "convert",
+  "migrate",
   "query",
   "document_query",
   "render_document",

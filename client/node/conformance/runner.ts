@@ -25,6 +25,7 @@ import {
 } from "../src/core/document.js";
 import { SourceDocument } from "../src/core/sources.js";
 import type { SysMLValue } from "../src/core/values.js";
+import { ServiceError } from "../src/core/errors.js";
 import { statusName } from "../src/core/status.js";
 import { check, render } from "./compare.js";
 import { byCodeUnit } from "./order.js";
@@ -35,6 +36,7 @@ import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } fro
 export const COVERED_RPCS = [
   "ApplyEdits",
   "Convert",
+  "Migrate",
   "Evaluate",
   "EvaluateCalc",
   "ExecuteAction",
@@ -109,6 +111,7 @@ export interface RunnerOptions {
 }
 
 const FIXTURE_REFERENCE = /^\$\{fixture:([^}]+)\}$/;
+const FIXTURE_BASE64_REFERENCE = /^\$\{fixture_base64:([^}]+)\}$/;
 
 /** A call the client made: the response message and the schema to read it by. */
 interface Answer {
@@ -306,6 +309,12 @@ export class Runner {
       if (connectError !== undefined) {
         return { kind: "done", status: statusName(connectError.code), message: connectError.rawMessage };
       }
+      // A refusal the client makes before asking, in the service's own words
+      // and with the status the service would answer: a v1 model offered to
+      // convert(), or a v2 one to migrate().
+      if (error instanceof ServiceError && error.code !== undefined && !this.captured.has(rpc)) {
+        return { kind: "done", status: error.code, message: error.message };
+      }
       // The API raises a failure the service reported in a successful answer;
       // the answer itself is what the scenario compares.
       if (!this.captured.has(rpc)) {
@@ -421,6 +430,29 @@ export class Runner {
           ...(typeof request["from_format"] === "string"
             ? { fromFormat: request["from_format"] }
             : {}),
+        });
+        return;
+      }
+      case "Migrate": {
+        const content = request["content"];
+        const source =
+          content instanceof Uint8Array
+            ? { content }
+            : typeof content === "string"
+              ? { content: Buffer.from(content, "base64") }
+              : { path: stringOf(request["file_path"]) };
+        await this.connection.migrate(stringOf(request["to_format"]), source, {
+          ...(typeof request["from_format"] === "string" ? { fromFormat: request["from_format"] } : {}),
+          ...(request["report"] === true ? { report: true } : {}),
+          ...(request["results"] === true ? { results: true } : {}),
+          ...(typeof request["layout_path"] === "string" ? { layoutPath: request["layout_path"] } : {}),
+          ...(typeof request["layout_content"] === "string"
+            ? { layoutContent: request["layout_content"] }
+            : {}),
+          ...(typeof request["image_base_url"] === "string"
+            ? { imageBaseUrl: request["image_base_url"] }
+            : {}),
+          ...(request["strict"] === true ? { strict: true } : {}),
         });
         return;
       }
@@ -592,6 +624,10 @@ export class Runner {
       if (reference !== null) {
         return this.fixture(reference[1]);
       }
+      const bytes = FIXTURE_BASE64_REFERENCE.exec(tree);
+      if (bytes !== null) {
+        return this.fixtureBytes(bytes[1]);
+      }
     }
     if (tree instanceof Literal) {
       return tree.toJSON();
@@ -601,12 +637,21 @@ export class Runner {
 
   /** Reads a fixture's source, refusing a name that leaves the fixtures directory. */
   private fixture(name: string): string {
+    return readFileSync(this.fixturePath(name), "utf8");
+  }
+
+  /** Reads a fixture's bytes, as `${fixture_base64:<name>}` carries them to a bytes field. */
+  private fixtureBytes(name: string): Uint8Array {
+    return new Uint8Array(readFileSync(this.fixturePath(name)));
+  }
+
+  private fixturePath(name: string): string {
     const fixtures = resolvePath(this.options.fixtures);
     const path = isAbsolute(name) ? normalize(name) : resolvePath(join(fixtures, normalize(name)));
     if (!path.startsWith(fixtures + sep)) {
       throw new Error(`fixture ${JSON.stringify(name)} is outside ${fixtures}`);
     }
-    return readFileSync(path, "utf8");
+    return path;
   }
 
   private report(result: Result): void {

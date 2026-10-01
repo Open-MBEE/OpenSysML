@@ -1,10 +1,11 @@
 // Node entry point: everything the core does, plus the private-child lifecycle.
 
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { createConnectTransport, createGrpcTransport } from "@connectrpc/connect-node";
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
-import { Conversion, formatOfPath } from "../core/conversion.js";
+import { Conversion, Migration, formatOfPath } from "../core/conversion.js";
 import type { ConnectionBackend, TransportOptions } from "../core/connection.js";
 import { OpenSysMLError } from "../core/errors.js";
 import { Model } from "../core/model.js";
@@ -93,14 +94,31 @@ export async function connect(options: ConnectOptions = {}): Promise<Connection>
 
 /**
  * Writes `target` to `path`: a model converted in the format its extension
- * names, or a conversion's or edit result's content written as the service
- * returned it (empty for a multi-document edit).
+ * names, a conversion's content written as the service returned it, or a
+ * migration's content with its image files beside it, at the relative paths
+ * the migrated model refers to them with, as `sysml -migrate -o` writes them.
  */
+export async function save(target: Migration, path: string): Promise<Migration>;
 export async function save(
   target: Model | Conversion,
   path: string,
+  options?: { toFormat?: string; tolerateSyntaxErrors?: boolean },
+): Promise<Conversion>;
+export async function save(
+  target: Model | Conversion | Migration,
+  path: string,
   options: { toFormat?: string; tolerateSyntaxErrors?: boolean } = {},
-): Promise<Conversion> {
+): Promise<Conversion | Migration> {
+  if (target instanceof Migration) {
+    await writeFile(path, target.content, "utf8");
+    const base = dirname(path);
+    for (const [relative, data] of target.files) {
+      const file = join(base, ...relative.split("/"));
+      await mkdir(dirname(file), { recursive: true });
+      await writeFile(file, data);
+    }
+    return target;
+  }
   const conversion =
     target instanceof Conversion
       ? target
