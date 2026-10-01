@@ -1,5 +1,5 @@
 // Calculations in the scalar subset the native compiler accepts, each exercising
-// a rule the generated code must keep: checked Integer arithmetic, Integer
+// a rule the generated code must keep: unbounded Integer arithmetic, Integer
 // division answering a Real, mixed-type widening, short-circuit Booleans,
 // branches, loops, early returns and recursion.
 package Compiled {
@@ -477,6 +477,39 @@ package Compiled {
 		// Each SamplePair taken is three elements: its domainValue, its rangeValue and
 		// its place among the samples, charged on top of the domain it is taken over.
 		calc def SamplePairs { in k : Integer; attribute s : SampledFunction = Sample(Inc, (1..k)->ControlFunctions::select { in x : Integer; x < 3 }); return : Integer = SequenceFunctions::size(Range(s)); }
+	}
+	// Integers beyond int64: exact as the interpreter's, refused by the C target
+	// wherever a result may leave int64.
+	package Wide {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import NumericalFunctions::*;
+		calc def Lit { in x : Integer; return : Integer = 123456789012345678901234567890 * x - 9223372036854775808; }
+		calc def Pow { in x : Integer; return : Integer = x ** 70; }
+		calc def Halves { in x : Integer; return : Boolean = (x ** 70) / (x ** 69) == x; }
+		calc def Mod { in x : Integer; return : Integer = (x ** 70) % 7; }
+		calc def Huge { in x : Integer; return : Integer = x ** 2000000; }
+		calc def Sum { in xs : Integer[0..*] nonunique; return : Integer = sum(xs); }
+		calc def Product { in xs : Integer[0..*] nonunique; return : Integer = product(xs); }
+		calc def Idx { in xs : Integer[0..*]; in i : Integer; return : Integer = xs#(i); }
+		calc def Rng { in lo : Integer; return : Integer[0..*] = lo..(lo + 2); }
+		calc def Uniq { in xs : Integer[0..*]; return : Integer = size(xs); }
+		calc def Has { in xs : Integer[0..*]; in x : Integer; return : Boolean = includes(xs, x); }
+		calc def Gt { in x : Integer; in r : Real; return : Boolean = x > r; }
+		calc def Lt { in r : Real; in x : Integer; return : Boolean = r < x; }
+		calc def Widen { in x : Integer; return : Real = x * 1.0; }
+		calc def Nat { in x : Natural; return : Natural = x * x; }
+		calc def Least { in xs : Integer[0..*]; return : Integer = xs->minimize {in v : Integer; v}; }
+		calc def Compare { in a : Integer; in b : Integer; return : Boolean = a < b and b >= a and a != b; }
+	}
+	// Loops whose Integer arithmetic the C target compiles: a Real counter, and
+	// Integers only sized, indexed and ranged.
+	package Loop {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		calc def Churn { in n : Real; attribute i : Real = 0.0; attribute total : Real = 0.0; attribute keep : Real[0..*] = (); while i < n { attribute s : Integer[0..*] = 1..100; assign total := total + size(s); assign keep := including(keep, i); assign i := i + 1.0; } return : Real = total + size(keep); }
+		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(size(s))); } } return : Real[0..*] nonunique = keep; }
+		calc def ChurnNest { in n : Real; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Real = 0.0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0.0; } assign i := i + 1.0; } return : Real = size(keep) * 1.0 + size(inner); }
 	}
 }
 

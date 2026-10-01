@@ -614,7 +614,7 @@ func (m *Model) UnitTermOfExpr(scope *symbols.Scope, node ast.Node) (UnitTerm, e
 		return m.unitTermOfOperator(scope, n)
 	case *ast.LiteralInteger:
 		// `1` is the unit of dimension one written as a number, as `m/m` is.
-		if val, ok := m.Eval(n); ok && val.Kind == ValInt && val.Int == 1 {
+		if val, ok := m.Eval(n); ok && val.Equal(IntValue(1)) {
 			return UnitTerm{Scale: UnitScale(1)}, nil
 		}
 	}

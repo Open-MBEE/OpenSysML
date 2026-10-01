@@ -1387,6 +1387,9 @@ message Value {
     // A result the model leaves open: not an error, but no definite answer.
     // A value the server sends, never one it accepts.
     Undetermined undetermined = 21;
+    // An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+    // zeros). An Integer that fits int64 is always int_value, never this.
+    string big_int_value = 22;
   }
 }
 
@@ -1522,6 +1525,8 @@ message Quantity {
   oneof magnitude {
     int64 int_magnitude = 1;
     double real_magnitude = 2;
+    // An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+    string big_int_magnitude = 5;
   }
   // Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
   // one never written down, described by unit_term alone.
@@ -1939,6 +1944,8 @@ message DocumentValue {
     DocumentObject object = 10;   // an object Instantiate created; bound and answered
     DocumentState state = 11;     // a row States answered; answered, never bound
     DocumentEvent event = 12;     // a row Events answered; answered, never bound
+    // An Integer beyond int64, in decimal, as Value.big_int_value.
+    string big_int_value = 13;
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;

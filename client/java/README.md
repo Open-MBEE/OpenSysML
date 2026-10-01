@@ -51,7 +51,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 ```
 
 Every value the API answers with is immutable: `Value` is a sealed interface over
-records (`IntegerValue`, `RealValue`, `ComplexValue`, `QuantityValue`, `ArrayValue`,
+records (`IntegerValue`, `BigIntegerValue` for an Integer beyond `long`, `RealValue`, `ComplexValue`, `QuantityValue`, `ArrayValue`,
 `VectorValue`, `VectorQuantityValue`, `SetValue`, `TensorQuantityValue`, `MeasurementRefValue`,
 `FunctionValue`, `MetaobjectValue`, `EnumerationValue` (whose `EnumLiteral` carries the scalar a
 `high = 3` literal was given as `value()`), `InstanceReference`, `Sequence`, `NullValue`,

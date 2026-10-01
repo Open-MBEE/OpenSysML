@@ -193,6 +193,12 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		return queryexec.StringValue(kind.StringValue), nil
 	case *pb.DocumentValue_IntValue:
 		return queryexec.IntegerValue(kind.IntValue), nil
+	case *pb.DocumentValue_BigIntValue:
+		integer, err := protoconv.ProtoToBigInteger(kind.BigIntValue)
+		if err != nil {
+			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s: %v", parameter, err)
+		}
+		return queryexec.IntegerOf(integer), nil
 	case *pb.DocumentValue_RealValue:
 		return queryexec.RealValue(kind.RealValue), nil
 	case *pb.DocumentValue_BoolValue:
@@ -281,8 +287,11 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		text, _ := value.String()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: text}}
 	case queryexec.ValueInteger:
-		integer, _ := value.Integer()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: integer}}
+		integer, _ := value.IntegerConst()
+		if n, fits := integer.Int64(); fits {
+			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n}}
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: integer.FormatInt()}}
 	case queryexec.ValueReal:
 		realVal, _ := value.Real()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: realVal}}

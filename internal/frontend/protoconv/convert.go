@@ -55,7 +55,10 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		// Map semantics.Value to protobuf based on type
 		switch val.Const.Kind {
 		case semantics.ValInt:
-			return &pb.Value{Kind: &pb.Value_IntValue{IntValue: val.Const.Int}}
+			if n, fits := val.Const.Int64(); fits {
+				return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n}}
+			}
+			return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: val.Const.FormatInt()}}
 		case semantics.ValReal:
 			return &pb.Value{Kind: &pb.Value_RealValue{RealValue: val.Const.Real}}
 		case semantics.ValBool:
@@ -329,7 +332,11 @@ func QuantityToProto(q *runtime.Quantity) *pb.Quantity {
 	pq := &pb.Quantity{Unit: q.Unit.Text, UnitTerm: UnitTermToProto(q.Unit.Term)}
 	switch q.Num.Kind {
 	case semantics.ValInt:
-		pq.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: q.Num.Int}
+		if n, fits := q.Num.Int64(); fits {
+			pq.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: n}
+		} else {
+			pq.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: q.Num.FormatInt()}
+		}
 	case semantics.ValReal:
 		pq.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: q.Num.Real}
 	default:
@@ -405,6 +412,10 @@ var (
 	// ErrVectorComponentNotNumeric reports a vector component sent as something
 	// other than an Integer or a Real, which a numerical vector has none of.
 	ErrVectorComponentNotNumeric = errors.New("vector component is not a number")
+
+	// ErrBigIntegerNotDecimal reports a big_int_value or big_int_magnitude
+	// that is not an optionally signed run of decimal digits.
+	ErrBigIntegerNotDecimal = errors.New("big Integer is not decimal")
 
 	// ErrVectorQuantityEmpty reports a vector quantity of no components, whose
 	// num is Number[1..*].
@@ -624,6 +635,12 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 			return runtime.Value{}, ErrInfinityNotAsserted
 		}
 		return ProtoToScalar(pv), nil
+	case *pb.Value_BigIntValue:
+		num, err := ProtoToBigInteger(k.BigIntValue)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}, nil
 	default:
 		return ProtoToScalar(pv), nil
 	}
@@ -768,7 +785,7 @@ func checkShape(dimensions []int64, count int, notPositive, mismatch error) erro
 			return fmt.Errorf("%w: dimension %d is %d", notPositive, i+1, d)
 		}
 		if size > math.MaxInt64/d {
-			return fmt.Errorf("%w: flattenedSize of dimensions %v exceeds the Integer range", mismatch, dimensions)
+			return fmt.Errorf("%w: flattenedSize of dimensions %v is beyond the addressable range", mismatch, dimensions)
 		}
 		size *= d
 	}
@@ -797,7 +814,9 @@ func protoToVector(pv *pb.Vector) (runtime.Value, error) {
 func protoToNumber(pv *pb.Value) (semantics.Value, error) {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_IntValue:
-		return semantics.Value{Kind: semantics.ValInt, Int: k.IntValue}, nil
+		return semantics.IntValue(k.IntValue), nil
+	case *pb.Value_BigIntValue:
+		return ProtoToBigInteger(k.BigIntValue)
 	case *pb.Value_RealValue:
 		return semantics.Value{Kind: semantics.ValReal, Real: k.RealValue}, nil
 	}
@@ -849,7 +868,12 @@ func ProtoToQuantity(pq *pb.Quantity, idx *symbols.Index, sem *semantics.Model) 
 	var num semantics.Value
 	switch m := pq.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
-		num = semantics.Value{Kind: semantics.ValInt, Int: m.IntMagnitude}
+		num = semantics.IntValue(m.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		num, err = ProtoToBigInteger(m.BigIntMagnitude)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.GetUnit(), err)
+		}
 	case *pb.Quantity_RealMagnitude:
 		num = semantics.Value{Kind: semantics.ValReal, Real: m.RealMagnitude}
 	default:
@@ -1338,12 +1362,28 @@ func enumLiteralFromProto(rt *runtime.Context, lit *pb.EnumLiteral, idx *symbols
 	return runtime.Value{}, fmt.Errorf("%s is not an enumeration literal of this model", lit.GetLiteralId())
 }
 
+// ProtoToBigInteger reads the decimal a big_int_value or big_int_magnitude
+// carries; one within int64 reads as the int64 Integer it equals.
+func ProtoToBigInteger(text string) (semantics.Value, error) {
+	num, ok := semantics.ParseInteger(text)
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %q", ErrBigIntegerNotDecimal, text)
+	}
+	return num, nil
+}
+
 // ProtoToScalar converts the arms of Value that name no symbol and hold no
 // nested value.
 func ProtoToScalar(pv *pb.Value) runtime.Value {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_IntValue:
-		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: k.IntValue}}
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.IntValue(k.IntValue)}
+	case *pb.Value_BigIntValue:
+		num, err := ProtoToBigInteger(k.BigIntValue)
+		if err != nil {
+			return runtime.Value{Kind: runtime.ValNull}
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}
 	case *pb.Value_RealValue:
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: k.RealValue}}
 	case *pb.Value_BoolValue:

@@ -316,6 +316,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
   switch (kind.case) {
     case "intValue":
       return { kind: "int", value: kind.value };
+    case "bigIntValue":
+      return { kind: "int", value: decodeBigInteger(kind.value) };
     case "realValue":
       return { kind: "real", value: kind.value };
     case "complex":
@@ -380,7 +382,7 @@ export function decodeValue(value: Value | undefined): SysMLValue {
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
     case "int":
-      return create(ValueSchema, { kind: { case: "intValue", value: value.value } });
+      return encodeMagnitude(value);
     case "real":
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
     case "complex":
@@ -644,6 +646,9 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     case "intMagnitude":
       magnitude = { kind: "int", value: quantity.magnitude.value };
       break;
+    case "bigIntMagnitude":
+      magnitude = { kind: "int", value: decodeBigInteger(quantity.magnitude.value) };
+      break;
     case "realMagnitude":
       magnitude = { kind: "real", value: quantity.magnitude.value };
       break;
@@ -661,9 +666,11 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
 function encodeQuantity(quantity: QuantityValue): Quantity {
   return create(QuantitySchema, {
     magnitude:
-      quantity.magnitude.kind === "int"
-        ? { case: "intMagnitude", value: quantity.magnitude.value }
-        : { case: "realMagnitude", value: quantity.magnitude.value },
+      quantity.magnitude.kind !== "int"
+        ? { case: "realMagnitude", value: quantity.magnitude.value }
+        : fitsInt64(quantity.magnitude.value)
+          ? { case: "intMagnitude", value: quantity.magnitude.value }
+          : { case: "bigIntMagnitude", value: quantity.magnitude.value.toString() },
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
   });
@@ -742,9 +749,28 @@ function formatUnitTerm(term: UnitFactorization): string {
 }
 
 function encodeMagnitude(magnitude: Magnitude): Value {
-  return magnitude.kind === "int"
+  if (magnitude.kind === "real") {
+    return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+  }
+  return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
-    : create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+    : create(ValueSchema, { kind: { case: "bigIntValue", value: magnitude.value.toString() } });
+}
+
+const INT64_MIN = -(2n ** 63n);
+const INT64_MAX = 2n ** 63n - 1n;
+
+/** Whether an Integer travels as `int_value`; one beyond int64 travels as `big_int_value`. */
+export function fitsInt64(value: bigint): boolean {
+  return value >= INT64_MIN && value <= INT64_MAX;
+}
+
+/** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
+export function decodeBigInteger(text: string): bigint {
+  if (!/^-?[0-9]+$/.test(text)) {
+    throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
+  }
+  return BigInt(text);
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
@@ -926,7 +952,7 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
 
 // Whether r is exactly the integer n, never rounding n.
 function realIsInt(r: number, n: bigint): boolean {
-  return Number.isInteger(r) && r >= -(2 ** 63) && r < 2 ** 63 && BigInt(r) === n;
+  return Number.isInteger(r) && BigInt(r) === n;
 }
 
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
@@ -1056,6 +1082,8 @@ function decodeVector(vector: Vector): Magnitude[] {
     switch (component.kind.case) {
       case "intValue":
         return { kind: "int", value: component.kind.value };
+      case "bigIntValue":
+        return { kind: "int", value: decodeBigInteger(component.kind.value) };
       case "realValue":
         return { kind: "real", value: component.kind.value };
       default:

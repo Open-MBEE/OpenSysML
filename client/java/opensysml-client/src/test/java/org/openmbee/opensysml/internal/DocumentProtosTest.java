@@ -54,6 +54,12 @@ class DocumentProtosTest {
         roundTrip(
             org.openmbee.opensysml.proto.DocumentValue.newBuilder().setIntValue(7).build()));
     assertEquals(
+        new DocumentValue.BigIntegerValue(new java.math.BigInteger("-99999999999999999999")),
+        roundTrip(
+            org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                .setBigIntValue("-99999999999999999999")
+                .build()));
+    assertEquals(
         new DocumentValue.RealValue(1.5),
         roundTrip(
             org.openmbee.opensysml.proto.DocumentValue.newBuilder().setRealValue(1.5).build()));

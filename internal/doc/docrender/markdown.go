@@ -709,8 +709,8 @@ func valueText(names namer, value queryexec.Value) string {
 	if text, ok := value.String(); ok {
 		return text
 	}
-	if integer, ok := value.Integer(); ok {
-		return strconv.FormatInt(integer, 10)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

@@ -77,12 +77,13 @@ them decoded.
 
 ### Values
 
-`decode_value` implements the wire contract's decoding rule for all nineteen
+`decode_value` implements the wire contract's decoding rule for all twenty-two
 `Value` arms:
 
 | Wire arm | Julia |
 |---|---|
 | `intValue` | `Int64` (exact, never a double) |
+| `bigIntValue` | `BigInt` (an Integer beyond `Int64`, exact) |
 | `realValue` | `Float64` (`"NaN"`, `"Infinity"`, `"-Infinity"` accepted) |
 | `boolValue` | `Bool` |
 | `stringValue` | `String` |
@@ -94,7 +95,7 @@ them decoded.
 | `enumLiteral` | `EnumLiteral(literal_id, enumeration_id, name, value)` |
 | `complex` | `Complex` |
 | `array` | `(dimensions, elements)` named tuple, product-checked |
-| `vector` | `(components,)` — `Int64`/`Float64` only |
+| `vector` | `(components,)` — `Int64`/`BigInt`/`Float64` only |
 | `vectorQuantity` | `(components,)` — one `Quantity` each |
 | `measurementRef` | `(unit, unit_id, unit_term)` — `unit_id` `nothing` for a composed unit |
 | `infinity` | `Infinity()` (only `true` carries the arm) |
@@ -104,7 +105,8 @@ them decoded.
 | `metaobject` | `Metaobject(element_id, metaclass_id)` |
 | `undetermined` | `Undetermined(reason, lower, upper)` |
 
-`encode_value` writes the request side: `Int64`→`intValue` (as a string),
+`encode_value` writes the request side: an `Integer`→`intValue` within `Int64`
+and `bigIntValue` beyond it (both as strings),
 `AbstractFloat`→`realValue`, `Bool`, `AbstractString`, `nothing`→`{"null":""}`,
 `Quantity`, `Complex`, `InstanceRef`, `EnumLiteral`, vectors and sets→`sequence`
 /`set`, and `FunctionRef` (a function read off an object is refused, as the

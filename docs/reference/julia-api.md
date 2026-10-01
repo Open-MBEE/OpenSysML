@@ -55,7 +55,7 @@ offers whether or not a named function wraps it, and `call` is what the conforma
 
 ## Values
 
-`decode_value` reads all nineteen `Value` arms; `encode_value` writes them for `execute_action`
+`decode_value` reads all twenty-two `Value` arms; `encode_value` writes them for `execute_action`
 inputs and any hand-built request. `Int64` arrives as a `JSON` *string* on the wire and is parsed
 exactly, never through a double; `realValue` may be the strings `"NaN"`, `"Infinity"`,
 `"-Infinity"`. The wrapper types are `InstanceRef`, `Quantity`, `EnumLiteral`, `FunctionRef`,

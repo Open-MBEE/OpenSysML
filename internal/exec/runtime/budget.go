@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
 )
 
@@ -44,6 +45,9 @@ const (
 	// DefaultMaxSweepRuns bounds the runs one parameter sweep or sample makes,
 	// each of which is a whole analysis or calc run of its own.
 	DefaultMaxSweepRuns int64 = 1000
+	// DefaultMaxIntegerBits bounds the magnitude of one Integer a run computes,
+	// 2^20 bits (315,653 decimal digits, 128KiB).
+	DefaultMaxIntegerBits = semantics.DefaultMaxIntegerBits
 )
 
 // MaxCalcDepthCeiling is the highest calc depth budget a run may be given: past
@@ -61,13 +65,14 @@ const (
 	MaxElementsEnvVar    = "OPENSYSML_MAX_ELEMENTS"
 	MaxCalcDepthEnvVar   = "OPENSYSML_MAX_CALC_DEPTH"
 	MaxSweepRunsEnvVar   = "OPENSYSML_MAX_SWEEP_RUNS"
+	MaxIntegerBitsEnvVar = "OPENSYSML_MAX_INTEGER_BITS"
 )
 
 // Budgets bounds one run of the runtime, and how many runs one sweep asks for.
 // The bounds count incommensurable things — expression evaluations, action
 // token-flow steps, state machine events, do actions, materialized collection
-// elements, nested calc invocations and swept runs — so raising one says
-// nothing about the others.
+// elements, nested calc invocations, swept runs and the bits of one Integer —
+// so raising one says nothing about the others.
 type Budgets struct {
 	MaxSteps       int64
 	MaxActionSteps int64
@@ -76,6 +81,7 @@ type Budgets struct {
 	MaxElements    int64
 	MaxCalcDepth   int64
 	MaxSweepRuns   int64
+	MaxIntegerBits int64
 }
 
 // DefaultBudgets returns the bounds a run uses when the environment names no
@@ -89,6 +95,7 @@ func DefaultBudgets() Budgets {
 		MaxElements:    DefaultMaxElements,
 		MaxCalcDepth:   DefaultMaxCalcDepth,
 		MaxSweepRuns:   DefaultMaxSweepRuns,
+		MaxIntegerBits: DefaultMaxIntegerBits,
 	}
 }
 
@@ -112,6 +119,7 @@ var budgetVars = []budgetVar{
 	{MaxElementsEnvVar, DefaultMaxElements, "collection elements", func(b *Budgets) *int64 { return &b.MaxElements }, 0},
 	{MaxCalcDepthEnvVar, DefaultMaxCalcDepth, "nested calc invocations", func(b *Budgets) *int64 { return &b.MaxCalcDepth }, MaxCalcDepthCeiling},
 	{MaxSweepRunsEnvVar, DefaultMaxSweepRuns, "runs of one sweep", func(b *Budgets) *int64 { return &b.MaxSweepRuns }, 0},
+	{MaxIntegerBitsEnvVar, DefaultMaxIntegerBits, "bits of one Integer", func(b *Budgets) *int64 { return &b.MaxIntegerBits }, 0},
 }
 
 // Validate reports every bound that is not positive, which would let a run make
@@ -177,6 +185,15 @@ func budgetFromValue(v budgetVar, raw string) (int64, error) {
 	return n, nil
 }
 
+// integerSizeHint names the variable raising the Integer size budget on an
+// error reporting it spent; any other error passes through.
+func integerSizeHint(err error) error {
+	if errors.Is(err, ErrIntegerSizeLimit) {
+		return fmt.Errorf("%w (raise %s to allow more)", err, MaxIntegerBitsEnvVar)
+	}
+	return err
+}
+
 // Budgets returns the bounds this context runs under.
 func (ctx *Context) Budgets() Budgets {
 	return Budgets{
@@ -187,6 +204,7 @@ func (ctx *Context) Budgets() Budgets {
 		MaxElements:    ctx.maxElements,
 		MaxCalcDepth:   ctx.maxCalcDepth,
 		MaxSweepRuns:   ctx.maxSweepRuns,
+		MaxIntegerBits: ctx.maxIntegerBits,
 	}
 }
 
@@ -204,5 +222,6 @@ func (ctx *Context) SetBudgets(b Budgets) error {
 	ctx.maxElements = b.MaxElements
 	ctx.maxCalcDepth = b.MaxCalcDepth
 	ctx.maxSweepRuns = b.MaxSweepRuns
+	ctx.maxIntegerBits = b.MaxIntegerBits
 	return nil
 }

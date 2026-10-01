@@ -77,6 +77,43 @@ test("integers keep their width and reals stay numbers", () => {
   });
 });
 
+test("an integer beyond int64 travels as its decimal and reads as one bigint", () => {
+  const huge = 2n ** 70n;
+  const wire = encodeValue({ kind: "int", value: huge });
+  assert.deepEqual(wire.kind, { case: "bigIntValue", value: huge.toString() });
+  const back = decodeValue(fromBinary(ValueSchema, toBinary(ValueSchema, wire)));
+  assert.deepEqual(back, { kind: "int", value: huge });
+  assert.equal(formatValue(back), "1180591620717411303424");
+  const edge = 2n ** 63n - 1n;
+  assert.deepEqual(encodeValue({ kind: "int", value: edge }).kind, { case: "intValue", value: edge });
+  assert.deepEqual(encodeValue({ kind: "int", value: -edge - 2n }).kind, {
+    case: "bigIntValue",
+    value: (-edge - 2n).toString(),
+  });
+  assert.ok(valuesEqual(back, { kind: "real", value: 2 ** 70 }));
+  assert.ok(!valuesEqual(back, { kind: "real", value: 2 ** 69 }));
+  assert.throws(
+    () => decodeValue(create(ValueSchema, { kind: { case: "bigIntValue", value: "1e30" } })),
+    MalformedValueError,
+  );
+});
+
+test("a quantity with an integer magnitude beyond int64 keeps it", () => {
+  const huge = -(3n ** 50n);
+  const wire = create(ValueSchema, {
+    kind: {
+      case: "quantity",
+      value: create(QuantitySchema, { magnitude: { case: "bigIntMagnitude", value: huge.toString() }, unit: "" }),
+    },
+  });
+  const value = decodeValue(wire);
+  assert.ok(value.kind === "quantity");
+  assert.deepEqual(value.magnitude, { kind: "int", value: huge });
+  const again = encodeValue(value);
+  assert.ok(again.kind.case === "quantity");
+  assert.deepEqual(again.kind.value.magnitude, { case: "bigIntMagnitude", value: huge.toString() });
+});
+
 test("a complex number is one value with both parts, never two reals", () => {
   const complex = (real: number, imaginary: number) =>
     create(ValueSchema, { kind: { case: "complex", value: create(ComplexSchema, { real, imaginary }) } });

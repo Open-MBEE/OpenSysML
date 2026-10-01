@@ -3,7 +3,6 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -116,6 +115,9 @@ func (c *scalarCheck) accepts(v scalar) bool {
 	}
 	switch v.kind {
 	case scalarInt:
+		if v.big != nil {
+			return c.integerOK || (c.naturalOK && v.big.Sign() > 0)
+		}
 		return c.integerOK || (c.naturalOK && v.int() >= c.least)
 	case scalarBool:
 		return c.boolOK
@@ -419,11 +421,12 @@ func (n *cnode) expr() compiledExpr { return n.emit(false) }
 func (c *calcCompiler) compileNode(n ast.Node, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
-		v, err := strconv.ParseInt(e.Value, 10, 64)
-		if err != nil {
-			return nil, ineligible(fmt.Sprintf("integer literal %s outside the range", e.Value))
+		v, ok := semantics.ParseInteger(e.Value)
+		if !ok {
+			return nil, ineligible(fmt.Sprintf("integer literal %s", e.Value))
 		}
-		return constNode(intScalar(v)), nil
+		s, _ := scalarOfConst(v)
+		return constNode(s), nil
 	case *ast.LiteralReal:
 		v, err := semantics.ParseReal(e.Value)
 		if err != nil {
@@ -565,14 +568,6 @@ func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope
 	case ast.OpNeg, ast.OpPos, ast.OpNot:
 		if len(n.Operands) != 1 {
 			return nil, ineligible(fmt.Sprintf("unary operator with %d operands", len(n.Operands)))
-		}
-		// The least Integer is read with its sign, as the evaluator reads it.
-		if lit, ok := n.Operands[0].(*ast.LiteralInteger); ok && n.Operator == ast.OpNeg {
-			if _, err := strconv.ParseInt(lit.Value, 10, 64); err != nil {
-				if v, err := strconv.ParseInt("-"+lit.Value, 10, 64); err == nil {
-					return constNode(intScalar(v)), nil
-				}
-			}
 		}
 		return c.compileOperands(n, scope, layout, unaryNode)
 	default:

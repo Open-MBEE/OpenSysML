@@ -12,7 +12,7 @@ end
 
 function val = decodeValueInner(v, resolveInstance)
 %DECODEVALUE Decode one wire Value: an object with exactly one of the
-%nineteen arm keys. Contract violations are errors, never defaults.
+%twenty-two arm keys. Contract violations are errors, never defaults.
 
     if isempty(v)
         val = [];
@@ -27,6 +27,7 @@ function val = decodeValueInner(v, resolveInstance)
     asReal = @realOf;
     switch kind
         case 'intValue',    val = asInt64(v.intValue);
+        case 'bigIntValue', val = bigIntegerOf(v.bigIntValue);
         case 'realValue',   val = asReal(v.realValue);
         case 'boolValue',   val = logical(v.boolValue);
         case 'stringValue', val = char(v.stringValue);
@@ -193,6 +194,8 @@ end
 function n = decodeNumeric(c)
     if isfield(c, 'intValue')
         n = opensysml.parseInt64(c.intValue);
+    elseif isfield(c, 'bigIntValue')
+        n = bigIntegerOf(c.bigIntValue);
     elseif isfield(c, 'realValue')
         n = realOf(c.realValue);
     else
@@ -203,6 +206,8 @@ end
 function q = decodeQuantity(b)
     if isfield(b, 'intMagnitude')
         mag = opensysml.parseInt64(b.intMagnitude);
+    elseif isfield(b, 'bigIntMagnitude')
+        mag = bigIntegerOf(b.bigIntMagnitude);
     elseif isfield(b, 'realMagnitude')
         mag = realOf(b.realMagnitude);
     else
@@ -212,6 +217,24 @@ function q = decodeQuantity(b)
     term = [];
     if isfield(b, 'unitTerm'), term = b.unitTerm; end
     q = struct('magnitude', mag, 'unit', unit, 'unitTerm', term);
+end
+
+function b = bigIntegerOf(s)
+% an Integer beyond int64 stays its decimal digits: no MATLAB number holds it
+    s = char(s);
+    if isempty(regexp(s, '^-?[1-9][0-9]*$', 'once'))
+        error('opensysml:decode', 'not the decimal digits of an integer: %s', s);
+    end
+    fits = true;
+    try
+        opensysml.parseInt64(s);
+    catch
+        fits = false;
+    end
+    if fits
+        error('opensysml:decode', '%s is within int64, which intValue carries', s);
+    end
+    b = struct('bigInteger', s);
 end
 
 function dims = asInt64List(cells)

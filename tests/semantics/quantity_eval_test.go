@@ -307,8 +307,8 @@ func TestBareZeroComparesInTheQuantitysUnit(t *testing.T) {
 	}
 }
 
-// TestQuantityArithmeticFailures: a zero divisor and an Integer overflow are
-// typed errors, never a silent infinity or wrap-around.
+// TestQuantityArithmeticFailures: a zero divisor is a typed error, never a
+// silent infinity, and an Integer magnitude past int64 is exact, never wrapped.
 func TestQuantityArithmeticFailures(t *testing.T) {
 	m, idx := quantityFixture(t)
 	kilograms := func(n int64) semantics.Quantity { return fold(t, m, idx, fmt.Sprintf("%d [kg]", n)) }
@@ -317,8 +317,8 @@ func TestQuantityArithmeticFailures(t *testing.T) {
 	if _, err := semantics.QuantityBinary(ast.OpDiv, kilograms(1), zero); !errors.Is(err, semantics.ErrDivisionByZero) {
 		t.Errorf("1 kg / 0: err = %v, want ErrDivisionByZero", err)
 	}
-	if _, err := semantics.QuantityBinary(ast.OpMul, kilograms(1<<62), kilograms(4)); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-		t.Errorf("2^62 kg * 4 kg: err = %v, want ErrArithmeticOverflow", err)
+	if got, err := semantics.QuantityBinary(ast.OpMul, kilograms(1<<62), kilograms(4)); err != nil || got.Num.FormatInt() != "18446744073709551616" || !got.Num.IsBigInt() {
+		t.Errorf("2^62 kg * 4 kg = %v, %v; want the exact Integer 2^64", got.String(), err)
 	}
 	exponent := semantics.Quantity{Num: semantics.Value{Kind: semantics.ValInt, Int: 2}, Unit: semantics.UnitOne()}
 	squared, err := semantics.QuantityBinary(ast.OpPow, metres(3), exponent)

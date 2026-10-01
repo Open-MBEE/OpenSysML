@@ -683,7 +683,7 @@ func relative(stored, ran semantics.Value) string {
 
 func realOf(v semantics.Value) float64 {
 	if v.Kind == semantics.ValInt {
-		return float64(v.Int)
+		return v.AsReal()
 	}
 	return v.Real
 }

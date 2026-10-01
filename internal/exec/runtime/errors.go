@@ -19,6 +19,11 @@ var (
 	// work, so it is its own error and its own budget.
 	ErrElementLimitExceeded = errors.New("collection element limit exceeded")
 
+	// ErrIntegerSizeLimit is returned when an Integer result would need more
+	// bits than the run's Integer size budget allows. Integers are unbounded;
+	// the budget bounds the memory and time one result may take.
+	ErrIntegerSizeLimit = semantics.ErrIntegerSizeLimit
+
 	// ErrInstanceLimitExceeded is returned when materializing one more object
 	// would take the context past the bound SetMaxInstances set.
 	ErrInstanceLimitExceeded = errors.New("object limit exceeded")
@@ -424,6 +429,11 @@ var (
 	// sequence or string it indexes; indices are 1-based, so 0 is out of range
 	// as much as size+1 is, and each operation names what it indexed.
 	ErrIndexOutOfRange = errors.New("index out of range")
+
+	// ErrIntegerUnaddressable is returned when an Integer serves as a position,
+	// count or bound of something held, and is beyond the 64-bit range any of
+	// those can take: Integers are unbounded, what they address is not.
+	ErrIntegerUnaddressable = errors.New("integer beyond the addressable range")
 
 	// ErrBodyArity is returned when the body expression a collection operation
 	// is given declares a number of parameters the operation cannot call it

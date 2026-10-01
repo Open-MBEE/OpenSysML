@@ -104,6 +104,46 @@ class ProtosTest {
         Protos.value(sequence));
   }
 
+  @Test
+  void anIntegerBeyondLongIsReadAndWrittenExactly() {
+    java.math.BigInteger twoTo70 = java.math.BigInteger.ONE.shiftLeft(70);
+    var wire =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setBigIntValue("1180591620717411303424")
+            .build();
+    Value read = Protos.value(wire).orElseThrow();
+    assertEquals(new Value.BigIntegerValue(twoTo70), read);
+    assertEquals(wire, Protos.proto(read));
+    assertTrue(read.sameValue(new Value.RealValue(0x1p70)));
+    assertFalse(read.sameValue(new Value.RealValue(0x1p71)));
+    assertFalse(read.sameValue(new Value.IntegerValue(Long.MAX_VALUE)));
+    assertEquals(0x1p70, read.asDouble());
+    for (String malformed : List.of("", "-", "007", "+5", "1e3", "9223372036854775807")) {
+      assertThrows(
+          TransportException.class,
+          () ->
+              Protos.value(
+                  org.openmbee.opensysml.proto.Value.newBuilder()
+                      .setBigIntValue(malformed)
+                      .build()),
+          malformed);
+    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Value.BigIntegerValue(java.math.BigInteger.valueOf(Long.MIN_VALUE)));
+    var quantity =
+        org.openmbee.opensysml.proto.Quantity.newBuilder()
+            .setBigIntMagnitude("-9223372036854775809")
+            .setUnit("kg")
+            .build();
+    Quantity kilograms = Protos.quantity(quantity);
+    assertEquals(new java.math.BigInteger("-9223372036854775809"), kilograms.magnitude());
+    assertTrue(kilograms.isIntegral());
+    assertEquals(
+        org.openmbee.opensysml.proto.Value.newBuilder().setQuantity(quantity).build(),
+        Protos.proto(new Value.QuantityValue(kilograms)));
+  }
+
   private static org.openmbee.opensysml.proto.Value integer(long value) {
     return org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(value).build();
   }

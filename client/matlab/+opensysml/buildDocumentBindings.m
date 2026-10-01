@@ -57,6 +57,9 @@ function value = boundValue(parameter, item)
         value = struct('intValue', sprintf('%d', int64(item)));
     elseif isnumeric(item) && isscalar(item) && isreal(item)
         value = struct('realValue', docReal(double(item)));
+    elseif isstruct(item) && isscalar(item) && isfield(item, 'bigInteger')
+        wide = opensysml.encodeValue(item);
+        value = struct('bigIntValue', wide.bigIntValue);
     elseif isstruct(item) && isfield(item, 'magnitude') && isfield(item, 'unit')
         quantity = opensysml.encodeValue(item);
         value = struct('quantity', quantity.quantity);

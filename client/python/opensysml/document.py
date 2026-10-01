@@ -22,7 +22,14 @@ from typing import Optional, Sequence, Union
 
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
-from opensysml.values import INFINITY, Quantity, _Infinity
+from opensysml.values import (
+    INFINITY,
+    Quantity,
+    _Infinity,
+    fits_int64,
+    integer_from_decimal,
+    integer_to_decimal,
+)
 
 
 class DocumentQueryError(OpenSysMLError, ValueError):
@@ -291,11 +298,8 @@ def _bound_value(parameter, value):
     if isinstance(value, str):
         return sysml_pb2.DocumentValue(string_value=value)
     if isinstance(value, int):
-        if not -(1 << 63) <= value < (1 << 63):
-            raise DocumentQueryError(
-                f"binding {parameter!r} cannot carry {value!r}: an int must "
-                f"fit in a signed 64-bit integer"
-            )
+        if not fits_int64(value):
+            return sysml_pb2.DocumentValue(big_int_value=integer_to_decimal(value))
         return sysml_pb2.DocumentValue(int_value=value)
     if isinstance(value, float):
         return sysml_pb2.DocumentValue(real_value=value)
@@ -320,12 +324,6 @@ def _bound_value(parameter, value):
 
 def _bound_quantity(parameter, value):
     """A Quantity as the wire writes it; one it cannot carry is a caller error."""
-    if isinstance(value.magnitude, int) and not isinstance(value.magnitude, bool):
-        if not -(1 << 63) <= value.magnitude < (1 << 63):
-            raise DocumentQueryError(
-                f"binding {parameter!r} cannot carry {value!r}: an Integer magnitude "
-                f"must fit in a signed 64-bit integer"
-            )
     try:
         return value.to_pb()
     except UnsupportedValueError as exc:
@@ -386,6 +384,8 @@ def _value_of(value):
         return value.string_value
     if kind == "int_value":
         return value.int_value
+    if kind == "big_int_value":
+        return integer_from_decimal(value.big_int_value)
     if kind == "real_value":
         return value.real_value
     if kind == "bool_value":

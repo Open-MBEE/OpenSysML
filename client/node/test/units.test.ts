@@ -181,9 +181,24 @@ test("a binding refuses what queries answer rather than bind", () => {
       }),
     /verdict.*answered|answered.*verdict/i,
   );
-  assert.throws(() => buildBindings({ n: 1n << 63n }), /64-bit/);
   assert.throws(() => buildBindings({ o: new ObjectRef() }), /id or by path/);
   assert.throws(() => buildBindings({ q: create(DocumentValueSchema) as never }), /binding is/);
+});
+
+test("a bound Integer beyond int64 goes out as its decimal, in a value or a magnitude", () => {
+  const [wide, mass] = buildBindings({
+    n: 1n << 63n,
+    mass: { kind: "quantity", magnitude: { kind: "int", value: -(1n << 70n) }, unit: "kg" },
+  });
+  assert.deepEqual(wide.values[0].kind, { case: "bigIntValue", value: "9223372036854775808" });
+  const quantity = mass.values[0].kind;
+  assert.equal(quantity.case, "quantity");
+  assert.deepEqual(quantity.value.magnitude, {
+    case: "bigIntMagnitude",
+    value: "-1180591620717411303424",
+  });
+  const [edge] = buildBindings({ n: (1n << 63n) - 1n });
+  assert.deepEqual(edge.values[0].kind, { case: "intValue", value: (1n << 63n) - 1n });
 });
 
 test("bound quantity values go out as wire quantities", () => {

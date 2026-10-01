@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"math"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
@@ -119,6 +120,17 @@ func TestLibraryFunctionValues(t *testing.T) {
 		{"OpenSysMLMathFunctions::quotient", []Value{constInt(27021597764222979), constInt(3)}, semantics.Value{Kind: semantics.ValInt, Int: 9007199254740993}},
 		{"OpenSysMLMathFunctions::quotient", []Value{constInt(math.MinInt64), constInt(1)}, semantics.Value{Kind: semantics.ValInt, Int: math.MinInt64}},
 		{"OpenSysMLMathFunctions::quotient", []Value{constInt(math.MaxInt64), constInt(-1)}, semantics.Value{Kind: semantics.ValInt, Int: -math.MaxInt64}},
+		{"OpenSysMLMathFunctions::quotient", []Value{constInt(math.MinInt64), constInt(-1)}, bigConst(t, "9223372036854775808").Const},
+		{"RealFunctions::floor", []Value{constReal(1e300)}, semantics.BigIntValue(new(big.Int).Lsh(big.NewInt(1681218273811815), 946))},
+		{"RealFunctions::floor", []Value{constReal(-float64(math.MinInt64))}, bigConst(t, "9223372036854775808").Const},
+		{"RealFunctions::round", []Value{constReal(-float64(math.MinInt64))}, bigConst(t, "9223372036854775808").Const},
+		{"IntegerFunctions::abs", []Value{constInt(math.MinInt64)}, bigConst(t, "9223372036854775808").Const},
+		{"IntegerFunctions::abs", []Value{bigConst(t, "-1180591620717411303424")}, bigConst(t, "1180591620717411303424").Const},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(-float64(math.MinInt64))}, bigConst(t, "9223372036854775808").Const},
+		{"OpenSysMLMathFunctions::ceiling", []Value{constReal(-1e20)}, bigConst(t, "-100000000000000000000").Const},
+		{"IntegerFunctions::max", []Value{bigConst(t, "9223372036854775808"), constInt(math.MaxInt64)}, bigConst(t, "9223372036854775808").Const},
+		{"IntegerFunctions::min", []Value{bigConst(t, "-9223372036854775809"), constInt(math.MinInt64)}, bigConst(t, "-9223372036854775809").Const},
+		{"NaturalFunctions::max", []Value{bigConst(t, "18446744073709551616"), constInt(3)}, bigConst(t, "18446744073709551616").Const},
 	}
 
 	for _, tc := range cases {
@@ -127,7 +139,7 @@ func TestLibraryFunctionValues(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s%v = error %v", tc.name, tc.args, err)
 			}
-			if got.Kind != ValConst || got.Const != tc.want {
+			if got.Kind != ValConst || got.Const.Kind != tc.want.Kind || !got.Const.Equal(tc.want) {
 				t.Fatalf("%s%v = %+v, want %+v", tc.name, tc.args, got, tc.want)
 			}
 		})
@@ -147,12 +159,7 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		// No Real is exactly pi/2, so tan has no infinite argument to report;
 		// cot does, at zero.
 		{"cotangent of a zero sine", "TrigFunctions::cot", []Value{constReal(0)}, semantics.ErrArithmeticOverflow},
-		{"floor beyond the Integer range", "RealFunctions::floor", []Value{constReal(1e300)}, semantics.ErrArithmeticOverflow},
-		// 2^63 is the least Real above the Integer range, and the only one the
 		// int64 conversion would silently wrap.
-		{"floor at the Integer boundary", "RealFunctions::floor", []Value{constReal(-float64(math.MinInt64))}, semantics.ErrArithmeticOverflow},
-		{"round at the Integer boundary", "RealFunctions::round", []Value{constReal(-float64(math.MinInt64))}, semantics.ErrArithmeticOverflow},
-		{"absolute value of the least Integer", "IntegerFunctions::abs", []Value{constInt(math.MinInt64)}, semantics.ErrArithmeticOverflow},
 		{"too few arguments", "RealFunctions::max", []Value{constReal(1)}, ErrCalcArity},
 		{"too many arguments", "RealFunctions::sqrt", []Value{constReal(1), constReal(2)}, ErrCalcArity},
 		{"no arguments", "RealFunctions::sqrt", nil, ErrCalcArity},
@@ -176,11 +183,8 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		{"string argument to the logarithm", "OpenSysMLMathFunctions::ln", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"string base", "OpenSysMLMathFunctions::log", []Value{constReal(8), NewStringValue("2")}, ErrTypeMismatch},
 		{"boolean argument to the angle", "OpenSysMLMathFunctions::atan2", []Value{constReal(1), boolValue(false)}, ErrTypeMismatch},
-		{"ceiling at the Integer boundary", "OpenSysMLMathFunctions::ceiling", []Value{constReal(-float64(math.MinInt64))}, semantics.ErrArithmeticOverflow},
-		{"ceiling below the Integer range", "OpenSysMLMathFunctions::ceiling", []Value{constReal(-1e20)}, semantics.ErrArithmeticOverflow},
 		{"ceiling of a string", "OpenSysMLMathFunctions::ceiling", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"quotient by zero", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constInt(0)}, ErrDivisionByZero},
-		{"quotient of the least Integer by -1", "OpenSysMLMathFunctions::quotient", []Value{constInt(math.MinInt64), constInt(-1)}, semantics.ErrArithmeticOverflow},
 		{"Real argument to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constReal(7.5), constInt(2)}, ErrTypeMismatch},
 		{"Real divisor to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constReal(2.0)}, ErrTypeMismatch},
 		{"quotient with one argument", "OpenSysMLMathFunctions::quotient", []Value{constInt(7)}, ErrCalcArity},
@@ -956,11 +960,6 @@ func TestVectorAndComplexFunctionErrors(t *testing.T) {
 		{"a difference beyond the Real range", "VectorFunctions::cartesian-", []Value{realVec(1e308, 1), realVec(-1e308, 1)}, semantics.ErrArithmeticOverflow},
 		{"a scaled element beyond the Real range", "VectorFunctions::scalarVectorMult", []Value{constReal(1e300), realVec(1e300)}, semantics.ErrArithmeticOverflow},
 		{"an inner product beyond the Real range", "VectorFunctions::cartesianInner", []Value{realVec(1e200), realVec(1e200)}, semantics.ErrArithmeticOverflow},
-		{"an Integer sum beyond the Integer range", "VectorFunctions::+", []Value{vec(constInt(math.MaxInt64)), vec(constInt(1))}, semantics.ErrArithmeticOverflow},
-		{"an Integer difference beyond the Integer range", "VectorFunctions::-", []Value{vec(constInt(math.MinInt64)), vec(constInt(1))}, semantics.ErrArithmeticOverflow},
-		{"the negation of the least Integer", "VectorFunctions::-", []Value{vec(constInt(math.MinInt64))}, semantics.ErrArithmeticOverflow},
-		{"an Integer scaling beyond the Integer range", "VectorFunctions::scalarVectorMult", []Value{constInt(2), vec(constInt(math.MaxInt64))}, semantics.ErrArithmeticOverflow},
-		{"an Integer inner product beyond the Integer range", "VectorFunctions::inner", []Value{vec(constInt(math.MaxInt64), constInt(1)), vec(constInt(1), constInt(1))}, semantics.ErrArithmeticOverflow},
 		{"a vector where a Complex is declared", "ComplexFunctions::re", []Value{realVec(1, 2, 3)}, ErrTypeMismatch},
 		{"an empty Complex", "ComplexFunctions::abs", []Value{nullValue()}, ErrTypeMismatch},
 		{"a string where a Complex is declared", "ComplexFunctions::im", []Value{strValue("2")}, ErrTypeMismatch},
@@ -981,6 +980,34 @@ func TestVectorAndComplexFunctionErrors(t *testing.T) {
 			got, err := applyLibrary(t, tc.fn, tc.args...)
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("%s = %+v, %v; want error %v", tc.fn, got, err, tc.want)
+			}
+		})
+	}
+}
+
+// TestIntegerVectorFunctionsAreExact: Integer vector components past int64 are
+// the exact Integers, never wrapped and never an overflow.
+func TestIntegerVectorFunctionsAreExact(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		fn   string
+		args []Value
+		want string
+	}{
+		{"a sum", "VectorFunctions::+", []Value{vec(constInt(math.MaxInt64)), vec(constInt(1))}, "⟨9223372036854775808⟩"},
+		{"a difference", "VectorFunctions::-", []Value{vec(constInt(math.MinInt64)), vec(constInt(1))}, "⟨-9223372036854775809⟩"},
+		{"a negation", "VectorFunctions::-", []Value{vec(constInt(math.MinInt64))}, "⟨9223372036854775808⟩"},
+		{"a scaling", "VectorFunctions::scalarVectorMult", []Value{constInt(2), vec(constInt(math.MaxInt64))}, "⟨18446744073709551614⟩"},
+		{"an inner product", "VectorFunctions::inner", []Value{vec(constInt(math.MaxInt64), constInt(1)), vec(constInt(1), constInt(1))}, "9223372036854775808"},
+		{"a demoted sum", "VectorFunctions::+", []Value{vec(bigConst(t, "9223372036854775808")), vec(constInt(-1))}, "⟨9223372036854775807⟩"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := applyLibrary(t, tc.fn, tc.args...)
+			if err != nil {
+				t.Fatalf("%s: %v", tc.fn, err)
+			}
+			if FormatValue(got) != tc.want {
+				t.Fatalf("%s = %s, want %s", tc.fn, FormatValue(got), tc.want)
 			}
 		})
 	}

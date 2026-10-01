@@ -1,11 +1,19 @@
 function test_decode_value()
-%TEST_DECODE_VALUE All nineteen Value arms and the failure modes.
+%TEST_DECODE_VALUE All twenty-two Value arms and the failure modes.
 
     % the double literal cannot write -2^63; decodeValue must go through
     % the int64 accumulator
     v = opensysml.decodeValue(struct('intValue', '-9223372036854775808'));
     assert_equal(v, min_int64(), 'min int64');
     assert_equal(opensysml.decodeValue(struct('intValue', '7')), int64(7), 'intValue');
+    v = opensysml.decodeValue(struct('bigIntValue', '1180591620717411303424'));
+    assert_equal(v, struct('bigInteger', '1180591620717411303424'), 'bigIntValue');
+    v = opensysml.decodeValue(struct('bigIntValue', '-9223372036854775809'));
+    assert_equal(v.bigInteger, '-9223372036854775809', 'bigIntValue below int64');
+    assert_error(@() opensysml.decodeValue(struct('bigIntValue', '9223372036854775807')), 'opensysml:decode', 'bigIntValue within int64');
+    assert_error(@() opensysml.decodeValue(struct('bigIntValue', '007')), 'opensysml:decode', 'bigIntValue leading zero');
+    q = opensysml.decodeValue(struct('quantity', struct('bigIntMagnitude', '9223372036854775808', 'unit', 'kg')));
+    assert_equal(q.magnitude.bigInteger, '9223372036854775808', 'quantity bigIntMagnitude');
     assert_equal(opensysml.decodeValue(struct('realValue', 1.5)), 1.5, 'realValue');
     assert_equal(opensysml.decodeValue(struct('realValue', 'NaN')), NaN, 'realValue NaN');
     assert_equal(opensysml.decodeValue(struct('realValue', 'Infinity')), Inf, 'realValue Infinity');

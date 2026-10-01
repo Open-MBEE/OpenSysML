@@ -277,31 +277,22 @@ func canonicalClass(v Value) int {
 func compareNumbers(a, b semantics.Value) int {
 	switch {
 	case a.Kind == semantics.ValInt && b.Kind == semantics.ValInt:
-		return cmp.Compare(a.Int, b.Int)
+		return semantics.CompareInt(a, b)
 	case a.Kind == semantics.ValInt && b.Kind == semantics.ValReal:
-		return compareIntReal(a.Int, b.Real)
+		return compareIntReal(a, b.Real)
 	case a.Kind == semantics.ValReal && b.Kind == semantics.ValInt:
-		return -compareIntReal(b.Int, a.Real)
+		return -compareIntReal(b, a.Real)
 	}
 	return cmp.Compare(numberOf(a), numberOf(b))
 }
 
-// compareIntReal orders an Integer against a Real without rounding the Integer
-// to float64: by whole part first, then by the Real's fraction.
-func compareIntReal(i int64, r float64) int {
-	switch {
-	case math.IsNaN(r):
+// compareIntReal orders an Integer against a Real without rounding either, a
+// NaN below every number as cmp.Compare puts it.
+func compareIntReal(i semantics.Value, r float64) int {
+	if math.IsNaN(r) {
 		return cmp.Compare(0.0, r)
-	case r >= -float64(math.MinInt64):
-		return -1
-	case r < float64(math.MinInt64):
-		return 1
 	}
-	whole := math.Trunc(r)
-	if c := cmp.Compare(i, int64(whole)); c != 0 {
-		return c
-	}
-	return cmp.Compare(0, r-whole)
+	return semantics.CompareIntReal(i, r)
 }
 
 func numberOf(v semantics.Value) float64 {

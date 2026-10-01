@@ -288,6 +288,10 @@ mid-statement, a state and an action due together — is listed in
 `check_corpus_test.go` and owns no expectation. These files are not execution
 fixtures: the execution harness skips them.
 
+An `Integer` value is a JSON number, or a decimal string for an Integer of any
+magnitude (`{"type": "Integer", "value": "1180591620717411303424"}`), since a
+JSON number past 2^53 is read through a float64 that may round its digits.
+
 ### For Calculations (`InvokeCalc`)
 
 ```json

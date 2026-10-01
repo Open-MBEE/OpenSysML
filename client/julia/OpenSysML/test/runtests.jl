@@ -8,10 +8,19 @@ include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
 
 const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformance", "fixtures"))
 
-@testset "decode_value: the nineteen arms" begin
+@testset "decode_value: the twenty-two arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
     @test decode_value(JSON.parse("""{"intValue":"-9223372036854775808"}""")) === typemin(Int64)
+    @test decode_value(JSON.parse("""{"bigIntValue":"1180591620717411303424"}""")) == big(2)^70
+    @test decode_value(JSON.parse("""{"bigIntValue":"-9223372036854775809"}""")) isa BigInt
+    for wrong in ("", "-", "007", "+5", "9223372036854775807")
+        @test_throws ErrorException decode_value(Dict("bigIntValue" => wrong))
+    end
+    @test decode_value(JSON.parse("""{"quantity":{"bigIntMagnitude":"9223372036854775808","unit":"kg"}}""")).magnitude == big(2)^63
+    @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
+    @test encode_value(big(7)) == Dict("intValue" => "7")
+    @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
     @test decode_value(JSON.parse("""{"realValue":0.3333333333333333}""")) ≈ 1/3
     @test decode_value(JSON.parse("""{"realValue":20}""")) === 20.0
     @test decode_value(JSON.parse("""{"realValue":"NaN"}""")) |> isnan

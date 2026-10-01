@@ -92,7 +92,7 @@ than a message with optional fields:
 
 ```ts
 switch (value.kind) {
-  case "int":      value.value;                  // bigint, never lossy
+  case "int":      value.value;                  // bigint, never lossy, beyond int64 too
   case "real":     value.value;                  // number
   case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":

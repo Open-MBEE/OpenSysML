@@ -49,6 +49,8 @@ function v = encodeStruct(x, conn)
     elseif isfield(x, 'infinity')
         requireCapability(conn, 'infinity_value');
         v = struct('infinity', true);
+    elseif isfield(x, 'bigInteger')
+        v = struct('bigIntValue', char(x.bigInteger));
     elseif isfield(x, 'instanceRef')
         id = integerValue(x.instanceRef, 'instance reference id');
         v = struct('instanceId', sprintf('%d', id));
@@ -160,10 +162,11 @@ end
 
 function body = encodeQuantityBody(q)
     magnitude = q.magnitude;
-    if ~isnumeric(magnitude) || ~isscalar(magnitude) || ~isreal(magnitude)
+    if isstruct(magnitude) && isfield(magnitude, 'bigInteger')
+        body.bigIntMagnitude = char(magnitude.bigInteger);
+    elseif ~isnumeric(magnitude) || ~isscalar(magnitude) || ~isreal(magnitude)
         opensysml.internal.raise('opensysml:encode', 'quantity magnitude must be a real scalar');
-    end
-    if isinteger(magnitude)
+    elseif isinteger(magnitude)
         body.intMagnitude = sprintf('%d', integerValue(magnitude, 'quantity magnitude'));
     else
         body.realMagnitude = wireReal(double(magnitude));

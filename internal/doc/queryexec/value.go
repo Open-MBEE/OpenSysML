@@ -42,7 +42,7 @@ type Value struct {
 	state    *State
 	event    *Event
 	text     string
-	integer  int64
+	integer  semantics.Value
 	real     float64
 	boolean  bool
 	quantity *semantics.Quantity
@@ -71,6 +71,12 @@ func StringValue(value string) Value {
 
 // IntegerValue constructs an integer value.
 func IntegerValue(value int64) Value {
+	return Value{kind: ValueInteger, integer: semantics.IntValue(value)}
+}
+
+// IntegerOf constructs the integer value of the Integer constant value, which
+// may lie beyond int64.
+func IntegerOf(value semantics.Value) Value {
 	return Value{kind: ValueInteger, integer: value}
 }
 
@@ -96,7 +102,7 @@ func QuantityValue(quantity semantics.Quantity) Value {
 func constantValue(constant semantics.Value) (Value, bool) {
 	switch constant.Kind {
 	case semantics.ValInt:
-		return IntegerValue(constant.Int), true
+		return IntegerOf(constant), true
 	case semantics.ValReal:
 		return RealValue(constant.Real), true
 	case semantics.ValBool:
@@ -160,8 +166,18 @@ func (v Value) Object() (*runtime.Instance, string, bool) {
 // String returns the value's string and whether it is a string value.
 func (v Value) String() (string, bool) { return v.text, v.kind == ValueString }
 
-// Integer returns the value's integer and whether it is an integer value.
-func (v Value) Integer() (int64, bool) { return v.integer, v.kind == ValueInteger }
+// Integer returns the value's integer and whether it is an integer value
+// within int64; IntegerConst reads any integer value.
+func (v Value) Integer() (int64, bool) {
+	if v.kind != ValueInteger {
+		return 0, false
+	}
+	return v.integer.Int64()
+}
+
+// IntegerConst returns the value's Integer, of any size, and whether it is an
+// integer value.
+func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
 
 // Real returns the value's real and whether it is a real value.
 func (v Value) Real() (float64, bool) { return v.real, v.kind == ValueReal }

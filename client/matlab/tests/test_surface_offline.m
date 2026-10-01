@@ -181,6 +181,10 @@ function test_surface_offline()
     assert_equal(wireBindings{2}.values{1}.intValue, '3', 'integer binding');
     assert_equal(wireBindings{2}.values{2}.realValue, 4.5, 'real binding');
     assert_equal(wireBindings{2}.values{3}.boolValue, true, 'boolean binding');
+    wide = opensysml.buildDocumentBindings(struct('n', {{struct('bigInteger', '9223372036854775808')}}));
+    assert_equal(wide{1}.values{1}.bigIntValue, '9223372036854775808', 'Integer binding beyond int64');
+    decodedWide = opensysml.internal.decodeDocumentValue(struct('bigIntValue', '-1180591620717411303424'));
+    assert_equal(decodedWide.bigInteger, '-1180591620717411303424', 'document Integer beyond int64');
     assert_error(@() opensysml.buildDocumentBindings(struct('bad', {struct('type', 'verdict')})), ...
         'opensysml:argument', 'unsupported document binding');
 

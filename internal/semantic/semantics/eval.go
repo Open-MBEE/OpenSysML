@@ -18,7 +18,7 @@ var (
 	ErrArithmeticDomain = errors.New("arithmetic domain error")
 
 	// ErrArithmeticOverflow reports a result outside the range of the kind it
-	// would have: an Integer that does not fit int64, or a non-finite Real.
+	// would have: a non-finite Real.
 	ErrArithmeticOverflow = errors.New("arithmetic overflow")
 
 	// ErrRealNotation reports text that is not decimal Real notation, such as
@@ -85,7 +85,7 @@ func isZeroNotation(text string) bool {
 }
 
 // ValueKind discriminates a model-level constant value.
-type ValueKind int
+type ValueKind uint8
 
 const (
 	ValInvalid ValueKind = iota
@@ -146,22 +146,28 @@ func (m *Model) SentScalarTypes(scope *symbols.Scope, node ast.Node) []string {
 // meaningful. This is a deliberately small subset: the constraint checks that
 // need evaluation (multiplicity bounds, some guards) operate over integers,
 // reals, booleans, and the infinity bound.
+//
+// An Integer is unbounded. One within int64 is held in Int; any other is held
+// as an immutable big.Int, with Int zero, so each Integer has one
+// representation. Read an Integer through Int64, BigInt or the Int functions
+// rather than through Int, which is meaningful only when IsBigInt is false.
 type Value struct {
 	Kind ValueKind
+	Bool bool
 	Int  int64
 	Real float64
-	Bool bool
+	big  *big.Int
 }
 
 // IsNumeric reports whether the value is an integer or a real.
 func (v Value) IsNumeric() bool { return v.Kind == ValInt || v.Kind == ValReal }
 
-// WholeNumber returns the value as an Integer when it is one: an integer, or a
-// finite real with no fractional part within the Integer range (4 / 2 is 2.0).
+// WholeNumber returns the value as an int64 when it is a whole number within
+// that range: an integer, or a finite real with no fractional part (4 / 2 is 2.0).
 func (v Value) WholeNumber() (int64, bool) {
 	switch v.Kind {
 	case ValInt:
-		return v.Int, true
+		return v.Int64()
 	case ValReal:
 		// MaxInt64 has no float64; 2^63 is the next value up and is out of range.
 		if v.Real != math.Trunc(v.Real) || v.Real >= -float64(math.MinInt64) || v.Real < math.MinInt64 {
@@ -204,10 +210,12 @@ func UnboundedOrder(l, r Value) (order int, ok bool) {
 	}
 }
 
-// AsReal returns the value as a float64 (int and real only).
+// AsReal returns the value as a float64 (int and real only). An Integer rounds
+// to the nearest float64, ties to even, and one beyond the float64 range to the
+// infinity of its sign.
 func (v Value) AsReal() float64 {
 	if v.Kind == ValInt {
-		return float64(v.Int)
+		return intToFloat(v)
 	}
 	return v.Real
 }
@@ -314,11 +322,7 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 func EvalConst(n ast.Node) (Value, bool) {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
-		i, err := strconv.ParseInt(e.Value, 10, 64)
-		if err != nil {
-			return Value{}, false
-		}
-		return Value{Kind: ValInt, Int: i}, true
+		return ParseInteger(e.Value)
 	case *ast.LiteralReal:
 		f, err := ParseReal(e.Value)
 		if err != nil {
@@ -369,11 +373,7 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 	switch op {
 	case ast.OpNeg:
 		if v.Kind == ValInt {
-			// The least Integer has no negation within the range.
-			if v.Int == math.MinInt64 {
-				return Value{}, false
-			}
-			return Value{Kind: ValInt, Int: -v.Int}, true
+			return IntNeg(v), true
 		}
 		if v.Kind == ValReal {
 			return Value{Kind: ValReal, Real: -v.Real}, true
@@ -469,6 +469,12 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 			return Value{}, false
 		}
 		eq = order == 0
+	case l.Kind == ValInt && r.Kind == ValInt:
+		eq = CompareInt(l, r) == 0
+	case l.Kind == ValInt && r.Kind == ValReal:
+		eq = !math.IsNaN(r.Real) && CompareIntReal(l, r.Real) == 0
+	case l.Kind == ValReal && r.Kind == ValInt:
+		eq = !math.IsNaN(l.Real) && CompareIntReal(r, l.Real) == 0
 	case l.IsNumeric() && r.IsNumeric():
 		eq = l.AsReal() == r.AsReal()
 	default:
@@ -494,6 +500,18 @@ func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
 	}
 	if !l.IsNumeric() || !r.IsNumeric() {
 		return Value{}, false
+	}
+	if l.Kind == ValInt && r.Kind == ValInt {
+		res, _ := OrderSatisfies(op, CompareInt(l, r))
+		return Value{Kind: ValBool, Bool: res}, true
+	}
+	if l.Kind == ValInt && r.Kind == ValReal && !math.IsNaN(r.Real) {
+		res, _ := OrderSatisfies(op, CompareIntReal(l, r.Real))
+		return Value{Kind: ValBool, Bool: res}, true
+	}
+	if l.Kind == ValReal && r.Kind == ValInt && !math.IsNaN(l.Real) {
+		res, _ := OrderSatisfies(op, -CompareIntReal(r, l.Real))
+		return Value{Kind: ValBool, Bool: res}, true
 	}
 	lf, rf := l.AsReal(), r.AsReal()
 	var res bool
@@ -532,7 +550,7 @@ func evalArithmetic(op ast.OperatorKind, l, r Value) (Value, bool) {
 		return Value{}, false
 	}
 	if op == ast.OpPow {
-		v, err := Pow(l, r)
+		v, err := Pow(l, r, DefaultMaxIntegerBits)
 		if err != nil {
 			return Value{}, false
 		}
@@ -542,32 +560,29 @@ func evalArithmetic(op ast.OperatorKind, l, r Value) (Value, bool) {
 	// which may be fractional — keep it real to avoid silent truncation).
 	if l.Kind == ValInt && r.Kind == ValInt {
 		if op == ast.OpDiv {
-			q, ok := IntQuotient(l.Int, r.Int)
-			if !ok {
+			q, ok := IntQuotient(l, r)
+			if !ok || math.IsInf(q, 0) {
 				return Value{}, false
 			}
 			return Value{Kind: ValReal, Real: q}, true
 		}
-		return evalIntArith(op, l.Int, r.Int)
+		return evalIntArith(op, l, r)
 	}
 	return evalRealArith(op, l.AsReal(), r.AsReal())
 }
 
-// evalIntArith folds Integer arithmetic, declining a result outside the
-// Integer range: the run time reports it, so nothing folds to a wrapped value.
-func evalIntArith(op ast.OperatorKind, a, b int64) (Value, bool) {
+// evalIntArith folds Integer arithmetic, declining a result beyond the default
+// Integer size budget: the run time reports it under the budget it runs with.
+func evalIntArith(op ast.OperatorKind, a, b Value) (Value, bool) {
 	switch op {
 	case ast.OpAdd, ast.OpSub, ast.OpMul:
-		res, ok := IntArith(op, a, b)
-		if !ok {
+		res, err := IntArith(op, a, b, DefaultMaxIntegerBits)
+		if err != nil {
 			return Value{}, false
 		}
-		return Value{Kind: ValInt, Int: res}, true
+		return res, true
 	case ast.OpMod:
-		if b == 0 {
-			return Value{}, false
-		}
-		return Value{Kind: ValInt, Int: a % b}, true
+		return IntRem(a, b)
 	}
 	return Value{}, false
 }
@@ -580,18 +595,6 @@ func evalRealArith(op ast.OperatorKind, a, b float64) (Value, bool) {
 		return Value{}, false
 	}
 	return Value{Kind: ValReal, Real: res}, true
-}
-
-// IntQuotient is the exact rational quotient of two Integers rounded once to
-// the nearest float64, shared by the folder and the runtime; ok=false on a
-// zero divisor. Rounding each operand first would move quotients of operands
-// beyond 2^53, where int64 loses exactness in float64.
-func IntQuotient(a, b int64) (float64, bool) {
-	if b == 0 {
-		return 0, false
-	}
-	q, _ := new(big.Rat).SetFrac64(a, b).Float64()
-	return q, true
 }
 
 // RealArith is Real addition, subtraction, multiplication and division,
@@ -616,21 +619,18 @@ func RealArith(op ast.OperatorKind, a, b float64) (float64, bool) {
 // Pow evaluates l ** r (equivalently l ^ r) — the single implementation the
 // constant folder and the runtime share, so a folded and an evaluated
 // exponentiation agree. Integer operands with a non-negative exponent give an
-// Integer, as IntegerFunctions::'**' declares; every other numeric combination
-// gives a Real, as RealFunctions::'**' does. A result that is not a finite value
-// of that kind is an error rather than a NaN, an infinity, or a wrapped integer:
-// the folder declines on it, the runtime reports it.
-func Pow(l, r Value) (Value, error) {
+// Integer, as IntegerFunctions::'**' declares, refused with ErrIntegerSizeLimit
+// when it would need more than maxBits; every other numeric combination gives a
+// Real, as RealFunctions::'**' does. A Real result that is not finite is an
+// error rather than a NaN or an infinity: the folder declines on it, the
+// runtime reports it.
+func Pow(l, r Value, maxBits int64) (Value, error) {
 	if !l.IsNumeric() || !r.IsNumeric() {
 		return Value{}, fmt.Errorf("%w: ** requires numeric operands", ErrArithmeticDomain)
 	}
 
-	if l.Kind == ValInt && r.Kind == ValInt && r.Int >= 0 {
-		res, ok := intPow(l.Int, r.Int)
-		if !ok {
-			return Value{}, fmt.Errorf("%w: %d ** %d exceeds the Integer range", ErrArithmeticOverflow, l.Int, r.Int)
-		}
-		return Value{Kind: ValInt, Int: res}, nil
+	if l.Kind == ValInt && r.Kind == ValInt && r.IntSign() >= 0 {
+		return IntPow(l, r, maxBits)
 	}
 
 	base, exp := l.AsReal(), r.AsReal()
@@ -667,22 +667,6 @@ func intPow(a, n int64) (int64, bool) {
 		}
 	}
 	return res, true
-}
-
-// IntArith is Integer addition, subtraction and multiplication, shared by the
-// folder, the operators and the library functions, reporting ok=false on overflow.
-func IntArith(op ast.OperatorKind, a, b int64) (int64, bool) {
-	switch op {
-	case ast.OpAdd:
-		res := a + b
-		return res, (b <= 0 || res > a) && (b >= 0 || res < a)
-	case ast.OpSub:
-		res := a - b
-		return res, (b >= 0 || res > a) && (b <= 0 || res < a)
-	case ast.OpMul:
-		return mulInt(a, b)
-	}
-	return 0, false
 }
 
 // mulInt multiplies two int64 values, reporting ok=false on overflow.

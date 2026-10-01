@@ -19,7 +19,7 @@ import {
   UnitTermSchema,
 } from "../generated/sysml_pb.js";
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
-import { formatValue, type SysMLValue } from "./values.js";
+import { decodeBigInteger, fitsInt64, formatValue, type SysMLValue } from "./values.js";
 
 /** A model element, named by qualified name. */
 export class ElementRef {
@@ -340,13 +340,9 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
     return create(DocumentValueSchema, { kind: { case: "stringValue", value } });
   }
   if (typeof value === "bigint") {
-    if (value < -(1n << 63n) || value >= 1n << 63n) {
-      throw new DocumentQueryError(
-        `binding ${JSON.stringify(parameter)} cannot carry ${value.toString()}: an int must ` +
-          `fit in a signed 64-bit integer`,
-      );
-    }
-    return create(DocumentValueSchema, { kind: { case: "intValue", value } });
+    return fitsInt64(value)
+      ? create(DocumentValueSchema, { kind: { case: "intValue", value } })
+      : create(DocumentValueSchema, { kind: { case: "bigIntValue", value: value.toString() } });
   }
   if (typeof value === "number") {
     return create(DocumentValueSchema, { kind: { case: "realValue", value } });
@@ -366,7 +362,7 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
   }
   if (typeof value === "object" && "kind" in value && value.kind === "quantity") {
     return create(DocumentValueSchema, {
-      kind: { case: "quantity", value: boundQuantity(parameter, value) },
+      kind: { case: "quantity", value: boundQuantity(value) },
     });
   }
   throw new DocumentQueryError(
@@ -376,20 +372,16 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
 }
 
 function boundQuantity(
-  parameter: string,
   value: Extract<SysMLValue, { kind: "quantity" }>,
 ): ReturnType<typeof create<typeof QuantitySchema>> {
-  if (value.magnitude.kind === "int" && (value.magnitude.value < -(1n << 63n) || value.magnitude.value >= 1n << 63n)) {
-    throw new DocumentQueryError(
-      `binding ${JSON.stringify(parameter)} cannot carry a quantity whose Integer magnitude ` +
-        `does not fit in a signed 64-bit integer`,
-    );
-  }
+  const magnitude = value.magnitude;
   return create(QuantitySchema, {
     magnitude:
-      value.magnitude.kind === "int"
-        ? { case: "intMagnitude", value: value.magnitude.value }
-        : { case: "realMagnitude", value: value.magnitude.value },
+      magnitude.kind === "real"
+        ? { case: "realMagnitude", value: magnitude.value }
+        : fitsInt64(magnitude.value)
+          ? { case: "intMagnitude", value: magnitude.value }
+          : { case: "bigIntMagnitude", value: magnitude.value.toString() },
     unit: value.unit,
     ...(value.unitTerm === undefined
       ? {}
@@ -495,6 +487,8 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
       return kind.value;
     case "intValue":
       return kind.value;
+    case "bigIntValue":
+      return decodeBigInteger(kind.value);
     case "realValue":
       return kind.value;
     case "boolValue":
@@ -508,9 +502,11 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
         magnitude:
           magnitude.case === "intMagnitude"
             ? { kind: "int", value: magnitude.value }
-            : magnitude.case === "realMagnitude"
-              ? { kind: "real", value: magnitude.value }
-              : { kind: "real", value: 0 },
+            : magnitude.case === "bigIntMagnitude"
+              ? { kind: "int", value: decodeBigInteger(magnitude.value) }
+              : magnitude.case === "realMagnitude"
+                ? { kind: "real", value: magnitude.value }
+                : { kind: "real", value: 0 },
         unit: kind.value.unit,
       };
       return decoded;

@@ -102,6 +102,7 @@ from opensysml.values import (
     Vector,
     VectorQuantity,
     _Infinity,
+    integer_to_pb,
     value_to_python,
 )
 
@@ -2835,7 +2836,7 @@ class Connection:
         elif isinstance(py_value, InstanceRef):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
-            return sysml_pb2.Value(int_value=py_value)
+            return integer_to_pb(py_value)
         elif isinstance(py_value, float):
             return sysml_pb2.Value(real_value=py_value)
         elif isinstance(py_value, complex):

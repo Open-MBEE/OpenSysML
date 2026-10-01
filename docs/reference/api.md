@@ -504,7 +504,9 @@ model := semantics.NewModel(resolver)
 
 **Constant evaluation:**
 - `Eval(n ast.Node) (Value, bool)` — Constant-folder for literals and operators
-  - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}`
+  - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}` — an Integer within `int64` in
+    `Int`, one beyond it held arbitrary-precision (`IsBigInt`, `BigInt`, `FormatInt`); KerML
+    Integers are unbounded
   - `ValueKind` ∈ {ValInt, ValReal, ValBool, ValInfinity, ValInvalid}
 
 **Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/exec/runtime`.

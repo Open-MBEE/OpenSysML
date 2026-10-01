@@ -230,7 +230,11 @@ func displayQuantity(pq *pb.Quantity) runtime.Value {
 	var num semantics.Value
 	switch m := pq.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
-		num = semantics.Value{Kind: semantics.ValInt, Int: m.IntMagnitude}
+		num = semantics.IntValue(m.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		if big, err := protoconv.ProtoToBigInteger(m.BigIntMagnitude); err == nil {
+			num = big
+		}
 	case *pb.Quantity_RealMagnitude:
 		num = semantics.Value{Kind: semantics.ValReal, Real: m.RealMagnitude}
 	}

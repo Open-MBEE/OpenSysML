@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"math/big"
 	"strconv"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -131,6 +132,7 @@ func (DocumentState) isCell()   { /* marker: closed Cell set */ }
 func (DocumentEvent) isCell()   { /* marker: closed Cell set */ }
 func (String) isCell()          { /* marker: closed Cell set */ }
 func (Int) isCell()             { /* marker: closed Cell set */ }
+func (BigInt) isCell()          { /* marker: closed Cell set */ }
 func (Real) isCell()            { /* marker: closed Cell set */ }
 func (Bool) isCell()            { /* marker: closed Cell set */ }
 func (Quantity) isCell()        { /* marker: closed Cell set */ }
@@ -311,6 +313,11 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: string(value)}}, nil
 	case Int:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: int64(value)}}, nil
+	case BigInt:
+		if n := value.Int(); n.IsInt64() {
+			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n.Int64()}}, nil
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: value.String()}}, nil
 	case Real:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}, nil
 	case Bool:
@@ -354,6 +361,15 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		return String(kind.StringValue)
 	case *pb.DocumentValue_IntValue:
 		return Int(kind.IntValue)
+	case *pb.DocumentValue_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return nil
+		}
+		if n.IsInt64() {
+			return Int(n.Int64())
+		}
+		return BigInt{n: n}
 	case *pb.DocumentValue_RealValue:
 		return Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
@@ -445,6 +461,8 @@ func CellText(cell Cell) string {
 		return string(value)
 	case Int:
 		return strconv.FormatInt(int64(value), 10)
+	case BigInt:
+		return value.String()
 	case Real:
 		return strconv.FormatFloat(float64(value), 'g', -1, 64)
 	case Bool:

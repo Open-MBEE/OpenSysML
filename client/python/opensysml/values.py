@@ -12,6 +12,55 @@ from opensysml.proto import sysml_pb2
 #: What a quantity's magnitude can be: the service keeps Integer and Real apart.
 Magnitude = Union[int, float]
 
+_INT64_MIN = -(1 << 63)
+_INT64_MAX = (1 << 63) - 1
+# Decimal digits converted per step, below the interpreter's default
+# int/str conversion limit, so an Integer of any length crosses the wire.
+_DECIMAL_CHUNK = 1000
+_DECIMAL_CHUNK_SCALE = 10 ** _DECIMAL_CHUNK
+
+
+def fits_int64(value: int) -> bool:
+    """Whether an Integer travels as ``int_value``; a larger one travels as ``big_int_value``."""
+    return _INT64_MIN <= value <= _INT64_MAX
+
+
+def integer_to_decimal(value: int) -> str:
+    """The full decimal of an Integer, however many digits it has."""
+    if value < 0:
+        return "-" + integer_to_decimal(-value)
+    if value < _DECIMAL_CHUNK_SCALE:
+        return str(value)
+    chunks: List[str] = []
+    while value >= _DECIMAL_CHUNK_SCALE:
+        value, chunk = divmod(value, _DECIMAL_CHUNK_SCALE)
+        chunks.append(str(chunk).zfill(_DECIMAL_CHUNK))
+    chunks.append(str(value))
+    return "".join(reversed(chunks))
+
+
+def integer_from_decimal(text: str) -> int:
+    """The Integer a ``big_int_value`` decimal spells.
+
+    Raises:
+        UnsupportedValueError: If the text is not an optionally signed run of digits.
+    """
+    digits = text[1:] if text.startswith("-") else text
+    if not digits or not digits.isascii() or not digits.isdigit():
+        raise UnsupportedValueError(f"big Integer {text!r} is not decimal")
+    value = 0
+    for start in range(0, len(digits), _DECIMAL_CHUNK):
+        chunk = digits[start:start + _DECIMAL_CHUNK]
+        value = value * 10 ** len(chunk) + int(chunk)
+    return -value if text.startswith("-") else value
+
+
+def integer_to_pb(value: int) -> "sysml_pb2.Value":
+    """Encode an Integer as ``int_value`` within int64, ``big_int_value`` beyond it."""
+    if fits_int64(value):
+        return sysml_pb2.Value(int_value=value)
+    return sysml_pb2.Value(big_int_value=integer_to_decimal(value))
+
 
 class IncommensurableUnitsError(OpenSysMLError):
     """Raised when quantities measuring different things are compared or combined.
@@ -206,6 +255,8 @@ class Quantity:
         which = pb_quantity.WhichOneof('magnitude')
         if which == 'int_magnitude':
             magnitude: Magnitude = pb_quantity.int_magnitude
+        elif which == 'big_int_magnitude':
+            magnitude = integer_from_decimal(pb_quantity.big_int_magnitude)
         elif which == 'real_magnitude':
             magnitude = pb_quantity.real_magnitude
         else:
@@ -242,7 +293,9 @@ class Quantity:
                 f"the service sent, or from one the model declares"
             )
         pb_quantity = sysml_pb2.Quantity(unit=self.unit.text, unit_term=self.unit.to_pb())
-        if isinstance(self.magnitude, int):
+        if isinstance(self.magnitude, int) and not fits_int64(self.magnitude):
+            pb_quantity.big_int_magnitude = integer_to_decimal(self.magnitude)
+        elif isinstance(self.magnitude, int):
             pb_quantity.int_magnitude = self.magnitude
         else:
             pb_quantity.real_magnitude = self.magnitude
@@ -567,7 +620,7 @@ def _is_number(value: object) -> bool:
 
 def _number_to_pb(value: Magnitude) -> "sysml_pb2.Value":
     return (
-        sysml_pb2.Value(int_value=value)
+        integer_to_pb(value)
         if isinstance(value, int)
         else sysml_pb2.Value(real_value=value)
     )
@@ -730,6 +783,8 @@ class Vector:
             kind = pb_component.WhichOneof("kind")
             if kind == "int_value":
                 components.append(pb_component.int_value)
+            elif kind == "big_int_value":
+                components.append(integer_from_decimal(pb_component.big_int_value))
             elif kind == "real_value":
                 components.append(pb_component.real_value)
             else:
@@ -1131,6 +1186,8 @@ def value_to_python(pb_value, resolve_instance=None):
     kind = pb_value.WhichOneof('kind')
     if kind == 'int_value':
         return pb_value.int_value
+    if kind == 'big_int_value':
+        return integer_from_decimal(pb_value.big_int_value)
     if kind == 'real_value':
         return pb_value.real_value
     if kind == 'complex':
