@@ -12,6 +12,7 @@ export type {
   AttributeFacts,
   EvalOptions,
   FeatureValue,
+  Multiplicity,
   ParseOptions,
   SpecializationFacts,
   TypeFacts,

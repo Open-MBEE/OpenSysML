@@ -105,6 +105,38 @@ export interface EvalOptions {
   subject?: string;
 }
 
+/** A declared multiplicity range. A bound the service could not evaluate is empty. */
+export interface Multiplicity {
+  readonly lower: string;
+  readonly upper: string;
+  /** Whether the range admits no value; undefined when the lower bound is unknown. */
+  readonly isOptional: boolean | undefined;
+  /** Whether the range admits more than one value; undefined when the upper bound is unknown. */
+  readonly isCollection: boolean | undefined;
+}
+
+/** The integer one bound spells, or undefined when it spells none. */
+function multiplicityBound(bound: string): number | undefined {
+  const trimmed = bound.trim();
+  if (!/^[+-]?\d+$/.test(trimmed)) {
+    return undefined;
+  }
+  return parseInt(trimmed, 10);
+}
+
+/** Builds a Multiplicity whose predicates mirror Python's. */
+function multiplicityOf(lower: string, upper: string): Multiplicity {
+  const lowerBound = lower === "" ? undefined : multiplicityBound(lower);
+  const upperBound = upper === "" ? undefined : upper === "*" ? Number.POSITIVE_INFINITY : multiplicityBound(upper);
+  return {
+    lower,
+    upper,
+    isOptional: lower === "" || lowerBound === undefined ? undefined : lowerBound === 0,
+    isCollection:
+      upper === "" ? undefined : upper === "*" ? true : upperBound === undefined ? undefined : upperBound > 1,
+  };
+}
+
 /** A model the service has parsed and holds under its hash. */
 export class Model {
   readonly connection: Connection;
@@ -663,7 +695,7 @@ export class ModelSymbol {
   readonly childIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
   readonly type: TypeFacts | undefined;
-  readonly multiplicity: { lower: string; upper: string } | undefined;
+  readonly multiplicity: Multiplicity | undefined;
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
@@ -700,7 +732,7 @@ export class ModelSymbol {
     this.multiplicity =
       info.multiplicity === undefined
         ? undefined
-        : { lower: info.multiplicity.lower, upper: info.multiplicity.upper };
+        : multiplicityOf(info.multiplicity.lower, info.multiplicity.upper);
     this.specializations = info.specializations.map((specialization) => ({
       kind: specialization.kind,
       declared: specialization.declared,
