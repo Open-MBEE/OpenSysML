@@ -40,11 +40,25 @@ func (m *migration) recordSender(e *sysmlv1.Element) {
 // posts. "" when a send action names it or nothing at all does: a signal nothing
 // posts arrives from outside the model, in the tool and here alike.
 func (m *migration) unsentNote(sig *sysmlv1.Element) string {
-	if sig == nil || m.senders.actions[sig] || m.senders.buttons[sig] == 0 {
+	if sig == nil || m.senders.buttons[sig] == 0 || m.sentByAction(sig) {
 		return ""
 	}
 	return "no send action of the document sends " + describe(sig) + ", which only " + count(m.senders.buttons[sig], "button") +
 		" of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts"
+}
+
+// sentByAction reports whether a send action of the model sends sig or a
+// signal specializing it, either of which an accept of sig takes.
+func (m *migration) sentByAction(sig *sysmlv1.Element) bool {
+	if m.senders.actions[sig] {
+		return true
+	}
+	for sent := range m.senders.actions {
+		if m.inherits(sent, sig) {
+			return true
+		}
+	}
+	return false
 }
 
 // uiNote says that a configuration's UI is the tool's UI prototype, which the
@@ -79,8 +93,9 @@ func uiFrameName(e *sysmlv1.Element) string {
 }
 
 // clockWait names the first wait on the clock the behavior b, or a behavior an
-// action of it calls, is written with: a duration constraint bounding one of its
-// nodes, written as a wait before it, or an accept of a time event. "" when none.
+// action of it calls, is written with: a duration constraint bounding it or one
+// of its nodes, written as a wait before it, or an accept of a time event. ""
+// when none.
 func (m *migration) clockWait(b *sysmlv1.Element) string {
 	return m.clockWaitIn(b, map[*sysmlv1.Element]bool{})
 }
@@ -90,6 +105,9 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 		return ""
 	}
 	seen[b] = true
+	if dc := m.waitBound(b); dc != nil {
+		return "the duration constraint " + describe(dc) + " on " + describe(b)
+	}
 	found := ""
 	m.walkActions(b, func(n *sysmlv1.Element) {
 		if found != "" {
@@ -105,12 +123,27 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 			}
 		case "CallBehaviorAction":
 			found = m.clockWaitIn(m.model.Ref(n, "behavior"), seen)
+		case "CallOperationAction":
+			if op := m.model.Ref(n, "operation"); op != nil {
+				found = m.clockWaitIn(m.bodyMethod(op), seen)
+			}
 		}
-		if found == "" && len(m.bounded[n]) > 0 {
-			found = "the duration constraint " + describe(m.bounded[n][0]) + " on " + describe(n) + " in " + describe(b)
+		if dc := m.waitBound(n); found == "" && dc != nil {
+			found = "the duration constraint " + describe(dc) + " on " + describe(n) + " in " + describe(b)
 		}
 	})
 	return found
+}
+
+// waitBound is the duration constraint on e that is written as a wait before
+// it — the first with an interval, as waitFor writes it; nil when none is.
+func (m *migration) waitBound(e *sysmlv1.Element) *sysmlv1.Element {
+	for _, dc := range m.bounded[e] {
+		if spec := firstOwned(dc, "specification"); spec != nil && (spec.Type == "DurationInterval" || spec.Type == "Interval") {
+			return dc
+		}
+	}
+	return nil
 }
 
 // instantWaitNote says that a behavior performed at an instant — a state's entry

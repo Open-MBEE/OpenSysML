@@ -314,6 +314,7 @@ func TestRejectsNonXMI(t *testing.T) {
 var constructFixtures = []string{
 	"plant_states",
 	"instant_waits",
+	"script_guarded_reads",
 	"ui_stimuli",
 	"transition_relocation",
 	"orthogonal_initials",

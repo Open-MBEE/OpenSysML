@@ -330,7 +330,23 @@ func statementsIn(body string, d dialect, sc featureResolver) (lines, notes []st
 	if err == nil && len(p.unset) > 0 {
 		p.notes = append(p.notes, unsetNote(d, p.unset))
 	}
+	if err == nil {
+		for _, name := range p.unsetIf {
+			p.notes = append(p.notes, unsetIfNote(d, name, p.guarded[name]))
+		}
+	}
 	return lines, p.notes, err
+}
+
+// unsetIfNote tells that the body reads name, which holds no value until
+// assigned, after assigning it only when the names it is read from hold one.
+func unsetIfNote(d dialect, name, when string) string {
+	note := name + " holds no initial value and is assigned only when " + when + " holds one, and the body reads it after, so a run in which " +
+		when + " holds none reaches the read unset and stops"
+	if d == dialectScript {
+		note += "; the script would read an unset name as null, which its arithmetic takes as 0"
+	}
+	return note
 }
 
 // unsetNote tells that the body reads names, which hold no value until assigned,
@@ -705,13 +721,15 @@ type opaqueParser struct {
 	i        int
 	d        dialect
 	sc       featureResolver
-	locals   map[string]local // names a `var`, `let` or `const` declared
-	assigns  bool             // whether `=` assigns (a statement) rather than compares
-	absent   []string         // the names admitting no value the statement being read reads
-	assigned map[string]bool  // the features the statements so far assign
-	unset    []string         // the features holding no initial value read before the body assigns them
-	notes    []string         // notes on statements written otherwise than they read: guarded or left out
-	printed  int              // console prints left out
+	locals   map[string]local  // names a `var`, `let` or `const` declared
+	assigns  bool              // whether `=` assigns (a statement) rather than compares
+	absent   []string          // the names admitting no value the statement being read reads
+	assigned map[string]bool   // the features the statements so far assign on every path
+	guarded  map[string]string // the features assigned only when the names admitting no value they are read from hold one
+	unset    []string          // the features holding no initial value read before the body assigns them
+	unsetIf  []string          // the features holding no initial value read after only a guarded assignment
+	notes    []string          // notes on statements written otherwise than they read: guarded or left out
+	printed  int               // console prints left out
 }
 
 func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
@@ -719,7 +737,7 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}}, nil
+	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string]string{}}, nil
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -1135,7 +1153,6 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
-	p.assigned[target.expr] = true
 	return p.guardedAssign(target, spellFor(target.scalar, value)), nil
 }
 
@@ -1144,7 +1161,11 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
 	assign := assignKw + target.expr + " := " + value + ";"
 	if len(p.absent) == 0 || target.optional {
+		p.assigned[target.expr] = true
 		return []string{assign}
+	}
+	if _, ok := p.guarded[target.expr]; !ok && !p.assigned[target.expr] {
+		p.guarded[target.expr] = strings.Join(p.absent, " and ")
 	}
 	holds := make([]string, len(p.absent))
 	for i, name := range p.absent {
@@ -1598,9 +1619,19 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	return ref.value(), nil
 }
 
-// readUnset records that the body reads ref before assigning it, when it holds no initial value.
+// readUnset records that the body reads ref before assigning it on every path,
+// when it holds no initial value: before any assignment, or after a guarded one.
 func (p *opaqueParser) readUnset(ref opaqueRef) {
-	if ref.unset && !p.assigned[ref.expr] && !slices.Contains(p.unset, ref.expr) {
+	if !ref.unset || p.assigned[ref.expr] {
+		return
+	}
+	if _, ok := p.guarded[ref.expr]; ok {
+		if !slices.Contains(p.unsetIf, ref.expr) {
+			p.unsetIf = append(p.unsetIf, ref.expr)
+		}
+		return
+	}
+	if !slices.Contains(p.unset, ref.expr) {
 		p.unset = append(p.unset, ref.expr)
 	}
 }

@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: ui_stimuli.xmi
-# migrated 34 element(s): 28 mapped, 6 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 41 element(s): 35 mapped, 6 approximated, 0 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (6)
 AcceptEventAction	Await Start::started	_awAccept	-> started	(no send action of the document sends 'Start', which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
@@ -9,9 +9,10 @@ Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trSt
 Activity	Controller::Run	_run	-> Controller::Run	(also run as the do action of 'Running')
 «SimulationConfig» Class	Interactive	_cfg	-> Interactive	(«SimulationConfig» UI = 'Operate the controller' is the tool's UI prototype, through which a user of the tool's run posts signals and reads values; it has no v2 form, so a run here takes no input from it; the classifier behavior of Controller is a state machine, which a run performs as no action; the configuration only holds 'Controller')
 
-## mapped (28)
+## mapped (35)
 SignalEvent	<SignalEvent>	_startEv	(written where a trigger refers to it, as accept Start)
 SignalEvent	<SignalEvent>	_stopEv	(written where a trigger refers to it, as accept Stop)
+SignalEvent	<SignalEvent>	_resetEv	(written where a trigger refers to it, as accept Reset)
 SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
 Activity	Await Start	_await	-> 'Await Start'
 ActivityFinalNode	Await Start::<ActivityFinalNode>	_awFinal	-> final
@@ -23,22 +24,29 @@ Pseudostate	Controller::Controller Behavior::<Region>::<Pseudostate>	_init	(writ
 Transition	Controller::Controller Behavior::<Region>::<Transition>	_t0
 Transition	Controller::Controller Behavior::<Region>::<Transition>	_tStart
 Transition	Controller::Controller Behavior::<Region>::<Transition>	_tStop
+Transition	Controller::Controller Behavior::<Region>::<Transition>	_tReset
 Transition	Controller::Controller Behavior::<Region>::<Transition>	_tFinish
 Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trStop
+Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trReset
 Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trFinish
 FinalState	Controller::Controller Behavior::<Region>::Done	_done	-> done
 State	Controller::Controller Behavior::<Region>::Idle	_idle	-> Idle
 State	Controller::Controller Behavior::<Region>::Running	_running	-> Running
 ActivityFinalNode	Controller::Run::<ActivityFinalNode>	_runFinal	-> final
+ControlFlow	Controller::Run::<ControlFlow>	_runE3
 ControlFlow	Controller::Run::<ControlFlow>	_runE2
 InitialNode	Controller::Run::<InitialNode>	_runInit	-> start
+SendSignalAction	Controller::Run::send hard reset	_sendHardReset	-> 'send hard reset'
 SendSignalAction	Controller::Run::send stop	_sendStop	-> 'send stop'
 Signal	Finish	_finish	-> Finish
 Package	Gui	_gui	-> Gui
+Signal	Hard Reset	_hardReset	-> 'Hard Reset'
 Model	Model	_m	(the root model's members are written at the top level)
+Signal	Reset	_reset	-> Reset
 Signal	Start	_start	-> Start
 Signal	Stop	_stop	-> Stop
 
-## skipped (2)
+## skipped (3)
 «Button» Class	Gui::<Class>	_button	(«Button» marks the modeling tool's UI prototyping mockup, which has no model meaning)
+«Button» Class	Gui::<Class>	_resetButton	(«Button» marks the modeling tool's UI prototyping mockup, which has no model meaning)
 «Frame» Component	Gui::Console	_frame	(«Frame» marks the modeling tool's UI prototyping mockup, which has no model meaning)

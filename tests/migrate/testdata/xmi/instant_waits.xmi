@@ -46,6 +46,27 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_warmE1" source="_warmInit" target="_warmWait"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_warmE2" source="_warmWait" target="_warmFinal"/>
       </ownedBehavior>
+      <!-- The exit of On: bounded whole by a duration constraint, written as a wait before it. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_cool" name="Cool Down">
+        <node xmi:type="uml:InitialNode" xmi:id="_coolInit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_coolFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_coolE1" source="_coolInit" target="_coolFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtCool" name="dtCool">
+          <constrainedElement xmi:idref="_cool"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtCoolI" min="_loD" max="_hiD"/>
+        </ownedRule>
+      </ownedBehavior>
+      <!-- Called as an operation by the transition effect Send Ack Off: its method accepts a time event. -->
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_delayOp" name="Delay" method="_delaying"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_delaying" name="Delaying">
+        <node xmi:type="uml:InitialNode" xmi:id="_delayInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_delayWait" name="delayed">
+          <trigger xmi:type="uml:Trigger" xmi:id="_delayTr" event="_warmed"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_delayFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_delayE1" source="_delayInit" target="_delayWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_delayE2" source="_delayWait" target="_delayFinal"/>
+      </ownedBehavior>
       <!-- The do activity of On: the same accept, which a do activity may make. -->
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_blink" name="Blink">
         <node xmi:type="uml:InitialNode" xmi:id="_blinkInit"/>
@@ -60,7 +81,7 @@
         <region xmi:type="uml:Region" xmi:id="_r">
           <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
           <subvertex xmi:type="uml:State" xmi:id="_standby" name="Standby"/>
-          <subvertex xmi:type="uml:State" xmi:id="_on" name="On" entry="_warm" doActivity="_blink"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On" entry="_warm" doActivity="_blink" exit="_cool"/>
           <transition xmi:type="uml:Transition" xmi:id="_tStart" source="_init" target="_standby"/>
           <transition xmi:type="uml:Transition" xmi:id="_tOn" source="_standby" target="_on">
             <trigger xmi:type="uml:Trigger" xmi:id="_trOn" event="_cmdOnEv"/>
@@ -74,6 +95,13 @@
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tOff" source="_on" target="_standby">
             <trigger xmi:type="uml:Trigger" xmi:id="_trOff" event="_cmdOffEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckOff" name="Send Ack Off">
+              <node xmi:type="uml:InitialNode" xmi:id="_saoInit"/>
+              <node xmi:type="uml:CallOperationAction" xmi:id="_saoCall" operation="_delayOp"/>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_saoFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saoE1" source="_saoInit" target="_saoCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saoE2" source="_saoCall" target="_saoFinal"/>
+            </effect>
           </transition>
         </region>
       </ownedBehavior>

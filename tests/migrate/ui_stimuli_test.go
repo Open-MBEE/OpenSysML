@@ -10,8 +10,9 @@ import (
 // migrated model, so every accept of it — a transition's trigger, an accept
 // action — is ledgered as waiting for a message nothing in the model posts, and
 // a configuration whose UI is that prototype says a run here takes no input
-// from it. A signal a send action sends, or one nothing at all posts, is an
-// ordinary accept.
+// from it. A signal a send action sends — itself or a signal specializing it,
+// which the accept takes too — or one nothing at all posts, is an ordinary
+// accept.
 func TestSignalsOnlyTheToolsUIPostsAreLedgered(t *testing.T) {
 	r := migrateXMI(t, "ui_stimuli")
 	wantClean(t, "t.sysml", r)
@@ -19,6 +20,7 @@ func TestSignalsOnlyTheToolsUIPostsAreLedgered(t *testing.T) {
 	wantNote(t, r, "_trStart", migrate.Approximated, unsent)
 	wantNote(t, r, "_awTr", migrate.Approximated, unsent)
 	wantNote(t, r, "_trStop", migrate.Mapped, "")
+	wantNote(t, r, "_trReset", migrate.Mapped, "")
 	wantNote(t, r, "_trFinish", migrate.Mapped, "")
 	wantNote(t, r, "_cfg", migrate.Approximated, "«SimulationConfig» UI = 'Operate the controller' is the tool's UI prototype, through which a user of the tool's run posts signals and reads values; it has no v2 form, so a run here takes no input from it")
 	wantLine(t, r.Notation, "UI = Gui::Console")

@@ -1,15 +1,18 @@
 # SysML v1 to v2 migration report: instant_waits.xmi
-# migrated 41 element(s): 35 mapped, 6 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
+# migrated 57 element(s): 48 mapped, 9 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
 
-## approximated (6)
+## approximated (9)
 Activity	Stimulus::Blink	_blink	-> Stimulus::Blink	(also run as the do action of 'On')
+Activity	Stimulus::Cool Down	_cool	-> Stimulus::'Cool Down'	(also run as the exit action of 'On')
+DurationConstraint	Stimulus::Cool Down::dtCool	_dtCool	-> Stimulus::'Cool Down'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Cool Down'; a tool's fixed min or max mode is a run setting, not the model's)
 DurationConstraint	Stimulus::Send Ack On::dtOn	_dtOn	-> Stimulus::'Send Ack On'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Turn On'; a tool's fixed min or max mode is a run setting, not the model's)
 StateMachine	Stimulus::Stimulus Behavior	_sm	-> Stimulus::'Stimulus Behavior'	(acts on its owner Stimulus, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Stimulus as its usage stimulus Behavior)
 Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack	_sendAck	-> Stimulus::'Stimulus Behavior'::unnamed::'Send Ack'	(written as the do action of (_tOn); it waits for the clock (the duration constraint 'dtOn' on 'Turn On' in 'Send Ack On'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
-State	Stimulus::Stimulus Behavior::<Region>::On	_on	-> On	(its entry action Stimulus::Warm Up: it waits for the clock (the accept of a time event 'warmed' in 'Warm Up'), which a v2 entry action, performed whole at the instant it is triggered, may not: a run stops at the wait)
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off	_sendAckOff	-> Stimulus::'Stimulus Behavior'::unnamed2::'Send Ack Off'	(written as the do action of (_tOff); it waits for the clock (the accept of a time event 'delayed' in 'Delaying'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
+State	Stimulus::Stimulus Behavior::<Region>::On	_on	-> On	(its entry action Stimulus::Warm Up: it waits for the clock (the accept of a time event 'warmed' in 'Warm Up'), which a v2 entry action, performed whole at the instant it is triggered, may not: a run stops at the wait; its exit action Stimulus::Cool Down: it waits for the clock (the duration constraint 'dtCool' on 'Cool Down'), which a v2 exit action, performed whole at the instant it is triggered, may not: a run stops at the wait)
 Activity	Stimulus::Warm Up	_warm	-> Stimulus::'Warm Up'	(also run as the entry action of 'On')
 
-## mapped (35)
+## mapped (48)
 SignalEvent	<SignalEvent>	_cmdOnEv	(written where a trigger refers to it, as accept 'Cmd On')
 SignalEvent	<SignalEvent>	_cmdOffEv	(written where a trigger refers to it, as accept 'Cmd Off')
 TimeEvent	<TimeEvent>	_warmed	(written where a trigger refers to it, as accept after 2.0 [SI::s])
@@ -23,6 +26,15 @@ ControlFlow	Stimulus::Blink::<ControlFlow>	_blinkE2
 InitialNode	Stimulus::Blink::<InitialNode>	_blinkInit	-> start
 AcceptEventAction	Stimulus::Blink::blinked	_blinkWait	-> blinked
 Trigger	Stimulus::Blink::blinked::<Trigger>	_blinkTr
+ActivityFinalNode	Stimulus::Cool Down::<ActivityFinalNode>	_coolFinal	-> final
+InitialNode	Stimulus::Cool Down::<InitialNode>	_coolInit	-> start
+Operation	Stimulus::Delay	_delayOp	-> Stimulus::Delay	(its owner's usage delay performs it, as a call on an object does)
+Activity	Stimulus::Delaying	_delaying	-> Stimulus::Delay	(written as the body of the operation Stimulus::Delay, whose method it is)
+ActivityFinalNode	Stimulus::Delaying::<ActivityFinalNode>	_delayFinal	-> final
+ControlFlow	Stimulus::Delaying::<ControlFlow>	_delayE2
+InitialNode	Stimulus::Delaying::<InitialNode>	_delayInit	-> start
+AcceptEventAction	Stimulus::Delaying::delayed	_delayWait	-> delayed
+Trigger	Stimulus::Delaying::delayed::<Trigger>	_delayTr
 Activity	Stimulus::Send Ack On	_ackOn	-> Stimulus::'Send Ack On'
 ActivityFinalNode	Stimulus::Send Ack On::<ActivityFinalNode>	_ackFinal	-> final
 ControlFlow	Stimulus::Send Ack On::<ControlFlow>	_ackE2
@@ -35,6 +47,10 @@ Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tOn
 Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tOff
 Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trOn
 Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trOff
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<ActivityFinalNode>	_saoFinal	-> final
+CallOperationAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<CallOperationAction>	_saoCall	-> call
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<ControlFlow>	_saoE2
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<InitialNode>	_saoInit	-> start
 ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<ActivityFinalNode>	_saFinal	-> final
 CallBehaviorAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<CallBehaviorAction>	_saCall	-> call
 ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<ControlFlow>	_saE2

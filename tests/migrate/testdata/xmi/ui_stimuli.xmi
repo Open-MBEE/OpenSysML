@@ -8,17 +8,24 @@
     <packagedElement xmi:type="uml:Signal" xmi:id="_start" name="Start"/>
     <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
     <packagedElement xmi:type="uml:Signal" xmi:id="_finish" name="Finish"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_reset" name="Reset"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_hardReset" name="Hard Reset">
+      <generalization xmi:type="uml:Generalization" xmi:id="_hardResetGen" general="_reset"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_resetEv" signal="_reset"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_startEv" signal="_start"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_finishEv" signal="_finish"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Controller" classifierBehavior="_sm">
-      <!-- Running's do activity: the model itself sends Stop. -->
+      <!-- Running's do activity: the model itself sends Stop, and Hard Reset, a Reset. -->
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
         <node xmi:type="uml:InitialNode" xmi:id="_runInit"/>
         <node xmi:type="uml:SendSignalAction" xmi:id="_sendStop" name="send stop" signal="_stop"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendHardReset" name="send hard reset" signal="_hardReset"/>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_runFinal"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_runE1" source="_runInit" target="_sendStop"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="_runE2" source="_sendStop" target="_runFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runE3" source="_sendStop" target="_sendHardReset"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runE2" source="_sendHardReset" target="_runFinal"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Controller Behavior">
         <region xmi:type="uml:Region" xmi:id="_r">
@@ -32,6 +39,9 @@
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_running" target="_idle">
             <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tReset" source="_running" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trReset" event="_resetEv"/>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tFinish" source="_idle" target="_done">
             <trigger xmi:type="uml:Trigger" xmi:id="_trFinish" event="_finishEv"/>
@@ -49,10 +59,11 @@
       <edge xmi:type="uml:ControlFlow" xmi:id="_awE1" source="_awInit" target="_awAccept"/>
       <edge xmi:type="uml:ControlFlow" xmi:id="_awE2" source="_awAccept" target="_awFinal"/>
     </packagedElement>
-    <!-- The tool's UI prototype: a frame with a button that posts Start. -->
+    <!-- The tool's UI prototype: a frame with a button that posts Start and one that posts Reset. -->
     <packagedElement xmi:type="uml:Package" xmi:id="_gui" name="Gui">
       <packagedElement xmi:type="uml:Component" xmi:id="_frame" name="Console"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_button"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_resetButton"/>
     </packagedElement>
     <packagedElement xmi:type="uml:Class" xmi:id="_cfg" name="Interactive"/>
   </uml:Model>
@@ -60,5 +71,7 @@
   <UI_Prototyping_Profile:Frame xmi:id="_a_frame" base_Component="_frame" Title="Operate the controller"/>
   <UI_Prototyping_Profile:Button xmi:id="_a_button" base_Class="_button" Text="Start"/>
   <SimulationProfile:SignalInstance xmi:id="_a_signal" base_Element="_button" element="_start"/>
+  <UI_Prototyping_Profile:Button xmi:id="_a_resetButton" base_Class="_resetButton" Text="Reset"/>
+  <SimulationProfile:SignalInstance xmi:id="_a_resetSignal" base_Element="_resetButton" element="_reset"/>
   <SimulationProfile:SimulationConfig xmi:id="_a_cfg" base_Class="_cfg" executionTarget="_ctl" UI="_frame"/>
 </xmi:XMI>
