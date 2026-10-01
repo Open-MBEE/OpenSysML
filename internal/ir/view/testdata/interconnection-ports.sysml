@@ -31,6 +31,20 @@ package ToasterDemo {
 		part heating : HeatingSystem;
 		connection standby connect backup.durationOut to heating.durationIn;
 	}
+
+	// A composite part — one nesting parts of its own — whose connector names a
+	// port it has from its definition bare.
+	part def Sensor {
+		port reading : DurationPort;
+	}
+
+	part def Rig {
+		part heating : HeatingSystem;
+		part sensor : Sensor {
+			part probe : Chassis;
+			connection feed connect reading to heating.durationIn;
+		}
+	}
 }
 
 package ToasterViews {
@@ -50,6 +64,13 @@ package ToasterViews {
 	view besideView {
 		expose ToasterDemo::HeatingSystem;
 		expose ToasterDemo::Toaster;
+		render asInterconnectionDiagram;
+	}
+
+	// The definition beside a composite usage of it: the bare end is the usage's pin.
+	view rigView {
+		expose ToasterDemo::Sensor;
+		expose ToasterDemo::Rig;
 		render asInterconnectionDiagram;
 	}
 }

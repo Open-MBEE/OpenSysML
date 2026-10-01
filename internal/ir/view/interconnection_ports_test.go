@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -206,5 +207,51 @@ func TestAUsageEndIsTheUsagesPortBesideItsDefinition(t *testing.T) {
 		if edge.To != heating.ID || edge.ToPort != in.ID {
 			t.Errorf("edge %q ends at %s:%s, want the usage's pin %s:%s", edge.Label, edge.To, edge.ToPort, heating.ID, in.ID)
 		}
+	}
+}
+
+// A composite part — one nesting parts of its own — pins the ports its
+// definition declares as a plain one does, and Mermaid, which draws it as a
+// subgraph, names them in the subgraph's title. A connector the part owns that
+// names such a port bare ends at the part's pin, not at the port its definition
+// draws nested when the view exposes the definition too.
+func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
+	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::rigView")
+	if len(rendering.Roots) != 2 {
+		t.Fatalf("roots = %d, want 2: %v", len(rendering.Roots), nodeNames(rendering.Roots))
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %q, want none", rendering.Notices)
+	}
+	def := rendering.Roots[0]
+	if len(def.Children) != 1 || def.Children[0].Name != "reading" {
+		t.Fatalf("the definition draws %v, want its port nested", nodeNames(def.Children))
+	}
+	byName := nodesByName(rendering)
+	sensor, heating := byName["sensor"], byName["heating"]
+	reading, in := pinNamed(sensor, "reading"), pinNamed(heating, "durationIn")
+	if reading == nil || in == nil {
+		t.Fatalf("the parts pin no port: sensor %+v, heating %+v", sensor, heating)
+	}
+	if len(sensor.Children) != 1 || sensor.Children[0].Name != "probe" {
+		t.Errorf("sensor nests %v, want probe", nodeNames(sensor.Children))
+	}
+	if len(rendering.Edges) != 1 {
+		t.Fatalf("edges = %+v, want feed", rendering.Edges)
+	}
+	if edge := rendering.Edges[0]; edge.From != sensor.ID || edge.FromPort != reading.ID || edge.To != heating.ID || edge.ToPort != in.ID {
+		t.Errorf("feed = %s:%s -> %s:%s, want %s:%s -> %s:%s", edge.From, edge.FromPort, edge.To, edge.ToPort,
+			sensor.ID, reading.ID, heating.ID, in.ID)
+	}
+	mermaid := rendering.Mermaid()
+	if want := "subgraph " + sensor.ID + " [\"sensor : Sensor<br>«part»<br>port reading : DurationPort\"]"; !strings.Contains(mermaid, want) {
+		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := fmt.Sprintf("%q -> %q:%q [label=\"feed\"", reading.ID, heating.ID, in.ID); !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks the edge at the pins %q:\n%s", want, dot)
 	}
 }

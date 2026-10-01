@@ -218,30 +218,31 @@ func mermaidStyleCSS(style *Style) string {
 }
 
 // writeFlowchartNode writes one node: a subgraph when it holds others, a plain
-// node otherwise. containment adds an edge from a node to each of its children,
+// node otherwise, with ports named in its label, the subgraph's title included,
+// when ports asks. containment adds an edge from a node to each of its children,
 // which is how a tree rendering shows what contains what. A subgraph restates the
 // flowchart's direction, which Mermaid does not apply inside one that states none.
 func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, ports bool, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
-	if len(node.Children) == 0 {
-		label := labels.mermaid(node)
-		if ports {
-			for _, port := range node.Ports {
-				label += "<br>" + mermaidText("port "+port.label())
-			}
+	label := labels.mermaid(node)
+	if ports {
+		for _, port := range node.Ports {
+			label += "<br>" + mermaidText("port "+port.label())
 		}
+	}
+	if len(node.Children) == 0 {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		return
 	}
 	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		for _, child := range node.Children {
 			writeFlowchartNode(b, child, depth, containment, ports, flow, labels)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, label)
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
 	for _, child := range node.Children {
 		writeFlowchartNode(b, child, depth+1, containment, ports, flow, labels)

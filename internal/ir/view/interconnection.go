@@ -257,8 +257,10 @@ type edgeEnd struct {
 // names a member of what its operand names: `control.durationOut` is the
 // durationOut drawn under control's node, nested in it or pinned on its border
 // — not the same port drawn for the type itself, or for another part of that
-// type — and control's node where none is drawn. A bare name may be a port the
-// connector's owner has from its type, pinned on the owner's node.
+// type — and control's node where none is drawn. A bare name is first what the
+// connector's owner draws for it — a port the owner has from its type, pinned on
+// the owner's node, before the same port drawn nested under the type itself —
+// and otherwise what the rendering draws for it anywhere.
 func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) edgeEnd {
 	if attachment == nil {
 		return edgeEnd{}
@@ -275,14 +277,16 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 	if !resolved {
 		return edgeEnd{}
 	}
+	for owner := connector.Owner(); owner != nil; owner = owner.Owner() {
+		if node, ok := w.nodes[owner]; ok {
+			if at := w.memberEnd(node, target); at.node != nil {
+				return at
+			}
+		}
+	}
 	for sym := target; sym != nil; sym = sym.Owner() {
 		if node, ok := w.nodes[sym]; ok {
 			return edgeEnd{node: node}
-		}
-	}
-	for owner := connector.Owner(); owner != nil; owner = owner.Owner() {
-		if node, ok := w.nodes[owner]; ok {
-			return w.memberEnd(node, target)
 		}
 	}
 	return edgeEnd{}
