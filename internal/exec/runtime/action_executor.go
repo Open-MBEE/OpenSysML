@@ -1414,19 +1414,25 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 // attributes it declares: a default written in terms of an input reads it.
 func (e *ActionExecutor) bindInputs() error {
 	if err := e.fixWitnessInputs(); err != nil {
-		return err
+		return inputBindingError{Err: err}
 	}
 	if err := e.checkInputNames(); err != nil {
-		return err
+		return inputBindingError{Err: err}
 	}
 	if err := e.setFrameFeatures(e.root, e.inputs); err != nil {
-		return err
+		return inputBindingError{Err: err}
 	}
 	if err := e.initializeAttributes(); err != nil {
-		return fmt.Errorf("initialize attributes: %w", err)
+		return inputBindingError{Err: fmt.Errorf("initialize attributes: %w", err)}
 	}
 	return nil
 }
+
+type inputBindingError struct{ Err error }
+
+func (e inputBindingError) Error() string { return e.Err.Error() }
+
+func (e inputBindingError) Unwrap() error { return e.Err }
 
 // fixWitnessInputs takes the inputs the run's replayed witness fixes, when the
 // caller begins the run on this performance, ahead of the caller's inputs and the

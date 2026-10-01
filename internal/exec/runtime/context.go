@@ -1625,7 +1625,11 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create action executor: %w", err)
+		err = fmt.Errorf("create action executor: %w", err)
+		if top {
+			return nil, WrapSetupError(err)
+		}
+		return nil, err
 	}
 	exec.beginsRun = top
 	if listener != nil {
@@ -1642,6 +1646,9 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 
 	if err := ctx.startAction(exec, start); err != nil {
 		ctx.clock.detach(exec)
+		if top && exec.tool == nil {
+			return nil, WrapSetupError(err)
+		}
 		return nil, err
 	}
 	return exec, nil
@@ -1855,11 +1862,19 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 	if exec == nil {
 		if exec, err = newStateExecutor(ctx, stateMachine, self); err != nil {
-			return nil, fmt.Errorf("create state executor: %w", err)
+			err = fmt.Errorf("create state executor: %w", err)
+			if top {
+				return nil, WrapSetupError(err)
+			}
+			return nil, err
 		}
 		defer ctx.clock.detach(exec)
 		if err := exec.initialize(); err != nil {
-			return nil, fmt.Errorf("initialize state machine: %w", err)
+			err = fmt.Errorf("initialize state machine: %w", err)
+			if top {
+				return nil, WrapSetupError(err)
+			}
+			return nil, err
 		}
 	}
 

@@ -33,6 +33,27 @@ var ErrExploreUndriven = errors.New("explore is not a policy one context runs un
 // choice points its prefix recorded, so no outcome set can be trusted.
 var ErrExplorationDiverged = errors.New("exploration diverged")
 
+// SetupError is a run's failure to begin: no executor could be made or initialized.
+type SetupError struct{ Err error }
+
+func (e *SetupError) Error() string { return e.Err.Error() }
+func (e *SetupError) Unwrap() error { return e.Err }
+
+// WrapSetupError classifies a root executor failure without reclassifying
+// input-binding or performer-lifecycle errors as setup failures.
+func WrapSetupError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var setup *SetupError
+	var binding inputBindingError
+	if errors.As(err, &setup) || errors.As(err, &binding) ||
+		errors.Is(err, ErrOccurrenceDestroyed) || errors.Is(err, ErrOccurrenceLifetime) {
+		return err
+	}
+	return &SetupError{Err: err}
+}
+
 // ChoiceTaken is one choice point of a run and the alternative it took, as the
 // witness of an outcome lists them.
 type ChoiceTaken struct {
@@ -111,18 +132,21 @@ func FormatChoices(choices []ChoiceTaken) string {
 	return strings.Join(parts, "; ")
 }
 
+// ProbabilityRange is the probability the model's draws give an outcome,
+// least to greatest over schedulers that resolve its scheduling choices.
+type ProbabilityRange struct{ Min, Max float64 }
+
+// Exact reports whether the range is a single probability, within floating-point tolerance.
+func (r ProbabilityRange) Exact() bool { return r.Max-r.Min <= 1e-12 }
+
 // ExploredOutcome is one distinct outcome an exploration reached: how many
-// linearizations reached it, the probability they carry, and the choices of
-// the first run that did.
+// linearizations reached it, its model probability range when weighted, and
+// the choices of the first run that did.
 type ExploredOutcome struct {
 	Outcome        Outcome
 	Linearizations int
-	// Probability is the share of the schedule space reaching this outcome: the
-	// sum of its linearizations' probabilities, each the product of its choice
-	// points' shares — a weighted point's stated weight, an unweighted one's
-	// uniform share. It is the model's own probability when every point is
-	// weighted, and a lower bound while the exploration is incomplete.
-	Probability float64
+	// Probability is nil unless the exploration made a weighted choice.
+	Probability *ProbabilityRange
 	Witness     []ChoiceTaken
 	// WitnessRun is the 1-based number of the run the witness is.
 	WitnessRun int
@@ -137,24 +161,29 @@ type Exploration struct {
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
 	// `depth`; none when it is complete.
 	BudgetsHit []string
+	weighted   bool
 }
 
 // Complete reports whether every linearization was run.
 func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 }
 
-// Probability is the share of the schedule space the exploration covered: the
-// sum of its outcomes' probabilities, 1 for a complete one.
-func (x *Exploration) Probability() float64 {
-	total := 0.0
+// Weighted reports whether a committed run made a weighted choice.
+func (x *Exploration) Weighted() bool { return x.weighted }
+
+// FailedLinearizations counts the runs whose outcomes carry runtime errors.
+func (x *Exploration) FailedLinearizations() int {
+	total := 0
 	for _, o := range x.Outcomes {
-		total += o.Probability
+		if o.Outcome.Err != nil {
+			total += o.Linearizations
+		}
 	}
 	return total
 }
 
 // ProbabilitiesBounded reports whether the outcomes' probabilities are lower
-// bounds: they are while a budget kept some linearizations unexplored.
-func (x *Exploration) ProbabilitiesBounded() bool { return !x.Complete() }
+// bounds while weighted probabilities have unexplored linearizations.
+func (x *Exploration) ProbabilitiesBounded() bool { return !x.Complete() && x.Weighted() }
 
 // Status renders how the exploration ended: `complete (N runs)`, or which budget
 // was hit after how many runs.
@@ -170,13 +199,16 @@ func (x *Exploration) Status() string {
 		}
 		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 	}
-	return fmt.Sprintf("incomplete: %s hit after %d runs; probabilities are lower bounds", strings.Join(named, " and "), x.Runs)
+	status := fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
+	if x.ProbabilitiesBounded() {
+		status += "; probabilities are lower bounds"
+	}
+	return status
 }
 
 // Explore runs a behavior once per linearization within the policy's budget, one run
-// at a time in plan order: fresh builds each run's context, run performs it and reports
-// the outcome. A run that failed is an outcome; a caller that goes away between runs
-// takes the exploration with it, its error being stop's. It is ExploreWith on one job.
+// at a time in plan order. A run that fails after it begins is an outcome; setup
+// failures and a caller that goes away fail the exploration.
 func Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	return ExploreWith(stop, policy, 1, func(int) (*Context, error) { return fresh() }, run)
 }
@@ -422,35 +454,6 @@ func (r *exploreRun) choices() []ChoiceTaken {
 		out[i] = slot.asChoice()
 	}
 	return out
-}
-
-// share is the probability the slot's draw resolved to the alternative taken:
-// the stated weight's share of the weights for a weighted pick, the uniform
-// share of its alternatives otherwise — what a seeded run takes each with.
-func (s exploreSlot) share() float64 {
-	if s.alternatives <= 0 {
-		return 1
-	}
-	if s.kind == slotPick && s.described && s.choice.Weighted() && s.taken < len(s.choice.Weights) {
-		total := 0.0
-		for _, w := range s.choice.Weights {
-			total += w
-		}
-		if total > 0 {
-			return s.choice.Weights[s.taken] / total
-		}
-	}
-	return 1 / float64(s.alternatives)
-}
-
-// probability is the linearization's share of the schedule space: the product
-// of its slots' shares, those past the depth budget contributing theirs.
-func (r *exploreRun) probability() float64 {
-	p := 1.0
-	for _, slot := range r.record {
-		p *= slot.share()
-	}
-	return p
 }
 
 // asChoice renders the slot as the choice the run took.

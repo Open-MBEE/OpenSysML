@@ -389,6 +389,96 @@ const monitorModel = `package Watch {
 }
 `
 
+const setupFailureModel = `package Setup {
+  action Broken {
+    action a;
+    action b;
+    action c;
+    succession first a then c;
+    succession first b then c;
+  }
+  state def NoInitial {
+    state idle;
+    state active;
+  }
+}
+`
+
+const partialFailureExploreModel = `package D {
+  private import ScalarValues::*;
+  action Dec {
+    attribute x : Integer = 0;
+    first start;
+    then fork f;
+      then a;
+      then b;
+    action a { assign x := 1; }
+    action b { assign x := 2; }
+    succession a then j; succession b then j;
+    join j;
+    then decide d;
+      if x == 1 then ok;
+    action ok { assign x := 5; }
+    then done;
+  }
+}
+`
+
+const weightedProbabilityExploreModel = `package Weighted {
+  private import ScalarValues::*;
+  private import Stochastic::*;
+action choose {
+  attribute selected : Integer = 0;
+  first start;
+  then decide select;
+  first select then zero { @Probability { p = 0.0; } }
+  first select then one { @Probability { p = 0.3; } }
+  first select then two { @Probability { p = 0.7; } }
+  action zero { assign selected := 0; }
+  then done;
+  action one { assign selected := 1; }
+  then done;
+    action two { assign selected := 2; }
+    then done;
+  }
+}
+`
+
+const mixedProbabilityExploreModel = `package Mixed {
+  private import ScalarValues::*;
+  private import Stochastic::*;
+  action mixed {
+    attribute x : Integer = 0;
+    attribute y : Integer = 0;
+    first start;
+    fork split;
+    action a { assign x := 1; }
+    action b { assign x := 2; }
+    join sync;
+    then decide select;
+    if x == 1 then draw;
+    if x == 2 then keep;
+    action draw {
+      first start;
+      then decide weighted;
+      first weighted then one { @Probability { p = 0.3; } }
+      first weighted then two { @Probability { p = 0.7; } }
+      action one { assign y := 1; }
+      then done;
+      action two { assign y := 2; }
+      then done;
+    }
+    action keep { assign y := 0; }
+    then done;
+    succession first start then split;
+    succession first split then a;
+    succession first split then b;
+    succession first a then sync;
+    succession first b then sync;
+  }
+}
+`
+
 // TestRunUnderExplore checks the sorted outcome table -schedule explore prints,
 // its status line, exit code 2 on a budget hit, and the witness traces under -trace.
 func TestRunUnderExplore(t *testing.T) {
@@ -397,8 +487,9 @@ func TestRunUnderExplore(t *testing.T) {
 	got := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race")
 	wantReport(t, got, 0, "✓ explored Mission::race: 2 outcomes",
 		"outcome | linearizations | probability | witness",
-		"x = 1   | 1              | 0.5         | step 3: 3@right first of 2@left, 3@right",
-		"x = 2   | 1              | 0.5         | step 3: 2@left first of 2@left, 3@right",
+		"x = 1",
+		"x = 2",
+		"possible",
 		"complete (2 runs)")
 	if again := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race"); again.output() != got.output() {
 		t.Errorf("explore ran\n%s\nthen\n%s", got.output(), again.output())
@@ -412,7 +503,7 @@ func TestRunUnderExplore(t *testing.T) {
 	}
 
 	got = check(t, binary, forkModel, "-schedule", "explore:runs=1", "-action", "Mission::race")
-	wantReport(t, got, 2, "? explored Mission::race: 1 outcome", "x = 2   | 1              | ≥ 0.5", "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds")
+	wantReport(t, got, 2, "? explored Mission::race: 1 outcome", "x = 2", "possible", "incomplete: runs budget 1 hit after 1 runs")
 	got = check(t, binary, forkModel, "-schedule", "depth=0", "-action", "Mission::race")
 	wantReport(t, got, 2, `invalid scheduling policy "depth=0"`)
 	got = check(t, binary, forkModel, "-schedule", "explore:depth=0", "-action", "Mission::race")
@@ -420,12 +511,13 @@ func TestRunUnderExplore(t *testing.T) {
 
 	got = check(t, binary, monitorModel, "-schedule", "explore", "-state", "Watch::Monitor", "-advance", "0")
 	wantReport(t, got, 0, "✓ explored Watch::Monitor: 2 outcomes",
-		"finalState cool; visits armed, watching, cool; route = 1; temp = 30 | 1              | 0.5         | state watching on change -> 1->cool",
-		"finalState hot; visits armed, watching, hot; route = 2; temp = 30   | 1              | 0.5         | state watching on change -> 2->hot",
+		"finalState cool; visits armed, watching, cool; route = 1; temp = 30",
+		"finalState hot; visits armed, watching, hot; route = 2; temp = 30",
+		"possible",
 		"complete (2 runs)")
 
 	got = check(t, binary, behaviorModel, "-schedule", "explore", "-action", "Mission::tally")
-	wantReport(t, got, 0, "✓ explored Mission::tally: 1 outcome", "total = 5 | 1              | 1           | no choice points", "complete (1 runs)")
+	wantReport(t, got, 0, "✓ explored Mission::tally: 1 outcome", "total = 5", "possible", "no choice points", "complete (1 runs)")
 	got = check(t, binary, behaviorModel, "-schedule", "explore", "-calc", "Mission::Fall(3, 2)")
 	wantReport(t, got, 0, "✓ explored Mission::Fall: 1 outcome", "no choice points", "complete (1 runs)")
 	got = check(t, binary, analysisModel, "-schedule", "explore", "-analysis", "An::shipCost")
@@ -455,9 +547,13 @@ func TestJSONReportsExploration(t *testing.T) {
 					Name  string `json:"name"`
 					Value string `json:"value"`
 				} `json:"values"`
-				Linearizations int      `json:"linearizations"`
-				Probability    float64  `json:"probability"`
-				Witness        []string `json:"witness"`
+				Linearizations   int      `json:"linearizations"`
+				Probability      *float64 `json:"probability"`
+				ProbabilityRange *struct {
+					Min float64 `json:"min"`
+					Max float64 `json:"max"`
+				} `json:"probabilityRange"`
+				Witness []string `json:"witness"`
 			} `json:"outcomes"`
 			Exploration struct {
 				Complete                bool     `json:"complete"`
@@ -474,12 +570,164 @@ func TestJSONReportsExploration(t *testing.T) {
 		t.Fatalf("status = %d %q, checks = %d\n%s", got.status, report.Status, len(report.Checks), got.output())
 	}
 	c := report.Checks[0]
-	if len(c.Outcomes) != 1 || c.Outcomes[0].Linearizations != 1 || c.Outcomes[0].Probability != 0.5 ||
+	if len(c.Outcomes) != 1 || c.Outcomes[0].Linearizations != 1 || c.Outcomes[0].Probability != nil ||
+		c.Outcomes[0].ProbabilityRange != nil ||
 		len(c.Outcomes[0].Values) != 1 || c.Outcomes[0].Values[0].Name != "x" || c.Outcomes[0].Values[0].Value != "2" ||
 		strings.Join(c.Outcomes[0].Witness, ";") != "step 3: 2@left first of 2@left, 3@right" ||
 		c.Exploration.Complete || c.Exploration.Runs != 1 || strings.Join(c.Exploration.BudgetsHit, ",") != "runs" ||
-		!c.Exploration.ProbabilitiesLowerBound {
+		c.Exploration.ProbabilitiesLowerBound {
 		t.Errorf("report does not carry the exploration:\n%s", got.stdout)
+	}
+}
+
+func TestExploreSetupFailureIsNotAnOutcome(t *testing.T) {
+	binary := buildCLI(t)
+	got := check(t, binary, setupFailureModel, "-schedule", "explore", "-action", "Setup::Broken")
+	if got.status != 1 || !strings.Contains(got.stdout, "✗ Action Setup::Broken: no linearization ran:") ||
+		strings.Contains(got.stdout, "explored Setup::Broken") || strings.Contains(got.stdout, "proved") ||
+		strings.Contains(got.stdout, "complete") {
+		t.Fatalf("setup failure report = %d:\n%s", got.status, got.output())
+	}
+
+	state := check(t, binary, setupFailureModel, "-schedule", "explore", "-state", "Setup::NoInitial")
+	if state.status != 1 || !strings.Contains(state.stdout, "no linearization ran:") ||
+		strings.Contains(state.stdout, "explored Setup::NoInitial") || strings.Contains(state.stdout, "proved") {
+		t.Fatalf("state setup failure report = %d:\n%s", state.status, state.output())
+	}
+
+	all := check(t, binary, setupFailureModel, "-engine", "all", "-schedule", "explore", "-action", "Setup::Broken")
+	if all.status != 1 || !strings.Contains(all.stdout, "no linearization ran:") ||
+		strings.Contains(all.stdout, "violation") || strings.Contains(all.stdout, "proved") {
+		t.Fatalf("setup failure under -engine all = %d:\n%s", all.status, all.output())
+	}
+
+	smt := check(t, binary, setupFailureModel, "-engine", "smt", "-schedule", "explore", "-action", "Setup::Broken")
+	if strings.Contains(smt.output(), "proved") {
+		t.Fatalf("SMT engine claimed a setup failure was proved:\n%s", smt.output())
+	}
+
+	jsonResult := check(t, binary, setupFailureModel, "-json", "-schedule", "explore", "-action", "Setup::Broken")
+	var report struct {
+		Status string `json:"status"`
+		Checks []struct {
+			Status      string             `json:"status"`
+			Outcomes    *[]json.RawMessage `json:"outcomes"`
+			Exploration *json.RawMessage   `json:"exploration"`
+			Lines       []string           `json:"lines"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(jsonResult.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, jsonResult.output())
+	}
+	if jsonResult.status != 1 || report.Status != "fails" || len(report.Checks) != 1 ||
+		report.Checks[0].Status != "fails" || report.Checks[0].Outcomes != nil ||
+		report.Checks[0].Exploration != nil {
+		t.Fatalf("setup-failure JSON report = %d:\n%s", jsonResult.status, jsonResult.output())
+	}
+}
+
+func TestExplorePartialFailureFailsAndReportsTheFailedRun(t *testing.T) {
+	binary := buildCLI(t)
+	got := check(t, binary, partialFailureExploreModel, "-schedule", "explore", "-action", "D::Dec")
+	wantReport(t, got, 1, "✗ explored D::Dec: 2 outcomes (1 value, 1 error), 1 of 2 linearizations failing",
+		"error:", "complete (2 runs)", "standing: outcomes (observed: 2 linearizations, 1 failing, inputs as written)")
+
+	jsonResult := check(t, binary, partialFailureExploreModel, "-json", "-schedule", "explore", "-action", "D::Dec")
+	var report struct {
+		Status string `json:"status"`
+		Checks []struct {
+			Status      string `json:"status"`
+			Exploration struct {
+				FailedLinearizations int `json:"failedLinearizations"`
+			} `json:"exploration"`
+			Outcomes []struct {
+				Error string `json:"error"`
+			} `json:"outcomes"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(jsonResult.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, jsonResult.output())
+	}
+	if jsonResult.status != 1 || report.Status != "fails" || len(report.Checks) != 1 ||
+		report.Checks[0].Status != "fails" || report.Checks[0].Exploration.FailedLinearizations != 1 ||
+		len(report.Checks[0].Outcomes) != 2 {
+		t.Fatalf("partial-failure JSON report = %d:\n%s", jsonResult.status, jsonResult.output())
+	}
+	errorsFound := 0
+	for _, outcome := range report.Checks[0].Outcomes {
+		if outcome.Error != "" {
+			errorsFound++
+		}
+	}
+	if errorsFound != 1 {
+		t.Errorf("JSON reports %d error outcomes, want one: %s", errorsFound, jsonResult.stdout)
+	}
+}
+
+func TestJSONReportsExactAndRangedModelProbabilities(t *testing.T) {
+	binary := buildCLI(t)
+	decode := func(result runOutcome) []struct {
+		Values []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"values"`
+		Probability      *float64 `json:"probability"`
+		ProbabilityRange *struct {
+			Min float64 `json:"min"`
+			Max float64 `json:"max"`
+		} `json:"probabilityRange"`
+	} {
+		t.Helper()
+		var report struct {
+			Checks []struct {
+				Outcomes []struct {
+					Values []struct {
+						Name  string `json:"name"`
+						Value string `json:"value"`
+					} `json:"values"`
+					Probability      *float64 `json:"probability"`
+					ProbabilityRange *struct {
+						Min float64 `json:"min"`
+						Max float64 `json:"max"`
+					} `json:"probabilityRange"`
+				} `json:"outcomes"`
+			} `json:"checks"`
+		}
+		if err := json.Unmarshal([]byte(result.stdout), &report); err != nil {
+			t.Fatalf("stdout is not the reported JSON: %v\n%s", err, result.output())
+		}
+		if len(report.Checks) != 1 {
+			t.Fatalf("got %d JSON checks:\n%s", len(report.Checks), result.stdout)
+		}
+		return report.Checks[0].Outcomes
+	}
+
+	exact := check(t, binary, weightedProbabilityExploreModel, "-json", "-schedule", "explore", "-action", "Weighted::choose")
+	exactOutcomes := decode(exact)
+	if exact.status != 0 || len(exactOutcomes) != 3 {
+		t.Fatalf("weighted JSON report = %d:\n%s", exact.status, exact.output())
+	}
+	for i, want := range []float64{0.0, 0.3, 0.7} {
+		outcome := exactOutcomes[i]
+		if outcome.Probability == nil || *outcome.Probability != want ||
+			outcome.ProbabilityRange == nil || outcome.ProbabilityRange.Min != want ||
+			outcome.ProbabilityRange.Max != want {
+			t.Errorf("exact outcome %d = %+v, want exact probability %v", i, outcome, want)
+		}
+	}
+
+	mixed := check(t, binary, mixedProbabilityExploreModel, "-json", "-schedule", "explore", "-action", "Mixed::mixed")
+	mixedOutcomes := decode(mixed)
+	if mixed.status != 0 || len(mixedOutcomes) != 3 {
+		t.Fatalf("mixed JSON report = %d:\n%s", mixed.status, mixed.output())
+	}
+	wants := [][2]float64{{0, 0.3}, {0, 0.7}, {0, 1}}
+	for i, want := range wants {
+		outcome := mixedOutcomes[i]
+		if outcome.Probability != nil || outcome.ProbabilityRange == nil ||
+			outcome.ProbabilityRange.Min != want[0] || outcome.ProbabilityRange.Max != want[1] {
+			t.Errorf("mixed outcome %d = %+v, want probability range %v", i, outcome, want)
+		}
 	}
 }
 
@@ -1001,23 +1249,25 @@ func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
 	got := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
 		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "5")
 	wantReport(t, got, 0, "✓ explored Due::watcher, Due::Beacon::blinking: 2 outcomes",
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true | 1              | 0.5         | t=5.0: action watcher first of state machine blinking of object #1, action watcher`,
-		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true  | 1              | 0.5         | t=5.0: state machine blinking of object #1 first of state machine blinking of object #1, action watcher`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false; this.isSolid = true; this.lit = true`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true; this.isSolid = true; this.lit = true`,
+		"possible",
 		"complete (2 runs)")
 
 	// Advanced short of the instant, neither is due: one outcome, no choice, and
 	// the action that did not complete is the run's error.
 	short := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
 		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "2")
-	wantReport(t, short, 2, "? explored Due::watcher, Due::Beacon::blinking: 1 outcome",
-		"action Due::watcher stopped at Waiting at simulation time 2.0 without completing", "no choice points", "complete (1 runs)")
+	wantReport(t, short, 1, "✗ explored Due::watcher, Due::Beacon::blinking: 1 outcome (0 values, 1 error), 1 of 1 linearization failing",
+		"error: action Due::watcher stopped at Waiting at simulation time 2.0 without completing",
+		"no choice points", "complete (1 runs)", "standing: outcomes (observed: 1 linearization, 1 failing, inputs as written)")
 
 	// One behavior explored with -advance is its own outcome, as without -advance.
 	one := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-advance", "5")
-	wantReport(t, one, 0, "✓ explored Timed::pinger: 1 outcome", "count = 1 | 1              | 1           | no choice points", "complete (1 runs)")
+	wantReport(t, one, 0, "✓ explored Timed::pinger: 1 outcome", "count = 1 | 1              | possible    | no choice points", "complete (1 runs)")
 	both := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-state", "Timed::listener", "-advance", "10")
 	wantReport(t, both, 0, "✓ explored Timed::pinger, Timed::listener: 1 outcome",
-		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | 1           | no choice points`)
+		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | possible    | no choice points`)
 }
 
 // TestJSONWithoutCheck checks that -json alone is a misuse reported as such,

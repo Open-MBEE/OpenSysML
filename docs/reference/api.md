@@ -35,13 +35,16 @@ such as `Mission::mission.vehicle`, made anew for the run. `ExploreAction`,
 `ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
 default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
-it, the `Probability` of the runs reaching it (a lower bound while the search is incomplete)
-and one run's choices as its `Witness`, plus whether the search was `Complete` or which
-`BudgetsHit` ended it (`ProbabilitiesLowerBound` records that the probabilities are bounds;
-`Status()` renders it as the `sysml` command does). A run that fails under
-some order is an `Outcome` whose `Error` is set, not a failure of the call. The two families
-refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
-`schedule_explore` capability alongside `schedule`.
+it and one run's choices as its `Witness`. A committed weighted model choice gives each outcome a
+`ProbabilityRange` over schedulers; an unweighted exploration has no outcome probabilities.
+`FailedLinearizations` counts runs represented by error outcomes. A runtime failure after a run
+begins is an `Outcome` whose `Error` is set, not a failure of the call; a complete exploration
+with any such outcome is observed rather than proved. A failure to create or initialize the root
+executor is a failed call with no outcomes or `Exploration`. `Complete` and `BudgetsHit` report
+how the search ended, and `ProbabilitiesLowerBound` is true only for an incomplete weighted
+exploration (`Status()` renders it as the `sysml` command does). The two families refuse each
+other's policies with `CodeInvalidArgument`, and exploring requires the `schedule_explore`
+capability alongside `schedule`.
 
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
@@ -657,13 +660,15 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     the policy took
 
 - **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
-  — Run a behavior under `explore` once per linearization within the budget: each run starts
-  from the `Context` `fresh` builds over the model and lowering they all share, records the
-  alternative taken at every choice point, and each later run replays a recorded prefix and takes
-  an untried alternative at its end — the first run's choice points each varied once, earliest
-  first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error it returns is the
-  `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
-  ending the search. A `stop` that ends between runs ends the exploration with its error before
+  - Run a behavior under `explore` once per linearization within the budget: each run starts
+    from the `Context` `fresh` builds over the model and lowering they all share, records the
+    alternative taken at every choice point, and each later run replays a recorded prefix and takes
+    an untried alternative at its end — the first run's choice points each varied once, earliest
+    first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error
+    after the root run begins is the `Outcome.Err` of an outcome of its own, so a run some orders
+    fail is reported rather than ending the search. A `SetupError` from creating or initializing
+    the context's root executor fails the exploration without an outcome. A `stop` that ends between
+    runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
   does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the
   model's runs are then not a function of their choices
@@ -678,15 +683,18 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     `(*Context).AnalysisOutcome(result)` and `(*Context).VerifiedOutcome(result, verdicts)` build
     one over the run's context; a case's verdicts are values named `objective <name>`,
     `assertion <name>` and `verdict <case>`
-  - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
-    `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
-    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`, suffixed
-    `; probabilities are lower bounds` when incomplete. `Probability()` sums the outcomes'
-    probabilities (`1` over a complete exploration); `ProbabilitiesBounded()` is `!Complete()`
-  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, its
-    `Probability` (the sum of the shares its runs' picks resolved with — a weighted pick's
-    stated weight's share, an unweighted choice's uniform `1/n`), the
-    `Witness` (one run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`
+  - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order,
+    `BudgetsHit` (`runs` before `depth`, empty when `Complete()`), and the number of
+    `FailedLinearizations()`. `Weighted()` reports whether a committed run made a weighted model
+    choice. `Status()` adds `; probabilities are lower bounds` only when the exploration is
+    incomplete and weighted; `ProbabilitiesBounded()` reports the same condition.
+  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, an optional
+    `*ProbabilityRange` (nil unless a committed run made a weighted choice), the `Witness` (one
+    run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`. Each range is the
+    minimum and maximum model-draw probability over schedulers; scheduler choices have no
+    probability.
+  - **`ProbabilityRange`** — `Min` and `Max` model-draw probabilities over schedulers.
+    `Exact()` is true when their difference is at most `1e-12`.
   - **`ChoiceTaken`** — One resolved choice point: its `Kind`, `Step`, `Where`, the
     `Alternatives` and `Among` it had and the `Taken`/`Took` it resolved to
 

@@ -192,6 +192,23 @@ alternative (the slot is narrowed, and a run that repeats one already made is no
 field and the Python client all reach it, and a REPL debugging session refuses it because it steps
 one run and cannot replay from the start.
 
+A failure before the root executor has been created and initialized is a `SetupError`: it fails
+the exploration and produces no outcome. Once the root run begins, a runtime failure is an
+outcome keyed by its error, distinct from successful outcomes; `FailedLinearizations` counts the
+runs represented by error outcomes. A complete exploration containing any such failure is
+observed, not proved.
+
+Outcome probabilities describe only the model's weighted draws. A run records a trie of choice
+prefixes; weighted nodes sum their children with normalized model weights, while scheduling
+nodes take the minimum and maximum over their explored alternatives. An unexplored scheduling
+alternative contributes zero to the minimum; an unexplored weighted alternative contributes
+zero to its sum. The root vectors give each outcome's `ProbabilityRange`, computed in
+O(depth × outcomes) vector space before outcomes are sorted. A probability is absent if no
+committed run made a weighted pick, and an incomplete exploration has lower bounds only when it
+did. Random-function draws still come from the model seed and are not enumerated, so these
+probabilities are conditional on those draws. Checker `Violation.Mass` keeps its existing
+semantics; this change does not reinterpret it.
+
 ## The conformance contract
 
 Every element above has a test surface, documented for authors in

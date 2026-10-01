@@ -1465,11 +1465,9 @@ func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
 	}
 }
 
-// TestCheckWeighsMovesByExecutorThenUnit: a move's share is the draw a run makes
-// for it — the executor among those with a move, then the unit among its own —
-// so the masses a check reports are the probabilities explore reports for the
-// same invocation's outcomes.
-func TestCheckWeighsMovesByExecutorThenUnit(t *testing.T) {
+// TestCheckMassIsIndependentOfExploreScheduling: checking retains its mass
+// semantics while exploration treats the same scheduler choices as nondeterministic.
+func TestCheckMassIsIndependentOfExploreScheduling(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
 		action a {
@@ -1538,21 +1536,18 @@ func TestCheckWeighsMovesByExecutorThenUnit(t *testing.T) {
 	if err != nil || !x.Complete() {
 		t.Fatalf("explore: %v, %v", err, x)
 	}
-	probs := make(map[string]float64)
 	for _, o := range x.Outcomes {
-		if o.Outcome.Err == nil {
-			t.Fatalf("outcome %q failed under no leaf", o.Outcome)
+		if o.Probability != nil {
+			t.Errorf("unweighted explored outcome %q has probability range %+v", o.Outcome, o.Probability)
 		}
-		probs[leafOf(o.Outcome.Err.Error())] += o.Probability
 	}
-
-	want := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}
-	for leaf, w := range want {
-		if math.Abs(probs[leaf]-w) > 1e-9 {
-			t.Errorf("explore's probability of the %s failure is %v, want %v", leaf, probs[leaf], w)
-		}
-		if math.Abs(mass[leaf]-probs[leaf]) > 1e-9 {
-			t.Errorf("check's mass of the %s failure is %v, want explore's %v", leaf, mass[leaf], probs[leaf])
+	if x.Weighted() {
+		t.Error("unweighted exploration reports Weighted() = true")
+	}
+	wantMass := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}
+	for leaf, want := range wantMass {
+		if math.Abs(mass[leaf]-want) > 1e-9 {
+			t.Errorf("check's mass of the %s failure is %v, want %v", leaf, mass[leaf], want)
 		}
 	}
 }

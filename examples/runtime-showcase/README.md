@@ -530,26 +530,25 @@ first run — is first taken by run 496:
 
 ```
 ? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes
-outcome                                                           | linearizations | probability               | witness
-------------------------------------------------------------------+----------------+---------------------------+---------
-finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | ≥ 4.661462957000129e-156  | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | ≥ 1.1840115910780328e-153 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | ≥ 1.0997770908598577e-149 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
-incomplete: runs budget 500 hit after 500 runs; probabilities are lower bounds
+outcome                                                           | linearizations | probability | witness
+------------------------------------------------------------------+----------------+-------------+---------
+finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | possible    | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | possible    | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | possible    | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
+incomplete: runs budget 500 hit after 500 runs
   standing: outcomes (observed: 500 linearizations, inputs as written, runs=500 (reached))
 ```
 
 The second row is the first run and the 496 that vary a choice the outcome
 does not turn on; the third is run 496 and one more that varies the next such
-draw to the same end; the first is the run that entered `notRecharging` before
+choice to the same end; the first is the run that entered `notRecharging` before
 `waitingGSPing` — the order the two regions of `modes` are entered in is a
-recorded choice, told apart by the visits. The `probability` column is the
-share of all orders the listed linearizations account for, each order weighted
-as the product of its choices' shares; with 516 choices a run the shares are
-minute, and because the enumeration is incomplete they are lower bounds.
+recorded choice, told apart by the visits. The `probability` column says
+`possible` because the model has no weighted choice: scheduling alternatives
+have no probability, even when the search is incomplete.
 
 The 39 outcome needs two of the
-first run's draws at t=79 varied together — the charge's wait ending and the
+first run's choices at t=79 varied together — the charge's wait ending and the
 charge landing before the drain — so none of the 517 runs that vary each
 choice once reaches it; `check` does. `incomplete` is honest: 500 runs do not
 exhaust the orders of 516 choices, and the table is the same at any `-jobs`.
