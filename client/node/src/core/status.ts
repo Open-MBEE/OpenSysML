@@ -9,6 +9,7 @@ import {
   OpenSysMLError,
   ServiceError,
   ServiceTimeoutError,
+  ServiceUnavailableError,
   SymbolNotFoundError,
   UnsupportedOperationError,
 } from "./errors.js";
@@ -51,6 +52,7 @@ const CODE_ERRORS = new Map<Code, ServiceErrorClass>([
   [Code.OutOfRange, InvalidRequestError],
   [Code.DeadlineExceeded, ServiceTimeoutError],
   [Code.Canceled, ServiceTimeoutError],
+  [Code.Unavailable, ServiceUnavailableError],
   [Code.Unimplemented, UnsupportedOperationError],
 ]);
 
@@ -92,20 +94,35 @@ export function fromRpcError(
     refusal.cause = connectError;
     return refusal;
   }
-  const cls = CODE_ERRORS.get(connectError.code) ?? ServiceError;
+  const unreachable = fetchRefused(connectError);
+  const cls =
+    CODE_ERRORS.get(connectError.code) ??
+    (unreachable ? ServiceUnavailableError : ServiceError);
   const described =
-    connectError.code === Code.Unavailable ? `sysml-grpc service unavailable: ${message}` : message;
+    connectError.code === Code.Unavailable || unreachable
+      ? `sysml-grpc service unavailable: ${message}`
+      : message;
   return new cls(described, { cause: connectError, code: status });
 }
 
 /** Translates a failed handshake, which says which service would not answer. */
 export function fromHandshakeError(error: unknown, origin: string): ServiceError {
   const connectError = ConnectError.from(error);
-  const cls = CODE_ERRORS.get(connectError.code) ?? ServiceError;
+  const cls =
+    CODE_ERRORS.get(connectError.code) ??
+    (fetchRefused(connectError) ? ServiceUnavailableError : ServiceError);
   return new cls(`the sysml-grpc service at ${origin} did not answer: ${connectError.message}`, {
     cause: connectError,
     code: statusName(connectError.code),
   });
+}
+
+// A browser fetch that never reached the service rejects with a TypeError,
+// which ConnectError.from reports as UNKNOWN with that TypeError as its cause.
+function fetchRefused(connectError: ConnectError): boolean {
+  return (
+    connectError.code === Code.Unknown && connectError.cause instanceof TypeError
+  );
 }
 
 /** Awaits a call, translating whatever status it fails with. */

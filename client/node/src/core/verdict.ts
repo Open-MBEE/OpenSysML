@@ -20,7 +20,7 @@ import {
   type ModelDiagnostic,
 } from "./errors.js";
 import type { Instance } from "./model.js";
-import { standingOf, type Standing } from "./engines.js";
+import { emptyStanding, standingOf, type EngineBound, type Standing } from "./engines.js";
 import {
   decodeValue,
   decodeVerdict,
@@ -269,11 +269,21 @@ export class CalcResult {
     this.value = init.value;
     this.outputs = init.outputs;
     this.diagnostics = init.diagnostics ?? [];
-    this.standing = init.standing ?? { engine: "", strength: "", bounds: [] };
+    this.standing = init.standing ?? emptyStanding();
   }
 
   get engine(): string {
     return this.standing.engine;
+  }
+
+  /** Strength of the evidence the answer rests on; empty when unreported. */
+  get strength(): string {
+    return this.standing.strength;
+  }
+
+  /** The bounds the engine ran under. */
+  get bounds(): readonly EngineBound[] {
+    return this.standing.bounds;
   }
 
   toString(): string {
@@ -376,11 +386,21 @@ export class AnalysisResult {
     this.diagnostics = init.diagnostics ?? [];
     this.verifications = init.verifications ?? [];
     this.evaluations = init.evaluations ?? [];
-    this.standing = init.standing ?? { engine: "", strength: "", bounds: [] };
+    this.standing = init.standing ?? emptyStanding();
   }
 
   get engine(): string {
     return this.standing.engine;
+  }
+
+  /** Strength of the evidence the answer rests on; empty when unreported. */
+  get strength(): string {
+    return this.standing.strength;
+  }
+
+  /** The bounds the engine ran under. */
+  get bounds(): readonly EngineBound[] {
+    return this.standing.bounds;
   }
 
   /** The evaluations of the alternatives the case selected; one for a trade study. */
@@ -434,11 +454,21 @@ export class Validation {
 
   /** The standing of the summary's engine; unreported when the service sent none. */
   get standing(): Standing {
-    return this.summary?.verdict.standing ?? { engine: "", strength: "", bounds: [] };
+    return this.summary?.verdict.standing ?? emptyStanding();
   }
 
   get engine(): string {
     return this.standing.engine;
+  }
+
+  /** Strength of the evidence the answer rests on; empty when unreported. */
+  get strength(): string {
+    return this.standing.strength;
+  }
+
+  /** The bounds the engine ran under. */
+  get bounds(): readonly EngineBound[] {
+    return this.standing.bounds;
   }
 
   /** Whether the object is shown valid: at least one assertion, every one holding, all reached. */
@@ -566,11 +596,21 @@ export class SweepTable {
     this.seed = init.seed ?? 0n;
     this.instances = init.instances ?? [];
     this.diagnostics = init.diagnostics ?? [];
-    this.standing = init.standing ?? { engine: "", strength: "", bounds: [] };
+    this.standing = init.standing ?? emptyStanding();
   }
 
   get engine(): string {
     return this.standing.engine;
+  }
+
+  /** Strength of the evidence the answer rests on; empty when unreported. */
+  get strength(): string {
+    return this.standing.strength;
+  }
+
+  /** The bounds the engine ran under. */
+  get bounds(): readonly EngineBound[] {
+    return this.standing.bounds;
   }
 
   /** The runs that failed. */

@@ -711,6 +711,32 @@ func TestPartSlotsRedefineThePartByItsInstance(t *testing.T) {
 	wantClean(t, "part-slots.sysml", r)
 }
 
+// A composite part written unique, although v1 declares it nonunique, cannot
+// hold a repeated instance: the slot is unmapped as on any unique feature.
+func TestPartSlotRepeatingOnAForcedUniquePartIsUnmapped(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_mcs" name="MCS"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tmt" name="TMT">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="spares" type="_mcs" aggregation="composite" isUnique="false">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_up" value="*"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_m2" name="mcs 2" classifier="_mcs"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_t1" name="tmt 1" classifier="_tmt">
+      <slot xmi:type="uml:Slot" xmi:id="_sl" definingFeature="_q">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v1" instance="_m2"/>
+        <value xmi:type="uml:InstanceValue" xmi:id="_v2" instance="_m2"/>
+      </slot>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_mcs"/>
+  <sysml:Block xmi:id="_s3" base_Class="_tmt"/>`)
+	wantLine(t, r.Notation, "part spares : MCS[0..*];")
+	wantNote(t, r, "_q", migrate.Approximated, "nonunique is not written: a part in a part def implicitly subsets Items::Item::subparts, which is unique")
+	wantNote(t, r, "_sl", migrate.Unmapped, "the slot repeats the value 'mcs 2' on a unique feature; its values are 'mcs 2', 'mcs 2'")
+	wantClean(t, "part-slot-repeat.sysml", r)
+}
+
 // A part slot whose value is not an individual of the part's type has no v2
 // form: a literal, an instance without a classifier, an instance of another
 // block or of a block where an item is due, or a port's slot, since v2 has no
