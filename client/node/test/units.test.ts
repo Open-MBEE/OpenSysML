@@ -34,7 +34,7 @@ import {
   verdictHolds,
 } from "../src/node/index.js";
 import { decodeVerdict, toValue } from "../src/node/index.js";
-import { ExecutionError, UnsupportedValueError } from "../src/node/index.js";
+import { ExecutionError, MalformedValueError, UnsupportedValueError } from "../src/node/index.js";
 import { fakeConnection } from "./support/fake.js";
 
 const ALL: string[] = [
@@ -421,4 +421,113 @@ test("an undecodable output stays in the map as its error", async () => {
   }));
   assert.equal(conn.info.version, "test");
   assert.ok(UnsupportedValueError.prototype instanceof Error);
+});
+
+test("an integer input outside int64 is refused before the call, nested included", () => {
+  const full = new ServerInfo({
+    version: "v",
+    capabilities: ["set_values"],
+    answered: true,
+    origin: "test",
+  });
+  for (const input of [
+    2n ** 63n,
+    -(2n ** 63n) - 1n,
+    2n ** 100n,
+    { kind: "int", value: 2n ** 63n } as const,
+    { kind: "set", elements: [1n, 2n ** 63n] } as const,
+    [1n, 2n ** 63n],
+  ]) {
+    assert.throws(
+      () => toValue(input, full),
+      (error: unknown) => {
+        assert.ok(error instanceof RangeError);
+        assert.match((error).message, /value out of range/);
+        return true;
+      },
+    );
+  }
+  assert.equal(toValue(2n ** 63n - 1n, full).kind.case, "intValue");
+  assert.equal(toValue(-(2n ** 63n), full).kind.case, "intValue");
+});
+
+test("a JavaScript array encodes as a sequence and a Set as a set", () => {
+  const full = new ServerInfo({
+    version: "v",
+    capabilities: ["set_values"],
+    answered: true,
+    origin: "test",
+  });
+  const sequence = toValue([1n, "two", true], full);
+  assert.equal(sequence.kind.case, "sequence");
+  const set = toValue(new Set([{ kind: "int", value: 1n }, { kind: "int", value: 2n }]), full);
+  assert.equal(set.kind.case, "set");
+  // A SysMLValue collection accepts raw JavaScript elements the same way.
+  const mixed = toValue({ kind: "set", elements: [1n, 2n] }, full);
+  assert.equal(mixed.kind.case, "set");
+  assert.throws(() => toValue({ kind: "set", elements: [1n, 1n] }, full), MalformedValueError);
+});
+
+test("an unset value and a foreign object cannot be sent as inputs", () => {
+  const full = new ServerInfo({ version: "v", capabilities: [], answered: true, origin: "test" });
+  assert.throws(
+    () => toValue({ kind: "unset" }, full),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.match((error).message, /unset value cannot be sent/);
+      return true;
+    },
+  );
+  assert.throws(() => toValue({ nope: 1 } as never, full), RangeError);
+});
+
+test("a unit named without its reduction is refused before the call", () => {
+  const full = new ServerInfo({
+    version: "v",
+    capabilities: ["measurement_refs", "structured_values", "tensor_values"],
+    answered: true,
+    origin: "test",
+  });
+  const unitTerm = { scaleNum: 1, scaleDen: 1, factors: [{ unitId: "SI::kg", exponent: 1 }] };
+  assert.throws(
+    () =>
+      toValue(
+        { kind: "quantity", magnitude: { kind: "real", value: 1 }, unit: "SI::kg" } as never,
+        full,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof UnsupportedValueError);
+      assert.match(
+        (error).message,
+        /quantity in \[SI::kg\] carries no reduction to base units/,
+      );
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      toValue({ kind: "measurementRef", unit: "SI::kg" } as never, full),
+    (error: unknown) => {
+      assert.ok(error instanceof UnsupportedValueError);
+      assert.match(
+        (error).message,
+        /measurement reference SI::kg carries no reduction to base units/,
+      );
+      return true;
+    },
+  );
+  assert.throws(
+    () => toValue({ kind: "measurementRef", unit: "" } as never, full),
+    (error: unknown) => {
+      assert.ok(error instanceof UnsupportedValueError);
+      assert.match((error).message, /naming no unit/);
+      return true;
+    },
+  );
+  // A reduction is sent as written.
+  const ref = toValue(
+    { kind: "measurementRef", unit: "SI::kg", unitTerm } as never,
+    full,
+  );
+  assert.equal(ref.kind.case, "measurementRef");
 });

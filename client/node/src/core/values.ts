@@ -49,7 +49,7 @@ import {
   upgradeRemedy,
   type ServerInfo,
 } from "./capabilities.js";
-import { MalformedValueError, type FailureCause } from "./errors.js";
+import { MalformedValueError, UnsupportedValueError, type FailureCause } from "./errors.js";
 
 /** A quantity's magnitude: an integer or a real, never both. */
 export type Magnitude = { kind: "int"; value: bigint } | { kind: "real"; value: number };
@@ -1111,32 +1111,105 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
 
 /** What a caller may pass as an argument or input to a run. A wire `Value`
  * passes through untouched, which is how a caller sends a shape the typing
- * layer would normalize away — including one the service is meant to refuse. */
-export type ValueInput = SysMLValue | Value | boolean | string | bigint | number;
+ * layer would normalize away — including one the service is meant to refuse.
+ * A JavaScript array encodes as a sequence and a `Set` as a set, as Python's
+ * list and set do; collection elements accept every input form, not only
+ * `SysMLValue`s. */
+export type ValueInput =
+  | SysMLValue
+  | Value
+  | boolean
+  | string
+  | bigint
+  | number
+  | readonly ValueInput[]
+  | ReadonlySet<ValueInput>
+  | { kind: "sequence"; elements: readonly ValueInput[] }
+  | { kind: "set"; elements: readonly ValueInput[] }
+  | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
+
+const INT64_MIN = -(1n << 63n);
+const INT64_MAX = (1n << 63n) - 1n;
+
+/** Refuses an integer outside int64, where the wire's `int` arm lives. */
+function checkInt64(value: bigint): void {
+  if (value < INT64_MIN || value > INT64_MAX) {
+    throw new RangeError(`value out of range: ${value.toString()}`);
+  }
+}
 
 /**
  * Encodes a caller-facing value for the wire, requiring of `info` each
  * capability a value kind needs before the call is sent — exactly the checks
  * Python's `Connection._python_to_value` makes. A `SysMLValue` encodes as
- * itself; a boolean, string, bigint and number encode as the scalar arms.
+ * itself; a boolean, string, bigint and number encode as the scalar arms; a
+ * JavaScript array and `Set` encode as a sequence and a set.
  */
 export function toValue(input: ValueInput, info: ServerInfo): Value {
-  if (typeof input === "object" && "$typeName" in input) {
-    return input;
+  const probe: unknown = input;
+  if (typeof probe === "object" && probe !== null && "$typeName" in probe) {
+    return probe as Value;
   }
-  if (typeof input === "boolean") {
-    return encodeValue({ kind: "boolean", value: input });
+  return encodeInput(normalizeInput(input), info);
+}
+
+/** The `SysMLValue` one input names, collection elements converted the same way. */
+function normalizeInput(input: unknown): SysMLValue {
+  switch (typeof input) {
+    case "boolean":
+      return { kind: "boolean", value: input };
+    case "bigint":
+      checkInt64(input);
+      return { kind: "int", value: input };
+    case "number":
+      return { kind: "real", value: input };
+    case "string":
+      return { kind: "string", value: input };
+    case "undefined":
+      throw new RangeError("unsupported input type: undefined");
+    case "function":
+    case "symbol":
+    case "object":
+      break;
   }
-  if (typeof input === "bigint") {
-    return encodeValue({ kind: "int", value: input });
+  if (input === null) {
+    return { kind: "null", reason: "" };
   }
-  if (typeof input === "number") {
-    return encodeValue({ kind: "real", value: input });
+  if (Array.isArray(input)) {
+    return { kind: "sequence", elements: input.map(normalizeInput) };
   }
-  if (typeof input === "string") {
-    return encodeValue({ kind: "string", value: input });
+  if (input instanceof Set) {
+    return { kind: "set", elements: [...input].map(normalizeInput) };
   }
-  return encodeInput(input, info);
+  const value = input as SysMLValue;
+  switch (value.kind) {
+    case "sequence":
+      return { kind: "sequence", elements: value.elements.map(normalizeInput) };
+    case "set":
+      return { kind: "set", elements: value.elements.map(normalizeInput) };
+    case "array":
+      return {
+        kind: "array",
+        dimensions: value.dimensions,
+        elements: value.elements.map(normalizeInput),
+      };
+    case "int":
+      checkInt64(value.value);
+      return value;
+    case "enum":
+      return value.value.value === undefined
+        ? value
+        : { kind: "enum", value: { ...value.value, value: normalizeInput(value.value.value) } };
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    default:
+      if (typeof (value as { kind?: unknown }).kind === "string") {
+        return value;
+      }
+      throw new RangeError(`unsupported input type: ${typeof input}`);
+  }
 }
 
 function encodeInput(value: SysMLValue, info: ServerInfo): Value {
@@ -1184,9 +1257,28 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
     case "complex":
       require(CAPABILITY_COMPLEX_VALUES);
       return;
+    case "quantity":
+      checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
+      return;
     case "measurementRef":
       require(CAPABILITY_MEASUREMENT_REFS);
+      const unitTerm: unknown = value.unitTerm;
+      if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
+        throw new UnsupportedValueError("measurement reference naming no unit");
+      }
+      checkReduction(
+        `measurement reference ${value.unit || value.unitId}`,
+        value.unit,
+        value.unitTerm,
+      );
       return;
+    case "int":
+      checkInt64(value.value);
+      return;
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
     case "function":
       require(CAPABILITY_FUNCTION_VALUES);
       return;
@@ -1200,8 +1292,13 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       });
       return;
     case "vector":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
       return;
     case "set":
       require(CAPABILITY_SET_VALUES);
@@ -1211,6 +1308,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "tensorQuantity":
       require(CAPABILITY_TENSOR_VALUES);
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
       return;
     case "infinity":
       require(CAPABILITY_INFINITY_VALUE);
@@ -1227,5 +1327,23 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     default:
       return;
+  }
+}
+
+/**
+ * Refuses a unit named without its reduction to base units — the service
+ * decides commensurability over the reduction and rejects a unit sent without
+ * one; an unnamed unit means dimension one and carries none.
+ */
+function checkReduction(
+  what: string,
+  unit: string,
+  unitTerm: UnitFactorization | undefined,
+): void {
+  if (unit !== "" && unitTerm === undefined) {
+    throw new UnsupportedValueError(
+      `${what} carries no reduction to base units, so the service cannot tell what it ` +
+        "measures: build it from a unit the service sent, or from one the model declares",
+    );
   }
 }
