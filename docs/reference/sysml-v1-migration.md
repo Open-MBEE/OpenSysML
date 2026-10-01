@@ -1150,6 +1150,26 @@ signal fits are bound to that name. Entry, do and exit behaviors owned by the st
 action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
 references.
 
+A region's entry is its initial pseudostate's transition, `entry; then s;`. The initial a
+region takes as its own is the one whose transition enters a vertex of the region; a further
+one entering the region is refused, as a region has one initial pseudostate. An initial
+whose transition enters an *orthogonal* region — a sibling region of the same state, or a
+region nested in one, which some tools draw an arrow into from the next region over — is
+written as the entry of the region that owns its target, in whatever body that region is
+written as: the sub-state of the `parallel` state, or the body of a nested composite state.
+Its effect follows the initial-effect rules there and its triggers and guards are dropped as
+an initial transition's are; the pseudostate and transition are approximated, the report
+naming the region written. When the target's region has an initial of its own entering the
+same vertex, the stray one coincides with it and nothing is written twice; when its own
+initial enters another vertex the two conflict, the region's own entry is kept and the stray
+one is refused with both targets named (`-strict` reports its triggers, guard and effect as
+refused with it). An initial pseudostate no transition leaves is no entry, so a donated one
+may enter its region; an initial whose transition enters a region of another state — one that
+is not orthogonal to its own — is refused, since an initial transition enters its own region.
+The owner's default entry into its `parallel` state is written once every region has an
+entry, its own or a donated one; a region none of whose initials enters it is listed in the
+owner's `no default entry` note.
+
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every
 transition into the state accepts the same signal and its attributes match the parameters in
