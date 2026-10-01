@@ -15,7 +15,8 @@ import (
 // activity may wait, and gets no such note. Nor does a behavior whose only
 // waits the writer leaves as placeholders — a time event whose time it cannot
 // spell, a duration constraint whose interval no one wait stands for — since
-// nothing written waits.
+// nothing written waits; nor one whose waits lie in a behavior named by a call
+// written as a placeholder or never firing, which invokes nothing.
 func TestInstantBehaviorsWaitingForTheClockAreLedgered(t *testing.T) {
 	r := migrateXMI(t, "instant_waits")
 	wantClean(t, "t.sysml", r)
@@ -34,6 +35,16 @@ func TestInstantBehaviorsWaitingForTheClockAreLedgered(t *testing.T) {
 	for _, e := range entriesFor(r, "_sendAckHold") {
 		if strings.Contains(e.Note, "waits for the clock") {
 			t.Errorf("the transition effect Send Ack Hold, whose waits are placeholders, is noted as waiting for the clock: %s", e.Note)
+		}
+	}
+	wantNote(t, r, "_sasCall", migrate.Approximated, "the behavior acts on a Relay through its parameter context, which is left unbound")
+	wantNote(t, r, "_sapCall", migrate.Approximated, "the action never fires: its input pin 'target' must hold a value, but no object flow feeds it")
+	for _, id := range []string{"_sendAckSettle", "_sendAckPause"} {
+		wantNote(t, r, id, migrate.Mapped, "written as the do action of")
+		for _, e := range entriesFor(r, id) {
+			if strings.Contains(e.Note, "waits for the clock") {
+				t.Errorf("the transition effect %s, whose call of a waiting behavior invokes nothing, is noted as waiting for the clock: %s", id, e.Note)
+			}
 		}
 	}
 }

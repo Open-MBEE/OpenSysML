@@ -147,11 +147,12 @@ func uiFrameName(e *sysmlv1.Element) string {
 	return describe(e)
 }
 
-// clockWait names the first wait on the clock the behavior b, or a behavior an
-// action of it calls, is written with: a duration constraint bounding it or one
+// clockWait names the first wait on the clock the behavior b, or a behavior a
+// call of it invokes, is written with: a duration constraint bounding it or one
 // of its nodes, written as a wait before it, or an accept of a time event that is
 // written. "" when none: a bound or a trigger the writer leaves as a placeholder
-// is no wait.
+// is no wait, nor is one in a behavior named by a call written as a placeholder
+// or never firing, which invokes nothing.
 func (m *migration) clockWait(b *sysmlv1.Element) string {
 	return m.clockWaitIn(b, map[*sysmlv1.Element]bool{})
 }
@@ -164,38 +165,86 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 	if w := m.waitOf(b); w.ok {
 		return "the duration constraint " + describe(w.dc) + " on " + describe(b)
 	}
-	found := ""
-	m.walkActions(b, func(n *sysmlv1.Element) {
-		if found != "" {
-			return
-		}
-		switch n.Type {
-		case "AcceptEventAction":
-			if m.acceptsTime(n) {
-				found = "the accept of a time event " + describe(n) + " in " + describe(b)
-				return
-			}
-		case "CallBehaviorAction":
-			found = m.calledWait(m.model.Ref(n, "behavior"), seen)
-		case "CallOperationAction":
-			if op := m.model.Ref(n, "operation"); op != nil {
-				found = m.calledWait(m.bodyMethod(op), seen)
-			}
-		}
-		if w := m.waitOf(n); found == "" && w.ok {
-			found = "the duration constraint " + describe(w.dc) + " on " + describe(n) + " in " + describe(b)
-		}
-	})
-	return found
+	def := b
+	if op := m.methodOf[b]; op != nil {
+		def = op
+	}
+	return m.graphWait(m.scanGraph(b, def), b, seen)
 }
 
-// calledWait is the clock wait of a called behavior, which a call performs only
-// when the behavior has a v2 declaration; a call of one without is a placeholder.
-func (m *migration) calledWait(b *sysmlv1.Element, seen map[*sysmlv1.Element]bool) string {
-	if !m.written(b) {
-		return ""
+// scanGraph links an activity graph as for writing, without writing, far enough
+// to tell the nodes written as placeholders and the pins nothing fills.
+func (m *migration) scanGraph(act, def *sysmlv1.Element) *activity {
+	a := m.newActivity(act, def)
+	a.link()
+	a.resolveData()
+	a.deaden()
+	return a
+}
+
+// graphWait names the first wait the graph a of the behavior b is written with,
+// in the order the writer meets its nodes: the wait before a node a duration
+// constrains, an accept of a time event, the wait of the behavior a call
+// invokes, or one in a structured node's own graph. A node that never fires,
+// whose pin nothing fills, is written without its wait.
+func (m *migration) graphWait(a *activity, b *sysmlv1.Element, seen map[*sysmlv1.Element]bool) string {
+	for _, n := range a.nodes {
+		if a.starvedPin(n) != nil {
+			continue
+		}
+		if w := m.waitOf(n); w.ok {
+			return "the duration constraint " + describe(w.dc) + " on " + describe(n) + " in " + describe(b)
+		}
+		found := ""
+		switch {
+		case n.Type == "AcceptEventAction" && m.acceptsTime(n):
+			found = "the accept of a time event " + describe(n) + " in " + describe(b)
+		case isStructured(n):
+			found = m.graphWait(m.scanGraph(n, n), b, seen)
+		case a.invokes(n):
+			found = m.clockWaitIn(a.callee(n), seen)
+		}
+		if found != "" {
+			return found
+		}
 	}
-	return m.clockWaitIn(b, seen)
+	return ""
+}
+
+// invokes reports whether the call n is written invoking the behavior it names
+// or the operation's method: not when it is a placeholder, calls a function of
+// the library, or is the empty step standing for a call of an operation written
+// as a usage whose target pin names no object read from this.
+func (a *activity) invokes(n *sysmlv1.Element) bool {
+	if a.dead[n] {
+		return false
+	}
+	switch n.Type {
+	case "CallBehaviorAction":
+		return a.m.primitiveCalled(n) == nil
+	case "CallOperationAction":
+		op := a.m.model.Ref(n, "operation")
+		t := firstOwned(n, "target")
+		if !a.m.asUsage[op] || t == nil {
+			return true
+		}
+		if port := a.m.model.Ref(n, "onPort"); port != nil {
+			_, _, ok := a.portReceiver(port, t, op)
+			return ok
+		}
+		_, _, ok := a.receiverOf(t, op)
+		return ok
+	}
+	return false
+}
+
+// callee is the activity the call n invokes: the behavior it names, or the
+// method of the operation.
+func (a *activity) callee(n *sysmlv1.Element) *sysmlv1.Element {
+	if n.Type == "CallOperationAction" {
+		return a.m.bodyMethod(a.m.model.Ref(n, "operation"))
+	}
+	return a.m.model.Ref(n, "behavior")
 }
 
 // acceptsTime reports whether the accept action n is written accepting a time
