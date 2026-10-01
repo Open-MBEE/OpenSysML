@@ -228,20 +228,20 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 		t.Fatalf("the definition draws %v, want its port nested", nodeNames(def.Children))
 	}
 	byName := nodesByName(rendering)
-	sensor, heating := byName["sensor"], byName["heating"]
-	reading, in := pinNamed(sensor, "reading"), pinNamed(heating, "durationIn")
+	sensor, probe := byName["sensor"], byName["probe"]
+	reading, in := pinNamed(sensor, "reading"), pinNamed(probe, "durationIn")
 	if reading == nil || in == nil {
-		t.Fatalf("the parts pin no port: sensor %+v, heating %+v", sensor, heating)
+		t.Fatalf("the parts pin no port: sensor %+v, probe %+v", sensor, probe)
 	}
-	if len(sensor.Children) != 1 || sensor.Children[0].Name != "probe" {
+	if len(sensor.Children) != 1 || sensor.Children[0] != probe {
 		t.Errorf("sensor nests %v, want probe", nodeNames(sensor.Children))
 	}
 	if len(rendering.Edges) != 1 {
 		t.Fatalf("edges = %+v, want feed", rendering.Edges)
 	}
-	if edge := rendering.Edges[0]; edge.From != sensor.ID || edge.FromPort != reading.ID || edge.To != heating.ID || edge.ToPort != in.ID {
+	if edge := rendering.Edges[0]; edge.From != sensor.ID || edge.FromPort != reading.ID || edge.To != probe.ID || edge.ToPort != in.ID {
 		t.Errorf("feed = %s:%s -> %s:%s, want %s:%s -> %s:%s", edge.From, edge.FromPort, edge.To, edge.ToPort,
-			sensor.ID, reading.ID, heating.ID, in.ID)
+			sensor.ID, reading.ID, probe.ID, in.ID)
 	}
 	mermaid := rendering.Mermaid()
 	// The three-line title needs two lines of margin under it, 24 pixels each.
@@ -255,7 +255,7 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := fmt.Sprintf("%q -> %q:%q [label=\"feed\"", reading.ID, heating.ID, in.ID); !strings.Contains(dot, want) {
+	if want := fmt.Sprintf("%q -> %q:%q [label=\"feed\"", reading.ID, probe.ID, in.ID); !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks the edge at the pins %q:\n%s", want, dot)
 	}
 }

@@ -39,10 +39,9 @@ package ToasterDemo {
 	}
 
 	part def Rig {
-		part heating : HeatingSystem;
 		part sensor : Sensor {
-			part probe : Chassis;
-			connection feed connect reading to heating.durationIn;
+			part probe : HeatingSystem;
+			connection feed connect reading to probe.durationIn;
 		}
 	}
 }
