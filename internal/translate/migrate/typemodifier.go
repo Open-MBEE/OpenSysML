@@ -116,10 +116,14 @@ func kwArticle(kw string) string {
 }
 
 // shape is the multiplicity the type modifier writes in place of the declared
-// one, "" when it writes none: a v1 array is ordered and admits repeated values.
-func (tm *typeModifier) shape() string {
+// one, "" when it writes none: a v1 array is ordered and admits repeated
+// values, which a usage that must be unique (writtenUnique) does not say.
+func (tm *typeModifier) shape(unique bool) string {
 	if tm == nil || tm.mult == "" {
 		return ""
+	}
+	if unique {
+		return tm.mult + " ordered"
 	}
 	return tm.mult + " ordered nonunique"
 }

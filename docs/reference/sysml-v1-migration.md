@@ -126,7 +126,7 @@ returned over the service yet.
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
 | InstanceSpecification naming no classifier, under a `SimulationConfig`'s `resultLocation`, whose slots are of features of one lineage of blocks ending in the configuration's target classifier or a general of it (a simulation tool's result snapshot) | the `individual part def` of the most special of those blocks, with its slots; the note says which owner classified it and for which configuration | mapped |
 | InstanceSpecification naming no classifier, anywhere else, or under a `resultLocation` with slots of features of blocks that are no one lineage or none the target is of | comment | **unmapped** — nothing classifies it; under a `resultLocation` the note says which owners its slots have and why they type no snapshot |
-| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
+| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a feature written unique — declared so in v1, or written without its `nonunique` by the rule above — a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
 | Slot of a port, or of an untyped property | comment (no individual can type a port; a `ref` without a type takes none) | **unmapped** |
 | Property whose default is an InstanceSpecification of a block | the individual added to the usage's types, or its only type when the property is untyped; no `default` (a definition is not a v2 value). A port, a usage of another kind than the individual, or a usage whose type the individual is not an instance of, keeps its types and the default is a comment | approximated |
 | Literal default on a value type with no scalar base (a structured value type, an enumeration) | comment | approximated |
@@ -138,6 +138,7 @@ returned over the service yet.
 | Anonymous association owning every end | a named `connection def` | approximated |
 | Value property | `attribute`, with multiplicity and default | mapped |
 | Composite part property | `part` | mapped |
+| Property with `isOrdered` / `isUnique="false"` | `ordered` / `nonunique` after the multiplicity — except `nonunique` on a usage that must be unique: one that implicitly subsets a unique library feature (a composite `part` or `item` in a part or item, `Items::Item::subparts`/`subitems`; a composite `action` in an action, `Actions::Action::subactions`, or in a part, `Parts::Part::ownedActions`; likewise `substates`, `subcalculations`, `subcases`, `ownedPorts`, `suboccurrences`…), or that redefines or subsets a feature written unique. The target is the one `ImplicitSubsettings` gives the written usage, its uniqueness read from the bundled library, so an `attribute` (`Base::dataValues`) and a `ref part` (no implicit subsetting) keep `nonunique`. The modifier is dropped and the entry notes which unique feature forbade it | mapped; approximated when `nonunique` is dropped ("nonunique is not written: …") |
 | Reference property (no aggregation) | `ref part` | mapped |
 | Undirected part or item property of an «InterfaceBlock» | `ref part` / `ref item`; a port owns no composite parts | approximated |
 | Shared aggregation | `ref part` | approximated |
@@ -852,7 +853,8 @@ as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text`
 One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
 property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
 whose declared multiplicity is `[1]` or absent writes `[0..*] ordered nonunique`, and `[n]`
-writes `[n] ordered nonunique`, so the feature is the sequence the tool meant; `*` (and `&`)
+writes `[n] ordered nonunique`, so the feature is the sequence the tool meant — `ordered`
+alone, with the drop noted, on a usage that must be unique (the `isUnique` row); `*` (and `&`)
 on a part or item property held by value writes it `ref`, a reference rather than a
 containment. A shape with no v2 form is kept as the applied-stereotype comment with the reason
 in the report: `[][]`, `[n*m]` and other two-dimensional shapes (a multiplicity has one
