@@ -74,12 +74,22 @@
               <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e3" source="_tot_col_count" target="_tot_col_iter"/>
               <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e4" source="_tot_col_iter" target="_tot_table_final"/>
             </node>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_tot_each" name="Per Type">
+              <node xmi:type="uml:InitialNode" xmi:id="_tot_each_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_each_name" name="Interface Type"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_each_count" name="Number of Interfaces"/>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_tot_each_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e1" source="_tot_each_init" target="_tot_each_name"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e2" source="_tot_each_name" target="_tot_each_count"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e3" source="_tot_each_count" target="_tot_each_final"/>
+            </node>
             <node xmi:type="uml:ActivityFinalNode" xmi:id="_tot_final"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e1" source="_tot_init" target="_tot_collect"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e2" source="_tot_collect" target="_tot_filter"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e3" source="_tot_filter" target="_tot_sort"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e4" source="_tot_sort" target="_tot_table"/>
-            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e5" source="_tot_table" target="_tot_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e5" source="_tot_table" target="_tot_each"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e6" source="_tot_each" target="_tot_final"/>
           </ownedBehavior>
         </packagedElement>
 
@@ -153,12 +163,20 @@
                   <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_sorted_e2" source="_ifc_sorted_collect" target="_ifc_sorted_sort"/>
                   <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_sorted_e3" source="_ifc_sorted_sort" target="_ifc_sorted_final"/>
                 </node>
+                <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_col_assoc" name="Associated">
+                  <node xmi:type="uml:InitialNode" xmi:id="_ifc_assoc_init"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_assoc_collect" name="Collect By Association"/>
+                  <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_assoc_final"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_assoc_e1" source="_ifc_assoc_init" target="_ifc_assoc_collect"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_assoc_e2" source="_ifc_assoc_collect" target="_ifc_assoc_final"/>
+                </node>
                 <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_table_final"/>
                 <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e1" source="_ifc_table_init" target="_ifc_col_name"/>
                 <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e2" source="_ifc_col_name" target="_ifc_col_desc"/>
                 <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e3" source="_ifc_col_desc" target="_ifc_col_ifc"/>
                 <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e4" source="_ifc_col_ifc" target="_ifc_col_sorted"/>
-                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e5" source="_ifc_col_sorted" target="_ifc_table_final"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e5" source="_ifc_col_sorted" target="_ifc_col_assoc"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e6" source="_ifc_col_assoc" target="_ifc_table_final"/>
               </node>
               <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_loop_final"/>
               <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_loop_e1" source="_ifc_loop_init" target="_ifc_bullet"/>
@@ -213,6 +231,9 @@
           <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_conn" name="connections" type="_view_conn" aggregation="composite"/>
           <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_ifc" name="interfaces" type="_view_ifc" aggregation="composite"/>
           <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_per" name="perPart" type="_view_per" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_doc_sum" name="Interface Summary">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_sum_ifc" name="interfaces" type="_view_ifc" aggregation="composite"/>
         </packagedElement>
         <packagedElement xmi:type="uml:Class" xmi:id="_view_totals" name="Interface Totals">
           <generalization xmi:type="uml:Generalization" xmi:id="_gen_totals" general="_vp_totals"/>
@@ -285,6 +306,7 @@
   <sysml:Expose xmi:id="_st_expose_ifc" base_Dependency="_expose_ifc"/>
   <sysml:Expose xmi:id="_st_expose_per" base_Dependency="_expose_per"/>
   <Document_Profile_:Document xmi:id="_st_doc_icd" base_Class="_doc_icd"/>
+  <Document_Profile_:Document xmi:id="_st_doc_sum" base_Class="_doc_sum"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_tot_collect" base_CallBehaviorAction="_tot_collect" depth="1"/>
   <Document_Profile_:FilterByMetaclasses xmi:id="_st_tot_filter" base_CallBehaviorAction="_tot_filter" include="true">
@@ -297,6 +319,11 @@
   <Document_Profile_:TableAttributeColumn xmi:id="_st_tot_col_name" base_CallBehaviorAction="_tot_col_name" desiredAttribute="Name"/>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_col_count" base_CallBehaviorAction="_tot_col_count" expression="_typedElementOfType-&gt;size()"/>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_col_iter" base_CallBehaviorAction="_tot_col_iter" expression="ownedElement-&gt;iterate(x; acc : Integer = 0 | acc + 1)"/>
+  <Document_Profile_:TableStructure xmi:id="_st_tot_each" base_StructuredActivityNode="_tot_each" includeDoc="false" loop="true" numberedRows="false">
+    <titles>Per Type</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_tot_each_name" base_CallBehaviorAction="_tot_each_name" desiredAttribute="Name"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_each_count" base_CallBehaviorAction="_tot_each_count" expression="_typedElementOfType-&gt;size()"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_conn_collect" base_CallBehaviorAction="_conn_collect" depth="1"/>
   <Document_Profile_:FilterByMetaclasses xmi:id="_st_conn_filter" base_CallBehaviorAction="_conn_filter" include="true">
@@ -342,6 +369,8 @@
   <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_sorted" base_StructuredActivityNode="_ifc_col_sorted" desiredAttribute="Name"/>
   <Document_Profile_:CollectOwnedElements xmi:id="_st_ifc_sorted_collect" base_CallBehaviorAction="_ifc_sorted_collect" depth="1"/>
   <Document_Profile_:SortByProperty xmi:id="_st_ifc_sorted_sort" base_CallBehaviorAction="_ifc_sorted_sort" desiredProperty="_fp_usb_data"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_assoc" base_StructuredActivityNode="_ifc_col_assoc" desiredAttribute="Name"/>
+  <Document_Profile_:CollectByAssociation xmi:id="_st_ifc_assoc_collect" base_CallBehaviorAction="_ifc_assoc_collect" depth="1" associationType="composite"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_per_collect" base_CallBehaviorAction="_per_collect" depth="1"/>
   <Document_Profile_:FilterByMetaclasses xmi:id="_st_per_parts" base_CallBehaviorAction="_per_parts" include="true">

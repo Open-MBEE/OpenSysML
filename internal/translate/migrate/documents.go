@@ -27,6 +27,9 @@ type docPlan struct {
 	anchors []*anchor
 	// notes are the approximations the document as a whole carries.
 	notes []string
+	// refused records the steps ledgered unmapped in this document by id and
+	// note, so a looping node's passes report a step they share once.
+	refused map[string]bool
 }
 
 // anchor is a Document's reference usage of a definition, through which a
@@ -187,7 +190,7 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 	if title == "" {
 		title = "Document"
 	}
-	dp := &docPlan{d: d, host: host}
+	dp := &docPlan{d: d, host: host, refused: map[string]bool{}}
 	dp.root = &sectionPlan{v: d.Root, title: title, names: columnNames{}}
 	dp.root.name = m.viewName(host, title+docSuffix)
 	m.planSection(dp, dp.root)
@@ -870,6 +873,10 @@ type chain struct {
 	// active are the activities being lowered, outermost first, so a
 	// recursive call is refused rather than followed.
 	active []*sysmlv1.Element
+	// perRow says the chain runs from each row of a table in turn, as a
+	// column's does: the holders are every row's elements together, so a step
+	// that spells its result from them, rather than from ctx, does not apply.
+	perRow bool
 }
 
 func (c *chain) sub() *chain {
@@ -1104,15 +1111,16 @@ func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 	}
 }
 
-// refusedEntry ledgers a step unmapped once: the passes of a looping node run
-// the same step, and its refusal is one line however many times it is met.
+// refusedEntry ledgers a step unmapped once per document: the passes of a
+// looping node run the same step, and its refusal is one line however many
+// times the document meets it; another document meeting it has its own line.
 func (c *chain) refusedEntry(s *sysmlv1.DocGenStep, why string) {
 	e := c.m.nodeEntry(s.Node, s.Application, Unmapped, why)
 	key := e.ID + "\x00" + why
-	if c.m.refusedSteps[key] {
+	if c.dp.refused[key] {
 		return
 	}
-	c.m.refusedSteps[key] = true
+	c.dp.refused[key] = true
 	c.m.report.Entries = append(c.m.report.Entries, *e)
 }
 
@@ -1432,6 +1440,10 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 	c.diagrams, c.dropped, c.none = nil, "", ""
 	if c.vague != "" || c.hazy != "" {
 		c.fail(s, "the elements it starts from are known only when the query runs, and no query operation tells a "+kind+" feature from the others")
+		return
+	}
+	if c.perRow {
+		c.fail(s, "it follows the "+kind+" attributes of each row to their types, and no query operation tells a "+kind+" feature from the others")
 		return
 	}
 	holders := c.holders
@@ -1808,6 +1820,10 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		return
 	}
 	if len(renamed) > 0 {
+		if c.perRow {
+			c.fail(s, "it keeps or drops elements by their v1 names, which differ from their v2 names, and a column's chain can only match the v2 names of each row's elements")
+			return
+		}
 		c.keepNamed(s, renamed)
 		return
 	}
@@ -2229,6 +2245,8 @@ func (c *chain) block(s *sysmlv1.DocGenStep, kind, caption string, rows qx) *con
 }
 
 // table lowers a TableStructure: the current elements projected by columns.
+// Its loop tag changes nothing, as in DocGen, which keeps a table's loop and
+// runs none: the table lists the elements the chain holds together.
 func (c *chain) table(s *sysmlv1.DocGenStep) {
 	if !c.ready(s) {
 		return
@@ -2358,7 +2376,7 @@ func (c *chain) expressionColumn(col *sysmlv1.DocGenStep, e string, self oclValu
 // reads the attribute, or the expression, of every element it yields.
 func (c *chain) collectedColumn(col *sysmlv1.DocGenStep, steps []*sysmlv1.DocGenStep) (prop string, expr columnExpr, notes []string, why string) {
 	sub := c.sub()
-	sub.ctx, sub.diagrams, sub.notes = qlit("row"), nil, nil
+	sub.ctx, sub.diagrams, sub.notes, sub.perRow = qlit("row"), nil, nil, true
 	sub.sec = &sectionPlan{names: columnNames{}}
 	sub.run(steps)
 	if sub.broken != "" {

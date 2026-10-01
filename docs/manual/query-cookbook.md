@@ -869,7 +869,12 @@ query body imports no library: `->SequenceFunctions::size()`, `->isEmpty()`,
 Feature; …}`, `->reject`, `->collect`, `->exists`, `->forAll`, each body a
 lambda over one element of the kind declared; and `->DocumentQueries::Distinct()`,
 the collection with each element once, in first-seen order (the library has no
-`distinct` of its own).
+`distinct` of its own). `row.ownedElement` is every element the row's body
+declares, named or not, and its documentation. A cell's `and`, `or` and
+`implies` are conditional, as the language defines them: the first operand
+decides where it can (`false and …`, `true or …`, `false implies …`), and the
+second is then not evaluated, so a navigation that would fail on it does not
+fail the cell; `&` and `|` evaluate both.
 
 ```sysml
 calc def ConnectionEnds :> Query {

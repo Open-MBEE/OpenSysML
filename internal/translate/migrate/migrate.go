@@ -148,7 +148,6 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		unplaced:          map[*sysmlv1.Element]*placement{},
 		satisfied:         map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
 		framed:            map[*sysmlv1.Element]bool{},
-		refusedSteps:      map[string]bool{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
@@ -514,9 +513,6 @@ type migration struct {
 	satisfied map[*sysmlv1.Element]map[*sysmlv1.Element]bool
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
-	// refusedSteps records the document steps ledgered unmapped by id and note, so a
-	// looping node's passes report a step they share once.
-	refusedSteps map[string]bool
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.

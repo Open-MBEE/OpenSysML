@@ -1307,13 +1307,23 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 	return ends
 }
 
-// ownedElementsOf is Element::ownedElement: the members sym's body declares
-// and its documentation, in declaration order.
+// ownedElementsOf is Element::ownedElement: the members sym's body declares,
+// the named ones in declaration order and then those declared without a
+// name, and its documentation.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	members := ownedMembersOf(sym)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
+	}
+	if sym.Scope != nil {
+		sym.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
+			if member.Kind != symbols.SymbolAlias && !seen[member] {
+				seen[member] = true
+				members = append(members, member)
+			}
+			return true
+		})
 	}
 	for _, doc := range m.documentationSymbols(sym) {
 		if !seen[doc] {

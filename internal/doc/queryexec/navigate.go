@@ -482,7 +482,9 @@ func sequencesEqual(left, right []Value) bool {
 
 // evaluateLogicalOperator applies a comparison, Boolean connective or
 // classification test: `==` and `!=` compare the operand sequences; the
-// connectives take one Boolean each; `istype` and `@` test the one value.
+// connectives take one Boolean each, and the conditional `and`, `or` and
+// `implies` leave their second operand unevaluated once the first decides
+// them; `istype` and `@` test the one value.
 func (e *executor) evaluateLogicalOperator(
 	expression queryplan.Expression,
 	column string,
@@ -495,55 +497,84 @@ func (e *executor) evaluateLogicalOperator(
 	default:
 		return nil, false, nil
 	}
-	operands := expression.Arguments()
-	at := func(value bool) []Value { return []Value{valueAt(BooleanValue(value), expression.Origin())} }
-	values := make([][]Value, 0, len(operands))
-	for _, operand := range operands {
-		if operand.Name == "type" {
-			continue
+	var operands []queryplan.Argument
+	for _, operand := range expression.Arguments() {
+		if operand.Name != "type" {
+			operands = append(operands, operand)
 		}
-		operandValues, err := e.evaluateColumnExpression(operand.Value, column, row, tracker)
+	}
+	at := func(value bool) []Value { return []Value{valueAt(BooleanValue(value), expression.Origin())} }
+	truth := func(i int) (bool, error) {
+		values, err := e.evaluateColumnExpression(operands[i].Value, column, row, tracker)
+		if err != nil {
+			return false, err
+		}
+		if len(values) != 1 {
+			return false, e.columnError(ErrorColumnOperand, column, row, operands[i].Value.Origin(), operator, strconv.Itoa(len(values)))
+		}
+		value, ok := values[0].Boolean()
+		if !ok {
+			return false, e.columnError(ErrorColumnOperandType, column, row, expression.Origin(), operator, string(values[0].Kind()))
+		}
+		return value, nil
+	}
+	switch operator {
+	case "==", "!=":
+		left, err := e.evaluateColumnExpression(operands[0].Value, column, row, tracker)
 		if err != nil {
 			return nil, true, err
 		}
-		values = append(values, operandValues)
-	}
-	switch operator {
-	case "==":
-		return at(sequencesEqual(values[0], values[1])), true, nil
-	case "!=":
-		return at(!sequencesEqual(values[0], values[1])), true, nil
+		right, err := e.evaluateColumnExpression(operands[1].Value, column, row, tracker)
+		if err != nil {
+			return nil, true, err
+		}
+		return at(sequencesEqual(left, right) == (operator == "==")), true, nil
 	case "istype", "@":
 		typeArgument, ok := argumentValue(expression, "type")
 		if !ok {
 			return nil, true, e.invalidArgument(expression, "type", "")
 		}
 		target, _ := typeArgument.Element()
-		if len(values[0]) != 1 {
-			return nil, true, e.columnError(ErrorColumnOperand, column, row, expression.Origin(), operator, strconv.Itoa(len(values[0])))
+		values, err := e.evaluateColumnExpression(operands[0].Value, column, row, tracker)
+		if err != nil {
+			return nil, true, err
 		}
-		return at(e.valueIsA(values[0][0], typeTest{name: typeArgument.Target(), target: target})), true, nil
+		if len(values) != 1 {
+			return nil, true, e.columnError(ErrorColumnOperand, column, row, expression.Origin(), operator, strconv.Itoa(len(values)))
+		}
+		return at(e.valueIsA(values[0], typeTest{name: typeArgument.Target(), target: target})), true, nil
 	}
-	truths := make([]bool, len(values))
-	for i, operandValues := range values {
-		if len(operandValues) != 1 {
-			return nil, true, e.columnError(ErrorColumnOperand, column, row, operands[i].Value.Origin(), operator, strconv.Itoa(len(operandValues)))
-		}
-		truth, ok := operandValues[0].Boolean()
-		if !ok {
-			return nil, true, e.columnError(ErrorColumnOperandType, column, row, expression.Origin(), operator, string(operandValues[0].Kind()))
-		}
-		truths[i] = truth
+	first, err := truth(0)
+	if err != nil {
+		return nil, true, err
 	}
 	switch operator {
 	case "not":
-		return at(!truths[0]), true, nil
-	case "and", "&":
-		return at(truths[0] && truths[1]), true, nil
-	case "or", "|":
-		return at(truths[0] || truths[1]), true, nil
-	case "xor":
-		return at(truths[0] != truths[1]), true, nil
+		return at(!first), true, nil
+	case "and":
+		if !first {
+			return at(false), true, nil
+		}
+	case "or":
+		if first {
+			return at(true), true, nil
+		}
+	case "implies":
+		if !first {
+			return at(true), true, nil
+		}
 	}
-	return at(!truths[0] || truths[1]), true, nil
+	second, err := truth(1)
+	if err != nil {
+		return nil, true, err
+	}
+	switch operator {
+	case "and", "&":
+		return at(first && second), true, nil
+	case "or", "|":
+		return at(first || second), true, nil
+	case "xor":
+		return at(first != second), true, nil
+	}
+	return at(!first || second), true, nil
 }

@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"errors"
 	"slices"
 	"testing"
 )
@@ -213,5 +214,75 @@ calc def Q :> Query {
 	}
 	if got := cellStrings(t, result, "Path"); !slices.EqualFunc(got, [][]string{{"System"}, {"System"}}, slices.Equal) {
 		t.Fatalf("Path cells = %q", got)
+	}
+}
+
+// The conditional `and`, `or` and `implies` decide on their first operand
+// where it settles them, leaving the second unevaluated: a second operand
+// that yields two Booleans fails only when it is reached, as `&` and `|`
+// always reach it.
+func TestExecuteCellLogicalOperatorsShortCircuit(t *testing.T) {
+	const twoBooleans = `row.connectorEnd->ControlFunctions::collect {in e; e.name == "x"}`
+	for _, tc := range []struct {
+		expr string
+		want bool
+	}{
+		{"false and " + twoBooleans, false},
+		{"true or " + twoBooleans, true},
+		{"false implies " + twoBooleans, true},
+	} {
+		result := navigationRows(t, `
+calc def Q :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "ConnectionUsage"),
+		properties = ("name"),
+		columns = (Column(name = "Decided", cell = { in row : KerML::Kernel::Connector; `+tc.expr+` })))
+}`, "System")
+		if got := cellBooleans(t, result, "Decided"); !slices.EqualFunc(got, [][]bool{{tc.want}, {tc.want}}, slices.Equal) {
+			t.Errorf("%s = %v, want %v on every row", tc.expr, got, tc.want)
+		}
+	}
+	for _, expr := range []string{
+		"true and " + twoBooleans,
+		"false or " + twoBooleans,
+		"true implies " + twoBooleans,
+		"false & " + twoBooleans,
+		"true | " + twoBooleans,
+	} {
+		fixture := loadExecutionFixture(t, navigationBody+`
+calc def Q :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "ConnectionUsage"),
+		properties = ("name"),
+		columns = (Column(name = "Reached", cell = { in row : KerML::Kernel::Connector; `+expr+` })))
+}`)
+		_, err := fixture.execute(t, "Q", Bindings{"root": {ElementValue(fixture.symbol(t, "System"))}}, Options{})
+		var execErr *Error
+		if !errors.As(err, &execErr) || execErr.Kind != ErrorColumnOperand {
+			t.Errorf("%s: error = %v, want %v for the two-valued operand it reaches", expr, err, ErrorColumnOperand)
+		}
+	}
+}
+
+// `ownedElement` lists every element a type's body declares: the named
+// members and the ones declared without a name, each once.
+func TestExecuteCellOwnedElementIncludesAnonymousMembers(t *testing.T) {
+	result := navigationRows(t, `
+calc def Q :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PortDefinition"),
+		properties = ("name"),
+		columns = (
+			Column(name = "Owned", cell = { in row : KerML::Root::Element; row.ownedElement->SequenceFunctions::size() }),
+			Column(name = "Named", cell = { in row : KerML::Root::Element; row.ownedElement.name })))
+}`, "Interfaces")
+	if got := cellNumbers(t, result, "Owned"); !slices.EqualFunc(got, [][]float64{{2}, {0}, {2}, {0}}, slices.Equal) {
+		t.Fatalf("Owned cells = %v, want Digital's attribute def and anonymous attribute, Serial's rx and tx", got)
+	}
+	if got := cellStrings(t, result, "Named"); !slices.EqualFunc(got, [][]string{{"Frame"}, nil, {"rx", "tx"}, nil}, slices.Equal) {
+		t.Fatalf("Named cells = %v", got)
 	}
 }

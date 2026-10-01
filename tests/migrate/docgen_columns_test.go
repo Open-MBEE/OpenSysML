@@ -53,7 +53,7 @@ func TestDocGenCollectedColumnsLowered(t *testing.T) {
 	r := migrateFixtureFile(t, "docgen_columns")
 	wantLine(t, r.Notation, `DocumentQueries::Column(name = "Description", cell = { in row : KerML::Root::Element; DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")).documentation })`)
 	wantLine(t, r.Notation, `DocumentQueries::Column(name = "Interfaces", cell = { in row : KerML::Root::Element; DocumentQueries::RelatedElements(source = DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")), relationshipKind = ("typing"), direction = ("outgoing"), maxDepth = 1).name })`)
-	wantNote(t, r, "_st_ifc_sorted_sort", migrate.Unmapped, "no query operation or content block stands for «SortByProperty»")
+	wantOneNote(t, r, "_st_ifc_sorted_sort", migrate.Unmapped, "no query operation or content block stands for «SortByProperty»")
 	wantOneNote(t, r, "_st_ifc_table", migrate.Approximated,
 		"the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»")
 	for _, e := range entriesFor(r, "_st_doc_icd") {
@@ -64,6 +64,82 @@ func TestDocGenCollectedColumnsLowered(t *testing.T) {
 	if n := strings.Count(string(r.Notation), `Column(name = "Sorted Ports"`); n != 0 {
 		t.Errorf("the refused column is written %d time(s):\n%s", n, r.Notation)
 	}
+}
+
+// TestDocGenAssociationColumnRefused checks a column whose chain follows
+// associations is refused with the step quoted: the step spells its result
+// from the elements known at migration, which are every row's together, not
+// each row's own.
+func TestDocGenAssociationColumnRefused(t *testing.T) {
+	r := migrateFixtureFile(t, "docgen_columns")
+	const why = "it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others"
+	wantOneNote(t, r, "_st_ifc_assoc_collect", migrate.Unmapped, why)
+	wantOneNote(t, r, "_st_ifc_table", migrate.Approximated,
+		"the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: "+why)
+	if n := strings.Count(string(r.Notation), `Column(name = "Associated"`); n != 0 {
+		t.Errorf("the refused column is written %d time(s):\n%s", n, r.Notation)
+	}
+}
+
+// TestDocGenRefusalsLedgeredPerDocument checks a step two documents share is
+// ledgered refused once for each document, and once however many passes of a
+// loop in one document meet it.
+func TestDocGenRefusalsLedgeredPerDocument(t *testing.T) {
+	r := migrateFixtureFile(t, "docgen_columns")
+	for _, id := range []string{"_st_ifc_sorted_sort", "_st_ifc_assoc_collect"} {
+		var unmapped int
+		for _, e := range entriesFor(r, id) {
+			if e.Verdict == migrate.Unmapped {
+				unmapped++
+			}
+		}
+		if unmapped != 2 {
+			t.Errorf("%s is ledgered unmapped %d time(s), want once per document:\n%+v", id, unmapped, entriesFor(r, id))
+		}
+	}
+	for _, id := range []string{"_st_doc_icd", "_st_doc_sum"} {
+		for _, e := range entriesFor(r, id) {
+			if n := strings.Count(e.Note, "Sorted Ports is not written"); n != 1 {
+				t.Errorf("%s notes the refused column %d time(s):\n%s", id, n, e.Note)
+			}
+		}
+	}
+	wantInOrder(t, "second document", string(r.Notation),
+		"part def 'Interface Summary Document' :> DocumentQueries::Document {",
+		"calc rows : 'Interface Summary Interfaces Table Rows';",
+		"calc rows : 'Interface Summary Interfaces Table Rows 2';")
+}
+
+// TestDocGenLoopTableListsTogether checks a TableStructure with loop = true
+// is one table over the elements its chain holds, ledgered mapped: DocGen
+// keeps a table's loop and runs none, so one table is what it prints. The
+// table nested in a looping StructuredQuery still lists each pass's elements.
+func TestDocGenLoopTableListsTogether(t *testing.T) {
+	r := migrateFixtureFile(t, "docgen_columns")
+	wantInOrder(t, "looped table", string(r.Notation),
+		"calc def 'Interface Control Document Per Type Rows'",
+		`source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),`,
+		`DocumentQueries::Column(name = "Number of Interfaces"`,
+		"part 'Interface Totals' : DocumentQueries::Section {",
+		"calc rows : 'Interface Control Document Interface Totals Rows';",
+		"part 'table 2' : DocumentQueries::Table {",
+		`attribute redefines caption = "Per Type";`,
+		"calc rows : 'Interface Control Document Per Type Rows';",
+		"part Connections : DocumentQueries::Section {")
+	if n := strings.Count(string(r.Notation), "calc def 'Interface Control Document Per Type Rows"); n != 1 {
+		t.Errorf("the looped table is written as %d queries, want one over its elements together", n)
+	}
+	wantTarget(t, r, "_st_tot_each", migrate.Mapped, "part "+icdDocument+"::'Interface Totals'::'table 2'")
+	for _, e := range entriesFor(r, "_st_tot_each") {
+		if strings.Contains(e.Note, "loop") {
+			t.Errorf("a table's loop, which DocGen runs none of, is noted: %s", e.Note)
+		}
+	}
+	wantInOrder(t, "nested table", string(r.Notation),
+		"calc def 'Interface Control Document Interfaces Table Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator"))`,
+		"calc def 'Interface Control Document Interfaces Table Rows 2'",
+		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror"))`)
 }
 
 // TestDocGenLoopsUnrolled checks a looping StructuredQuery writes its body
@@ -137,6 +213,11 @@ func TestDocGenColumnsRender(t *testing.T) {
 		"| Serial | 3 |",
 		"| Spare | 0 |",
 		"| USB | 2 |",
+		"*Per Type*",
+		"| name | Number of Interfaces |",
+		"| Serial | 3 |",
+		"| Spare | 0 |",
+		"| USB | 2 |",
 		"## Connections",
 		"| documentation | Point of Interface on Optical Bench | Point of Interface on Controller Rack | Type | Direction |",
 		"| Camera data to the rack. | collimator | hub | USB | inout |",
@@ -158,11 +239,15 @@ func TestDocGenColumnsRender(t *testing.T) {
 	if strings.Count(md, "*Interfaces Table*") != 2 {
 		t.Errorf("the looped table does not print once per assembly:\n%s", md)
 	}
+	if strings.Count(md, "*Per Type*") != 1 {
+		t.Errorf("the table whose loop DocGen runs none of does not print once:\n%s", md)
+	}
 	h := html(t, s, icdDocument)
 	wantInOrder(t, "HTML", h,
 		"<h2>Interface Totals</h2>",
 		">Number of Interfaces</th>",
 		">Serial</span>", ">3</span>",
+		`<caption class="sysml-caption">Per Type</caption>`, ">Serial</span>", ">3</span>", ">Spare</span>", ">0</span>", ">USB</span>", ">2</span>",
 		"<h2>Connections</h2>",
 		">Camera data to the rack.</span>", ">collimator</span>", ">hub</span>", ">USB</span>", ">inout</span>",
 		"<h2>Interfaces</h2>",
@@ -229,13 +314,14 @@ func TestDocGenLoopTablesRenderInstalledPDF(t *testing.T) {
 		"Interface Totals",
 		"Number of Interfaces",
 		"Serial", "3",
+		"Table 2.", "Per Type", "Serial", "3", "Spare", "0", "USB", "2",
 		"Connections",
 		"Camera data to the", "collimator", "hub", "USB", "inout",
 		"Interfaces",
 		"collimator",
-		"Table 3.", "Interfaces Table",
+		"Table 4.", "Interfaces Table",
 		"Collimator", "Camera link.", "USB, Serial",
 		"mirror",
-		"Table 4.", "Interfaces Table",
+		"Table 5.", "Interfaces Table",
 		"Mirror", "Tilt command.", "Serial")
 }

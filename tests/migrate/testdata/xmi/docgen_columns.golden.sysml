@@ -61,7 +61,15 @@ package Observatory {
                     action Iterated;
                     first Iterated then done;
                 }
-                first 'Interface Totals' then final;
+                first 'Interface Totals' then 'Per Type';
+                action 'Per Type' {
+                    first start then 'Interface Type';
+                    action 'Interface Type';
+                    first 'Interface Type' then 'Number of Interfaces';
+                    action 'Number of Interfaces';
+                    first 'Number of Interfaces' then done;
+                }
+                first 'Per Type' then final;
                 action final terminate;
                 metadata MigrationMetadata::SynthesizedName about final;
             }
@@ -139,7 +147,13 @@ package Observatory {
                             action 'Sort By Property';
                             first 'Sort By Property' then done;
                         }
-                        first 'Sorted Ports' then done;
+                        first 'Sorted Ports' then Associated;
+                        action Associated {
+                            first start then 'Collect By Association';
+                            action 'Collect By Association';
+                            first 'Collect By Association' then done;
+                        }
+                        first Associated then done;
                     }
                     first 'Interfaces Table' then done;
                 }
@@ -189,6 +203,10 @@ package Observatory {
             view perPart :> 'Per Part';
             /* applied stereotype «Document» */
         }
+        part def 'Interface Summary' {
+            view interfaces :> Interfaces;
+            /* applied stereotype «Document» */
+        }
         view 'Interface Totals' {
             satisfy Observatory::Viewpoints::'Totals Viewpoint';
             expose 'Interface Types'::**;
@@ -206,6 +224,22 @@ package Observatory {
             expose Observatory::Assemblies::'Optical Bench';
         }
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                            maxDepth = 1),
+                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    property = "name",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                properties = ("name"),
+                columns = (
+                    DocumentQueries::Column(name = "Number of Interfaces", cell = { in row : KerML::Core::Type; DocumentQueries::RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)->SequenceFunctions::size() })))
+        }
+        calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
                     source = DocumentQueries::WhereType(
@@ -287,6 +321,10 @@ package Observatory {
                     attribute redefines caption = "Interface Totals";
                     calc rows : 'Interface Control Document Interface Totals Rows';
                 }
+                part 'table 2' : DocumentQueries::Table {
+                    attribute redefines caption = "Per Type";
+                    calc rows : 'Interface Control Document Per Type Rows';
+                }
             }
             part Connections : DocumentQueries::Section {
                 attribute redefines title = "Connections";
@@ -329,6 +367,62 @@ package Observatory {
                         attribute redefines style = "bullet";
                         calc items : 'Interface Control Document The Part Rows 2';
                     }
+                }
+            }
+        }
+        calc def 'Interface Summary Assembly Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator")),
+                properties = ("name"))
+        }
+        calc def 'Interface Summary Interfaces Table Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::RelatedElements(
+                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator")),
+                    relationshipKind = ("typing"),
+                    direction = ("outgoing"),
+                    maxDepth = 1),
+                properties = ("name"),
+                columns = (
+                    DocumentQueries::Column(name = "Description", cell = { in row : KerML::Root::Element; DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")).documentation }),
+                    DocumentQueries::Column(name = "Interfaces", cell = { in row : KerML::Root::Element; DocumentQueries::RelatedElements(source = DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")), relationshipKind = ("typing"), direction = ("outgoing"), maxDepth = 1).name })))
+        }
+        calc def 'Interface Summary Assembly Rows 2' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror")),
+                properties = ("name"))
+        }
+        calc def 'Interface Summary Interfaces Table Rows 2' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::RelatedElements(
+                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror")),
+                    relationshipKind = ("typing"),
+                    direction = ("outgoing"),
+                    maxDepth = 1),
+                properties = ("name"),
+                columns = (
+                    DocumentQueries::Column(name = "Description", cell = { in row : KerML::Root::Element; DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")).documentation }),
+                    DocumentQueries::Column(name = "Interfaces", cell = { in row : KerML::Root::Element; DocumentQueries::RelatedElements(source = DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = row, maxDepth = 1), type = ("PortUsage")), relationshipKind = ("typing"), direction = ("outgoing"), maxDepth = 1).name })))
+        }
+        part def 'Interface Summary Document' :> DocumentQueries::Document {
+            attribute redefines title = "Interface Summary";
+            part Interfaces : DocumentQueries::Section {
+                attribute redefines title = "Interfaces";
+                part list : DocumentQueries::List {
+                    attribute redefines style = "bullet";
+                    calc items : 'Interface Summary Assembly Rows';
+                }
+                part table : DocumentQueries::Table {
+                    attribute redefines caption = "Interfaces Table";
+                    calc rows : 'Interface Summary Interfaces Table Rows';
+                }
+                part 'list 2' : DocumentQueries::List {
+                    attribute redefines style = "bullet";
+                    calc items : 'Interface Summary Assembly Rows 2';
+                }
+                part 'table 2' : DocumentQueries::Table {
+                    attribute redefines caption = "Interfaces Table";
+                    calc rows : 'Interface Summary Interfaces Table Rows 2';
                 }
             }
         }
