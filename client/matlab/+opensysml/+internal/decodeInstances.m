@@ -34,10 +34,10 @@ function [values, instances] = decodeInstances(conn, raw)
         item = rawById(key);
         features = containers.Map('KeyType', 'char', 'ValueType', 'any');
         if isfield(item, 'featureValues')
-            names = fieldnames(item.featureValues);
+            [names, rawFeatures] = opensysml.internal.mapEntries(item.featureValues);
             for j = 1:numel(names)
                 features(names{j}) = featureValue( ...
-                    names{j}, item.featureValues.(names{j}), @resolveOne);
+                    names{j}, rawFeatures{j}, @resolveOne);
             end
         end
         id = opensysml.parseInt64(item.id);
