@@ -166,7 +166,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 		if env.assign(name, outputs[name]) {
 			continue
 		}
-		if written, err := h.exec.assignEnclosing(h.perf, name, outputs[name]); written || err != nil {
+		if written, err := h.exec.returnEnclosing(h.perf, name, outputs[name], h.exec.owner.assignAround); written || err != nil {
 			if err != nil {
 				return fmt.Errorf("%s: %w", h.describe(), err)
 			}

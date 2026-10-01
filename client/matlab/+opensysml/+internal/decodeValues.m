@@ -19,6 +19,16 @@ function out = decodeValues(x)
         end
     elseif iscell(x)
         out = cellfun(@opensysml.internal.decodeValues, x, 'UniformOutput', false);
+    elseif isa(x, 'containers.Map')
+        names = x.keys;
+        if numel(names) == 1 && strcmp(names{1}, 'function')
+            out = opensysml.decodeValue(x);
+        else
+            out = x;
+            for i = 1:numel(names)
+                out(names{i}) = opensysml.internal.decodeValues(x(names{i}));
+            end
+        end
     else
         out = x;
     end

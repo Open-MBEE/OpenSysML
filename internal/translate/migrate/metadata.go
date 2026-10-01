@@ -101,7 +101,7 @@ func (m *migration) metadataAttribute(p *sysmlv1.Element) {
 	}
 	mult, mnote := m.declaredMultiplicity(p)
 	note = joinNotes(note, mnote)
-	decl += mult + collection(p)
+	decl += mult + collection(p, false)
 	m.add(p, verdictFor(note), m.v2Name(p), note)
 	m.w.block(decl, func() {
 		saved := m.scope
@@ -288,7 +288,7 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 	text := strings.TrimSpace(v)
 	switch sv {
 	case "", "String":
-		return source.StringText(commentText(v)), ""
+		return source.StringText(m.proseText(v, t)), ""
 	case "Boolean":
 		switch text {
 		case "true", "false":

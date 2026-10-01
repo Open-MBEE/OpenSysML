@@ -1,0 +1,21 @@
+exit: a
+stmt assign log
+    eval feature log -> ""
+    eval literal "X " -> "X "
+  eval operator + -> "X "
+exit: b
+exit: S1
+stmt assign log
+    eval feature log -> "X "
+    eval literal "Z " -> "Z "
+  eval operator + -> "X Z "
+enter: S1
+choice entering S1: next a(entry), b(entry) (unordered; took a(entry) first)
+enter: a
+enter: b
+transition: S1 -> S1 (event: accept Z)
+exit: b
+stmt assign log
+    eval feature log -> "X Z "
+    eval literal "Y " -> "Y "
+  eval operator + -> "X Z Y "

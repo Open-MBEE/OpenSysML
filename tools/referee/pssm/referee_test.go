@@ -166,9 +166,9 @@ func TestRefereeRunError(t *testing.T) {
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xJ">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
           </transition>
-          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xJ" target="xFin" guard="xT4guard">
+          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xJ" target="xJ" guard="xT4guard">
             <ownedRule xmi:type="uml:Constraint" xmi:id="xT4guard">
-              <specification xmi:type="uml:LiteralBoolean" xmi:id="xT4spec" value="false"/>
+              <specification xmi:type="uml:LiteralBoolean" xmi:id="xT4spec" value="true"/>
             </ownedRule>
           </transition>`
 	report, _ := refereeFixture(t, body, "", []string{"S1(entry)"}, Options{})
@@ -176,7 +176,7 @@ func TestRefereeRunError(t *testing.T) {
 	if row.Bucket != oreport.BucketFail {
 		t.Fatalf("bucket %s, want fail", row.Bucket)
 	}
-	wantReasons(t, row, "run error: ", "no guard evaluated to true")
+	wantReasons(t, row, "run error: ", "cycle")
 }
 
 // An exploration that runs out of budget fails, since the reachable set is unknown.
@@ -241,9 +241,9 @@ func TestRefereeRefusesASuiteReadInPart(t *testing.T) {
 	}
 }
 
-// differs-by-design comes only from the committed table: an unmapped failure
-// stays a failure; a failure mapped to a tool-choice row stays one, citing the
-// row; only a failure mapped to a "differs because v2 differs" row moves.
+// differs-by-design comes only from the committed table: an unmapped failure,
+// or one mapped to an agrees or tool-choice row, stays a failure citing its row;
+// only a "differs because v2 differs" row moves.
 func TestRefereeDiffersByDesignIsNotInferred(t *testing.T) {
 	broken := []string{"S1(entry)::nowhere"}
 	report, _ := refereeFixture(t, "", "", broken, Options{})
@@ -264,6 +264,13 @@ func TestRefereeDiffersByDesignIsNotInferred(t *testing.T) {
 		t.Errorf("%s: bucket %s row %q, want fail on %s", toolChoice, row.Bucket, row.Row, TestRows[toolChoice])
 	}
 	wantReasons(t, row, "reports on "+TestRows[toolChoice], string(RowToolChoice))
+
+	report, _ = refereeFixture(t, "", "Final001", broken, Options{})
+	row = report.Tests[0]
+	if row.Bucket != oreport.BucketFail || row.Row != "SM11" {
+		t.Errorf("Final001: bucket %s row %q, want fail on SM11", row.Bucket, row.Row)
+	}
+	wantReasons(t, row, "reports on SM11", string(RowAgrees))
 
 	byDesign := ""
 	for name, id := range TestRows {

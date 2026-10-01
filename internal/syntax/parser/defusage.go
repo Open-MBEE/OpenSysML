@@ -1500,7 +1500,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 			mods.noteUsageOnly(t)
 			// The variant element carries its own usage prefix (SysML.xtext
 			// VariantUsageElement → OccurrenceUsagePrefix): `variant ref port a;`.
+			beforeModifiers := p.peek().Span.Offset
 			p.parseMoreFeatureModifiers(&mods)
+			prefixed := p.peek().Span.Offset != beforeModifiers
 			prefixes = append(prefixes, p.parsePrefixMetadata()...)
 			if u := p.parsePortionPrefix(start, &mods, &prefixes); u != nil {
 				return applyPrefixes(u)
@@ -1511,6 +1513,17 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 				defKw := p.advance().KeywordID
 				p.advance() // 'def'
 				return applyPrefixes(p.parseDefinition(start, p.definitionKindOf(defKw), defKw, mods, false, true))
+			}
+			// `variant P::x;` and `variant a.b;` name the feature they reference
+			// (SysML-textual-bnf VariantReference :343-345, whose
+			// OwnedReferenceSubsetting is a qualified name or a feature chain);
+			// a lone `variant x;` keeps x as the name its reference resolves.
+			// A VariantReference takes no usage prefix, so `variant ref P::x;`
+			// is read as the declaration it is not and reported there.
+			if !prefixed && p.atQualifiedOrChainedName() {
+				u := p.parseReferenceMemberUsage(start, ast.UsagePart, "variant", "feature", mods, p.parseDefUsageBodyMembers, false)
+				u.IsVariant = true
+				return applyPrefixes(u)
 			}
 		}
 		isAll := p.acceptSufficientAll()
@@ -3410,6 +3423,16 @@ func (p *Parser) noBodyMemberMessage() string {
 // which synonym was written.
 func (p *Parser) parsePerformedActionReference(start int, mods featureMods, kw string) *ast.Usage {
 	return p.parseReferenceMemberUsage(start, ast.UsageAction, kw, "action", mods, p.parseActionBodyMixed, true)
+}
+
+// atQualifiedOrChainedName reports a name at the cursor that a `::` or `.`
+// continues, which no identification spells.
+func (p *Parser) atQualifiedOrChainedName() bool {
+	next := p.peekN(1).Kind
+	if p.at(lexer.Dollar) {
+		return next == lexer.ColonColon
+	}
+	return p.atName() && (next == lexer.ColonColon || next == lexer.Dot)
 }
 
 // memberKeywordNames are the SysML member keywords KerML does not reserve, so a

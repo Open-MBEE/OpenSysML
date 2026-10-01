@@ -361,7 +361,10 @@ end
 function result = findById(model, id)
     result = [];
     try
-        raw = opensysml.symbol(model, id);
+        raw = opensysml.call(model.connection, 'GetSymbol', ...
+            struct('modelHash', model.hash, 'symbolId', id));
+        if isfield(raw, 'error') && ~isempty(raw.error), return; end
+        if isfield(raw, 'symbol'), raw = raw.symbol; end
         if isfield(raw, 'id') && strcmp(raw.id, id)
             result = opensysml.Symbol(raw, model);
         end

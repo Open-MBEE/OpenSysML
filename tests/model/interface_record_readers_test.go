@@ -272,6 +272,23 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 }
 `),
 		},
+		// Refusing a read-only target reads the recorded modifier and redefinition.
+		"read-only target": {
+			"limits.sysml": []byte(`package Limits {
+	part def Base {
+		constant attribute limit : ScalarValues::Integer = 5;
+		derived attribute twice : ScalarValues::Integer;
+	}
+	part def Sub :> Base { attribute :>> limit; }
+}
+`),
+			"tune.sysml": []byte(`package Tune {
+	part def Tuner :> Limits::Sub {
+		action raise { assign limit := 7; assign twice := 8; }
+	}
+}
+`),
+		},
 		// A usage the classification has no kind for is still a feature, and
 		// is named by its notation where a reference to it is refused.
 		"unclassified usage": {

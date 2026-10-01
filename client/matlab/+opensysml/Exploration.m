@@ -92,10 +92,10 @@ function text = outcomeText(outcome)
     if ~isempty(outcome.statesVisited)
         parts{end+1} = ['visits ' strjoin(outcome.statesVisited, ', ')];
     end
-    names = fieldnames(outcome.outputs);
-    names = sort(names);
+    [names, values] = opensysml.internal.mapEntries(outcome.outputs);
+    [names, order] = sort(names);
     for i = 1:numel(names)
-        parts{end+1} = sprintf('%s = %s', names{i}, valueText(outcome.outputs.(names{i})));
+        parts{end+1} = sprintf('%s = %s', names{i}, valueText(values{order(i)}));
     end
     if isempty(parts), text = 'no outputs'; else, text = strjoin(parts, '; '); end
 end

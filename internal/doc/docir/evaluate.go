@@ -617,7 +617,15 @@ func evaluatedRun(run docplan.Run) TextRun {
 		if path := run.RefPath(); len(path) > 0 {
 			anchor = AnchorFor(path)
 		}
-		return TextRun{kind: RunRef, text: run.Text(), target: anchor, document: run.RefDocument(), origin: run.Origin()}
+		return TextRun{
+			kind:      RunRef,
+			text:      run.Text(),
+			target:    anchor,
+			document:  run.RefDocument(),
+			element:   run.RefElement(),
+			defaulted: run.TextDefaulted(),
+			origin:    run.Origin(),
+		}
 	default:
 		return TextRun{kind: styledKind(run.Style()), text: run.Text(), origin: run.Origin()}
 	}

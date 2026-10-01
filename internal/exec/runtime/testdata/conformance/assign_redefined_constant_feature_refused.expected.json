@@ -1,0 +1,5 @@
+{
+	"type": "action",
+	"evaluate": "test::tune",
+	"error": "feature is read-only: limit is constant by Tune::limit, which it redefines or subsets"
+}

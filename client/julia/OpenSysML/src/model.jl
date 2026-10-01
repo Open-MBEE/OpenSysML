@@ -70,6 +70,26 @@ Model(conn::Connection, hash, diagnostics, documents, roots, source_path=nothing
     Model(conn, String(hash), Diagnostic[d for d in diagnostics], String[String(d) for d in documents],
           Any[r for r in roots], source_path === nothing ? nothing : String(source_path))
 
+"""Output parameters from an action run, with performer attributes kept separately."""
+struct ActionOutputs <: AbstractDict{String,Any}
+    outputs::Dict{String,Any}
+    performer::Dict{String,Any}
+end
+ActionOutputs(outputs::AbstractDict, performer::AbstractDict=Dict{String,Any}()) =
+    ActionOutputs(Dict{String,Any}(String(k) => v for (k, v) in outputs),
+                  Dict{String,Any}(String(k) => v for (k, v) in performer))
+Base.length(outputs::ActionOutputs) = length(outputs.outputs)
+Base.iterate(outputs::ActionOutputs, state...) = iterate(outputs.outputs, state...)
+Base.getindex(outputs::ActionOutputs, key::String) = outputs.outputs[key]
+Base.haskey(outputs::ActionOutputs, key::String) = haskey(outputs.outputs, key)
+
+"""The states, context, and simulation time produced by a state-machine run."""
+struct StateRun
+    states_visited::Vector{String}
+    final_context::Dict{String,Any}
+    final_time::Float64
+end
+
 mutable struct Instance
     id::Int64
     type_symbol_id::String
@@ -169,7 +189,7 @@ function parse_file(conn::Connection, path::AbstractString; language::AbstractSt
 end
 
 """Parse one inline SysML or KerML source document."""
-function parse_source(conn::Connection, content::AbstractString; name::AbstractString="inline.sysml",
+function parse_source(conn::Connection, content::AbstractString; name::AbstractString="",
                       language::AbstractString="", strict::Bool=false,
                       strict_conformance::Bool=false)
     !isempty(language) && !(language in ("sysml", "kerml")) &&
@@ -190,7 +210,8 @@ function parse_source(conn::Connection, content::AbstractString; name::AbstractS
         call(conn, "ParseFile", request)
     end
     _check_error(answer, "ParseFile")
-    _model_from_answer(conn, answer; documents=[String(name)], strict=strict)
+    documents = isempty(name) ? String[] : [String(name)]
+    _model_from_answer(conn, answer; documents=documents, strict=strict)
 end
 
 function _parse_sources(conn::Connection, docs::Vector{SourceDocument};
@@ -257,7 +278,7 @@ function raise_for_errors(model::Model)
     es = errors(model)
     isempty(es) && return model
     location = model.source_path === nothing ? "the model" : model.source_path
-    summaries = ["$(d.message)" for d in es[1:min(end, 3)]]
+    summaries = [string(d) for d in es[1:min(end, 3)]]
     length(es) > 3 && push!(summaries, "... and $(length(es) - 3) more")
     throw(ModelError("$(location) has $(length(es)) error(s): $(join(summaries, "; "))", es; model=model))
 end
@@ -375,7 +396,9 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(),
         call(model.connection, "ExecuteAction", request)
     end
     _check_error(answer, "ExecuteAction")
-    return decode_values(answer)
+    decoded = decode_values(answer)
+    return ActionOutputs(get(decoded, "outputs", Dict{String,Any}()),
+                         get(decoded, "performerAttributes", Dict{String,Any}()))
 end
 
 """Execute a state machine with optional events, scheduling, or performer."""
@@ -398,7 +421,10 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[],
         call(model.connection, "ExecuteState", request)
     end
     _check_error(answer, "ExecuteState")
-    return decode_values(answer)
+    decoded = decode_values(answer)
+    return StateRun(String[String(state) for state in get(decoded, "statesVisited", Any[])],
+                    Dict{String,Any}(get(decoded, "finalContext", Dict{String,Any}())),
+                    Float64(get(decoded, "finalTime", 0.0)))
 end
 
 """Run a legacy OSLC query and return its decoded response dictionary."""

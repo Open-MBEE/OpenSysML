@@ -18,6 +18,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -51,6 +52,11 @@ type CachedModel struct {
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
 	byPositional   map[string]*symbols.Symbol
+	// elementIDs is what a conversion of the model writes as each element's
+	// elementId, which a query reports (queryEval.elementID).
+	elementIDsOnce sync.Once
+	elementIDs     *export.ElementIDs
+	elementIDsErr  error
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
