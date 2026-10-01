@@ -114,11 +114,11 @@ func runMigrate(files []string) (int, error) {
 	if err := migrateFlagsMisuse(input); err != nil {
 		return 0, err
 	}
-	out, imageFiles, err := migrateInput(name, data, from, to)
+	made, err := migrateInput(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
-	if err := writeConverted(input, to, out, imageFiles); err != nil {
+	if err := writeConverted(input, to, made); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
@@ -234,11 +234,11 @@ func runConvert(files []string) (int, error) {
 	if from == convert.FormatFMU && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return 0, fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
 	}
-	out, imageFiles, err := convertInput(name, data, from, to)
+	made, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
-	if err := writeConverted(input, to, out, imageFiles); err != nil {
+	if err := writeConverted(input, to, made); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
@@ -267,26 +267,34 @@ func migrateFlagsMisuse(input string) error {
 }
 
 // writeConverted writes the converted model to stdout or -o, the images a
-// migration wrote beside the file, none allowed to replace an input.
-func writeConverted(input string, to convert.Format, out []byte, imageFiles map[string][]byte) error {
+// migration wrote beside the file, none allowed to replace an input. The
+// migration's sidecars are written once the destination is known to take the
+// model, so a refused run leaves no report or results behind.
+func writeConverted(input string, to convert.Format, made produced) error {
 	if outputPath == "" {
-		if len(imageFiles) > 0 {
-			return fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(imageFiles))
+		if len(made.files) > 0 {
+			return fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(made.files))
 		}
-		_, err := os.Stdout.Write(out)
+		if err := made.writeSidecars(); err != nil {
+			return err
+		}
+		_, err := os.Stdout.Write(made.out)
 		return err
 	}
 	target, info, err := export.Destination(outputPath)
 	if err != nil {
 		return err
 	}
-	if len(imageFiles) == 0 {
-		return writeConversion(outputPath, out, to)
+	if len(made.files) == 0 {
+		if err := made.writeSidecars(); err != nil {
+			return err
+		}
+		return writeConversion(outputPath, made.out, to)
 	}
 	if info != nil && !info.Mode().IsRegular() {
 		return fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
 	}
-	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
+	for _, name := range slices.Sorted(maps.Keys(made.files)) {
 		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
 		for _, protected := range []string{target, input, migrationReport, migrationResults} {
 			if protected != "" && protected != "-" && samePath(dest, protected) {
@@ -294,43 +302,71 @@ func writeConverted(input string, to convert.Format, out []byte, imageFiles map[
 			}
 		}
 	}
-	return writeMigrationFiles(outputPath, out, to, info != nil, filepath.Dir(target), imageFiles)
+	if err := made.writeSidecars(); err != nil {
+		return err
+	}
+	return writeMigrationFiles(outputPath, made.out, to, info != nil, filepath.Dir(target), made.files)
+}
+
+// produced is what a producer made of its input: the model in the to format,
+// the attached image files a migration wrote for its document Image blocks
+// (nil for a conversion), and sidecars, which writes the migration's report
+// and results where -migration-report and -migration-results name (nil for a
+// conversion). The caller runs sidecars only once the destination has
+// accepted the model and its files.
+type produced struct {
+	out      []byte
+	files    map[string][]byte
+	sidecars func() error
+}
+
+// writeSidecars writes the migration's report and results, nothing for a conversion.
+func (p produced) writeSidecars() error {
+	if p.sidecars == nil {
+		return nil
+	}
+	return p.sidecars()
 }
 
 // producer writes the input read as from in the to format: convertInput for
-// -convert, migrateInput for -migrate. The files are the attached image files
-// a migration wrote for its document Image blocks, nil for a conversion.
-type producer func(name string, data []byte, from, to convert.Format) ([]byte, map[string][]byte, error)
+// -convert, migrateInput for -migrate.
+type producer func(name string, data []byte, from, to convert.Format) (produced, error)
 
 // convertInput runs the conversion -convert asks for. A SysML v1 model was
 // refused before anything was read.
-func convertInput(name string, data []byte, from, to convert.Format) ([]byte, map[string][]byte, error) {
+func convertInput(name string, data []byte, from, to convert.Format) (produced, error) {
 	opts, err := convertOptions(from, to)
 	if err != nil {
-		return nil, nil, err
+		return produced{}, err
 	}
 	out, err := convert.ConvertWith(name, data, from, to, opts)
-	return out, nil, err
+	if err != nil {
+		return produced{}, err
+	}
+	return produced{out: out}, nil
 }
 
-// migrateInput runs the migration -migrate asks for and writes its report and
-// results where -migration-report and -migration-results name.
-func migrateInput(name string, data []byte, _ convert.Format, to convert.Format) ([]byte, map[string][]byte, error) {
+// migrateInput runs the migration -migrate asks for. Its report and results
+// are written by the sidecars, once the destination has taken the model.
+func migrateInput(name string, data []byte, _ convert.Format, to convert.Format) (produced, error) {
 	migOpts, err := migrationOptions()
 	if err != nil {
-		return nil, nil, err
+		return produced{}, err
 	}
 	migrated, err := convert.Migrate(name, data, to, migOpts)
 	if err != nil {
-		return nil, nil, err
+		return produced{}, err
 	}
-	if err := writeMigrationReport(migrated.Report); err != nil {
-		return nil, nil, err
-	}
-	if err := writeMigrationResults(migrated.Results); err != nil {
-		return nil, nil, err
-	}
-	return migrated.Output, migrated.Files, nil
+	return produced{
+		out:   migrated.Output,
+		files: migrated.Files,
+		sidecars: func() error {
+			if err := writeMigrationReport(migrated.Report); err != nil {
+				return err
+			}
+			return writeMigrationResults(migrated.Results)
+		},
+	}, nil
 }
 
 // writeMigrationFiles writes a migration's model and its image files as one
@@ -638,13 +674,17 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 	if err := layoutMisuse(input); err != nil {
 		return 0, err
 	}
-	out, imageFiles, err := produce(name, data, from, to)
+	made, err := produce(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
-	if len(imageFiles) > 0 {
-		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(imageFiles))
+	if len(made.files) > 0 {
+		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(made.files))
 	}
+	if err := made.writeSidecars(); err != nil {
+		return 0, err
+	}
+	out := made.out
 	head, err := repo.Push(context.Background(), out, "sysml "+verb+" ttl")
 	if err != nil {
 		var stale *flexo.StaleBranchError

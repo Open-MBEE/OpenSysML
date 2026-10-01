@@ -672,6 +672,53 @@ func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 	}
 }
 
+// TestMigrateRefusedDestinationWritesNoSidecars a migration whose images no
+// destination can take leaves neither report nor results behind: stdout and a
+// directory -o are refused before the sidecars are written.
+func TestMigrateRefusedDestinationWritesNoSidecars(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := filepath.Join(dir, "report.txt")
+	results := filepath.Join(dir, "results.json")
+
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-migration-report", report, "-migration-results", results))
+	if res.status == 0 || !strings.Contains(res.stderr, "-o a local file path is required") {
+		t.Errorf("images to stdout: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	for _, sidecar := range []string{report, results} {
+		if _, err := os.Stat(sidecar); err == nil {
+			t.Errorf("a refused run still wrote %s", filepath.Base(sidecar))
+		}
+	}
+
+	outDir := filepath.Join(dir, "adir")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", outDir, "-migration-report", report))
+	if res.status == 0 || !strings.Contains(res.stderr, "which is not a file") {
+		t.Errorf("directory -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(report); err == nil {
+		t.Error("a refused run still wrote the report")
+	}
+
+	out := filepath.Join(dir, "documents.sysml")
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", out, "-migration-report", report, "-migration-results", results))
+	if res.status != 0 {
+		t.Fatalf("migrating: %s%s", res.stdout, res.stderr)
+	}
+	for _, written := range []string{out, report, results} {
+		if _, err := os.Stat(written); err != nil {
+			t.Errorf("the accepted run did not write %s: %v", filepath.Base(written), err)
+		}
+	}
+}
+
 // documentsMdzip packs the documents fixture with its attached image as an
 // mdzip in memory, so the migration has image files to write.
 func documentsMdzip(t *testing.T) []byte {
