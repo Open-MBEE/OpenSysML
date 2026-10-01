@@ -295,6 +295,7 @@ pub struct EditResult {
     pub applied: Vec<AppliedEdit>,
     /// Every document of a model parsed from several, as the edit left it.
     pub documents: Vec<EditedDocument>,
+    sole_document: bool,
     wire: wire::ApplyEditsResponse,
 }
 
@@ -306,7 +307,7 @@ impl EditResult {
     /// Write the edited notation to `path`, exactly as the service returned it; a model of
     /// several documents is refused, its documents being in [`EditResult::documents`].
     pub fn write(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        if self.content.is_empty() && self.documents.len() > 1 {
+        if !self.sole_document {
             return Err(Error::InvalidRequest(
                 "the edited model has several documents: write each of `documents` by name"
                     .to_owned(),
@@ -1636,8 +1637,11 @@ impl Editor {
                 upgrade_remedy(CAPABILITY_EDIT_DOCUMENTS),
             )?;
         }
-        self.connection
-            .apply_edits(&self.model_hash, &self.document, self.operations)
+        let mut result =
+            self.connection
+                .apply_edits(&self.model_hash, &self.document, self.operations)?;
+        result.sole_document &= !self.several_documents;
+        Ok(result)
     }
 }
 
@@ -1872,8 +1876,13 @@ fn extended_sequence(add: &wire::AddSequenceEdit, depth: usize) -> Result<bool, 
     Ok(extended)
 }
 
-pub(crate) fn edit_result_of(response: wire::ApplyEditsResponse) -> Result<EditResult, Error> {
+pub(crate) fn edit_result_of(
+    response: wire::ApplyEditsResponse,
+    reads_documents: bool,
+) -> Result<EditResult, Error> {
     let wire = response.clone();
+    let sole_document = !reads_documents
+        || matches!(response.documents.as_slice(), [only] if only.content == response.content);
     if !response.error.is_empty() {
         return Err(Error::Edit(Box::new(EditError {
             message: response.error,
@@ -1895,6 +1904,7 @@ pub(crate) fn edit_result_of(response: wire::ApplyEditsResponse) -> Result<EditR
         })));
     }
     Ok(EditResult {
+        sole_document,
         content: response.content,
         applied: response
             .applied
@@ -2118,7 +2128,7 @@ mod tests {
 
     #[test]
     fn a_refused_edit_carries_its_typed_failure_and_referrers() {
-        let error = edit_result_of(wire::ApplyEditsResponse {
+        let error = read_documents(wire::ApplyEditsResponse {
             error: "P::a is referred to".to_owned(),
             failure: wire::EditFailure::ReferencedElsewhere as i32,
             referring_elements: vec!["Q::b".to_owned()],
@@ -2147,7 +2157,7 @@ mod tests {
 
     #[test]
     fn an_edit_result_keeps_every_document_and_applied_span() {
-        let result = edit_result_of(wire::ApplyEditsResponse {
+        let result = read_documents(wire::ApplyEditsResponse {
             applied: vec![wire::AppliedEdit {
                 operation_index: 0,
                 target: "P::a".to_owned(),
@@ -2175,19 +2185,17 @@ mod tests {
         assert_eq!(result.wire().documents.len(), 2);
     }
 
+    fn read_documents(response: wire::ApplyEditsResponse) -> Result<EditResult, Error> {
+        edit_result_of(response, true)
+    }
+
     #[test]
-    fn a_result_of_several_documents_is_not_written_as_one() {
-        let result = edit_result_of(wire::ApplyEditsResponse {
-            documents: vec![
-                wire::EditedDocument {
-                    name: "p.sysml".to_owned(),
-                    content: "package P;".to_owned(),
-                },
-                wire::EditedDocument {
-                    name: "q.sysml".to_owned(),
-                    content: "package Q;".to_owned(),
-                },
-            ],
+    fn a_result_of_one_document_rewritten_in_several_is_not_written_as_one() {
+        let result = read_documents(wire::ApplyEditsResponse {
+            documents: vec![wire::EditedDocument {
+                name: "top.sysml".to_owned(),
+                content: "package Top;".to_owned(),
+            }],
             ..Default::default()
         })
         .unwrap();
@@ -2195,6 +2203,23 @@ mod tests {
         fs::write(&path, "package Kept;").unwrap();
         assert!(matches!(result.write(&path), Err(Error::InvalidRequest(_))));
         assert_eq!(fs::read_to_string(&path).unwrap(), "package Kept;");
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn a_result_of_the_only_document_is_written() {
+        let result = read_documents(wire::ApplyEditsResponse {
+            content: "package P;".to_owned(),
+            documents: vec![wire::EditedDocument {
+                name: "p.sysml".to_owned(),
+                content: "package P;".to_owned(),
+            }],
+            ..Default::default()
+        })
+        .unwrap();
+        let path = std::env::temp_dir().join("opensysml-only-document.sysml");
+        result.write(&path).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "package P;");
         fs::remove_file(path).unwrap();
     }
 }

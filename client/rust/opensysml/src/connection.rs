@@ -305,7 +305,7 @@ impl Connection {
             accept_documents: true,
         };
         let response = self.gated_rpc("ApplyEdits", request, &requested)?;
-        edit_result_of(response)
+        edit_result_of(response, self.capabilities().has(CAPABILITY_EDIT_DOCUMENTS))
     }
 
     /// Call `method`, reading an `UNIMPLEMENTED` refusal as the first of `capabilities` it names.
