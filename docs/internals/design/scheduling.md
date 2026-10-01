@@ -206,8 +206,8 @@ zero to its sum. The root vectors give each outcome's `ProbabilityRange`, comput
 O(depth × outcomes) vector space before outcomes are sorted. A probability is absent if no
 committed run made a weighted pick, and an incomplete exploration has lower bounds only when it
 did. Random-function draws still come from the model seed and are not enumerated, so these
-probabilities are conditional on those draws. Checker `Violation.Mass` keeps its existing
-semantics; this change does not reinterpret it.
+probabilities are conditional on those draws. Checker `Violation.Mass` is a separate measure,
+the path mass a check reports per violation.
 
 ## The conformance contract
 
