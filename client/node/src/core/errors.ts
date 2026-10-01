@@ -1,6 +1,9 @@
 // Errors this client raises. Everything derives from OpenSysMLError, so a caller
 // can catch the family without knowing the members.
 
+import type { ServerInfo } from "./capabilities.js";
+import type { AnalysisResult } from "./verdict.js";
+
 /** Base class of every error this client raises. */
 export class OpenSysMLError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -26,6 +29,35 @@ export class ServiceError extends OpenSysMLError {
 
 /** A private child service failed to start, or died while it was needed. */
 export class ServiceStartError extends ServiceError {}
+
+/** The service already listening is not the one asked for, reported rather than stopped. */
+export class StaleServiceError extends ServiceError {
+  /** Address the mismatched service is listening on. */
+  readonly address: string;
+  /** How it differs from the service that was asked for. */
+  readonly reason: string;
+  /** What to do about it. */
+  readonly remedy: string;
+  /** What it reported about itself, when it could be asked. */
+  readonly info: ServerInfo | undefined;
+
+  constructor(
+    address: string,
+    reason: string,
+    remedy: string,
+    options: { info?: ServerInfo; cause?: unknown } = {},
+  ) {
+    super(
+      `the sysml-grpc service already listening on ${address} is not the one this client ` +
+        `asked for: ${reason}.\n  service: ${options.info?.describe() ?? address}\n  fix:     ${remedy}`,
+      options.cause === undefined ? {} : { cause: options.cause },
+    );
+    this.address = address;
+    this.reason = reason;
+    this.remedy = remedy;
+    this.info = options.info;
+  }
+}
 
 /** The connection was closed and cannot be used again. */
 export class ClosedConnectionError extends OpenSysMLError {
@@ -74,11 +106,24 @@ export class ManifestSignatureError extends ChecksumMismatchError {}
 export class ParseError extends OpenSysMLError {
   /** Diagnostics the service reported, in the order it reported them. */
   readonly diagnostics: readonly ModelDiagnostic[];
+  /** The model the errors belong to, when one was loaded, so it stays inspectable. */
+  readonly model: ModelLike | undefined;
 
-  constructor(message: string, diagnostics: readonly ModelDiagnostic[] = []) {
+  constructor(
+    message: string,
+    diagnostics: readonly ModelDiagnostic[] = [],
+    options: { model?: ModelLike } = {},
+  ) {
     super(message);
     this.diagnostics = diagnostics;
+    this.model = options.model;
   }
+}
+
+/** The surface of a model a ParseError carries, kept structural so model.ts stays a client of this file. */
+export interface ModelLike {
+  readonly hash: string;
+  readonly diagnostics: readonly ModelDiagnostic[];
 }
 
 /** One diagnostic about a model, at a source position when the service gave one. */
@@ -126,6 +171,46 @@ export class EvaluationError extends OpenSysMLError {
     this.diagnostics = diagnostics;
   }
 }
+
+/** A run — an execution, verification, calculation, analysis or sweep — failed. */
+export class ExecutionError extends EvaluationError {}
+
+/** The element a verification named is of another kind, a wrong request rather than a verdict. */
+export class WrongKindError extends ExecutionError {}
+
+/** An analysis case could not run to its end but left something to inspect, carried as `result`. */
+export class AnalysisRunError extends ExecutionError {
+  /** The partial result the failed run left: the evaluations made, the verdicts left undecided. */
+  readonly result: AnalysisResult;
+
+  constructor(
+    message: string,
+    result: AnalysisResult,
+    options: { diagnostics?: readonly ModelDiagnostic[]; reason?: FailureCause } = {},
+  ) {
+    super(message, options.reason ?? "unspecified", options.diagnostics ?? []);
+    this.result = result;
+  }
+}
+
+/** A model could not be written in the format asked for. */
+export class ConversionError extends OpenSysMLError {
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(message: string, diagnostics: readonly ModelDiagnostic[] = []) {
+    super(message);
+    this.diagnostics = diagnostics;
+  }
+}
+
+/** The service sent a value the wire format cannot represent, or a caller sent one it cannot carry. */
+export class UnsupportedValueError extends OpenSysMLError {}
+
+/** A query payload is not one the SysML v2 API & Services query model describes. */
+export class QueryError extends OpenSysMLError {}
+
+/** A document query binding cannot be written before anything is sent. */
+export class DocumentQueryError extends OpenSysMLError {}
 
 /** The service's classification of a failure it reported in a successful answer. */
 export type FailureCause =
