@@ -128,6 +128,27 @@ class ModelExamplesTest {
   }
 
   @Test
+  void aValueTheWireCannotCarryIsAnUnsupportedNullNamingIt() {
+    Model model =
+        connection.parse(
+            """
+            package G {
+              private import SI::*;
+              private import MeasurementReferences::*;
+              part def Body {
+                attribute datum : CartesianSpatial3dCoordinateFrame[1] { :>> mRefs = (mm, mm, mm); }
+              }
+            }
+            """);
+    Value datum = model.evalInContext("datum", "G::Body");
+    assertEquals(
+        new Value.NullValue("unsupported: coordinate frame datum [mm, mm, mm]"), datum);
+    assertTrue(((Value.NullValue) datum).isUnsupported());
+    assertFalse(new Value.NullValue().sameValue(datum));
+    assertFalse(((Value.NullValue) model.eval("null")).isUnsupported());
+  }
+
+  @Test
   void aFeatureThatHoldsNoValueIsUnsetRatherThanAbsentOrNull() {
     Model model = connection.parse(UNSET);
     assertTrue(connection.capabilities().has(Capabilities.UNSET_VALUE));
