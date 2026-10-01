@@ -205,17 +205,12 @@ func (p *proseParser) open(ref proseRun, end string) {
 
 // skipElement drops everything up to the closing tag of name.
 func (p *proseParser) skipElement(name string) {
-	lower := strings.ToLower(p.src)
-	for p.pos < len(p.src) {
-		i := strings.Index(lower[p.pos:], "</"+name)
-		if i < 0 {
-			p.pos = len(p.src)
-			return
-		}
-		p.pos += i
-		_, p.pos = tagEnd(p.src, p.pos)
+	i := strings.Index(strings.ToLower(p.src[p.pos:]), "</"+name)
+	if i < 0 {
+		p.pos = len(p.src)
 		return
 	}
+	_, p.pos = tagEnd(p.src, p.pos+i)
 }
 
 // tagEnd returns the tag starting at pos, which may hold a quoted '>', and
