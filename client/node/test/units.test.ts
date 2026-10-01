@@ -4,9 +4,10 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { create } from "@bufbuild/protobuf";
+import { create, toJsonString } from "@bufbuild/protobuf";
 import {
   DocumentValueSchema,
+  ValueSchema,
   VerdictSchema,
 } from "../src/generated/sysml_pb.js";
 import {
@@ -438,29 +439,27 @@ test("an undecodable output stays in the map as its error", async () => {
   assert.ok(UnsupportedValueError.prototype instanceof Error);
 });
 
-test("an integer input outside int64 is refused before the call, nested included", () => {
+test("an integer input outside int64 travels as big_int_value, nested included", () => {
   const full = new ServerInfo({
     version: "v",
     capabilities: ["set_values"],
     answered: true,
     origin: "test",
   });
-  for (const input of [
-    2n ** 63n,
-    -(2n ** 63n) - 1n,
-    2n ** 100n,
-    { kind: "int", value: 2n ** 63n } as const,
-    { kind: "set", elements: [1n, 2n ** 63n] } as const,
-    [1n, 2n ** 63n],
-  ]) {
-    assert.throws(
-      () => toValue(input, full),
-      (error: unknown) => {
-        assert.ok(error instanceof RangeError);
-        assert.match((error).message, /value out of range/);
-        return true;
-      },
-    );
+  for (const value of [2n ** 63n, -(2n ** 63n) - 1n, 2n ** 100n]) {
+    assert.deepEqual(toValue(value, full).kind, { case: "bigIntValue", value: value.toString() });
+    assert.deepEqual(toValue({ kind: "int", value }, full).kind, {
+      case: "bigIntValue",
+      value: value.toString(),
+    });
+  }
+  for (const input of [{ kind: "set", elements: [1n, 2n ** 63n] } as const, [1n, 2n ** 63n]]) {
+    const wire = toValue(input, full);
+    assert.ok(wire.kind.case === "set" || wire.kind.case === "sequence");
+    assert.deepEqual(wire.kind.value.elements[1]?.kind, {
+      case: "bigIntValue",
+      value: (2n ** 63n).toString(),
+    });
   }
   assert.equal(toValue(2n ** 63n - 1n, full).kind.case, "intValue");
   assert.equal(toValue(-(2n ** 63n), full).kind.case, "intValue");
@@ -547,7 +546,7 @@ test("a unit named without its reduction is refused before the call", () => {
   assert.equal(ref.kind.case, "measurementRef");
 });
 
-test("an integer outside int64 is refused inside every wire position", () => {
+test("an Integer outside int64 travels in every wire position, and an id outside it is refused", () => {
   const full = new ServerInfo({
     version: "v",
     capabilities: ["structured_values", "tensor_values", "function_values"],
@@ -569,11 +568,18 @@ test("an integer outside int64 is refused inside every wire position", () => {
     },
     { kind: "vector", components: [{ kind: "int", value: out }] },
     [{ kind: "quantity", magnitude: { kind: "int", value: out }, unit: "" }],
+  ] as const) {
+    assert.match(
+      toJsonString(ValueSchema, toValue(input as never, full)),
+      /"bigInt(Value|Magnitude)":"9223372036854775808"/,
+    );
+  }
+  for (const input of [
     { kind: "instance", id: out },
     { kind: "function", calcId: "Demo::c", selfId: out },
   ] as const) {
     assert.throws(
-      () => toValue(input as never, full),
+      () => toValue(input, full),
       (error: unknown) => {
         assert.ok(error instanceof RangeError);
         assert.match((error).message, /value out of range/);

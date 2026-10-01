@@ -1163,12 +1163,9 @@ export type ValueInput =
   | { kind: "set"; elements: readonly ValueInput[] }
   | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
 
-const INT64_MIN = -(1n << 63n);
-const INT64_MAX = (1n << 63n) - 1n;
-
-/** Refuses an integer outside int64, where the wire's `int` arm lives. */
+/** Refuses an instance or `self` id outside int64, the width of the wire's id fields. */
 function checkInt64(value: bigint): void {
-  if (value < INT64_MIN || value > INT64_MAX) {
+  if (!fitsInt64(value)) {
     throw new RangeError(`value out of range: ${value.toString()}`);
   }
 }
@@ -1194,7 +1191,6 @@ function normalizeInput(input: unknown): SysMLValue {
     case "boolean":
       return { kind: "boolean", value: input };
     case "bigint":
-      checkInt64(input);
       return { kind: "int", value: input };
     case "number":
       return { kind: "real", value: input };
@@ -1228,9 +1224,6 @@ function normalizeInput(input: unknown): SysMLValue {
         dimensions: value.dimensions,
         elements: value.elements.map(normalizeInput),
       };
-    case "int":
-      checkInt64(value.value);
-      return value;
     case "enum":
       return value.value.value === undefined
         ? value
@@ -1295,9 +1288,6 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "quantity":
       checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
-      if (value.magnitude.kind === "int") {
-        checkInt64(value.magnitude.value);
-      }
       return;
     case "measurementRef": {
       require(CAPABILITY_MEASUREMENT_REFS);
@@ -1315,9 +1305,6 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       }
       return;
     }
-    case "int":
-      checkInt64(value.value);
-      return;
     case "instance":
       checkInt64(value.id);
       return;
@@ -1342,19 +1329,11 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "vector":
       require(CAPABILITY_STRUCTURED_VALUES);
-      value.components.forEach((component) => {
-        if (component.kind === "int") {
-          checkInt64(component.value);
-        }
-      });
       return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
-        if (component.magnitude.kind === "int") {
-          checkInt64(component.magnitude.value);
-        }
       });
       return;
     case "set":
@@ -1367,9 +1346,6 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       require(CAPABILITY_TENSOR_VALUES);
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
-        if (component.magnitude.kind === "int") {
-          checkInt64(component.magnitude.value);
-        }
       });
       return;
     case "infinity":
