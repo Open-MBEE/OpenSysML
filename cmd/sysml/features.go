@@ -86,8 +86,7 @@ var (
 		flags: flags("cpuprofile", "memprofile"),
 	}
 	replextFeature = &feature{
-		name:  "replext",
-		flags: flags("query"),
+		name: "replext",
 	}
 )
 
