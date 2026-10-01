@@ -41,33 +41,73 @@ export const CAPABILITY_FINAL_TIME = "final_time";
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */
 export const CAPABILITY_STRICT_CONFORMANCE = "strict_conformance";
-/** The `Convert` RPC. Not used by this version; see the README. */
+/** The `Convert` RPC. */
 export const CAPABILITY_CONVERT = "convert";
-/** The `Migrate` RPC, which migrates a SysML v1 model. Not used by this version; see the README. */
+/** The `Migrate` RPC, which migrates a SysML v1 model. */
 export const CAPABILITY_MIGRATE = "migrate";
-/** The verification RPCs. Not used by this version; see the README. */
+/** The verification RPCs. */
 export const CAPABILITY_VERIFICATION = "verification";
+/** The `question` field of the verification RPCs. */
+export const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions";
+/** The `Query` RPC. */
+export const CAPABILITY_QUERY = "query";
+/** The `RunDocumentQuery` RPC. */
+export const CAPABILITY_DOCUMENT_QUERY = "document_query";
+/** The `RenderDocument` RPC. */
+export const CAPABILITY_RENDER_DOCUMENT = "render_document";
+/** `form` on `RenderDocumentRequest` asking for HTML rather than Markdown. */
+export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 /** What the body of a verification case answered, as `verification_verdicts`. */
 export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 /** `RunAnalysisResponse.evaluations`: each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
 export const CAPABILITY_CASE_EVALUATIONS = "case_evaluations";
-/** The `Query` RPC. Not used by this version; see the README. */
-export const CAPABILITY_QUERY = "query";
-/** The `ApplyEdits` RPC. Not used by this version; see the README. */
+/** The `ApplyEdits` RPC. */
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
+/** Source-preserving add-member and delete authoring operations. */
+export const CAPABILITY_AUTHORING = "authoring";
+/** The `ApplyEdits` `add_connection` operation. */
+export const CAPABILITY_CONNECTION_AUTHORING = "connection_authoring";
+/** The `ApplyEdits` `add_satisfy` operation. */
+export const CAPABILITY_SATISFY_AUTHORING = "satisfy_authoring";
+/** The `ApplyEdits` `add_requirement_constraint` operation. */
+export const CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring";
+/** The `ApplyEdits` `add_transition` operation. */
+export const CAPABILITY_TRANSITION_AUTHORING = "transition_authoring";
+/** The `ApplyEdits` `add_verify` operation and anonymous objectives. */
+export const CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING = "verification_objective_authoring";
+/** The `ApplyEdits` `add_metadata` operation. */
+export const CAPABILITY_METADATA_AUTHORING = "metadata_authoring";
+/** `ApplyEdits` metadata prefixes. */
+export const CAPABILITY_METADATA_PREFIX_AUTHORING = "metadata_prefix_authoring";
 /** `ApplyEdits` can add `first`/`then` action sequencing members. */
 export const CAPABILITY_SEQUENCE_AUTHORING = "sequence_authoring";
 /** `ApplyEdits` can add action-body statements and succession source multiplicities. */
 export const CAPABILITY_ACTION_BODY_STATEMENT_AUTHORING = "action_body_statement_authoring";
+/** The `ApplyEdits` `add_import` operation. */
+export const CAPABILITY_IMPORT_AUTHORING = "import_authoring";
+/** The `ApplyEdits` `add_documentation` operation and `AddMemberEdit.doc`. */
+export const CAPABILITY_DOCUMENTATION_AUTHORING = "documentation_authoring";
+/** The `ApplyEdits` `add_comment` and `add_note` operations. */
+export const CAPABILITY_COMMENT_AUTHORING = "comment_authoring";
+/** The additional `AddMemberEdit` modifiers and `ref`/`return` kinds. */
+export const CAPABILITY_MEMBER_MODIFIERS = "member_modifiers";
+/** `ApplyEdits` adds a directed usage with no kind keyword (`in x : T;`). */
+export const CAPABILITY_IMPLICIT_PARAMETERS = "implicit_parameters";
+/** Constraint body expressions and asserted constraints in `ApplyEdits`. */
+export const CAPABILITY_CONSTRAINT_BODY_AUTHORING = "constraint_body_authoring";
+/** State behavior member kinds in `ApplyEdits`. */
+export const CAPABILITY_STATE_ACTION_AUTHORING = "state_action_authoring";
 /** `ApplyEdits` edits a model of several documents as one batch and answers each edited document by name in `documents`. Not used by this version; see the README. */
 export const CAPABILITY_EDIT_DOCUMENTS = "edit_documents";
-/** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */
+/** `ParseSources`, parsing several named documents as one model. */
+export const CAPABILITY_PARSE_SOURCES = "parse_sources";
+/** The `schedule` field of the execution requests, naming the scheduling policy. */
 export const CAPABILITY_SCHEDULE = "schedule";
-/** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. Not used by this version; see the README. */
+/** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. */
 export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
-/** `performerSymbolId` on the action and state requests: the object the behavior runs on, a declaration or a path from one into its parts. Not used by this version; see the README. */
+/** `performerSymbolId` on the action and state requests: the object the behavior runs on, a declaration or a path from one into its parts. */
 export const CAPABILITY_PERFORMER = "performer";
-/** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. Not used by this version; see the README. */
+/** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. */
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
@@ -154,4 +194,56 @@ export function upgradeRemedy(capability: string): string {
     `newer ${PLATFORM_PACKAGE_PREFIX}<platform> package, point $OPENSYSML_BINARY at a build that ` +
     `has it, or start one yourself and connect to its address`
   );
+}
+
+/**
+ * Why `info` is not the service that was asked for, or undefined when it is. A
+ * release is compared as an exact tag: a build that cannot be shown to be the
+ * one asked for is a mismatch.
+ */
+export function mismatchReason(
+  info: ServerInfo,
+  options: { version?: string; capabilities?: Iterable<string> } = {},
+): string | undefined {
+  const reasons: string[] = [];
+  if (options.version !== undefined) {
+    if (!info.answered) {
+      reasons.push(
+        `it did not answer GetServerInfo, so it cannot be shown to be the ${options.version} ` +
+          `that was asked for`,
+      );
+    } else if (info.version !== options.version) {
+      reasons.push(
+        `it reports version ${info.version === "" ? "unknown" : info.version}, but ` +
+          `${options.version} was asked for`,
+      );
+    }
+  }
+  const missing = [...(options.capabilities ?? [])].filter((capability) => !info.has(capability));
+  missing.sort(byCodeUnit);
+  if (missing.length > 0) {
+    const named = missing.map((capability) => JSON.stringify(capability)).join(", ");
+    const noun = missing.length > 1 ? "capabilities" : "capability";
+    reasons.push(`it does not report the ${named} ${noun} this client requires`);
+  }
+  return reasons.length === 0 ? undefined : reasons.join("; ");
+}
+
+/**
+ * The UNIMPLEMENTED translator for a call whose capabilities were checked
+ * before it was sent: a refusal the service still answers with is mapped back
+ * to the capability it names — the first one present in its message — rather
+ * than arriving as a generic unsupported-operation error.
+ */
+export function capabilityRefusal(
+  info: ServerInfo,
+  capabilities: readonly string[],
+): ((details: string) => MissingCapabilityError) | undefined {
+  if (capabilities.length === 0) {
+    return undefined;
+  }
+  return (details) => {
+    const capability = capabilities.find((name) => details.includes(name)) ?? capabilities[0];
+    return new MissingCapabilityError(capability, info, upgradeRemedy(capability));
+  };
 }

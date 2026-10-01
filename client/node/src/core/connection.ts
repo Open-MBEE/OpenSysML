@@ -2,12 +2,118 @@
 // tells the client what that service can do.
 
 import { Code, ConnectError, createClient, type Client, type Transport } from "@connectrpc/connect";
-import { ServerInfo } from "./capabilities.js";
-import { ClosedConnectionError } from "./errors.js";
-import { SysMLService } from "../generated/sysml_pb.js";
+import { create } from "@bufbuild/protobuf";
+import {
+  CAPABILITY_APPLY_EDITS,
+  CAPABILITY_CONVERT,
+  CAPABILITY_DOCUMENT_QUERY,
+  CAPABILITY_ENGINES,
+  CAPABILITY_FEATURE_VALUES,
+  CAPABILITY_INLINE_LANGUAGE,
+  CAPABILITY_PARSE_SOURCES,
+  CAPABILITY_PERFORMER,
+  CAPABILITY_QUERY,
+  CAPABILITY_RENDER_DOCUMENT,
+  CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_SCHEDULE,
+  CAPABILITY_SCHEDULE_EXPLORE,
+  CAPABILITY_STRICT_CONFORMANCE,
+  CAPABILITY_VERIFICATION,
+  CAPABILITY_VERIFICATION_QUESTIONS,
+  capabilityRefusal,
+  mismatchReason,
+  requireCapability,
+  upgradeRemedy,
+  ServerInfo,
+} from "./capabilities.js";
+import {
+  ClosedConnectionError,
+  ConversionError,
+  ExecutionError,
+  InvalidRequestError,
+  ParseError,
+  StaleServiceError,
+  UnsupportedValueError,
+} from "./errors.js";
+import {
+  ApplyEditsRequestSchema,
+  ExecuteActionRequestSchema,
+  ExecuteStateRequestSchema,
+  ConvertRequestSchema,
+  ListEnginesRequestSchema,
+  ParseSourcesRequestSchema,
+  QueryRequestSchema,
+  RenderDocumentRequestSchema,
+  RunAnalysisRequestSchema,
+  RunDocumentQueryRequestSchema,
+  RunSweepRequestSchema,
+  SweepRangeSchema,
+  ValidateInstanceRequestSchema,
+  EvaluateCalcRequestSchema,
+  VerifyConstraintRequestSchema,
+  VerifyRequirementRequestSchema,
+  VerifySatisfactionRequestSchema,
+  FailureReason,
+  SysMLService,
+  type Diagnostic as PbDiagnostic,
+  type ExecuteActionResponse,
+  type ExecuteStateResponse,
+  type Instance as PbInstance,
+  type Outcome as PbOutcome,
+  type RunAnalysisResponse,
+  type Verdict as PbVerdict,
+  type VerificationVerdict as PbVerificationVerdict,
+} from "../generated/sysml_pb.js";
 import { callRpc, fromHandshakeError } from "./status.js";
-import { Model } from "./model.js";
+import { decodeDiagnostic, Instance, Model } from "./model.js";
+import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
+import { sourceDocuments, type Source } from "./sources.js";
+import {
+  EXPERIMENTAL_NOTICE,
+  Conversion,
+  isExperimental,
+} from "./conversion.js";
+import { buildQuery, elementsOf, type QueryElement, type QueryForm, type QueryPayload } from "./query.js";
+import {
+  buildBindings,
+  documentResult,
+  type BindingValues,
+  type DocumentQueryResult,
+} from "./document.js";
+import { engineInfoOf, standingOf, ENGINE_AUTO, type EngineInfo } from "./engines.js";
+import { Exploration, Outcome } from "./exploration.js";
+import {
+  analysisResultOf,
+  decodeVerificationVerdict,
+  raiseFailure,
+  raiseWrongKind,
+  sweepTableOf,
+  validationOf,
+  verdictOf,
+  valuesMap,
+  valueOrError,
+  QUESTION_EVALUATE,
+  CalcResult,
+  type AnalysisResult,
+  type SweepTable,
+  type Validation,
+  type Verdict,
+} from "./verdict.js";
+import {
+  toValue,
+  type SysMLValue,
+  type ValueInput,
+} from "./values.js";
+import {
+  editErrorOf,
+  editResultOf,
+  EditRequestBuilder,
+  Editor,
+  type EditOperationData,
+  type EditResult,
+} from "./edit.js";
+import type { EditOperation } from "../generated/sysml_pb.js";
 
 /** Wire encoding of the request and response bodies. Protobuf is the default. */
 export type Encoding = "protobuf" | "json";
@@ -38,6 +144,8 @@ export interface ConnectionBackend {
   readonly origin: string;
   /** Releases this connection's hold. Never stops a service the client did not start. */
   release(): Promise<void>;
+  /** Reports a warning the runtime raises: Node emits it, the browser logs it. */
+  warn?(message: string, type: string): void;
 }
 
 /** A connection to a sysml-grpc service. Close it, or use `await using`. */
@@ -68,15 +176,47 @@ export class Connection {
     this.timeoutMs = init.timeoutMs;
   }
 
-  /** Opens a connection over `transport` and performs the capability handshake. */
+  /**
+   * Opens a connection over `transport` and performs the capability handshake.
+   * A refused handshake — the service is not the release asked for, or lacks a
+   * required capability — releases the backend and is never returned.
+   */
   static async open(init: {
     transport: Transport;
     backend: ConnectionBackend;
     encoding: Encoding;
     timeoutMs?: number | undefined;
+    /** Release tag the service must report. */
+    requiredVersion?: string;
+    /** Capabilities the service must report. */
+    requiredCapabilities?: readonly string[];
+    /** How a stale-service error addresses the service, and its remedy. */
+    stale?: { address: string; remedy: string };
   }): Promise<Connection> {
     const rpc = createClient(SysMLService, init.transport);
-    const info = await handshake(rpc, init.backend.origin, init.timeoutMs);
+    let info: ServerInfo;
+    try {
+      info = await handshake(rpc, init.backend.origin, init.timeoutMs);
+      const reason = mismatchReason(info, {
+        ...(init.requiredVersion === undefined ? {} : { version: init.requiredVersion }),
+      });
+      if (reason !== undefined) {
+        throw new StaleServiceError(
+          init.stale?.address ?? init.backend.origin,
+          reason,
+          init.stale?.remedy ?? "pass a release the service can report, or none",
+          { info },
+        );
+      }
+      for (const capability of init.requiredCapabilities ?? []) {
+        requireCapability(info, capability, upgradeRemedy(capability));
+      }
+    } catch (error) {
+      // A refused connection is never returned, so nothing else can release
+      // the hold the open took on the service.
+      await init.backend.release();
+      throw error;
+    }
     return new Connection({
       rpc,
       info,
@@ -115,6 +255,813 @@ export class Connection {
    */
   model(hash: string): Model {
     return Model.adopt(this, hash);
+  }
+
+  /** Parses several documents together as one model, one root per document. */
+  async parseSources(
+    documents: readonly Source[],
+    options: { strict?: boolean; strictConformance?: boolean } = {},
+  ): Promise<Model> {
+    const sources = sourceDocuments(documents);
+    requireCapability(this.info, CAPABILITY_PARSE_SOURCES, upgradeRemedy(CAPABILITY_PARSE_SOURCES));
+    const capabilities = [CAPABILITY_PARSE_SOURCES];
+    if (sources.some((source) => source.language !== undefined)) {
+      requireCapability(
+        this.info,
+        CAPABILITY_INLINE_LANGUAGE,
+        upgradeRemedy(CAPABILITY_INLINE_LANGUAGE),
+      );
+      capabilities.push(CAPABILITY_INLINE_LANGUAGE);
+    }
+    if (options.strictConformance === true) {
+      this.requireStrictConformance();
+      capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
+    }
+    const response = await callRpc(
+      this.rpc.parseSources(
+        create(ParseSourcesRequestSchema, {
+          documents: sources.map((source) => source.toPb()),
+          strictConformance: options.strictConformance === true,
+        }),
+        this.callOptions(),
+      ),
+      "file",
+      capabilityRefusal(this.info, capabilities),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      throw new ParseError(response.error, diagnostics);
+    }
+    const model = Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
+      documents: sources.map((source) => source.documentName),
+    });
+    if (options.strict === true) {
+      model.raiseForErrors();
+    }
+    return model;
+  }
+
+  /**
+   * Writes a model out in another of the formats OpenSysML writes. Exactly one
+   * of `source.path`, `source.content` and `source.modelHash` names the source.
+   */
+  async convert(
+    toFormat: string,
+    source: { path: string } | { content: string } | { modelHash: string },
+    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+  ): Promise<Conversion> {
+    const given = ["path", "content", "modelHash"].filter(
+      (name) => (source as Record<string, unknown>)[name] !== undefined,
+    );
+    if (given.length !== 1) {
+      throw new RangeError(
+        "provide exactly one of path, content or modelHash; got " +
+          (given.length > 0 ? given.join(", ") : "none"),
+      );
+    }
+    requireCapability(this.info, CAPABILITY_CONVERT, upgradeRemedy(CAPABILITY_CONVERT));
+    const request = create(ConvertRequestSchema, {
+      toFormat,
+      fromFormat: options.fromFormat ?? "",
+      tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
+    });
+    if ("path" in source) {
+      request.source = { case: "filePath", value: source.path };
+    } else if ("content" in source) {
+      request.source = { case: "content", value: source.content };
+    } else {
+      request.source = { case: "modelHash", value: source.modelHash };
+    }
+    const response = await callRpc(
+      this.rpc.convert(request, this.callOptions()),
+      "path" in source ? "file" : "model",
+      capabilityRefusal(this.info, [CAPABILITY_CONVERT]),
+    );
+    // Judged from the response, so an inferred format counts and a service too
+    // old to mark the conversion is still read as experimental.
+    const experimental = response.experimental || isExperimental(response.fromFormat, response.toFormat);
+    const notice =
+      response.experimentalNotice !== ""
+        ? response.experimentalNotice
+        : experimental
+          ? EXPERIMENTAL_NOTICE
+          : "";
+    if (experimental) {
+      // Warned before the error is raised: a refusal is the mapping's
+      // experimental behavior, not a reason to say nothing about it.
+      this.warn(notice, "ExperimentalFeatureWarning");
+    }
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      throw new ConversionError(response.error, diagnostics);
+    }
+    return new Conversion({
+      content: response.content,
+      fromFormat: response.fromFormat,
+      toFormat: response.toFormat,
+      diagnostics,
+      experimental,
+      experimentalNotice: notice,
+    });
+  }
+
+  /** Runs a SysML v2 API & Services Query over a loaded model. */
+  async query(
+    modelHash: string,
+    options: { payload?: QueryPayload } & QueryForm = {},
+  ): Promise<QueryElement[]> {
+    requireCapability(this.info, CAPABILITY_QUERY, upgradeRemedy(CAPABILITY_QUERY));
+    const response = await callRpc(
+      this.rpc.query(
+        create(QueryRequestSchema, {
+          modelHash,
+          oslcQuery: options.oslc ?? "",
+          ...(options.query !== undefined
+            ? { query: options.query }
+            : options.payload !== undefined ||
+                options.scope !== undefined ||
+                options.select !== undefined ||
+                options.where !== undefined
+              ? { query: buildQuery(options) }
+              : {}),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_QUERY]),
+    );
+    return elementsOf(response);
+  }
+
+  /** Runs a named document query and answers its typed rows. */
+  async runDocumentQuery(
+    modelHash: string,
+    queryId: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    requireCapability(
+      this.info,
+      CAPABILITY_DOCUMENT_QUERY,
+      upgradeRemedy(CAPABILITY_DOCUMENT_QUERY),
+    );
+    const response = await callRpc(
+      this.rpc.runDocumentQuery(
+        create(RunDocumentQueryRequestSchema, {
+          modelHash,
+          queryId,
+          bindings: buildBindings(bindings),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY]),
+    );
+    return documentResult(response);
+  }
+
+  /** Applies source-preserving edits to a loaded model. Operations are the
+   * tuple form the {@link Editor} builds, or wire `EditOperation` messages,
+   * which pass through as written. */
+  async applyEdits(
+    modelHash: string,
+    operations: readonly (EditOperationData | EditOperation)[],
+    options: { acceptDocuments?: boolean; document?: string } = {},
+  ): Promise<EditResult> {
+    requireCapability(
+      this.info,
+      CAPABILITY_APPLY_EDITS,
+      upgradeRemedy(CAPABILITY_APPLY_EDITS),
+    );
+    const { operations: built, capabilities } = new EditRequestBuilder(this.info).build(operations);
+    const response = await callRpc(
+      this.rpc.applyEdits(
+        create(ApplyEditsRequestSchema, {
+          modelHash,
+          operations: built,
+          acceptDocuments: options.acceptDocuments ?? true,
+          document: options.document ?? "",
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    const refusal = editErrorOf(response);
+    if (refusal !== undefined) {
+      throw refusal;
+    }
+    return editResultOf(response);
+  }
+
+  /** Starts an edit of a loaded model, applied with {@link Editor.apply}. */
+  edit(modelHash: string): Editor {
+    return new Editor(modelHash, (hash, operations) => this.applyEdits(hash, operations));
+  }
+
+  /** Renders a named document to Markdown or HTML. */
+  async renderDocument(
+    modelHash: string,
+    documentId: string,
+    options: { form?: string } = {},
+  ): Promise<string> {
+    const form = options.form ?? "markdown";
+    if (form !== "markdown" && form !== "html") {
+      throw new RangeError("form must be 'markdown' or 'html'");
+    }
+    const capabilities = [CAPABILITY_RENDER_DOCUMENT];
+    if (form === "html") {
+      capabilities.push(CAPABILITY_RENDER_DOCUMENT_HTML);
+    }
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response = await callRpc(
+      this.rpc.renderDocument(
+        create(RenderDocumentRequestSchema, {
+          modelHash,
+          documentId,
+          form: form === "markdown" ? "" : form,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return form === "html" ? response.html : response.markdown;
+  }
+
+  /** Executes an action definition. */
+  async executeAction(
+    modelHash: string,
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ): Promise<{ outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; finalTime: number }> {
+    refuseExploring(options.schedule, "exploreAction");
+    const response = await this.sendExecuteAction(modelHash, actionSymbolId, options);
+    if (response.error !== "") {
+      throw new ExecutionError(
+        response.error,
+        "unspecified",
+        response.diagnostics.map(decodeDiagnostic),
+      );
+    }
+    return {
+      outputs: valuesMap(Object.entries(response.outputs)),
+      performer: valuesMap(Object.entries(response.performerAttributes)),
+      finalTime: response.finalTime,
+    };
+  }
+
+  /** Runs an action once per valid order of its choice points, within a budget. */
+  async exploreAction(
+    modelHash: string,
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ): Promise<Exploration> {
+    requireExploring(options.schedule ?? "explore");
+    const response = await this.sendExecuteAction(modelHash, actionSymbolId, {
+      ...options,
+      schedule: options.schedule ?? "explore",
+    });
+    return this.explorationOf(response);
+  }
+
+  private async sendExecuteAction(
+    modelHash: string,
+    actionSymbolId: string,
+    options: { inputs?: Readonly<Record<string, ValueInput>>; schedule?: string; performer?: string },
+  ): Promise<ExecuteActionResponse> {
+    const inputs: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, value] of Object.entries(options.inputs ?? {})) {
+      inputs[name] = toValue(value, this.info);
+    }
+    const capabilities = this.runCapabilities(options.schedule, options.performer);
+    const response = await callRpc(
+      this.rpc.executeAction(
+        create(ExecuteActionRequestSchema, {
+          modelHash,
+          actionSymbolId,
+          inputs,
+          schedule: options.schedule ?? "",
+          performerSymbolId: options.performer ?? "",
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return response;
+  }
+
+  /** Executes a state machine. */
+  async executeState(
+    modelHash: string,
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+  ): Promise<{ statesVisited: string[]; finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; finalTime: number }> {
+    refuseExploring(options.schedule, "exploreState");
+    const response = await this.sendExecuteState(modelHash, stateMachineSymbolId, options);
+    if (response.error !== "") {
+      throw new ExecutionError(
+        response.error,
+        "unspecified",
+        response.diagnostics.map(decodeDiagnostic),
+      );
+    }
+    return {
+      statesVisited: [...response.statesVisited],
+      finalContext: valuesMap(Object.entries(response.finalContext)),
+      finalTime: response.finalTime,
+    };
+  }
+
+  /** Runs a state machine over the events once per valid order of its choice points. */
+  async exploreState(
+    modelHash: string,
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+  ): Promise<Exploration> {
+    requireExploring(options.schedule ?? "explore");
+    const response = await this.sendExecuteState(modelHash, stateMachineSymbolId, {
+      ...options,
+      schedule: options.schedule ?? "explore",
+    });
+    return this.explorationOf(response);
+  }
+
+  private async sendExecuteState(
+    modelHash: string,
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string },
+  ): Promise<ExecuteStateResponse> {
+    const capabilities = this.runCapabilities(options.schedule, options.performer);
+    const response = await callRpc(
+      this.rpc.executeState(
+        create(ExecuteStateRequestSchema, {
+          modelHash,
+          stateMachineSymbolId,
+          events: [...(options.events ?? [])],
+          schedule: options.schedule ?? "",
+          performerSymbolId: options.performer ?? "",
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return response;
+  }
+
+  private explorationOf(
+    response: ExecuteActionResponse | ExecuteStateResponse | RunAnalysisResponse,
+  ): Exploration {
+    if (response.error !== "") {
+      const reason =
+        "failureReason" in response ? response.failureReason : FailureReason.UNSPECIFIED;
+      raiseFailure(response.error, reason, response.diagnostics.map(decodeDiagnostic));
+    }
+    const status = response.exploration;
+    return new Exploration({
+      outcomes: response.outcomes.map((pb) => outcomeOf(pb)),
+      complete: status?.complete ?? false,
+      runs: status?.runs ?? 0,
+      budgetsHit: status?.budgetsHit ?? [],
+      runsBudget: status?.runsBudget ?? 0,
+      depthBudget: status?.depthBudget ?? 0,
+      probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
+    });
+  }
+
+  /** Lists the analysis engines the service answers with, as `sysml -engines` does. */
+  async listEngines(): Promise<EngineInfo[]> {
+    this.requireEngines();
+    const response = await callRpc(
+      this.rpc.listEngines(create(ListEnginesRequestSchema, {}), this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_ENGINES]),
+    );
+    return response.engines.map(engineInfoOf);
+  }
+
+  /** Asks whether a constraint holds. */
+  async verifyConstraint(
+    modelHash: string,
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    this.requireQuestion(options.question);
+    const response = await callRpc(
+      this.rpc.verifyConstraint(
+        create(VerifyConstraintRequestSchema, {
+          modelHash,
+          symbolId,
+          subjectSymbolId: options.subject ?? "",
+          engine: engineField(options.engine),
+          question: questionField(options.question),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+        ...questionCapabilities(options.question),
+      ]),
+    );
+    return this.verdictOf(response);
+  }
+
+  /** Asks whether a requirement is satisfied. */
+  async verifyRequirement(
+    modelHash: string,
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    this.requireQuestion(options.question);
+    const response = await callRpc(
+      this.rpc.verifyRequirement(
+        create(VerifyRequirementRequestSchema, {
+          modelHash,
+          symbolId,
+          subjectSymbolId: options.subject ?? "",
+          engine: engineField(options.engine),
+          question: questionField(options.question),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+        ...questionCapabilities(options.question),
+      ]),
+    );
+    return this.verdictOf(response);
+  }
+
+  /** Asks whether the model's satisfaction assertions hold. */
+  async verifySatisfaction(
+    modelHash: string,
+    options: { symbolId?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict[]> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    this.requireQuestion(options.question);
+    const response = await callRpc(
+      this.rpc.verifySatisfaction(
+        create(VerifySatisfactionRequestSchema, {
+          modelHash,
+          symbolId: options.symbolId ?? "",
+          engine: engineField(options.engine),
+          question: questionField(options.question),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+        ...questionCapabilities(options.question),
+      ]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    for (const pbVerdict of response.verdicts) {
+      raiseWrongKind(pbVerdict, diagnostics);
+    }
+    const instances = this.instancesOf(response.instances);
+    const verifications = response.verificationVerdicts.map(decodeVerificationVerdict);
+    return response.verdicts.map((pbVerdict) =>
+      verdictOf(pbVerdict, instances, diagnostics, verifications),
+    );
+  }
+
+  /** Checks every assertion about an object of one of this model's parts. */
+  async validateInstance(
+    modelHash: string,
+    symbolId: string,
+    options: { engine?: string } = {},
+  ): Promise<Validation> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    const response = await callRpc(
+      this.rpc.validateInstance(
+        create(ValidateInstanceRequestSchema, {
+          modelHash,
+          symbolId,
+          engine: engineField(options.engine),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+      ]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return validationOf(response, this.instancesOf(response.instances), diagnostics);
+  }
+
+  /** Invokes a calculation. */
+  async calc(
+    modelHash: string,
+    symbolId: string,
+    options: { arguments?: readonly ValueInput[]; engine?: string } = {},
+  ): Promise<CalcResult> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    const response = await callRpc(
+      this.rpc.evaluateCalc(
+        create(EvaluateCalcRequestSchema, {
+          modelHash,
+          symbolId,
+          arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+          engine: engineField(options.engine),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+      ]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    const outputs = new Map<string, SysMLValue | UnsupportedValueError>();
+    for (const output of response.outputs) {
+      outputs.set(output.name, valueOrError(output.value));
+    }
+    const result =
+      outputs.size === 0 && response.result !== undefined
+        ? valueOrError(response.result)
+        : undefined;
+    return new CalcResult({
+      ...(result === undefined ? {} : { value: result }),
+      outputs,
+      diagnostics,
+      standing: standingOf(response),
+    });
+  }
+
+  /** Runs an analysis case. */
+  async runAnalysis(
+    modelHash: string,
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      engine?: string;
+    } = {},
+  ): Promise<AnalysisResult> {
+    refuseExploring(options.schedule, "exploreAnalysis");
+    if (options.engine === "explore") {
+      throw new RangeError(
+        "engine 'explore' answers with every outcome, not one run's result: use exploreAnalysis",
+      );
+    }
+    const response = await this.sendRunAnalysis(modelHash, symbolId, options);
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    // A request refused before the run, or a failure leaving nothing to
+    // report, has no partial result.
+    if (
+      response.error !== "" &&
+      response.outputs.length === 0 &&
+      response.verdicts.length === 0 &&
+      response.evaluations.length === 0 &&
+      response.instances.length === 0
+    ) {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return analysisResultOf(response, this.instancesOf(response.instances), diagnostics);
+  }
+
+  /** Runs an analysis case once per valid order of its choice points. */
+  async exploreAnalysis(
+    modelHash: string,
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+    } = {},
+  ): Promise<Exploration> {
+    requireExploring(options.schedule ?? "explore");
+    const response = await this.sendRunAnalysis(modelHash, symbolId, {
+      ...options,
+      schedule: options.schedule ?? "explore",
+    });
+    return this.explorationOf(response);
+  }
+
+  private async sendRunAnalysis(
+    modelHash: string,
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      engine?: string;
+    },
+  ): Promise<RunAnalysisResponse> {
+    this.requireVerification();
+    this.requireSchedule(options.schedule);
+    this.requireEngine(options.engine);
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
+    const response = await callRpc(
+      this.rpc.runAnalysis(
+        create(RunAnalysisRequestSchema, {
+          modelHash,
+          symbolId,
+          subjectSymbolId: options.subject ?? "",
+          arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+          namedArguments,
+          schedule: options.schedule ?? "",
+          engine: engineField(options.engine),
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...scheduleCapabilities(options.schedule),
+        ...engineCapabilities(options.engine),
+      ]),
+    );
+    return response;
+  }
+
+  /** Runs an analysis case or calc once per row of a parameter sweep. */
+  async runSweep(
+    modelHash: string,
+    symbolId: string,
+    ranges: Readonly<Record<string, readonly [ValueInput, ValueInput] | readonly [ValueInput, ValueInput, ValueInput]>>,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      samples?: bigint | number;
+      seed?: bigint | number;
+      engine?: string;
+    } = {},
+  ): Promise<SweepTable> {
+    this.requireVerification();
+    this.requireEngine(options.engine);
+    const namedArguments: Record<string, ReturnType<typeof toValue>> = {};
+    for (const [name, arg] of Object.entries(options.namedArguments ?? {})) {
+      namedArguments[name] = toValue(arg, this.info);
+    }
+    const request = create(RunSweepRequestSchema, {
+      modelHash,
+      symbolId,
+      subjectSymbolId: options.subject ?? "",
+      arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+      namedArguments,
+      samples: BigInt(options.samples ?? 0),
+      seed: BigInt(options.seed ?? 0),
+      engine: engineField(options.engine),
+    });
+    for (const [name, bounds] of Object.entries(ranges)) {
+      request.ranges.push(this.sweepRange(name, bounds));
+    }
+    const response = await callRpc(
+      this.rpc.runSweep(request, this.callOptions()),
+      "model",
+      capabilityRefusal(this.info, [
+        CAPABILITY_VERIFICATION,
+        ...engineCapabilities(options.engine),
+      ]),
+    );
+    const diagnostics = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      raiseFailure(response.error, response.failureReason, diagnostics);
+    }
+    return sweepTableOf(response, this.instancesOf(response.instances), diagnostics);
+  }
+
+  private sweepRange(
+    name: string,
+    bounds: readonly ValueInput[],
+  ): ReturnType<typeof create<typeof SweepRangeSchema>> {
+    if (bounds.length !== 2 && bounds.length !== 3) {
+      throw new InvalidRequestError(
+        `range of ${name} takes (from, to) or (from, to, step), not ${bounds.length} value(s)`,
+      );
+    }
+    return create(SweepRangeSchema, {
+      parameter: name,
+      start: toValue(bounds[0], this.info),
+      end: toValue(bounds[1], this.info),
+      ...(bounds.length === 3 ? { step: toValue(bounds[2], this.info) } : {}),
+    });
+  }
+
+  private verdictOf(response: {
+    verdict?: PbVerdict | undefined;
+    instances: PbInstance[];
+    diagnostics: PbDiagnostic[];
+    error: string;
+    verificationVerdicts?: PbVerificationVerdict[] | undefined;
+  }): Verdict {
+    const diagnostics: readonly ModelDiagnostic[] = response.diagnostics.map(decodeDiagnostic);
+    if (response.error !== "") {
+      throw new ExecutionError(response.error, "unspecified", diagnostics);
+    }
+    const pbVerdict = response.verdict;
+    if (pbVerdict === undefined) {
+      throw new ExecutionError("the service answered the verification without a verdict");
+    }
+    raiseWrongKind(pbVerdict, diagnostics);
+    return verdictOf(
+      pbVerdict,
+      this.instancesOf(response.instances),
+      diagnostics,
+      (response.verificationVerdicts ?? []).map(decodeVerificationVerdict),
+      true,
+    );
+  }
+
+  private instancesOf(pbInstances: readonly PbInstance[]): Instance[] {
+    if (pbInstances.length > 0) {
+      requireCapability(this.info, CAPABILITY_FEATURE_VALUES, upgradeRemedy(CAPABILITY_FEATURE_VALUES));
+    }
+    return pbInstances.map((pb) => new Instance(pb));
+  }
+
+  private requireVerification(): void {
+    requireCapability(this.info, CAPABILITY_VERIFICATION, upgradeRemedy(CAPABILITY_VERIFICATION));
+  }
+
+  private requireEngines(): void {
+    requireCapability(this.info, CAPABILITY_ENGINES, upgradeRemedy(CAPABILITY_ENGINES));
+  }
+
+  private requireEngine(engine: string | undefined): void {
+    for (const capability of engineCapabilities(engine)) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+  }
+
+  private requireQuestion(question: string | undefined): void {
+    for (const capability of questionCapabilities(question)) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+  }
+
+  private requireSchedule(schedule: string | undefined): void {
+    for (const capability of scheduleCapabilities(schedule)) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+  }
+
+  private requireStrictConformance(): void {
+    requireCapability(
+      this.info,
+      CAPABILITY_STRICT_CONFORMANCE,
+      upgradeRemedy(CAPABILITY_STRICT_CONFORMANCE),
+    );
+  }
+
+  private runCapabilities(schedule: string | undefined, performer: string | undefined): string[] {
+    const capabilities = scheduleCapabilities(schedule);
+    if (performer !== undefined && performer !== "") {
+      capabilities.push(CAPABILITY_PERFORMER);
+    }
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    return capabilities;
+  }
+
+  private warn(message: string, type: string): void {
+    this.backend.warn?.(message, type);
   }
 
   /** Asks the service what it is and what it can do, again. */
@@ -167,4 +1114,86 @@ async function handshake(
     }
     throw fromHandshakeError(connectError, origin);
   }
+}
+
+// Whether a schedule spelling names the exploring policy, options or not.
+function explores(schedule: string | undefined): boolean {
+  return schedule !== undefined && schedule !== "" && (schedule === "explore" || schedule.startsWith("explore:"));
+}
+
+// The engine field as sent: empty for auto, which every service reads as such.
+function engineField(engine: string | undefined): string {
+  return engine === undefined || engine === "" || engine === ENGINE_AUTO ? "" : engine;
+}
+
+// The question field as sent: empty for evaluate, which every service reads as such.
+function questionField(question: string | undefined): string {
+  return question === undefined || question === "" || question === QUESTION_EVALUATE ? "" : question;
+}
+
+// The capabilities a schedule spelling needs of the service: none for the default.
+function scheduleCapabilities(schedule: string | undefined): string[] {
+  const capabilities: string[] = [];
+  if (schedule !== undefined && schedule !== "") {
+    capabilities.push(CAPABILITY_SCHEDULE);
+  }
+  if (explores(schedule)) {
+    capabilities.push(CAPABILITY_SCHEDULE_EXPLORE);
+  }
+  return capabilities;
+}
+
+// The capabilities an engine selection needs of the service: none for auto.
+function engineCapabilities(engine: string | undefined): string[] {
+  const capabilities: string[] = [];
+  if (engineField(engine) !== "") {
+    capabilities.push(CAPABILITY_ENGINES);
+  }
+  if (engine === "explore") {
+    capabilities.push(CAPABILITY_SCHEDULE_EXPLORE);
+  }
+  return capabilities;
+}
+
+// The capabilities a question needs of the service: none for evaluate.
+function questionCapabilities(question: string | undefined): string[] {
+  return questionField(question) !== "" ? [CAPABILITY_VERIFICATION_QUESTIONS] : [];
+}
+
+// Refuse an exploring schedule on a method answering one run's result.
+function refuseExploring(schedule: string | undefined, method: string): void {
+  if (explores(schedule)) {
+    throw new RangeError(
+      `schedule ${JSON.stringify(schedule)} answers with every outcome, not one run's ` +
+        `result: use ${method}`,
+    );
+  }
+}
+
+// Refuse a schedule that would answer one run's result on a method reading outcomes.
+function requireExploring(schedule: string): void {
+  if (!explores(schedule)) {
+    throw new RangeError(
+      `schedule ${JSON.stringify(schedule)} answers one run's result, not every outcome: ` +
+        `spell it 'explore' or 'explore:runs=<n>,depth=<d>'`,
+    );
+  }
+}
+
+/** One wire outcome read, an undecodable value kept as its error. */
+function outcomeOf(pb: PbOutcome): Outcome {
+  const outputs = new Map<string, SysMLValue | UnsupportedValueError>();
+  for (const [name, value] of Object.entries(pb.outputs)) {
+    outputs.set(name, valueOrError(value));
+  }
+  return new Outcome({
+    outputs,
+    finalState: pb.finalState,
+    statesVisited: pb.statesVisited,
+    error: pb.error,
+    linearizations: pb.linearizations,
+    probability: pb.probability,
+    witness: pb.witness,
+    diagnostics: pb.diagnostics.map(decodeDiagnostic),
+  });
 }

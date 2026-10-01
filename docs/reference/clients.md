@@ -42,14 +42,14 @@ The protocols and what the service serves on a single port are described in
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach — and so does the Python client; the Node and Rust clients cover the v1 subset described below.
+out of reach — and so do the Python and Node clients; the Rust client covers the v1 subset described below.
 
 ## What the newer surfaces cover
 
-The Node and Rust clients are v1 surfaces with the same scope: connection lifecycle,
+The Rust client is a v1 surface: connection lifecycle,
 capability negotiation, parsing (a file or inline source), diagnostics, symbol lookup, expression
-evaluation and instantiation. The following are deliberately **not** in v1, in both clients
-rather than half-implemented in some:
+evaluation and instantiation. The Node client covers everything the Python one does —
+the newer surface below included. The following are deliberately **not** in v1, rather than half-implemented:
 
 - the edit API (`ApplyEdits`) and generated model-ergonomics types;
 - RDF conversion (`Convert`) and SysML v1 migration (`Migrate`);
@@ -86,19 +86,19 @@ A request must set `accept_documents` for that; one that does not is refused on 
 documents as before, so a client of the previous schema is answered as it always was. The service
 advertises the `edit_documents` capability for it; one without the capability answers `content`
 alone and refuses a model of several documents, so a client reads `documents` only from a service
-that advertises it. The Go, Python and Java clients set it and expose the documents; the Node and
-Rust clients carry the new fields in their generated messages only, since v1 of each parses one
-document at a time, and their conformance runners skip the multi-document scenarios naming that
+that advertises it. The Go, Python, Java and Node clients set it and expose the documents; the Rust
+client carries the new fields in its generated messages only, since v1 of it parses one
+document at a time, and its conformance runner skips the multi-document scenarios naming that
 reason.
 
-Only the Node client offers an escape hatch to them:
-`connection.rpc` is the generated Connect client. The Rust client ships the protobuf
+The Rust client ships the protobuf
 messages but no public call that sends one, so from that language, reach these RPCs through the
-Go, Java or Python client until they are wrapped. Each client's conformance report names, per
+Go, Java, Node or Python client until they are wrapped. Each client's conformance report names, per
 scenario,
 which of these gaps a skip belongs to, so a shrinking surface cannot pass quietly.
 
-The Go and Java APIs cover all of them except the generated model-ergonomics types: they read
+The Go, Java and Node APIs cover all of them: the Node client generates typed modules
+with `opensysml-generate`, and the Go and Java APIs read
 models through
 `Symbol`, `Instance` and `Value` instead.
 

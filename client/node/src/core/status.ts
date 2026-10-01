@@ -60,8 +60,20 @@ const CODE_ERRORS = new Map<Code, ServiceErrorClass>([
  */
 export type NotFoundSubject = "model" | "file";
 
+/**
+ * What to make of an UNIMPLEMENTED the service answered with anyway, such as a
+ * capability-gated call refused by a service that checked its own list: the
+ * capabilities the call required, mapped to the MissingCapabilityError the
+ * preflight check meant to raise.
+ */
+export type UnimplementedMapping = (details: string) => OpenSysMLError;
+
 /** Translates a failed call into the error for its status. */
-export function fromRpcError(error: unknown, notFound: NotFoundSubject = "model"): OpenSysMLError {
+export function fromRpcError(
+  error: unknown,
+  notFound: NotFoundSubject = "model",
+  unimplemented?: UnimplementedMapping,
+): OpenSysMLError {
   // A capability refusal or a closed connection is already this client's own.
   if (error instanceof OpenSysMLError) {
     return error;
@@ -74,6 +86,11 @@ export function fromRpcError(error: unknown, notFound: NotFoundSubject = "model"
       : connectError.rawMessage;
   if (connectError.code === Code.NotFound) {
     return notFoundError(message, status, notFound, connectError);
+  }
+  if (connectError.code === Code.Unimplemented && unimplemented !== undefined) {
+    const refusal = unimplemented(connectError.rawMessage);
+    refusal.cause = connectError;
+    return refusal;
   }
   const cls = CODE_ERRORS.get(connectError.code) ?? ServiceError;
   const described =
@@ -92,11 +109,15 @@ export function fromHandshakeError(error: unknown, origin: string): ServiceError
 }
 
 /** Awaits a call, translating whatever status it fails with. */
-export async function callRpc<T>(call: Promise<T>, notFound: NotFoundSubject = "model"): Promise<T> {
+export async function callRpc<T>(
+  call: Promise<T>,
+  notFound: NotFoundSubject = "model",
+  unimplemented?: UnimplementedMapping,
+): Promise<T> {
   try {
     return await call;
   } catch (error) {
-    throw fromRpcError(error, notFound);
+    throw fromRpcError(error, notFound, unimplemented);
   }
 }
 
@@ -116,7 +137,7 @@ function notFoundError(
     return new ModelNotFoundError(message, { cause, code: status });
   }
   if (lowered.includes("symbol not found")) {
-    return new SymbolNotFoundError(symbolNameIn(message));
+    return new SymbolNotFoundError(symbolNameIn(message), [], { cause });
   }
   const cls = notFound === "file" ? ModelFileNotFoundError : ModelNotFoundError;
   return new cls(message, { cause, code: status });
