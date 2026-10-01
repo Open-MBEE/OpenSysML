@@ -42,22 +42,11 @@ The protocols and what the service serves on a single port are described in
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach — and so do the Python and Node clients; the Rust client covers the v1 subset described below.
+out of reach — and so do the Python, Node and Rust clients.
 
 ## What the newer surfaces cover
 
-The Rust client is a v1 surface: connection lifecycle,
-capability negotiation, parsing (a file or inline source), diagnostics, symbol lookup, expression
-evaluation and instantiation. The Node client covers everything the Python one does —
-the newer surface below included. The following are deliberately **not** in v1, rather than half-implemented:
-
-- the edit API (`ApplyEdits`) and generated model-ergonomics types;
-- RDF conversion (`Convert`);
-- verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
-  `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take;
-- behaviour execution (`ExecuteAction`, `ExecuteState`);
-- `Query` and OSLC query;
-- native document queries and rendering (`RunDocumentQuery`, `RenderDocument`).
+The Node client covers everything the Python one does, the whole service surface included.
 
 The Java client covers the whole service surface, as typed immutable results:
 
@@ -77,6 +66,11 @@ The Java client covers the whole service surface, as typed immutable results:
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.
 
+The Rust client covers the same service surface as typed results — `parse_sources`, `convert`,
+`query`/`query_oslc`, the document calls, behaviour execution and exploration, verification,
+`calc`, `run_analysis`, `run_sweep`, `list_engines` and an `Editor` over `ApplyEdits` — as the
+[Rust API](rust-api.md) describes.
+
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in
 `ApplyEditsResponse.documents` under the name the parse gave it, and the sole-document `content`
@@ -85,21 +79,14 @@ A request must set `accept_documents` for that; one that does not is refused on 
 documents as before, so a client of the previous schema is answered as it always was. The service
 advertises the `edit_documents` capability for it; one without the capability answers `content`
 alone and refuses a model of several documents, so a client reads `documents` only from a service
-that advertises it. The Go, Python, Java and Node clients set it and expose the documents; the Rust
-client carries the new fields in its generated messages only, since v1 of it parses one
-document at a time, and its conformance runner skips the multi-document scenarios naming that
-reason.
+that advertises it. The Go, Python, Java, Node and Rust clients set it and expose the documents.
 
-The Rust client ships the protobuf
-messages but no public call that sends one, so from that language, reach these RPCs through the
-Go, Java, Node or Python client until they are wrapped. Each client's conformance report names, per
-scenario,
-which of these gaps a skip belongs to, so a shrinking surface cannot pass quietly.
+Each client's conformance report names, per scenario, why a skipped scenario is skipped, so a
+shrinking surface cannot pass quietly.
 
-The Go, Java and Node APIs cover all of them: the Node client generates typed modules
-with `opensysml-generate`, and the Go and Java APIs read
-models through
-`Symbol`, `Instance` and `Value` instead.
+Only the generated model-ergonomics types differ: the Node client generates typed modules with
+`opensysml-generate`, and the Go, Java and Rust APIs read models through `Symbol`, `Instance` and
+`Value` instead.
 
 ## Two lifecycle modes, and one guarantee
 
