@@ -461,9 +461,11 @@ function decode_value(v)
     _unsupported_value("unknown Value arm: $(arm)")
 end
 
-_json_real(value::AbstractFloat) =
-    isnan(value) ? "NaN" : isinf(value) ? (value > 0 ? "Infinity" : "-Infinity") :
-    Float64(value)
+function _json_real(value::Real)
+    number = Float64(value)
+    isnan(number) ? "NaN" : isinf(number) ? (number > 0 ? "Infinity" : "-Infinity") :
+    number
+end
 
 function encode_quantity(q::Quantity)
     body = Dict{String,Any}()
@@ -475,9 +477,9 @@ function encode_quantity(q::Quantity)
     isempty(q.unit) || (body["unit"] = q.unit)
     if q.unit_term !== nothing
         body["unitTerm"] = Dict{String,Any}(
-            "scaleNum" => q.unit_term.scale_num,
-            "scaleDen" => q.unit_term.scale_den,
-            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => f.exponent)
+            "scaleNum" => _json_real(q.unit_term.scale_num),
+            "scaleDen" => _json_real(q.unit_term.scale_den),
+            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => _json_real(f.exponent))
                              for f in q.unit_term.factors])
     end
     return body
@@ -498,16 +500,17 @@ encode_value(x::AbstractString) = Dict{String,Any}("stringValue" => String(x))
 encode_value(::Nothing) = Dict{String,Any}("null" => "")
 encode_value(x::Complex) =
     Dict{String,Any}("complex" => Dict{String,Any}(
-        "real" => _json_real(real(x)), "imaginary" => _json_real(imag(x))))
+        "real" => _json_real(Float64(real(x))),
+        "imaginary" => _json_real(Float64(imag(x)))))
 encode_value(x::InstanceRef) = Dict{String,Any}("instanceId" => string(x.id))
 function encode_value(ref::MeasurementRef)
     body = Dict{String,Any}("unit" => ref.unit)
     ref.unit_id === nothing || (body["unitId"] = ref.unit_id)
     if ref.unit_term !== nothing
         body["unitTerm"] = Dict{String,Any}(
-            "scaleNum" => ref.unit_term.scale_num,
-            "scaleDen" => ref.unit_term.scale_den,
-            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => f.exponent)
+            "scaleNum" => _json_real(ref.unit_term.scale_num),
+            "scaleDen" => _json_real(ref.unit_term.scale_den),
+            "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => _json_real(f.exponent))
                              for f in ref.unit_term.factors])
     end
     Dict{String,Any}("measurementRef" => body)

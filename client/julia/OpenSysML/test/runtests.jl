@@ -100,6 +100,30 @@ end
           Dict("quantity" => Dict("realMagnitude" => "NaN", "unit" => "m"))
     @test encode_value(complex(NaN, -Inf)) ==
           Dict("complex" => Dict("real" => "NaN", "imaginary" => "-Infinity"))
+    @test encode_value(complex(1, 2)) ==
+          Dict("complex" => Dict("real" => 1.0, "imaginary" => 2.0))
+    @test encode_value(complex(NaN, Inf)) ==
+          Dict("complex" => Dict("real" => "NaN", "imaginary" => "Infinity"))
+    nonfinite_unit = Unit("u"; scale_num=Inf, scale_den=-Inf,
+                          factors=[UnitFactor("U::u", NaN)], reduction_given=true)
+    expected_unit_term = Dict("scaleNum" => "Infinity", "scaleDen" => "-Infinity",
+                              "factors" => Any[Dict("unitId" => "U::u", "exponent" => "NaN")])
+    quantity_json = JSON.parse(JSON.json(encode_value(Quantity(1.0, "u", nonfinite_unit))))
+    @test quantity_json == Dict("quantity" => Dict(
+        "realMagnitude" => 1.0, "unit" => "u", "unitTerm" => expected_unit_term))
+    measurement_json = JSON.parse(JSON.json(
+        encode_value(MeasurementRef("u", "U::u", nonfinite_unit))))
+    @test measurement_json == Dict("measurementRef" => Dict(
+        "unit" => "u", "unitId" => "U::u", "unitTerm" => expected_unit_term))
+    decoded_quantity = decode_value(quantity_json)
+    @test decoded_quantity.unit_term.scale_num === Inf &&
+          decoded_quantity.unit_term.scale_den === -Inf &&
+          isnan(decoded_quantity.unit_term.factors[1].exponent)
+    decoded_measurement = decode_value(measurement_json)
+    @test decoded_measurement.unit_id == "U::u" &&
+          decoded_measurement.unit_term.scale_num === Inf &&
+          decoded_measurement.unit_term.scale_den === -Inf &&
+          isnan(decoded_measurement.unit_term.factors[1].exponent)
     @test encode_value(true) == Dict("boolValue" => true)
     @test encode_value("x") == Dict("stringValue" => "x")
     @test encode_value(nothing) == Dict("null" => "")
