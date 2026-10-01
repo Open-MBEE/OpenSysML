@@ -242,6 +242,21 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	return false, nil
 }
 
+// initialSuccessionEnds emits the two connector ends of `first a then b;`: the
+// source the initial node names, the target its successor names.
+func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.InitialNode) error {
+	source := connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, noCollapse: true}
+	if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
+		source.targetTerm = e.ids.subjectForNode(decl, fqn)
+	} else {
+		return nil
+	}
+	if err := e.connectorEnd(subject, source); err != nil {
+		return err
+	}
+	return e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, target: n.Successor, noCollapse: true})
+}
+
 // encodeInitialNode emits `first x;` — a Membership of the member the body
 // starts at (SysML.xtext InitialNodeMember) — or `first x then y`, the
 // SuccessionAsUsage it sequences.
@@ -270,6 +285,15 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 	}
 	if qualifiedText(n.Successor) != "" {
 		e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
+		// `first a then b;` owns its two ends, each a ConnectorEnd referencing
+		// the feature it names (SysML-textual-bnf SuccessionAsUsage,
+		// ConnectorEndMember), beside the sourceFeature and targetFeature the
+		// ends derive. A guarded one is a transition, not a succession.
+		if n.Guard == nil && n.Name() != "" {
+			if err := e.initialSuccessionEnds(subject, owner, n); err != nil {
+				return err
+			}
+		}
 	} else if n.Guard != nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the guarded initial node at %s", e.where(n)),

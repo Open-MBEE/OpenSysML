@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -392,6 +393,80 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	}
 	if string(back) != src {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// `first a then b;` is a SuccessionAsUsage owning its two ends
+// (SysML-textual-bnf SuccessionAsUsage, :714-718): each a ConnectorEnd under
+// an EndFeatureMembership whose ReferenceSubsetting references the feature it
+// names (ConnectorEnd, :693-696), as `succession first a then b;` is. The
+// source of `first start then a;` is the library's Actions::Action::start.
+// The graph alone reads back as the notation, and in the API's JSON each
+// succession's connectorEnd lists both ends.
+func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        first start then a;\n        first a then b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	for _, want := range []string{
+		"sysml:referencedFeature elmt:P__A__a",
+		"sysml:referencedFeature elmt:P__A__b",
+		// Actions::Action::start, by its normative id.
+		"sysml:referencedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the graph should state %q:\n%s", want, graph)
+		}
+	}
+	if n := strings.Count(graph, "a sysml:EndFeatureMembership"); n != 4 {
+		t.Errorf("the two successions should own two ends each, found %d end memberships:\n%s", n, graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, e := range elements {
+		id, _ := e["@id"].(string)
+		ids[id] = true
+	}
+	successions := 0
+	for _, e := range elements {
+		if e["@type"] != "SuccessionAsUsage" {
+			continue
+		}
+		successions++
+		ends, _ := e["connectorEnd"].([]any)
+		if len(ends) != 2 {
+			t.Errorf("%v: connectorEnd %v, want two ends", e["@id"], e["connectorEnd"])
+			continue
+		}
+		for _, end := range ends {
+			if id, _ := end.(map[string]any)["@id"].(string); !ids[id] {
+				t.Errorf("%v: connector end %v is not in the output", e["@id"], end)
+			}
+		}
+	}
+	if successions != 2 {
+		t.Errorf("want two SuccessionAsUsages, found %d", successions)
+	}
+	if _, err := convert.Convert("m.json", doc, convert.FormatAPIJSON, convert.FormatSysML); err != nil {
+		t.Errorf("the API JSON did not read back: %v", err)
 	}
 }
 
