@@ -55,8 +55,16 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 	}
 
 	// The flow's nodes and the members sequencing them are the graph's; the
-	// other members are the case's locals and results, as in a calc body.
-	graph, err := ToActionGraphWith(owner, scope, resolver)
+	// other members are the case's locals and results, as in a calc body. A
+	// result no succession sequences ends the body after the flow, not in it.
+	sequenced := sequencedMembers(body)
+	stated := make([]ast.Node, 0, len(body))
+	for _, member := range body {
+		if !trailing[member] || sequenced[member] {
+			stated = append(stated, member)
+		}
+	}
+	graph, err := lowerActionFlow(stated, scope, resolver)
 	var nodes map[ast.Node]bool
 	if err == nil {
 		nodes = make(map[ast.Node]bool, len(graph.Nodes))
@@ -65,7 +73,6 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		}
 	}
 	var locals, results []Statement
-	sequenced := sequencedMembers(body)
 	for _, member := range body {
 		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
