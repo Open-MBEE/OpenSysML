@@ -56,7 +56,9 @@ func formatMultiplicity(m *ast.Multiplicity) string {
 	if !m.IsRange {
 		return formatMultiplicityBound(m.Lower)
 	}
-	return formatMultiplicityBound(m.Lower) + ".." + formatMultiplicityBound(m.Upper)
+	lower := formatMultiplicityBound(m.Lower)
+	upper := formatMultiplicityBound(m.Upper)
+	return lower + ".." + upper
 }
 
 // formatMultiplicityBound renders a multiplicity bound node as a string.

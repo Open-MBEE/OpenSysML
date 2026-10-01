@@ -140,13 +140,13 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 // it, else the document's root scope described as one, which is what a document
 // declaring no root symbol has.
 func Root(sc *Context, rootScope *symbols.Scope) *Info {
-	if rootScope == nil {
-		return nil
-	}
 	for _, sym := range sc.Index.LookupQualified("") { // Root has empty name
 		if sym.Scope == rootScope {
 			return Of(sym, sc)
 		}
+	}
+	if rootScope == nil {
+		return nil
 	}
 	info := &Info{
 		Kind:     "RootNamespace",
@@ -319,9 +319,12 @@ func (sc *Context) markQuantity(sym *symbols.Symbol, info *TypeInfo, value ast.N
 		return
 	}
 	quantityValue := sc.libSymbol(fqnScalarQuantityValue)
+	if quantityValue == nil {
+		return
+	}
 	// Typing is a generalization edge, so a usage conforms to its type's
 	// supertypes: the same check covers a def and a usage.
-	if quantityValue != nil && sc.Semantics.Conforms(sym, quantityValue) {
+	if sc.Semantics.Conforms(sym, quantityValue) {
 		info.Quantity = true
 	}
 }
