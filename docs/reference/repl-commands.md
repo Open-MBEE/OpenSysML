@@ -498,9 +498,9 @@ sysml> %render Demo::summary dot okabe-ito
 
 The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`,
 `brewer-dark2`, `viridis` and `cividis` ([their sources](../project/view-rendering-forms.md#palettes));
-any other name is refused with that list. A palette is a `dot` or `plantuml` matter:
-`%render <name> mermaid` has no place for one, and a `Diagram` block of a document states its own
-([`palette`](../manual/authoring.md#diagrams)).
+any other name is refused with that list. A palette fills the `mermaid`, `dot` and `plantuml`
+forms alone (`%render <name> text okabe-ito` is refused), and a `Diagram` block of a document
+states its own ([`palette`](../manual/authoring.md#diagrams)).
 
 A third word after `dot` names the drawing style: `pilot`, the look above and the default, or
 `cameo`, the look of Cameo Systems Modeler — a diagram frame with a `stm [State Machine] … [ … ]`
@@ -543,8 +543,9 @@ n0 -- n1
 ```
 
 A palette name after `plantuml` fills the same nodes with the same colours DOT would
-(`%render Demo::summary plantuml okabe-ito`), a sequence's participants included. A `table`
-view has no PlantUML form. PlantUML pins no positions, so a view's `DiagramLayout` geometry
+(`%render Demo::summary plantuml okabe-ito`), a sequence's participants included; after `mermaid`
+it fills them likewise, as a `style` statement per flowchart node or a `classDef` per state, a
+sequence diagram alone noting it as not represented. A `table` view has no PlantUML form. PlantUML pins no positions, so a view's `DiagramLayout` geometry
 rides along as `'` comments; `dot` is the form that honours it
 ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 

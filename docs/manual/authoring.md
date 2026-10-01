@@ -513,12 +513,13 @@ part structure : Diagram {
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
   only by kinds that have a DOT or PlantUML form (tree, interconnection,
-  state, action, sequence). When the document is rendered with DOT or
-  PlantUML diagrams, the diagram's nodes are filled by keyword family from
-  that colourblind-safe palette, a `part def` and its `part` usages sharing a
-  hue, with black text kept legible on every fill
-  ([the palettes](../project/view-rendering-forms.md#palettes)); with Mermaid
-  diagrams the palette is noted as not represented, and the HTML figure
+  state, action, sequence). When the document is rendered, the diagram's
+  nodes are filled by keyword family from that colourblind-safe palette, a
+  `part def` and its `part` usages sharing a hue, with black text kept
+  legible on every fill
+  ([the palettes](../project/view-rendering-forms.md#palettes)), in Mermaid,
+  DOT and PlantUML alike; a Mermaid sequence diagram, which fills no
+  participant, notes the palette as not represented, and the HTML figure
   carries it as `data-palette` either way. Any other name, or a palette on a
   table diagram, is a typed error.
 

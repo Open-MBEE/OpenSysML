@@ -404,7 +404,7 @@ nodes as under `pilot`, over the Cameo pens.
 
 ### Palettes
 
-A `view.Palette` fills the DOT and PlantUML forms' nodes by **keyword family**, the way the Pilot's
+A `view.Palette` fills the Mermaid, DOT and PlantUML forms' nodes by **keyword family**, the way the Pilot's
 `STDCOLOR` mode does, so a `part def` and a `part` share a hue. The empty palette is the B&W
 default above. Every named palette is colourblind-safe:
 
@@ -441,9 +441,12 @@ Brewer (http://colorbrewer.org/), licensed under the Apache License, Version 2.0
   asserts the ratio for every colour of every palette at both tints.
 - **What stays black and white.** Pseudo-states, control nodes (fork, join, decision, …) and
   cluster borders keep the B&W rules under every palette; only plain nodes are filled.
-- **Other forms.** Mermaid writes a `%% not represented: palette <name>; only the DOT and PlantUML
-  forms fill nodes by keyword family` comment and is not themed; text and Markdown ignore a
-  palette silently. An unknown palette name is a typed `*view.UnknownPaletteError` (wrapping
+- **Mermaid.** The same hex per node as DOT (`TestMermaidPaletteParityWithDOT`), as a flowchart
+  `style <id> fill:#hex,stroke:#hex` statement or a state diagram's `classDef style_<id> …` and
+  `class <id> style_<id>` pair, written after the nodes and edges where a Style's colours go; a
+  pin node keeps the theme's fill. A sequence diagram has no fill per participant and writes a
+  `%% not represented: palette <name>; Mermaid fills no node of a sequence diagram` comment.
+- **Other forms.** Text and Markdown ignore a palette silently. An unknown palette name is a typed `*view.UnknownPaletteError` (wrapping
   `view.ErrUnknownPalette`) naming the palettes there are, on every surface.
 
 The palette API is shaped so a later caller can ask for the colour of category *i* of *n*

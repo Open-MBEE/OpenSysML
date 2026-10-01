@@ -275,8 +275,8 @@ func TestPlantUMLFormSupport(t *testing.T) {
 	if got := KindSequence.SupportedForms(); fmt.Sprint(got) != "[text mermaid plantuml]" {
 		t.Errorf("sequence forms = %v", got)
 	}
-	if !FormPlantUML.TakesPalette() || !FormDot.TakesPalette() || FormMermaid.TakesPalette() {
-		t.Error("TakesPalette: want dot and plantuml alone")
+	if !FormPlantUML.TakesPalette() || !FormDot.TakesPalette() || !FormMermaid.TakesPalette() || FormText.TakesPalette() {
+		t.Error("TakesPalette: want mermaid, dot and plantuml alone")
 	}
 	unsupported := []*Rendering{
 		render(t, "table.sysml", "TableViews::partsTable"),

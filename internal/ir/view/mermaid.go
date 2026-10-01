@@ -1,6 +1,7 @@
 package view
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -24,10 +25,12 @@ func (r *Rendering) Mermaid() string {
 // MermaidWith is the Mermaid form written with options. It is drawn in the
 // stated direction: a flowchart flows that way, and a state diagram states it
 // as a `direction` statement. The empty direction keeps each kind's default,
-// and a kind no direction applies to ignores it. A palette is not drawn,
-// Mermaid having no fill per node kind, and is noted as not represented. A
-// rendering some Layout positions draws the nodes the DOT form draws: the placed
-// ones, and the unplaced ones too under UnplacedStrip.
+// and a kind no direction applies to ignores it. A palette fills the nodes of a
+// flowchart (`style`) and of a state diagram (`classDef`) with the hex the DOT
+// form gives them; a sequence diagram has no fill per participant and notes it,
+// as does a kind no form fills.
+// A rendering some Layout positions draws the nodes the DOT form draws: the
+// placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
@@ -46,8 +49,15 @@ func (r *Rendering) MermaidWith(options Options) string {
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
+	fills := map[string]Fill{}
 	if options.Palette != "" {
-		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
+		if filled, err := r.Fills(options.Palette); err != nil {
+			fmt.Fprintf(&b, "%%%% not represented: %v\n", err)
+		} else if r.Kind == KindSequence || !r.Kind.SupportsPalette() {
+			fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette, r.Kind))
+		} else {
+			fills = filled
+		}
 	}
 	if options.Style != "" && options.Style != StylePilot {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", styleNotice(options.Style))
@@ -58,13 +68,13 @@ func (r *Rendering) MermaidWith(options Options) string {
 	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
-		r.writeStateDiagram(&b, direction, labels)
+		r.writeStateDiagram(&b, direction, labels, fills)
 		return b.String()
 	case KindSequence:
 		r.writeSequenceDiagram(&b, labels)
 		return b.String()
 	}
-	r.writeFlowchart(&b, direction, labels)
+	r.writeFlowchart(&b, direction, labels, fills)
 	return b.String()
 }
 
@@ -165,7 +175,7 @@ func flowchartCluster(node *Node, ports bool) bool {
 // is an edge, and every other edge is the one the rendering holds. A flowchart
 // has no port, so an interconnection's ports are nodes inside their part's
 // subgraph and its connectors end at them; an action's pins are its flows' labels.
-func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
+func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller, fills map[string]Fill) {
 	flow := "TD"
 	if r.Kind == KindInterconnection {
 		flow = "LR"
@@ -191,15 +201,16 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", from, mermaidArrow(edge.Kind), mermaidText(edge.Label), to)
 	}
 	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, false)
+		writeMermaidStyles(b, root, false, fills)
 	}
 }
 
-// writeMermaidStyles writes the colours a Style gives node and the nodes under
-// it: a flowchart's `style` statement, a state diagram's `classDef` and
-// `class` pair. A Style's font, and an edge's Style, Mermaid has no statement for.
-func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
-	if css := mermaidStyleCSS(node.Style); css != "" {
+// writeMermaidStyles writes the colours a Style and the palette fills give
+// node and the nodes under it: a flowchart's `style` statement, a state
+// diagram's `classDef` and `class` pair. A Style's font, and an edge's Style,
+// Mermaid has no statement for.
+func writeMermaidStyles(b *strings.Builder, node *Node, state bool, fills map[string]Fill) {
+	if css := mermaidStyleCSS(node.Style, fills[node.ID]); css != "" {
 		if state {
 			fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, css, node.ID, node.ID)
 		} else {
@@ -207,22 +218,23 @@ func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
 		}
 	}
 	for _, child := range node.Children {
-		writeMermaidStyles(b, child, state)
+		writeMermaidStyles(b, child, state, fills)
 	}
 }
 
-// mermaidStyleCSS is a Style's colours as Mermaid's comma-separated CSS:
-// the fill, the stroke and the text colour; empty when the Style sets none.
-func mermaidStyleCSS(style *Style) string {
+// mermaidStyleCSS is a node's colours as Mermaid's comma-separated CSS: the
+// fill and the stroke, the Style's over the palette's, and the Style's text
+// colour; empty when neither sets any.
+func mermaidStyleCSS(style *Style, fill Fill) string {
 	if style == nil {
-		return ""
+		style = &Style{}
 	}
 	var props []string
-	if style.Fill != "" {
-		props = append(props, "fill:"+style.Fill)
+	if color := cmp.Or(style.Fill, fill.Fill); color != "" {
+		props = append(props, "fill:"+color)
 	}
-	if style.Line != "" {
-		props = append(props, "stroke:"+style.Line)
+	if color := cmp.Or(style.Line, fill.Border); color != "" {
+		props = append(props, "stroke:"+color)
 	}
 	if style.Text != "" {
 		props = append(props, "color:"+style.Text)
@@ -275,7 +287,7 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, 
 
 // writeStateDiagram writes a state rendering as a Mermaid state diagram: bodies
 // are composite states, entry transitions leave the `[*]` marker of their body.
-func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller) {
+func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller, fills map[string]Fill) {
 	b.WriteString("stateDiagram-v2\n")
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
@@ -305,7 +317,7 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
 	}
 	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, true)
+		writeMermaidStyles(b, root, true, fills)
 	}
 }
 

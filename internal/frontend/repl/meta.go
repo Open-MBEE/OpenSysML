@@ -480,7 +480,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
+			return []string{fmt.Sprintf("a palette fills the mermaid, dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {

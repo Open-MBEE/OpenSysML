@@ -204,9 +204,8 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 }
 
-// -render-palette fills the DOT form's nodes from a named palette, is noted as
-// not represented by the Mermaid form, and is refused with the palettes there
-// are when it names none of them.
+// -render-palette fills the DOT and Mermaid forms' nodes from a named palette,
+// and is refused with the palettes there are when it names none of them.
 func TestRenderPalette(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -221,11 +220,8 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
-		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
-	}
-	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
-		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid.stdout)
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "\n  style n0 fill:#") || strings.Contains(mermaid.stdout, "not represented: palette") {
+		t.Errorf("Mermaid with a palette = %d, want its nodes filled\n%s", mermaid.status, mermaid.output())
 	}
 
 	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")

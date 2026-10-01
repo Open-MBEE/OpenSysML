@@ -618,7 +618,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the mermaid, dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 

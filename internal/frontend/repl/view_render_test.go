@@ -133,17 +133,21 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
 		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "a palette fills the dot and plantuml forms only, not mermaid")
+	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "\n  style n0 fill:#E69F00,stroke:#E69F00\n")
+	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
 	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	// The palette completes after the dot form, and after no other.
+	// The palette completes after the dot, mermaid and plantuml forms, and after no other.
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
 	if got := s.Complete("%render Demo::summary dot tol-", len("%render Demo::summary dot tol-")); !slices.Equal(got.Candidates, []string{"tol-bright", "tol-light", "tol-muted"}) {
 		t.Errorf("completing tol- offered %v", got.Candidates)
 	}
-	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); slices.Contains(got.Candidates, "okabe-ito") {
-		t.Errorf("completing after the mermaid form offered a palette: %v", got.Candidates)
+	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); !slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the mermaid form offered no palette: %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary text ", len("%render Demo::summary text ")); slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the text form offered a palette: %v", got.Candidates)
 	}
 }
 

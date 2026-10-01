@@ -721,8 +721,8 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
-	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
-		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
+	if !strings.Contains(out.Artifact, "\n  style n0 fill:#") || strings.Contains(out.Artifact, "not represented: palette") {
+		t.Errorf("the Mermaid artifact is not filled from the palette:\n%s", out.Artifact)
 	}
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},

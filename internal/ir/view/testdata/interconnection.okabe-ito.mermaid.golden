@@ -1,0 +1,29 @@
+---
+config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["«part def»<br>Loop"]
+    direction LR
+    subgraph n1 ["«part»<br>pump : Pump"]
+      direction LR
+      n1.0["«port»<br>outlet : FluidPort"]
+    end
+    subgraph n2 ["«part»<br>tank : Tank"]
+      direction LR
+      n2.0["«port»<br>inlet : FluidPort"]
+    end
+    subgraph n3 ["«part»<br>sensor : Pump"]
+      direction LR
+      n3.0["«port»<br>outlet : FluidPort"]
+    end
+  end
+  n1.0 ---|"supply"| n2.0
+  n1 -.->|"of Water"| n2
+  style n1 fill:#F5D999,stroke:#E69F00
+  style n2 fill:#F5D999,stroke:#E69F00
+  style n3 fill:#F5D999,stroke:#E69F00
