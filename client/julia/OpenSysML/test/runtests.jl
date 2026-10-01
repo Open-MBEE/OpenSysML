@@ -18,13 +18,30 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test decode_value(JSON.parse("""{"realValue":"NaN"}""")) |> isnan
     @test decode_value(JSON.parse("""{"realValue":"Infinity"}""")) === Inf
     @test decode_value(JSON.parse("""{"realValue":"-Infinity"}""")) === -Inf
+    negative_zero = decode_value(OpenSysML._parse_json(
+        """{"realValue":-0}""", "ExecuteAction", 200))
+    @test negative_zero == 0.0 && signbit(negative_zero)
+    negative_zero_complex = decode_value(OpenSysML._parse_json(
+        """{"complex":{"real":-0,"imaginary":-0}}""", "Calc", 200))
+    @test signbit(real(negative_zero_complex))
+    @test signbit(imag(negative_zero_complex))
+    negative_zero_quantity = decode_value(OpenSysML._parse_json(
+        """{"quantity":{"realMagnitude":-0,"unit":"m"}}""", "Calc", 200))
+    @test signbit(negative_zero_quantity.magnitude)
     @test decode_value(JSON.parse("""{"boolValue":true}""")) === true
     @test decode_value(JSON.parse("""{"stringValue":"abc"}""")) == "abc"
     @test decode_value(JSON.parse("""{"instanceId":"2"}""")) == InstanceRef(2)
     @test decode_value(JSON.parse("""{"sequence":{"elements":[{"stringValue":"nav"},{"intValue":"1"}]}}""")) == Any["nav", 1]
     @test decode_value(JSON.parse("""{"sequence":{}}""")) == Any[]
     @test decode_value(JSON.parse("""{"null":""}""")) === nothing
-    @test_throws ErrorException decode_value(JSON.parse("""{"null":"unsupported: function F::f closing over a body's bindings"}"""))
+    unsupported = try
+        decode_value(JSON.parse("""{"null":"unsupported: function F::f closing over a body's bindings"}"""))
+        nothing
+    catch error
+        error
+    end
+    @test unsupported isa UnsupportedValueError
+    @test unsupported.message == "unsupported: function F::f closing over a body's bindings"
     @test decode_value(JSON.parse("""{"unset":true}""")) isa Unset
     q = decode_value(JSON.parse("""{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1}]}}}"""))
     @test q isa Quantity && q.magnitude === 5.4 && q.unit == "SI::km/SI::h" && q.unit_term["scaleNum"] == 5
@@ -38,44 +55,76 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test decode_value(JSON.parse("""{"complex":{"imaginary":2}}""")) == complex(0.0, 2.0)
     a = decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"},{"intValue":"4"},{"intValue":"5"},{"intValue":"6"}]}}"""))
     @test a.dimensions == [2, 3] && length(a.elements) == 6
-    @test_throws ErrorException decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"}]}}"""))
     v = decode_value(JSON.parse("""{"vector":{"components":[{"realValue":3},{"intValue":"4"}]}}"""))
     @test v.components == [3.0, 4]
-    @test_throws ErrorException decode_value(JSON.parse("""{"vector":{"components":[{"stringValue":"x"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"vector":{"components":[{"stringValue":"x"}]}}"""))
     vq = decode_value(JSON.parse("""{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m"},{"realMagnitude":4,"unit":"m"}]}}"""))
     @test length(vq.components) == 2 && vq.components[1] isa Quantity
-    @test_throws ErrorException decode_value(JSON.parse("""{"vectorQuantity":{"components":[]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"vectorQuantity":{"components":[]}}"""))
     m = decode_value(JSON.parse("""{"measurementRef":{"unit":"m","unitTerm":{"scaleNum":1,"scaleDen":1},"unitId":"SI::metre"}}"""))
     @test m.unit == "m" && m.unit_id == "SI::metre"
     mc = decode_value(JSON.parse("""{"measurementRef":{"unit":"m/s","unitTerm":{"scaleNum":1,"scaleDen":1}}}"""))
     @test mc.unit_id === nothing
-    @test_throws ErrorException decode_value(JSON.parse("""{"measurementRef":{"unit":"m"}}"""))
-    @test_throws ErrorException decode_value(JSON.parse("""{"measurementRef":{}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"measurementRef":{"unit":"m"}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"measurementRef":{}}"""))
     @test decode_value(JSON.parse("""{"infinity":true}""")) isa Infinity
-    @test_throws ErrorException decode_value(JSON.parse("""{"infinity":false}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"infinity":false}"""))
     f = decode_value(JSON.parse("""{"function":{"calcId":"F::Sq"}}"""))
     @test f == FunctionRef("F::Sq", nothing)
     fs = decode_value(JSON.parse("""{"function":{"calcId":"F::Scaler::scale","selfId":"1"}}"""))
     @test fs.self == InstanceRef(1)
-    @test_throws ErrorException decode_value(JSON.parse("""{"function":{"calcId":""}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"function":{"calcId":""}}"""))
     s = decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"2"}]}}"""))
     @test s == Set([1, 2])
-    @test_throws ErrorException decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"1"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"1"}]}}"""))
     @test decode_value(JSON.parse("""{"set":{}}""")) == Set()
     t = decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"},{"realMagnitude":2,"unit":"m"},{"realMagnitude":3,"unit":"m"},{"realMagnitude":4,"unit":"m"}]}}"""))
     @test t.dimensions == [2, 2] && length(t.components) == 4
-    @test_throws ErrorException decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"}]}}"""))
     mo = decode_value(JSON.parse("""{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}"""))
     @test mo == Metaobject("Meta::seatBelt", "SysML::Systems::PartUsage")
-    @test_throws ErrorException decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
     u = decode_value(JSON.parse("""{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"*"}}}"""))
     @test u == Undetermined("P::Q::d has no value in the model", "1", "*")
-    @test_throws ErrorException decode_value(JSON.parse("""{"fromTheFuture":1}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
+    @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end
 
 @testset "encode_value" begin
     @test encode_value(Int64(4)) == Dict("intValue" => "4")
     @test encode_value(5.4) == Dict("realValue" => 5.4)
+    @test encode_value(NaN) == Dict("realValue" => "NaN")
+    @test encode_value(Inf) == Dict("realValue" => "Infinity")
+    @test encode_value(-Inf) == Dict("realValue" => "-Infinity")
+    @test encode_value(Quantity(NaN, "m", nothing)) ==
+          Dict("quantity" => Dict("realMagnitude" => "NaN", "unit" => "m"))
+    @test encode_value(complex(NaN, -Inf)) ==
+          Dict("complex" => Dict("real" => "NaN", "imaginary" => "-Infinity"))
+    @test encode_value(complex(1, 2)) ==
+          Dict("complex" => Dict("real" => 1.0, "imaginary" => 2.0))
+    @test encode_value(complex(NaN, Inf)) ==
+          Dict("complex" => Dict("real" => "NaN", "imaginary" => "Infinity"))
+    nonfinite_unit = Unit("u"; scale_num=Inf, scale_den=-Inf,
+                          factors=[UnitFactor("U::u", NaN)], reduction_given=true)
+    expected_unit_term = Dict("scaleNum" => "Infinity", "scaleDen" => "-Infinity",
+                              "factors" => Any[Dict("unitId" => "U::u", "exponent" => "NaN")])
+    quantity_json = JSON.parse(JSON.json(encode_value(Quantity(1.0, "u", nonfinite_unit))))
+    @test quantity_json == Dict("quantity" => Dict(
+        "realMagnitude" => 1.0, "unit" => "u", "unitTerm" => expected_unit_term))
+    measurement_json = JSON.parse(JSON.json(
+        encode_value(MeasurementRef("u", "U::u", nonfinite_unit))))
+    @test measurement_json == Dict("measurementRef" => Dict(
+        "unit" => "u", "unitId" => "U::u", "unitTerm" => expected_unit_term))
+    decoded_quantity = decode_value(quantity_json)
+    @test decoded_quantity.unit_term.scale_num === Inf &&
+          decoded_quantity.unit_term.scale_den === -Inf &&
+          isnan(decoded_quantity.unit_term.factors[1].exponent)
+    decoded_measurement = decode_value(measurement_json)
+    @test decoded_measurement.unit_id == "U::u" &&
+          decoded_measurement.unit_term.scale_num === Inf &&
+          decoded_measurement.unit_term.scale_den === -Inf &&
+          isnan(decoded_measurement.unit_term.factors[1].exponent)
     @test encode_value(true) == Dict("boolValue" => true)
     @test encode_value("x") == Dict("stringValue" => "x")
     @test encode_value(nothing) == Dict("null" => "")
@@ -85,9 +134,21 @@ end
     @test encode_value(Quantity(Int64(3), "kg", nothing)) == Dict("quantity" => Dict("intMagnitude" => "3", "unit" => "kg"))
     @test encode_value(InstanceRef(7)) == Dict("instanceId" => "7")
     @test encode_value(FunctionRef("F::Sq", nothing)) == Dict("function" => Dict("calcId" => "F::Sq"))
-    @test_throws ErrorException encode_value(FunctionRef("F::Sq", InstanceRef(1)))
-    @test_throws ErrorException encode_value(Undetermined("r", "1", "1"))
-    @test_throws ErrorException encode_value(Unset())
+    @test_throws ArgumentError encode_value(FunctionRef("F::Sq", InstanceRef(1)))
+    @test_throws ArgumentError encode_value(Undetermined("r", "1", "1"))
+    @test_throws ArgumentError encode_value(Unset())
+    @test encode_value(typemin(Int64)) == Dict("intValue" => string(typemin(Int64)))
+    @test encode_value(typemax(Int64)) == Dict("intValue" => string(typemax(Int64)))
+    for value in (BigInt(typemax(Int64)) + 1, BigInt(typemin(Int64)) - 1)
+        failure = try
+            encode_value(value)
+            nothing
+        catch error
+            error
+        end
+        @test failure isa ArgumentError
+        @test sprint(showerror, failure) == "ArgumentError: Value out of range: $value"
+    end
     @test encode_value(EnumLiteral("E::a", "E", "a"))["enumLiteral"]["literalId"] == "E::a"
     for x in (Int64(4), 5.4, true, "x", nothing, complex(1.5, -2.0), Any[1, 2])
         @test decode_value(encode_value(x)) == x
@@ -190,12 +251,24 @@ end
     try
         canned[] = "{broken"
         @test_throws TransportError call(conn, "X", Dict{String,Any}())
-        canned[] = """{"outputs":{"intValue":{"intValue":"7"}}}"""
-        @test execute_action(model, "A")["outputs"]["intValue"] == 7
+        canned[] = """{"outputs":{"intValue":{"intValue":"7"},"bad":{"null":"unsupported: no representation"}},"performerAttributes":{"this.speed":{"realValue":3}}}"""
+        action = execute_action(model, "A")
+        @test action isa ActionOutputs
+        @test length(action) == 2 && haskey(action, "intValue")
+        @test action["intValue"] == 7
+        @test action["bad"] isa UnsupportedValueError
+        @test action.performer == Dict{String,Any}("this.speed" => 3.0)
         canned[] = """{"finalContext":{"intValue":{"intValue":"3"}},"statesVisited":["s"]}"""
-        answer = execute_state(model, "S")
-        @test answer["finalContext"]["intValue"] == 3
-        @test answer["statesVisited"] == ["s"]
+        state_run = execute_state(model, "S")
+        @test state_run isa StateRun
+        @test state_run.final_context["intValue"] == 3
+        @test state_run.states_visited == ["s"]
+        @test state_run.final_time == 0.0
+        canned[] = "{}"
+        empty_state = execute_state(model, "S")
+        @test empty_state.states_visited == String[]
+        @test empty_state.final_context == Dict{String,Any}()
+        @test empty_state.final_time == 0.0
     finally
         close(server)
     end
@@ -225,6 +298,10 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
                                   name="behavior.sysml")
             qmodel = parse_source(conn, read(joinpath(FIXTURES, "query.sysml"), String);
                                   name="query.sysml")
+            unnamed = parse_source(conn, "package Inline {}")
+            named = parse_source(conn, "package Inline {}", name="inline.sysml")
+            @test documents(unnamed) == String[]
+            @test documents(named) == ["inline.sysml"]
 
             sym = symbol(model, "Test::SimplePart")
             @test get(sym, "id", "") == "Test::SimplePart"
@@ -235,9 +312,22 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             @test !isempty(inst.feature_values)
 
             ran = execute_action(bmodel, "Test::addFive"; inputs=Dict("result" => 10))
-            @test ran["outputs"]["result"] == 15
+            @test ran["result"] == 15
+            @test ran.performer == Dict{String,Any}()
             states = execute_state(bmodel, "Test::Machine")
-            @test states["statesVisited"] == ["init", "Running", "done"]
+            @test states.states_visited == ["init", "Running", "done"]
+            @test states.final_context == Dict{String,Any}()
+            @test states.final_time == 0.0
+
+            strict_failure = try
+                parse_source(conn, "package Broken { part def"; strict=true)
+                nothing
+            catch error
+                error
+            end
+            @test strict_failure isa ModelError
+            @test strict_failure.message ==
+                "the model has 2 error(s): <content>:1:23: error: missing ';' at end of declaration; <content>:1:26: error: expected '}'"
 
             rows = query(qmodel, "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name")
             @test length(get(rows, "elements", Any[])) == 3

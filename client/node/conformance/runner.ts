@@ -144,7 +144,12 @@ export class Runner {
     return ({ method, response }) => {
       if (isMessage(response)) {
         this.options.mutate?.(method, response);
-        this.captured.set(method, response);
+        // One scenario makes one top-level RPC; the answer it compares is the
+        // first of that method, since the API may ask the service more (a
+        // not-found lookup still names near misses, which re-queries).
+        if (!this.captured.has(method)) {
+          this.captured.set(method, response);
+        }
       }
     };
   }

@@ -82,8 +82,8 @@ third a field the answer did not carry.
 `SysMLVerdict` (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` /
 `many` / `error`) are unions of the same shape; every verdict arm carries a `standing` — the
 engine that answered, the strength of its evidence (`observed`, `witnessed`, `bounded`,
-`proved`) and the bounds it ran under — empty from a service without the `engines`
-capability. Integers are `bigint`, because
+`proved`) and the bounds it ran under, with `reported` and `reached` beside them —
+empty from a service without the `engines` capability. Integers are `bigint`, because
 the service's `int64` does not fit a `number` — an exact comparison against a
 scenario expectation would otherwise be a lie.
 
@@ -228,7 +228,8 @@ Every failure is an `OpenSysMLError`. A call the service refused is a
 `"INVALID_ARGUMENT"`, …), and the statuses worth catching by themselves have a
 subclass: `ModelNotFoundError` (the service no longer holds that hash),
 `ModelFileNotFoundError`, `InvalidRequestError`, `ServiceTimeoutError`,
-`UnsupportedOperationError`. A name the model has not got is a
+`ServiceUnavailableError` (the service was unreachable or died before
+answering), `UnsupportedOperationError`. A name the model has not got is a
 `SymbolNotFoundError`, which carries the `symbolName` it looked for and the
 `suggestions` closest to it:
 

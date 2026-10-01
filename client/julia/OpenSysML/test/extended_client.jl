@@ -16,6 +16,112 @@ function recording_service(capabilities; handler=(method, body) -> Dict{String,A
     server, requests, "127.0.0.1:$(port)"
 end
 
+@testset "closed connections reject calls" begin
+    server, requests, address = recording_service(String[])
+    conn = external(address)
+    @test isopen(conn)
+    close(conn)
+    @test !isopen(conn)
+    failure = try
+        parse_source(conn, "package Closed;")
+        nothing
+    catch error
+        error
+    end
+    @test failure isa TransportError
+    @test failure.message == "the connection is closed; open a new one"
+    @test isempty(requests)
+    @test close(conn) === nothing
+    close(server)
+
+    if isfile(GRPC_BINARY)
+        private_conn = private(binary=GRPC_BINARY)
+        close(private_conn)
+        @test !isopen(private_conn)
+        @test_throws TransportError parse_source(private_conn, "package Closed;")
+        @test close(private_conn) === nothing
+    end
+end
+
+@testset "transport failures hide request bodies and classify timeouts" begin
+    listener = listen(ip"127.0.0.1", 0)
+    port = getsockname(listener)[2]
+    disconnected = @async begin
+        socket = accept(listener)
+        close(socket)
+        close(listener)
+    end
+    source = "package SecretSource;"
+    conn = external("127.0.0.1:$(port)"; timeout=2)
+    failure = try
+        parse_source(conn, source)
+        nothing
+    catch error
+        error
+    finally
+        close(conn)
+    end
+    wait(disconnected)
+    @test failure isa TransportError
+    @test !occursin(source, failure.message)
+    @test ncodeunits(failure.message) < 300
+
+    server, _, address = recording_service(String[];
+        handler=(method, body) -> begin
+            sleep(2)
+            Dict("modelHash" => "slow")
+        end)
+    slow_conn = external(address; timeout=1)
+    timeout = try
+        parse_source(slow_conn, "package Slow;")
+        nothing
+    catch error
+        error
+    finally
+        close(slow_conn)
+        close(server)
+    end
+    @test timeout isa ServiceTimeoutError
+    @test occursin("ParseFile failed:", timeout.message)
+end
+
+@testset "live IEEE-754 values use protobuf JSON spellings" begin
+    if !isfile(GRPC_BINARY)
+        @test_skip false
+    else
+        conn = private(binary=GRPC_BINARY)
+        try
+            model = parse_source(conn, """
+                package Wire {
+                    private import ScalarValues::*;
+                    action Echo {
+                        attribute data;
+                        attribute result;
+                        first start;
+                        action inner { assign result := data; }
+                        done;
+                        succession first start then inner;
+                        succession first inner then done;
+                    }
+                }
+            """)
+            for input in (NaN, Inf, -Inf, -0.0)
+                output = execute_action(model, "Wire::Echo"; inputs=Dict("data" => input))["result"]
+                @test output isa Float64
+                if isnan(input)
+                    @test isnan(output)
+                elseif isinf(input)
+                    @test output == input
+                else
+                    @test output == input && signbit(output)
+                end
+            end
+        finally
+            close(conn)
+        end
+    end
+end
+
 @testset "errors and capabilities" begin
     @test ConnectError("not_found", "model not found: abc", 404) isa ModelNotFoundError
     @test ConnectError("not_found", "file not found: a.sysml", 404) isa ModelFileNotFoundError
@@ -290,7 +396,7 @@ end
     @test same_value(Set([true]), Set([1]))
     @test same_value(Set(), nothing)
     @test same_value(Set([ArrayValue([1], Any[1])]), Set([ArrayValue([1], Any[1])]))
-    @test_throws ErrorException decode_value(Dict("set" => Dict("elements" => [
+    @test_throws UnsupportedValueError decode_value(Dict("set" => Dict("elements" => [
         Dict("array" => Dict("dimensions" => ["1"], "elements" => [Dict("intValue" => "1")])),
         Dict("array" => Dict("dimensions" => ["1"], "elements" => [Dict("intValue" => "1")])),
     ])))
@@ -335,7 +441,18 @@ end
         ])),
     ))
     @test bad_feature.feature_values["items"] isa FeatureValueError
+    @test bad_feature.feature_values["items"].message == "unsupported: value"
     @test_throws FeatureValueError bad_feature.items
+
+    coordinate_error = OpenSysML._decode_instance(Dict(
+        "id" => "1",
+        "typeSymbolId" => "Demo::Context",
+        "featureValues" => Dict("accelarationCF" => Dict("value" =>
+            Dict("null" => "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"))),
+    )).feature_values["accelarationCF"]
+    @test coordinate_error isa FeatureValueError
+    @test coordinate_error.message ==
+          "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
 end
 
 @testset "query and document binding builders" begin
@@ -346,6 +463,49 @@ end
     @test query["where"]["primitive"]["operator"] == "PRIMITIVE_OPERATOR_EQUAL"
     @test_throws QueryError build_query(scope=["Demo::Vehicle"], select=["name"],
         var"where"=Dict("property" => "name", "operator" => "!=", "value" => "car"))
+
+    cases = [
+        (() -> build_query(; payload=Dict("@type" => "Query"), scope=["Demo::Vehicle"]),
+         "pass a query payload or scope/select/where keywords, not both"),
+        (() -> build_query(["not a mapping"]), "a query is an object, not Vector{String}"),
+        (() -> build_query(Dict("@type" => "Other")),
+         "expected a 'Query' payload, got \"Other\""),
+        (() -> build_query(Dict("@type" => "Query", "unexpected" => true)),
+         "a query has no unexpected; the standard's query is scope, select and where"),
+        (() -> build_query(scope=1), "scope is a list, not Int64"),
+        (() -> build_query(scope=[1]),
+         "a scope entry is an element's qualified name or a {'@id': ...} reference, not 1"),
+        (() -> build_query(select=[1]), "a selected property is a name, not 1"),
+        (() -> build_query(var"where"=1), "a constraint is an object, not Int64"),
+        (() -> build_query(var"where"=Dict("@type" => "Other")),
+         "unknown constraint type \"Other\"; the standard's constraints are PrimitiveConstraint and CompositeConstraint"),
+        (() -> build_query(var"where"=Dict("@type" => "PrimitiveConstraint", "extra" => true)),
+         "a PrimitiveConstraint has no extra"),
+        (() -> build_query(var"where"=Dict("operator" => "!=", "property" => "x")),
+         "unknown primitive operator \"!=\"; expected one of <, =, >"),
+        (() -> build_query(var"where"=Dict("operator" => "=", "property" => "")),
+         "a primitive constraint names one property, not \"\""),
+        (() -> build_query(var"where"=Dict("operator" => "=", "property" => "x", "value" => Dict("x" => 1))),
+         "cannot compare against Dict(\"x\" => 1)"),
+        (() -> build_query(var"where"=Dict("operator" => "=", "property" => "x", "value" => Set([1]))),
+         "cannot compare against Set([1])"),
+        (() -> build_query(var"where"=Dict("@type" => "CompositeConstraint", "extra" => true)),
+         "a CompositeConstraint has no extra"),
+        (() -> build_query(var"where"=Dict("@type" => "CompositeConstraint", "operator" => "xor")),
+         "unknown composite operator \"xor\"; expected one of and, or"),
+        (() -> build_query(var"where"=Dict("@type" => "CompositeConstraint", "operator" => "and", "constraint" => [])),
+         "a composite constraint combines a non-empty list of constraints, not Any[]"),
+    ]
+    for (build, expected) in cases
+        failure = try
+            build()
+            nothing
+        catch error
+            error
+        end
+        @test failure isa QueryError
+        @test failure.message == expected
+    end
 
     bindings = build_document_bindings(Dict(
         "root" => ElementRef("Demo::car"),
@@ -380,6 +540,30 @@ end
                 instance = instantiate(simple, "Test::SimplePart")
                 @test instance.type_symbol_id == "Test::SimplePart"
                 @test instance.graph[instance.id] === instance
+
+                coordinate_model = parse_source(conn, """
+                    package CoordinateFrameExample {
+                        private import ISQ::*;
+                        private import SI::*;
+                        private import ISQSpaceTime::*;
+                        private import MeasurementReferences::*;
+                        part def Context {
+                            attribute spatialCF : CartesianSpatial3dCoordinateFrame[1] {
+                                :>> mRefs = (m, m, m);
+                            }
+                            attribute velocityCF : CartesianVelocity3dCoordinateFrame[1] =
+                                spatialCF / s;
+                            attribute accelarationCF : CartesianAcceleration3dCoordinateFrame[1] =
+                                velocityCF / s;
+                        }
+                    }
+                """)
+                coordinate_instance = instantiate(coordinate_model,
+                    "CoordinateFrameExample::Context")
+                coordinate_value = features(coordinate_instance)["accelarationCF"]
+                @test coordinate_value isa FeatureValueError
+                @test coordinate_value.message ==
+                      "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
 
                 sources = parse_sources(conn, [
                     SourceDocument("a.sysml", "package A {}"),
@@ -509,10 +693,13 @@ end
                 performer_model = parse_source(conn, performer_source; name="performer.sysml")
                 run = execute_action(performer_model, "Wire::Craft::look";
                     performer="Wire::pair.craft")
-                @test run["outputs"]["seen"] === true
+                @test run["seen"] === true
+                @test run.performer["this.pinged"] === true
                 state_run = execute_state(performer_model, "Wire::Craft::modes";
                     performer="Wire::pair.craft")
-                @test state_run["statesVisited"][end] == "active"
+                @test state_run.states_visited[end] == "active"
+                @test state_run.final_context["this.pinged"] === true
+                @test state_run.final_time isa Float64
                 explored = explore_state(performer_model, "Wire::Craft::modes";
                     performer="Wire::pair.craft")
                 @test explored.complete

@@ -2,11 +2,13 @@
 // capability it does not have, and the model's own error surface.
 
 import type { Transport } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { Connection } from "../src/core/connection.js";
 import {
   MissingCapabilityError,
+  ServiceUnavailableError,
   ParseError,
   StaleServiceError,
   connect,
@@ -50,6 +52,31 @@ test("a capability the service does not report is refused at connect", async () 
     () => connect({ address: service.address, requireCapabilities: ["never_a_capability"] }),
     MissingCapabilityError,
   );
+});
+
+test("serverInfo answers the degraded handshake of a service without GetServerInfo", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(
+        new ConnectError("unknown method GetServerInfo for service sysml.SysMLService", Code.Unimplemented),
+      );
+    },
+    stream() {
+      return Promise.reject(
+        new ConnectError("unknown method for service sysml.SysMLService", Code.Unimplemented),
+      );
+    },
+  } as unknown as Transport;
+  const connection = await Connection.open({
+    transport,
+    encoding: "protobuf",
+    backend: { origin: "the fake transport", release: () => Promise.resolve() },
+  });
+  assert.equal(connection.info.answered, false);
+  const info = await connection.serverInfo();
+  assert.equal(info.answered, false);
+  assert.equal(info.version, "");
+  assert.deepEqual([...info.capabilities], []);
 });
 
 test("a refused private connection does not keep the child", async () => {
@@ -163,4 +190,67 @@ test("an adopted model has no documents and no root", async () => {
   assert.equal(adopted.documents.length, 0);
   assert.equal(adopted.sourcePath, undefined);
   assert.throws(() => adopted.root, /adopted/);
+});
+
+test("a handshake the service cannot serve is a ServiceUnavailableError", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(new ConnectError("connect ECONNREFUSED 127.0.0.1:1", Code.Unavailable));
+    },
+    stream() {
+      return Promise.reject(new ConnectError("connect ECONNREFUSED 127.0.0.1:1", Code.Unavailable));
+    },
+  } as unknown as Transport;
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({ transport, backend: counting.backend, encoding: "protobuf" }),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNAVAILABLE");
+      return true;
+    },
+  );
+});
+
+// A browser fetch that never answered — dead address, CORS refusal, or a
+// service killed mid-call — reaches the client as a TypeError, which the
+// transport wraps as UNKNOWN keeping the TypeError as the cause.
+test("a handshake rejected as a TypeError is a ServiceUnavailableError", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(new TypeError("Failed to fetch"));
+    },
+    stream() {
+      return Promise.reject(new TypeError("Failed to fetch"));
+    },
+  } as unknown as Transport;
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({ transport, backend: counting.backend, encoding: "protobuf" }),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNKNOWN");
+      return true;
+    },
+  );
+  assert.equal(counting.releases(), 1);
+});
+
+test("a call rejected as a TypeError is a ServiceUnavailableError", async () => {
+  const connection = await Connection.open({
+    transport: fakeTransport({ version: "test", capabilities: [] }, () => {
+      throw new TypeError("Failed to fetch");
+    }),
+    backend: { origin: "the fake transport", release: () => Promise.resolve() },
+    encoding: "protobuf",
+  });
+  await assert.rejects(
+    () => connection.loads("package P {}"),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNKNOWN");
+      return true;
+    },
+  );
+  await connection.close();
 });

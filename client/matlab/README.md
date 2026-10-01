@@ -131,6 +131,7 @@ Options are MATLAB name-value pairs such as `inputs`, `events`,
   `explain`, `raiseForError`, and logical conversion.
 - `Validation` groups instance verdicts, diagnostics, verification
   records, summary and `valid`, `violated`, `undecided`, and `explain`.
+  Its `instances` property is an ordered cell array in service order.
 - `Standing` describes the engine, strength and bounds behind a result.
 - `CalcResult` carries `value`, `outputs`, diagnostics and standing.
 - `AnalysisResult` carries outputs, verdicts, verifications, evaluations,

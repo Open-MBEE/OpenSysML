@@ -79,11 +79,15 @@ tree.byId(id);                               // any object the instantiation pro
 hash pass between processes; an adopted model has no root symbol, so symbols are
 looked up by qualified name, and the service answers `NOT_FOUND` once it has
 evicted the model. `symbol()` searches breadth-first when given a short name and
-raises `SymbolNotFoundError` naming near misses; `symbolById()` is the single call
-for a name the service can resolve directly.
+raises `SymbolNotFoundError` naming near misses for any name the model has not
+got; `symbolById()` is the single call for a name the service can resolve
+directly, reporting a miss with no suggestions.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
-`strict`; both are capability-gated, and the client checks before it calls.
+`strictConformance`; both are capability-gated, and the client checks before it
+calls. `strict` remains as a deprecated alias of `strictConformance`; passing
+both with different values is refused. To raise on parse errors, call
+`model.raiseForErrors()` on the returned model.
 
 ## Values are discriminated unions
 
@@ -122,7 +126,10 @@ model leaves without a value, the second an answer the model leaves open (read, 
 the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
 are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
-`bounds`), empty from a service without the `engines` capability. Integers are `bigint`,
+`bounds`, plus `reported` and `reached` — the bounds the engine stopped at),
+empty from a service without the `engines` capability; `CalcResult`,
+`AnalysisResult`, `Validation` and `SweepTable` read the same fields through
+`engine`, `strength` and `bounds` getters. Integers are `bigint`,
 because the service's `int64` does not fit a `number` and an exact comparison would
 otherwise be a lie. `decodeValue`, `decodeVerdict`, `decodeStanding` and `formatValue` are
 exported for a caller decoding a response it obtained itself.
@@ -135,6 +142,7 @@ knowing its members.
 | error | what happened |
 | --- | --- |
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
+| `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering; in a browser also a fetch that never answered (dead address, CORS refusal, mid-call loss), which arrives as `UNKNOWN` |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
 | `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |

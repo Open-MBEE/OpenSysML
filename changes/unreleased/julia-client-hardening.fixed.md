@@ -1,0 +1,5 @@
+- **Closed Julia connections now reject requests.** Calls made after closing an external or private connection report a transport error rather than reaching the service.
+- **Action and state execution return typed results instead of raw dictionaries.** Action outputs expose decoded values and performer attributes; state runs include visited states, final context, and final time with defaults.
+- **Julia transport failures no longer include request bodies or stack traces, and read/connect timeouts are reported as service timeouts.**
+- **Strict parse failures include full diagnostic locations and messages.**
+- **Connect JSON preserves protobuf non-finite floats and negative zero.** NaN, infinities, and the sign of zero survive value encoding and decoding.
