@@ -320,6 +320,8 @@ public final class Model {
    *
    * @param name a short name ({@code "Vehicle"}) or a qualified one ({@code "Demo::Vehicle"})
    * @return the symbol, or empty
+   * @throws CapabilityException if the model has no roots to walk, as an adopted one, and the
+   *     service lacks {@code query}
    * @throws ServiceException if the service does not hold this model
    */
   public Optional<Symbol> find(String name) {
@@ -489,6 +491,9 @@ public final class Model {
   }
 
   private void walk(Predicate<Symbol> stop) {
+    if (roots.isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY);
+    }
     ArrayDeque<Symbol> queue = new ArrayDeque<>(roots);
     Set<String> seen = new HashSet<>();
     while (!queue.isEmpty()) {

@@ -241,6 +241,31 @@ class EditorTest {
   }
 
   @Test
+  void aShortNameOnAnAdoptedModelNeedsQueryRatherThanAnsweringAbsent() {
+    try (Connection connection = offline()) {
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model(connection).find("Vehicle"));
+      assertEquals(Capabilities.QUERY, refused.capability());
+    }
+  }
+
+  @Test
+  void anEditOfSeveralDocumentsIsNotSavedAsOneFile(@TempDir Path directory) throws Exception {
+    EditResult several =
+        new EditResult(
+            "",
+            List.of(),
+            List.of(new EditedDocument("a.sysml", "package A;"), new EditedDocument("b.sysml", "")),
+            List.of());
+    Path target = directory.resolve("out.sysml");
+    Files.writeString(target, "kept");
+    assertThrows(IllegalStateException.class, () -> several.save(target));
+    assertEquals("kept", Files.readString(target));
+    EditResult one = new EditResult("package A;", List.of(), List.of(), List.of());
+    assertEquals("package A;", Files.readString(one.save(target)));
+  }
+
+  @Test
   void aMissingSymbolSuggestsNearNames() {
     SymbolNotFoundException missing =
         new SymbolNotFoundException("Vehicel", NearNames.closest(

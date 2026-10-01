@@ -42,9 +42,15 @@ public record EditResult(
    *
    * @param path the file, created or truncated
    * @return {@code path}, for chaining
+   * @throws IllegalStateException if the edit rewrote a model of several documents, whose text is
+   *     in {@link #documents()} alone
    * @throws java.io.UncheckedIOException if the file cannot be written
    */
   public Path save(Path path) {
+    if (content.isEmpty() && !documents.isEmpty()) {
+      throw new IllegalStateException(
+          "the edit rewrote a model of several documents; write each of documents() instead");
+    }
     return Conversion.writeContent(content, path);
   }
 
