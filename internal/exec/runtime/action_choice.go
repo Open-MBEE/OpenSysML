@@ -177,6 +177,9 @@ type stepOrder struct {
 	firstNew int64          // tokens from this ID on were created by the step itself
 	unready  map[int64]bool // held at a join whose branches had not all arrived
 	offered  map[int64]bool // at an accept a message in flight answers
+	// yielding marks a token at an accept keeping a deferred signal while another
+	// token of the run takes the message: it stays parked, the other goes on.
+	yielding map[int64]bool
 	acted    []Token
 }
 
@@ -196,8 +199,73 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 				order.offered[t.ID] = true
 			}
 		}
+		for _, t := range e.tokens {
+			if order.offered[t.ID] && e.keeps(t) && e.yieldsKeeping(t, pending) {
+				if order.yielding == nil {
+					order.yielding = make(map[int64]bool)
+				}
+				order.yielding[t.ID] = true
+			}
+		}
 	}
 	return order
+}
+
+// keeps reports whether the token sits at an accept keeping a deferred signal
+// of the state whose do behavior this flow runs: an accept of the flow's own
+// typed by a signal the state defers, the accept loop of the standard deferral
+// encoding (`item deferred : Sig[*] ordered; do action buffer { … accept kept : Sig; … }`).
+func (e *ActionExecutor) keeps(t Token) bool {
+	if len(e.deferred) == 0 || t.frame != e.root {
+		return false
+	}
+	accept, ok := e.messageAccept(t)
+	if !ok || accept.SignalType == nil {
+		return false
+	}
+	kept := e.ctx.triggerType(accept.Scope, accept.SignalType)
+	if kept == nil {
+		return false
+	}
+	for _, d := range e.deferred {
+		if e.ctx.triggerType(d.Scope, d.Type) == kept {
+			return true
+		}
+	}
+	return false
+}
+
+// yieldsKeeping reports whether a message the keeping accept at k would take is
+// one another accept of the run — a token of the flow at an accept of its own,
+// or the action a token performs, parked at one — takes: the state's own
+// behavior consumes the occurrence, so it is not deferred (UML 2.5.1
+// §14.2.3.9.1: an occurrence is deferred only when nothing consumes it).
+func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message) bool {
+	accept, _ := e.messageAccept(k)
+	keeps, _ := e.acceptMatch(k.frame, accept, k.Location.(*ast.Usage))
+	for _, m := range pending {
+		if !keeps(m) {
+			continue
+		}
+		for _, t := range e.tokens {
+			if t.ID == k.ID || e.keeps(t) {
+				continue
+			}
+			if other, ok := e.messageAccept(t); ok {
+				matches, _ := e.acceptMatch(t.frame, other, t.Location.(*ast.Usage))
+				if matches(m) {
+					return true
+				}
+				continue
+			}
+			if held, ok := t.pausedWaiter(e).(messageAcceptor); ok {
+				if taking, err := held.acceptTaking(m); err == nil && len(taking) > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // offeredMessage reports whether one of the messages in flight answers the accept

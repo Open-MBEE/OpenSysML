@@ -130,6 +130,12 @@ func acceptedEventName(msg Message) string {
 	return msg.SignalType
 }
 
+// addressedTo reports whether the message was sent to the object itself
+// (`send m to obj`), leaving which of the object's behaviors takes it open.
+func (m Message) addressedTo(object int64) bool {
+	return m.Delivery == DeliverObject && object != 0 && m.Object == object
+}
+
 // deliveryOf is what the fields of a message name as its destination, most
 // specific first: only a message naming nothing is open to any consumer.
 func deliveryOf(msg Message) DeliveryKind {
@@ -170,13 +176,16 @@ type busSerials struct {
 // pendingMemo is a machine's memoized poll of the bus for a message it takes:
 // the answer, and the marks it holds under. It stands while nothing it depends on
 // moved: the bus, the machine and what runs under it and, where the scan read
-// them, the objects' data (a via path, an event subsetted, a sibling's guard).
+// them, the objects' data (a via path, an event subsetted, a sibling's guard)
+// and the other behaviors' work (where they are parked, which a drop depends on).
 type pendingMemo struct {
 	valid     bool
 	bus       busSerials
 	writes    uint64
+	work      uint64
 	machine   uint64
 	readsData bool
+	readsWork bool
 	// scanned is how many messages the scan examined; a bus that only grew since
 	// needs the rest examined.
 	scanned int
@@ -188,6 +197,14 @@ type pendingMemo struct {
 func (ctx *Context) notePollReadsData() {
 	if ctx.polling != nil {
 		ctx.polling.readsData = true
+	}
+}
+
+// notePollReadsWork records that the poll under way, if any, read where the
+// other behaviors stand.
+func (ctx *Context) notePollReadsWork() {
+	if ctx.polling != nil {
+		ctx.polling.readsWork = true
 	}
 }
 

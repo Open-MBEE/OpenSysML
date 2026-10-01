@@ -4229,7 +4229,8 @@ func (e *StateExecutor) signalEvent(msg Message) Event {
 // deliverPendingSignal reports whether an event is due, first queueing a bus
 // message this machine takes: one in flight is due now, so it goes ahead of a
 // timer set for later rather than after the run has advanced to it. Messages
-// this machine leaves, and one whose port fails to resolve, stay in flight.
+// this machine leaves, and one whose port fails to resolve, stay in flight; one
+// sent to its object that nothing of the object takes is queued to be dropped.
 func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	var failed error
 	msg, ok := e.ctx.TakeMessage(func(m Message) bool {
@@ -4255,12 +4256,86 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 
 // takesMessage reports whether this machine is the one to take a message in
 // flight: one it can react to, unless its guards would drop it while a sibling
-// machine of the same object would fire on it.
+// machine of the same object would fire on it; or one sent to its object that
+// no behavior of the object is placed to take, which its dispatch drops.
 func (e *StateExecutor) takesMessage(m Message) (bool, error) {
-	if reacts, err := e.reactsTo(m); err != nil || !reacts {
-		return reacts, err
+	reacts, err := e.reactsTo(m)
+	if err != nil {
+		return false, err
 	}
-	return !e.yieldsTo(m), nil
+	if reacts {
+		return !e.yieldsTo(m), nil
+	}
+	return e.dropsMessage(m)
+}
+
+// dropsMessage reports whether a message sent to this machine's object is this
+// machine's to take and drop: the object's machines are settled at the instant,
+// no transition of theirs accepts it, no do behavior of theirs and no action the
+// object performs is parked at an accept for it, and this is the first of the
+// object's machines, so that one dispatch drops it (UML 2.5.1 §14.2.3.9.1: an
+// event occurrence that triggers no transition and is not deferred is
+// discarded). A machine still busy at the instant — an entry cascade held, a
+// completion or an event due, a do behavior with a step to take — is not asked:
+// what it goes on to may take the message, as a completion transition's effect
+// does (UML 2.5.1 §14.2.3.8.3: completion events are dispatched first). A
+// deferred signal is kept by the do behavior of its state, so it is reacted to,
+// not dropped. A message routed to a port or to a named receiver is left in
+// flight: its takers are the accepts on that port or node, which another
+// object's behavior may hold.
+func (e *StateExecutor) dropsMessage(m Message) (bool, error) {
+	if e.self == nil || !m.addressedTo(e.self.ID) {
+		return false, nil
+	}
+	e.ctx.notePollReadsWork()
+	if !e.settledNow() {
+		return false, nil
+	}
+	first := true
+	for _, behavior := range e.ctx.objectBehaviors {
+		if behavior.Object != e.self {
+			continue
+		}
+		switch {
+		case behavior.State == e:
+		case behavior.State != nil:
+			if !behavior.State.settledNow() {
+				return false, nil
+			}
+			if reacts, err := behavior.State.reactsTo(m); err != nil || reacts {
+				return false, err
+			}
+			if !e.seenBehavior(behavior) {
+				first = false
+			}
+		case behavior.Action != nil:
+			if accepts, err := behavior.Action.AcceptsMessage(m); err != nil || accepts {
+				return false, err
+			}
+		}
+	}
+	return first, nil
+}
+
+// settledNow reports whether the machine has nothing to do at the instant: no
+// entry cascade held, no completion of its own due, no queued event due and no
+// do behavior with a step to take.
+func (e *StateExecutor) settledNow() bool {
+	return len(e.held) == 0 && !e.completionDue && !e.hasDueEvent() && !e.HasPendingDoWork()
+}
+
+// seenBehavior reports whether this machine is attached ahead of behavior among
+// the object's behaviors.
+func (e *StateExecutor) seenBehavior(behavior *ObjectBehavior) bool {
+	for _, b := range e.ctx.objectBehaviors {
+		if b == behavior {
+			return false
+		}
+		if b.State == e {
+			return true
+		}
+	}
+	return false
 }
 
 // yieldsTo reports whether a machine the performer also exhibits, one that
@@ -4467,7 +4542,7 @@ func (e *StateExecutor) pendingSignal() (Message, bool) {
 		// The bus only grew since a negative answer: the messages added are examined.
 		return e.scanPending(memo, memo.scanned)
 	}
-	memo.readsData = false
+	memo.readsData, memo.readsWork = false, false
 	return e.scanPending(memo, 0)
 }
 
@@ -4475,7 +4550,7 @@ func (e *StateExecutor) pendingSignal() (Message, bool) {
 // recording in memo, if any, the marks the answer holds under and what it read.
 func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool) {
 	if memo != nil {
-		memo.valid, memo.bus, memo.writes, memo.machine = true, e.ctx.bus, e.ctx.writes, e.driven.serial
+		memo.valid, memo.bus, memo.writes, memo.work, memo.machine = true, e.ctx.bus, e.ctx.writes, e.ctx.work, e.driven.serial
 		memo.msg, memo.ok, memo.scanned = Message{}, false, from
 	}
 	saved := e.ctx.polling
@@ -4485,6 +4560,9 @@ func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool)
 		// A poll within a poll reads for the poll enclosing it too.
 		if saved != nil && (memo == nil || memo.readsData) {
 			saved.readsData = true
+		}
+		if saved != nil && (memo == nil || memo.readsWork) {
+			saved.readsWork = true
 		}
 	}()
 	// The bus is read in place, as TakeMessage reads it: a probe may post or drop
@@ -4508,7 +4586,8 @@ func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool)
 // depends on moved since, the objects' data counting only where the scan read it.
 func (memo *pendingMemo) holds(e *StateExecutor) bool {
 	return memo.valid && memo.machine == e.driven.serial && memo.bus.cuts == e.ctx.bus.cuts &&
-		(!memo.readsData || memo.writes == e.ctx.writes)
+		(!memo.readsData || memo.writes == e.ctx.writes) &&
+		(!memo.readsWork || memo.work == e.ctx.work)
 }
 
 // acceptsSignal reports whether any transition out of the active configuration,

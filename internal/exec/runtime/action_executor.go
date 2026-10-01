@@ -46,6 +46,10 @@ type ActionExecutor struct {
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
+	// deferred are the signals the state whose do behavior this flow runs defers:
+	// an accept of the flow's own keeping one yields the message to another
+	// accept of the run (keeps, yieldsKeeping). Empty for every other flow.
+	deferred []lower.DeferredSignal
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features    []lower.Attribute
@@ -1854,7 +1858,7 @@ func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) b
 	}
 	tokens.enabled = func(id int64) bool { return e.enabled(id, eligible) }
 	for i, t := range e.tokens {
-		if !e.moving(t) && eligible(t) {
+		if !e.moving(t) && eligible(t) && !order.yielding[t.ID] {
 			tokens.ids = append(tokens.ids, t.ID)
 			if e.parked(t, order) {
 				tokens.parked[t.ID] = true
