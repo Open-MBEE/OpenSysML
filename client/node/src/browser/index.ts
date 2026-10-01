@@ -12,6 +12,13 @@ export * from "../core/index.js";
 /** How a browser connects: the address is required, because nothing can be started. */
 export interface BrowserConnectOptions extends TransportOptions {
   address: string;
+  /**
+   * Release tag the service must report. 'latest' cannot be resolved in a
+   * browser, so it requires nothing.
+   */
+  version?: string;
+  /** Capabilities the service must report for the connection to be returned. */
+  requireCapabilities?: readonly string[];
 }
 
 /**
@@ -32,6 +39,10 @@ export async function connect(options: BrowserConnectOptions): Promise<Connectio
     useBinaryFormat: encoding === "protobuf",
     interceptors: interceptors(options),
   });
+  const required =
+    options.version === undefined || options.version === "" || options.version === "latest"
+      ? undefined
+      : options.version;
   return Connection.open({
     transport,
     encoding,
@@ -39,7 +50,21 @@ export async function connect(options: BrowserConnectOptions): Promise<Connectio
       origin: url,
       // Nothing to release: the page never owned the service.
       release: () => Promise.resolve(),
+      warn: (message) => {
+        console.warn(message);
+      },
     },
     timeoutMs,
+    ...(required === undefined ? {} : { requiredVersion: required }),
+    ...(options.requireCapabilities === undefined
+      ? {}
+      : { requiredCapabilities: options.requireCapabilities }),
+    stale: {
+      address: url,
+      remedy:
+        `stop the service listening on ${url} yourself and let this client start ` +
+        `a ${required ?? "matching"} one, or accept what is running by passing ` +
+        `version: undefined and unsetting $OPENSYSML_GRPC_VERSION`,
+    },
   });
 }

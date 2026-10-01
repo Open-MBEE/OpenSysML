@@ -11,6 +11,17 @@ import {
 import type { Connection } from "./connection.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
 import type { ModelDiagnostic } from "./errors.js";
+import type { Conversion } from "./conversion.js";
+import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
+import type { BindingValues, DocumentQueryResult } from "./document.js";
+import type { Exploration } from "./exploration.js";
+import type {
+  AnalysisResult,
+  CalcResult,
+  SweepTable,
+  Validation,
+  Verdict,
+} from "./verdict.js";
 import type {
   Diagnostic,
   FeatureValue as PbFeatureValue,
@@ -19,7 +30,7 @@ import type {
   SymbolInfo,
 } from "../generated/sysml_pb.js";
 import { callRpc } from "./status.js";
-import { decodeValue, type SysMLValue } from "./values.js";
+import { decodeValue, type SysMLValue, type ValueInput } from "./values.js";
 
 /** How alike two names must be for one to be suggested for the other. */
 const NEAR_ENOUGH = 0.6;
@@ -75,22 +86,26 @@ export class Model {
   readonly hash: string;
   /** Diagnostics the parse reported, in the order the service reported them. */
   readonly diagnostics: readonly ModelDiagnostic[];
+  /** The name of each document this model was parsed from, empty for an adopted model. */
+  readonly documents: readonly string[];
 
-  private readonly rootSymbol: ModelSymbol | undefined;
+  private readonly rootSymbols: readonly ModelSymbol[];
   private readonly ownsConnection: boolean;
 
   private constructor(init: {
     connection: Connection;
     hash: string;
-    root?: ModelSymbol;
+    roots?: readonly ModelSymbol[];
     diagnostics: readonly ModelDiagnostic[];
     ownsConnection: boolean;
+    documents?: readonly string[];
   }) {
     this.connection = init.connection;
     this.hash = init.hash;
-    this.rootSymbol = init.root;
+    this.rootSymbols = init.roots ?? [];
     this.diagnostics = init.diagnostics;
     this.ownsConnection = init.ownsConnection;
+    this.documents = init.documents ?? [];
   }
 
   /** Adopts a model the service already holds, by the hash it holds it under. */
@@ -98,20 +113,68 @@ export class Model {
     return new Model({ connection, hash, diagnostics: [], ownsConnection: false });
   }
 
+  /** Builds a model of several roots, from a ParseSources response. */
+  static fromRoots(
+    connection: Connection,
+    hash: string,
+    roots: readonly SymbolInfo[],
+    diagnostics: readonly ModelDiagnostic[],
+    options: { ownsConnection?: boolean; documents?: readonly string[] } = {},
+  ): Model {
+    return new Model({
+      connection,
+      hash,
+      roots: roots.map((info) => new ModelSymbol(connection, hash, info)),
+      diagnostics,
+      ownsConnection: options.ownsConnection ?? false,
+      ...(options.documents === undefined ? {} : { documents: options.documents }),
+    });
+  }
+
   /** Whether this model was parsed here, and so knows its root symbol. */
   get parsed(): boolean {
-    return this.rootSymbol !== undefined;
+    return this.rootSymbols.length > 0;
   }
 
   /** The model's root namespace. An adopted model has none: look symbols up by id. */
   get root(): ModelSymbol {
-    if (this.rootSymbol === undefined) {
+    if (this.rootSymbols.length === 0) {
       throw new OpenSysMLError(
         `model ${this.hash} was adopted by hash, not parsed here, so its root is unknown; ` +
           "look a symbol up by its qualified name with symbolById()",
       );
     }
-    return this.rootSymbol;
+    return this.rootSymbols[0];
+  }
+
+  /** One root per document parsed; the one symbol {@link root} names is the first. */
+  get roots(): readonly ModelSymbol[] {
+    return this.rootSymbols;
+  }
+
+  /** The path this model was loaded from, when it was parsed from a single file. */
+  get sourcePath(): string | undefined {
+    return this.documents.length === 1 ? this.documents[0] : undefined;
+  }
+
+  /** The error-severity diagnostics the parse reported. */
+  get errors(): ModelDiagnostic[] {
+    return this.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  }
+
+  /** Whether the parse reported no error-severity diagnostic. */
+  get ok(): boolean {
+    return this.errors.length === 0;
+  }
+
+  /** Raises a {@link ParseError} carrying this model when its parse reported errors. */
+  raiseForErrors(): this {
+    if (this.hasErrors) {
+      throw new ParseError(this.errors.map((diagnostic) => diagnostic.message).join("\n"), this.errors, {
+        model: this,
+      });
+    }
+    return this;
   }
 
   /** Parses a source over `connection`. Used by Connection.load / Connection.loads. */
@@ -152,9 +215,10 @@ export class Model {
     return new Model({
       connection,
       hash: response.modelHash,
-      root: new ModelSymbol(connection, response.modelHash, response.root),
+      roots: [new ModelSymbol(connection, response.modelHash, response.root)],
       diagnostics,
       ownsConnection,
+      ...(source.source.case === "filePath" ? { documents: [source.source.value] } : {}),
     });
   }
 
@@ -196,7 +260,7 @@ export class Model {
     }
     // A short name is searched for from the root, which an adopted model has not
     // got; the service resolves a name the model declares at its top level.
-    if (this.rootSymbol === undefined) {
+    if (!this.parsed) {
       return this.symbolById(name);
     }
     const found = await this.find(name);
@@ -204,6 +268,179 @@ export class Model {
       throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     return found;
+  }
+
+  /** Writes this model out in `toFormat`. */
+  convert(
+    toFormat: string,
+    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+  ): Promise<Conversion> {
+    return this.connection.convert(toFormat, { modelHash: this.hash }, options);
+  }
+
+  /** This model written in SysML notation. */
+  toSysml(): Promise<Conversion> {
+    return this.convert("sysml");
+  }
+
+  /** This model written as RDF Turtle. */
+  toTurtle(): Promise<Conversion> {
+    return this.convert("ttl");
+  }
+
+  /** This model written as API JSON. */
+  toApiJson(): Promise<Conversion> {
+    return this.convert("api-json");
+  }
+
+  /** Runs a SysML v2 API & Services Query over this model. */
+  query(options: { payload?: QueryPayload } & QueryForm = {}): Promise<QueryElement[]> {
+    return this.connection.query(this.hash, options);
+  }
+
+  /** Runs a named document query against this model. */
+  runDocumentQuery(
+    queryId: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    return this.connection.runDocumentQuery(this.hash, queryId, bindings);
+  }
+
+  /** Renders a named document of this model to Markdown or HTML. */
+  renderDocument(
+    documentId: string,
+    options: { form?: "markdown" | "html" } = {},
+  ): Promise<string> {
+    return this.connection.renderDocument(this.hash, documentId, options);
+  }
+
+  /** Executes an action definition of this model. */
+  executeAction(
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ) {
+    return this.connection.executeAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Runs an action once per valid order of its choice points. */
+  exploreAction(
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Executes a state machine of this model. */
+  executeState(
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+  ) {
+    return this.connection.executeState(this.hash, stateMachineSymbolId, options);
+  }
+
+  /** Runs a state machine once per valid order of its choice points. */
+  exploreState(
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreState(this.hash, stateMachineSymbolId, options);
+  }
+
+  /** Asks whether a constraint of this model holds. */
+  verifyConstraint(
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    return this.connection.verifyConstraint(this.hash, symbolId, options);
+  }
+
+  /** Asks whether a requirement of this model is satisfied. */
+  verifyRequirement(
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    return this.connection.verifyRequirement(this.hash, symbolId, options);
+  }
+
+  /** Asks whether this model's satisfaction assertions hold. */
+  verifySatisfaction(
+    options: { symbolId?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict[]> {
+    return this.connection.verifySatisfaction(this.hash, options);
+  }
+
+  /** Whether every verdict {@link verifySatisfaction} returns holds. */
+  async satisfied(
+    options: { symbolId?: string; engine?: string; question?: string } = {},
+  ): Promise<boolean> {
+    const verdicts = await this.verifySatisfaction(options);
+    return verdicts.every((verdict) => verdict.verdict.kind === "holds");
+  }
+
+  /** Checks every assertion about an object of this model's parts. */
+  validateInstance(symbolId: string, options: { engine?: string } = {}): Promise<Validation> {
+    return this.connection.validateInstance(this.hash, symbolId, options);
+  }
+
+  /** Invokes a calculation of this model. */
+  calc(
+    symbolId: string,
+    options: { arguments?: readonly ValueInput[]; engine?: string } = {},
+  ): Promise<CalcResult> {
+    return this.connection.calc(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case of this model. */
+  runAnalysis(
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      engine?: string;
+    } = {},
+  ): Promise<AnalysisResult> {
+    return this.connection.runAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case once per valid order of its choice points. */
+  exploreAnalysis(
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+    } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case or calc of this model once per row of a sweep. */
+  runSweep(
+    symbolId: string,
+    ranges: Readonly<
+      Record<string, readonly [ValueInput, ValueInput] | readonly [ValueInput, ValueInput, ValueInput]>
+    >,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      samples?: bigint | number;
+      seed?: bigint | number;
+      engine?: string;
+    } = {},
+  ): Promise<SweepTable> {
+    return this.connection.runSweep(this.hash, symbolId, ranges, options);
   }
 
   /** Looks a symbol up by its qualified name, in one call. */
@@ -232,7 +469,7 @@ export class Model {
 
   /** Every symbol of the model, breadth-first from the root. */
   async *walk(): AsyncGenerator<ModelSymbol> {
-    const queue: ModelSymbol[] = [this.root];
+    const queue: ModelSymbol[] = [...this.rootSymbols];
     while (queue.length > 0) {
       const current = queue.shift();
       if (current === undefined) {
@@ -278,7 +515,7 @@ export class Model {
 
   /** Whether a name is one the service can resolve directly, without a search. */
   private looksQualified(name: string): boolean {
-    return name.includes("::") || name === this.rootSymbol?.id;
+    return name.includes("::") || name === this.rootSymbols[0]?.id;
   }
 
   /** The names of the model closest to one it has not got, best first. */
@@ -472,7 +709,8 @@ function decodeFeatureValue(value: PbFeatureValue): FeatureValue {
   return { kind: "single", value: decodeValue(value.value), materialized: value.materialized };
 }
 
-function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
+/** Reads a wire `Diagnostic` into this client's own {@link ModelDiagnostic}. */
+export function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
   const span = diagnostic.span;
   return {
     severity: diagnostic.severity,
