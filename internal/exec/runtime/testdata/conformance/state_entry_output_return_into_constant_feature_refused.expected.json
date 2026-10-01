@@ -1,0 +1,4 @@
+{
+	"type": "state",
+	"error": "entry action: state machine Counter: assignment to limit: feature is read-only: limit is constant"
+}

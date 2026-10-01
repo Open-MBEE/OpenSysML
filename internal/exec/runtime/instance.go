@@ -729,15 +729,55 @@ func (inst *Instance) getFeatureValue(ctx *Context, name string, open *openPopul
 // SetFeatureValue writes a value to the named feature value of the object, which is how a
 // behavior the object performs updates the object's own state. The value must
 // conform to the multiplicity governing the feature; a feature the object does
-// not have is reported rather than added.
+// not have is reported rather than added. A feature declared `constant` or
+// `derived`, or redefining or subsetting one that is, is refused as
+// ErrReadOnlyFeature and keeps what it held: a constant feature does not change
+// over the lifetime of its featuring occurrence, and a derived one has the
+// values the model determines (KerML 1.0 §8.3.3.3.4, Feature::isConstant and
+// Feature::isDerived).
 func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) error {
-	if err := ctx.checkNotDestroyed(inst); err != nil {
+	fv, err := inst.writableFeatureValue(ctx, name)
+	if err != nil {
 		return err
+	}
+	if fv.Feature.Symbol != nil {
+		what := func() string { return fmt.Sprintf("write %s of object #%d (%s)", name, inst.ID, symbolText(inst.Type)) }
+		if err := ctx.readOnlyRefusal(what, name, fv.Feature.Symbol); err != nil {
+			return err
+		}
+	}
+	return inst.storeFeatureValue(ctx, fv, name, value)
+}
+
+// BindFeatureValue writes a value to the named feature value of the object as
+// the model determines it rather than as a behavior changes it: the object's
+// initial values, the seeding of a performance occurrence with what its run
+// already holds, a parameter bound at a call, a binding's other end, a message's
+// payload. It answers to the declaration as SetFeatureValue does, but a constant
+// or derived feature is not refused, since that is how such a feature gets its
+// values.
+func (inst *Instance) BindFeatureValue(ctx *Context, name string, value Value) error {
+	fv, err := inst.writableFeatureValue(ctx, name)
+	if err != nil {
+		return err
+	}
+	return inst.storeFeatureValue(ctx, fv, name, value)
+}
+
+// writableFeatureValue is the feature value a write of name lands in.
+func (inst *Instance) writableFeatureValue(ctx *Context, name string) (*FeatureValue, error) {
+	if err := ctx.checkNotDestroyed(inst); err != nil {
+		return nil, err
 	}
 	fv, ok := inst.FeatureValues[name]
 	if !ok {
-		return fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
+		return nil, fmt.Errorf("%w: feature %q not found in instance %d (type %s)", ErrNoSuchFeature, name, inst.ID, inst.Type.Name)
 	}
+	return fv, nil
+}
+
+// storeFeatureValue stores value in fv once it conforms to the feature's declaration.
+func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name string, value Value) error {
 	// Checked before the write, so a value the feature does not admit leaves it
 	// holding what it held.
 	if err := ctx.checkDefault(inst, fv, name, &value, admitWritten); err != nil {
