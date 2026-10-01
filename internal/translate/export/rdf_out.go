@@ -1383,11 +1383,21 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
+		variantTarget := e.variantReferenceTarget(n)
+		// The syntax makes a VariantReference, whether or not its name resolves.
+		variantReference := n.IsVariantReference()
+		if variantReference {
+			// A bare `variant x;` is a VariantReference (SysML-textual-bnf
+			// :343-345): a ReferenceUsage subsetting the feature x names, which
+			// names it, rather than a new usage declaring x.
+			metaclass = mReferenceUsage
+		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
-			if implicitTarget.Value != "" {
+			if implicitTarget.Value != "" || variantReference {
 				// A metadata body's `name = …` redefines the metadata
-				// definition's feature of that name; it declares none.
+				// definition's feature of that name, and a `variant x;`
+				// references x; neither declares a name.
 				if n.Ident.ShortName != "" {
 					e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(n.Ident.ShortName))
 				}
@@ -1485,6 +1495,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if implicitTarget.Value != "" {
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
 			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
+		}
+		if variantTarget.Value != "" {
+			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), variantTarget)
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -1660,12 +1673,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("assume"))
 		}
 		e.flags(subject, []boolProperty{{"isNegated", n.IsNegated}})
-		reference, _ := n.Expression.(*ast.QualifiedName)
-		var expr ast.Node
-		if reference == nil {
-			expr = n.Expression
-		}
-		return e.condition(subject, fqn, within, expr, reference, n.Body != nil, n.Body)
+		return e.condition(subject, fqn, within, n.Expression, nil, n.Body != nil, n.Body)
 
 	case *ast.AssumeMember:
 		// An `assume` member owns its constraint usage through a
@@ -2027,6 +2035,13 @@ func isRelationship(metaclass string) bool {
 // expression, a reference to the constraint it states (`require R { … }`), or a
 // nested constraint stating its conditions in a body.
 func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, ref *ast.QualifiedName, hasBody bool, body []ast.Node) error {
+	// A bare name or feature chain (`require c;`, `assume q.k;`) is the
+	// reference form: the constraint usage owns a ReferenceSubsetting to the
+	// feature it names (RequirementConstraintUsage, AssertConstraintUsage).
+	if target := conditionReference(expr); target != nil {
+		e.relationships(subject, owner, []*ast.Relationship{{Kind: ast.RelReferences, Target: target}})
+		expr = nil
+	}
 	if expr != nil {
 		return e.expression(subject, e.sysx(xCondition), xCondition, owner, expr)
 	}
@@ -2035,6 +2050,22 @@ func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, 
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(hasBody))
 	return e.encode(body, fqn, subject)
+}
+
+// conditionReference is the feature a bare condition names, as a relationship
+// target: a qualified name or a chain of them; nil for any other expression.
+func conditionReference(expr ast.Node) ast.Node {
+	switch x := expr.(type) {
+	case *ast.QualifiedName:
+		return x
+	case *ast.FeatureReference:
+		return conditionReference(x.Name)
+	case *ast.FeatureChainExpr:
+		if x.Member != nil && conditionReference(x.Operand) != nil {
+			return x
+		}
+	}
+	return nil
 }
 
 // requirementConditionDecl is the head an `assume`/`require` member declares
@@ -2484,6 +2515,30 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 	if target == nil || target == sym {
 		return rdf.Term{}
 	}
+	return e.symbolTerm(target)
+}
+
+// variantReferenceTarget is the term of the feature a bare `variant x;` names:
+// the like-named feature visible outside the variation, else the name x in
+// the segment form an unresolved reference is kept in (`'a::b'` stays one name); the zero term when n is no
+// such reference or states its reference itself (`variant P::x;`, `variant a.b;`).
+func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
+	if !n.IsVariantReference() || referencesFeature(n) {
+		return rdf.Term{}
+	}
+	if sym := e.ids.declSym[n]; sym != nil {
+		if target := e.ids.model.ReferencedFeature(sym); target != nil && target != sym {
+			if term := e.symbolTerm(target); term.Value != "" {
+				return term
+			}
+		}
+	}
+	return rdf.String(identitySegment(n.Ident.Name))
+}
+
+// symbolTerm is the term of the element a resolved symbol declares, or the zero
+// term when it has none the graph can name.
+func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
