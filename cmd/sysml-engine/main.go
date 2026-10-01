@@ -41,7 +41,12 @@ func main() {
 		return
 	}
 
-	os.Exit(serve(engine.New(), *useStdio))
+	eng, err := engine.New()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sysml-engine: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(serve(eng, *useStdio))
 }
 
 // serveStdio serves one client over stdin/stdout to the end of input; logging

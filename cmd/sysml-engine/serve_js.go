@@ -5,11 +5,16 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"syscall/js"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 )
+
+// codeUnknown is the canonical status code an unclassified failure is answered
+// under, as connect.CodeOf maps a non-status error.
+const codeUnknown uint32 = 2
 
 // serve installs globalThis.sysmlEngine — call(method, paramsJSON) answering
 // the JSON-RPC response body, synchronous on the JS thread — and blocks
@@ -36,9 +41,10 @@ func serve(eng *engine.Engine, useStdio bool) int {
 				body, err = eng.Call(context.Background(), method, []byte(params))
 			}
 			if err != nil {
-				code, message := uint32(2), err.Error()
-				if e, ok := err.(*engine.Error); ok {
-					code, message = e.Code, e.Message
+				code, message := codeUnknown, err.Error()
+				var engErr *engine.Error
+				if errors.As(err, &engErr) {
+					code, message = engErr.Code, engErr.Message
 				}
 				return fmt.Sprintf(`{"jsonrpc":"2.0","id":null,"error":{"code":%d,"message":%s}}`,
 					code, jsString(message))

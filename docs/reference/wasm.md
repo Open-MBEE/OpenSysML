@@ -126,11 +126,12 @@ as a string. Pass `-stdio` and the `js` build serves the pipe instead, as the na
 `wasip1` builds always do: the same `Content-Length` frames and JSON-RPC 2.0 bodies
 `sysml-grpc -transport stdio` speaks, answered sequentially.
 
-Measured on a `go1.25` `js/wasm` build of this tree: 27,712,432 bytes of module,
-6,907,997 gzipped, 4,909,954 under Brotli — a `sysml` or `sysml-grpc` module compresses to
-more than twice the gzip figure, which is the difference embedding protobuf alone makes.
+Measured on a `go1.25` `js/wasm` build of this tree: about 27.7 MB of module,
+6.9 MB gzipped, 4.9 MB under Brotli.
 
-What it does not serve is refused rather than dropped: an exploring schedule is answered
+Requests decode the lowerCamelCase field names protojson and protobuf-es emit; the proto
+snake_case spellings protojson also accepts are not read. What it does not serve is refused
+rather than dropped: an exploring schedule is answered
 Unimplemented with `exploration is not served by sysml-engine: exploring schedules are served
 by sysml-grpc`, and every other method name — verification, document queries, tools — answers
 `<Method> is not served by sysml-engine`. Within the served methods: diagnostics are the

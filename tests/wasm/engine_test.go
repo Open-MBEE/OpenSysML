@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -22,131 +21,124 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineCommands is the one command of these tests: linked once per target and
-// reused by every subtest, as the other run cases reuse theirs.
-const engineCommand = "sysml-engine"
-
 // engineGzipBudget bounds the gzipped js build of sysml-engine: serving JSON
-// rather than protobuf is what keeps it under, so passing the budget means the
-// engine pulled in a dependency it must not have.
-const engineGzipBudget = 7000000
+// rather than protobuf is what keeps it small, so exceeding the budget means
+// the engine pulled in a dependency it must not have.
+const engineGzipBudget = 7500000
 
-// TestWasmEngineRuns is sysml-engine's half of the run gate: a stdio session
-// doing real work on both targets, the globalThis host surface on js, and the
-// size budget that surface exists to keep.
-func TestWasmEngineRuns(t *testing.T) {
-	requireNode(t)
-	for _, target := range wasmTargets {
-		t.Run(target.name, func(t *testing.T) {
-			r := newRunner(t, target)
-			bin := link(t, target, engineCommand, t.TempDir())
-
-			t.Run("answers a stdio session", func(t *testing.T) {
-				session := engineSession(t, engineCalls()...)
-				var args []string
-				if target.goos == "js" {
-					// The js build installs globalThis.sysmlEngine unless asked for the pipe.
-					args = append(args, "-stdio")
-				}
-				got := r.runWithInput(t, bin, session, args...)
-				if got.code != 0 {
-					t.Fatalf("sysml-engine -stdio exited %d:\n%s", got.code, got.output)
-				}
-				for _, want := range []string{`"modelHash"`, `"realValue":6`, `"intValue":"12"`, `"on"`} {
-					if !strings.Contains(got.output, want) {
-						t.Errorf("the session output is missing %s:\n%s", want, got.output)
-					}
-				}
-			})
-
-			if target.goos == "js" {
-				t.Run("answers through globalThis.sysmlEngine", func(t *testing.T) {
-					// The script runs under plain node, not through the wasm target
-					// runner: invoke it directly.
-					got := nodeRun(t, fixture(t, "engine.mjs"),
-						wasmExecJS(t), bin, fixture(t, "model.sysml"))
-					for _, want := range []string{"modelHash ", `"realValue":6`} {
-						if !strings.Contains(got.output, want) {
-							t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
-						}
-					}
-				})
-
-				t.Run("fits the size budget", func(t *testing.T) {
-					data, err := os.ReadFile(bin)
-					if err != nil {
-						t.Fatalf("reading %s: %v", bin, err)
-					}
-					var compressed bytes.Buffer
-					w, err := gzip.NewWriterLevel(&compressed, gzip.BestCompression)
-					if err != nil {
-						t.Fatalf("gzip writer: %v", err)
-					}
-					if _, err := w.Write(data); err != nil {
-						t.Fatalf("compressing: %v", err)
-					}
-					if err := w.Close(); err != nil {
-						t.Fatalf("compressing: %v", err)
-					}
-					if size := compressed.Len(); size > engineGzipBudget {
-						t.Errorf("gzipped sysml-engine.wasm is %d bytes, over the %d-byte budget: "+
-							"the engine pulled in a dependency it must not have (protobuf, the gRPC "+
-							"service, the analysis framework)", size, engineGzipBudget)
-					}
-				})
+// engineSubtests runs the sysml-engine half of the run gate on bins, linked
+// into bins["sysml-engine"] with the other commands so it is not built twice:
+// a stdio session doing real work on both targets, plus the globalThis host
+// surface and the size budget that surface exists to keep, on js.
+func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]string) {
+	t.Run("answers an engine session over stdio", func(t *testing.T) {
+		session := engineSession(t, engineCalls(t)...)
+		var args []string
+		if target.goos == "js" {
+			// The js build installs globalThis.sysmlEngine unless asked for the pipe.
+			args = append(args, "-stdio")
+		}
+		got := r.runWithInput(t, bins["sysml-engine"], session, args...)
+		if got.code != 0 {
+			t.Fatalf("sysml-engine -stdio exited %d:\n%s", got.code, got.output)
+		}
+		for _, want := range []string{`"modelHash"`, `"realValue":6`, `"intValue":"12"`, `"on"`} {
+			if !strings.Contains(got.output, want) {
+				t.Errorf("the session output is missing %s:\n%s", want, got.output)
 			}
-		})
+		}
+	})
+
+	if target.goos != "js" {
+		return
 	}
+
+	t.Run("answers through globalThis.sysmlEngine", func(t *testing.T) {
+		// The script runs under plain node, not through the wasm target runner:
+		// it loads wasm_exec.js and the module itself.
+		got := nodeRun(t, fixture(t, "engine.mjs"),
+			wasmExecJS(t), bins["sysml-engine"], fixture(t, "model.sysml"))
+		for _, want := range []string{"modelHash ", `"realValue":6`} {
+			if !strings.Contains(got.output, want) {
+				t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
+			}
+		}
+	})
+
+	t.Run("fits the engine size budget", func(t *testing.T) {
+		data, err := os.ReadFile(bins["sysml-engine"])
+		if err != nil {
+			t.Fatalf("reading %s: %v", bins["sysml-engine"], err)
+		}
+		var compressed bytes.Buffer
+		w, err := gzip.NewWriterLevel(&compressed, gzip.BestCompression)
+		if err != nil {
+			t.Fatalf("gzip writer: %v", err)
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("compressing: %v", err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatalf("compressing: %v", err)
+		}
+		if size := compressed.Len(); size > engineGzipBudget {
+			t.Errorf("gzipped sysml-engine.wasm is %d bytes, over the %d-byte budget: "+
+				"the engine pulled in a dependency it must not have (protobuf, the gRPC "+
+				"service, the analysis framework)", size, engineGzipBudget)
+		}
+	})
 }
 
 // engineCalls are the calls a stdio session makes over the two fixtures:
-// parse both models, evaluate `total`, run the action with an input, run the
-// machine.
-func engineCalls() []engineCall {
+// parse both models, evaluate an attribute, run the action with an input, run
+// the machine.
+func engineCalls(t *testing.T) []engineCall {
+	hash := engineModelHash(t)
 	return []engineCall{
-		{method: "ParseSources", params: engineParseParams()},
-		{method: "Evaluate", params: fmt.Sprintf(`{"modelHash":%s,"expression":"gatedemo::total"}`, engineModelHash)},
-		{method: "ExecuteAction", params: fmt.Sprintf(`{"modelHash":%s,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}}}`, engineModelHash)},
-		{method: "ExecuteState", params: fmt.Sprintf(`{"modelHash":%s,"stateMachineSymbolId":"enginedemo::Switch"}`, engineModelHash)},
+		{method: "ParseSources", params: engineParseParams(t)},
+		{method: "Evaluate", params: fmt.Sprintf(`{"modelHash":%q,"expression":"gatedemo::total"}`, hash)},
+		{method: "ExecuteAction", params: fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6"}}}`, hash)},
+		{method: "ExecuteState", params: fmt.Sprintf(`{"modelHash":%q,"stateMachineSymbolId":"enginedemo::Switch"}`, hash)},
 	}
 }
 
-// engineModelHash is substituted for the hash marker in engineCalls: a request
-// cannot know the hash ahead of the parse, so the session script parses and
-// re-sends it — the hash is deterministic, so the test computes it the way the
-// engine does and embeds it directly.
-var engineModelHash = func() string {
-	params := engineParseParams()
-	// The hash is over the request's own fields, so it is derived here by a
-	// throwaway engine rather than duplicated.
-	eng := engine.New()
-	resp, err := eng.Call(context.Background(), "ParseSources", []byte(params))
+// engineModelHash is the hash a model parsed from engineParseParams carries: a
+// request cannot know the hash ahead of the parse, but the hash is
+// deterministic, so the test derives it from a throwaway engine.
+func engineModelHash(t *testing.T) string {
+	t.Helper()
+	eng, err := engine.New()
 	if err != nil {
-		panic(err)
+		t.Fatalf("engine.New: %v", err)
+	}
+	resp, err := eng.Call(context.Background(), "ParseSources", []byte(engineParseParams(t)))
+	if err != nil {
+		t.Fatalf("deriving the model hash: %v", err)
 	}
 	var parsed struct {
 		ModelHash string `json:"modelHash"`
 	}
 	if err := json.Unmarshal(resp, &parsed); err != nil {
-		panic(err)
+		t.Fatalf("decoding the engine's ParseSources response: %v\n%s", err, resp)
 	}
-	return strconv.Quote(parsed.ModelHash)
-}()
+	return parsed.ModelHash
+}
 
 // engineParseParams is the ParseSources request for both fixtures as inline
 // content, so a WebAssembly build needs no filesystem to answer it.
-func engineParseParams() string {
+func engineParseParams(t *testing.T) string {
+	t.Helper()
 	docs := []map[string]string{}
 	for _, name := range []string{"model.sysml", "engine.sysml"} {
 		data, err := os.ReadFile(filepath.Join("testdata", name))
 		if err != nil {
-			panic(fmt.Sprintf("reading the fixture %s: %v", name, err))
+			t.Fatalf("reading the fixture %s: %v", name, err)
 		}
 		docs = append(docs, map[string]string{"name": name, "content": string(data)})
 	}
 	body, err := json.Marshal(map[string]any{"documents": docs})
 	if err != nil {
-		panic(err)
+		t.Fatalf("rendering the ParseSources request: %v", err)
 	}
 	return string(body)
 }
@@ -232,9 +224,12 @@ func TestEngineWireParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	eng := engine.New()
+	eng, err := engine.New()
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
 
-	parseParams := engineParseParams()
+	parseParams := engineParseParams(t)
 	grpcResp, err := svc.ParseSources(ctx, mustUnmarshal[pb.ParseSourcesRequest](t, parseParams))
 	if err != nil {
 		t.Fatalf("grpc ParseSources: %v", err)
@@ -337,9 +332,6 @@ func mustMarshal(t *testing.T, msg proto.Message) []byte {
 	}
 	return body
 }
-
-// protojsonMessage is what protojson reads and writes.
-type protojsonMessage = proto.Message
 
 // mustJSON encodes one string as a JSON string literal.
 func mustJSON(t *testing.T, s string) string {

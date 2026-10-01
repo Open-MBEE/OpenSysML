@@ -30,8 +30,10 @@ import (
 // The canonical gRPC status codes an answer is reported under, numbered as
 // every transport of the service numbers them.
 const (
+	codeCanceled           = 1
 	codeUnknown            = 2
 	codeInvalidArgument    = 3
+	codeDeadlineExceeded   = 4
 	codeNotFound           = 5
 	codeResourceExhausted  = 8
 	codeFailedPrecondition = 9
@@ -45,8 +47,7 @@ type Error struct {
 	Message string
 }
 
-// Error reports code's canonical name as gRPC does not carry one; the message
-// alone is what every transport answers with.
+// Error returns the status message.
 func (e *Error) Error() string { return e.Message }
 
 func statusError(code uint32, message string) *Error {
@@ -55,6 +56,18 @@ func statusError(code uint32, message string) *Error {
 
 func statusErrorf(code uint32, format string, args ...any) *Error {
 	return &Error{Code: code, Message: fmt.Sprintf(format, args...)}
+}
+
+// contextError reports a caller-gone context under the codes connect.CodeOf
+// maps it to on the gRPC path: Canceled as 1, DeadlineExceeded as 4.
+func contextError(err error) *Error {
+	if errors.Is(err, context.Canceled) {
+		return statusError(codeCanceled, err.Error())
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return statusError(codeDeadlineExceeded, err.Error())
+	}
+	return statusError(codeUnknown, err.Error())
 }
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -157,16 +170,16 @@ type Engine struct {
 
 // New builds an engine over the frozen standard library snapshot, under the
 // runtime budgets a default sysml-grpc NewService runs with.
-func New() *Engine {
+func New() (*Engine, error) {
 	budgets, err := runtime.BudgetsFromEnv()
 	if err != nil {
-		budgets = runtime.Budgets{}
+		return nil, err
 	}
 	return &Engine{
 		budgets: budgets,
 		models:  list.New(),
 		byHash:  make(map[string]*list.Element),
-	}
+	}, nil
 }
 
 // get returns the model cached under hash, marking it the most recently used.
@@ -560,7 +573,7 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 	runtimeCtx := e.newRuntime(ctx, cached)
 
 	var graph instanceGraph
-	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+	_, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
 		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index)
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
@@ -574,8 +587,6 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 			Error: fmt.Sprintf("instantiation failed: %v", err),
 		})
 	}
-	_ = inst
-
 	return marshal(&JInstantiateResponse{
 		Instance:  graph.Root,
 		Instances: graph.All,
@@ -698,7 +709,7 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	outputs, performer, err := runtimeCtx.ExecuteActionReportingPerformer(action, self, inputs)
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
-			return nil, statusError(codeUnknown, gone.Error())
+			return nil, contextError(gone)
 		}
 	}
 	// The choices the run made are reported with its outcome, failed or not: a
@@ -753,7 +764,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	outcome, err := runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
 	if err != nil {
 		if gone := ctx.Err(); gone != nil {
-			return nil, statusError(codeUnknown, gone.Error())
+			return nil, contextError(gone)
 		}
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
