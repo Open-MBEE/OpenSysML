@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.openmbee.opensysml.Connection;
-import org.openmbee.opensysml.Conversion;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.Migration;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.cameo.model.ModelPath;
 
-/** A SysML v1 project archive, migrated to SysML v2 text by the service's XMI converter. */
+/** A SysML v1 project archive, migrated to SysML v2 text by the service's Migrate call. */
 public final class V1MdzipSource implements ModelSource {
   private final Path mdzip;
   private final boolean temporary;
@@ -40,14 +40,16 @@ public final class V1MdzipSource implements ModelSource {
 
   @Override
   public List<SourceDocument> sources(Connection connection) {
-    Conversion conversion = connection.convertFile(mdzip, "sysml");
+    Migration migration = connection.migrateFile(mdzip, "sysml");
     List<Diagnostic> collected = new ArrayList<>();
-    if (conversion.experimental() && !conversion.experimentalNotice().isBlank()) {
-      collected.add(new Diagnostic(Diagnostic.Severity.WARNING, conversion.experimentalNotice(), "experimental-conversion", Optional.empty()));
+    if (!migration.experimentalNotice().isBlank()) {
+      collected.add(new Diagnostic(Diagnostic.Severity.WARNING, migration.experimentalNotice(), "experimental-migration", Optional.empty()));
     }
-    collected.addAll(conversion.diagnostics());
+    if (!migration.report().summary().isBlank()) {
+      collected.add(new Diagnostic(Diagnostic.Severity.INFO, migration.report().summary(), "migration-report", Optional.empty()));
+    }
     diagnostics = List.copyOf(collected);
-    return List.of(SourceDocument.inline("model.sysml", conversion.content()));
+    return List.of(SourceDocument.inline("model.sysml", migration.content()));
   }
 
   @Override

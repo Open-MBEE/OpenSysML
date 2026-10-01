@@ -31,9 +31,10 @@ the plugin build and is never included in the runtime jar or distribution.
 
 The v1 path exports a clean existing `.mdzip` directly; otherwise it exports the whole project so
 cross-references survive. This whole-project export is intentional because a selected-element-only
-export can omit required references. V1 identity is qualified-name-only: the Java client's
-`ConvertResponse` does not provide a migration report, so there is no reliable source-ID mapping;
-ambiguous candidates are retained rather than silently discarded. V2 textual export is used only
+export can omit required references. V1 identity is qualified-name-only: the plugin does not yet
+read the per-element `id → target` entries of the migration report `Connection.migrateFile`
+returns, so there is no source-ID mapping; ambiguous candidates are retained rather than silently
+discarded. The report's summary line is surfaced as a diagnostic of the run. V2 textual export is used only
 when both the textual service and a v2 selection are available.
 
 ## Results window and annotations
