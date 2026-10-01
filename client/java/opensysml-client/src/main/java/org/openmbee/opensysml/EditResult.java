@@ -47,7 +47,9 @@ public record EditResult(
    * @throws java.io.UncheckedIOException if the file cannot be written
    */
   public Path save(Path path) {
-    if (content.isEmpty() && !documents.isEmpty()) {
+    boolean rewroteOthers =
+        documents.size() > 1 || documents.stream().anyMatch(d -> !d.content().isEmpty());
+    if (content.isEmpty() && rewroteOthers) {
       throw new IllegalStateException(
           "the edit rewrote a model of several documents; write each of documents() instead");
     }

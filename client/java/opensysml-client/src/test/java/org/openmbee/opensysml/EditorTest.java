@@ -261,8 +261,16 @@ class EditorTest {
     Files.writeString(target, "kept");
     assertThrows(IllegalStateException.class, () -> several.save(target));
     assertEquals("kept", Files.readString(target));
+    EditResult oneOfSeveral =
+        new EditResult(
+            "", List.of(), List.of(new EditedDocument("a.sysml", "package A;")), List.of());
+    assertThrows(IllegalStateException.class, () -> oneOfSeveral.save(target));
+    assertEquals("kept", Files.readString(target));
     EditResult one = new EditResult("package A;", List.of(), List.of(), List.of());
     assertEquals("package A;", Files.readString(one.save(target)));
+    EditResult emptied =
+        new EditResult("", List.of(), List.of(new EditedDocument("a.sysml", "")), List.of());
+    assertEquals("", Files.readString(emptied.save(target)));
   }
 
   @Test
