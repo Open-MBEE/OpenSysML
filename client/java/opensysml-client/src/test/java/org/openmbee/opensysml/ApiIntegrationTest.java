@@ -1055,10 +1055,14 @@ class ApiIntegrationTest {
   void convertOfUnreadableNotationIsAModelFailure() throws Exception {
     String source = Files.readString(fixture("syntax_error.sysml"));
     ConversionOptions convertOptions = ConversionOptions.defaults().withFromFormat("sysml");
-    ModelException failed =
+    ConversionException failed =
         assertThrows(
-            ModelException.class, () -> connection.convert(source, "sysml", convertOptions));
+            ConversionException.class, () -> connection.convert(source, "sysml", convertOptions));
     assertFalse(failed.diagnostics().isEmpty());
+    Model broken = connection.parse(source);
+    ConversionException fromModel =
+        assertThrows(ConversionException.class, () -> broken.convert("sysml"));
+    assertFalse(fromModel.diagnostics().isEmpty());
   }
 
   @Test
