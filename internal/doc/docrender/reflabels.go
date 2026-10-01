@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 )
 
 // The label a numbered section is referenced by opens with this word.
@@ -60,12 +61,6 @@ func refText(run docir.TextRun, labels map[string]string) string {
 	return run.Text()
 }
 
-// Punctuation a run opens or closes with that binds it to its neighbour.
-const (
-	closingPunctuation = ".,;:!?)]}»”’"
-	openingPunctuation = "([{«“‘"
-)
-
 // joinRuns joins rendered runs by single spaces, except where the text binds
 // them: no space goes before a run opening with closing punctuation, nor
 // after a run closing with an opening bracket or quote, so a reference reads
@@ -73,35 +68,10 @@ const (
 func joinRuns(runs []docir.TextRun, rendered []string) string {
 	var b strings.Builder
 	for i, part := range rendered {
-		if i > 0 && !bindsLeft(runs[i].Text()) && !bindsRight(runs[i-1].Text()) {
+		if i > 0 && !docplan.BindsLeft(runs[i].Text()) && !docplan.BindsRight(runs[i-1].Text()) {
 			b.WriteByte(' ')
 		}
 		b.WriteString(part)
 	}
 	return b.String()
-}
-
-// bindsLeft reports whether a run's text binds to the run before it.
-func bindsLeft(text string) bool {
-	return text != "" && strings.ContainsRune(closingPunctuation, firstRune(text))
-}
-
-// bindsRight reports whether a run's text binds to the run after it.
-func bindsRight(text string) bool {
-	return text != "" && strings.ContainsRune(openingPunctuation, lastRune(text))
-}
-
-func firstRune(text string) rune {
-	for _, r := range text {
-		return r
-	}
-	return 0
-}
-
-func lastRune(text string) rune {
-	var last rune
-	for _, r := range text {
-		last = r
-	}
-	return last
 }

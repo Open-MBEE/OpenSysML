@@ -316,8 +316,13 @@ func joinText(a, b string) string {
 	return a + b
 }
 
-// proseText flattens runs to text, each reference rendered by render.
+// proseText flattens runs to text, each reference rendered by render. A
+// plain-text body, one run as written, keeps its spacing; marked-up runs
+// have theirs normalized as they are joined, as the dropped tags left it.
 func proseText(runs []proseRun, render func(proseRun) string) string {
+	if len(runs) == 1 && !runs[0].isRef() {
+		return runs[0].text
+	}
 	var b strings.Builder
 	for _, r := range runs {
 		if r.isRef() {

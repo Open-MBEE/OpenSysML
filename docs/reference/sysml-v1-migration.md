@@ -796,7 +796,12 @@ prose reads as the tool printed it rather than as its markup:
   the value of the slot or property, as the text of its literal at migration time; `com`
   the target's own documentation, as text — the last two are approximated with a note saying so,
   since the paragraph does not follow the value afterwards, and a `val` of a property holding no
-  value, or a `com` of an undocumented element, prints nothing. A paragraph with no resolved
+  value, or a `com` of an undocumented element, prints nothing. A `val` or `com` that reaches
+  back to the text being written — a value whose literal cites itself, two comments citing each
+  other's documentation — ends there, printing nothing for the turn back, noted. A reference to a
+  diagram no view is written for, and one the prose runs into with no space between
+  (`<a …>Mount</a>'s`, which the spaces joining a paragraph's runs would split), are written as
+  the target's name in the prose, noted on the paragraph. A paragraph with no resolved
   reference is written as before, its `text` attribute.
 - Everywhere else — a `doc` comment, a requirement's `Text`, a stereotype tag, a note on a
   diagram — a reference reads as the target's current name (`val` and `com` as above), as
@@ -810,7 +815,8 @@ prose reads as the tool printed it rather than as its markup:
   contain: <id>`), which is approximated, so the ledger and not the prose carries the loss. No
   `[cf:…]` is ever printed.
 - The spaces the dropped markup leaves (`the  Post  Segment-Exchange  Alignment  and/or`) are
-  collapsed in the same pass; the line breaks `</p>` and `<br>` stand for are kept.
+  collapsed in the same pass; the line breaks `</p>` and `<br>` stand for are kept. A body
+  with no markup is text as written, its spacing and tabs included.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

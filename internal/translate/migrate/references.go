@@ -3,6 +3,7 @@ package migrate
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -55,11 +56,18 @@ func (m *migration) resolveRef(r proseRun, inline bool) (docRun, string) {
 		return m.danglingRef(r, inline)
 	}
 	switch r.cf {
-	case cfValue:
-		text, note := m.valueText(e, d)
-		return docRun{text: text}, note
-	case cfDoc:
-		text, note := m.documentationText(r.id, e, d)
+	case cfValue, cfDoc:
+		if m.resolving[r.id] {
+			return docRun{}, "a cross-reference to the " + cfWhat(r.cf) + " of " + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
+		}
+		m.resolving[r.id] = true
+		defer delete(m.resolving, r.id)
+		var text, note string
+		if r.cf == cfValue {
+			text, note = m.valueText(e, d)
+		} else {
+			text, note = m.documentationText(e, d)
+		}
 		return docRun{text: text}, note
 	}
 	name := refName(e, d)
@@ -161,43 +169,59 @@ func (m *migration) valueText(e *sysmlv1.Element, d *sysmlv1.Diagram) (string, s
 	default:
 		return "", subject + describe(e) + " has no text: " + article(e.Type) + e.Type + " has no value"
 	}
-	var texts []string
+	// A slot whose defining feature the export lacks is described as itself.
+	target := feature
+	if target == nil {
+		target = e
+	}
+	var texts, notes []string
 	for _, v := range values {
-		text, ok := m.literalText(v, feature, scope)
+		text, nested, ok := m.literalText(v, feature, scope)
 		if !ok {
-			return "", subject + refTarget(feature, nil) + " has no text: its value " + v.Type + " has no literal form"
+			return "", subject + refTarget(target, nil) + " has no text: its value " + v.Type + " has no literal form"
 		}
 		texts = append(texts, text)
+		notes = append(notes, nested...)
 	}
 	if len(texts) == 0 {
-		return "", subject + refTarget(feature, nil) + " has no text: it holds no value"
+		return "", subject + refTarget(target, nil) + " has no text: it holds no value"
 	}
-	return strings.Join(texts, ", "), subject + refTarget(feature, nil) + " is written as the text of its value at migration time"
+	note := subject + refTarget(target, nil) + " is written as the text of its value at migration time"
+	for _, n := range notes {
+		note = joinNotes(note, n)
+	}
+	return strings.Join(texts, ", "), note
 }
 
-// literalText is a value's text: a literal as written, an instance's name,
+// literalText is a value's text: a literal as written, its cross-references
+// resolved and what the ledger records of them returned; an instance's name;
 // or the v2 expression of a value of another form.
-func (m *migration) literalText(v, f, scope *sysmlv1.Element) (string, bool) {
+func (m *migration) literalText(v, f, scope *sysmlv1.Element) (string, []string, bool) {
 	switch v.Type {
 	case "LiteralString", "LiteralInteger", "LiteralReal", "LiteralBoolean", "LiteralUnlimitedNatural":
 		if text, ok := v.Attrs["value"]; ok {
-			return m.proseText(text, nil), true
+			text, notes := m.proseNoted(text)
+			return text, notes, true
 		}
 	case "InstanceValue":
 		if inst := m.model.Ref(v, "instance"); inst != nil && inst.Name != "" {
-			return inst.Name, true
+			return inst.Name, nil, true
 		}
 	}
 	if f == nil {
-		return "", false
+		return "", nil, false
 	}
 	expr, ok, _ := m.featureValue(v, f, scope)
-	return expr, ok
+	return expr, nil, ok
 }
 
 // documentationText is the text of a reference to an element's
-// documentation: its doc comment's text, or a comment's own body.
-func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.Diagram) (string, string) {
+// documentation: its doc comment's text — the first comment of its own with
+// any, as docComment finds it — or a comment's own body. The reference's id
+// is marked resolving by the caller; the comment is checked before it is
+// read, since a reference to the element it documents reaches it while it
+// is being written.
+func (m *migration) documentationText(e *sysmlv1.Element, d *sysmlv1.Diagram) (string, string) {
 	const subject = "a cross-reference to the documentation of "
 	if d != nil {
 		text := m.proseText(d.Documentation, nil)
@@ -206,16 +230,23 @@ func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.
 		}
 		return text, subject + refTarget(e, d) + " is written as its text at migration time"
 	}
-	if m.resolving[id] {
-		return "", subject + describe(e) + " refers back to the comment being written, so nothing stands for it"
+	comments := []*sysmlv1.Element{e}
+	if e.Type != "Comment" {
+		comments = comments[:0]
+		for _, c := range e.Owned("ownedComment") {
+			if !m.framed[c] && !m.annotatesOthers(c, e) {
+				comments = append(comments, c)
+			}
+		}
 	}
-	m.resolving[id] = true
-	defer delete(m.resolving, id)
 	var text string
-	if e.Type == "Comment" {
-		text = m.commentBody(e)
-	} else if c := m.docComment(e); c != nil {
-		text = m.commentBody(c)
+	for _, c := range comments {
+		if m.resolving[c.ID] {
+			return "", subject + describe(e) + " refers back to the text being written, so nothing stands for it"
+		}
+		if text = m.commentBody(c); text != "" {
+			break
+		}
 	}
 	if text == "" {
 		return "", subject + describe(e) + " has no text: the element has no documentation"
@@ -224,8 +255,13 @@ func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.
 }
 
 // proseText renders a body as plain text, its cross-references resolved; what
-// the ledger records of them is noted on owner, when there is one.
+// the ledger records of them is noted on owner, when there is one. The owner
+// is marked resolving meanwhile, so a reference that reaches back to it ends.
 func (m *migration) proseText(body string, owner *sysmlv1.Element) string {
+	if owner != nil {
+		m.resolving[owner.ID] = true
+		defer delete(m.resolving, owner.ID)
+	}
 	runs, notes := m.resolveProse(parseProse(body), false)
 	if owner != nil {
 		for _, n := range notes {
@@ -274,9 +310,10 @@ func (m *migration) commentBody(c *sysmlv1.Element) string {
 // cross-reference in it is written as a reference.
 func (m *migration) paragraphProse(cp *contentPlan, body string) {
 	runs, notes := m.resolveProse(parseProse(body), true)
-	runs = mergeText(runs)
+	runs, glued := wordRefs(mergeText(runs))
 	cp.text = runsText(runs)
 	cp.notes = append(cp.notes, notes...)
+	cp.notes = append(cp.notes, glued...)
 	for _, r := range runs {
 		if r.isRef() {
 			cp.runs = runs
@@ -284,6 +321,48 @@ func (m *migration) paragraphProse(cp *contentPlan, body string) {
 		}
 	}
 }
+
+// wordRefs writes as text each reference that runs into the text beside it
+// with no space or binding punctuation between — "pre<a>fix</a>ed",
+// "<a>Mount</a>'s" — since a Paragraph's runs are joined by spaces, which
+// would split the word; the notes say which. The runs are merged.
+func wordRefs(runs []docRun) ([]docRun, []string) {
+	var notes []string
+	demoted := false
+	for i, r := range runs {
+		if !r.isRef() {
+			continue
+		}
+		glued := false
+		if i > 0 {
+			prev := runs[i-1]
+			glued = prev.isRef() || (prev.text != "" && !endsSpaced(prev.text) && !docplan.BindsRight(prev.text))
+		}
+		if i+1 < len(runs) && !glued {
+			next := runs[i+1]
+			glued = next.isRef() || (next.text != "" && !startsSpaced(next.text) && !docplan.BindsLeft(next.text))
+		}
+		if !glued {
+			continue
+		}
+		name := refName(r.elem, r.diagram)
+		runs[i] = docRun{text: name}
+		demoted = true
+		note := "the reference to " + refTarget(r.elem, r.diagram) + " runs into the word around it, so its name is written as text"
+		if !contains(notes, note) {
+			notes = append(notes, note)
+		}
+	}
+	if demoted {
+		runs = mergeText(runs)
+	}
+	return runs, notes
+}
+
+// startsSpaced and endsSpaced report whether text opens, or closes, with
+// whitespace.
+func startsSpaced(text string) bool { return strings.TrimLeft(text, " \t\n") != text }
+func endsSpaced(text string) bool   { return strings.TrimRight(text, " \t\n") != text }
 
 // mergeText joins neighbouring text runs into one and drops empty ones, so
 // the text between two references is a single run and a placeholder left out
@@ -352,10 +431,10 @@ func (m *migration) runTarget(dp *docPlan, r docRun) (string, string) {
 		return path, ""
 	}
 	if r.diagram != nil {
-		if v := m.viewOf[r.diagram]; v != nil {
+		if v := m.viewOf[r.diagram]; v != nil && v.placed {
 			return m.viewRef(v, dp.host) + ".metadata", ""
 		}
-		return "", "the diagram " + refTarget(nil, r.diagram) + " it references is not written, so its name stands"
+		return "", refTarget(nil, r.diagram) + " it references is not written, so its name stands"
 	}
 	if !m.written(r.elem) {
 		return "", refTarget(r.elem, nil) + " it references is not written, so its name stands"

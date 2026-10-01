@@ -14,7 +14,8 @@ import (
 // view, the figure of a diagram, or the element itself; the prose between
 // them is Span runs. A dangling <mms-cf> leaves nothing and a dangling
 // hyperlink its text, both ledgered on the comment, and no `[cf:…]` fallback
-// is printed anywhere.
+// is printed anywhere. A reference the text runs into without a space, and
+// one to a diagram no view is written for, are written as their names.
 func TestMigratedCrossReferences(t *testing.T) {
 	r := migrateFixtureFile(t, "cross_references")
 	wantClean(t, "cross_references.sysml", r)
@@ -32,8 +33,13 @@ func TestMigratedCrossReferences(t *testing.T) {
 		`attribute redefines text = "Mount Structure";`,
 		`attribute redefines text = "(). Its focal length is 2.5; see Lost Procedure.\nOptics: Gathers the light. Coating: See";`,
 		"ref redefines target = Documents::'Observatory Handbook Document'::Overview.Alignment;",
-		`attribute redefines text = ".";`,
+		`attribute redefines text = ". Drawn in";`,
+		`attribute redefines text = "Profile Diagram";`,
+		`attribute redefines text = "for the Mount's crew.";`,
 	)
+	if strings.Contains(notation, "'Profile Diagram'.metadata") {
+		t.Errorf("notation refers to the view of a diagram nothing written holds:\n%s", notation)
+	}
 	for _, stray := range []string{"[cf:", "Old Mount", "mms-cf", "mdel://"} {
 		if strings.Contains(notation, stray) {
 			t.Errorf("notation prints %q:\n%s", stray, notation)
@@ -46,12 +52,25 @@ func TestMigratedCrossReferences(t *testing.T) {
 	wantLine(t, r.Notation, "Optics: Gathers the light. Coating: See Alignment.")
 	wantLine(t, r.Notation, "doc /* The Mount shall point within of the target. */")
 
+	// A reference to documentation or a value that reaches back to the text
+	// being written ends there, noted; a slot without a defining feature reads
+	// its value and is described as itself.
+	wantLine(t, r.Notation, "doc /* Tracks with the Images for the ., labelled Label:, set to . */")
+	wantLine(t, r.Notation, "doc /* Images for the Tracks with the , labelled Label:, set to .. */")
+	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the documentation of 'Camera' is written as its text at migration time")
+	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the value of (_slot_orphan) is written as the text of its value at migration time; a cross-reference to the value of (_slot_orphan) refers back to the text being written, so nothing stands for it")
+	wantOneNote(t, r, "_cmt_guider", migrate.Approximated, "a cross-reference to the value of (_slot_bare) has no text: it holds no value")
+	wantOneNote(t, r, "_cmt_camera", migrate.Approximated, "a cross-reference to the documentation of 'Guider' refers back to the text being written, so nothing stands for it")
+	wantOneNote(t, r, "_cmt_camera", migrate.Approximated, "a cross-reference to the documentation of 'Guider' is written as its text at migration time")
+
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the hyperlink 'Old Mount' reads 'Old Mount', not the current name 'Mount' of 'Mount', which is written")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the name of an element names an element the export does not contain: MMS_1461107722575_gone; nothing stands for it")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the hyperlink 'Lost Procedure' names an element the export does not contain: _nowhere; its text stands")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the value of 'focalLength' is written as the text of its value at migration time")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the documentation of 'Optics' is written as its text at migration time")
 	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "a cross-reference to the value of 'coating' has no text: it holds no value")
+	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the diagram 'Profile Diagram' it references is not written, so its name stands")
+	wantOneNote(t, r, "_overview_doc", migrate.Approximated, "the reference to 'Mount' runs into the word around it, so its name is written as text")
 	wantNote(t, r, "_cmt_mount", migrate.Approximated, "names an element the export does not contain: MMS_1461107722575_gone; its cached text 'Table 7-4' stands")
 	wantNote(t, r, "_req_point", migrate.Approximated, "a cross-reference to the value of an element names an element the export does not contain: MMS_1461107722575_slot; nothing stands for it")
 	for _, e := range entriesFor(r, "_overview_doc") {
@@ -66,7 +85,7 @@ func TestMigratedCrossReferences(t *testing.T) {
 	const doc = "Documents::'Observatory Handbook Document'"
 	md := markdown(t, s, doc)
 	wantInOrder(t, "Markdown", md,
-		"The Mount is aligned in [Alignment](#Overview-Alignment) and drawn in [Mount Structure](#Figures-diagram) (). Its focal length is 2.5; see Lost Procedure. Optics: Gathers the light. Coating: See [Alignment](#Overview-Alignment).",
+		"The Mount is aligned in [Alignment](#Overview-Alignment) and drawn in [Mount Structure](#Figures-diagram) (). Its focal length is 2.5; see Lost Procedure. Optics: Gathers the light. Coating: See [Alignment](#Overview-Alignment). Drawn in Profile Diagram for the Mount's crew.",
 		`<a id="Overview-Alignment"></a>`,
 		`<a id="Figures-diagram"></a>`,
 	)

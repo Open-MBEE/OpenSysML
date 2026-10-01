@@ -447,8 +447,9 @@ type migration struct {
 	verdicts map[*sysmlv1.Element]Verdict
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
-	// resolving marks the ids whose documentation a cross-reference is being
-	// resolved to, so one referring back to its own comment ends.
+	// resolving marks the ids whose value or documentation a cross-reference
+	// is being resolved to, and the comments being written, so a reference
+	// that reaches back to one of them ends.
 	resolving map[string]bool
 	// files are the images written beside the notation by relative path;
 	// fileContents deduplicates them by content, imagesWritten counts them.
