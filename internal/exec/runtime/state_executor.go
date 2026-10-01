@@ -4280,7 +4280,9 @@ func (e *StateExecutor) takesMessage(m Message) (bool, error) {
 // what it goes on to may take the message, as a completion transition's effect
 // does (UML 2.5.1 §14.2.3.8.3: completion events are dispatched first). A
 // deferred signal is kept by the do behavior of its state, so it is reacted to,
-// not dropped. A message routed to a port or to a named receiver is left in
+// not dropped. A machine of the object that has ended takes no part: it neither
+// takes the message nor owns the drop, which falls to the first machine still
+// running. A message routed to a port or to a named receiver is left in
 // flight: its takers are the accepts on that port or node, which another
 // object's behavior may hold.
 func (e *StateExecutor) dropsMessage(m Message) (bool, error) {
@@ -4299,6 +4301,9 @@ func (e *StateExecutor) dropsMessage(m Message) (bool, error) {
 		switch {
 		case behavior.State == e:
 		case behavior.State != nil:
+			if behavior.State.finished() {
+				continue
+			}
 			if !behavior.State.settledNow() {
 				return false, nil
 			}

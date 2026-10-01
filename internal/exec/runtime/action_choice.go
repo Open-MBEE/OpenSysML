@@ -200,7 +200,7 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 			}
 		}
 		for _, t := range e.tokens {
-			if order.offered[t.ID] && e.keeps(t) && e.yieldsKeeping(t, pending) {
+			if order.offered[t.ID] && e.keeps(t) && e.yieldsKeeping(t, pending, order.unready) {
 				if order.yielding == nil {
 					order.yielding = make(map[int64]bool)
 				}
@@ -239,8 +239,10 @@ func (e *ActionExecutor) keeps(t Token) bool {
 // one another accept of the run — a token of the flow at an accept of its own,
 // or the action a token performs, parked at one — takes: the state's own
 // behavior consumes the occurrence, so it is not deferred (UML 2.5.1
-// §14.2.3.9.1: an occurrence is deferred only when nothing consumes it).
-func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message) bool {
+// §14.2.3.9.1: an occurrence is deferred only when nothing consumes it). An
+// accept held for arrivals it still awaits (unready) cannot take the message
+// this step, so the keeping accept does not yield to it.
+func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[int64]bool) bool {
 	accept, _ := e.messageAccept(k)
 	keeps, _ := e.acceptMatch(k.frame, accept, k.Location.(*ast.Usage))
 	for _, m := range pending {
@@ -248,7 +250,7 @@ func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message) bool {
 			continue
 		}
 		for _, t := range e.tokens {
-			if t.ID == k.ID || e.keeps(t) {
+			if t.ID == k.ID || e.keeps(t) || unready[t.ID] {
 				continue
 			}
 			if other, ok := e.messageAccept(t); ok {
