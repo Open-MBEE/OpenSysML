@@ -168,7 +168,7 @@ func (ctx *Context) scaleQuantities(op ast.OperatorKind, left, right *Quantity) 
 	if err := ctx.refusePoints(operatorText(op), scaleNotAFactor, left, right); err != nil {
 		return Value{}, err
 	}
-	return ctx.coherentResult(semantics.ScaleQuantities(op, *left, *right))
+	return ctx.coherentResult(semantics.ScaleQuantities(op, *left, *right, ctx.maxIntegerBits))
 }
 
 // scaleNotAFactor is why a point enters no product, quotient, power or root.
@@ -182,7 +182,7 @@ func (ctx *Context) powQuantity(base *Quantity, exponent semantics.Value) (Value
 	if err := ctx.refusePoints(operatorText(ast.OpPow), scaleNotAFactor, base); err != nil {
 		return Value{}, err
 	}
-	return ctx.coherentResult(semantics.PowQuantity(*base, exponent))
+	return ctx.coherentResult(semantics.PowQuantity(*base, exponent, ctx.maxIntegerBits))
 }
 
 // sqrtQuantity is the square root of a quantity, `9 [m**2]` giving `3.0 [m]`;

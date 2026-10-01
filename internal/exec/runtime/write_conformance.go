@@ -16,9 +16,11 @@ type writeTarget struct {
 	name        string
 	typ         *symbols.Symbol
 	mult        semantics.Range
-	unique      bool // holds no two equal values (KerML isUnique, the default)
-	holdsSet    bool // values form a set, which drops repeats itself
-	countJudged bool // Count is judged against mult (a parameter's effective range or a stated multiplicity), never an unstated non-parameter range.
+	unique      bool               // holds no two equal values (KerML isUnique, the default)
+	holdsSet    bool               // values form a set, which drops repeats itself
+	countJudged bool               // Count is judged against mult (a parameter's effective range or a stated multiplicity), never an unstated non-parameter range.
+	feature     *symbols.Symbol    // the feature written
+	readOnly    semantics.ReadOnly // why no behavior may write feature, if none may
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -80,7 +82,51 @@ func (ctx *Context) newWriteTarget(sym *symbols.Symbol, name string, mult semant
 		mult:     mult,
 		unique:   ctx.model.semantics.IsUnique(sym),
 		holdsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult),
+		feature:  sym,
+		readOnly: ctx.model.semantics.FeatureReadOnly(sym),
 	}
+}
+
+// readOnlyRefusal is the error refusing a behavior's write to feature, written as
+// name, when the feature is constant or derived; nil when it may be written.
+func (ctx *Context) readOnlyRefusal(what func() string, name string, feature *symbols.Symbol) error {
+	ro := ctx.model.semantics.FeatureReadOnly(feature)
+	if ro.Kind == semantics.Writable {
+		return nil
+	}
+	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
+}
+
+// checkAssignable refuses an assignment whose target names a constant or derived
+// feature — the qualified feature, else the one the name resolves to where the
+// statement was written — before its value is evaluated. A chained target is
+// judged on the object its chain reaches (writeThroughChain).
+func (ctx *Context) checkAssignable(where string, s lower.Assign) error {
+	if s.Chain != nil {
+		return nil
+	}
+	what := func() string { return fmt.Sprintf("%s: assignment to %s", where, s.Target) }
+	if s.Qualified {
+		if s.Feature == nil {
+			return nil
+		}
+		return ctx.readOnlyRefusal(what, s.Target, s.Feature)
+	}
+	return ctx.checkMutable(s.Scope, what, s.Target)
+}
+
+// checkMutable refuses a behavior's write to the feature name declares in scope
+// when that feature is constant or derived. It answers for writes that change a
+// feature's values after its featuring occurrence is initialized — an
+// assignment, a flow into it, an accepted payload — never for the binding of an
+// initial value, a default, a parameter or a binding's other end.
+func (ctx *Context) checkMutable(scope *symbols.Scope, what func() string, name string) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok || target.readOnly.Kind == semantics.Writable {
+		return nil
+	}
+	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature,
+		semantics.ReadOnlyViolation(name, target.feature, target.readOnly))
 }
 
 // checkWrite reports a value that does not conform to the declaration of the
@@ -470,7 +516,7 @@ func (ctx *Context) constantIntegers(member, owner *symbols.Symbol) ([]int64, bo
 	}
 	out := make([]int64, 0, len(elements))
 	for _, e := range elements {
-		c, ok := ctx.model.semantics.Eval(e)
+		c, ok := ctx.model.semantics.EvalWithin(e, ctx.maxIntegerBits)
 		if !ok {
 			return nil, false
 		}

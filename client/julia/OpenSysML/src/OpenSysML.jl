@@ -43,6 +43,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        DocumentRow, DocumentQueryResult, build_document_bindings,
        run_document_query, render_document, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
+       ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
        TypedObject, from_instance, unchecked, as_bool, as_int, as_float, as_complex,
        as_str, as_quantity, as_enum_literal, as_object, as_typed, feature_value,
@@ -109,7 +110,7 @@ for capability in (
     :CAPABILITY_VERIFICATION_VERDICTS, :CAPABILITY_INFINITY_VALUE,
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
     :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_FINAL_TIME,
-    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE
+    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES
 )
     @eval export $capability
 end

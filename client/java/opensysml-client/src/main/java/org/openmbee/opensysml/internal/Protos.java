@@ -102,6 +102,8 @@ public final class Protos {
   public static Optional<Value> value(org.openmbee.opensysml.proto.Value value) {
     return switch (value.getKindCase()) {
       case INT_VALUE -> Optional.of(new Value.IntegerValue(value.getIntValue()));
+      case BIG_INT_VALUE ->
+          Optional.of(new Value.BigIntegerValue(bigInteger(value.getBigIntValue())));
       case REAL_VALUE -> Optional.of(new Value.RealValue(value.getRealValue()));
       case COMPLEX ->
           Optional.of(
@@ -126,6 +128,28 @@ public final class Protos {
       case METAOBJECT -> Optional.of(metaobject(value.getMetaobject()));
       case KIND_NOT_SET -> Optional.empty();
     };
+  }
+
+  /**
+   * The integer beyond {@code long} a {@code big_int_value} spells: canonical decimal digits, an
+   * optional {@code -} and no leading zero.
+   */
+  private static java.math.BigInteger bigInteger(String digits) {
+    String magnitude = digits.startsWith("-") ? digits.substring(1) : digits;
+    if (magnitude.isEmpty()
+        || magnitude.startsWith("0")
+        || !magnitude.chars().allMatch(c -> c >= '0' && c <= '9')) {
+      throw new TransportException(
+          "the service answered a malformed integer: " + digits + " is not decimal digits", null);
+    }
+    java.math.BigInteger integer = new java.math.BigInteger(digits);
+    if (integer.bitLength() < 64) {
+      throw new TransportException(
+          "the service answered a malformed integer: " + digits + " is within int64, which"
+              + " int_value carries",
+          null);
+    }
+    return integer;
   }
 
   /** Only an asserted arm carries the unbounded value. */
@@ -163,6 +187,8 @@ public final class Protos {
       components.add(
           switch (component.getKindCase()) {
             case INT_VALUE -> new Value.IntegerValue(component.getIntValue());
+            case BIG_INT_VALUE ->
+                new Value.BigIntegerValue(bigInteger(component.getBigIntValue()));
             case REAL_VALUE -> new Value.RealValue(component.getRealValue());
             default ->
                 throw new TransportException(
@@ -279,6 +305,7 @@ public final class Protos {
     Number magnitude =
         switch (quantity.getMagnitudeCase()) {
           case INT_MAGNITUDE -> Long.valueOf(quantity.getIntMagnitude());
+          case BIG_INT_MAGNITUDE -> bigInteger(quantity.getBigIntMagnitude());
           case REAL_MAGNITUDE -> Double.valueOf(quantity.getRealMagnitude());
           case MAGNITUDE_NOT_SET ->
               throw new TransportException(
@@ -465,6 +492,8 @@ public final class Protos {
         org.openmbee.opensysml.proto.Value.newBuilder();
     if (value instanceof Value.IntegerValue integral) {
       builder.setIntValue(integral.value());
+    } else if (value instanceof Value.BigIntegerValue integral) {
+      builder.setBigIntValue(integral.value().toString());
     } else if (value instanceof Value.RealValue real) {
       builder.setRealValue(real.value());
     } else if (value instanceof Value.ComplexValue complex) {
@@ -574,6 +603,8 @@ public final class Protos {
         org.openmbee.opensysml.proto.Quantity.newBuilder();
     if (quantity.magnitude() instanceof Long integral) {
       builder.setIntMagnitude(integral);
+    } else if (quantity.magnitude() instanceof java.math.BigInteger integral) {
+      builder.setBigIntMagnitude(integral.toString());
     } else {
       builder.setRealMagnitude(quantity.magnitude().doubleValue());
     }
@@ -964,6 +995,12 @@ public final class Protos {
               present(outcome.getError()),
               outcome.getLinearizations(),
               outcome.getProbability(),
+              outcome.hasProbabilityRange()
+                  ? Optional.of(
+                      new org.openmbee.opensysml.ProbabilityRange(
+                          outcome.getProbabilityRange().getMin(),
+                          outcome.getProbabilityRange().getMax()))
+                  : Optional.empty(),
               outcome.getWitnessList(),
               diagnostics(outcome.getDiagnosticsList())));
     }
@@ -974,6 +1011,7 @@ public final class Protos {
         status.getBudgetsHitList(),
         status.getRunsBudget(),
         status.getDepthBudget(),
+        status.getFailedLinearizations(),
         status.getProbabilitiesLowerBound());
   }
 
@@ -1385,6 +1423,8 @@ public final class Protos {
           case ELEMENT_ID -> new DocumentValue.ElementRef(value.getElementId(), "");
           case STRING_VALUE -> new DocumentValue.StringValue(value.getStringValue());
           case INT_VALUE -> new DocumentValue.IntegerValue(value.getIntValue());
+          case BIG_INT_VALUE ->
+              new DocumentValue.BigIntegerValue(bigInteger(value.getBigIntValue()));
           case REAL_VALUE -> new DocumentValue.RealValue(value.getRealValue());
           case BOOL_VALUE -> new DocumentValue.BooleanValue(value.getBoolValue());
           case INFINITY -> new DocumentValue.InfinityValue();
@@ -1468,6 +1508,21 @@ public final class Protos {
   }
 
   /**
+   * Whether a document-query binding sends an Integer beyond int64, which a service reads only
+   * when it advertises {@code big_int_values}.
+   *
+   * @param binding the wire binding
+   * @return whether a value or a quantity magnitude is a {@code big_int_value}
+   */
+  public static boolean holdsBigInt(org.openmbee.opensysml.proto.DocumentQueryBinding binding) {
+    return binding.getValuesList().stream()
+        .anyMatch(
+            value ->
+                value.hasBigIntValue()
+                    || (value.hasQuantity() && value.getQuantity().hasBigIntMagnitude()));
+  }
+
+  /**
    * A document-query value as a request's binding carries it.
    *
    * @param value the immutable value
@@ -1494,6 +1549,8 @@ public final class Protos {
       builder.setStringValue(text.value());
     } else if (value instanceof DocumentValue.IntegerValue integer) {
       builder.setIntValue(integer.value());
+    } else if (value instanceof DocumentValue.BigIntegerValue integer) {
+      builder.setBigIntValue(integer.value().toString());
     } else if (value instanceof DocumentValue.RealValue real) {
       builder.setRealValue(real.value());
     } else if (value instanceof DocumentValue.BooleanValue flag) {

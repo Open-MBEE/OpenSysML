@@ -2,13 +2,14 @@ package opensysml
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
-// are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
+// are Int, BigInt, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
 // Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
 // them is exhaustive.
@@ -16,15 +17,39 @@ type Value interface {
 	isValue()
 }
 
-// Number is a Value that is a numeric magnitude: Int or Real. Integers and
+// Number is a Value that is a numeric magnitude: Int, BigInt or Real. Integers and
 // reals stay apart end to end, so an integer compares exactly.
 type Number interface {
 	Value
 	isNumber()
 }
 
-// Int is an integer value.
+// Int is an integer value within int64.
 type Int int64
+
+// BigInt is an integer value beyond int64: KerML Integers are unbounded. An
+// integer within int64 is always an Int, never a BigInt; NewInteger picks.
+type BigInt struct{ n *big.Int }
+
+// NewInteger is n as the integer value it is: an Int within int64, otherwise a
+// BigInt holding a copy of n.
+func NewInteger(n *big.Int) Number {
+	if n.IsInt64() {
+		return Int(n.Int64())
+	}
+	return BigInt{n: new(big.Int).Set(n)}
+}
+
+// Int returns a copy of the integer.
+func (b BigInt) Int() *big.Int {
+	if b.n == nil {
+		return new(big.Int)
+	}
+	return new(big.Int).Set(b.n)
+}
+
+// String spells the integer in full decimal.
+func (b BigInt) String() string { return b.Int().String() }
 
 // Real is a real value.
 type Real float64
@@ -343,6 +368,7 @@ func (Undetermined) String() string {
 }
 
 func (Int) isValue()            { /* marker: closed Value set */ }
+func (BigInt) isValue()         { /* marker: closed Value set */ }
 func (Real) isValue()           { /* marker: closed Value set */ }
 func (Complex) isValue()        { /* marker: closed Value set */ }
 func (Bool) isValue()           { /* marker: closed Value set */ }
@@ -363,5 +389,6 @@ func (TensorQuantity) isValue() { /* marker: closed Value set */ }
 func (Metaobject) isValue()     { /* marker: closed Value set */ }
 func (Undetermined) isValue()   { /* marker: closed Value set */ }
 
-func (Int) isNumber()  { /* marker: closed Number set */ }
-func (Real) isNumber() { /* marker: closed Number set */ }
+func (Int) isNumber()    { /* marker: closed Number set */ }
+func (BigInt) isNumber() { /* marker: closed Number set */ }
+func (Real) isNumber()   { /* marker: closed Number set */ }

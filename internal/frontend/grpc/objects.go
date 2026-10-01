@@ -19,6 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -344,7 +345,7 @@ func (h *heldObjects) namedRoot(ref objref.Ref) (*runtime.Instance, string, []ob
 // declaration of that name among all declared. Nil when nothing is declared under it.
 func (h *heldObjects) lookup(segments []objref.Segment) (*symbols.Symbol, error) {
 	name := objref.JoinTyped(segments)
-	if syms := lookupNamed(h.idx, name); len(syms) > 0 {
+	if syms := symbolfacts.LookupNamed(h.idx, name); len(syms) > 0 {
 		return syms[0], nil
 	}
 	if len(segments) != 1 {

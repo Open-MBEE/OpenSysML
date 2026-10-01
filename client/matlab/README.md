@@ -93,12 +93,13 @@ A `Model` exposes `hash`, `connection`, `diagnostics`, `documents`,
 
 ## Values
 
-`opensysml.decodeValue` reads all nineteen `Value` arms;
+`opensysml.decodeValue` reads all twenty-two `Value` arms;
 `opensysml.encodeValue` writes request values.
 
 | Wire arm | MATLAB/Octave value |
 | --- | --- |
 | `intValue` | Exact `int64`; JSON decimal digits are never routed through a double. |
+| `bigIntValue` | `struct('bigInteger', char)`: an Integer beyond `int64`, kept as its decimal digits since no MATLAB number holds it, and sent back as written. A quantity's `bigIntMagnitude` and a vector component decode the same way. |
 | `realValue` | `double`, including `"NaN"`, `"Infinity"`, and `"-Infinity"`. |
 | `boolValue` / `stringValue` | `logical` / `char`. |
 | `instanceId` | `struct('instanceRef', int64)`. |
@@ -131,6 +132,7 @@ Options are MATLAB name-value pairs such as `inputs`, `events`,
   `explain`, `raiseForError`, and logical conversion.
 - `Validation` groups instance verdicts, diagnostics, verification
   records, summary and `valid`, `violated`, `undecided`, and `explain`.
+  Its `instances` property is an ordered cell array in service order.
 - `Standing` describes the engine, strength and bounds behind a result.
 - `CalcResult` carries `value`, `outputs`, diagnostics and standing.
 - `AnalysisResult` carries outputs, verdicts, verifications, evaluations,

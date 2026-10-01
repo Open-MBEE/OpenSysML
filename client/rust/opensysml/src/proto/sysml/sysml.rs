@@ -495,6 +495,15 @@ pub struct RunAnalysisResponse {
     #[prost(message, repeated, tag="13")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
 }
+/// ProbabilityRange is the model-draw probability of an outcome, bounded by the
+/// least and greatest probabilities over schedulers resolving scheduling choices.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ProbabilityRange {
+    #[prost(double, tag="1")]
+    pub min: f64,
+    #[prost(double, tag="2")]
+    pub max: f64,
+}
 /// Outcome is one distinct outcome an exploration reached: the observables a
 /// conformance case compares, how many linearizations reached it, and the choice
 /// sequence of one run that did. Two runs agreeing on their observables are one
@@ -527,10 +536,13 @@ pub struct Outcome {
     /// one run.
     #[prost(message, repeated, tag="7")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
-    /// The probability of the linearizations reaching this outcome, as explore
-    /// computes it; a lower bound when the exploration is incomplete.
+    /// The exact model-draw probability when probability_range is exact; zero otherwise.
     #[prost(double, tag="8")]
     pub probability: f64,
+    /// Present when the exploration made a weighted choice. Bounds probabilities
+    /// over schedulers, not shares of the enumerated schedules.
+    #[prost(message, optional, tag="9")]
+    pub probability_range: ::core::option::Option<ProbabilityRange>,
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
@@ -551,10 +563,13 @@ pub struct ExplorationStatus {
     pub runs_budget: i32,
     #[prost(int32, tag="5")]
     pub depth_budget: i32,
-    /// True when the outcomes' probabilities are lower bounds: a budget kept some
+    /// True when weighted probabilities are lower bounds: a budget kept some
     /// linearizations unexplored.
     #[prost(bool, tag="6")]
     pub probabilities_lower_bound: bool,
+    /// How many linearizations ended in runtime-error outcomes.
+    #[prost(int32, tag="7")]
+    pub failed_linearizations: i32,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1668,7 +1683,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1736,6 +1751,10 @@ pub mod value {
         /// A value the server sends, never one it accepts.
         #[prost(message, tag="21")]
         Undetermined(super::Undetermined),
+        /// An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+        /// zeros). An Integer that fits int64 is always int_value, never this.
+        #[prost(string, tag="22")]
+        BigIntValue(::prost::alloc::string::String),
     }
 }
 /// Metaobject is an element of the model held as an instance of its reflective
@@ -1897,18 +1916,21 @@ pub struct Quantity {
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[prost(oneof="quantity::Magnitude", tags="1, 2")]
+    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
 }
 /// Nested message and enum types in `Quantity`.
 pub mod quantity {
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Magnitude {
         #[prost(int64, tag="1")]
         IntMagnitude(i64),
         #[prost(double, tag="2")]
         RealMagnitude(f64),
+        /// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+        #[prost(string, tag="5")]
+        BigIntMagnitude(::prost::alloc::string::String),
     }
 }
 /// MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
@@ -2380,7 +2402,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -2415,6 +2437,9 @@ pub mod document_value {
         /// a row Events answered; answered, never bound
         #[prost(message, tag="12")]
         Event(::prost::alloc::boxed::Box<super::DocumentEvent>),
+        /// An Integer beyond int64, in decimal, as Value.big_int_value.
+        #[prost(string, tag="13")]
+        BigIntValue(::prost::alloc::string::String),
     }
 }
 /// DocumentObject is an object the service holds for the model, created by

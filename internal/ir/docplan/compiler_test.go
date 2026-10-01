@@ -705,7 +705,6 @@ func TestCompileAcceptsDotNotationElementBindings(t *testing.T) {
 
 func TestCompileRejectsInvalidSignedBindings(t *testing.T) {
 	cases := map[string]string{
-		"overflow":   "in offset = -99999999999999999999;",
 		"nonNumeric": "in offset = -telescope;",
 	}
 	for name, binding := range cases {
@@ -733,6 +732,40 @@ func TestCompileRejectsInvalidSignedBindings(t *testing.T) {
 				t.Fatalf("error = %+v", planning)
 			}
 		})
+	}
+}
+
+// TestCompileBindsIntegersBeyondInt64 pins that a signed Integer binding past
+// int64 is the exact Integer it spells, as KerML Integers are unbounded.
+func TestCompileBindsIntegersBeyondInt64(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		calc def Names :> Query {
+			in root : Element;
+			in offset : Integer;
+			OwnedElements(source = root)
+		}
+		part telescope;
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part list : List {
+				calc items : Names {
+					in root = telescope;
+					in offset = -99999999999999999999;
+				}
+			}
+		}
+	`)
+	plan, err := fixture.compile(t, "Report")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	value := plan.Content()[0].Query().Bindings()[1].Values()[0]
+	offset, ok := value.IntegerConst()
+	if !ok || offset.FormatInt() != "-99999999999999999999" {
+		t.Fatalf("offset = %v %v", offset, ok)
+	}
+	if _, fits := value.Integer(); fits {
+		t.Fatal("an offset beyond int64 must not read as an int64")
 	}
 }
 

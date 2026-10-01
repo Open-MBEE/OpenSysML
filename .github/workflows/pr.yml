@@ -407,6 +407,11 @@ jobs:
           go vet ./...
           go vet -C tools ./...
 
+      - name: Vet and test the production sysml build (-tags sysml_prod)
+        run: |
+          go vet -tags sysml_prod ./cmd/sysml/... ./internal/frontend/repl/...
+          go test -count=1 -tags sysml_prod ./cmd/sysml -run TestProdBuild
+
       - name: Run static analysis (staticcheck + gosec)
         run: make lint
 
@@ -640,6 +645,41 @@ jobs:
             exit 1
           fi
 
+  # The Xpect oracle's committed baseline (docs/project/pilot-xpect-baseline.json)
+  # used to be reproduced only by the nightly oracle-reproduction workflow, so a
+  # checker change that moved a verdict surfaced a day after it merged. The check
+  # needs no Java — only the pinned .xt suites — so it runs here on every change
+  # that can move it: a rule under internal/ or a re-recorded baseline under docs/.
+  xpect-oracle:
+    name: Xpect oracle reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cache the pilot Xpect suites
+        uses: actions/cache@v4
+        with:
+          path: build/pilot-xpect-corpus
+          key: pilot-xpect-corpus-${{ hashFiles('scripts/download-pilot-xpect.sh', 'scripts/pilot-pin.sh') }}
+
+      - name: Download the pilot Xpect suites
+        run: ./scripts/download-pilot-xpect.sh
+
+      - name: Xpect oracle reproduces its baseline
+        run: go run -C tools ./cmd/pilot-xpect -check
+
   # The client jobs download this binary rather than building one, so it runs
   # whenever the service or any client does.
   build:
@@ -718,6 +758,7 @@ jobs:
       - static-and-integrity
       - vscode-extension
       - wasm-gate
+      - xpect-oracle
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -743,6 +784,7 @@ jobs:
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
+          XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
@@ -762,7 +804,8 @@ jobs:
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
              ! ok "$VSCODE_EXTENSION_RESULT" ||
-             ! ok "$WASM_GATE_RESULT"; then
+             ! ok "$WASM_GATE_RESULT" ||
+             ! ok "$XPECT_ORACLE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
             echo "mdk-plugin=$MDK_PLUGIN_RESULT"
@@ -781,6 +824,7 @@ jobs:
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
             echo "wasm-gate=$WASM_GATE_RESULT"
+            echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             exit 1
           fi
 

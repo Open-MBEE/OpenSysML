@@ -214,7 +214,7 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 			return false, fmt.Errorf("%w: function %s: %s states no isBound and its type declares no default",
 				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))
 		}
-		c, ok := ctx.model.semantics.Eval(value)
+		c, ok := ctx.model.semantics.EvalWithin(value, ctx.maxIntegerBits)
 		if !ok {
 			return false, fmt.Errorf("%w: function %s: the default of %s::isBound is not a constant",
 				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))

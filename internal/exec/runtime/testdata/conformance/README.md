@@ -131,13 +131,18 @@ one:
 - `outcomes`: at least two complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
   case, with the meaning those keys have above, plus an optional `probability`:
-  the share of the schedule space the explore pass expects the linearizations
-  reaching that entry to carry (a weighted pick its stated weight's share, an
-  unweighted choice's uniform share), checked against the sum the exploration
-  reports for it within `1e-9`. The observed run must match
+  the exact model-draw probability when every matched explored outcome has an
+  exact value. It is checked against the exact probability of every matched
+  outcome, not a share of schedules. The observed run must match
   exactly one entry: matching none fails the case as inadmissible, matching
   several fails it because the set is not distinct. `-v` output names the entry
-  matched (`matched admissible outcome 1 of 2`).
+  matched (`matched admissible outcome 1 of 2`). An optional `probability` is an
+  exact probability conferred by weighted choices in the model. It is checked
+  only when every matched exploration outcome has an exact value. An optional
+  `probabilityRange: [min, max]` names the model-weight probability's minimum
+  and maximum across schedulers and must match exactly one explored outcome.
+  Stating either probability form requires at least one weighted choice in the
+  exploration; scheduler choices alone have no probability.
 - `admissible`: required beside `outcomes`. The exact title of the section of
   `docs/project/behavior-semantic-oracle.md` deriving that every listed outcome is
   valid under the Kernel Semantic Library. A missing citation, or one no section
@@ -150,7 +155,9 @@ beside `performers`, on a calc, constraint, requirement or instance case, or
 with an entry that states nothing. The `events` a state case injects are its
 input and stay at the top level: every outcome is a result of the same run.
 
-The set is exact. Besides checking the default run, `TestExecutionConformance`
+The schema does not represent runtime-error outcomes in `outcomes`; an
+exploration that reaches one is reported as an unexpected failure. The set is
+exact. Besides checking the default run, `TestExecutionConformance`
 explores every case with `outcomes` under the `explore` policy: the case is
 replayed from the start once per linearization the library admits, each run on a
 fresh context over the same lowering, and the case fails when a listed outcome
@@ -287,6 +294,10 @@ check writes. A case the check refuses with a typed reason — a body paused
 mid-statement, a state and an action due together — is listed in
 `check_corpus_test.go` and owns no expectation. These files are not execution
 fixtures: the execution harness skips them.
+
+An `Integer` value is a JSON number, or a decimal string for an Integer of any
+magnitude (`{"type": "Integer", "value": "1180591620717411303424"}`), since a
+JSON number past 2^53 is read through a float64 that may round its digits.
 
 ### For Calculations (`InvokeCalc`)
 

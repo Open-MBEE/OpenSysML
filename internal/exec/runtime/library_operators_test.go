@@ -258,7 +258,6 @@ func TestOperatorFunctionErrors(t *testing.T) {
 		{"IntegerFunctions::+", []Value{constInt(1), constReal(2)}, ErrTypeMismatch},
 		{"IntegerFunctions::+", []Value{NewStringValue("a"), NewStringValue("b")}, ErrTypeMismatch},
 		{"IntegerFunctions::**", []Value{constInt(2), constInt(-1)}, ErrTypeMismatch},
-		{"IntegerFunctions::*", []Value{constInt(1 << 62), constInt(4)}, semantics.ErrArithmeticOverflow},
 		{"IntegerFunctions::/", []Value{constInt(1), constInt(0)}, ErrDivisionByZero},
 		{"IntegerFunctions::%", []Value{constInt(1), constInt(0)}, ErrDivisionByZero},
 		{"NaturalFunctions::+", []Value{constInt(-1), constInt(2)}, ErrTypeMismatch},

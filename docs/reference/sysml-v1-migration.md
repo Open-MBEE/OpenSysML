@@ -126,7 +126,7 @@ returned over the service yet.
 | InstanceSpecification of a value type | `attribute` typed by it, holding its slot values (an individual cannot specialize an attribute def) | mapped |
 | InstanceSpecification naming no classifier, under a `SimulationConfig`'s `resultLocation`, whose slots are of features of one lineage of blocks ending in the configuration's target classifier or a general of it (a simulation tool's result snapshot) | the `individual part def` of the most special of those blocks, with its slots; the note says which owner classified it and for which configuration | mapped |
 | InstanceSpecification naming no classifier, anywhere else, or under a `resultLocation` with slots of features of blocks that are no one lineage or none the target is of | comment | **unmapped** — nothing classifies it; under a `resultLocation` the note says which owners its slots have and why they type no snapshot |
-| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a unique feature, a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
+| Slot contradicting its feature (more values than the multiplicity allows, a repeated value of a feature written unique — declared so in v1, or written without its `nonunique` by the rule above — a feature of a classifier the instance is not written to specialize, an instance that is not of the property's type or of its default individual, a value outside the document) | comment | **unmapped** |
 | Slot of a port, or of an untyped property | comment (no individual can type a port; a `ref` without a type takes none) | **unmapped** |
 | Property whose default is an InstanceSpecification of a block | the individual added to the usage's types, or its only type when the property is untyped; no `default` (a definition is not a v2 value). A port, a usage of another kind than the individual, or a usage whose type the individual is not an instance of, keeps its types and the default is a comment | approximated |
 | Literal default on a value type with no scalar base (a structured value type, an enumeration) | comment | approximated |
@@ -138,6 +138,7 @@ returned over the service yet.
 | Anonymous association owning every end | a named `connection def` | approximated |
 | Value property | `attribute`, with multiplicity and default | mapped |
 | Composite part property | `part` | mapped |
+| Property with `isOrdered` / `isUnique="false"` | `ordered` / `nonunique` after the multiplicity — except `nonunique` on a usage that must be unique: one that implicitly subsets a unique library feature (a composite `part` or `item` in a part or item, `Items::Item::subparts`/`subitems`; a composite `action` in an action, `Actions::Action::subactions`, or in a part, `Parts::Part::ownedActions`; likewise `substates`, `subcalculations`, `subcases`, `ownedPorts`, `suboccurrences`…), or that redefines or subsets a feature written unique. The target is the one `ImplicitSubsettings` gives the written usage, its uniqueness read from the bundled library, so an `attribute` (`Base::dataValues`) and a `ref part` (no implicit subsetting) keep `nonunique`. The modifier is dropped and the entry notes which unique feature forbade it | mapped; approximated when `nonunique` is dropped ("nonunique is not written: …") |
 | Reference property (no aggregation) | `ref part` | mapped |
 | Undirected part or item property of an «InterfaceBlock» | `ref part` / `ref item`; a port owns no composite parts | approximated |
 | Shared aggregation | `ref part` | approximated |
@@ -162,7 +163,7 @@ returned over the service yet.
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
 | A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
-| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
+| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped and the cross-references in it read as plain text ([below](#cross-references-in-documentation)) | mapped (approximated when a reference is dangling or stale) |
 | User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
 | User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold, and an activity written as its block's action usage likewise, `runs = Ctl::run meta SysML::ActionUsage;` — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
@@ -222,9 +223,10 @@ returned over the service yet.
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
-| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; a `ReadStructuralFeatureAction`'s `result` keeps its pin's multiplicity (`out result[0..*] = object.entries;`), so a feature holding none or several is read as it is declared; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after context.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `context.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
@@ -253,6 +255,7 @@ returned over the service yet.
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity with no nodes | an empty action: `entry action x;` in a state, `do action x { }` on a transition, whose target follows on the next line | mapped (the note says the action is empty) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
+| `entry` or `exit` behavior or transition `effect` that waits for the clock — an Activity with a duration constraint on itself or on one of its nodes, an accept of a time event, or a call of an activity, or of an operation whose method is an activity, that has one | the action as written; the note names the wait, since a v2 entry or exit action or transition effect is performed whole at the instant it is triggered and a run stops at the wait with a typed error (the `doActivity` may wait, and is not noted) | approximated |
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
@@ -269,6 +272,7 @@ returned over the service yet.
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
 | Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
 | SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]` | mapped / approximated |
+| SignalEvent whose signal no send or broadcast action of the document sends (neither it nor a signal specializing it, which the accept takes too), and a button of the tool's UI prototype posts (a «SimulationProfile» `SignalInstance` on a «Button» class naming the signal as its `element`) | the accept as written, on the transition or accept action; the trigger's note says that only the prototype posts the signal, which the migration does not write, so the accept waits for a message nothing in the model posts and a run stops there as a deadlock. A signal nothing at all posts is an ordinary accept, of a message from outside the model in the tool and here alike | approximated |
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
@@ -613,7 +617,8 @@ the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose 
 the view tree in declaration order, and each view's method is lowered into the section's
 content, so `-render-document` produces the document DocGen would have. A section opens, as
 DocGen prints it, with the view's own documentation as a `Paragraph` — the same comment its
-`view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
+`view` carries as `doc`, tool HTML lowered to text and [reference runs](#cross-references-in-documentation) —
+before its method's content, unless that
 comment is shown by one of the view's collaborator paragraphs, in which case it is written once, in
 that paragraph's place; a collaborator paragraph that cannot be shown (a malformed application) is
 refused as usual and does not hide the documentation. A view with no «Conform» gets
@@ -681,7 +686,7 @@ section, in the activity's order:
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
 | `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
-| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
+| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; one whose HTML cross-references an element the export contains is written as runs instead, `part span : Span { attribute redefines text = "…"; } part 'ref' : Ref { ref redefines target = …; }` ([below](#cross-references-in-documentation)); a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
 | a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
 | an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
 | `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram that is a Cameo [table, matrix or relation map](#tables-matrices-and-relation-maps) is shown as DocGen shows it, as the table: `part table : Table { attribute redefines caption = "<title>"; calc rows : <its '… Rows' query>; }` over the query its definition already lowered, written once beside the view, never as a `Diagram` of the view rendered `asElementTable` (which a document would draw as a listing of the view's members); the step's row says the diagram is written as a Table over that query, and `-doc-number-figures` counts it among the tables. A table whose definition is refused (no query form) is refused in its place, the reason given, rather than drawn as that listing. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
@@ -769,6 +774,54 @@ with the qualified name of every candidate. A document that cannot be rendered d
 set: the others are written, a page stating the error stands in for it, and the run lists each
 such document and exits `3`.
 
+#### Cross-references in documentation
+
+MagicDraw and Cameo store an element's documentation as HTML, and two things in it refer to
+other elements: a hyperlink to a model element, `<a href="mdel://<xmi:id>">text</a>` (the
+text is what the element was called when the link was made, kept current by the tool), and a
+View Editor cross-reference, `<mms-cf mms-element-id="<id>" mms-cf-type="name|val|com">[cf:…]</mms-cf>`,
+whose body is the text the editor last cached for it. The editor's links to a view —
+`<mms-view-link data-mms-element-id="<id>">`, and a hyperlink to its own page for the view,
+whose URL names the view by `viewId=<id>` or `/views/<id>` — are hyperlinks to the view. All
+are resolved through the export —
+the id is the element's `xmi:id`, a diagram's included — before the HTML is reduced, so the
+prose reads as the tool printed it rather than as its markup:
+
+- In a document paragraph (a view's documentation, a `Paragraph` step, a collaborator paragraph),
+  each resolved reference is a `Ref` run between `Span` runs of the prose around it, in order.
+  Its target is the block of the same document standing for the element — the `Section` of a view,
+  the `Diagram`/`Image` of a diagram, the `Table` of a table — so the renderers label it `Section
+  N.N - Title`, `Figure N` or `Table N` and link it, as they do a native reference; a view or
+  diagram shown elsewhere is referenced as its own `view` and any other element by name, each
+  through its metadata (`E.metadata`, the form that names any element as a value), which
+  renders as the element's current name (in HTML with its qualified name on the link). A
+  hyperlink takes the label of the block it links, as Cameo's DocGen printed it; a `name`
+  cross-reference keeps the target's name as its text, linked to the block. `val` reads
+  the value of the slot or property, as the text of its literal at migration time; `com`
+  the target's own documentation (a comment's own body, when it names one), as text — the last two are approximated with a note saying so,
+  since the paragraph does not follow the value afterwards, and a `val` of a property holding no
+  value, or a `com` of an undocumented element, prints nothing. A `val` or `com` that reaches
+  back to the text being written — a value whose literal cites itself, two comments citing each
+  other's documentation — ends there, printing nothing for the turn back, noted. A reference to a
+  diagram no view is written for, and one the prose runs into with no space between
+  (`<a …>Mount</a>'s`, which the spaces joining a paragraph's runs would split), are written as
+  the target's name in the prose, noted on the paragraph. A paragraph with no resolved
+  reference is written as before, its `text` attribute.
+- Everywhere else — a `doc` comment, a requirement's `Text`, a stereotype tag, a note on a
+  diagram — a reference reads as the target's current name (`val` and `com` as above), as
+  Cameo prints it. A hyperlink whose text is not the target's current name is written with the
+  current name and the comment's row notes the text it carried.
+- A reference to an element the export does not contain — a View Editor table or figure that
+  was never in the model, a slot of a deleted instance, a link to a deleted element — is
+  dangling: an `<mms-cf>` prints nothing in a paragraph, as Cameo did, and its cached text with
+  the `[cf:…]` wrapper removed in plain text (the name it last had), while a hyperlink keeps its
+  text in both; each is noted on the comment's row (`names an element the export does not
+  contain: <id>`), which is approximated, so the ledger and not the prose carries the loss. No
+  `[cf:…]` is ever printed.
+- The spaces the dropped markup leaves (`the  Post  Segment-Exchange  Alignment  and/or`) are
+  collapsed in the same pass; the line breaks `</p>` and `<br>` stand for are kept. A body
+  with no markup is text as written, its spacing and tabs included.
+
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
@@ -847,12 +900,15 @@ integer, real or boolean literal, an enumeration literal by name, an element ref
 shortest name resolving where the usage sits — and a value that does not fit (an unknown
 literal, a reference to an element not written, a tag the stereotype does not define) is kept as
 a comment inside the usage, approximating the element with the reason. Rich text a tool stores
-as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
+as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does, its
+cross-references read as the names of their targets
+([Cross-references in documentation](#cross-references-in-documentation)).
 
 One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
 property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
 whose declared multiplicity is `[1]` or absent writes `[0..*] ordered nonunique`, and `[n]`
-writes `[n] ordered nonunique`, so the feature is the sequence the tool meant; `*` (and `&`)
+writes `[n] ordered nonunique`, so the feature is the sequence the tool meant — `ordered`
+alone, with the drop noted, on a usage that must be unique (the `isUnique` row); `*` (and `&`)
 on a part or item property held by value writes it `ref`, a reference rather than a
 containment. A shape with no v2 form is kept as the applied-stereotype comment with the reason
 in the report: `[][]`, `[n*m]` and other two-dimensional shapes (a multiplicity has one
@@ -1149,6 +1205,26 @@ reads the accepted signal: the accept names it, `accept sig : Sig`, and the para
 signal fits are bound to that name. Entry, do and exit behaviors owned by the state are inline
 action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
 references.
+
+A region's entry is its initial pseudostate's transition, `entry; then s;`. The initial a
+region takes as its own is the one whose transition enters a vertex of the region; a further
+one entering the region is refused, as a region has one initial pseudostate. An initial
+whose transition enters an *orthogonal* region — a sibling region of the same state, or a
+region nested in one, which some tools draw an arrow into from the next region over — is
+written as the entry of the region that owns its target, in whatever body that region is
+written as: the sub-state of the `parallel` state, or the body of a nested composite state.
+Its effect follows the initial-effect rules there and its triggers and guards are dropped as
+an initial transition's are; the pseudostate and transition are approximated, the report
+naming the region written. When the target's region has an initial of its own entering the
+same vertex, the stray one coincides with it and nothing is written twice; when its own
+initial enters another vertex the two conflict, the region's own entry is kept and the stray
+one is refused with both targets named (`-strict` reports its triggers, guard and effect as
+refused with it). An initial pseudostate no transition leaves is no entry, so a donated one
+may enter its region; an initial whose transition enters a region of another state — one that
+is not orthogonal to its own — is refused, since an initial transition enters its own region.
+The owner's default entry into its `parallel` state is written once every region has an
+entry, its own or a donated one; a region none of whose initials enters it is listed in the
+owner's `no default entry` note.
 
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every
@@ -1515,6 +1591,9 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
+| `x = e;` in a JavaScript body, `x` a name nothing declares — no pin, parameter, property, local or member of any scope the body sees | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`, as the tool's script engine creates a variable on assignment to an undeclared name; reported as an approximation naming `x`. A name some scope does declare but the body may not read — a private property, a feature reached through a swimlane whose object is plural — stays refused, as does a name read before its assignment, and every such name in a Java body, which declares its variables |
+| a read, in a script body, of a property declaring no default, before the body assigns it | the read as written; reported as an approximation naming the property: in v2 the property holds no value until assigned, so a run reaching the read first stops, where the tool's script engine reads null and its arithmetic takes 0. A body that assigns the property first, a property declaring a default, and one declared admitting no value (read under a guard, see above) are not reported |
+| a read, in a script body, of a property declaring no default, after the body assigns it only under guards — from names admitting no value, so each assignment is made only when the name it reads holds one | the read as written; reported as an approximation naming the property and every guard made before the read: a run in which none of those names holds one reaches the read unset and stops, where the tool's script engine reads null. An unguarded assignment before the read settles the property on every path, and the read is not reported | approximated |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
@@ -1542,7 +1621,7 @@ that is not expression syntax, a construct outside the subset (`for`, `while`, `
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
 translated function table`), a name that resolves to nothing readable (`context.` where the activity carries no such parameter
-no object, a property of no v2 type, a name no scope defines), or types that disagree (an
+no object, a property of no v2 type, a name no scope defines and no JavaScript assignment creates), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
 of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
@@ -1620,6 +1699,9 @@ action def 'Group 0' {
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
   `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
   consumed, and set to false they are kept in the comment and reported as having no v2 form.
+  `UI` names the tool's UI prototype frames (a «UI_Prototyping_Profile» `Frame`), through which
+  a user of the tool's run posts signals and reads values: it is kept in the comment by its
+  frames' titles and reported as an approximation, since a run here takes no input from it.
 - The tool's own results — the snapshots it stored of the configuration's runs under its
   `resultLocation` packages, one instance per run whose slots hold the observed values, most
   naming no classifier — are migrated as individuals of the most special block their slots'

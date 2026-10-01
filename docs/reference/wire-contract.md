@@ -192,17 +192,18 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: nineteen arms, exactly one present
+## `Value`: twenty-two arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of nineteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-two
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
 
 | Key | JSON type | Captured | Meaning |
 |---|---|---|---|
-| `intValue` | string | `{"result":{"intValue":"4"}}` | Integer (64-bit); string because `int64` |
+| `intValue` | string | `{"result":{"intValue":"4"}}` | Integer within 64 bits; string because `int64` |
+| `bigIntValue` | string | `{"result":{"bigIntValue":"1180591620717411303424"}}` | Integer beyond 64 bits, in decimal; KerML Integers are unbounded |
 | `realValue` | number | `{"result":{"realValue":0.3333333333333333}}` | Real (IEEE-754 double) |
 | `boolValue` | boolean | `{"result":{"boolValue":true}}` | Boolean |
 | `stringValue` | string | `{"result":{"stringValue":"abc"}}` | String |
@@ -272,6 +273,8 @@ decode(v):
   if v is absent                → no value was produced (see "result vs unset vs null")
   key := the single key of v
   intValue     → parse the string as a 64-bit integer; never as a double
+  bigIntValue  → parse the decimal string as an arbitrary-precision integer (it is always
+                 outside int64); never as a double
   realValue    → the number, as a double
   boolValue    → the boolean
   stringValue  → the string
@@ -285,7 +288,8 @@ decode(v):
   complex      → complex(v.complex.real or 0, v.complex.imaginary or 0)
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
-  vector       → map over v.vector.components: intValue → integer, realValue → double,
+  vector       → map over v.vector.components: intValue or bigIntValue → integer,
+                 realValue → double,
                  anything else → an error
   vectorQuantity → map the quantity rule over v.vectorQuantity.components; empty → an error
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
@@ -324,7 +328,22 @@ $ … /Evaluate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c
 {"result":{"intValue":"9007199254740993"}}
 ```
 
-A double would read that as `9007199254740992`. MATLAB's `jsondecode` gives you a `char`
+A double would read that as `9007199254740992`.
+
+**`bigIntValue`.** An Integer outside the `int64` range, as canonical decimal digits: an optional
+`-`, no leading zero, no `+`. KerML Integers are the mathematical integers, so `2**70` answers
+`{"result":{"bigIntValue":"1180591620717411303424"}}`. A value within `int64` is always sent as
+`intValue`, never as `bigIntValue`, so a client that never meets a wide Integer sees no change,
+and the two arms never spell the same number; a decoder rejects a `bigIntValue` that fits
+`int64` or is not canonical. The service accepts `bigIntValue` on input under the same rule.
+The arm is negotiated by the `big_int_values` capability: a service that does not advertise it
+sends a wide Integer (bare, nested, or as a `bigIntMagnitude`) as an unsupported `null` naming it
+(a vector holding one is withheld whole), refuses a document query bound to one or answering one
+with `UNIMPLEMENTED` naming the capability, since a document value has no unsupported arm, and,
+since such a service would read an unknown arm as `null`, the bundled clients refuse to send one
+to it, document-query bindings included, before the call.
+
+MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs
 `bit64::as.integer64`; Julia's `parse(Int64, s)` and C's `strtoll` are exact.
 
@@ -424,8 +443,9 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
 {"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
 ```
 
-- The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`) or
-  **`realMagnitude`** (a number). Exactly one is present.
+- The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`),
+  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`) or **`realMagnitude`** (a
+  number). Exactly one is present.
 - `unit` is the unit expression as written, by fully qualified name of each unit; it is the
   display form and the identity of the unit *as declared*.
 - `unitTerm` is the same unit reduced to base units: `factors` are `(unitId, exponent)` pairs
@@ -468,8 +488,8 @@ $ … /Evaluate -d '{"modelHash":"42cc…54b0","expression":"S::grid"}'
   extent is positive) before indexing, and reject a message that disagrees. The service applies
   the same rule to an array sent to it.
 
-**`vector`.** `components` is a list of `Value`s each of which is an `intValue` or a
-`realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
+**`vector`.** `components` is a list of `Value`s each of which is an `intValue`, a
+`bigIntValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
 a `sequence`. A `vector` is not a `sequence`: `VectorOf((3.0, 4.0))` is one value with a
 dimension, and the engine's vector functions accept it where a sequence of numbers would be
 read element by element. A component of any other arm is an error, on both sides.
@@ -661,7 +681,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
-- **Do not read `intValue` (or `intMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
+- **Do not read `intValue` or `bigIntValue` (or `intMagnitude`, `bigIntMagnitude`, `id`,
+  `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
   different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
@@ -1012,23 +1033,26 @@ fresh executor over the same lowered model, following the recorded choices of an
 to a frontier and taking the next untried alternative there — the first run's choice points each
 varied once, earliest first, before any is varied twice — until no alternative is untried or a
 budget is hit. Two runs that agree on the observables — an action's outputs — are
-one outcome, with `linearizations` counting how many reached it, `probability` the share of the
-schedule space its linearizations cover (a weighted pick's stated weight's share, an unweighted
-choice's uniform `1/n`, multiplied along a run and summed over the runs reaching the outcome —
-the model's own probability where every choice point is weighted, a uniform assumption over the
-scheduling choices the library leaves open otherwise), and `witness` the choice sequence
-of one that did, one entry per choice point spelling the alternatives and the one taken;
-`diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
+one outcome, with `linearizations` counting how many reached it, and `witness` the choice sequence
+of one that did, one entry per choice point spelling the alternatives and the one taken. When a
+committed run made a weighted model choice, `probability_range` carries the outcome's minimum and
+maximum model-draw probability over schedulers; `probability` is the exact value when that range
+is exact and is zero otherwise. Scheduling choices have no probability. If no weighted choice
+occurred, neither field represents an outcome probability. A run failing after its initial model
+behavior begins is an error outcome; a root executor creation failure or a pure structural
+start-check failure before behavior runs is instead returned in the response's error field, with
+no outcomes or exploration status. `diagnostics` is what that witness run noted, shaped as the
+single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
 answers the same list on every call (captured for `Test::tally` above and for `action race` with
 three branches `a`, `b`, `c` each assigning `winner`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
-{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"probability":1.0,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1036,18 +1060,23 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race
 with no choice point explores in exactly one run.
 
 `exploration.complete` is true when every linearization within the budget was run, so
-`outcomes` is the whole set and their `probability` values sum to `1`. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+`outcomes` is the whole set. Probabilities are not schedule shares and need not sum to `1` across
+the displayed outcome ranges: each range bounds model-weighted draws for one outcome over the
+schedulers that resolve scheduling choices. An unweighted exploration has no outcome
+probabilities. `failed_linearizations` counts the runs represented by runtime-error outcomes.
+The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
 in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
 `depth` how many choice points one run may resolve before the rest take their first alternative
 (default 64). Hitting either ends the search with `complete` false and the budget named in
 `budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
-`probabilitiesLowerBound` true, since the unexplored runs can only add mass;
+`probabilitiesLowerBound` true only when the exploration is incomplete and has a weighted model
+choice, since unexplored runs can only add to those model probabilities;
 `runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
 error and never silent:
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64,"probabilitiesLowerBound":true}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
 HTTP/1.1 400 Bad Request
@@ -1926,7 +1955,8 @@ a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **pos
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
 `DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
-the answer-only `verdict` below, and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+the answer-only `verdict` below and `bigIntValue` for an Integer beyond `int64` (same rule as on
+`Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console

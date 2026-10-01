@@ -39,6 +39,7 @@ function test_surface_live()
     end
     assert_equal(isa(simple.get('Test::SimplePart'), 'opensysml.Symbol'), ...
         true, 'Model.get');
+    assert_equal(isempty(simple.get('X::NoSuchSymbol')), true, 'missing Model.get symbol');
     assert_equal(isa(simple.find('SimplePart'), 'opensysml.Symbol'), ...
         true, 'Model.find');
     assert_equal(~isempty(simple.walk()), true, 'Model.walk');
@@ -78,6 +79,12 @@ function test_surface_live()
 
     queryModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'query.sysml')), ...
         'name', 'query.sysml');
+    reservedRows = queryModel.query('select', {'@id', '@type'});
+    reservedProperties = reservedRows{1}.properties;
+    assert_equal(isa(reservedProperties, 'containers.Map'), true, ...
+        'query reserved properties map');
+    assert_equal(isKey(reservedProperties, '@id'), true, 'query preserves @id');
+    assert_equal(isKey(reservedProperties, '@type'), true, 'query preserves @type');
     textRows = opensysml.query(queryModel, ...
         'oslc.where=rdf:type="PartUsage"&oslc.select=sysml:name');
     structuredRows = queryModel.query('scope', {'Demo::vehicle'}, 'select', {'name'});
@@ -131,6 +138,26 @@ function test_surface_live()
     assert_equal(isa(action.performerAttributes, 'containers.Map'), true, ...
         'action performer attributes');
     assert_equal(isnumeric(action.finalTime), true, 'action final time');
+    performerSource = strjoin({ ...
+        'package Wire {', ...
+        '  private import ScalarValues::*;', ...
+        '  item def Ping;', ...
+        '  port def Link { in item ping : Ping; }', ...
+        '  part def Craft {', ...
+        '    attribute pinged : Boolean = false;', ...
+        '    action look { out seen : Boolean; first start;', ...
+        '      then action read assign seen := pinged; then done; }', ...
+        '  }', ...
+        '  part def Pair { part craft : Craft; }', ...
+        '  part pair : Pair;', ...
+        '}'}, sprintf('\n'));
+    performerModel = opensysml.parseSource(conn, performerSource, ...
+        'name', 'performer.sysml');
+    performerResult = performerModel.executeAction('Wire::Craft::look', ...
+        'performer', 'Wire::pair.craft');
+    performerKeys = performerResult.performerAttributes.keys;
+    assert_equal(any(cellfun(@(key) strncmp(key, 'this.', 5), performerKeys)), ...
+        true, 'performer this-prefixed keys');
     actionExploration = opensysml.exploreAction(behavior, 'Test::race');
     actionExplorationMethod = behavior.exploreAction('Test::race');
     assert_equal(isa(actionExploration, 'opensysml.Exploration'), true, 'exploreAction');
@@ -172,6 +199,12 @@ function test_surface_live()
     cases.validateInstance('Demo::good');
     validation = opensysml.validateInstance(cases, 'Demo::good');
     assert_equal(isa(validation, 'opensysml.Validation'), true, 'validateInstance');
+    assert_equal(iscell(validation.instances), true, 'validation ordered instances');
+    assert_equal(~isempty(validation.instances), true, 'validation instance list');
+    assert_equal(validation.instances{1}.id, validation.summary.instanceId, ...
+        'validated object is first in instance list');
+    assert_equal(numel(validation.summary.verifications), ...
+        numel(validation.verifications), 'summary receives all verification verdicts');
     assert_equal(isa(verification.calc('Demo::add', 'arguments', {int64(2), int64(3)}), ...
         'opensysml.CalcResult'), true, 'Model.calc');
     calculation = opensysml.calc(verification, 'Demo::add', ...
@@ -232,6 +265,42 @@ function test_surface_live()
     expect_identifier(@() opensysml.parseSource(conn, 'package Broken {', ...
         'name', 'broken.sysml', 'raiseForErrors', true), ...
         'opensysml:diagnostics:model', 'model');
+
+    measurementModel = opensysml.parseFile(conn, ...
+        'conformance/fixtures/measurement_ref.sysml');
+    walkedMeasurement = measurementModel.walk(4);
+    assert_equal(iscell(walkedMeasurement), true, 'walk skips missing child symbol');
+
+    closedConnection = opensysml.external(getenv('OPENSYSML_SERVICE'));
+    closedConnection.close();
+    closedConnection.close();
+    try
+        opensysml.listEngines(closedConnection);
+        error('assert:error', 'call after close returned normally');
+    catch e
+        if strcmp(e.identifier, 'assert:error'), rethrow(e); end
+        assert_equal(e.identifier, 'opensysml:transport', 'closed connection identifier');
+        assert_equal(~isempty(strfind(e.message, 'is closed')), true, ...
+            'closed connection message');
+    end
+
+    deadConnection = opensysml.external('127.0.0.1:1');
+    expect_transport_without_marker(@() opensysml.call( ...
+        deadConnection, 'GetServerInfo', struct()));
+
+    timeoutConnection = opensysml.external(getenv('OPENSYSML_SERVICE'));
+    timeoutConnection.serverInfo();
+    timeoutConnection.timeout = 0.001;
+    timeoutCleanup = onCleanup(@() timeoutConnection.close());
+    timeoutLines = cell(1, 12000);
+    for i = 1:numel(timeoutLines)
+        timeoutLines{i} = sprintf('part def TimeoutPart%d;', i);
+    end
+    largeSource = strjoin(timeoutLines, sprintf('\n'));
+    expect_identifier(@() opensysml.parseSource(timeoutConnection, largeSource, ...
+        'name', 'timeout.sysml'), ...
+        'opensysml:connect:serviceTimeout', 'subsecond parse timeout');
+    clear timeoutCleanup;
     fprintf('surface live ok\n');
 end
 
@@ -247,4 +316,17 @@ function expect_identifier(fn, prefix, label)
         error('assert:error', '%s threw %s, want %s*', label, e.identifier, prefix);
     end
     error('assert:error', '%s returned normally, want %s*', label, prefix);
+end
+
+function expect_transport_without_marker(fn)
+    try
+        fn();
+    catch e
+        if strcmp(e.identifier, 'assert:error'), rethrow(e); end
+        assert_equal(e.identifier, 'opensysml:transport', 'closed-port transport identifier');
+        assert_equal(isempty(strfind(e.message, '__OPENSYSML_STATUS__')), true, ...
+            'closed-port error hides status marker');
+        return;
+    end
+    error('assert:error', 'closed-port call returned normally');
 end

@@ -45,8 +45,8 @@ package MessagesAndEvents {
     
     part def MessageChannel {
         // Message flows
-        message incoming: Message[*] nonunique;
-        message outgoing: Message[*] nonunique;
+        message incoming: Message[*];
+        message outgoing: Message[*];
         
         // Event-driven
         in event occurrence events [*];

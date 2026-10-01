@@ -5,12 +5,13 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // tokensOf classifies src without a resolver, so only lexical facts and declared
 // names are classified.
-func tokensOf(t *testing.T, src string) ([]byte, []Token) {
+func tokensOf(t *testing.T, src string) ([]byte, []semtok.Token) {
 	t.Helper()
 	content := []byte(src)
 	root := parser.New(source.New("test.sysml", content)).ParseFile()
@@ -18,7 +19,7 @@ func tokensOf(t *testing.T, src string) ([]byte, []Token) {
 }
 
 // text is the source text a token covers.
-func text(content []byte, tok Token) string {
+func text(content []byte, tok semtok.Token) string {
 	return string(content[tok.Span.Offset:tok.Span.End()])
 }
 
@@ -40,21 +41,21 @@ func TestTokensClassifiesDeclarationsKeywordsAndComments(t *testing.T) {
 }
 `)
 	want := map[string]struct {
-		class Class
-		mods  Modifier
+		class semtok.Class
+		mods  semtok.Modifier
 	}{
-		"package":  {ClassKeyword, 0},
-		"P":        {ClassNamespace, ModDeclaration},
-		"// note":  {ClassComment, 0},
-		"Wheel":    {ClassClass, ModDeclaration | ModDefinition},
-		"pressure": {ClassProperty, ModDeclaration},
-		"Color":    {ClassEnum, ModDeclaration | ModDefinition},
-		"red":      {ClassEnumMember, ModDeclaration | ModReadonly},
-		"Brake":    {ClassFunction, ModDeclaration | ModDefinition},
-		"force":    {ClassParameter, ModDeclaration},
-		"stopped":  {ClassParameter, ModDeclaration},
-		"Vehicle":  {ClassClass, ModDeclaration | ModDefinition | ModAbstract},
-		`"s"`:      {ClassString, 0},
+		"package":  {semtok.ClassKeyword, 0},
+		"P":        {semtok.ClassNamespace, semtok.ModDeclaration},
+		"// note":  {semtok.ClassComment, 0},
+		"Wheel":    {semtok.ClassClass, semtok.ModDeclaration | semtok.ModDefinition},
+		"pressure": {semtok.ClassProperty, semtok.ModDeclaration},
+		"Color":    {semtok.ClassEnum, semtok.ModDeclaration | semtok.ModDefinition},
+		"red":      {semtok.ClassEnumMember, semtok.ModDeclaration | semtok.ModReadonly},
+		"Brake":    {semtok.ClassFunction, semtok.ModDeclaration | semtok.ModDefinition},
+		"force":    {semtok.ClassParameter, semtok.ModDeclaration},
+		"stopped":  {semtok.ClassParameter, semtok.ModDeclaration},
+		"Vehicle":  {semtok.ClassClass, semtok.ModDeclaration | semtok.ModDefinition | semtok.ModAbstract},
+		`"s"`:      {semtok.ClassString, 0},
 	}
 	seen := map[string]bool{}
 	for _, tok := range toks {
@@ -106,17 +107,17 @@ func TestTokensClassifyDeclarationsWithoutAResolver(t *testing.T) {
 	content, toks := tokensOf(t, "package P {\n    part def Wheel;\n    part w : Wheel;\n}\n")
 	// Without a resolver the reference to Wheel carries no token, while both
 	// declarations do.
-	classes := map[string]Class{}
+	classes := map[string]semtok.Class{}
 	for _, tok := range toks {
 		if _, seen := classes[text(content, tok)]; !seen {
 			classes[text(content, tok)] = tok.Class
 		}
 	}
-	if classes["Wheel"] != ClassClass {
-		t.Errorf("Wheel = %v, want %v", classes["Wheel"], ClassClass)
+	if classes["Wheel"] != semtok.ClassClass {
+		t.Errorf("Wheel = %v, want %v", classes["Wheel"], semtok.ClassClass)
 	}
-	if classes["w"] != ClassVariable {
-		t.Errorf("w = %v, want %v", classes["w"], ClassVariable)
+	if classes["w"] != semtok.ClassVariable {
+		t.Errorf("w = %v, want %v", classes["w"], semtok.ClassVariable)
 	}
 }
 
@@ -127,28 +128,7 @@ func TestTokensEmptyAndScopeless(t *testing.T) {
 	}
 	content := []byte("package P;\n")
 	toks := Tokens(content, nil, nil, nil)
-	if len(toks) != 1 || toks[0].Class != ClassKeyword {
+	if len(toks) != 1 || toks[0].Class != semtok.ClassKeyword {
 		t.Errorf("tokens without a scope = %v, want the keyword only", toks)
-	}
-}
-
-// Every class and modifier the legend exposes must name itself, since the names
-// are what an editor is told.
-func TestClassAndModifierNames(t *testing.T) {
-	for i, class := range Classes() {
-		if class.String() == "unknown" || class.String() == "" {
-			t.Errorf("class %d has no name", i)
-		}
-	}
-	for i, mod := range Modifiers() {
-		if mod.String() == "unknown" {
-			t.Errorf("modifier %d has no name", i)
-		}
-	}
-	if got := Class(-1).String(); got != "unknown" {
-		t.Errorf("Class(-1) = %q", got)
-	}
-	if got := Modifier(1 << 20).String(); got != "unknown" {
-		t.Errorf("unknown modifier bit = %q", got)
 	}
 }

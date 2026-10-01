@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -157,6 +157,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		opUsage:           map[*sysmlv1.Element]string{},
 		deciding:          map[*sysmlv1.Element]bool{},
 		bounded:           map[*sysmlv1.Element][]*sysmlv1.Element{},
+		senders:           senders{actions: map[*sysmlv1.Element]bool{}, buttons: map[*sysmlv1.Element]int{}},
 		allocated:         map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:         map[*sysmlv1.Element]bool{},
 		snapshots:         map[*sysmlv1.Element]snapshotTyping{},
@@ -178,7 +179,9 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		files:             map[string][]byte{},
 		fileContents:      map[string]string{},
 		pending:           map[*sysmlv1.Element]*pendingNotes{},
+		resolving:         map[string]bool{},
 		regionUsed:        map[*sysmlv1.Element]map[string]bool{},
+		entries:           map[*sysmlv1.Element]*regionEntry{},
 		stateUsed:         map[*sysmlv1.Element]map[string]bool{},
 		nestedIn:          map[*sysmlv1.Element]string{},
 		vertexNames:       map[*sysmlv1.Element]string{},
@@ -384,6 +387,8 @@ type migration struct {
 	deciding map[*sysmlv1.Element]bool
 	// bounded lists the duration constraints constraining each element.
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
+	// senders indexes what posts each signal.
+	senders senders
 	// allocated lists the suppliers of the «Allocate» dependencies each element is client of.
 	allocated map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
@@ -446,6 +451,10 @@ type migration struct {
 	verdicts map[*sysmlv1.Element]Verdict
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
+	// resolving marks the ids whose value or documentation a cross-reference
+	// is being resolved to, and the comments being written, so a reference
+	// that reaches back to one of them ends.
+	resolving map[string]bool
 	// files are the images written beside the notation by relative path;
 	// fileContents deduplicates them by content, imagesWritten counts them.
 	files         map[string][]byte
@@ -519,6 +528,8 @@ type migration struct {
 	observed map[*sysmlv1.Element][]*sysmlv1.Element
 	// regionUsed holds the vertex names each region's body has taken.
 	regionUsed map[*sysmlv1.Element]map[string]bool
+	// entries holds what enters each region of the machines named so far.
+	entries map[*sysmlv1.Element]*regionEntry
 	// stateUsed holds the member names each state's body has taken.
 	stateUsed map[*sysmlv1.Element]map[string]bool
 	// nestedIn names the generated action a state's behavior is written
@@ -557,7 +568,9 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 	if p, ok := m.pending[e]; ok {
 		delete(m.pending, e)
 		for _, n := range p.notes {
-			note = joinNotes(note, n)
+			if !strings.Contains(note, n) {
+				note = joinNotes(note, n)
+			}
 		}
 		if p.approximate && v == Mapped {
 			v = Approximated
@@ -621,6 +634,7 @@ func (m *migration) prepare() {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		m.recordSender(e)
 		if e.Parent == nil {
 			m.avoidLibraryRoots(e)
 		}
@@ -1211,7 +1225,7 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 	}
 	b.WriteByte(' ')
 	if cat == catRequirementDef {
-		if id := requirementID(e); id != "" {
+		if id := m.requirementID(e); id != "" {
 			b.WriteString("<" + writeName(id) + "> ")
 		}
 	}
@@ -1436,8 +1450,8 @@ func joinNotes(a, b string) string {
 
 // requirementID reads the requirement's id tag in the profile's spelling or
 // the capitalized one some tools write, as one line of plain text.
-func requirementID(e *sysmlv1.Element) string {
-	return strings.Join(strings.Fields(commentText(requirementTag(e, "Id", "id", "ID"))), " ")
+func (m *migration) requirementID(e *sysmlv1.Element) string {
+	return strings.Join(strings.Fields(m.proseText(requirementTag(e, "Id", "id", "ID"), e)), " ")
 }
 
 func requirementText(e *sysmlv1.Element) string {
@@ -1486,7 +1500,7 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	m.scope = e
 	text := requirementText(e)
 	if text != "" {
-		m.w.lines(prefixFirst("doc ", commentLines(commentText(text))))
+		m.w.lines(prefixFirst("doc ", commentLines(m.proseText(text, e))))
 	}
 	m.writeComments(e, text == "")
 	for _, c := range e.Children {
@@ -1744,14 +1758,14 @@ func (m *migration) instanceOf(classifiers []*sysmlv1.Element, t *sysmlv1.Elemen
 }
 
 // slotConflict notes how slot values contradict their feature: a count outside
-// its multiplicity or a repeat on a unique feature. Both v1 and v2 reject them.
+// its multiplicity or a repeat on a feature written unique. v2 rejects both.
 func (m *migration) slotConflict(f *sysmlv1.Element, vals []string) string {
 	n := len(vals)
 	lower, upper, ok := bounds(f)
 	if ok && (n < lower || (upper >= 0 && n > upper)) {
 		return fmt.Sprintf("the slot holds %d value(s) for a feature of multiplicity %s", n, boundsText(lower, upper))
 	}
-	if dup := repeated(vals); dup != "" && f.Attrs["isUnique"] != "false" {
+	if dup := repeated(vals); dup != "" && m.featureWrittenUnique(f, map[*sysmlv1.Element]bool{}) {
 		return "the slot repeats the value " + dup + " on a unique feature"
 	}
 	return ""
@@ -1967,7 +1981,7 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 		decl += m.typing(t) + typ
 	}
 	mult, mnote := m.multiplicity(end)
-	decl += mult + collection(end) + ";"
+	decl += mult + collection(end, false) + ";"
 	tnote = joinNotes(tnote, mnote)
 	m.w.line(decl)
 	m.madeUp(end, writeName(endName))
@@ -2143,13 +2157,17 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	ind, indNote := m.typingIndividual(p, kw)
 	m.featureTyping(&b, p, ind, payload, typ)
 	mult, mnote := m.multiplicity(p)
-	if shape := tm.shape(); shape != "" {
+	unique := m.writtenUnique(p, kw, prefix, dir, ownerCat)
+	if shape := tm.shape(unique != ""); shape != "" {
 		mult, mnote = shape, ""
 	} else {
-		mult = shaped(mult, p, param || dir != "")
+		mult = shaped(mult, p, param || dir != "", unique != "")
 	}
 	b.WriteString(mult)
 	note = joinNotes(joinNotes(note, mnote), tm.note())
+	if unique != "" && (p.Attrs["isUnique"] == "false" || tm.shape(false) != "") {
+		note = joinNotes(note, "nonunique is not written: "+unique)
+	}
 	note = m.featureRedefinitions(&b, p, note)
 	note = m.featureShadow(&b, p, kw, note)
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
@@ -2285,8 +2303,7 @@ func (m *migration) featureModifiers(b *strings.Builder, p *sysmlv1.Element, own
 			b.WriteString("constant ")
 		}
 	}
-	if ownerCat == catPortDef && dir == "" && prefix == "" && (kw == "item" || kw == "part") {
-		// An interface block's usages other than ports must not be composite.
+	if interfaceReference(ownerCat, kw, dir, prefix) {
 		prefix = "ref "
 		note = joinNotes(note, "the undirected "+kw+" of an interface block is written as a reference")
 	}
@@ -2712,32 +2729,33 @@ func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 // modifiers after it. A v1 parameter writing no multiplicity means a single
 // value, where §7.6.3 gives a bare v2 parameter [0..*], so a parameter states
 // the one it meant before any modifier.
-func shaped(mult string, p *sysmlv1.Element, parameter bool) string {
+func shaped(mult string, p *sysmlv1.Element, parameter, unique bool) string {
 	if mult == "" && parameter {
 		mult = "[1]"
 	}
-	return mult + collection(p)
+	return mult + collection(p, unique)
 }
 
 // parameterShape is the multiplicity a redeclaration of parameter p writes:
 // the one p's own declaration does, so the callee's range carries over rather
 // than a bare parameter's [0..*].
 func (m *migration) parameterShape(p *sysmlv1.Element) string {
-	if shape := m.typeModifier(p).shape(); shape != "" {
+	if shape := m.typeModifier(p).shape(false); shape != "" {
 		return shape
 	}
 	mult, _ := m.multiplicity(p)
-	return shaped(mult, p, true)
+	return shaped(mult, p, true, false)
 }
 
 // collection writes the ordered and nonunique modifiers of a property; UML and
 // v2 share the defaults (unordered, unique), so only a departure is written.
-func collection(p *sysmlv1.Element) string {
+// A usage that must be unique (writtenUnique) is written without nonunique.
+func collection(p *sysmlv1.Element, unique bool) string {
 	s := ""
 	if p.Attrs["isOrdered"] == "true" {
 		s += " ordered"
 	}
-	if p.Attrs["isUnique"] == "false" {
+	if p.Attrs["isUnique"] == "false" && !unique {
 		s += " nonunique"
 	}
 	return s
@@ -3538,7 +3556,7 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
-		text := commentBody(c)
+		text := m.commentBody(c)
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue
@@ -3561,7 +3579,7 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 // annotates nothing but e and frames no concern; nil when there is none.
 func (m *migration) docComment(e *sysmlv1.Element) *sysmlv1.Element {
 	for _, c := range e.Owned("ownedComment") {
-		if !m.framed[c] && commentBody(c) != "" && !m.annotatesOthers(c, e) {
+		if !m.framed[c] && m.commentBody(c) != "" && !m.annotatesOthers(c, e) {
 			return c
 		}
 	}
@@ -3587,11 +3605,11 @@ func (m *migration) documentation(e *sysmlv1.Element) string {
 	}
 	if cat, _ := m.classify(e); cat == catRequirementDef {
 		if text := requirementText(e); text != "" {
-			return commentText(text)
+			return m.proseText(text, e)
 		}
 	}
 	if c := m.docComment(e); c != nil {
-		return commentBody(c)
+		return m.commentBody(c)
 	}
 	return m.viewpointDoc(e)
 }
@@ -3620,20 +3638,9 @@ func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, t
 	m.add(c, verdictFor(note), "", note)
 }
 
-// commentBody reads a comment's text, from its body attribute or child element.
-func commentBody(c *sysmlv1.Element) string {
-	if text := commentText(c.Attrs["body"]); text != "" {
-		return text
-	}
-	if o := firstOwned(c, "body"); o != nil {
-		return commentText(strings.TrimSpace(o.Text))
-	}
-	return ""
-}
-
 // comment writes a comment found outside the ownedComment role.
 func (m *migration) comment(c *sysmlv1.Element) {
-	text := commentBody(c)
+	text := m.commentBody(c)
 	if text == "" {
 		m.add(c, Skipped, "", "empty comment")
 		return

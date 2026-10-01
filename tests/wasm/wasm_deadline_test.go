@@ -3,11 +3,16 @@ package wasm
 import (
 	"errors"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
+
+// The harness rounds the elapsed time to the millisecond, so a kill at the
+// deadline may read "2s" rather than "2.xxx s".
+var elapsedLine = regexp.MustCompile(`(?m)^elapsed: 2(\.\d+)?s$`)
 
 // TestRunnerDeadline exercises the harness's own deadline against a runtime that
 // answers and then never exits, the way a deadlocked Node exit looks: the run must
@@ -52,7 +57,6 @@ func TestRunnerDeadline(t *testing.T) {
 		report := hang.Error()
 		want := []string{
 			"no answer within 2s",
-			"elapsed: 2.",
 			"command: " + strings.Join(r.prefix, " ") + " stall -version",
 			"process at the deadline:",
 			"output so far:\nstall.mjs: started stall -version",
@@ -64,6 +68,9 @@ func TestRunnerDeadline(t *testing.T) {
 			if !strings.Contains(report, w) {
 				t.Errorf("the report is missing %q:\n%s", w, report)
 			}
+		}
+		if !elapsedLine.MatchString(report) {
+			t.Errorf("the report has no whole or fractional 2s elapsed line:\n%s", report)
 		}
 	})
 }

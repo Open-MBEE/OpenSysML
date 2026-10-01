@@ -2,13 +2,23 @@ function out = decodeValueMap(mapStruct)
 %DECODEVALUEMAP A map<string,Value> wire object -> a struct of decoded
 %values keyed by name. Every field's body is one Value object.
 
-    out = struct();
-    names = fieldnames(mapStruct);
+    [names, rawValues] = opensysml.internal.mapEntries(mapStruct);
+    useMap = isa(mapStruct, 'containers.Map') || any(~cellfun(@isvarname, names));
+    if useMap
+        out = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    else
+        out = struct();
+    end
     for i = 1:numel(names)
         try
-            out.(names{i}) = opensysml.decodeValue(mapStruct.(names{i}));
+            value = opensysml.decodeValue(rawValues{i});
         catch e
-            out.(names{i}) = e;
+            value = e;
+        end
+        if useMap
+            out(names{i}) = value;
+        else
+            out.(names{i}) = value;
         end
     end
 end

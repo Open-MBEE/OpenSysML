@@ -16,9 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // Format is one of the representations a model can be read from or written to.
@@ -171,20 +169,7 @@ func FormatOfPath(path string) (Format, error) {
 // SyntaxError reports that the input could not be read as its format. It lists
 // every syntax error rather than only the first, so one conversion attempt
 // shows everything that needs fixing.
-type SyntaxError struct {
-	Name     string
-	Messages []string
-	// Diags are the diagnostics behind Messages, for a caller that reports them
-	// with their spans. Empty when the input is not notation, since a Turtle
-	// reader reports a message and no span.
-	Diags []parser.Diagnostic
-	// File is what Diags' spans point into; nil when Diags is empty.
-	File *source.SourceFile
-}
-
-func (e *SyntaxError) Error() string {
-	return fmt.Sprintf("%s: %d syntax error(s):\n  %s", e.Name, len(e.Messages), strings.Join(e.Messages, "\n  "))
-}
+type SyntaxError = parser.SyntaxError
 
 // Options carries the conversion settings a caller may change from their
 // defaults.
@@ -297,47 +282,14 @@ func trimTrailingTrivia(text string) string {
 	return strings.TrimSpace(text[:end])
 }
 
-// Migration is a v1 model written in another format, with the report of what
-// each v1 element became and the results its simulation tool stored.
-type Migration struct {
-	Output  []byte
-	Report  *migrate.Report
-	Results *simresults.Results
-	// Files are the attached image files the migration wrote for its document
-	// Image blocks, by the relative path they belong under; a caller writes
-	// them beside Output, empty when none was attached.
-	Files map[string][]byte
-}
-
-// Migrate reads a SysML v1 model in XMI and writes it in the to format. opts
-// carries the migration's augments: an MTIP export whose diagram records lay
-// out the views the migration writes.
-func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migration, error) {
-	if !to.Writable() {
-		return nil, &NotWritableError{Format: to}
-	}
-	result, err := migrate.MigrateOptions(name, data, opts)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
-	}
-	out, _, err := convert(name+sysmlExt, result.Notation, FormatSysML, to, false, Options{})
-	if err != nil {
-		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
-	}
-	return &Migration{Output: out, Report: result.Report, Results: result.Results, Files: result.Files}, nil
-}
-
 func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {
 	switch {
 	case !to.Writable():
 		return nil, nil, &NotWritableError{Format: to}
 
 	case from == FormatXMI:
-		m, err := Migrate(name, data, to, migrate.Options{})
-		if err != nil {
-			return nil, nil, err
-		}
-		return m.Output, nil, nil
+		out, err := migrateTo(name, data, to)
+		return out, nil, err
 
 	case from == FormatSysML && to == FormatSysML:
 		// A save of textual notation: keep every lexeme, fix the indentation.
@@ -457,14 +409,5 @@ func syntaxError(name string, file *source.SourceFile, p *parser.Parser) *Syntax
 // nil when there are none: a graph built from a tree the parser could not read
 // whole would silently miss what it skipped.
 func SyntaxErrorOf(name string, file *source.SourceFile, diags []parser.Diagnostic) *SyntaxError {
-	if len(diags) == 0 {
-		return nil
-	}
-	lines := file.Lines()
-	messages := make([]string, 0, len(diags))
-	for _, diag := range diags {
-		pos := lines.PosAt(diag.Span.Offset)
-		messages = append(messages, fmt.Sprintf("%d:%d: %s", pos.Line, pos.Col, diag.Message))
-	}
-	return &SyntaxError{Name: name, Messages: messages, Diags: diags, File: file}
+	return parser.SyntaxErrorOf(name, file, diags)
 }

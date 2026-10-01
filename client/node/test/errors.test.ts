@@ -7,9 +7,11 @@ import { tmpdir } from "node:os";
 import { before, test } from "node:test";
 import {
   ModelFileNotFoundError,
+  SourceDocument,
   ModelNotFoundError,
   OpenSysMLError,
   ServiceError,
+  ServiceUnavailableError,
   SymbolNotFoundError,
   connect,
   fromRpcError,
@@ -17,6 +19,7 @@ import {
 } from "../src/node/index.js";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { SAMPLE, useServiceBinary } from "./support/service.js";
+import { fakeConnection } from "./support/fake.js";
 
 before(() => {
   useServiceBinary();
@@ -52,8 +55,8 @@ test("a lookup that fails names what it looked for and what the model has instea
   );
   assert.ok(error instanceof SymbolNotFoundError);
   assert.equal(error.symbolName, "Wheeel");
-  assert.equal(error.suggestions[0], "Sample::Wheel");
-  assert.match(error.message, /did you mean Sample::Wheel/);
+  assert.equal(error.suggestions[0], "Wheel");
+  assert.match(error.message, /did you mean Wheel/);
 });
 
 test("a qualified name the model has not got reports that name, not the service's text", async () => {
@@ -65,7 +68,8 @@ test("a qualified name the model has not got reports that name, not the service'
   );
   assert.ok(error instanceof SymbolNotFoundError);
   assert.equal(error.symbolName, "Sample::Nope");
-  assert.deepEqual(error.suggestions, []);
+  assert.deepEqual(error.suggestions, ["Sample::Wheel", "Sample::Car"]);
+  assert.match(error.message, /did you mean Sample::Wheel/);
 });
 
 test("options that are no options are refused before a service is started", async () => {
@@ -80,7 +84,7 @@ test("a handshake nothing answers names the service and the status it failed wit
     () => undefined,
     (reason: unknown) => reason,
   );
-  assert.ok(error instanceof ServiceError);
+  assert.ok(error instanceof ServiceUnavailableError);
   assert.equal(error.code, "UNAVAILABLE");
   assert.match(error.message, /127\.0\.0\.1:1.* did not answer/);
 });
@@ -88,9 +92,21 @@ test("a handshake nothing answers names the service and the status it failed wit
 test("an RPC failure becomes the error its status names, and this client's errors pass through", () => {
   assert.equal(statusName(Code.Unavailable), "UNAVAILABLE");
   const unavailable = fromRpcError(new ConnectError("nothing there", Code.Unavailable));
-  assert.ok(unavailable instanceof ServiceError);
+  assert.ok(unavailable instanceof ServiceUnavailableError);
   assert.equal(unavailable.code, "UNAVAILABLE");
   assert.match(unavailable.message, /service unavailable: nothing there/);
+
+  // A rejected fetch — the browser's dead address, CORS refusal and mid-call
+  // loss — arrives as UNKNOWN carrying the TypeError as its cause; the shape,
+  // not the message, names an unreachable service. An UNKNOWN of another
+  // cause stays a plain ServiceError.
+  const refused = fromRpcError(ConnectError.from(new TypeError("Failed to fetch")));
+  assert.ok(refused instanceof ServiceUnavailableError);
+  assert.equal(refused.code, "UNKNOWN");
+  assert.match(refused.message, /service unavailable: Failed to fetch/);
+  const unknown = fromRpcError(new ConnectError("odd", Code.Unknown));
+  assert.ok(unknown instanceof ServiceError);
+  assert.ok(!(unknown instanceof ServiceUnavailableError));
 
   const file = fromRpcError(new ConnectError("file not found: /nope", Code.NotFound));
   assert.ok(file instanceof ModelFileNotFoundError);
@@ -101,4 +117,61 @@ test("an RPC failure becomes the error its status names, and this client's error
 
   const own = new SymbolNotFoundError("Wheel");
   assert.equal(fromRpcError(own), own);
+});
+
+test("a language that is neither sysml nor kerml is refused before the call", async () => {
+  await using connection = await connect();
+  await assert.rejects(
+    () => connection.loads("package P {}", { language: "vhdl" }),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.match((error).message, /language must be "sysml" or "kerml", got "vhdl"/);
+      return true;
+    },
+  );
+  assert.throws(
+    () => SourceDocument.inline("p", "package P {}", { language: "ada" }),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.match((error).message, /language must be "sysml" or "kerml", got "ada"/);
+      return true;
+    },
+  );
+});
+
+// A missed qualified lookup walks the model twice — once to find, once to
+// score near names — and no more: symbolById() alone walks nothing.
+test("a qualified miss searches for near names exactly once", async () => {
+  let getSymbolCalls = 0;
+  const bare = (id: string, name: string) => ({
+    id,
+    name,
+    kind: "PartUsage",
+    metadata: {},
+    childIds: [],
+    attributes: [],
+    specializations: [],
+    withheldLibraryAttributes: 0,
+  });
+  await using connection = await fakeConnection([], (method, input) => {
+    if (method === "ParseFile") {
+      return {
+        modelHash: "fake",
+        diagnostics: [],
+        error: "",
+        root: { ...bare("", ""), kind: "RootNamespace", childIds: ["Demo::a", "Demo::b"] },
+      };
+    }
+    if (method === "GetSymbol") {
+      getSymbolCalls += 1;
+      const id = (input as { symbolId: string }).symbolId;
+      return id === "Demo::a" || id === "Demo::b" ? { symbol: bare(id, id.split("::")[1] ?? id) } : {};
+    }
+    throw new Error(`the fake service answers nothing for ${method}`);
+  });
+  const model = await connection.loads("package Demo {}");
+  await assert.rejects(() => model.symbol("Demo::Vehicel"), SymbolNotFoundError);
+  // One miss through symbolById, then two walks of two children — the find
+  // pass and the near-names pass — not a third walk inside symbolById.
+  assert.equal(getSymbolCalls, 5);
 });

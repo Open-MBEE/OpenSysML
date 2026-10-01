@@ -173,12 +173,64 @@ impl Diagnostic {
 }
 
 /// An integer or real quantity magnitude.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Magnitude {
-    /// An exact integer magnitude.
+    /// An exact integer magnitude within `i64`.
     Integer(i64),
+    /// An exact integer magnitude beyond `i64`.
+    BigInteger(BigInteger),
     /// A floating-point magnitude.
     Real(f64),
+}
+
+/// An integer beyond `i64`, held as its decimal digits. KerML Integers are
+/// unbounded, and an integer within `i64` is always [`Value::Integer`] (or
+/// [`Magnitude::Integer`]), never this, so two integers are equal exactly when
+/// their arms and digits are.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BigInteger(String);
+
+impl BigInteger {
+    /// The integer `digits` spells: an optional `-`, then decimal digits with
+    /// no leading zero, of a value beyond `i64`.
+    pub fn parse(digits: &str) -> Result<Self, Error> {
+        let magnitude = digits.strip_prefix('-').unwrap_or(digits);
+        if magnitude.is_empty()
+            || !magnitude.bytes().all(|b| b.is_ascii_digit())
+            || magnitude.starts_with('0')
+        {
+            return Err(Error::Decode(format!(
+                "not the decimal digits of an integer: {digits:?}"
+            )));
+        }
+        if digits.parse::<i64>().is_ok() {
+            return Err(Error::Decode(format!(
+                "{digits} is within i64, which int_value carries"
+            )));
+        }
+        Ok(Self(digits.to_owned()))
+    }
+
+    /// The decimal digits, `-` signed.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// The nearest `f64`, ties to even; infinite only beyond the finite range.
+    pub fn to_f64(&self) -> f64 {
+        self.0.parse().unwrap_or(f64::NAN)
+    }
+
+    // Whether `r` is exactly this integer.
+    fn equals_real(&self, r: f64) -> bool {
+        r.is_finite() && r.fract() == 0.0 && format!("{r:.0}") == self.0
+    }
+}
+
+impl fmt::Display for BigInteger {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
 }
 
 /// A reduced measurement unit.
@@ -216,6 +268,7 @@ impl fmt::Display for Magnitude {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Integer(n) => n.fmt(f),
+            Self::BigInteger(n) => n.fmt(f),
             Self::Real(r) => r.fmt(f),
         }
     }
@@ -598,8 +651,10 @@ impl std::hash::Hash for Metaobject {
 /// A runtime value returned by the service.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
-    /// Integer value.
+    /// Integer value within `i64`.
     Integer(i64),
+    /// Integer value beyond `i64`.
+    BigInteger(BigInteger),
     /// Real value.
     Real(f64),
     /// Complex value.
@@ -673,7 +728,7 @@ impl Value {
             return self.is_absent() && other.is_absent();
         }
         match (self, other) {
-            (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
+            (Value::Integer(_) | Value::BigInteger(_) | Value::Real(_) | Value::Complex(_), _) => {
                 numbers_equal(self, other)
             }
             (Value::Sequence(a), Value::Sequence(b)) => sequences_equal(a, b),
@@ -686,7 +741,7 @@ impl Value {
                     && a.components
                         .iter()
                         .zip(&b.components)
-                        .all(|(m, n)| magnitudes_equal(*m, *n))
+                        .all(|(m, n)| magnitudes_equal(m, n))
             }
             (Value::VectorQuantity(a), Value::VectorQuantity(b)) => {
                 components_equal(&a.components, &b.components)
@@ -732,24 +787,30 @@ fn same_reduction(a: &UnitTerm, b: &UnitTerm) -> bool {
 }
 
 fn numbers_equal(a: &Value, b: &Value) -> bool {
-    let on_axis = |v: &Value| match *v {
+    let on_axis = |v: &Value| match v {
         Value::Complex(z) if z.imaginary == 0.0 => Some(Magnitude::Real(z.real)),
-        Value::Integer(n) => Some(Magnitude::Integer(n)),
-        Value::Real(r) => Some(Magnitude::Real(r)),
+        Value::Integer(n) => Some(Magnitude::Integer(*n)),
+        Value::BigInteger(n) => Some(Magnitude::BigInteger(n.clone())),
+        Value::Real(r) => Some(Magnitude::Real(*r)),
         _ => None,
     };
     match (on_axis(a), on_axis(b)) {
-        (Some(x), Some(y)) => magnitudes_equal(x, y),
+        (Some(x), Some(y)) => magnitudes_equal(&x, &y),
         _ => a == b,
     }
 }
 
-fn magnitudes_equal(a: Magnitude, b: Magnitude) -> bool {
+fn magnitudes_equal(a: &Magnitude, b: &Magnitude) -> bool {
     match (a, b) {
         (Magnitude::Integer(x), Magnitude::Integer(y)) => x == y,
+        (Magnitude::BigInteger(x), Magnitude::BigInteger(y)) => x == y,
         (Magnitude::Real(x), Magnitude::Real(y)) => x == y,
         (Magnitude::Integer(n), Magnitude::Real(r))
-        | (Magnitude::Real(r), Magnitude::Integer(n)) => real_is_int(r, n),
+        | (Magnitude::Real(r), Magnitude::Integer(n)) => real_is_int(*r, *n),
+        (Magnitude::BigInteger(n), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::BigInteger(n)) => n.equals_real(*r),
+        (Magnitude::Integer(_), Magnitude::BigInteger(_))
+        | (Magnitude::BigInteger(_), Magnitude::Integer(_)) => false,
     }
 }
 
@@ -768,7 +829,7 @@ fn sequences_equal(a: &[Value], b: &[Value]) -> bool {
 // exactly while integer magnitudes scale by whole factors.
 fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
     let (Some(x), Some(y)) = (&a.unit_term, &b.unit_term) else {
-        return magnitudes_equal(a.magnitude, b.magnitude)
+        return magnitudes_equal(&a.magnitude, &b.magnitude)
             && a.unit == b.unit
             && a.unit_term == b.unit_term;
     };
@@ -778,7 +839,7 @@ fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
     if let (Some(m), Some(n)) = (exact_base_magnitude(a), exact_base_magnitude(b)) {
         return m == n;
     }
-    base_magnitude(a.magnitude, x) == base_magnitude(b.magnitude, y)
+    base_magnitude(&a.magnitude, x) == base_magnitude(&b.magnitude, y)
 }
 
 // The base unit exponents, repeated units summed and cancelled ones dropped.
@@ -799,10 +860,11 @@ fn zero_scale(term: &UnitTerm) -> bool {
     term.scale_num == 0.0 || term.scale_den == 0.0
 }
 
-fn base_magnitude(magnitude: Magnitude, term: &UnitTerm) -> f64 {
+fn base_magnitude(magnitude: &Magnitude, term: &UnitTerm) -> f64 {
     let m = match magnitude {
-        Magnitude::Integer(n) => n as f64,
-        Magnitude::Real(r) => r,
+        Magnitude::Integer(n) => *n as f64,
+        Magnitude::BigInteger(n) => n.to_f64(),
+        Magnitude::Real(r) => *r,
     };
     m * term.scale_num / term.scale_den
 }
@@ -867,6 +929,7 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
     };
     match kind {
         wire::value::Kind::IntValue(v) => Ok(Value::Integer(v)),
+        wire::value::Kind::BigIntValue(v) => Ok(Value::BigInteger(BigInteger::parse(&v)?)),
         wire::value::Kind::RealValue(v) => Ok(Value::Real(v)),
         wire::value::Kind::Complex(v) => Ok(Value::Complex(Complex {
             real: v.real,
@@ -899,6 +962,9 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .into_iter()
                 .map(|component| match component.kind {
                     Some(wire::value::Kind::IntValue(value)) => Ok(Magnitude::Integer(value)),
+                    Some(wire::value::Kind::BigIntValue(value)) => {
+                        Ok(Magnitude::BigInteger(BigInteger::parse(&value)?))
+                    }
                     Some(wire::value::Kind::RealValue(value)) => Ok(Magnitude::Real(value)),
                     other => Err(Error::Decode(format!(
                         "vector component is not a number: {}",
@@ -982,6 +1048,7 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
 fn kind_name(kind: &wire::value::Kind) -> &'static str {
     match kind {
         wire::value::Kind::IntValue(_) => "int_value",
+        wire::value::Kind::BigIntValue(_) => "big_int_value",
         wire::value::Kind::RealValue(_) => "real_value",
         wire::value::Kind::BoolValue(_) => "bool_value",
         wire::value::Kind::StringValue(_) => "string_value",
@@ -1046,6 +1113,9 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
 pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     let magnitude = match v.magnitude {
         Some(wire::quantity::Magnitude::IntMagnitude(value)) => Magnitude::Integer(value),
+        Some(wire::quantity::Magnitude::BigIntMagnitude(value)) => {
+            Magnitude::BigInteger(BigInteger::parse(&value)?)
+        }
         Some(wire::quantity::Magnitude::RealMagnitude(value)) => Magnitude::Real(value),
         None => return Err(Error::Decode("Quantity has no magnitude".to_owned())),
     };
@@ -1619,6 +1689,51 @@ mod tests {
             })),
         };
         assert!(matches!(value_from_wire(nested), Err(Error::Decode(_))));
+    }
+
+    #[test]
+    fn an_integer_beyond_i64_decodes_exactly() {
+        let big = |digits: &str| wire::Value {
+            kind: Some(wire::value::Kind::BigIntValue(digits.to_owned())),
+        };
+        let two_to_70 = value_from_wire(big("1180591620717411303424")).expect("2^70");
+        assert_eq!(
+            two_to_70,
+            Value::BigInteger(BigInteger::parse("1180591620717411303424").expect("canonical"))
+        );
+        assert!(two_to_70.same_value(&Value::Real(2f64.powi(70))));
+        assert!(!two_to_70.same_value(&Value::Real(2f64.powi(70) + 262144.0 * 2.0)));
+        assert!(!two_to_70.same_value(&Value::Integer(i64::MAX)));
+        let least = value_from_wire(big("-9223372036854775809")).expect("below i64");
+        assert!(matches!(&least, Value::BigInteger(n) if n.as_str() == "-9223372036854775809"));
+        for wrong in [
+            "",
+            "-",
+            "+5",
+            "007",
+            "12a",
+            "9223372036854775807",
+            "-9223372036854775808",
+        ] {
+            assert!(
+                matches!(value_from_wire(big(wrong)), Err(Error::Decode(_))),
+                "{wrong:?} must not decode as a BigInteger"
+            );
+        }
+        let quantity = quantity_from_wire(wire::Quantity {
+            magnitude: Some(wire::quantity::Magnitude::BigIntMagnitude(
+                "9223372036854775808".to_owned(),
+            )),
+            ..metres(0.0)
+        })
+        .expect("a quantity beyond i64");
+        assert_eq!(
+            quantity.magnitude,
+            Magnitude::BigInteger(BigInteger::parse("9223372036854775808").expect("2^63"))
+        );
+        assert!(Value::Quantity(quantity).same_value(&Value::Quantity(
+            quantity_from_wire(metres(9_223_372_036_854_775_808.0)).expect("metres")
+        )));
     }
 
     #[test]
@@ -2481,15 +2596,15 @@ mod tests {
         assert_eq!(cube.components().len(), 8);
         assert_eq!(cube.unit(), Some("m"));
         assert_eq!(
-            cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+            cube.get(&[1, 0, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(6.0))
         );
         assert_eq!(
-            cube.get(&[0, 0, 0]).map(|q| q.magnitude),
+            cube.get(&[0, 0, 0]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(1.0))
         );
         assert_eq!(
-            cube.get(&[1, 1, 1]).map(|q| q.magnitude),
+            cube.get(&[1, 1, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(8.0))
         );
         assert_eq!(cube.get(&[1, 1]), None);
@@ -2536,7 +2651,7 @@ mod tests {
         };
         assert_eq!(mixed.unit(), None);
         assert_eq!(
-            mixed.get(&[0, 1]).map(|q| q.magnitude),
+            mixed.get(&[0, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Integer(5))
         );
     }

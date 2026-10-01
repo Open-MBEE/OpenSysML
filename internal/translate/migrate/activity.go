@@ -1555,7 +1555,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		}
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
-		decl += shaped(mult, pin, dir != "")
+		decl += shaped(mult, pin, dir != "", false)
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {
@@ -2337,8 +2337,9 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			pname = "result"
 		}
 		a.names[r] = pname
-		a.m.w.line("out " + writeName(pname) + "[1] = " + expr + ";")
-		a.m.add(r, Mapped, a.m.v2Name(n)+"."+pname, "")
+		mult, mnote := a.m.multiplicity(r)
+		a.m.w.line("out " + writeName(pname) + shaped(mult, r, true) + " = " + expr + ";")
+		a.m.add(r, verdictFor(mnote), a.m.v2Name(n)+"."+pname, mnote)
 		a.m.add(n, Mapped, name, "")
 	})
 }
@@ -2442,6 +2443,9 @@ func (a *activity) signalArguments(n, sig *sysmlv1.Element) ([]string, string) {
 			notes = append(notes, "the argument pin "+a.names[pin]+" is a "+qualifiedName(pt)+", which the signal's "+a.m.nameOf(attrs[i])+" : "+qualifiedName(at)+" cannot take; it is not sent")
 			continue
 		}
+		if a.m.lacksValue(pin) && requiresValue(attrs[i]) {
+			notes = append(notes, "the argument pin "+a.names[pin]+" admits no value, which the signal's "+a.m.nameOf(attrs[i])+", declared holding one, cannot: a run reaching the send with none stops at it")
+		}
 		args = append(args, writeName(a.names[pin]))
 	}
 	return args, strings.Join(notes, "; ")
@@ -2482,6 +2486,7 @@ func (a *activity) trigger(t, n *sysmlv1.Element) (clause, note string, ok bool)
 		tnote := ""
 		if sig := a.m.model.Ref(ev, "signal"); ev.Type == "SignalEvent" && sig != nil {
 			clause, tnote = a.m.actionRoute(clause, t, a.selfType(), a.act, a.viaPrefix(), sig)
+			tnote = joinNotes(tnote, a.m.unsentNote(sig))
 			if len(n.Owned("result")) > 0 {
 				a.payload[n.Owned("result")[0]] = sig
 			}

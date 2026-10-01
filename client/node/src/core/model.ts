@@ -9,7 +9,9 @@ import {
   upgradeRemedy,
 } from "./capabilities.js";
 import type { Connection } from "./connection.js";
+import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
+import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
@@ -69,7 +71,30 @@ export interface ParseOptions {
   /** Language of inline content ("sysml" or "kerml"); requires `inline_language`. */
   language?: string;
   /** Reject the OpenSysML notation extensions; requires `strict_conformance`. */
+  strictConformance?: boolean;
+  /**
+   * @deprecated Use `strictConformance`; `strict` is its alias. Passing both
+   * with different values is refused.
+   */
   strict?: boolean;
+}
+
+/** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
+export function strictConformanceOf(options: {
+  strict?: boolean;
+  strictConformance?: boolean;
+}): boolean | undefined {
+  if (
+    options.strict !== undefined &&
+    options.strictConformance !== undefined &&
+    options.strict !== options.strictConformance
+  ) {
+    throw new RangeError(
+      `strict (${options.strict}) and strictConformance (${options.strictConformance}) disagree; ` +
+        "pass only strictConformance",
+    );
+  }
+  return options.strictConformance ?? options.strict;
 }
 
 /** Where an expression is evaluated. */
@@ -78,6 +103,38 @@ export interface EvalOptions {
   context?: string;
   /** FQN of a usage to instantiate and evaluate against; requires `evaluate_subject`. */
   subject?: string;
+}
+
+/** A declared multiplicity range. A bound the service could not evaluate is empty. */
+export interface Multiplicity {
+  readonly lower: string;
+  readonly upper: string;
+  /** Whether the range admits no value; undefined when the lower bound is unknown. */
+  readonly isOptional: boolean | undefined;
+  /** Whether the range admits more than one value; undefined when the upper bound is unknown. */
+  readonly isCollection: boolean | undefined;
+}
+
+/** The integer one bound spells, or undefined when it spells none. */
+function multiplicityBound(bound: string): number | undefined {
+  const trimmed = bound.trim();
+  if (!/^[+-]?\d+$/.test(trimmed)) {
+    return undefined;
+  }
+  return parseInt(trimmed, 10);
+}
+
+/** Builds a Multiplicity whose predicates mirror Python's. */
+function multiplicityOf(lower: string, upper: string): Multiplicity {
+  const lowerBound = lower === "" ? undefined : multiplicityBound(lower);
+  const upperBound = upper === "" ? undefined : upper === "*" ? Number.POSITIVE_INFINITY : multiplicityBound(upper);
+  return {
+    lower,
+    upper,
+    isOptional: lower === "" || lowerBound === undefined ? undefined : lowerBound === 0,
+    isCollection:
+      upper === "" ? undefined : upper === "*" ? true : upperBound === undefined ? undefined : upperBound > 1,
+  };
 }
 
 /** A model the service has parsed and holds under its hash. */
@@ -186,10 +243,15 @@ export class Model {
     options: ParseOptions = {},
     ownsConnection = false,
   ): Promise<Model> {
+    if (source.source.case === "content") {
+      requireSourceText("source", source.source.value);
+    }
     if (options.language !== undefined) {
+      requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
-    if (options.strict === true) {
+    const strictConformance = strictConformanceOf(options);
+    if (strictConformance === true) {
       requireCapability(
         connection.info,
         CAPABILITY_STRICT_CONFORMANCE,
@@ -201,7 +263,7 @@ export class Model {
         {
           source: source.source,
           ...(options.language === undefined ? {} : { language: options.language }),
-          ...(options.strict === undefined ? {} : { strictConformance: options.strict }),
+          ...(strictConformance === undefined ? {} : { strictConformance }),
         },
         connection.callOptions(),
       ),
@@ -233,6 +295,7 @@ export class Model {
 
   /** Evaluates a SysML expression against this model. */
   async eval(expression: string, options: EvalOptions = {}): Promise<SysMLValue> {
+    requireString("expression", expression);
     if (options.subject !== undefined) {
       requireCapability(
         this.connection.info,
@@ -259,16 +322,37 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id; throws when the model declares none. */
   async symbol(name: string): Promise<ModelSymbol> {
-    if (this.looksQualified(name)) {
-      return this.symbolById(name);
+    requireString("name", name);
+    // The empty name names the model itself, as Python's model.get("") does.
+    if (name === "") {
+      return this.parsed ? this.root : this.symbolById(name);
     }
-    // A short name is searched for from the root, which an adopted model has not
-    // got; the service resolves a name the model declares at its top level.
-    if (!this.parsed) {
-      return this.symbolById(name);
+    if (this.looksQualified(name) || !this.parsed) {
+      // A qualified name or a name on an adopted model is resolved by the
+      // service; one it cannot resolve is searched for, as Python's find does.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
+      const qualified = await this.find(name);
+      if (qualified !== undefined) {
+        return qualified;
+      }
+      throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     const found = await this.find(name);
     if (found === undefined) {
+      // A short name may still be one the service resolves directly, as an id.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
       throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     return found;
@@ -466,6 +550,7 @@ export class Model {
 
   /** Looks a symbol up by its qualified name, in one call. */
   async symbolById(id: string): Promise<ModelSymbol> {
+    requireString("id", id);
     const response = await callRpc(
       this.connection.rpc.getSymbol(
         { modelHash: this.hash, symbolId: id },
@@ -473,6 +558,7 @@ export class Model {
       ),
     );
     if (response.symbol === undefined) {
+      // A single call: near names are symbol()'s to compute.
       throw new SymbolNotFoundError(id);
     }
     return new ModelSymbol(this.connection, this.hash, response.symbol);
@@ -480,6 +566,10 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id, breadth-first from the root. */
   async find(name: string): Promise<ModelSymbol | undefined> {
+    requireString("name", name);
+    if (name === "") {
+      return this.parsed ? this.root : undefined;
+    }
     for await (const symbol of this.walk()) {
       if (symbol.name === name || symbol.id === name) {
         return symbol;
@@ -503,6 +593,7 @@ export class Model {
 
   /** Instantiates a part or usage, by short name, FQN or id. */
   async instantiate(name: string): Promise<InstanceTree> {
+    requireString("name", name);
     const id = this.looksQualified(name) ? name : (await this.symbol(name)).id;
     const response = await callRpc(
       this.connection.rpc.instantiate(
@@ -548,9 +639,16 @@ export class Model {
       if (symbol.name === "") {
         continue;
       }
-      const score = similarity(name.toLowerCase(), symbol.name.toLowerCase());
-      if (score >= NEAR_ENOUGH) {
-        scored.push({ id: symbol.id, score });
+      // A short name and a qualified one are both candidates, either being
+      // what a mistyped lookup may have meant.
+      for (const candidate of [symbol.name, symbol.id]) {
+        if (candidate === "") {
+          continue;
+        }
+        const score = similarity(name.toLowerCase(), candidate.toLowerCase());
+        if (score >= NEAR_ENOUGH) {
+          scored.push({ id: candidate, score });
+        }
       }
       seen += 1;
       if (seen === NEAR_SEARCH_LIMIT) {
@@ -598,7 +696,7 @@ export class ModelSymbol {
   readonly childIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
   readonly type: TypeFacts | undefined;
-  readonly multiplicity: { lower: string; upper: string } | undefined;
+  readonly multiplicity: Multiplicity | undefined;
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
@@ -635,7 +733,7 @@ export class ModelSymbol {
     this.multiplicity =
       info.multiplicity === undefined
         ? undefined
-        : { lower: info.multiplicity.lower, upper: info.multiplicity.upper };
+        : multiplicityOf(info.multiplicity.lower, info.multiplicity.upper);
     this.specializations = info.specializations.map((specialization) => ({
       kind: specialization.kind,
       declared: specialization.declared,

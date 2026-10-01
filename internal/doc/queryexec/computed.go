@@ -543,11 +543,11 @@ func (e *executor) applyColumnOperator(
 		// Unary + and - require one numeric operand.
 		switch values[0].Kind() {
 		case ValueInteger:
-			integer, _ := values[0].Integer()
+			integer, _ := values[0].IntegerConst()
 			if operator == "-" {
-				integer = -integer
+				integer = semantics.IntNeg(integer)
 			}
-			return IntegerValue(integer), nil
+			return IntegerOf(integer), nil
 		case ValueReal:
 			realVal, _ := values[0].Real()
 			if operator == "-" {
@@ -568,21 +568,23 @@ func (e *executor) applyColumnOperator(
 		return Value{}, mismatch()
 	}
 	if left.Kind() == ValueInteger && right.Kind() == ValueInteger {
-		l, _ := left.Integer()
-		r, _ := right.Integer()
+		l, _ := left.IntegerConst()
+		r, _ := right.IntegerConst()
 		switch operator {
-		case "+":
-			return IntegerValue(l + r), nil
-		case "-":
-			return IntegerValue(l - r), nil
-		case "*":
-			return IntegerValue(l * r), nil
+		case "+", "-", "*":
+			op := map[string]ast.OperatorKind{"+": ast.OpAdd, "-": ast.OpSub, "*": ast.OpMul}[operator]
+			result, err := semantics.IntArith(op, l, r, semantics.DefaultMaxIntegerBits)
+			if err != nil {
+				return Value{}, err
+			}
+			return IntegerOf(result), nil
 		case "/":
-			if r == 0 {
+			q, ok := semantics.IntDivTrunc(l, r)
+			if !ok {
 				return Value{}, e.columnError(
 					ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
 			}
-			return IntegerValue(l / r), nil
+			return IntegerOf(q), nil
 		}
 	}
 	l := realOperand(left)
@@ -677,8 +679,8 @@ func quantityOperand(value Value) (semantics.Quantity, bool) {
 	case ValueQuantity:
 		return value.Quantity()
 	case ValueInteger:
-		integer, _ := value.Integer()
-		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValInt, Int: integer}, Unit: semantics.UnitOne()}, true
+		integer, _ := value.IntegerConst()
+		return semantics.Quantity{Num: integer, Unit: semantics.UnitOne()}, true
 	case ValueReal:
 		realVal, _ := value.Real()
 		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: realVal}, Unit: semantics.UnitOne()}, true
@@ -707,8 +709,8 @@ func columnOperatorKind(operator string, unary bool) (ast.OperatorKind, bool) {
 }
 
 func realOperand(value Value) float64 {
-	if integer, ok := value.Integer(); ok {
-		return float64(integer)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.AsReal()
 	}
 	realVal, _ := value.Real()
 	return realVal

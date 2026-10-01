@@ -18,7 +18,7 @@ Layout	Elsewhere	_diag_nowhere	(matches no diagram of the model)
 Layout	Vehicle Structure	_diag_bdd	(_blk_wheel: no <right> bound)
 
 ## approximated (2)
-OpaqueAction	Behavior::Drive::step	_act_step	-> 'step'	(the body is kept as a comment: the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going)
+OpaqueAction	Behavior::Drive::step	_act_step	-> 'step'	(the JavaScript body is translated to v2; going is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it)
 Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 8 shown ids resolve to no element; laid out from layout.layout.xml: 3 of 5 shown elements positioned (1 not exposed, 1 resolving to no element), 0 of 3 connectors routed (2 not drawn, 1 resolving to no element))
 
 ## mapped (13)

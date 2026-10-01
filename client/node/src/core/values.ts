@@ -37,6 +37,7 @@ import {
   VectorSchema,
 } from "../generated/sysml_pb.js";
 import {
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_INFINITY_VALUE,
@@ -49,7 +50,7 @@ import {
   upgradeRemedy,
   type ServerInfo,
 } from "./capabilities.js";
-import { MalformedValueError, type FailureCause } from "./errors.js";
+import { MalformedValueError, UnsupportedValueError, type FailureCause } from "./errors.js";
 
 /** A quantity's magnitude: an integer or a real, never both. */
 export type Magnitude = { kind: "int"; value: bigint } | { kind: "real"; value: number };
@@ -256,6 +257,10 @@ export interface VerdictStanding {
   /** "not covered", "observed", "witnessed", "bounded" or "proved". */
   strength: string;
   bounds: VerdictBound[];
+  /** Whether the service reported a standing at all. */
+  reported: boolean;
+  /** The bounds the engine stopped at. */
+  reached: VerdictBound[];
 }
 
 /**
@@ -316,6 +321,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
   switch (kind.case) {
     case "intValue":
       return { kind: "int", value: kind.value };
+    case "bigIntValue":
+      return { kind: "int", value: decodeBigInteger(kind.value) };
     case "realValue":
       return { kind: "real", value: kind.value };
     case "complex":
@@ -380,7 +387,7 @@ export function decodeValue(value: Value | undefined): SysMLValue {
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
     case "int":
-      return create(ValueSchema, { kind: { case: "intValue", value: value.value } });
+      return encodeMagnitude(value);
     case "real":
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
     case "complex":
@@ -537,10 +544,13 @@ export function decodeStanding(verdict: {
   strength: string;
   bounds: Bound[];
 }): VerdictStanding {
+  const bounds = verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached }));
   return {
     engine: verdict.engine,
     strength: verdict.strength,
-    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+    bounds,
+    reported: verdict.strength !== "",
+    reached: bounds.filter((bound) => bound.reached),
   };
 }
 
@@ -644,6 +654,9 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     case "intMagnitude":
       magnitude = { kind: "int", value: quantity.magnitude.value };
       break;
+    case "bigIntMagnitude":
+      magnitude = { kind: "int", value: decodeBigInteger(quantity.magnitude.value) };
+      break;
     case "realMagnitude":
       magnitude = { kind: "real", value: quantity.magnitude.value };
       break;
@@ -661,9 +674,11 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
 function encodeQuantity(quantity: QuantityValue): Quantity {
   return create(QuantitySchema, {
     magnitude:
-      quantity.magnitude.kind === "int"
-        ? { case: "intMagnitude", value: quantity.magnitude.value }
-        : { case: "realMagnitude", value: quantity.magnitude.value },
+      quantity.magnitude.kind !== "int"
+        ? { case: "realMagnitude", value: quantity.magnitude.value }
+        : fitsInt64(quantity.magnitude.value)
+          ? { case: "intMagnitude", value: quantity.magnitude.value }
+          : { case: "bigIntMagnitude", value: quantity.magnitude.value.toString() },
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
   });
@@ -742,9 +757,28 @@ function formatUnitTerm(term: UnitFactorization): string {
 }
 
 function encodeMagnitude(magnitude: Magnitude): Value {
-  return magnitude.kind === "int"
+  if (magnitude.kind === "real") {
+    return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+  }
+  return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
-    : create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+    : create(ValueSchema, { kind: { case: "bigIntValue", value: magnitude.value.toString() } });
+}
+
+const INT64_MIN = -(2n ** 63n);
+const INT64_MAX = 2n ** 63n - 1n;
+
+/** Whether an Integer travels as `int_value`; one beyond int64 travels as `big_int_value`. */
+export function fitsInt64(value: bigint): boolean {
+  return value >= INT64_MIN && value <= INT64_MAX;
+}
+
+/** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
+export function decodeBigInteger(text: string): bigint {
+  if (!/^-?[0-9]+$/.test(text)) {
+    throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
+  }
+  return BigInt(text);
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
@@ -926,7 +960,7 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
 
 // Whether r is exactly the integer n, never rounding n.
 function realIsInt(r: number, n: bigint): boolean {
-  return Number.isInteger(r) && r >= -(2 ** 63) && r < 2 ** 63 && BigInt(r) === n;
+  return Number.isInteger(r) && BigInt(r) === n;
 }
 
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
@@ -1056,6 +1090,8 @@ function decodeVector(vector: Vector): Magnitude[] {
     switch (component.kind.case) {
       case "intValue":
         return { kind: "int", value: component.kind.value };
+      case "bigIntValue":
+        return { kind: "int", value: decodeBigInteger(component.kind.value) };
       case "realValue":
         return { kind: "real", value: component.kind.value };
       default:
@@ -1111,32 +1147,98 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
 
 /** What a caller may pass as an argument or input to a run. A wire `Value`
  * passes through untouched, which is how a caller sends a shape the typing
- * layer would normalize away — including one the service is meant to refuse. */
-export type ValueInput = SysMLValue | Value | boolean | string | bigint | number;
+ * layer would normalize away — including one the service is meant to refuse.
+ * A JavaScript array encodes as a sequence and a `Set` as a set, as Python's
+ * list and set do; collection elements accept every input form, not only
+ * `SysMLValue`s. */
+export type ValueInput =
+  | SysMLValue
+  | Value
+  | boolean
+  | string
+  | bigint
+  | number
+  | readonly ValueInput[]
+  | ReadonlySet<ValueInput>
+  | { kind: "sequence"; elements: readonly ValueInput[] }
+  | { kind: "set"; elements: readonly ValueInput[] }
+  | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
+
+/** Refuses an instance or `self` id outside int64, the width of the wire's id fields. */
+function checkInt64(value: bigint): void {
+  if (!fitsInt64(value)) {
+    throw new RangeError(`value out of range: ${value.toString()}`);
+  }
+}
 
 /**
  * Encodes a caller-facing value for the wire, requiring of `info` each
  * capability a value kind needs before the call is sent — exactly the checks
  * Python's `Connection._python_to_value` makes. A `SysMLValue` encodes as
- * itself; a boolean, string, bigint and number encode as the scalar arms.
+ * itself; a boolean, string, bigint and number encode as the scalar arms; a
+ * JavaScript array and `Set` encode as a sequence and a set.
  */
 export function toValue(input: ValueInput, info: ServerInfo): Value {
-  if (typeof input === "object" && "$typeName" in input) {
-    return input;
+  const probe: unknown = input;
+  if (typeof probe === "object" && probe !== null && "$typeName" in probe) {
+    return probe as Value;
   }
-  if (typeof input === "boolean") {
-    return encodeValue({ kind: "boolean", value: input });
+  return encodeInput(normalizeInput(input), info);
+}
+
+/** The `SysMLValue` one input names, collection elements converted the same way. */
+function normalizeInput(input: unknown): SysMLValue {
+  switch (typeof input) {
+    case "boolean":
+      return { kind: "boolean", value: input };
+    case "bigint":
+      return { kind: "int", value: input };
+    case "number":
+      return { kind: "real", value: input };
+    case "string":
+      return { kind: "string", value: input };
+    case "undefined":
+      throw new RangeError("unsupported input type: undefined");
+    case "function":
+    case "symbol":
+    case "object":
+      break;
   }
-  if (typeof input === "bigint") {
-    return encodeValue({ kind: "int", value: input });
+  if (input === null) {
+    return { kind: "null", reason: "" };
   }
-  if (typeof input === "number") {
-    return encodeValue({ kind: "real", value: input });
+  if (Array.isArray(input)) {
+    return { kind: "sequence", elements: input.map(normalizeInput) };
   }
-  if (typeof input === "string") {
-    return encodeValue({ kind: "string", value: input });
+  if (input instanceof Set) {
+    return { kind: "set", elements: [...input].map(normalizeInput) };
   }
-  return encodeInput(input, info);
+  const value = input as SysMLValue;
+  switch (value.kind) {
+    case "sequence":
+      return { kind: "sequence", elements: value.elements.map(normalizeInput) };
+    case "set":
+      return { kind: "set", elements: value.elements.map(normalizeInput) };
+    case "array":
+      return {
+        kind: "array",
+        dimensions: value.dimensions,
+        elements: value.elements.map(normalizeInput),
+      };
+    case "enum":
+      return value.value.value === undefined
+        ? value
+        : { kind: "enum", value: { ...value.value, value: normalizeInput(value.value.value) } };
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    default:
+      if (typeof (value as { kind?: unknown }).kind === "string") {
+        return value;
+      }
+      throw new RangeError(`unsupported input type: ${typeof input}`);
+  }
 }
 
 function encodeInput(value: SysMLValue, info: ServerInfo): Value {
@@ -1152,6 +1254,7 @@ function encodeInput(value: SysMLValue, info: ServerInfo): Value {
         },
       });
     case "array":
+      checkShape("an array", value.dimensions, value.elements.length);
       return create(ValueSchema, {
         kind: {
           case: "array",
@@ -1180,15 +1283,50 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
   const require = (capability: string): void => {
     requireCapability(info, capability, upgradeRemedy(capability));
   };
+  const requireMagnitudes = (magnitudes: Magnitude[]): void => {
+    if (magnitudes.some((magnitude) => magnitude.kind === "int" && !fitsInt64(magnitude.value))) {
+      require(CAPABILITY_BIG_INT_VALUES);
+    }
+  };
   switch (value.kind) {
+    case "int":
+      requireMagnitudes([value]);
+      return;
     case "complex":
       require(CAPABILITY_COMPLEX_VALUES);
       return;
-    case "measurementRef":
-      require(CAPABILITY_MEASUREMENT_REFS);
+    case "quantity":
+      requireMagnitudes([value.magnitude]);
+      checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
       return;
+    case "measurementRef": {
+      require(CAPABILITY_MEASUREMENT_REFS);
+      const unitTerm: unknown = value.unitTerm;
+      if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
+        throw new UnsupportedValueError("measurement reference naming no unit");
+      }
+      // The wire needs the reduction on every reference, id-only ones too;
+      // encodeMeasurementRef reads unitTerm unconditionally.
+      if (unitTerm === undefined) {
+        throw new UnsupportedValueError(
+          `measurement reference ${value.unit || value.unitId} carries no reduction to base units, so the service cannot tell what it ` +
+            "measures: build it from a unit the service sent, or from one the model declares",
+        );
+      }
+      return;
+    }
+    case "instance":
+      checkInt64(value.id);
+      return;
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
     case "function":
       require(CAPABILITY_FUNCTION_VALUES);
+      if (value.selfId !== undefined) {
+        checkInt64(value.selfId);
+      }
       return;
     case "metaobject":
       require(CAPABILITY_METAOBJECT_VALUES);
@@ -1200,8 +1338,15 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       });
       return;
     case "vector":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components);
+      return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
       return;
     case "set":
       require(CAPABILITY_SET_VALUES);
@@ -1211,6 +1356,10 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "tensorQuantity":
       require(CAPABILITY_TENSOR_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
       return;
     case "infinity":
       require(CAPABILITY_INFINITY_VALUE);
@@ -1227,5 +1376,23 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     default:
       return;
+  }
+}
+
+/**
+ * Refuses a unit named without its reduction to base units — the service
+ * decides commensurability over the reduction and rejects a unit sent without
+ * one; an unnamed unit means dimension one and carries none.
+ */
+function checkReduction(
+  what: string,
+  unit: string,
+  unitTerm: UnitFactorization | undefined,
+): void {
+  if (unit !== "" && unitTerm === undefined) {
+    throw new UnsupportedValueError(
+      `${what} carries no reduction to base units, so the service cannot tell what it ` +
+        "measures: build it from a unit the service sent, or from one the model declares",
+    );
   }
 }

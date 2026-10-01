@@ -5,6 +5,7 @@ import { Code, ConnectError, createClient, type Client, type Transport } from "@
 import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -64,8 +65,9 @@ import {
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
-import { callRpc, fromHandshakeError } from "./status.js";
-import { decodeDiagnostic, Instance, Model } from "./model.js";
+import { callRpc, fromHandshakeError, fromRpcError } from "./status.js";
+import { requireString } from "./arguments.js";
+import { decodeDiagnostic, Instance, Model, strictConformanceOf } from "./model.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
@@ -76,6 +78,7 @@ import {
 } from "./conversion.js";
 import { buildQuery, elementsOf, type QueryElement, type QueryForm, type QueryPayload } from "./query.js";
 import {
+  bindingHoldsBigInt,
   buildBindings,
   documentResult,
   type BindingValues,
@@ -241,6 +244,7 @@ export class Connection {
 
   /** Parses a file the service can read, and returns the model it loaded. */
   load(path: string, options: ParseOptions = {}): Promise<Model> {
+    requireString("path", path);
     return Model.parse(this, { source: { case: "filePath", value: path } }, options);
   }
 
@@ -258,10 +262,7 @@ export class Connection {
   }
 
   /** Parses several documents together as one model, one root per document. */
-  async parseSources(
-    documents: readonly Source[],
-    options: { strict?: boolean; strictConformance?: boolean } = {},
-  ): Promise<Model> {
+  async parseSources(documents: readonly Source[], options: ParseOptions = {}): Promise<Model> {
     const sources = sourceDocuments(documents);
     requireCapability(this.info, CAPABILITY_PARSE_SOURCES, upgradeRemedy(CAPABILITY_PARSE_SOURCES));
     const capabilities = [CAPABILITY_PARSE_SOURCES];
@@ -273,7 +274,8 @@ export class Connection {
       );
       capabilities.push(CAPABILITY_INLINE_LANGUAGE);
     }
-    if (options.strictConformance === true) {
+    const strictConformance = strictConformanceOf(options);
+    if (strictConformance === true) {
       this.requireStrictConformance();
       capabilities.push(CAPABILITY_STRICT_CONFORMANCE);
     }
@@ -281,7 +283,7 @@ export class Connection {
       this.rpc.parseSources(
         create(ParseSourcesRequestSchema, {
           documents: sources.map((source) => source.toPb()),
-          strictConformance: options.strictConformance === true,
+          strictConformance: strictConformance === true,
         }),
         this.callOptions(),
       ),
@@ -292,13 +294,9 @@ export class Connection {
     if (response.error !== "") {
       throw new ParseError(response.error, diagnostics);
     }
-    const model = Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
+    return Model.fromRoots(this, response.modelHash, response.roots, diagnostics, {
       documents: sources.map((source) => source.documentName),
     });
-    if (options.strict === true) {
-      model.raiseForErrors();
-    }
-    return model;
   }
 
   /**
@@ -376,12 +374,13 @@ export class Connection {
         create(QueryRequestSchema, {
           modelHash,
           oslcQuery: options.oslc ?? "",
+          // An OSLC-only request sends just oslcQuery (the two are mutually
+          // exclusive); every other request sends a Query, empty when nothing
+          // was asked for, which answers every element. An empty oslc is no
+          // OSLC at all, so a structured ask beside it still sends its Query.
           ...(options.query !== undefined
             ? { query: options.query }
-            : options.payload !== undefined ||
-                options.scope !== undefined ||
-                options.select !== undefined ||
-                options.where !== undefined
+            : options.oslc === undefined || options.oslc === ""
               ? { query: buildQuery(options) }
               : {}),
         }),
@@ -404,12 +403,16 @@ export class Connection {
       CAPABILITY_DOCUMENT_QUERY,
       upgradeRemedy(CAPABILITY_DOCUMENT_QUERY),
     );
+    const wire = buildBindings(bindings);
+    if (wire.some(bindingHoldsBigInt)) {
+      requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
+    }
     const response = await callRpc(
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
           modelHash,
           queryId,
-          bindings: buildBindings(bindings),
+          bindings: wire,
         }),
         this.callOptions(),
       ),
@@ -1066,13 +1069,23 @@ export class Connection {
 
   /** Asks the service what it is and what it can do, again. */
   async serverInfo(): Promise<ServerInfo> {
-    const response = await callRpc(this.rpc.getServerInfo({}, this.callOptions()));
-    return new ServerInfo({
-      version: response.version,
-      capabilities: response.capabilities,
-      answered: true,
-      origin: this.backend.origin,
-    });
+    try {
+      const response = await this.rpc.getServerInfo({}, this.callOptions());
+      return new ServerInfo({
+        version: response.version,
+        capabilities: response.capabilities,
+        answered: true,
+        origin: this.backend.origin,
+      });
+    } catch (error) {
+      const connectError = ConnectError.from(error);
+      // A service too old to answer is reported the same way the handshake
+      // reports it: no version, no capabilities, unanswered.
+      if (connectError.code === Code.Unimplemented) {
+        return new ServerInfo({ version: "", capabilities: [], answered: false, origin: this.backend.origin });
+      }
+      throw fromRpcError(error);
+    }
   }
 
   /**

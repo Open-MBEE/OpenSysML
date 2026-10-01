@@ -23,7 +23,7 @@ sysml model.sysml -compile Pkg::Fib -source -o fib.c    # write the generated so
 
 The executable takes the calc's parameters as command-line arguments, positionally, and prints
 the result on one line in the interpreter's notation (`6765`, `1.75`, `2.0`, `1e21`, `true`). An
-input the interpreter would reject — Integer overflow, division or modulo by zero, a non-finite
+input the interpreter would reject — an Integer beyond the Integer size limit, division or modulo by zero, a non-finite
 Real, a Real argument written outside the Real range (`1e400`, or `1e-400` underflowing to
 zero), recursion past the calc depth budget — exits with status 1 and the reason on stderr; an
 argument that is not the notation of its type at all (`inf`, `nan`, a hexadecimal `0x1p-2`,
@@ -43,7 +43,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, with no multiplicity or `[1]` | `int64_t` / `double` / `bool` |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); `double` / `bool` |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -88,13 +88,42 @@ as *a meta cast, whose metaobject reflects a model element and has no native rep
 metaobjects stay interpreter-only). The refusal names the calc and the construct
 (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
+## Integers
+
+KerML's `ScalarValues::Integer` is the mathematical integers, and the interpreter computes them
+exactly (an `int64` while a value fits, `math/big` beyond it), refusing only a result past the
+Integer size limit (`OPENSYSML_MAX_INTEGER_BITS`, default 2^20 bits). The two targets keep that
+contract differently:
+
+- **Go** carries the same hybrid: `sysmlInt` is an `int64` until a result leaves it, then a
+  `*big.Int`, demoted again whenever a result fits. Arithmetic, `**`, `sum`, `product`, `abs`,
+  `floor`, `round`, ranges, ordering, `==` and uniqueness are exact, so `9223372036854775807 + 1`
+  prints `9223372036854775808` and `2 ** 70` prints `1180591620717411303424`. The program reads
+  `OPENSYSML_MAX_INTEGER_BITS` and refuses a larger result with the interpreter's
+  `integer size limit exceeded` reason; an index beyond `int64` fails as the interpreter's does
+  (`index … addresses no position`), and a range whose count the element budget cannot hold
+  fails on the budget. Integer arguments of any size are accepted.
+- **C** has no arbitrary-precision integer of its own, so it keeps `int64_t` and refuses, at
+  compile time, any calc with an Integer construct whose result is not provably within `int64`:
+  Integer `+`, `-`, `*` (unless both operands are literals and the result fits), unary `-`, `**`
+  by anything but the literal `0` or `1`, Integer `sum`/`product`, `IntegerFunctions::abs`,
+  `floor` and `round`, and an Integer literal beyond `int64`. The refusal names the first such
+  construct in evaluation order, e.g. ``in calc Compiled::Fib: Integer `-` for the C target: the
+  interpreter's Integers are unbounded and a C program holds int64 (the Go target computes them
+  exactly)``. What remains — comparisons, sizes, indexes, ranges, `/` (a Real), `%`, `min`/`max`,
+  and Real arithmetic over Integers — cannot leave `int64` and compiles as before. An Integer
+  argument beyond `int64` on a C program's command line exits with status 2
+  (`… is beyond int64, the Integers a compiled C program holds`), as any argument the program
+  cannot represent does.
+
 ## Semantics the generated code preserves
 
 The runtime the generated program carries (`cPrelude` / `goPrelude`) reproduces the interpreter's
 arithmetic rather than the host language's:
 
-- **Integer** is `int64` with `+ - *`, negation and `**` checked for overflow (`__builtin_*_overflow`
-  in C; widened checks in Go). `/` and `%` by zero are errors.
+- **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): Go computes it
+  exactly, C refuses at compile time a calc whose Integer result may leave `int64`. `/` and `%`
+  by zero are errors.
 - **Integer `/`** is the exact rational quotient rounded once to binary64, as the interpreter's
   `IntQuotient` does — `7 / 2` is `3.5`, `1 / 3` is `0.3333333333333333`, and
   `9007199254740993 / 1` rounds the way the interpreter rounds. C does this with `__int128`
@@ -102,7 +131,9 @@ arithmetic rather than the host language's:
 - **Real** is binary64 and every result is checked finite; `1.0 / 0.0` and `1e308 * 10.0` are
   errors, not `inf`. `0.1 + 0.2` prints `0.30000000000000004`, exactly as the interpreter
   (see `exact-rational-evaluation.md`; no exact arithmetic is introduced here).
-- **Mixed** Integer/Real operands widen the Integer, in comparisons too.
+- **Mixed** Integer/Real operands widen the Integer in arithmetic. A comparison between them is
+  exact, as the interpreter's `CompareIntReal`: `9007199254740993 > 9007199254740992.0` holds
+  although the Integer rounds to that Real.
 - **`and`/`or`/`implies`** short-circuit; the right operand's errors are not raised when the left
   decides. Every other operator, and every invocation, evaluates its operands left to right —
   named arguments in the order written, a parameter named twice taking the later value — so when
@@ -120,8 +151,8 @@ arithmetic rather than the host language's:
 - **Recursion** is bounded by the same depth as the interpreter's default
   (`runtime.DefaultMaxCalcDepth`), reported as the interpreter reports it.
 - **Library functions** dispatch as the interpreter does: `NumericalFunctions::max(a, b)` keeps
-  Integer operands Integer, `RealFunctions::floor` returns an Integer and fails when the value
-  exceeds `int64`, `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
+  Integer operands Integer, `RealFunctions::floor` returns the exact Integer (in Go; C refuses
+  it, as its result may leave `int64`), `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
   report negative Naturals at run time, `ln`/`log`/`sqrt`/`arcsin` report the interpreter's domain
   errors. Named and positional arguments bind and evaluate as for model calcs.
 - **Function values** exist only at compile time. `Apply(Sq, a)` calls a specialization of

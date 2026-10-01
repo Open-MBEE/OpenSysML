@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -326,6 +326,11 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 		}
 		notes = append(notes, simConfig+a.tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+a.means)
 		unread = append(unread, a.tag+" = "+strings.Join(vs, ", "))
+	}
+	if ui := s.Tags["UI"]; len(ui) > 0 {
+		recorded["UI"] = true
+		notes = append(notes, m.uiNote(ui))
+		unread = append(unread, "UI = "+strings.Join(m.tagValues(ui), ", "))
 	}
 	for tag, vs := range s.Tags {
 		if !recorded[tag] {

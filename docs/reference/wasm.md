@@ -16,12 +16,12 @@ make build-wasm-wasip1   # or one
 make build-wasm-js
 ```
 
-The output is one directory per target, four commands each, stamped with the same version
+The output is one directory per target, six commands each, stamped with the same version
 information a native build carries:
 
 ```
-bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine}.wasm
-bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine}.wasm
+bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
+bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
 bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
 
@@ -30,6 +30,13 @@ runs these modules with `$(go env GOROOT)/lib/wasm/wasm_exec_node.js`, which loa
 beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
+
+`make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
+(`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
+`-compile`, the HTML and PDF document forms, FMU import, profiling and the REPL's `%features …
+json`. A flag of a left-out group is hidden from `-help` and refused with status 2. Each group
+also has a tag of its own (`sysml_nov1`, `sysml_nosync`, `sysml_nocodegen`, `sysml_nodocpdf`,
+`sysml_nofmi`, `sysml_noprofile`, `sysml_noreplext`).
 
 ## Running a WASI build
 
@@ -140,6 +147,62 @@ parser's syntax diagnostics only, since the engine does not run the analysis tie
 body is answered `only application/json bodies are served`. Tool-backed engines are the
 service's job too — the engine builds a runtime context directly, so behavior an external
 engine would compute stays on `sysml-grpc`.
+
+## The syntax service
+
+`sysml-syntax` is the purely syntactic half: it answers `Parse`, `Format` and `Tokens` on
+content a request carries, with no name resolution and no standard library, which is what keeps
+it even smaller than the engine. Like the engine, the `js` build installs a host surface —
+`globalThis.sysmlSyntax` with the same synchronous `call(method, paramsJSON)` — and the same
+`-stdio` flag swaps it for the `Content-Length`-framed JSON-RPC 2.0 pipe the native and
+`wasip1` builds always serve.
+
+- `Parse` takes `{content, language}` and answers `{"diagnostics":[…]}`: the parser's syntax
+  errors, then its warnings, each as the Diagnostic message a `ParseFile` answer carries;
+  a clean document answers `{}`.
+- `Format` takes `{content, language, tolerateSyntaxErrors}` and answers
+  `{content, diagnostics, error}` as a `sysml`→`sysml` `Convert` does: the re-indented
+  source, or — when the input has syntax errors and the request did not tolerate them —
+  `error` with the converter's message and `diagnostics` listing them. It refuses invalid
+  input unless `tolerateSyntaxErrors` is set.
+- `Tokens` takes `{content, language}` and answers `{"legend":{…},"data":[…]}`: the full
+  LSP semantic-tokens legend and the relative-encoded token data for the document's
+  lexical classes only — keywords, comments, strings and numbers. With no symbol table it
+  emits no declaration/reference classes and no modifiers.
+
+`language` is `"sysml"` or `"kerml"` (empty means SysML), inline content is named `<content>`,
+and every other method answers `<Method> is not served by sysml-syntax`. Being syntactic only,
+it reports no semantic diagnostics.
+
+Measured on a `go1.25` `js/wasm` build of this tree: about 5.0 MB of module,
+1.32 MB gzipped, 0.97 MB under Brotli.
+
+## The validation core
+
+`sysml-core` serves the model-validation surface of `sysml-grpc` without protobuf, Connect,
+or the execution runtime. It embeds the standard library, parses one or more SysML or KerML
+documents together, runs the validation passes on models that parse cleanly, and reports
+diagnostics and shared symbol facts.
+
+- `ParseSources` parses a set of inline or file-backed documents as one model and returns its
+  hash, one root per document, and diagnostics.
+- `ParseFile` parses a single inline document or file and returns its hash, root and diagnostics.
+- `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
+- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts.
+
+The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
+`call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`
+selects the same sequential, `Content-Length`-framed JSON-RPC pipe used by the native and
+`wasip1` builds. Requests and responses use the lowerCamelCase protojson field names.
+
+The core does not execute models or serve conversion, query, document, verification or tool
+methods. Those execution methods belong to `sysml-engine`; every other unsupported method
+belongs to `sysml-grpc`. Such calls answer Unimplemented with that routing guidance rather
+than being silently ignored. File-backed requests still require the host to make the requested
+paths readable; the standard library itself is embedded.
+
+Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes with gzip
+`-9`, and 3,843,951 bytes with Brotli.
 
 ## What works
 

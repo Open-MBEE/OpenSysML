@@ -88,9 +88,11 @@ scenario requests exactly as written.
 
 ## Values
 
-`opensysml.decodeValue` reads all nineteen Connect-JSON `Value` arms and `opensysml.encodeValue`
+`opensysml.decodeValue` reads all twenty-two Connect-JSON `Value` arms and `opensysml.encodeValue`
 writes supported request values. `intValue` uses decimal JSON strings and exact `int64`
-accumulation, including `-9223372036854775808`; `realValue` supports `"NaN"`, `"Infinity"`, and
+accumulation, including `-9223372036854775808`; an Integer beyond `int64`
+arrives as `bigIntValue` and decodes to `struct('bigInteger', digits)`, its decimal digits kept as
+`char` because no MATLAB number holds it, and is sent back as written; `realValue` supports `"NaN"`, `"Infinity"`, and
 `"-Infinity"`. Other primitive mappings include `boolValue` to `logical`, `stringValue` to
 `char`, `complex` to a complex scalar, and `sequence` to a cell array. `null` becomes `[]`.
 
@@ -128,7 +130,7 @@ bounds associated with an answer.
 | Result class | Contents and helpers |
 | --- | --- |
 | `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
-| `Validation` | Verdicts, summary, instances, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
+| `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
 | `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations and standing; `selected()`, `satisfied()`, and `explain()`. |
 | `SweepTable` | Rows, parameters, sampling metadata, instances, diagnostics and standing; `failures()` selects failed rows. |

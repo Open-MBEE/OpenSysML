@@ -1,9 +1,10 @@
-function values = decodeVerdicts(raw, instances, diagnostics, verifications)
+function values = decodeVerdicts(raw, instances, diagnostics, verifications, allVerifications)
 %DECODEVERDICTS Decode a repeated Verdict field.
 
     if nargin < 2, instances = []; end
     if nargin < 3, diagnostics = {}; end
     if nargin < 4, verifications = {}; end
+    if nargin < 5, allVerifications = false; end
     raw = toCells(raw);
     values = cell(1, numel(raw));
     for i = 1:numel(raw)
@@ -15,7 +16,9 @@ function values = decodeVerdicts(raw, instances, diagnostics, verifications)
         end
         ownVerifications = {};
         requirement = fieldOr(item, 'requirementId', '');
-        if ~isempty(requirement)
+        if allVerifications
+            ownVerifications = verifications;
+        elseif ~isempty(requirement)
             for j = 1:numel(verifications)
                 verification = verifications{j};
                 if strcmp(verification.requirementId, requirement)

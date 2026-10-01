@@ -251,12 +251,41 @@ org.openmbee.opensysml.proto.Value defaultValue);
 
   /**
    * <pre>
-   * The probability of the linearizations reaching this outcome, as explore
-   * computes it; a lower bound when the exploration is incomplete.
+   * The exact model-draw probability when probability_range is exact; zero otherwise.
    * </pre>
    *
    * <code>double probability = 8 [json_name = "probability"];</code>
    * @return The probability.
    */
   double getProbability();
+
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   * @return Whether the probabilityRange field is set.
+   */
+  boolean hasProbabilityRange();
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   * @return The probabilityRange.
+   */
+  org.openmbee.opensysml.proto.ProbabilityRange getProbabilityRange();
+  /**
+   * <pre>
+   * Present when the exploration made a weighted choice. Bounds probabilities
+   * over schedulers, not shares of the enumerated schedules.
+   * </pre>
+   *
+   * <code>.sysml.ProbabilityRange probability_range = 9 [json_name = "probabilityRange"];</code>
+   */
+  org.openmbee.opensysml.proto.ProbabilityRangeOrBuilder getProbabilityRangeOrBuilder();
 }

@@ -745,27 +745,24 @@ varied twice, so a choice met early is varied by the second run however many cho
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | probability        | witness
----------------------------------------------+----------------+--------------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability | witness
+---------------------------------------------+----------------+-------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | possible    | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
 final state, states visited and values; an analysis case's outputs and verdicts — are one
 *outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
-linearizations reached it, its *probability*, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
-4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). A
-linearization's probability is the product of the shares its picks resolved with — a
-`@Probability`-weighted pick its stated weight's share of the weights drawn over, an unweighted
-choice point the uniform `1/n` a `seed:<n>` takes each alternative with — and an outcome's is the
-sum over its runs, so the column totals `1` when the exploration is complete: it is the model's
-own probability where every choice point is weighted, and where they are not it assumes the
-scheduling choices the library leaves open are taken uniformly at random. An incomplete
-exploration prefixes each figure `≥` and the status line adds `; probabilities are lower bounds`,
-since the runs not taken can only add. Six
+linearizations reached it, its model-draw probability when one exists, and the choice sequence of
+one *witness* run (`3@b first of 2@a, 3@b, 4@c` is the first pick, then `4@c first of 2@a, 4@c`
+among the two that remained). Scheduling choices have no probability: outcomes without a weighted
+model choice say `possible`. When weighted choices occur, each outcome reports the minimum and
+maximum model-draw probability over schedulers; a range that collapses to one value is exact. An
+incomplete exploration prefixes numeric cells with `≥` and adds `; probabilities are lower bounds`
+only when a weighted choice occurred, since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
 tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
@@ -776,8 +773,14 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `probability`, `witness`) and
-`exploration` (`complete`, `runs`, `budgetsHit`, `probabilitiesLowerBound`) beside the table's lines.
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, optional exact
+`probability`, optional `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`,
+`budgetsHit`, optional `failedLinearizations`, `probabilitiesLowerBound`) beside the table's lines.
+
+If the runtime context or root executor cannot be created, or a pure structural start check fails
+before root model behavior runs, no schedule ran: the exploration fails with no outcome. Failures
+from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later are
+error outcomes; any such outcome makes the verdict fail, even if the exploration is incomplete.
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
@@ -825,11 +828,11 @@ otherwise, and hitting it is never silent:
 $ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
-outcome                                      | linearizations | probability           | witness
----------------------------------------------+----------------+-----------------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | ≥ 0.16666666666666666 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | ≥ 0.3333333333333333  | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 3 hit after 3 runs; probabilities are lower bounds
+outcome                                      | linearizations | probability | witness
+---------------------------------------------+----------------+-------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs
 $ echo $?
 2
 ```
@@ -1080,8 +1083,10 @@ state def Machine {
 The weights pick among the transitions otherwise equally eligible — after the trigger matched,
 the guards read, and the innermost-wins rule between a substate and its enclosing state has run
 — so a substate's transition is never weighed against an enclosing one's, and the pick is drawn
-once, at dispatch. `explore` enumerates the alternatives as it does any choice point, and the
-outcome table's `probability` column reports each outcome's share (below).
+once, at dispatch. `explore` enumerates weighted alternatives and reports each outcome's
+model-draw probability range over schedulers. Scheduling choices themselves carry no probability.
+Random-function values remain fixed by the model seed during exploration, so these probabilities
+are conditional on those draws.
 
 ### A random value: `RandomFunctions`
 
@@ -1262,9 +1267,10 @@ second knob here too: every run resolves its concurrency choices under `-schedul
   for one dispatch — one trigger spelling out of one state, one completion set, one pseudostate's
   branches — never between different events or different states, and a transition that loses to a
   nested one fires nothing.
-- **Probabilities assume a uniform schedule.** `explore`'s column and `check`'s violation masses
-  are the model's own probabilities where every choice point is weighted; an unweighted point is
-  counted as if each alternative were equally likely, which is an assumption, not a measurement.
+- **Scheduling has no probability.** `explore` reports model-draw probability ranges over the
+  schedulers the model leaves open; an outcome with no weighted model choice has no probability.
+  `check`'s violation masses retain their separate existing semantics and still use uniform
+  shares for unweighted choices.
 - **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
   draw (`uniform(1, 80) [s]`).
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one

@@ -381,6 +381,36 @@ what was dropped. Free content standing for no element and saying nothing — a 
 under `USE_FILL_COLOR`, the one presentation property `Style` has no attribute for. Cameo's drop
 shadow and its exact corner radius are not drawn: Graphviz has neither.
 
+The prose of the document cross-references as the tool's did. Cameo keeps documentation as
+HTML, and a hyperlink in it to another element (`<a href="mdel://…">`) or a View Editor
+cross-reference (`<mms-cf mms-element-id="…" mms-cf-type="name">`) is resolved through the export
+rather than reduced to its text: a paragraph that says
+
+```html
+<p>This activity is nominally executed as part of the
+<a href="mdel://_2022x_…_25964">Post Segment-Exchange Alignment</a> use case.</p>
+```
+
+is written as runs, the prose as `Span`s and the reference as a `Ref` to the section the
+target view became in the same document,
+
+```sysml
+part paragraph : Paragraph {
+    part span : Span { attribute redefines text = "This activity is nominally executed as part of the"; }
+    part 'ref' : Ref { ref redefines target = 'DDD Document'::'Use Cases'.'Post Segment-Exchange Alignment'; }
+    part 'span 2' : Span { attribute redefines text = "use case."; }
+}
+```
+
+and renders as `Section 4.3.1 - Post Segment-Exchange Alignment`, linked, under
+`-doc-number-sections`. A reference to a diagram's figure or a table is labelled `Figure N`
+or `Table N` the same way; one to an element with no place in the document — a block, a
+requirement — renders as the element's current name. A reference to an element the export does
+not contain prints nothing (a View Editor `[cf:…]` fallback) or keeps the link's text (a
+hyperlink), and the report notes it on the comment: `names an element the export does not
+contain: <id>`. Outside a document — a `doc` comment, a requirement's text — the same
+references read as their targets' names. The rules are in [the reference](../reference/sysml-v1-migration.md#cross-references-in-documentation).
+
 ## Over gRPC and from a program
 
 The same migration is the service's `Convert` with `from_format` of `xmi`, `uml` or `mdzip` —

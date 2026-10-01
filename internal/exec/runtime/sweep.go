@@ -379,6 +379,12 @@ type sweepScalar struct {
 	quantity bool
 }
 
+// bigSweepScalar refuses an endpoint or step beyond int64, which the run
+// numbering and stepping of a sweep count in.
+func bigSweepScalar(what string) error {
+	return fmt.Errorf("%w: %s is an Integer beyond the 64-bit range a sweep steps through", ErrSweepRange, what)
+}
+
 // sweepScalarOf reads an endpoint: a bare number or a quantity, never anything
 // a range cannot advance through.
 func sweepScalarOf(v Value, what string) (sweepScalar, error) {
@@ -388,11 +394,17 @@ func sweepScalarOf(v Value, what string) (sweepScalar, error) {
 			return sweepScalar{}, fmt.Errorf("%w: %s is %s, not a number",
 				ErrSweepRange, what, semantics.FormatConst(v.Const))
 		}
+		if v.Const.IsBigInt() {
+			return sweepScalar{}, bigSweepScalar(what)
+		}
 		return sweepScalar{num: v.Const}, nil
 	case ValQuantity:
 		q := v.Quantity()
 		if q == nil || !q.Num.IsNumeric() {
 			return sweepScalar{}, fmt.Errorf("%w: %s is not a numeric quantity", ErrSweepRange, what)
+		}
+		if q.Num.IsBigInt() {
+			return sweepScalar{}, bigSweepScalar(what)
 		}
 		return sweepScalar{num: q.Num, unit: q.Unit, quantity: true}, nil
 	}
@@ -592,10 +604,10 @@ func (r SweepRange) exactRealEndpoints() error {
 func sweepInteger(value Value) (int64, bool) {
 	switch value.Kind {
 	case ValConst:
-		return value.Const.Int, value.Const.Kind == semantics.ValInt
+		return value.Const.Int64()
 	case ValQuantity:
-		if q := value.Quantity(); q != nil && q.Num.Kind == semantics.ValInt {
-			return q.Num.Int, true
+		if q := value.Quantity(); q != nil {
+			return q.Num.Int64()
 		}
 	}
 	return 0, false
@@ -685,11 +697,15 @@ func (s sweepScalar) exactInt(unit semantics.Unit, magnitude float64) (int64, bo
 	if s.num.Kind != semantics.ValInt {
 		return 0, false
 	}
+	n, ok := s.num.Int64()
+	if !ok {
+		return 0, false
+	}
 	if !s.quantity {
-		return s.num.Int, true
+		return n, true
 	}
 	if mul, div, ok := scaleRatio(s.unit.Term.Scale, unit.Term.Scale); ok {
-		return exactScaled(s.num.Int, mul, div)
+		return exactScaled(n, mul, div)
 	}
 	if magnitude != math.Trunc(magnitude) || math.Abs(magnitude) > exactFloatInt {
 		return 0, false

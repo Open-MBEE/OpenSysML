@@ -384,7 +384,7 @@ package OpenSysMLBehavior {
         transition first settled then waiting;
     }
 
-    // Seven budgets, each exhausted on its own: the first to run out ends the run
+    // Eight budgets, each exhausted on its own: the first to run out ends the run
     // with the error that names it, and the others are not consulted.
     state def BudgetExhaustion {
         attribute stepsLeft : Integer = 10000000;
@@ -394,6 +394,7 @@ package OpenSysMLBehavior {
         attribute elementsLeft : Integer = 1000000;
         attribute calcDepthLeft : Integer = 10000;
         attribute sweepRunsLeft : Integer = 1000;
+        attribute integerBitsLeft : Integer = 1048576;
 
         entry; then running;
 
@@ -405,6 +406,7 @@ package OpenSysMLBehavior {
         state elementLimitExceeded;
         state calcRecursionLimitExceeded;
         state sweepRunLimitExceeded;
+        state integerSizeLimitExceeded;
 
         transition first running if stepsLeft <= 0 then stepLimitExceeded;
         transition first running if actionStepsLeft <= 0 then actionStepLimitExceeded;
@@ -413,6 +415,7 @@ package OpenSysMLBehavior {
         transition first running if elementsLeft <= 0 then elementLimitExceeded;
         transition first running if calcDepthLeft <= 0 then calcRecursionLimitExceeded;
         transition first running if sweepRunsLeft <= 0 then sweepRunLimitExceeded;
+        transition first running if integerBitsLeft <= 0 then integerSizeLimitExceeded;
     }
 
     // What a step costs, for the action-step budget the runtime enforces.

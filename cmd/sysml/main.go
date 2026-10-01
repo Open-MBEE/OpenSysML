@@ -15,6 +15,8 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -296,6 +298,9 @@ func runCLI() int {
 	if err := flag.CommandLine.Parse(permuteArgs(flag.CommandLine, os.Args[1:])); err != nil {
 		// flag.CommandLine exits on error; unreachable unless that changes.
 		return 2
+	}
+	if err := omittedUse(flag.CommandLine); err != nil {
+		return fail(err)
 	}
 
 	// Help that was asked for is the result of the run: it belongs on stdout, where
@@ -618,6 +623,10 @@ func runCLI() int {
 
 	for _, path := range args {
 		if f, err := convert.FormatOfPath(path); err == nil && f == convert.FormatXMI {
+			if !v1Feature.linked {
+				fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model, which this build cannot migrate (built without v1)\n", path)
+				return 2
+			}
 			fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model; migrate it first with `sysml %s -convert sysml -output model.sysml`, then load model.sysml\n", path, path)
 			return 2
 		}

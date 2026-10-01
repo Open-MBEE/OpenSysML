@@ -226,7 +226,7 @@ func (d DrawTaken) Describe() string {
 // always carries a point or an exponent.
 func formatDrawn(v semantics.Value) string {
 	if v.Kind == semantics.ValInt {
-		return strconv.FormatInt(v.Int, 10)
+		return v.FormatInt()
 	}
 	s := strconv.FormatFloat(v.Real, 'g', -1, 64)
 	if !strings.ContainsAny(s, ".eIN") {

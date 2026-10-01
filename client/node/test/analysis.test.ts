@@ -81,6 +81,8 @@ test("a wrong kind raises WrongKindError", async () => {
   await using connection = await connect();
   const model = await connection.loads(MODEL);
   await assert.rejects(() => model.runAnalysis("An::Ship"), WrongKindError);
+  await assert.rejects(() => model.calc("An::shipCost"), WrongKindError);
+  await assert.rejects(() => model.verifyConstraint("An::Sum"), WrongKindError);
 });
 
 test("calc invokes the calculation", async () => {

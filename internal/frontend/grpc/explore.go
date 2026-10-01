@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -15,6 +16,7 @@ type explored struct {
 	outcomes []*pb.Outcome
 	status   *pb.ExplorationStatus
 	plan     analysis.Plan
+	setupErr error
 }
 
 // explore puts the behavior's outcomes to the engines under selection, run
@@ -34,6 +36,10 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 		if ctx.Err() != nil {
 			return explored{}, ctx.Err()
 		}
+		var setup *runtime.SetupError
+		if errors.As(err, &setup) {
+			return explored{plan: plan, setupErr: err}, nil
+		}
 		return explored{}, statusError(connect.CodeFailedPrecondition, err.Error())
 	}
 	x := plan.Result.Exploration()
@@ -42,11 +48,20 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 	}
 	outcomes := make([]*pb.Outcome, 0, len(x.Outcomes))
 	for _, o := range x.Outcomes {
+		var probability float64
+		var probabilityRange *pb.ProbabilityRange
+		if o.Probability != nil {
+			probabilityRange = &pb.ProbabilityRange{Min: o.Probability.Min, Max: o.Probability.Max}
+			if o.Probability.Exact() {
+				probability = o.Probability.Min
+			}
+		}
 		out := &pb.Outcome{
-			FinalState:     o.Outcome.FinalState,
-			StatesVisited:  o.Outcome.StateVisits,
-			Linearizations: int32Clamp(o.Linearizations),
-			Probability:    o.Probability,
+			FinalState:       o.Outcome.FinalState,
+			StatesVisited:    o.Outcome.StateVisits,
+			Linearizations:   int32Clamp(o.Linearizations),
+			Probability:      probability,
+			ProbabilityRange: probabilityRange,
 		}
 		if rt := o.Outcome.Context(); rt != nil {
 			out.Diagnostics = s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(rt.Notes(), cached))
@@ -72,6 +87,7 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 		RunsBudget:              int32Clamp(x.Budget.Runs),
 		DepthBudget:             int32Clamp(x.Budget.Depth),
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),
+		FailedLinearizations:    int32Clamp(x.FailedLinearizations()),
 	}
 	return explored{outcomes: outcomes, status: status, plan: plan}, nil
 }

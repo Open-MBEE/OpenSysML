@@ -662,7 +662,7 @@ func FormatTraceValue(v Value) string {
 func formatConst(c semantics.Value) string {
 	switch c.Kind {
 	case semantics.ValInt:
-		return strconv.FormatInt(c.Int, 10)
+		return c.FormatInt()
 	case semantics.ValReal:
 		return semantics.FormatReal(c.Real)
 	case semantics.ValBool:

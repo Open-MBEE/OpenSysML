@@ -64,6 +64,10 @@ execute_action(model, "Demo::Action"; inputs=Dict("x" => 1))
 execute_state(model, "Demo::Machine"; events=["start"])
 ```
 
+`execute_action` returns `ActionOutputs`, a dictionary of output parameters
+with performer attributes in its `performer` field. `execute_state` returns a
+`StateRun` with `states_visited`, `final_context`, and `final_time`.
+
 `strict=true` raises `ModelError` when parsing reports error-severity
 diagnostics, matching the Python client. The separate wire option is
 `strict_conformance=true`; it asks the service for strict conformance checks.
@@ -71,11 +75,12 @@ diagnostics, matching the Python client. The separate wire option is
 or `SourceDocument`s.
 
 `decode_value` and `encode_value` handle all service `Value` arms, including
-exact `Int64`, quantities, units, enum literals, instances, collections,
-arrays, vectors, tensors, functions, metaobjects, infinity and undetermined
-values. `Quantity`, `Unit`, `UnitFactor`, `MeasurementRef`, `VectorQuantity`,
-and `TensorQuantity` are Julia types. Use `in_unit(q, unit)` to inspect a
-magnitude in a unit and `to_unit(q, unit)` to convert it.
+exact `Int64` and `BigInt` Integers, quantities, units, enum literals,
+instances, collections, arrays, vectors, tensors, functions, metaobjects,
+infinity and undetermined values. `Quantity`, `Unit`, `UnitFactor`,
+`MeasurementRef`, `VectorQuantity`, and `TensorQuantity` are Julia types. Use
+`in_unit(q, unit)` to inspect a magnitude in a unit and `to_unit(q, unit)` to
+convert it.
 
 The typed wrappers cover verification (`verify_constraint`,
 `verify_requirement`, `verify_satisfaction`, `satisfied`, and

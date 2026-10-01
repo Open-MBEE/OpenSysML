@@ -1,6 +1,7 @@
 mutable struct Connection
     base::String
     private::Bool
+    closed::Bool
     process::Union{Base.Process,Nothing}
     stdin::Union{IO,Nothing}
     timeout::Float64
@@ -10,7 +11,7 @@ mutable struct Connection
     required_capabilities::Set{String}
     Connection(base, private, process, stdin, timeout; origin="service at $(base)", version=nothing,
                require_capabilities=()) =
-        new(String(base), Bool(private), process, stdin, Float64(timeout), nothing,
+        new(String(base), Bool(private), false, process, stdin, Float64(timeout), nothing,
             String(origin), version === nothing ? nothing : String(version),
             Set(String(c) for c in require_capabilities))
 end
@@ -134,6 +135,8 @@ end
 
 """Close a connection and stop its private service process, if any."""
 function Base.close(conn::Connection)
+    conn.closed && return nothing
+    conn.closed = true
     conn.stdin === nothing || close(conn.stdin)
     if conn.process !== nothing
         deadline = time() + 5
@@ -151,15 +154,24 @@ function Base.close(conn::Connection)
     return nothing
 end
 
+Base.isopen(conn::Connection) = !conn.closed
+
 """Call a sysml-grpc JSON-transcoded RPC with a dictionary request."""
 function call(conn::Connection, method::AbstractString, request)
+    conn.closed && throw(TransportError("the connection is closed; open a new one"))
     body = JSON.json(request)
     response = try
         HTTP.post("$(conn.base)/sysml.SysMLService/$(method)",
                   ["Content-Type" => "application/json"], body;
                   status_exception=false, readtimeout=max(1, round(Int, conn.timeout)))
     catch e
-        throw(TransportError("$(method) failed: $(sprint(showerror, e))"))
+        root = _transport_root_cause(e)
+        message = sprint(showerror, root)
+        failure = "$(method) failed: $(typeof(root)): $(message)"
+        if root isa HTTP.TimeoutError
+            throw(ServiceTimeoutError("deadline_exceeded", failure, 0))
+        end
+        throw(TransportError(failure))
     end
     content_type = lowercase(String(HTTP.header(response, "Content-Type")))
     is_json = occursin("application/json", content_type)
@@ -174,9 +186,35 @@ function call(conn::Connection, method::AbstractString, request)
     return _parse_json(String(response.body), method, response.status)
 end
 
+function _transport_root_cause(error)
+    while true
+        if error isa HTTP.RequestError || error isa HTTP.ConnectError
+            error = error.error
+        elseif error isa TaskFailedException
+            stack = Base.current_exceptions(error.task; backtrace=false)
+            cause = isempty(stack) ? getfield(error.task, :result) : last(stack).exception
+            (cause === nothing || cause === error) && return error
+            error = cause
+        elseif error isa CompositeException
+            isempty(error.exceptions) && return error
+            error = first(error.exceptions)
+        else
+            return error
+        end
+    end
+end
+
+const PROTO_NEGATIVE_DOUBLE_ZERO =
+    r"(?<!\\)\"(?:probability|finalTime|realValue|real|imaginary|realMagnitude|scaleNum|scaleDen|exponent)\"(\s*:\s*)-0(?=\s*[,}\]])"
+
+function _normalize_proto_negative_zero(text::AbstractString)
+    replace(String(text), PROTO_NEGATIVE_DOUBLE_ZERO => matched ->
+        replace(String(matched), r"-0$" => "-0.0"))
+end
+
 function _parse_json(text::AbstractString, method::AbstractString, status::Integer)
     return try
-        JSON.parse(text)
+        JSON.parse(_normalize_proto_negative_zero(text))
     catch
         throw(TransportError("$(method) answered HTTP $(status) with undecodable JSON"))
     end

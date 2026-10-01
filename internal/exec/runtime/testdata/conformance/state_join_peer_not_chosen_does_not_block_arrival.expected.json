@@ -1,0 +1,25 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{"signal": "Prime"},
+		{"signal": "Go"},
+		{"signal": "Finish"},
+		{"signal": "Go"}
+	],
+	"outcomes": [
+		{
+			"finalState": "done",
+			"outputs": {
+				"log": {"type": "String", "value": "C-exit C-effect A-exit A-effect inner opened B-exit B-effect owner-exit out"}
+			}
+		},
+		{
+			"finalState": "done",
+			"outputs": {
+				"log": {"type": "String", "value": "C-exit C-effect inner A-exit A-effect opened B-exit B-effect owner-exit out"}
+			}
+		}
+	],
+	"admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}

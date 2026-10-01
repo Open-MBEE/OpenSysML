@@ -58,7 +58,10 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *J
 	case runtime.ValConst:
 		switch val.Const.Kind {
 		case semantics.ValInt:
-			return &JValue{IntValue: i64(val.Const.Int)}
+			if n, fits := val.Const.Int64(); fits {
+				return &JValue{IntValue: i64(n)}
+			}
+			return &JValue{BigIntValue: text(val.Const.FormatInt())}
 		case semantics.ValReal:
 			return &JValue{RealValue: f64(val.Const.Real)}
 		case semantics.ValBool:
@@ -337,7 +340,11 @@ func quantityToProto(q *runtime.Quantity) *JQuantity {
 	pq := &JQuantity{Unit: q.Unit.Text, UnitTerm: unitTermToProto(q.Unit.Term)}
 	switch q.Num.Kind {
 	case semantics.ValInt:
-		pq.IntMagnitude = i64(q.Num.Int)
+		if n, fits := q.Num.Int64(); fits {
+			pq.IntMagnitude = i64(n)
+		} else {
+			pq.BigIntMagnitude = text(q.Num.FormatInt())
+		}
 	case semantics.ValReal:
 		pq.RealMagnitude = f64(q.Num.Real)
 	default:
@@ -390,6 +397,8 @@ var (
 	errArrayShapeMismatch = errors.New("array elements do not fill its dimensions")
 
 	errVectorComponentNotNumeric = errors.New("vector component is not a number")
+
+	errBigIntegerNotDecimal = errors.New("big Integer is not decimal")
 
 	errVectorQuantityEmpty = errors.New("vector quantity has no components")
 
@@ -472,9 +481,25 @@ func protoToRuntimeValue(rt *runtime.Context, pv *JValue, idx *symbols.Index, se
 			return runtime.Value{}, errInfinityNotAsserted
 		}
 		return protoToScalar(pv), nil
+	case pv.BigIntValue != nil:
+		num, err := protoToBigInteger(*pv.BigIntValue)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}, nil
 	default:
 		return protoToScalar(pv), nil
 	}
+}
+
+// protoToBigInteger reads the decimal a bigIntValue or bigIntMagnitude
+// carries; one within int64 reads as the int64 Integer it equals.
+func protoToBigInteger(digits string) (semantics.Value, error) {
+	num, ok := semantics.ParseInteger(digits)
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %q", errBigIntegerNotDecimal, digits)
+	}
+	return num, nil
 }
 
 // functionFromProto binds a function to the calc its calc_id names in rt's
@@ -628,7 +653,7 @@ func checkShape(dimensions []int64, count int, notPositive, mismatch error) erro
 			return fmt.Errorf("%w: dimension %d is %d", notPositive, i+1, d)
 		}
 		if size > math.MaxInt64/d {
-			return fmt.Errorf("%w: flattenedSize of dimensions %v exceeds the Integer range", mismatch, dimensions)
+			return fmt.Errorf("%w: flattenedSize of dimensions %v is beyond the addressable range", mismatch, dimensions)
 		}
 		size *= d
 	}
@@ -660,7 +685,9 @@ func protoToNumber(pv *JValue) (semantics.Value, error) {
 	}
 	switch {
 	case pv.IntValue != nil:
-		return semantics.Value{Kind: semantics.ValInt, Int: int64(*pv.IntValue)}, nil
+		return semantics.IntValue(int64(*pv.IntValue)), nil
+	case pv.BigIntValue != nil:
+		return protoToBigInteger(*pv.BigIntValue)
 	case pv.RealValue != nil:
 		return semantics.Value{Kind: semantics.ValReal, Real: float64(*pv.RealValue)}, nil
 	}
@@ -712,7 +739,12 @@ func protoToQuantity(pq *JQuantity, idx *symbols.Index, sem *semantics.Model) (r
 	var num semantics.Value
 	switch {
 	case pq.IntMagnitude != nil:
-		num = semantics.Value{Kind: semantics.ValInt, Int: int64(*pq.IntMagnitude)}
+		num = semantics.IntValue(int64(*pq.IntMagnitude))
+	case pq.BigIntMagnitude != nil:
+		num, err = protoToBigInteger(*pq.BigIntMagnitude)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.Unit, err)
+		}
 	case pq.RealMagnitude != nil:
 		num = semantics.Value{Kind: semantics.ValReal, Real: float64(*pq.RealMagnitude)}
 	default:
@@ -1209,7 +1241,13 @@ func enumLiteralFromProto(rt *runtime.Context, lit *JEnumLiteral, idx *symbols.I
 func protoToScalar(pv *JValue) runtime.Value {
 	switch {
 	case pv.IntValue != nil:
-		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: int64(*pv.IntValue)}}
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.IntValue(int64(*pv.IntValue))}
+	case pv.BigIntValue != nil:
+		num, err := protoToBigInteger(*pv.BigIntValue)
+		if err != nil {
+			return runtime.Value{Kind: runtime.ValNull}
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}
 	case pv.RealValue != nil:
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: float64(*pv.RealValue)}}
 	case pv.BoolValue != nil:
