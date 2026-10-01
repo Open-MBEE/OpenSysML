@@ -206,6 +206,80 @@ export class ConversionError extends OpenSysMLError {
 /** The service sent a value the wire format cannot represent, or a caller sent one it cannot carry. */
 export class UnsupportedValueError extends OpenSysMLError {}
 
+/** A feature value could not be evaluated or was never materialized. */
+export class FeatureValueError extends OpenSysMLError {
+  /** Name of the feature. */
+  readonly featureName: string;
+  /** Error description the service reported. */
+  readonly message: string;
+
+  constructor(featureName: string, message: string) {
+    super(`feature value ${JSON.stringify(featureName)}: ${message}`);
+    this.featureName = featureName;
+    this.message = message;
+  }
+}
+
+/** A feature holds a value of another type than its generated view declares. */
+export class TypeMismatchError extends OpenSysMLError {
+  /** Name of the feature. */
+  readonly featureName: string;
+  /** Type the generated class declares. */
+  readonly expected: string;
+  /** The value actually decoded. */
+  readonly value: unknown;
+
+  constructor(featureName: string, expected: string, value: unknown) {
+    super(`feature value ${JSON.stringify(featureName)}: expected ${expected}, got ${describeValue(value)}`);
+    this.featureName = featureName;
+    this.expected = expected;
+    this.value = value;
+  }
+}
+
+/** A generated typed view was asked to wrap an instance of another type. */
+export class InstanceTypeError extends OpenSysMLError {
+  /** FQN of the definition the generated class views. */
+  readonly expected: string;
+  /** FQN the instance reports as its type. */
+  readonly actual: string;
+
+  constructor(expected: string, actual: string) {
+    super(
+      `instance of ${JSON.stringify(actual)} is not a ${JSON.stringify(expected)}; ` +
+        "call the generated class's unchecked(instance) to view it without this check",
+    );
+    this.expected = expected;
+    this.actual = actual;
+  }
+}
+
+function describeValue(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "[unprintable]";
+    }
+  }
+  switch (typeof value) {
+    case "string":
+      return JSON.stringify(value);
+    case "number":
+      return String(value);
+    case "bigint":
+      return `${value.toString()}n`;
+    case "boolean":
+    case "undefined":
+      return String(value);
+    default:
+      return "[unprintable]";
+  }
+}
+
 /** A query payload is not one the SysML v2 API & Services query model describes. */
 export class QueryError extends OpenSysMLError {}
 

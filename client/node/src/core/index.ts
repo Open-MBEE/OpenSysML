@@ -184,7 +184,9 @@ export {
   EditTargetError,
   EvaluationError,
   ExecutionError,
+  FeatureValueError,
   IllegalMemberKindError,
+  InstanceTypeError,
   InvalidEditError,
   InvalidRequestError,
   MemberNameTakenError,
@@ -209,6 +211,7 @@ export {
   ServiceTimeoutError,
   StaleServiceError,
   SymbolNotFoundError,
+  TypeMismatchError,
   UnpinnedReleaseError,
   UnsignedReleaseError,
   UnsupportedOperationError,
@@ -216,6 +219,28 @@ export {
   WrongKindError,
 } from "./errors.js";
 export type { FailureCause, ModelDiagnostic } from "./errors.js";
+export {
+  TypedObject,
+  asBoolean,
+  asComplex,
+  asEnum,
+  asInt,
+  asObject,
+  asQuantity,
+  asReal,
+  asString,
+  asTyped,
+  featureValue,
+  listFeatureValue,
+  optionalFeatureValue,
+  registerTyped,
+} from "./typed.js";
+export type {
+  FeatureDecoder,
+  InstanceResolver,
+  Quantity,
+  TypedObjectClass,
+} from "./typed.js";
 export { callRpc, fromHandshakeError, fromRpcError, statusName } from "./status.js";
 export type { NotFoundSubject, UnimplementedMapping } from "./status.js";
 export {
