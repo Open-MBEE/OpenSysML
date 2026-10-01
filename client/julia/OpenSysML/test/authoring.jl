@@ -38,6 +38,108 @@ function authoring_service(capabilities, response)
     server, requests, "127.0.0.1:$(port)"
 end
 
+@testset "authoring shorthand serialization and accessors" begin
+    capabilities = Ref(copy(AUTHORING_CAPABILITIES))
+    response = Ref(JSON.json(Dict("content" => "edited")))
+    server, requests, address = authoring_service(capabilities, response)
+    conn = external(address)
+    try
+        cases = Any[
+            ("add_entry_transition",
+             e -> add_entry_transition(e, "P::Machine", "idle"),
+             e -> OpenSysML._editor_add!(
+                 e, ("add_transition", "P::Machine", "", "", "idle", "", "", "", true))),
+            ("add_require_constraint",
+             e -> add_require_constraint(e, "P::R", "true", "rule"),
+             e -> add_requirement_constraint(e, "P::R", "require", "true", "rule")),
+            ("add_assume_constraint",
+             e -> add_assume_constraint(e, "P::R", "true", "rule"),
+             e -> add_requirement_constraint(e, "P::R", "assume", "true", "rule")),
+            ("add_allocation",
+             e -> add_allocation(e, "P::S", "a", "b"; name="alloc", type="T"),
+             e -> add_connection(e, "P::S", "allocation", "a", "b";
+                                 name="alloc", type="T")),
+            ("add_flow",
+             e -> add_flow(e, "P::S", "a", "b"; name="transfer", type="T"),
+             e -> add_connection(e, "P::S", "flow", "a", "b";
+                                 name="transfer", type="T")),
+            ("add_succession",
+             e -> add_succession(e, "P::A", "first", "next"; name="steps"),
+             e -> add_connection(e, "P::A", "succession", "first", "next";
+                                 name="steps")),
+            ("add_return",
+             e -> add_return(e, "P::A", "result"; type="Integer"),
+             e -> add_member(e, "P::A", "return", "result"; type="Integer")),
+            ("add_action_def",
+             e -> add_action_def(e, "P", "Run", [("x", "Integer")],
+                                 [("y", "Integer")]; doc="Runs"),
+             e -> (add_member(e, "P", "action def", "Run"; doc="Runs");
+                   add_parameter(e, "P::Run", "in", "x"; type="Integer");
+                   add_parameter(e, "P::Run", "out", "y"; type="Integer"))),
+            ("add_perform_action",
+             e -> add_perform_action(e, "P", "run", "P::Run"; doc="Runs"),
+             e -> add_member(e, "P", "perform action", "run";
+                             type="P::Run", doc="Runs")),
+            ("add_perform",
+             e -> add_perform(e, "P", "run", "Runs"),
+             e -> add_member(e, "P", "perform", "run"; doc="Runs")),
+            ("add_exhibit_state",
+             e -> add_exhibit_state(e, "P", "active", "P::Active"),
+             e -> add_member(e, "P", "exhibit state", "active"; type="P::Active")),
+            ("add_exhibit",
+             e -> add_exhibit(e, "P", "active"),
+             e -> add_member(e, "P", "exhibit", "active")),
+        ]
+        member_helpers = [
+            (:add_package, "package"), (:add_part_def, "part def"), (:add_part, "part"),
+            (:add_attribute_def, "attribute def"), (:add_attribute, "attribute"),
+            (:add_item_def, "item def"), (:add_item, "item"),
+            (:add_port_def, "port def"), (:add_port, "port"), (:add_class, "class"),
+            (:add_struct, "struct"), (:add_datatype, "datatype"),
+            (:add_classifier, "classifier"), (:add_feature, "feature"),
+            (:add_assoc, "assoc"), (:add_behavior, "behavior"),
+            (:add_function, "function"), (:add_predicate, "predicate"),
+            (:add_interaction, "interaction"), (:add_metaclass, "metaclass"),
+            (:add_state_def, "state def"), (:add_state, "state"),
+            (:add_requirement_def, "requirement def"), (:add_requirement, "requirement"),
+        ]
+        member_case = (function_name, kind) -> (
+            String(function_name),
+            e -> getfield(OpenSysML, function_name)(e, "P", "X"; type="T"),
+            e -> add_member(e, "P", kind, "X"; type="T"),
+        )
+        append!(cases, member_case(function_name, kind)
+                for (function_name, kind) in member_helpers)
+
+        body = Body()
+        add_first(body, "start")
+        body_copy = operations(body)
+        empty!(body_copy)
+        @test length(body) == 1
+
+        for (name, shorthand, equivalent) in cases
+            @testset "$name" begin
+                shorthand_editor = Editor("model-hash", conn)
+                equivalent_editor = Editor("model-hash", conn)
+                shorthand(shorthand_editor)
+                equivalent(equivalent_editor)
+                snapshot = operations(shorthand_editor)
+                empty!(snapshot)
+                @test length(shorthand_editor) > 0
+                @test !applied(shorthand_editor)
+                apply_edits(shorthand_editor)
+                shorthand_json = deepcopy(last(requests).body["operations"])
+                apply_edits(equivalent_editor)
+                @test shorthand_json == last(requests).body["operations"]
+                @test applied(shorthand_editor)
+            end
+        end
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "authoring request serialization and results" begin
     capabilities = Ref(copy(AUTHORING_CAPABILITIES))
     response = Ref(JSON.json(Dict(
@@ -397,6 +499,49 @@ end
             @test isempty(edited.content)
             @test edited.documents == [EditedDocument(
                 "a.sysml", "package A { part def Car; }")]
+        finally
+            close(conn)
+        end
+    end
+end
+
+@testset "live authoring shorthands" begin
+    if !isfile(GRPC_BINARY)
+        @test_skip false
+    else
+        conn = private(binary=GRPC_BINARY)
+        try
+            model = parse_source(conn, """
+                package P {
+                    part def Vehicle;
+                    part def Engine {
+                        attribute fuel : ScalarValues::Integer;
+                    }
+                    state def Machine;
+                }
+                """; name="shorthands.sysml")
+            editor = edit(model)
+            add_package(editor, "P", "Nested")
+            add_part_def(editor, "P", "NewEngine")
+            add_part(editor, "P::Vehicle", "source"; type="P::Engine")
+            add_part(editor, "P::Vehicle", "target"; type="P::Engine")
+            add_attribute(editor, "P::Vehicle", "mass";
+                          type="ScalarValues::Integer", value="1")
+            add_action_def(editor, "P::Vehicle", "Run",
+                [("input", "ScalarValues::Integer")],
+                [("output", "ScalarValues::Integer")])
+            add_state_def(editor, "P", "AddedMachine")
+            add_state(editor, "P::Machine", "idle")
+            add_entry_transition(editor, "P::Machine", "idle")
+            add_flow(editor, "P::Vehicle", "source.fuel", "target.fuel")
+
+            result = apply_edits(editor)
+            reparsed = parse_source(conn, result.content; name="shorthands-edited.sysml")
+            @test !isempty(result.content)
+            @test all(d -> d.severity != "error", diagnostics(reparsed))
+            @test occursin("package Nested", result.content)
+            @test occursin("action def Run", result.content)
+            @test occursin("entry; then idle;", result.content)
         finally
             close(conn)
         end

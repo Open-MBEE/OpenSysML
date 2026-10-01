@@ -488,6 +488,9 @@ Editor(model_hash::AbstractString, conn::Connection) =
 Editor(model_hash::AbstractString, ::Nothing) =
     Editor(String(model_hash), nothing, Any[], false, nothing)
 Editor(model::Model) = Editor(model.hash, model.connection, Any[], false, model)
+operations(body::Body) = copy(body.operations)
+operations(editor::Editor) = copy(editor.operations)
+applied(editor::Editor) = editor.applied
 Base.length(editor::Editor) = length(editor.operations)
 Base.isempty(editor::Editor) = isempty(editor.operations)
 Base.show(io::IO, editor::Editor) =
@@ -626,7 +629,8 @@ function add_satisfy(editor::Editor, owner, requirement; by=nothing, asserted=fa
         by === nothing ? "" : String(by), asserted, negated))
 end
 
-function add_requirement_constraint(editor::Editor, owner, kind, expression; name=nothing)
+function add_requirement_constraint(editor::Editor, owner, kind, expression,
+                                    positional_name=nothing; name=positional_name)
     kind isa AbstractString && expression isa AbstractString ||
         throw(ArgumentError("kind and expression must be notation text"))
     name === nothing || name isa AbstractString || throw(ArgumentError("name must be notation text"))
@@ -1042,9 +1046,11 @@ function add_import(editor::Editor, owner, target; visibility=nothing, recursive
         recursive, all, filters))
 end
 
-add_require_constraint(editor::Editor, owner, expression; name=nothing) =
+add_require_constraint(editor::Editor, owner, expression, positional_name=nothing;
+                       name=positional_name) =
     add_requirement_constraint(editor, owner, "require", expression; name=name)
-add_assume_constraint(editor::Editor, owner, expression; name=nothing) =
+add_assume_constraint(editor::Editor, owner, expression, positional_name=nothing;
+                      name=positional_name) =
     add_requirement_constraint(editor, owner, "assume", expression; name=name)
 
 function add_connection(editor::Editor, owner, kind, from_, to; name=nothing, type=nothing)
@@ -1164,10 +1170,16 @@ function _add_action_with_parameters(editor, owner, kind, name, inputs, outputs;
     end
     editor
 end
-add_action_def(editor::Editor, owner, name; inputs=nothing, outputs=nothing, kwargs...) =
+function add_action_def(editor::Editor, owner, name, positional_inputs=nothing,
+                        positional_outputs=nothing; inputs=positional_inputs,
+                        outputs=positional_outputs, kwargs...)
     _add_action_with_parameters(editor, owner, "action def", name, inputs, outputs; kwargs...)
-add_action(editor::Editor, owner, name; inputs=nothing, outputs=nothing, kwargs...) =
+end
+function add_action(editor::Editor, owner, name, positional_inputs=nothing,
+                    positional_outputs=nothing; inputs=positional_inputs,
+                    outputs=positional_outputs, kwargs...)
     _add_action_with_parameters(editor, owner, "action", name, inputs, outputs; kwargs...)
+end
 
 add_perform_action(editor::Editor, owner, name, positional_type=nothing;
                    type=positional_type, kwargs...) =

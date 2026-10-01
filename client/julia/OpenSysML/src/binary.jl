@@ -5,6 +5,7 @@ const MAX_METADATA_BYTES = 8 * 1024 * 1024
 const ALLOW_UNPINNED_ENV = "OPENSYSML_ALLOW_UNPINNED_DOWNLOAD"
 const BINARY_ENV = "OPENSYSML_BINARY"
 const PINNED_DIGESTS_FILE = normpath(joinpath(@__DIR__, "..", "release-digests.json"))
+Base.include_dependency(PINNED_DIGESTS_FILE)
 const PINNED_SHA256 = JSON.parsefile(PINNED_DIGESTS_FILE)
 const _BINARY_CACHE_LOCK = ReentrantLock()
 const _BINARY_CACHE_LOCK_DEPTH = Ref(0)
