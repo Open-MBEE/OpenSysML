@@ -212,6 +212,89 @@ export class QueryError extends OpenSysMLError {}
 /** A document query binding cannot be written before anything is sent. */
 export class DocumentQueryError extends OpenSysMLError {}
 
+/** One declaration referring to the target of a refused rename, delete or move. */
+export class Referrer {
+  /** The referring declaration, as the notation names it. */
+  readonly name: string;
+  /** The document declaring it, as the parse named it. */
+  readonly document: string;
+
+  constructor(name: string, document: string) {
+    this.name = name;
+    this.document = document;
+  }
+}
+
+/** An edit to a model was refused, and nothing was changed. */
+export class EditError extends OpenSysMLError {
+  /** Refusal kind, as the wire enum names it, e.g. `EDIT_FAILURE_UNKNOWN_TARGET`. */
+  readonly failure: string;
+  /** Diagnostics behind the refusal. */
+  readonly diagnostics: readonly ModelDiagnostic[];
+  /** Where references a refused rename, delete or move would have broken are made. */
+  readonly referringElements: readonly string[];
+  /** The same referrers, each with the document declaring it. */
+  readonly referrers: readonly Referrer[];
+
+  constructor(
+    message: string,
+    options: {
+      failure?: string;
+      diagnostics?: readonly ModelDiagnostic[];
+      referringElements?: readonly string[];
+      referrers?: readonly Referrer[];
+    } = {},
+  ) {
+    super(message);
+    this.failure = options.failure ?? "";
+    this.diagnostics = options.diagnostics ?? [];
+    this.referringElements = [...(options.referringElements ?? [])];
+    this.referrers = [...(options.referrers ?? [])];
+  }
+}
+
+/** An editor with no operations was applied. */
+export class NoEditsError extends EditError {}
+
+/** The element an edit names cannot carry that edit. */
+export class EditTargetError extends EditError {}
+
+/** The new value or name itself cannot be read. */
+export class InvalidEditError extends EditError {}
+
+/** A rename would break references to the renamed element. */
+export class RenameReferencedError extends EditError {}
+
+/** Two operations would edit the same bytes of the source. */
+export class OverlappingEditsError extends EditError {}
+
+/** The edited notation could not be read back. */
+export class EditResultError extends EditError {}
+
+/** An add-member owner is not declared in the model. */
+export class OwnerNotFoundError extends EditError {}
+
+/** An add-member owner cannot contain members. */
+export class OwnerNotNamespaceError extends EditError {}
+
+/** A declaration kind is invalid for the source language. */
+export class IllegalMemberKindError extends InvalidEditError {}
+
+/** An owner already declares the requested member name. */
+export class MemberNameTakenError extends EditError {}
+
+/** A referenced declaration is deleted without cascade. */
+export class DeleteReferencedError extends EditError {}
+
+/** A move's new owner is the moved declaration or inside it. */
+export class OwnerInsideTargetError extends EditError {}
+
+/** A move would leave a reference no spelling can restore. */
+export class MoveReferencedError extends EditError {}
+
+/** A rename, delete or move is referred to from a document the edit cannot rewrite. */
+export class ReferencedElsewhereError extends EditError {}
+
 /** The service's classification of a failure it reported in a successful answer. */
 export type FailureCause =
   | "unspecified"

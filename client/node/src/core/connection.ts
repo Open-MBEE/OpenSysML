@@ -4,6 +4,7 @@
 import { Code, ConnectError, createClient, type Client, type Transport } from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
 import {
+  CAPABILITY_APPLY_EDITS,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -35,6 +36,7 @@ import {
   UnsupportedValueError,
 } from "./errors.js";
 import {
+  ApplyEditsRequestSchema,
   ExecuteActionRequestSchema,
   ExecuteStateRequestSchema,
   ConvertRequestSchema,
@@ -103,6 +105,14 @@ import {
   type SysMLValue,
   type ValueInput,
 } from "./values.js";
+import {
+  editErrorOf,
+  editResultOf,
+  EditRequestBuilder,
+  Editor,
+  type EditOperationData,
+  type EditResult,
+} from "./edit.js";
 
 /** Wire encoding of the request and response bodies. Protobuf is the default. */
 export type Encoding = "protobuf" | "json";
@@ -397,6 +407,41 @@ export class Connection {
       capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY]),
     );
     return documentResult(response);
+  }
+
+  /** Applies source-preserving edits to a loaded model. */
+  async applyEdits(
+    modelHash: string,
+    operations: readonly EditOperationData[],
+  ): Promise<EditResult> {
+    requireCapability(
+      this.info,
+      CAPABILITY_APPLY_EDITS,
+      upgradeRemedy(CAPABILITY_APPLY_EDITS),
+    );
+    const { operations: built, capabilities } = new EditRequestBuilder(this.info).build(operations);
+    const response = await callRpc(
+      this.rpc.applyEdits(
+        create(ApplyEditsRequestSchema, {
+          modelHash,
+          operations: built,
+          acceptDocuments: true,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    const refusal = editErrorOf(response);
+    if (refusal !== undefined) {
+      throw refusal;
+    }
+    return editResultOf(response);
+  }
+
+  /** Starts an edit of a loaded model, applied with {@link Editor.apply}. */
+  edit(modelHash: string): Editor {
+    return new Editor(modelHash, (hash, operations) => this.applyEdits(hash, operations));
   }
 
   /** Renders a named document to Markdown or HTML. */

@@ -93,7 +93,8 @@ export async function connect(options: ConnectOptions = {}): Promise<Connection>
 
 /**
  * Writes `target` to `path`: a model converted in the format its extension
- * names, or a conversion's content written as the service returned it.
+ * names, or a conversion's or edit result's content written as the service
+ * returned it (empty for a multi-document edit).
  */
 export async function save(
   target: Model | Conversion,

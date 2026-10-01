@@ -14,6 +14,7 @@ import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion } from "./conversion.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
+import type { Editor } from "./edit.js";
 import type { Exploration } from "./exploration.js";
 import type {
   AnalysisResult,
@@ -312,6 +313,11 @@ export class Model {
     options: { form?: "markdown" | "html" } = {},
   ): Promise<string> {
     return this.connection.renderDocument(this.hash, documentId, options);
+  }
+
+  /** Starts an edit of this model, to be applied in one call. */
+  edit(): Editor {
+    return this.connection.edit(this.hash);
   }
 
   /** Executes an action definition of this model. */
