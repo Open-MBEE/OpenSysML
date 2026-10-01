@@ -27,7 +27,7 @@ func doc() usage.Doc {
 	return usage.Doc{
 		Command:    "sysml",
 		ManSection: 1,
-		Summary:    "run, check, convert and render SysML v2 and KerML models",
+		Summary:    "run, check, convert and render SysML v2 and KerML models, and migrate SysML v1",
 		Synopsis:   []string{"[options] [file...]"},
 		Description: []string{
 			"sysml loads the models it is given — a file, a directory to walk or a " +
@@ -292,15 +292,11 @@ func doc() usage.Doc {
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
 					".ttl, .json, .fmu) unless -from names it: sysml, kerml, ttl, turtle, " +
-					"rdf, api-json, fmu for a Functional Mock-up Unit to import, or " +
-					"xmi, uml or mdzip for a SysML v1 model to " +
-					"migrate, whose " +
-					"element-by-element report -migration-report writes out; -layout " +
-					"names an MTIP export of the same project, whose diagram geometry " +
-					"is written into the migrated views as DiagramLayout metadata. " +
+					"rdf, api-json, or fmu for a Functional Mock-up Unit to import. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
-					"is normalized.",
+					"is normalized. A SysML v1 model (.xmi, .uml, .mdzip) is refused: " +
+					"it is migrated, not converted; see Migration.",
 				"Either side may name a Flexo MMS project branch instead of a file: " +
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
 					"or flexo://{project}/{branch}, both naming the endpoint " +
@@ -314,9 +310,48 @@ func doc() usage.Doc {
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
-				convert.MigrationNotice,
-				"Every run that converts RDF or migrates a v1 model says so on stderr. " +
+				"Every run that converts RDF says so on stderr. " +
 					"Saving to .sysml or .kerml is stable.",
+			},
+		}, {
+			Title: "Migration",
+			Examples: []usage.Example{
+				usage.Ex("sysml Model.mdzip -migrate sysml -o Model.sysml", "A Cameo project as notation"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -o Model.sysml -migration-report Model.report.txt", ""),
+				usage.Ex("sysml Model.xmi -migrate ttl -o Model.ttl", "A v1 XMI export as RDF Turtle"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -layout Model_mtip.xml", "Views laid out from MTIP"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -migration-results runs.json", "Index the tool's results"),
+				usage.Ex("sysml Model.sysml -compare-results runs.json", "Then compare with the tool's"),
+				usage.Ex("sysml export.xml -from xmi -migrate sysml", "Name the v1 form explicitly"),
+			},
+			Paragraphs: []string{
+				"A SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an " +
+					"Eclipse UML2 .uml file, or a Cameo/MagicDraw .mdzip archive — is " +
+					"migrated to SysML v2, not converted: the migration is ledgered, " +
+					"not lossless. Every v1 element gets one of three verdicts, mapped " +
+					"(written as the v2 construct it corresponds to), approximated " +
+					"(written as the nearest v2 construct, with a note saying what " +
+					"differs) or unmapped (left behind, with the reason); profile, " +
+					"library and notation content nothing refers to is skipped. The " +
+					"one-line summary of the verdicts goes to stderr; -migration-report " +
+					"writes the element-by-element ledger to a file, JSON when it ends " +
+					"in .json, text otherwise. -convert refuses a v1 model for this reason.",
+				"-from names the v1 form (xmi, uml or mdzip) when the extension does " +
+					"not; -migrate writes sysml, kerml, ttl, turtle, rdf or api-json, " +
+					"and refuses an input that is not v1, which -convert handles. " +
+					"-layout names an MTIP export of the same project, whose diagram " +
+					"geometry is written into the migrated views as DiagramLayout " +
+					"metadata; -image-base-url resolves the relative <img src> of a " +
+					"comment to the server serving it; -migration-results writes the " +
+					"simulation tool's run configurations and the result snapshots it " +
+					"stored as a JSON sidecar, which -compare-results on the migrated " +
+					"model runs against; -strict writes only notation a pinned SysML v2 " +
+					"production admits, reporting a construct whose only v2 form is an " +
+					"OpenSysML extension as unmapped. The images a document's Image " +
+					"blocks carry are written beside -o, so a migration that wrote any " +
+					"needs -o a local file path.",
+				convert.MigrationNotice,
+				"Every run that migrates a v1 model says so on stderr.",
 			},
 		}, {
 			Title: "Native compilation",
@@ -600,15 +635,16 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, fmu for a Functional Mock-up Unit to import, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
+	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph. A SysML v1 model is refused: it is migrated, with -migrate")
+	fs.StringVar(&migrateFormat, "migrate", "", "Migrate the SysML v1 model (.xmi, .uml or .mdzip; -from names the format when the extension does not) to SysML v2, written in this format: sysml, kerml, ttl, turtle, rdf or api-json. Ledgered, not lossless: every element is mapped, approximated or left unmapped, and -migration-report says which (experimental)")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, or fmu for a Functional Mock-up Unit to import; for -migrate: xmi, uml or mdzip, the forms of a SysML v1 model; default the input's extension")
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
-	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
-	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
-	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
-	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
-	fs.StringVar(&layoutPath, "layout", "", "With -convert from xmi, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
-	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -convert from xmi, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
+	fs.StringVar(&outputPath, "output", "", "Write what -convert, -migrate, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl or -migrate ttl, a Flexo branch URL pushes the graph to the branch")
+	fs.StringVar(&outputPath, "o", "", "Write what -convert, -migrate, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl or -migrate ttl, a Flexo branch URL pushes the graph to the branch")
+	fs.StringVar(&migrationReport, "migration-report", "", "With -migrate, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
+	fs.StringVar(&migrationResults, "migration-results", "", "With -migrate, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
+	fs.StringVar(&layoutPath, "layout", "", "With -migrate, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
+	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -migrate, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
@@ -736,6 +772,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("id", nameArg),
 			usage.Opt("output", fileArg, "o"),

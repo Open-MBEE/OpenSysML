@@ -302,7 +302,7 @@ func loadSyncGraph(path string) (*rdf.Graph, error) {
 	case convert.FormatAPIJSON:
 		return export.ReadAPIJSON(data)
 	case convert.FormatXMI:
-		return nil, fmt.Errorf("%s is SysML v1 XMI, which a sync cannot read; migrate it first with `sysml %s -convert sysml -o model.sysml`", path, path)
+		return nil, fmt.Errorf("%s is SysML v1 XMI, which a sync cannot read; migrate it first with `sysml %s -migrate sysml -o model.sysml`", path, path)
 	}
 	return convert.SysMLToRDF(name, data)
 }
