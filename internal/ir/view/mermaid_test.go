@@ -395,6 +395,14 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		!strings.Contains(undrawnEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
 		t.Errorf("note with no drawn edge was not omitted and noticed:\n%s", undrawnEdgeNote)
 	}
+	undrawnEdgeNoteOnly := (&Rendering{Kind: KindAction,
+		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
+	}).Mermaid()
+	if !strings.Contains(undrawnEdgeNoteOnly, "empty[") ||
+		strings.Contains(undrawnEdgeNoteOnly, "note0@{") ||
+		!strings.Contains(undrawnEdgeNoteOnly, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
+		t.Errorf("undrawn edge note left an otherwise empty flowchart without a placeholder or notice:\n%s", undrawnEdgeNoteOnly)
+	}
 	reversedEdgeNote := (&Rendering{Kind: KindAction,
 		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
 		Edges: []Edge{{From: "b", To: "a", Kind: EdgeFlow}},

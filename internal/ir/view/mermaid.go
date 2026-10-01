@@ -552,7 +552,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	portEnds := r.portEnds(ports)
 	noteOwners := flowchart.flowchartNoteOwners(ports)
 	w.clusterAnchors = r.flowchartClusterAnchors(portEnds, ports, noteOwners)
-	if r.blank() && len(r.Pictures) == 0 && len(r.Notes) == 0 {
+	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
 		for _, root := range r.Roots {
