@@ -3,6 +3,8 @@ package org.openmbee.opensysml.internal;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.openmbee.opensysml.Encoding;
+import org.openmbee.opensysml.ModelFileNotFoundException;
+import org.openmbee.opensysml.ModelNotFoundException;
 import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.TransportException;
@@ -15,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -150,7 +153,20 @@ public final class ConnectTransport implements AutoCloseable {
     } catch (IllegalArgumentException e) {
       // Not a Connect error body; the HTTP status and the text are the whole answer.
     }
-    return new ServiceException(status, method + ": " + message);
+    return serviceException(status, method + ": " + message);
+  }
+
+  static ServiceException serviceException(StatusCode status, String message) {
+    if (status == StatusCode.NOT_FOUND) {
+      String lowered = message.toLowerCase(Locale.ROOT);
+      if (lowered.contains("file not found") || lowered.contains("no such file")) {
+        return new ModelFileNotFoundException(message);
+      }
+      if (lowered.contains("model not found")) {
+        return new ModelNotFoundException(message);
+      }
+    }
+    return new ServiceException(status, message);
   }
 
   /** Releases the threads this transport owns. The service, if any, is not touched. */
