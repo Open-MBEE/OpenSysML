@@ -128,7 +128,7 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labelle
 	}
 	extra := 0
 	for _, root := range r.Roots {
-		extra = max(extra, clusterTitleExtraLines(root, labels))
+		extra = max(extra, clusterTitleExtraLines(root, r.Kind == KindInterconnection, labels))
 	}
 	if extra == 0 {
 		return
@@ -136,17 +136,30 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labelle
 	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
 }
 
-// clusterTitleExtraLines is the most lines beyond the first spanned by the
-// title of node or of a cluster under it.
-func clusterTitleExtraLines(node *Node, labels labeller) int {
+// clusterTitleExtraLines is the most lines beyond the first spanned by the title
+// of node or of a cluster under it, its port lines counted when ports asks.
+func clusterTitleExtraLines(node *Node, ports bool, labels labeller) int {
 	if len(node.Children) == 0 {
 		return 0
 	}
-	extra := len(labels.lines(node)) - 1
+	extra := len(labels.lines(node)) + len(flowchartPortLines(node, ports)) - 1
 	for _, child := range node.Children {
-		extra = max(extra, clusterTitleExtraLines(child, labels))
+		extra = max(extra, clusterTitleExtraLines(child, ports, labels))
 	}
 	return extra
+}
+
+// flowchartPortLines is the lines a flowchart label names node's ports on,
+// one per port, none unless ports asks: a flowchart has no port element.
+func flowchartPortLines(node *Node, ports bool) []string {
+	if !ports {
+		return nil
+	}
+	lines := make([]string, 0, len(node.Ports))
+	for _, port := range node.Ports {
+		lines = append(lines, "port "+port.label())
+	}
+	return lines
 }
 
 // writeFlowchart writes the tree, interconnection and action renderings as a
@@ -225,10 +238,8 @@ func mermaidStyleCSS(style *Style) string {
 func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, ports bool, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	label := labels.mermaid(node)
-	if ports {
-		for _, port := range node.Ports {
-			label += "<br>" + mermaidText("port "+port.label())
-		}
+	for _, line := range flowchartPortLines(node, ports) {
+		label += "<br>" + mermaidText(line)
 	}
 	if len(node.Children) == 0 {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)

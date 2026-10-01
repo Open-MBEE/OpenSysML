@@ -244,8 +244,12 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 			sensor.ID, reading.ID, heating.ID, in.ID)
 	}
 	mermaid := rendering.Mermaid()
-	if want := "subgraph " + sensor.ID + " [\"sensor : Sensor<br>«part»<br>port reading : DurationPort\"]"; !strings.Contains(mermaid, want) {
-		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+	// The three-line title needs two lines of margin under it, 24 pixels each.
+	for _, want := range []string{"subgraph " + sensor.ID + " [\"sensor : Sensor<br>«part»<br>port reading : DurationPort\"]",
+		"    subGraphTitleMargin:\n      bottom: 48\n"} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+		}
 	}
 	dot, err := rendering.DOT()
 	if err != nil {
