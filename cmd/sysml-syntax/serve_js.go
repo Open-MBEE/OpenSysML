@@ -6,18 +6,18 @@ import (
 	"context"
 	"syscall/js"
 
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 )
 
-// serve installs globalThis.sysmlEngine — call(method, paramsJSON) answering
+// serve installs globalThis.sysmlSyntax — call(method, paramsJSON) answering
 // the JSON-RPC response body, synchronous on the JS thread — and blocks
 // forever, unless -stdio asks for the pipe protocol instead.
-func serve(eng *engine.Engine, useStdio bool) int {
+func serve(useStdio bool) int {
 	if useStdio {
-		return serveStdio(eng)
+		return serveStdio()
 	}
-	js.Global().Set("sysmlEngine", map[string]any{
+	js.Global().Set("sysmlSyntax", map[string]any{
 		"version": Version,
 		"call": js.FuncOf(func(_ js.Value, args []js.Value) any {
 			method, params := "", ""
@@ -30,9 +30,9 @@ func serve(eng *engine.Engine, useStdio bool) int {
 			var body []byte
 			var err error
 			if params == "" {
-				body, err = eng.Call(context.Background(), method, nil)
+				body, err = syntax.Call(context.Background(), method, nil)
 			} else {
-				body, err = eng.Call(context.Background(), method, []byte(params))
+				body, err = syntax.Call(context.Background(), method, []byte(params))
 			}
 			return jsonrpc.Envelope(body, err)
 		}),
