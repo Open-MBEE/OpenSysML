@@ -251,6 +251,30 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 			}`,
 			step: "run",
 		},
+		{
+			name: "part-level performed action nested in part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part def Host {
+					part camera : Camera {
+						perform action takePhoto[2] : Act;
+					}
+				}
+			}`,
+			step: "takePhoto",
+		},
+		{
+			name: "part-level performed action on top-level part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part camera : Camera {
+					perform action takePhoto[2] : Act;
+				}
+			}`,
+			step: "takePhoto",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

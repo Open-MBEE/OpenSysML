@@ -162,7 +162,7 @@ public final class ConnectTransport implements AutoCloseable {
       if (lowered.contains("file not found") || lowered.contains("no such file")) {
         return new ModelFileNotFoundException(message);
       }
-      if (lowered.contains("model not found")) {
+      if (lowered.contains("model not found") || lowered.contains("is no longer cached")) {
         return new ModelNotFoundException(message);
       }
     }

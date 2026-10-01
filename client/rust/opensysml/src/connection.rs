@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
-use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS};
+use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
     ServerInfo, Symbol,
@@ -60,13 +60,13 @@ pub(crate) struct ConnectionInner {
 }
 
 impl Connection {
-    /// Start or join the process-wide private sysml-grpc child.
+    /// Start or join the process-wide private sysml-grpc child; one that has exited is replaced.
     pub fn private() -> Result<Self, Error> {
         let private = {
             let mut registry = private_service()
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner);
-            if let Some(existing) = registry.upgrade() {
+            if let Some(existing) = registry.upgrade().filter(|service| service.running()) {
                 existing
             } else {
                 let started = Arc::new(PrivateService::start()?);
@@ -130,7 +130,6 @@ impl Connection {
                 .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
         let request = wire::ParseFileRequest {
-            language: options.language.as_str().to_owned(),
             strict_conformance: options.strict_conformance,
             source: Some(wire::parse_file_request::Source::FilePath(
                 path.as_ref().to_string_lossy().into_owned(),
@@ -150,12 +149,17 @@ impl Connection {
             self.capabilities()
                 .require("strict_conformance", upgrade_remedy("strict_conformance"))?;
         }
-        if options.language == Language::Kerml {
-            self.capabilities()
-                .require("inline_language", upgrade_remedy("inline_language"))?;
-        }
+        // An empty language is SysML to every service, including one without `inline_language`.
+        let language = match options.language {
+            Language::Sysml => "",
+            Language::Kerml => {
+                self.capabilities()
+                    .require("inline_language", upgrade_remedy("inline_language"))?;
+                "kerml"
+            }
+        };
         let request = wire::ParseFileRequest {
-            language: options.language.as_str().to_owned(),
+            language: language.to_owned(),
             strict_conformance: options.strict_conformance,
             source: Some(wire::parse_file_request::Source::Content(
                 content.to_owned(),
@@ -263,6 +267,10 @@ impl Connection {
         model_hash: &str,
         symbol_id: &str,
     ) -> Result<Instantiation, Error> {
+        self.capabilities().require(
+            CAPABILITY_FEATURE_VALUES,
+            upgrade_remedy(CAPABILITY_FEATURE_VALUES),
+        )?;
         let response: wire::InstantiateResponse = self.rpc(
             "Instantiate",
             wire::InstantiateRequest {
@@ -566,6 +574,16 @@ impl PrivateService {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .id()
+    }
+
+    fn running(&self) -> bool {
+        matches!(
+            self.process
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .try_wait(),
+            Ok(None)
+        )
     }
 }
 

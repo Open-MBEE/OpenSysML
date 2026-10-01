@@ -116,11 +116,23 @@ func (c *actionStepMultiplicityChecker) walkNode(scope *symbols.Scope, decl ast.
 }
 
 func classifierBehaviorScope(scope *symbols.Scope) bool {
-	if scope == nil || scope.Owner() == nil {
+	if scope == nil {
 		return false
 	}
-	definition, ok := scope.Owner().Decl.(*ast.Definition)
-	return ok && definition.Kind != ast.DefAction
+	for current := scope; current != nil; current = current.Parent() {
+		owner := current.Owner()
+		if owner == nil {
+			continue
+		}
+		definition, ok := owner.Decl.(*ast.Definition)
+		if !ok {
+			continue
+		}
+		if definition.Kind == ast.DefAction {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbols.Scope) {

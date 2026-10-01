@@ -132,6 +132,7 @@ exclude_docs: |
   project/large-model-scaling-design.md
   project/native-compilation.md
   project/releasing.md
+  project/mdk-parity.md
   project/macos-distribution.md
   project/demo.md
   project/training-examples.md
