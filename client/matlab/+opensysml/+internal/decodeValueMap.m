@@ -5,6 +5,10 @@ function out = decodeValueMap(mapStruct)
     out = struct();
     names = fieldnames(mapStruct);
     for i = 1:numel(names)
-        out.(names{i}) = opensysml.decodeValue(mapStruct.(names{i}));
+        try
+            out.(names{i}) = opensysml.decodeValue(mapStruct.(names{i}));
+        catch e
+            out.(names{i}) = e;
+        end
     end
 end

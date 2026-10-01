@@ -1,17 +1,326 @@
 classdef Model < handle
-%MODEL A parsed model: the connection, its hash, its parse diagnostics.
+%MODEL A parsed model with roots, diagnostics and lazy symbol lookup.
 
     properties
-        connection      % opensysml.Connection
-        hash = ''       % the model hash the service caches the model under
-        diagnostics = {}    % cell of structs: severity, message, file, line, col, code
+        connection
+        hash = ''
+        diagnostics = {}
+        roots = {}
+        root = []
+        documents = {}
+        sourcePath = ''
     end
 
     methods
-        function m = Model(conn, hash, diags)
+        function m = Model(conn, hash, diags, roots, documents, sourcePath)
+            if nargin < 1, conn = []; end
+            if nargin < 2, hash = ''; end
+            if nargin < 3, diags = {}; end
+            if nargin < 4, roots = {}; end
+            if nargin < 5, documents = {}; end
+            if nargin < 6, sourcePath = ''; end
             m.connection = conn;
-            if nargin >= 2, m.hash = hash; end
-            if nargin >= 3, m.diagnostics = diags; end
+            m.hash = hash;
+            m.diagnostics = toCells(diags);
+            m.documents = textCells(documents);
+            m.sourcePath = sourcePath;
+            rawRoots = toCells(roots);
+            m.roots = cell(1, numel(rawRoots));
+            for i = 1:numel(rawRoots)
+                if isa(rawRoots{i}, 'opensysml.Symbol')
+                    m.roots{i} = rawRoots{i};
+                else
+                    m.roots{i} = opensysml.Symbol(rawRoots{i}, m);
+                end
+            end
+            if ~isempty(m.roots), m.root = m.roots{1}; end
         end
+
+        function values = errors(m)
+            values = {};
+            for i = 1:numel(m.diagnostics)
+                if strcmpi(m.diagnostics{i}.severity, 'error')
+                    values{end+1} = m.diagnostics{i};
+                end
+            end
+        end
+
+        function tf = ok(m)
+            tf = isempty(m.errors());
+        end
+
+        function result = raiseForErrors(m)
+            errors = m.errors();
+            if isempty(errors), result = m; return; end
+            parts = cell(1, min(numel(errors), 3));
+            for i = 1:numel(parts), parts{i} = diagnosticText(errors{i}); end
+            summary = strjoin(parts, '; ');
+            if numel(errors) > 3
+                summary = sprintf('%s; ... and %d more', summary, numel(errors) - 3);
+            end
+            where = m.sourcePath;
+            if isempty(where), where = 'the model'; end
+            opensysml.internal.raise('opensysml:diagnostics:model', ...
+                sprintf('%s has %d error(s): %s', where, numel(errors), summary), ...
+                errors, struct('model', m));
+            result = m;
+        end
+
+        function conversion = convert(m, toFormat, varargin)
+            tolerate = false;
+            for i = 1:2:numel(varargin)
+                if i == numel(varargin)
+                    opensysml.internal.raise('opensysml:argument', ...
+                        'Model.convert options must be name-value pairs');
+                end
+                if strcmp(varargin{i}, 'tolerateSyntaxErrors')
+                    tolerate = varargin{i+1};
+                else
+                    opensysml.internal.raise('opensysml:argument', ...
+                        sprintf('Model.convert has no option ''%s''', varargin{i}));
+                end
+            end
+            conversion = opensysml.convert(m.connection, toFormat, ...
+                'modelHash', m.hash, 'fromFormat', 'sysml', ...
+                'tolerateSyntaxErrors', tolerate);
+        end
+
+        function conversion = toSysml(m, varargin)
+            conversion = m.convert('sysml', varargin{:});
+        end
+
+        function conversion = toTurtle(m)
+            conversion = m.convert('ttl');
+        end
+
+        function conversion = toApiJson(m)
+            conversion = m.convert('api-json');
+        end
+
+        function conversion = save(m, path, varargin)
+            toFormat = '';
+            tolerate = false;
+            for i = 1:2:numel(varargin)
+                if i == numel(varargin)
+                    opensysml.internal.raise('opensysml:argument', ...
+                        'Model.save options must be name-value pairs');
+                end
+                switch varargin{i}
+                    case 'format', toFormat = char(varargin{i+1});
+                    case 'tolerateSyntaxErrors', tolerate = varargin{i+1};
+                    otherwise
+                        opensysml.internal.raise('opensysml:argument', ...
+                            sprintf('Model.save has no option ''%s''', varargin{i}));
+                end
+            end
+            if isempty(toFormat), toFormat = opensysml.formatOfPath(path); end
+            conversion = m.convert(toFormat, 'tolerateSyntaxErrors', tolerate);
+            conversion.write(path);
+        end
+
+        function results = query(m, varargin)
+            if isempty(varargin)
+                payload = struct('type', 'Query');
+                results = opensysml.query(m, payload);
+            else
+                results = opensysml.query(m, varargin{:});
+            end
+        end
+
+        function result = runDocumentQuery(m, queryId, varargin)
+            result = opensysml.runDocumentQuery(m, queryId, varargin{:});
+        end
+
+        function text = renderDocument(m, documentId, varargin)
+            text = opensysml.renderDocument(m, documentId, varargin{:});
+        end
+
+        function result = symbol(m, id)
+            result = opensysml.Symbol(opensysml.symbol(m, id), m);
+        end
+
+        function result = get(m, fqn)
+            result = findById(m, char(fqn));
+        end
+
+        function result = find(m, name)
+            name = char(name);
+            result = [];
+            for i = 1:numel(m.roots)
+                if strcmp(m.roots{i}.name, name) || strcmp(m.roots{i}.id, name)
+                    result = m.roots{i};
+                    return;
+                end
+            end
+            if ~isempty(strfind(name, '::'))
+                result = findById(m, name);
+                if ~isempty(result), return; end
+            end
+            result = symbolNamed(m, name);
+        end
+
+        function result = lookup(m, name)
+            result = m.find(name);
+        end
+
+        function value = evaluate(m, expression, varargin)
+            value = opensysml.evaluate(m, expression, varargin{:});
+        end
+
+        function value = instantiate(m, typeId)
+            value = opensysml.instantiate(m, typeId);
+        end
+
+        function value = executeAction(m, actionId, varargin)
+            value = opensysml.executeAction(m, actionId, varargin{:});
+        end
+
+        function value = exploreAction(m, actionId, varargin)
+            value = opensysml.exploreAction(m, actionId, varargin{:});
+        end
+
+        function value = executeState(m, stateId, varargin)
+            value = opensysml.executeState(m, stateId, varargin{:});
+        end
+
+        function value = exploreState(m, stateId, varargin)
+            value = opensysml.exploreState(m, stateId, varargin{:});
+        end
+
+        function value = verifyConstraint(m, symbolId, varargin)
+            value = opensysml.verifyConstraint(m, symbolId, varargin{:});
+        end
+
+        function value = verifyRequirement(m, symbolId, varargin)
+            value = opensysml.verifyRequirement(m, symbolId, varargin{:});
+        end
+
+        function values = verifySatisfaction(m, varargin)
+            values = opensysml.verifySatisfaction(m, varargin{:});
+        end
+
+        function tf = satisfied(m, symbolId)
+            if nargin < 2, values = m.verifySatisfaction();
+            else, values = m.verifySatisfaction('symbol', symbolId);
+            end
+            tf = true;
+            for i = 1:numel(values), tf = tf && values{i}.holds; end
+        end
+
+        function value = validateInstance(m, symbolId, varargin)
+            value = opensysml.validateInstance(m, symbolId, varargin{:});
+        end
+
+        function value = calc(m, symbolId, varargin)
+            value = opensysml.calc(m, symbolId, varargin{:});
+        end
+
+        function value = runAnalysis(m, symbolId, varargin)
+            value = opensysml.runAnalysis(m, symbolId, varargin{:});
+        end
+
+        function value = exploreAnalysis(m, symbolId, varargin)
+            value = opensysml.exploreAnalysis(m, symbolId, varargin{:});
+        end
+
+        function value = runSweep(m, symbolId, ranges, varargin)
+            value = opensysml.runSweep(m, symbolId, ranges, varargin{:});
+        end
+
+        function values = walk(m, depth)
+            if nargin < 2, depth = Inf; end
+            if ~isscalar(depth) || ~isnumeric(depth) || depth < 0
+                opensysml.internal.raise('opensysml:argument', 'walk depth must be a non-negative number');
+            end
+            values = {};
+            queue = cell(1, numel(m.roots));
+            levels = zeros(1, numel(m.roots));
+            for i = 1:numel(m.roots), queue{i} = m.roots{i}; end
+            while ~isempty(queue)
+                current = queue{1};
+                level = levels(1);
+                queue(1) = [];
+                levels(1) = [];
+                if level >= depth, continue; end
+                children = current.children();
+                for i = 1:numel(children)
+                    values{end+1} = children{i};
+                    queue{end+1} = children{i};
+                    levels(end+1) = level + 1;
+                end
+            end
+        end
+    end
+end
+
+function result = symbolNamed(model, name)
+    result = [];
+    useQuery = false;
+    if ~isempty(model.connection)
+        useQuery = model.connection.hasCapability('query');
+    end
+    if ~useQuery
+        result = walkNamed(model, name);
+        return;
+    end
+    payload = struct('type', 'PrimitiveConstraint', 'operator', '=', ...
+        'property', 'name', 'value', name);
+    matches = opensysml.query(model, 'where', payload, 'select', {'owner'});
+    if ~model.ok()
+        result = walkNamed(model, name);
+        return;
+    end
+    if isempty(matches), return; end
+    ordered = model.walk();
+    candidateIds = cellfun(@(item) item.id, matches, 'UniformOutput', false);
+    for i = 1:numel(ordered)
+        if any(strcmp(candidateIds, ordered{i}.id))
+            result = findById(model, ordered{i}.id);
+            return;
+        end
+    end
+    for i = 1:numel(candidateIds)
+        result = findById(model, candidateIds{i});
+        if ~isempty(result), return; end
+    end
+end
+
+function result = walkNamed(model, name)
+    result = [];
+    values = model.walk();
+    for i = 1:numel(values)
+        if strcmp(values{i}.name, name), result = values{i}; return; end
+    end
+end
+
+function result = findById(model, id)
+    result = [];
+    try
+        raw = opensysml.symbol(model, id);
+        if isfield(raw, 'id') && strcmp(raw.id, id)
+            result = opensysml.Symbol(raw, model);
+        end
+    catch e
+        if ~strcmp(e.identifier, 'opensysml:connect:symbolNotFound'), rethrow(e); end
+    end
+end
+
+function text = diagnosticText(diagnostic)
+    text = sprintf('%s:%d:%d: %s: %s', diagnostic.file, diagnostic.line, ...
+        diagnostic.col, diagnostic.severity, diagnostic.message);
+end
+
+function values = toCells(raw)
+    if isempty(raw), values = {};
+    elseif iscell(raw), values = raw(:)';
+    elseif isstruct(raw), values = num2cell(raw(:)');
+    else, values = {raw};
+    end
+end
+
+function values = textCells(raw)
+    if isempty(raw), values = {};
+    elseif iscell(raw), values = raw(:)';
+    else, values = cellstr(raw(:))';
     end
 end
