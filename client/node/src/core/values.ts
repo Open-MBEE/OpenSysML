@@ -1267,7 +1267,7 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
     case "quantity":
       checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
       return;
-    case "measurementRef":
+    case "measurementRef": {
       require(CAPABILITY_MEASUREMENT_REFS);
       const unitTerm: unknown = value.unitTerm;
       if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
@@ -1279,6 +1279,7 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
         value.unitTerm,
       );
       return;
+    }
     case "int":
       checkInt64(value.value);
       return;
