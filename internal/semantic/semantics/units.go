@@ -397,6 +397,27 @@ func (m *Model) reduceUnit(sym *symbols.Symbol) (UnitTerm, error) {
 	return UnitTerm{Scale: UnitScale(1), Factors: []UnitFactor{{Unit: sym, Exponent: 1}}}, nil
 }
 
+// IsIdentityUnit reports whether sym is the identity of unit products, as
+// MeasurementReferences::one is: a unit of DimensionOneUnit itself — of no
+// specialization of it, as an angular unit is — reducing to scale one, as a
+// unit scaling `one` by convention (a percent) does not.
+func (m *Model) IsIdentityUnit(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil {
+		return false
+	}
+	dimOne := m.libSymbol(fqnDimensionOneUnit)
+	if dimOne == nil || !m.Conforms(sym, dimOne) {
+		return false
+	}
+	for _, super := range m.AllSupertypes(sym) {
+		if m.Conforms(super, dimOne) && !m.Conforms(dimOne, super) {
+			return false
+		}
+	}
+	term, err := m.UnitTermOf(sym)
+	return err == nil && term.Dimensionless() && term.Scale.Num == term.Scale.Den
+}
+
 // powerFactorsUnitTerm reduces a derived unit through the `unitPowerFactors` it
 // lists, each unit raised to its exponent; declared is false for a unit listing none.
 func (m *Model) powerFactorsUnitTerm(sym *symbols.Symbol) (UnitTerm, bool, error) {

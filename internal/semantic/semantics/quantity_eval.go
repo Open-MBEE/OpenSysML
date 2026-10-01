@@ -333,10 +333,16 @@ func EqualQuantities(op ast.OperatorKind, left, right Quantity) (bool, error) {
 }
 
 // ComposedQuantity is a result in the canonical form of its composed unit; a
-// unit that cancels leaves a number unless it names a dimension-one unit (`rad`).
+// unit that cancels leaves a number unless it names a dimension-one unit (`rad`)
+// or absorbed the identity (`one`), which is the unit again once the rest cancels.
 func ComposedQuantity(num Value, product UnitProduct, term UnitTerm) (Quantity, error) {
 	if term.Dimensionless() && !product.NamesDimensionOne() {
-		return dimensionlessQuantity(num, term)
+		bare, err := dimensionlessQuantity(num, term)
+		if err != nil || product.Identity == nil {
+			return bare, err
+		}
+		identity := UnitProduct{Powers: []UnitPower{*product.Identity}}
+		return Quantity{Num: bare.Num, Unit: Unit{Text: identity.String(), Product: identity, Term: UnitTerm{Scale: UnitScale(1)}}}, nil
 	}
 	return Quantity{Num: num, Unit: Unit{Text: product.String(), Product: product, Term: term}}, nil
 }

@@ -6151,6 +6151,31 @@ gRPC `choice-point` diagnostic encoding on the CLI surface.
   exits 0; `-action Timed::pinger -advance 2` exits 2 and names the wait at t=5.0; `-action` alone
   runs to completion (exit 0); `-advance` with no behavior, or a negative one, exits 2.
 
+## Dimension-one identity: `MeasurementReferences::one` in a unit product (PR #756)
+
+`one` is the identity of the unit product — `0.7 [one] * 800 [W]` is `560.0 [W]`, `2 [one] * 3 [one]`
+is `6 [one]`, and `800 [W] * 120 [s] * 0.7 [one]` in a calc returning `EnergyValue` is
+`67200.0 [SI::J]`, identical to the bare `0.7` spelling. `one*…` in the unit, or
+`SI::'kg⋅m²⋅s⁻²'*one`, is the pre-fix signature. Traps when asserting this:
+
+- **Compare an untyped product against the no-`one` control, not against a named unit.** A bare
+  `800 [SI::W] * 120 [SI::s]` prints the coherent base spelling `SI::'kg⋅m²⋅s⁻²'` on `develop`
+  too (energy and torque share dimensions; only a declared quantity kind such as `EnergyValue`
+  selects `SI::J`). So `1 [one] * 800 [W] * 120 [s]`, `… * 1 [one]` and `(…) / 1 [one]` are correct
+  when they equal that control, and would be a spurious failure against `SI::J`.
+- **A real reference, not display text.** The Python `Unit` equality includes spelling (`J` vs
+  `SI::J`), so evaluate `<expr>.mRef == SI::J` (must be `true`) and, on the wire, compare the
+  `unit_id` of `<expr>.mRef` with that of a directly evaluated `SI::J` — both are the declaration
+  ID `SI::joule`. `unit.same_reduction(target.unit)` proves scale/dimension only, not identity.
+- **Meaningful dimension-one units stay.** `3 [rad] * 1 [one]` is `3 [rad]`, likewise `sr`, and a
+  model's percent (`attribute def PercentUnit :> DimensionOneUnit { attribute :>> unitConversion :
+  ConversionByConvention { :>> referenceUnit = one; :>> conversionFactor = 0.01; } }`) survives as a
+  factor: `50 [percent] * 800 [W]` spells `percent*W` while `== 400 [W]` is `true` and
+  `.mRef == W` is `false`. A fix that drops any dimension-one factor passes the `one` cases and
+  fails these.
+- CLI `-e` result lines are indented before `=`; strip the whitespace before parsing the magnitude in
+  a throwaway harness.
+
 ### Devin Secrets Needed
 
 None for these local REPL/gRPC checks.
