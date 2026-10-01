@@ -228,6 +228,13 @@ func (m *Model) Eval(n ast.Node) (Value, bool) {
 	return EvalConst(n)
 }
 
+// EvalWithin is Eval under an Integer size budget of maxBits rather than the
+// default: it declines a fold any of whose Integer results would need more, so
+// the run evaluating the expression reports it under the budget it runs with.
+func (m *Model) EvalWithin(n ast.Node, maxBits int64) (Value, bool) {
+	return evalConst(n, maxBits)
+}
+
 // EvalIn is Eval reading through the features n names, in scope, to the values
 // they are bound to (`attribute one = 1;` then `[one]`).
 func (m *Model) EvalIn(scope *symbols.Scope, n ast.Node) (Value, bool) {
@@ -320,6 +327,10 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 // EvalConst is Eval without a model: the value of an expression over literals
 // and operators alone, which no feature's binding can change.
 func EvalConst(n ast.Node) (Value, bool) {
+	return evalConst(n, DefaultMaxIntegerBits)
+}
+
+func evalConst(n ast.Node, maxBits int64) (Value, bool) {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
 		return ParseInteger(e.Value)
@@ -334,36 +345,36 @@ func EvalConst(n ast.Node) (Value, bool) {
 	case *ast.LiteralInfinity:
 		return Value{Kind: ValInfinity}, true
 	case *ast.OperatorExpr:
-		return evalOperator(e)
+		return evalOperator(e, maxBits)
 	default:
 		return Value{}, false
 	}
 }
 
-func evalOperator(e *ast.OperatorExpr) (Value, bool) {
+func evalOperator(e *ast.OperatorExpr, maxBits int64) (Value, bool) {
 	switch e.Operator {
 	case ast.OpNeg, ast.OpPos, ast.OpNot:
 		if len(e.Operands) != 1 {
 			return Value{}, false
 		}
-		return evalUnary(e.Operator, e.Operands[0])
+		return evalUnary(e.Operator, e.Operands[0], maxBits)
 	case ast.OpConditional:
 		if len(e.Operands) != 3 {
 			return Value{}, false
 		}
-		cond, ok := EvalConst(e.Operands[0])
+		cond, ok := evalConst(e.Operands[0], maxBits)
 		if !ok || cond.Kind != ValBool {
 			return Value{}, false
 		}
 		if cond.Bool {
-			return EvalConst(e.Operands[1])
+			return evalConst(e.Operands[1], maxBits)
 		}
-		return EvalConst(e.Operands[2])
+		return evalConst(e.Operands[2], maxBits)
 	default:
 		if len(e.Operands) != 2 {
 			return Value{}, false
 		}
-		return evalBinary(e.Operator, e.Operands[0], e.Operands[1])
+		return evalBinary(e.Operator, e.Operands[0], e.Operands[1], maxBits)
 	}
 }
 
@@ -390,43 +401,33 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 	return Value{}, false
 }
 
-func evalUnary(op ast.OperatorKind, operand ast.Node) (Value, bool) {
-	v, ok := EvalConst(operand)
+func evalUnary(op ast.OperatorKind, operand ast.Node, maxBits int64) (Value, bool) {
+	v, ok := evalConst(operand, maxBits)
 	if !ok {
 		return Value{}, false
 	}
 	return EvalUnary(op, v)
 }
 
-func evalBinary(op ast.OperatorKind, lhs, rhs ast.Node) (Value, bool) {
-	l, ok := EvalConst(lhs)
+func evalBinary(op ast.OperatorKind, lhs, rhs ast.Node, maxBits int64) (Value, bool) {
+	l, ok := evalConst(lhs, maxBits)
 	if !ok {
 		return Value{}, false
 	}
-	r, ok := EvalConst(rhs)
+	r, ok := evalConst(rhs, maxBits)
 	if !ok {
 		return Value{}, false
 	}
-
-	switch op {
-	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
-		if l.Kind != ValBool || r.Kind != ValBool {
-			return Value{}, false
-		}
-		return evalBoolOp(op, l.Bool, r.Bool), true
-	case ast.OpEq, ast.OpNeq:
-		return evalEquality(op, l, r)
-	case ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
-		return evalComparison(op, l, r)
-	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow:
-		return evalArithmetic(op, l, r)
-	}
-	return Value{}, false
+	return evalBinaryWithin(op, l, r, maxBits)
 }
 
 // EvalBinary evaluates a binary operator on two constant values.
 // Returns (result, true) if successful, (zero, false) otherwise.
 func EvalBinary(op ast.OperatorKind, l, r Value) (Value, bool) {
+	return evalBinaryWithin(op, l, r, DefaultMaxIntegerBits)
+}
+
+func evalBinaryWithin(op ast.OperatorKind, l, r Value, maxBits int64) (Value, bool) {
 	switch op {
 	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
 		if l.Kind != ValBool || r.Kind != ValBool {
@@ -438,7 +439,7 @@ func EvalBinary(op ast.OperatorKind, l, r Value) (Value, bool) {
 	case ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
 		return evalComparison(op, l, r)
 	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow:
-		return evalArithmetic(op, l, r)
+		return evalArithmetic(op, l, r, maxBits)
 	}
 	return Value{}, false
 }
@@ -545,12 +546,12 @@ func OrderSatisfies(op ast.OperatorKind, order int) (res, ok bool) {
 	}
 }
 
-func evalArithmetic(op ast.OperatorKind, l, r Value) (Value, bool) {
+func evalArithmetic(op ast.OperatorKind, l, r Value, maxBits int64) (Value, bool) {
 	if !l.IsNumeric() || !r.IsNumeric() {
 		return Value{}, false
 	}
 	if op == ast.OpPow {
-		v, err := Pow(l, r, DefaultMaxIntegerBits)
+		v, err := Pow(l, r, maxBits)
 		if err != nil {
 			return Value{}, false
 		}
@@ -566,17 +567,17 @@ func evalArithmetic(op ast.OperatorKind, l, r Value) (Value, bool) {
 			}
 			return Value{Kind: ValReal, Real: q}, true
 		}
-		return evalIntArith(op, l, r)
+		return evalIntArith(op, l, r, maxBits)
 	}
 	return evalRealArith(op, l.AsReal(), r.AsReal())
 }
 
-// evalIntArith folds Integer arithmetic, declining a result beyond the default
-// Integer size budget: the run time reports it under the budget it runs with.
-func evalIntArith(op ast.OperatorKind, a, b Value) (Value, bool) {
+// evalIntArith folds Integer arithmetic, declining a result beyond maxBits: the
+// run time reports it under the budget it runs with.
+func evalIntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, bool) {
 	switch op {
 	case ast.OpAdd, ast.OpSub, ast.OpMul:
-		res, err := IntArith(op, a, b, DefaultMaxIntegerBits)
+		res, err := IntArith(op, a, b, maxBits)
 		if err != nil {
 			return Value{}, false
 		}

@@ -470,7 +470,7 @@ func (ctx *Context) constantIntegers(member, owner *symbols.Symbol) ([]int64, bo
 	}
 	out := make([]int64, 0, len(elements))
 	for _, e := range elements {
-		c, ok := ctx.model.semantics.Eval(e)
+		c, ok := ctx.model.semantics.EvalWithin(e, ctx.maxIntegerBits)
 		if !ok {
 			return nil, false
 		}

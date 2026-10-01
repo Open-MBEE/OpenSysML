@@ -527,7 +527,7 @@ func (c *calcCompiler) libraryConstant(sym *symbols.Symbol, name string) (*cnode
 // compileOperator compiles an operator application, folding it as the
 // evaluator does before it looks at the operands.
 func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	if folded, ok := c.ctx.model.semantics.Eval(n); ok {
+	if folded, ok := c.ctx.model.semantics.EvalWithin(n, c.ctx.maxIntegerBits); ok {
 		v, ok := scalarOfConst(folded)
 		if !ok {
 			return nil, ineligible("folds to a non-scalar constant")

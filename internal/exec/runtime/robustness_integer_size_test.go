@@ -18,6 +18,7 @@ import (
 func TestRuntimeRobustnessIntegerSize(t *testing.T) {
 	t.Run("power_beyond_the_size_budget", testPowerBeyondTheSizeBudget)
 	t.Run("product_beyond_a_lowered_size_budget", testProductBeyondALoweredSizeBudget)
+	t.Run("constant_beyond_a_lowered_size_budget", testConstantBeyondALoweredSizeBudget)
 	t.Run("range_with_bounds_beyond_int64", testRangeWithBoundsBeyondInt64)
 	t.Run("range_beyond_the_element_budget", testRangeBeyondTheElementBudget)
 	t.Run("index_beyond_int64", testIndexBeyondInt64)
@@ -72,6 +73,50 @@ func testProductBeyondALoweredSizeBudget(t *testing.T) {
 	got, err := square(semantics.IntValue(1 << 40))
 	if err != nil || got.Const.FormatInt() != "1208925819614629174706176" {
 		t.Fatalf("square(2^40) = %s, %v; want 2^80", FormatValue(got), err)
+	}
+}
+
+// A constant expression is held to the run's budget too: lowered to 64 bits,
+// 2 ** 70 and an intermediate 2 ** 70 whose final result fits are refused,
+// while the default budget computes them exactly.
+func testConstantBeyondALoweredSizeBudget(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			calc power { return : Integer = 2 ** 70; }
+			calc cancelled { return : Integer = 2 ** 70 - 2 ** 70 + 1; }
+		}
+	`
+	for _, tc := range []struct {
+		calc string
+		want string
+	}{
+		{calc: "power", want: "1180591620717411303424"},
+		{calc: "cancelled", want: "1"},
+	} {
+		for _, maxBits := range []int64{64, DefaultMaxIntegerBits} {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			budgets := DefaultBudgets()
+			budgets.MaxIntegerBits = maxBits
+			if err := ctx.SetBudgets(budgets); err != nil {
+				t.Fatal(err)
+			}
+			root := idx.DocumentRoot("<test>")
+			sym := findSymbolByName(root, tc.calc, ast.DefCalc)
+			if sym == nil {
+				t.Fatalf("%s calc not found", tc.calc)
+			}
+			got, err := ctx.InvokeCalc(sym, nil, root)
+			if maxBits == 64 {
+				if !errors.Is(err, ErrIntegerSizeLimit) {
+					t.Errorf("%s under a 64-bit budget = %s, %v; want %v", tc.calc, FormatValue(got), err, ErrIntegerSizeLimit)
+				}
+				continue
+			}
+			if err != nil || got.Kind != ValConst || got.Const.FormatInt() != tc.want {
+				t.Errorf("%s under the default budget = %s, %v; want %s", tc.calc, FormatValue(got), err, tc.want)
+			}
+		}
 	}
 }
 

@@ -1665,7 +1665,7 @@ var unimplementedOperators = map[ast.OperatorKind]string{
 // an operand that depends on a parameter does not make the operator fail.
 func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 	// Try constant folding first
-	if semVal, ok := ec.ctx.model.semantics.Eval(n); ok {
+	if semVal, ok := ec.ctx.model.semantics.EvalWithin(n, ec.ctx.maxIntegerBits); ok {
 		return Value{Kind: ValConst, Const: semVal}, nil
 	}
 
