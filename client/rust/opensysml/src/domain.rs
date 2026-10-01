@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::{error::Error, wire, Connection};
@@ -155,6 +156,15 @@ impl From<wire::Diagnostic> for Diagnostic {
     }
 }
 
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(span) = &self.span {
+            write!(f, "{}:{}:{}: ", span.file, span.start_line, span.start_col)?;
+        }
+        write!(f, "{}: {}", self.severity, self.message)
+    }
+}
+
 impl Diagnostic {
     /// The response this was built from; for conformance tooling and debugging.
     pub fn wire(&self) -> &wire::Diagnostic {
@@ -252,6 +262,25 @@ pub struct Quantity {
     pub unit: String,
     /// Reduced unit term, when supplied by the service.
     pub unit_term: Option<UnitTerm>,
+}
+
+impl fmt::Display for Magnitude {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Integer(n) => n.fmt(f),
+            Self::Real(r) => r.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.unit.is_empty() {
+            self.magnitude.fmt(f)
+        } else {
+            write!(f, "{} [{}]", self.magnitude, self.unit)
+        }
+    }
 }
 
 /// A complex number in rectangular form: one value, never two reals.
@@ -884,6 +913,14 @@ fn components_equal(a: &[Quantity], b: &[Quantity]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| quantities_equal(x, y))
 }
 
+impl TryFrom<wire::Value> for Value {
+    type Error = Error;
+
+    fn try_from(value: wire::Value) -> Result<Self, Error> {
+        value_from_wire(value)
+    }
+}
+
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
     let Some(kind) = value.kind else {
         return Err(Error::Decode("Value has no kind".to_owned()));
@@ -1068,7 +1105,7 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
     }
 }
 
-fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
+pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     let magnitude = match v.magnitude {
         Some(wire::quantity::Magnitude::IntMagnitude(value)) => Magnitude::Integer(value),
         Some(wire::quantity::Magnitude::BigIntMagnitude(value)) => {
@@ -1121,17 +1158,21 @@ impl Symbol {
     pub fn kind(&self) -> &str {
         &self.wire.kind
     }
+    /// Hash of the model the symbol belongs to.
+    pub fn model_hash(&self) -> &str {
+        &self.model_hash
+    }
+    pub(crate) fn connection(&self) -> Connection {
+        Connection {
+            inner: self.connection.clone(),
+        }
+    }
     /// Child symbols, fetched lazily from the service.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
         self.wire
             .child_ids
             .iter()
-            .map(|id| {
-                Connection {
-                    inner: self.connection.clone(),
-                }
-                .get_symbol(&self.model_hash, id)
-            })
+            .map(|id| self.connection().get_symbol(&self.model_hash, id))
             .collect()
     }
 }
@@ -1255,64 +1296,166 @@ impl Evaluation {
     }
 }
 
+/// What the service answered a model was parsed with; for conformance tooling and debugging.
+#[derive(Clone, Debug)]
+pub enum ModelResponse {
+    /// A single file or inline content, parsed by `ParseFile`.
+    File(Box<wire::ParseFileResponse>),
+    /// Several documents, parsed by `ParseSources`.
+    Sources(wire::ParseSourcesResponse),
+    /// A handle for a hash obtained elsewhere; nothing was parsed.
+    Hash,
+}
+
 /// A parsed model.
 #[derive(Clone, Debug)]
 pub struct Model {
-    wire: wire::ParseFileResponse,
-    root: Option<Symbol>,
+    response: ModelResponse,
+    hash: String,
+    roots: Vec<Symbol>,
+    documents: Vec<String>,
+    source_path: Option<PathBuf>,
     diagnostics: Vec<Diagnostic>,
-    connection: Connection,
+    pub(crate) connection: Connection,
 }
 
 impl Model {
     pub(crate) fn from_wire(
         wire: wire::ParseFileResponse,
+        source_path: Option<PathBuf>,
         connection: Connection,
     ) -> Result<Self, Error> {
-        let root = wire.root.clone().map(|root_wire| {
-            Symbol::new(root_wire, connection.inner.clone(), wire.model_hash.clone())
-        });
-        let diagnostics = wire
-            .diagnostics
+        let roots = wire
+            .root
+            .clone()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .into_iter()
+            .collect();
+        let documents = source_path
             .iter()
-            .cloned()
-            .map(Diagnostic::from)
+            .map(|path| path.to_string_lossy().into_owned())
             .collect();
         Ok(Self {
-            wire,
-            root,
-            diagnostics,
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::File(Box::new(wire)),
+            roots,
+            documents,
+            source_path,
             connection,
         })
     }
 
+    pub(crate) fn from_sources(
+        wire: wire::ParseSourcesResponse,
+        documents: Vec<String>,
+        connection: Connection,
+    ) -> Self {
+        let roots = wire
+            .roots
+            .iter()
+            .cloned()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .collect();
+        Self {
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::Sources(wire),
+            roots,
+            documents,
+            source_path: None,
+            connection,
+        }
+    }
+
     pub(crate) fn from_hash(hash: &str, connection: Connection) -> Self {
         Self {
-            wire: wire::ParseFileResponse {
-                model_hash: hash.to_owned(),
-                ..Default::default()
-            },
-            root: None,
+            response: ModelResponse::Hash,
+            hash: hash.to_owned(),
+            roots: Vec::new(),
+            documents: Vec::new(),
+            source_path: None,
             diagnostics: Vec::new(),
             connection,
         }
     }
 
     /// The response this was built from; for conformance tooling and debugging.
-    pub fn wire(&self) -> &wire::ParseFileResponse {
-        &self.wire
+    pub fn wire(&self) -> &ModelResponse {
+        &self.response
     }
     /// Content hash used by subsequent service requests.
     pub fn hash(&self) -> &str {
-        &self.wire.model_hash
+        &self.hash
+    }
+    /// The connection the model is held by.
+    pub fn connection(&self) -> &Connection {
+        &self.connection
     }
     /// Diagnostics in service order.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
-    /// Root namespace symbol, if this handle includes one.
+    /// The diagnostics of `error` severity.
+    pub fn errors(&self) -> Vec<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity.eq_ignore_ascii_case("error"))
+            .collect()
+    }
+    /// Whether the service reported no error for the model.
+    pub fn ok(&self) -> bool {
+        self.errors().is_empty()
+    }
+    /// The model itself when it has no error, else [`Error::ModelErrors`] carrying them.
+    pub fn require_ok(&self) -> Result<&Self, Error> {
+        let errors = self.errors();
+        if errors.is_empty() {
+            return Ok(self);
+        }
+        let mut summary = errors
+            .iter()
+            .take(3)
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join("; ");
+        if errors.len() > 3 {
+            summary.push_str(&format!("; ... and {} more", errors.len() - 3));
+        }
+        let place = self
+            .source_path
+            .as_ref()
+            .map_or_else(|| "the model".to_owned(), |p| p.display().to_string());
+        Err(Error::ModelErrors {
+            message: format!("{place} has {} error(s): {summary}", errors.len()),
+            diagnostics: errors.into_iter().cloned().collect(),
+        })
+    }
+    /// The first root namespace symbol, if this handle includes one.
     pub fn root(&self) -> Option<&Symbol> {
-        self.root.as_ref()
+        self.roots.first()
+    }
+    /// One root namespace per document parsed, in document order.
+    pub fn roots(&self) -> &[Symbol] {
+        &self.roots
+    }
+    /// The names of the documents the model was parsed from, in order.
+    pub fn documents(&self) -> &[String] {
+        &self.documents
+    }
+    /// The file the model was parsed from, when it was one file.
+    pub fn source_path(&self) -> Option<&Path> {
+        self.source_path.as_deref()
     }
     /// Evaluate an expression and return its domain value.
     pub fn eval(&self, expr: &str) -> Result<Value, Error> {

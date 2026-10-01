@@ -1,0 +1,2 @@
+- **Expanded the Julia client** with capability-aware authoring, pinned SHA-256 service downloads, typed model generation, and wrappers for the service API.
+- **Changed Julia parsing** so `strict=true` raises `ModelError` for error diagnostics; use `strict_conformance=true` to request strict conformance checks from the service.

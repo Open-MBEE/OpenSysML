@@ -17,9 +17,7 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and so do Python and Node; Rust covers
-that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), with no escape hatch
-to the rest. Only Python and Go are published so far.
+query methods — and so do Python, Node and Rust. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
@@ -94,7 +92,8 @@ package Demo {
     ```
 
     Not in the registry yet, so take it as a path package. Julia 1.10 or later; `HTTP.jl` and
-    `JSON.jl` are the only dependencies.
+    `JSON.jl` are the only dependencies. The client can download a pinned service release when
+    `$OPENSYSML_GRPC_VERSION` names a tag or `latest`.
 
 === "MATLAB"
 
@@ -282,7 +281,8 @@ constraint is neither — it is an answer about the model.
 
 === "Rust"
 
-    One `Error` enum: `Error::Service` for the first, `Error::Model` for the second.
+    One `Error` enum: `Error::Service` for the first; `Error::Model`, `Error::Execution` (with its
+    `FailureReason`) and `Error::SymbolNotFound` for the second.
 
 ## From Go
 
@@ -1601,14 +1601,19 @@ The client is thin: JSON over HTTP against the Connect-JSON surface, with `HTTP.
 as its only dependencies. `connect()` honours `$OPENSYSML_SERVICE` and otherwise spawns a private
 child (`sysml-grpc -port 0 -health-port 0 -report-address -exit-with-parent`), holding the child's
 stdin open so the service dies with the process however it dies; `close(conn)` closes the pipe and
-reaps it. `private()` and `external(address)` are the explicit forms. Errors surface as
-`ConnectError` (a refused call), `TransportError` (the service never answered JSON) and
-`DiagnosticError` (the call answered, and the model failed). `call(conn, "Method", request)`
-reaches every RPC, whether or not a named function wraps it — that is what the conformance runner
-drives. The declared floor is Julia 1.10.
+reaps it. `private()` and `external(address)` are the explicit forms. `server_info`,
+`has_capability`, and `require_capability` expose service feature negotiation. Parsing, values and
+units, verification, calculations, analyses, sweeps, schedule exploration, queries, documents,
+conversions, and source-preserving authoring have named wrappers; `call(conn, "Method", request)`
+reaches every RPC. `strict=true` raises `ModelError` on parse errors; the wire flag is
+`strict_conformance=true`. The client also generates typed Julia wrappers with
+`generate_source(model, source_text)`. Julia is 1.10+.
 
-[The Julia API reference](../reference/julia-api.md) documents the surface, the `Value` decoding
-and the conformance runner.
+An unpinned release is refused unless `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` explicitly allows its
+served checksum. The client does not verify Sigstore signatures, provide the Python FMI reference
+runner, or share/refcount private children process-wide; each `private()` connection owns its child.
+[The Julia API reference](../reference/julia-api.md) documents the surface, binary variables, errors,
+and generated wrappers.
 
 ## From MATLAB
 

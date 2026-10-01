@@ -759,6 +759,11 @@ func TestWasmRuns(t *testing.T) {
 					s.wait()
 				})
 			}
+
+			// sysml-engine's half of the run gate: a stdio session doing real work
+			// on both targets, and on js the globalThis host surface plus the size
+			// budget that surface exists to keep.
+			engineSubtests(t, target, r, bins)
 		})
 	}
 }

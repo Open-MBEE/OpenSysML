@@ -119,11 +119,13 @@ var packageLayer = map[string]string{
 	"internal/frontend/repl":      "frontend",
 	"internal/frontend/lsp":       "frontend",
 	"internal/frontend/grpc":      "frontend",
+	"internal/frontend/engine":    "frontend",
 	"internal/frontend/stdiorpc":  "frontend",
 	"internal/frontend/usage":     "frontend",
 	"cmd/sysml":                   "frontend",
 	"cmd/sysml-grpc":              "frontend",
 	"cmd/sysml-lsp":               "frontend",
+	"cmd/sysml-engine":            "frontend",
 }
 
 // tolerated is the imports the layer table does not permit and that still

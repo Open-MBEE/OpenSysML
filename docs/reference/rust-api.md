@@ -1,7 +1,6 @@
 # The Rust client API
 
-This page covers what the `opensysml` crate exposes, why it is blocking, and where its v1
-stops. To choose between the clients, see [client libraries](clients.md); for a
+This page covers what the `opensysml` crate exposes and why it is blocking. To choose between the clients, see [client libraries](clients.md); for a
 task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
 binary provisioning and its trust model are in
 [client/rust/README.md](../../client/rust/README.md).
@@ -58,6 +57,15 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `model_by_hash(&hash)` | adopts a model the service already holds |
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
+| `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids |
+| `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
+| `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
+| `execute_action`, `execute_state`, `explore_action`, `explore_state` | runs a behavior once, or every valid order of its choice points |
+| `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `validate_instance` | verdicts, with bounds, standings, witnesses and engine verdicts |
+| `calc`, `run_analysis`, `explore_analysis`, `run_sweep`, `list_engines` | calculations, analysis cases, parameter sweeps, the registered engines |
+| `apply_edits(hash, document, operations)` | one atomic batch of source-preserving edits |
+| `call(method, request)` | sends any `opensysml::wire` request message, for a field not yet wrapped |
 
 A private child is started with `-port 0 -health-port 0 -report-address
 -exit-with-parent` and its address read from its first stdout line, so no port is
@@ -96,6 +104,46 @@ it, for a caller that needs a field the typed surface does not carry yet — the
 protocol layer is `opensysml::wire`, and it is documented as the protocol layer,
 not the ergonomic one.
 
+`Model` forwards each of those calls for its own hash, and adds `find`, `get`,
+`lookup` (an `Error::SymbolNotFound` naming near matches) and `contains`, `edit()`,
+`to_sysml`, `to_turtle`, `to_api_json`, `save(path, ..)` and `satisfied(scope)`. A
+model parsed from several documents names them in `documents()`. `Symbol` adds
+`type_facts()`, `multiplicity()`, `specializations()`, `metadata()` and `facts()`.
+
+## Results
+
+Each result keeps the response it was read from behind `wire()`. A false verdict is an
+answer: `Verdict` carries `holds`, its `Standing`, `Bound`s, `WitnessAssignment`s and
+the `FailureReason` when it could not be decided. `Satisfaction` holds one per
+satisfaction assertion; `Validation` one per assertion about an object. `CalcResult` and
+`AnalysisResult` carry their value, named outputs, verdicts and case evaluations; an
+`ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
+`Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
+is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+
+## Editing
+
+```rust
+use opensysml::{Body, MemberOptions};
+
+let mut editor = model.edit();
+editor
+    .rename("Demo::car", "sedan")
+    .set_value("Demo::Car::mass", "1200.0")
+    .add_member("Demo", "part", "spare", MemberOptions::new().typed("Car"));
+let result = editor.apply()?;          // EditResult: content, documents, applied spans
+```
+
+`Editor` collects `set_value`, `rename`, `delete`, `move_to`, `add_member` and the
+`add_*` declarations — objectives, verifications, metadata and metadata prefixes,
+documentation, comments and notes, satisfy and requirement constraints, transitions,
+imports, connections, allocations, flows, successions, calcs, actions, states and
+asserts — and `Body` the statements of an action body, nested to any depth. `apply`
+requires `apply_edits` and then each operation's own capability, in order, before it
+sends anything; `in_document` selects a document of a model parsed from several. A
+refusal is `Error::Edit`, whose `EditFailure` names what was wrong and, for a delete,
+the elements that still refer to it.
+
 ## Values
 
 `Value` is an ordinary enum, so a `match` over it is exhaustive:
@@ -126,6 +174,12 @@ match value {
 }
 ```
 
+Every variant but `Unset` and `Undetermined` — answers the service gives, never
+arguments — can be sent, nested to a bounded depth. A request value is checked before it
+is sent: a quantity's unit must be reduced and its scale exact, an array, vector or tensor
+must fill its dimensions, and a function or metaobject must name its element; anything
+else is `Error::UnsupportedValue`, and nothing is sent.
+
 ## Errors
 
 `Error` is one enum over every way a call can fail, and its variants keep the
@@ -146,6 +200,15 @@ model failure.
 | `UnpinnedRelease(String)` | this crate version pins no digest for that release, so it cannot verify it |
 | `Transport(String)` | the HTTP transport failed before a response was decoded |
 | `Decode(String)` | a successful response was not valid protobuf |
+| `InvalidRequest(String)`, `UnsupportedValue(String)` | a request or argument the client refused to send |
+| `SymbolNotFound { name, suggestions }` | a lookup found nothing, naming the closest names |
+| `ModelErrors { message, diagnostics }` | a strict parse found errors |
+| `Conversion { message, diagnostics }` | the service could not write the model in that format |
+| `Execution { message, reason, diagnostics }` | a run, verification, calculation or analysis could not be answered; `reason` is the `FailureReason` |
+| `WrongKind { message, diagnostics }` | the call named an element of another kind |
+| `AnalysisRun { message, result }` | an analysis failed, keeping what it established |
+| `Edit(Box<EditError>)` | the service refused an edit; nothing was written |
+| `Query(String)` | a query the SysML v2 query model cannot express |
 | `Io(std::io::Error)` | local filesystem or process IO failed |
 
 ## Capability negotiation
@@ -153,9 +216,11 @@ model failure.
 The advertised capability names are the negotiation surface, never the version
 string, and the client checks request-side requirements before it calls:
 `strict_conformance` for a strict parse, `inline_language` for inline KerML,
-`evaluate_subject` when an evaluation names a subject. That turns a round trip that
+`evaluate_subject` when an evaluation names a subject, and for every other call the
+capability of its RPC, of each option it is given and of the kind of every argument
+value, nested ones included. That turns a round trip that
 would come back `UNIMPLEMENTED` into a local `Error::MissingCapability` naming what
-to install. `Capabilities::has` and `Capabilities::require` are public, for a caller
+to install, as `upgrade_remedy(capability)` spells it. `Capabilities::has` and `Capabilities::require` are public, for a caller
 gating its own use of something like `feature_values`. Decoding is never gated: an
 enum, unset value or feature-value arm from a service is understood whatever the
 handshake said.
@@ -176,28 +241,13 @@ the checksum served beside the binary — same origin, so it detects a corrupted
 transfer and nothing about a compromised release. In practice, installing a newer
 release means upgrading the crate.
 
-## What v1 does not do
-
-Deliberately out of scope: generated model-ergonomics types beyond the domain
-objects above, the edit API, RDF conversion and the verification helpers. The
-service still serves them, and `Connection::call` is the escape hatch: it sends one
-method's request message from `opensysml::wire` and decodes the response without
-the ergonomic layer, so an RPC the typed API does not wrap — `RunAnalysis`,
-`RunSweep`, `ApplyEdits` (whose `documents` lists every document an edit rewrote,
-by parse name, beside the sole-document `content`; a model of several documents is
-edited only for a request setting `accept_documents`) — can still be made. In-band `error` fields are the caller's to read,
-and `Capabilities::has` gates the response fields the same way.
-
 ## Conformance
 
 `make conformance-rust` runs the language-neutral scenarios through the typed API —
 public surface only, responses read through the domain accessors — and writes the
 report shape `tools/cmd/conformance` writes. The runner takes `-binary`, `-run`,
-`-report FILE` (or `-report -`), `-allow-skips` and `-v`. The three expected v1
-boundary skips are an RPC the typed API does not cover, a `ParseFile` naming no
-source, and a model of several documents, which the single-document parse cannot
-make; any other skip names the capability it lacked and fails the run unless
-skips are allowed. Where a covered RPC answers successfully with a top-level error,
-the typed API keeps only `Error::Model(message)`, so the runner compares
-`{"error": message}` — an expectation naming another field alongside that error
-fails rather than passes, which is the fail-safe direction.
+`-report FILE` (or `-report -`), `-allow-skips` and `-v`. Every RPC is driven through
+its typed method. The expected skips are requests the typed API refuses to build — a
+parse naming no source, an edit of several documents that does not accept them, a
+query in both forms at once, a malformed value — and any other skip names the
+capability it lacked and fails the run unless skips are allowed.
