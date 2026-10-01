@@ -1,7 +1,7 @@
 # The Node/TypeScript client API
 
 This page covers what `@openmbee/opensysml` exports, how its two entry points differ, and
-where its v1 surface stops. To choose between the clients, see
+where its surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
 notes on packaging and its conformance run are in
@@ -49,6 +49,8 @@ and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
 | `timeoutMs` | deadline applied to every call the connection makes |
 | `headers` | extra headers sent with every call |
 | `onResponse` | called with each response, for logging, metrics or a conformance runner |
+| `version` | the version the service must report, else connecting fails with `StaleServiceError` |
+| `requireCapabilities` | capabilities the service must advertise, else connecting fails |
 
 `$OPENSYSML_SERVICE=host:port` is the environment form of `address`. A connection
 to a service this client did not start is only disconnected from on `close()`,
@@ -134,9 +136,18 @@ knowing its members.
 | --- | --- |
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
+| `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics` |
+| `WrongKindError` | a verification or analysis named a symbol of another kind |
+| `AnalysisRunError` | an analysis run failed before it could report |
+| `ConversionError` | the service could not write the notation asked for |
+| `UnsupportedValueError` | the service sent a value this version of the client cannot decode |
+| `QueryError` / `DocumentQueryError` | a `Query` or `runDocumentQuery` failed in-band |
+| `EditError` | an edit was refused; subclasses (`NoEditsError`, `EditTargetError`, `InvalidEditError`, `IllegalMemberKindError`, `RenameReferencedError`, `OverlappingEditsError`, `EditResultError`, `OwnerNotFoundError`, `OwnerNotNamespaceError`, `MemberNameTakenError`, `DeleteReferencedError`, `OwnerInsideTargetError`, `MoveReferencedError`, `ReferencedElsewhereError`) catch one kind of refusal |
+| `TypeMismatchError` / `InstanceTypeError` / `FeatureValueError` | a typed view read a feature of another kind, an instance of another type, or a slot that is an error |
 | `SymbolNotFoundError` | the model declares no such symbol |
 | `MissingCapabilityError` | the service does not advertise a capability the call needs |
 | `DownloadError` | a release binary could not be downloaded or installed |
@@ -204,29 +215,48 @@ TLS for an HTTPS page to reach it; and `connect-go` does not implement the base6
 `grpc-web-text` variant, which this `fetch`-based client does not need but a
 `grpc-web` client requiring `-text` would.
 
-## What v1 does not do
+## The rest of the surface
 
-The ergonomic layer covers `GetServerInfo`, `ParseFile`, `GetSymbol`, `Evaluate`
-and `Instantiate`. Deliberately absent, rather than half-implemented: generated
-model-ergonomics types, the edit API (`ApplyEdits`), RDF conversion (`Convert`),
-the verification helpers, `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysis`,
-`ExecuteAction` and `ExecuteState`. The service serves all of them;
-`connection.rpc` is the escape hatch, being the generated Connect client, and
-`SysMLService` is exported for a caller building its own. Through that hatch,
-`ApplyEditsResponse.documents` lists every document an edit rewrote by its parse
-name, `applied[].document` names the document each change belongs to, and
-`referrers` names each referrer of a refused delete or rename with its document;
-`content` is filled only for a model of one document, and a model of several is
-edited only for a request setting `acceptDocuments`. `ParseSources`, which makes
-a model of several, is likewise reached through `connection.rpc` only.
+Beside the model reads above, the client covers every RPC the service offers:
+
+- **`connection.parseSources`** parses several documents as one model
+  (`SourceDocument.file`/`inline` per document; `model.documents`, `model.roots`);
+- **`connection.convert`** and Node's **`save(target, path)`** write a model,
+  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`;
+- **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
+  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
+- **`model.executeAction`/`executeState`** for runs and
+  **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
+  schedule — the two families refuse each other's `schedule`, as the wire does;
+- **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
+  `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
+  `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,
+  `subject`, `question`, arguments or `namedArguments` as the call allows, and
+  **`connection.listEngines`** names what the service answers with;
+- **`model.edit()`** builds an `Editor`/`Body` batch of source-preserving edits,
+  applied atomically by `apply()`, with per-operation capability gating and the
+  typed `EditError` family for refusals; `connection.applyEdits(modelHash, ops)`
+  is the wire form, taking `EditOperation` messages. A model of several
+  documents is edited in one batch — the result's `documents` lists every
+  document the batch rewrote by parse name and `applied[].document` names where
+  each change landed — and `acceptDocuments`/`document` options on
+  `applyEdits` map the request fields directly;
+- **`opensysml-generate`** (the `bin` of the package) writes a module of typed
+  views over a model's definitions, stamped with a hash of the source; a class
+  `extends` its first base and re-declares the other bases' features as
+  getters, `fromInstance` accepts subtypes, and `--check` fails on drift.
+
+`connection.rpc` remains the escape hatch — the generated Connect client — and
+`SysMLService` is exported for a caller building its own.
 
 ## Conformance
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`tools/cmd/conformance` emits. 59 scenarios per protocol over `grpc`, `connect` and
-`connect-json`: 23 pass and 36 are skipped, being the 35 scenarios of the RPCs
-above plus one the public API cannot express (a `ParseFile` naming no source).
+`tools/cmd/conformance` emits. 151 scenarios per protocol over `grpc`, `connect` and
+`connect-json`: 148 pass and 3 are skipped, being the requests the public API
+refuses eagerly (a `ParseFile` naming no source, a `ParseSources` naming no
+document or two alike).
 `--mutate <name>` corrupts a response on its way through the client and each
 mutation must make a scenario fail, which is what keeps the run from being
 vacuous.

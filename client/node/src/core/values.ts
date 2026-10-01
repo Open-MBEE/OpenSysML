@@ -36,6 +36,19 @@ import {
   VectorQuantitySchema,
   VectorSchema,
 } from "../generated/sysml_pb.js";
+import {
+  CAPABILITY_COMPLEX_VALUES,
+  CAPABILITY_FUNCTION_VALUES,
+  CAPABILITY_INFINITY_VALUE,
+  CAPABILITY_MEASUREMENT_REFS,
+  CAPABILITY_METAOBJECT_VALUES,
+  CAPABILITY_SET_VALUES,
+  CAPABILITY_STRUCTURED_VALUES,
+  CAPABILITY_TENSOR_VALUES,
+  requireCapability,
+  upgradeRemedy,
+  type ServerInfo,
+} from "./capabilities.js";
 import { MalformedValueError, type FailureCause } from "./errors.js";
 
 /** A quantity's magnitude: an integer or a real, never both. */
@@ -180,9 +193,9 @@ export type SysMLValue =
   | { kind: "infinity" }
   | { kind: "absent" };
 
-/** What a verification answered about. Kept for the verification RPCs of a later version. */
+/** What a verification answered about. */
 export interface VerdictSubject {
-  /** "constraint", "requirement" or "satisfy". */
+  /** "constraint", "requirement", "satisfy", "objective", "assertion" or "object". */
   kind: string;
   /** FQN of the verified element; empty for an anonymous satisfy assertion. */
   elementId: string;
@@ -191,6 +204,36 @@ export interface VerdictSubject {
   /** The instance verified against, when there was one. */
   instanceId?: bigint;
   instanceTypeId?: string;
+  /** FQN of the requirement a "satisfy" verdict asserts satisfied; empty for every other kind. */
+  requirementId?: string;
+  /** Where the object this verdict is about sits in a validated one (`engine.injector`, `wheels[2]`). */
+  instancePath?: string;
+}
+
+/** One feature's value in the assignment witnessing a verdict. */
+export interface WitnessAssignment {
+  /** The qualified feature name, chain steps appended with '.'. */
+  feature: string;
+  /** The value the evaluator replayed for the feature. */
+  value: SysMLValue;
+  /** The base units the magnitude is expressed in; empty for a value that has none. */
+  unit: string;
+  /** The solver's exact value as text. */
+  exact: string;
+}
+
+/** What the body of a verification case answered when it ran. */
+export interface VerificationVerdict {
+  /** FQN of the verification case that ran. */
+  caseId: string;
+  /** The VerdictKind the body produced: "pass", "fail", "inconclusive" or "error". */
+  kind: string;
+  /** Why an inconclusive body decided nothing, or the error that stopped the run. */
+  detail: string;
+  /** Whether this is the verdict of a case performed by another. */
+  subcase: boolean;
+  /** FQN of the requirement this verdict was reported for; empty for a case run for itself. */
+  requirementId: string;
 }
 
 /** One limit an engine ran under, and whether the run stopped at it. */
@@ -218,17 +261,40 @@ export interface VerdictStanding {
 /**
  * One verification's answer. `undecided` is the service reporting it could not
  * answer, which a `holds: false` alone does not distinguish. Every arm carries
- * the `standing` its evidence rests on.
+ * the `standing` its evidence rests on, the `question` asked and the `status`
+ * the service answered with, the `witness` assignment when the answer carries
+ * one, and the `verifications` the requirement's verification cases produced.
  */
 export type SysMLVerdict =
-  | { kind: "holds"; subject: VerdictSubject; standing: VerdictStanding }
-  | { kind: "fails"; subject: VerdictSubject; condition: string; standing: VerdictStanding }
+  | {
+      kind: "holds";
+      subject: VerdictSubject;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
+  | {
+      kind: "fails";
+      subject: VerdictSubject;
+      condition: string;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
   | {
       kind: "undecided";
       subject: VerdictSubject;
       error: string;
       cause: FailureCause;
       standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
     };
 
 /**
@@ -410,15 +476,26 @@ export function encodeValue(value: SysMLValue): Value {
 }
 
 /** Decodes a `sysml.Verdict` into the union. */
-export function decodeVerdict(verdict: Verdict): SysMLVerdict {
+export function decodeVerdict(
+  verdict: Verdict,
+  verifications: readonly VerificationVerdict[] = [],
+): SysMLVerdict {
   const subject: VerdictSubject = {
     kind: verdict.kind,
     elementId: verdict.elementId,
     element: verdict.element,
     ...(verdict.instanceId === 0n ? {} : { instanceId: verdict.instanceId }),
     ...(verdict.instanceTypeId === "" ? {} : { instanceTypeId: verdict.instanceTypeId }),
+    ...(verdict.requirementId === "" ? {} : { requirementId: verdict.requirementId }),
+    ...(verdict.instancePath === "" ? {} : { instancePath: verdict.instancePath }),
   };
   const standing = decodeStanding(verdict);
+  const witness = verdict.witness.map((assignment) => ({
+    feature: assignment.feature,
+    value: decodeValue(assignment.value),
+    unit: assignment.unit,
+    exact: assignment.exact,
+  }));
   if (verdict.error !== "") {
     return {
       kind: "undecided",
@@ -426,11 +503,32 @@ export function decodeVerdict(verdict: Verdict): SysMLVerdict {
       error: verdict.error,
       cause: failureCause(verdict.failureReason),
       standing,
+      question: verdict.question,
+      status: verdict.status,
+      witness,
+      verifications: [...verifications],
     };
   }
   return verdict.holds
-    ? { kind: "holds", subject, standing }
-    : { kind: "fails", subject, condition: verdict.condition, standing };
+    ? {
+        kind: "holds",
+        subject,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      }
+    : {
+        kind: "fails",
+        subject,
+        condition: verdict.condition,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      };
 }
 
 /** Reads the standing fields the `engines` capability adds to a verdict. */
@@ -1009,4 +1107,125 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
     enumerationId: literal.enumerationId,
     value: literal.value === undefined ? undefined : encodeValue(literal.value),
   });
+}
+
+/** What a caller may pass as an argument or input to a run. A wire `Value`
+ * passes through untouched, which is how a caller sends a shape the typing
+ * layer would normalize away — including one the service is meant to refuse. */
+export type ValueInput = SysMLValue | Value | boolean | string | bigint | number;
+
+/**
+ * Encodes a caller-facing value for the wire, requiring of `info` each
+ * capability a value kind needs before the call is sent — exactly the checks
+ * Python's `Connection._python_to_value` makes. A `SysMLValue` encodes as
+ * itself; a boolean, string, bigint and number encode as the scalar arms.
+ */
+export function toValue(input: ValueInput, info: ServerInfo): Value {
+  if (typeof input === "object" && "$typeName" in input) {
+    return input;
+  }
+  if (typeof input === "boolean") {
+    return encodeValue({ kind: "boolean", value: input });
+  }
+  if (typeof input === "bigint") {
+    return encodeValue({ kind: "int", value: input });
+  }
+  if (typeof input === "number") {
+    return encodeValue({ kind: "real", value: input });
+  }
+  if (typeof input === "string") {
+    return encodeValue({ kind: "string", value: input });
+  }
+  return encodeInput(input, info);
+}
+
+function encodeInput(value: SysMLValue, info: ServerInfo): Value {
+  requireInput(value, info);
+  switch (value.kind) {
+    case "sequence":
+      return create(ValueSchema, {
+        kind: {
+          case: "sequence",
+          value: create(ValueSequenceSchema, {
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "array":
+      return create(ValueSchema, {
+        kind: {
+          case: "array",
+          value: create(ArraySchema, {
+            dimensions: value.dimensions,
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "set":
+      return create(ValueSchema, {
+        kind: {
+          case: "set",
+          value: create(ValueSetSchema, {
+            elements: uniqueMembers(value.elements).map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    default:
+      return encodeValue(value);
+  }
+}
+
+/** The capabilities one input value needs of the service that will decode it. */
+export function requireInput(value: SysMLValue, info: ServerInfo): void {
+  const require = (capability: string): void => {
+    requireCapability(info, capability, upgradeRemedy(capability));
+  };
+  switch (value.kind) {
+    case "complex":
+      require(CAPABILITY_COMPLEX_VALUES);
+      return;
+    case "measurementRef":
+      require(CAPABILITY_MEASUREMENT_REFS);
+      return;
+    case "function":
+      require(CAPABILITY_FUNCTION_VALUES);
+      return;
+    case "metaobject":
+      require(CAPABILITY_METAOBJECT_VALUES);
+      return;
+    case "array":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "vector":
+    case "vectorQuantity":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      return;
+    case "set":
+      require(CAPABILITY_SET_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "tensorQuantity":
+      require(CAPABILITY_TENSOR_VALUES);
+      return;
+    case "infinity":
+      require(CAPABILITY_INFINITY_VALUE);
+      return;
+    case "enum":
+      if (value.value.value !== undefined) {
+        requireInput(value.value.value, info);
+      }
+      return;
+    case "sequence":
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    default:
+      return;
+  }
 }
