@@ -14,6 +14,7 @@ import {
   modelStamp,
   propertyName,
   renderModule,
+  serviceAddress,
 } from "../src/node/generate.js";
 import type { SymbolTree } from "../src/node/generate.js";
 
@@ -432,4 +433,15 @@ test("an unmapped base is reported", () => {
   ]);
   const source = renderModule([car]);
   assert.ok(source.includes("// specializes Base::Vehicle, which has no generated class"));
+});
+
+test("serviceAddress names an external service only when asked", () => {
+  assert.equal(serviceAddress("localhost"), undefined);
+  assert.equal(serviceAddress("localhost", 50052), "localhost:50052");
+  assert.equal(serviceAddress("elsewhere"), "elsewhere:50051");
+  assert.equal(serviceAddress("elsewhere:50100"), "elsewhere:50100");
+  assert.equal(serviceAddress("elsewhere:50100", 50100), "elsewhere:50100");
+  assert.equal(serviceAddress("[::1]:50100"), "[::1]:50100");
+  assert.throws(() => serviceAddress("elsewhere:50100", 50051), RangeError);
+  assert.throws(() => serviceAddress("elsewhere:abc"), RangeError);
 });
