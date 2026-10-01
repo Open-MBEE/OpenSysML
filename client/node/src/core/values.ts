@@ -256,6 +256,10 @@ export interface VerdictStanding {
   /** "not covered", "observed", "witnessed", "bounded" or "proved". */
   strength: string;
   bounds: VerdictBound[];
+  /** Whether the service reported a standing at all. */
+  reported: boolean;
+  /** The bounds the engine stopped at. */
+  reached: VerdictBound[];
 }
 
 /**
@@ -537,10 +541,13 @@ export function decodeStanding(verdict: {
   strength: string;
   bounds: Bound[];
 }): VerdictStanding {
+  const bounds = verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached }));
   return {
     engine: verdict.engine,
     strength: verdict.strength,
-    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+    bounds,
+    reported: verdict.strength !== "",
+    reached: bounds.filter((bound) => bound.reached),
   };
 }
 
