@@ -12,7 +12,7 @@ import {
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { before, test } from "node:test";
 import {
   InvalidRequestError,
@@ -38,14 +38,24 @@ test("a v1 model migrates from its path, with the summary and the counts", async
   assert.match(migration.content, /part def Vehicle/);
   assert.match(migration.content, /attribute mass/);
   assert.equal(migration.experimental, true);
-  assert.match(migration.experimentalNotice, /SysML v1 migration is experimental/);
-  assert.match(migration.report.summary, /^migrated 93 element\(s\): 77 mapped, 13 approximated, 3 unmapped/);
+  assert.match(
+    migration.experimentalNotice,
+    /SysML v1 migration is experimental/,
+  );
+  assert.match(
+    migration.report.summary,
+    /^migrated 93 element\(s\): 77 mapped, 13 approximated, 3 unmapped/,
+  );
   assert.equal(migration.report.mapped, 77);
   assert.equal(migration.report.approximated, 13);
   assert.equal(migration.report.unmapped, 3);
   assert.equal(migration.report.skipped, 2);
   assert.notEqual(migration.report.source, "");
-  assert.equal(migration.report.entries.length, 0, "the full ledger comes back only when asked");
+  assert.equal(
+    migration.report.entries.length,
+    0,
+    "the full ledger comes back only when asked",
+  );
   assert.equal(migration.report.text, "");
   assert.equal(String(migration.report), migration.report.summary);
   assert.equal(migration.results, "");
@@ -78,7 +88,9 @@ test("the full report and the results index come back when asked for", async () 
   const entry = migration.report.entries[0];
   assert.notEqual(entry.id, "");
   assert.notEqual(entry.kind, "");
-  assert.ok(["mapped", "approximated", "unmapped", "skipped"].includes(entry.verdict));
+  assert.ok(
+    ["mapped", "approximated", "unmapped", "skipped"].includes(entry.verdict),
+  );
   assert.match(migration.report.text, /^# SysML v1 to v2 migration report/);
   assert.equal(String(migration.report), migration.report.text);
   assert.notEqual(migration.results, "");
@@ -91,7 +103,10 @@ test("convert refuses a v1 model by its extension and by its format, pointing at
     (error: unknown) => {
       assert.ok(error instanceof InvalidRequestError);
       assert.equal(error.code, "INVALID_ARGUMENT");
-      assert.equal(error.message, `${VEHICLE_XMI} ${MIGRATED_NOT_CONVERTED}; call migrate() with the same source`);
+      assert.equal(
+        error.message,
+        `${VEHICLE_XMI} ${MIGRATED_NOT_CONVERTED}; call migrate() with the same source`,
+      );
       return true;
     },
   );
@@ -100,7 +115,10 @@ test("convert refuses a v1 model by its extension and by its format, pointing at
       () => connection.convert("sysml", { content: "<xmi/>" }, { fromFormat }),
       (error: unknown) => {
         assert.ok(error instanceof InvalidRequestError);
-        assert.match(error.message, /^the source is a SysML v1 model, which is migrated, not converted/);
+        assert.match(
+          error.message,
+          /^the source is a SysML v1 model, which is migrated, not converted/,
+        );
         return true;
       },
     );
@@ -109,7 +127,11 @@ test("convert refuses a v1 model by its extension and by its format, pointing at
 
 test("a v1 form is read as the service spells it, in any case and padding", async () => {
   await using connection = await connect();
-  const migration = await connection.migrate("sysml", { path: VEHICLE_XMI }, { fromFormat: " XMI " });
+  const migration = await connection.migrate(
+    "sysml",
+    { path: VEHICLE_XMI },
+    { fromFormat: " XMI " },
+  );
   assert.equal(migration.fromFormat, "xmi");
   assert.match(migration.content, /part def Vehicle/);
 });
@@ -117,11 +139,19 @@ test("a v1 form is read as the service spells it, in any case and padding", asyn
 test("migrate refuses a v2 source, pointing at convert", async () => {
   await using connection = await connect();
   await assert.rejects(
-    () => connection.migrate("sysml", { content: Buffer.from(SAMPLE) }, { fromFormat: "sysml" }),
+    () =>
+      connection.migrate(
+        "sysml",
+        { content: Buffer.from(SAMPLE) },
+        { fromFormat: "sysml" },
+      ),
     (error: unknown) => {
       assert.ok(error instanceof InvalidRequestError);
       assert.equal(error.code, "INVALID_ARGUMENT");
-      assert.match(error.message, /is sysml input, which is converted, not migrated/);
+      assert.match(
+        error.message,
+        /is sysml input, which is converted, not migrated/,
+      );
       assert.match(error.message, /call convert\(\) with the same source/);
       return true;
     },
@@ -151,9 +181,16 @@ test("the service refuses inline content that names no form, and a v1 target", a
 
 test("exactly one source and at most one layout are given", async () => {
   await using connection = await connect();
-  await assert.rejects(() => connection.migrate("sysml", {} as never), RangeError);
   await assert.rejects(
-    () => connection.migrate("sysml", { path: VEHICLE_XMI, content: new Uint8Array() }),
+    () => connection.migrate("sysml", {} as never),
+    RangeError,
+  );
+  await assert.rejects(
+    () =>
+      connection.migrate("sysml", {
+        path: VEHICLE_XMI,
+        content: new Uint8Array(),
+      }),
     RangeError,
   );
   await assert.rejects(
@@ -257,7 +294,11 @@ test("save refuses to replace the v1 model with its migration", async () => {
   const ofMoved = await connection.migrate("sysml", { path: moved });
   renameSync(moved, moved + ".bak");
   await save(ofMoved, moved);
-  assert.equal(readFileSync(moved, "utf8"), ofMoved.content, "a vacated source path protects nothing");
+  assert.equal(
+    readFileSync(moved, "utf8"),
+    ofMoved.content,
+    "a vacated source path protects nothing",
+  );
   assert.deepEqual(readFileSync(moved + ".bak"), readFileSync(VEHICLE_XMI));
 });
 
@@ -278,12 +319,20 @@ test("save refuses an image that would escape the directory or replace the model
       experimentalNotice: migrated.experimentalNotice,
     });
   const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
-  for (const escaping of ["../escaped.png", "images/../../escaped.png", "/tmp/escaped.png", "images//escaped.png"]) {
+  for (const escaping of [
+    "../escaped.png",
+    "images/../../escaped.png",
+    "/tmp/escaped.png",
+    "images//escaped.png",
+  ]) {
     await assert.rejects(
       () => save(withFiles([[escaping, png]]), path),
       (error: unknown) => {
         assert.ok(error instanceof RangeError);
-        assert.equal(error.message, `the migration's image ${escaping} would land outside ${dir}`);
+        assert.equal(
+          error.message,
+          `the migration's image ${escaping} would land outside ${dir}`,
+        );
         return true;
       },
     );
@@ -292,7 +341,10 @@ test("save refuses an image that would escape the directory or replace the model
     () => save(withFiles([["Vehicle.sysml", png]]), path),
     (error: unknown) => {
       assert.ok(error instanceof RangeError);
-      assert.equal(error.message, `the migration's image Vehicle.sysml would replace ${path}`);
+      assert.equal(
+        error.message,
+        `the migration's image Vehicle.sysml would replace ${path}`,
+      );
       return true;
     },
   );
@@ -303,12 +355,18 @@ test("save refuses an image that would escape the directory or replace the model
   symlinkSync(outside, join(dir, "images"), "dir");
   mkdirSync(join(dir, "nested"));
   symlinkSync(outside, join(dir, "nested", "link"), "dir");
-  for (const linked of ["images/escaped.png", "nested/link/deeper/escaped.png"]) {
+  for (const linked of [
+    "images/escaped.png",
+    "nested/link/deeper/escaped.png",
+  ]) {
     await assert.rejects(
       () => save(withFiles([[linked, png]]), path),
       (error: unknown) => {
         assert.ok(error instanceof RangeError);
-        assert.equal(error.message, `the migration's image ${linked} would land outside ${dir}`);
+        assert.equal(
+          error.message,
+          `the migration's image ${linked} would land outside ${dir}`,
+        );
         return true;
       },
     );
@@ -318,18 +376,82 @@ test("save refuses an image that would escape the directory or replace the model
   assert.ok(!existsSync(join(outside, "deeper")));
 
   mkdirSync(join(dir, "dangling"));
-  symlinkSync(join(outside, "created.png"), join(dir, "dangling", "file.png"), "file");
+  symlinkSync(
+    join(outside, "created.png"),
+    join(dir, "dangling", "file.png"),
+    "file",
+  );
   symlinkSync(join(outside, "missing"), join(dir, "dangling", "dir"), "dir");
   for (const dangling of ["dangling/file.png", "dangling/dir/escaped.png"]) {
     await assert.rejects(
       () => save(withFiles([[dangling, png]]), path),
       (error: unknown) => {
         assert.ok(error instanceof RangeError);
-        assert.equal(error.message, `the migration's image ${dangling} would land outside ${dir}`);
+        assert.equal(
+          error.message,
+          `the migration's image ${dangling} would land outside ${dir}`,
+        );
         return true;
       },
     );
   }
   assert.ok(!existsSync(join(outside, "created.png")));
   assert.ok(!existsSync(join(outside, "missing")));
+
+  mkdirSync(join(dir, "linked"));
+  symlinkSync(
+    join(dir, "linked", "real.png"),
+    join(dir, "linked", "alias.png"),
+    "file",
+  );
+  await assert.rejects(
+    () => save(withFiles([["linked/alias.png", png]]), path),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.equal(
+        error.message,
+        `the migration's image linked/alias.png would be written through a symbolic link at ${join(dir, "linked", "alias.png")}`,
+      );
+      return true;
+    },
+  );
+  assert.ok(!existsSync(path));
+  assert.ok(!existsSync(join(dir, "linked", "real.png")));
+});
+
+test("a relative source path is remembered absolute", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  const source = join(dir, "Vehicle.xmi");
+  copyFileSync(VEHICLE_XMI, source);
+  await using connection = await connect();
+  const migration = await connection.migrate("sysml", {
+    path: relative(process.cwd(), source),
+  });
+  assert.equal(migration.sourcePath, source);
+});
+
+test("save follows an image into directories as deep as the file system allows", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  const path = join(dir, "Vehicle.sysml");
+  await using connection = await connect();
+  const migrated = await connection.migrate("sysml", { path: VEHICLE_XMI });
+  const deep =
+    Array.from({ length: 70 }, (_, index) => `d${index}`).join("/") +
+    "/deep.png";
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const migration = new Migration({
+    content: migrated.content,
+    fromFormat: migrated.fromFormat,
+    toFormat: migrated.toFormat,
+    report: migrated.report,
+    results: "",
+    files: new Map([[deep, png]]),
+    sourcePath: migrated.sourcePath,
+    experimentalNotice: migrated.experimentalNotice,
+  });
+  await save(migration, path);
+  assert.deepEqual(
+    new Uint8Array(readFileSync(join(dir, ...deep.split("/")))),
+    png,
+  );
 });

@@ -156,6 +156,12 @@ export interface ConnectionBackend {
   release(): Promise<void>;
   /** Reports a warning the runtime raises: Node emits it, the browser logs it. */
   warn?(message: string, type: string): void;
+  /**
+   * Makes a path the caller handed this client absolute, so that what a
+   * `Migration` remembers as its source outlives a later change of working
+   * directory. Absent where paths have no working directory, as in a browser.
+   */
+  resolvePath?(path: string): string;
 }
 
 /** A connection to a sysml-grpc service. Close it, or use `await using`. */
@@ -453,7 +459,8 @@ export class Connection {
       report: migrationReportOf(response.report),
       results: response.results,
       files: new Map(response.files.map((file) => [file.path, file.content])),
-      sourcePath: "path" in source ? source.path : "",
+      sourcePath:
+        "path" in source ? (this.backend.resolvePath?.(source.path) ?? source.path) : "",
       experimentalNotice: notice,
     });
   }

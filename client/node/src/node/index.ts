@@ -1,16 +1,43 @@
 // Node entry point: everything the core does, plus the private-child lifecycle.
 
-import { mkdir, readlink, realpath, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { createConnectTransport, createGrpcTransport } from "@connectrpc/connect-node";
+import { constants } from "node:fs";
+import {
+  lstat,
+  mkdir,
+  readlink,
+  realpath,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
+import {
+  createConnectTransport,
+  createGrpcTransport,
+} from "@connectrpc/connect-node";
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
 import { Conversion, Migration, formatOfPath } from "../core/conversion.js";
-import type { ConnectionBackend, TransportOptions } from "../core/connection.js";
+import type {
+  ConnectionBackend,
+  TransportOptions,
+} from "../core/connection.js";
 import { OpenSysMLError } from "../core/errors.js";
 import { Model } from "../core/model.js";
 import type { ParseOptions } from "../core/model.js";
-import { baseUrl, encodingOf, interceptors, timeoutOf } from "../core/transport.js";
+import {
+  baseUrl,
+  encodingOf,
+  interceptors,
+  timeoutOf,
+} from "../core/transport.js";
 import { resolveLatestVersion, VERSION_ENV } from "./binary.js";
 import { acquirePrivateService } from "./service.js";
 
@@ -45,7 +72,12 @@ export {
   verifyChecksum,
   writeMetadata,
 } from "./binary.js";
-export type { Binary, CacheMetadata, DownloadOptions, PinnedDigests } from "./binary.js";
+export type {
+  Binary,
+  CacheMetadata,
+  DownloadOptions,
+  PinnedDigests,
+} from "./binary.js";
 export {
   BUNDLE_ASSET,
   MANIFEST_ASSET,
@@ -84,7 +116,9 @@ export interface ConnectOptions extends TransportOptions {
  * or with `$OPENSYSML_SERVICE` set, it connects to a service someone else runs and
  * closing the connection leaves that service running.
  */
-export async function connect(options: ConnectOptions = {}): Promise<Connection> {
+export async function connect(
+  options: ConnectOptions = {},
+): Promise<Connection> {
   const address = options.address ?? process.env[SERVICE_ENV];
   if (address !== undefined && address !== "") {
     return connectExternal(address, options);
@@ -98,8 +132,12 @@ export async function connect(options: ConnectOptions = {}): Promise<Connection>
  * migration's content with its image files beside it, at the relative paths
  * the migrated model refers to them with, as `sysml -migrate -o` writes them.
  * A migration that would replace the v1 model it was read from, or land an
- * image outside `path`'s directory or over the model, is refused with a
- * `RangeError` before anything is written.
+ * image outside `path`'s directory, over the model or through a symbolic link
+ * at its path, is refused with a `RangeError` before anything is written.
+ * Images are then written without following a link at their path, so one put
+ * there after the check is not followed; a directory on the way replaced
+ * while the write is under way is not guarded against, as `sysml -migrate -o`
+ * does not either.
  */
 export async function save(target: Migration, path: string): Promise<Migration>;
 export async function save(
@@ -117,7 +155,7 @@ export async function save(
     await writeFile(path, target.content, "utf8");
     for (const [file, data] of files) {
       await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, data);
+      await writeFile(file, data, { flag: IMAGE_FLAGS });
     }
     return target;
   }
@@ -144,7 +182,9 @@ async function migrationFiles(
   migration: Migration,
   path: string,
 ): Promise<[string, Uint8Array][]> {
-  const source = (await exists(migration.sourcePath)) ? migration.sourcePath : "";
+  const source = (await exists(migration.sourcePath))
+    ? migration.sourcePath
+    : "";
   if (source !== "" && (await samePath(path, source))) {
     throw new RangeError(
       `${path} names the model being migrated; the v1 model would be replaced by its migration`,
@@ -157,31 +197,75 @@ async function migrationFiles(
     const segments = name.split("/");
     const file = resolve(base, ...segments);
     if (
-      segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("\\")) ||
+      segments.some(
+        (segment) =>
+          segment === "" ||
+          segment === "." ||
+          segment === ".." ||
+          segment.includes("\\"),
+      ) ||
       !within(base, file) ||
       !within(landedBase, await landing(file))
     ) {
-      throw new RangeError(`the migration's image ${name} would land outside ${base}`);
+      throw new RangeError(
+        `the migration's image ${name} would land outside ${base}`,
+      );
     }
     for (const guarded of [path, source]) {
       if (guarded !== "" && (await samePath(file, guarded))) {
-        throw new RangeError(`the migration's image ${name} would replace ${guarded}`);
+        throw new RangeError(
+          `the migration's image ${name} would replace ${guarded}`,
+        );
       }
+    }
+    if (await isSymbolicLink(file)) {
+      throw new RangeError(
+        `the migration's image ${name} would be written through a symbolic link at ${file}`,
+      );
     }
     files.push([file, data]);
   }
   return files;
 }
 
+/**
+ * How an image is written: created or truncated in place, never through a link
+ * at its path. Windows has no O_NOFOLLOW; the bitwise or reads its absence as 0.
+ */
+const IMAGE_FLAGS =
+  constants.O_WRONLY |
+  constants.O_CREAT |
+  constants.O_TRUNC |
+  constants.O_NOFOLLOW;
+
+/** Whether `path` is itself a symbolic link, wherever it points. */
+async function isSymbolicLink(path: string): Promise<boolean> {
+  return lstat(path).then(
+    (status) => status.isSymbolicLink(),
+    () => false,
+  );
+}
+
 /** Whether `path` names something: an empty path, or one that is gone, does not. */
 async function exists(path: string): Promise<boolean> {
-  return path !== "" && (await stat(path).then(() => true, () => false));
+  return (
+    path !== "" &&
+    (await stat(path).then(
+      () => true,
+      () => false,
+    ))
+  );
 }
 
 /** Whether `file` lies strictly below the directory `base`, both absolute. */
 function within(base: string, file: string): boolean {
   const below = relative(base, file);
-  return below !== "" && !isAbsolute(below) && below !== ".." && !below.startsWith(".." + sep);
+  return (
+    below !== "" &&
+    !isAbsolute(below) &&
+    below !== ".." &&
+    !below.startsWith(".." + sep)
+  );
 }
 
 /** Whether a write to `a` lands on `b`: the same file when both exist, else the same resolved path. */
@@ -190,7 +274,12 @@ async function samePath(a: string, b: string): Promise<boolean> {
     stat(a, { bigint: true }).catch(() => undefined),
     stat(b, { bigint: true }).catch(() => undefined),
   ]);
-  if (statA !== undefined && statB !== undefined && statA.ino !== 0n && statB.ino !== 0n) {
+  if (
+    statA !== undefined &&
+    statB !== undefined &&
+    statA.ino !== 0n &&
+    statB.ino !== 0n
+  ) {
     return statA.dev === statB.dev && statA.ino === statB.ino;
   }
   return (await landing(a)) === (await landing(b));
@@ -204,12 +293,16 @@ async function samePath(a: string, b: string): Promise<boolean> {
 async function landing(path: string): Promise<string> {
   let head = resolve(path);
   const tail: string[] = [];
-  for (let hops = 0; hops < 64; hops++) {
+  let hops = 0;
+  for (;;) {
     try {
       return join(await realpath(head), ...tail);
     } catch {
       const target = await readlink(head).catch(() => undefined);
       if (target !== undefined) {
+        if (++hops >= MAX_SYMLINK_HOPS) {
+          throw new RangeError(`${path}: too many levels of symbolic links`);
+        }
         head = resolve(dirname(head), target);
         continue;
       }
@@ -221,13 +314,23 @@ async function landing(path: string): Promise<string> {
       head = parent;
     }
   }
-  throw new RangeError(`${path}: too many levels of symbolic links`);
 }
 
-export async function load(path: string, options: ConnectOptions & ParseOptions = {}): Promise<Model> {
+/** Dangling symbolic links followed before a path is judged to loop, as the kernel's limit. */
+const MAX_SYMLINK_HOPS = 40;
+
+export async function load(
+  path: string,
+  options: ConnectOptions & ParseOptions = {},
+): Promise<Model> {
   const connection = await connect(options);
   try {
-    return await Model.parse(connection, { source: { case: "filePath", value: path } }, options, true);
+    return await Model.parse(
+      connection,
+      { source: { case: "filePath", value: path } },
+      options,
+      true,
+    );
   } catch (error) {
     await connection.close();
     throw error;
@@ -235,10 +338,18 @@ export async function load(path: string, options: ConnectOptions & ParseOptions 
 }
 
 /** Parses inline source over a connection of its own, which the model closes. */
-export async function loads(source: string, options: ConnectOptions & ParseOptions = {}): Promise<Model> {
+export async function loads(
+  source: string,
+  options: ConnectOptions & ParseOptions = {},
+): Promise<Model> {
   const connection = await connect(options);
   try {
-    return await Model.parse(connection, { source: { case: "content", value: source } }, options, true);
+    return await Model.parse(
+      connection,
+      { source: { case: "content", value: source } },
+      options,
+      true,
+    );
   } catch (error) {
     await connection.close();
     throw error;
@@ -246,7 +357,9 @@ export async function loads(source: string, options: ConnectOptions & ParseOptio
 }
 
 // The release a connection requires, 'latest' resolved to the tag it names.
-async function requiredRelease(options: ConnectOptions): Promise<string | undefined> {
+async function requiredRelease(
+  options: ConnectOptions,
+): Promise<string | undefined> {
   const asked = options.version ?? process.env[VERSION_ENV];
   if (asked === undefined || asked === "") {
     return undefined;
@@ -274,6 +387,7 @@ async function connectPrivate(options: ConnectOptions): Promise<Connection> {
     warn: (message, type) => {
       process.emitWarning(message, type);
     },
+    resolvePath: (path) => resolve(path),
   };
   // The open owns release from here on: a failure inside Connection.open
   // releases exactly once, so a refusal cannot drop another connection's hold.
@@ -304,7 +418,10 @@ async function connectPrivate(options: ConnectOptions): Promise<Connection> {
   });
 }
 
-async function connectExternal(address: string, options: ConnectOptions): Promise<Connection> {
+async function connectExternal(
+  address: string,
+  options: ConnectOptions,
+): Promise<Connection> {
   const url = baseUrl(address);
   const timeoutMs = timeoutOf(options);
   const required = await requiredRelease(options);
@@ -318,6 +435,7 @@ async function connectExternal(address: string, options: ConnectOptions): Promis
       warn: (message, type) => {
         process.emitWarning(message, type);
       },
+      resolvePath: (path) => resolve(path),
     },
     timeoutMs,
     ...(required === undefined ? {} : { requiredVersion: required }),
@@ -338,9 +456,14 @@ function transportFor(url: string, options: ConnectOptions): Transport {
   const binary = encodingOf(options) === "protobuf";
   if (options.protocol === "grpc") {
     if (!binary) {
-      throw new OpenSysMLError("the gRPC protocol carries protobuf bodies; JSON needs the Connect protocol");
+      throw new OpenSysMLError(
+        "the gRPC protocol carries protobuf bodies; JSON needs the Connect protocol",
+      );
     }
-    return createGrpcTransport({ baseUrl: url, interceptors: interceptors(options) });
+    return createGrpcTransport({
+      baseUrl: url,
+      interceptors: interceptors(options),
+    });
   }
   return createConnectTransport({
     baseUrl: url,
