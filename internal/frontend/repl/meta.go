@@ -156,6 +156,18 @@ type metaCommand struct {
 	// linked reports whether the build links the feature serving the command;
 	// nil for one the core serves.
 	linked func() bool
+	// part reports whether the build links an optional part of the command;
+	// when it does not, help shows partArgs and partDesc instead.
+	part               func() bool
+	partArgs, partDesc string
+}
+
+// shown is c as help lists it in this build.
+func (c metaCommand) shown() (args, desc string) {
+	if c.part != nil && !c.part() {
+		return c.partArgs, c.partDesc
+	}
+	return c.args, c.desc
 }
 
 // served reports whether the build serves c.
@@ -163,6 +175,7 @@ func (c metaCommand) served() bool { return c.linked == nil || c.linked() }
 
 func notationLinked() bool   { return replext.Notation() != nil }
 func positionalLinked() bool { return replext.Positional() != nil }
+func graphLinked() bool      { return replext.Graph() != nil }
 
 var metaCommandTable = []metaCommand{
 	{name: "%help", group: groupSession, desc: "show this help"},
@@ -205,7 +218,8 @@ var metaCommandTable = []metaCommand{
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
-	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
+	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
+		part: graphLinked, partArgs: "<object> [all|depth <n>]", partDesc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
 	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
 	{name: cmdInvoke, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
@@ -273,12 +287,13 @@ const (
 // for one line, then its description wrapped into the column after it.
 func helpEntry(c metaCommand) []string {
 	margin := strings.Repeat(" ", helpColumn)
-	signature := strings.Split(usage.Wrap(c.name+" "+c.args, helpWidth-6), "\n")
+	args, desc := c.shown()
+	signature := strings.Split(usage.Wrap(c.name+" "+args, helpWidth-6), "\n")
 	out := []string{"  " + signature[0]}
 	for _, line := range signature[1:] {
 		out = append(out, "      "+line)
 	}
-	for i, line := range strings.Split(usage.Wrap(c.desc, helpWidth-helpColumn), "\n") {
+	for i, line := range strings.Split(usage.Wrap(desc, helpWidth-helpColumn), "\n") {
 		if i == 0 && len(signature) == 1 && len(out[0]) < helpColumn-1 {
 			out[0] += margin[len(out[0]):] + line
 			continue
@@ -526,11 +541,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doEvalLine(strings.TrimSpace(tail))), true
 	case "%features":
 		if len(fields) < 2 {
-			return metaOut([]string{featuresUsage}, false, nil), true
+			return metaOut([]string{featuresUsageLine()}, false, nil), true
 		}
 		listing, perr := parseFeatureListing(fields[2:])
 		if perr != nil {
-			return metaOut([]string{errPrefix + perr.Error(), featuresUsage}, false, nil), true
+			return metaOut([]string{errPrefix + perr.Error(), featuresUsageLine()}, false, nil), true
 		}
 		return metaOut(s.doFeatures(fields[1], listing)), true
 	case "%instances":

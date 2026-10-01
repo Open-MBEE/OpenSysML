@@ -4299,7 +4299,7 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
 	if err == nil {
 		t.Fatal("expected an error for a history outside any composite state")
 	}
@@ -4335,7 +4335,7 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
 	if !errors.Is(err, ErrHistoryWithoutEntry) {
 		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
@@ -6477,9 +6477,8 @@ func testJoinOfMachineRegionsNestedSourceOwnerExitThatFails(t *testing.T) {
 }
 
 // testJoinTimeSegmentSiblingGuardThatFails: a timer coming due on one segment
-// into a join reads the other segments' guards to know whether the join is
-// enabled, so one that cannot be evaluated then is the step's error. The guard
-// read fine when its own completion came up and the timer segment held the join.
+// into a join reads the other due timer segments' guards to know whether the
+// join is enabled, so one that cannot be evaluated then is the step's error.
 func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 	_, _, err := executeStateSource(t, "Machine", `package test {
 		state Machine {
@@ -6495,7 +6494,7 @@ func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 				state right {
 					entry; then r1;
 					state r1;
-					transition first r1 if 1 / zero > 0 then sync;
+					transition first r1 accept after 2 if 1 / zero > 0 then sync;
 				}
 				state aux {
 					entry; then c1;
@@ -6513,12 +6512,10 @@ func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 	}
 }
 
-// testRegionPseudostateWithoutSatisfiedGuard: a junction reached from inside an
-// orthogonal region whose branches are all guarded false has nowhere to go. The
-// region set is left in place and the dead end reported, rather than the machine
-// resting on a pseudostate.
+// testRegionPseudostateWithoutSatisfiedGuard: a completion through a junction
+// with no enabled branch is dropped, leaving its source active.
 func testRegionPseudostateWithoutSatisfiedGuard(t *testing.T) {
-	_, _, err := executeStateSource(t, "Machine", `package test {
+	exec := stateExecutorForSource(t, "Machine", `package test {
 		state Machine parallel {
 			attribute x : Integer = 9;
 
@@ -6541,11 +6538,18 @@ func testRegionPseudostateWithoutSatisfiedGuard(t *testing.T) {
 			transition first merge if x == 1 then b;
 		}
 	}`)
-	if err == nil {
-		t.Fatal("expected an error for a junction with no satisfied guard")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to completion: %v", err)
 	}
-	if !strings.Contains(err.Error(), "no guard evaluated to true") {
-		t.Errorf("expected an unsatisfied-guard error, got: %v", err)
+	var a *ast.StateNode
+	for _, state := range exec.graph.States {
+		if state.Name == "a" {
+			a = state
+			break
+		}
+	}
+	if a == nil || !exec.inActiveConfiguration(a) {
+		t.Fatalf("active states = %s, want a to remain active", activeStateNames(exec))
 	}
 }
 

@@ -200,6 +200,12 @@ func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.Schedule
 	if err != nil {
 		return nil, err
 	}
+	if x.setupErr != nil {
+		return analysisResponse(&pb.RunAnalysisResponse{
+			Error:         x.setupErr.Error(),
+			FailureReason: failureReason(x.setupErr),
+		}, s.standingOf(x.plan)), nil
+	}
 	return analysisResponse(&pb.RunAnalysisResponse{Outcomes: x.outcomes, Exploration: x.status}, s.standingOf(x.plan)), nil
 }
 

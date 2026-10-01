@@ -965,7 +965,7 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 			}
 		}
 		if oc != nil && ec.ctx.isOrSpecializes(oc.Type, qualifier) {
-			if err := oc.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
+			if err := oc.BindFeatureValue(ec.ctx, sym.Name, value); err != nil {
 				return true, err
 			}
 		}

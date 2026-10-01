@@ -1517,12 +1517,12 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 				state middle {
 					entry; then b;
 					state b { exit assign exited := exited + 1; }
-					transition first b do assign log := log + "b;" then sync;
+					transition first b accept Go do assign log := log + "b;" then sync;
 				}
 				state right {
 					entry; then c;
 					state c { exit assign exited := exited + 1; }
-					transition first c do assign log := log + "c;" then sync;
+					transition first c accept Go do assign log := log + "c;" then sync;
 				}
 			}
 			join sync;
@@ -1531,7 +1531,7 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of do a, b(entry), c(entry)\nentering work: c(entry) first of do a, c(entry)\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
+	witness, err := ParseChoices("entering work: a(entry) first of a(entry), b(entry), c(entry)\nentering work: b(entry) first of do a, b(entry), c(entry)\nentering work: c(entry) first of do a, c(entry)\nat t=0.0: do a first of do a, dispatch accept Go\njoin sync: b first of a, b, c\njoin sync: a first of a, b\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1546,12 +1546,13 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	}
 	trace := NewTraceRecorder()
 	exec.SetTrace(trace)
-	// The Go a's segment takes arrives with b and c completed and a's do behavior waiting.
+	// Go completes the join with all three segments firing on one occurrence.
 	exec.SendSignal("Go", nil)
 	err = exec.RunToCompletion()
 	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 5 {
-		t.Fatalf("error %T %v, want the join's second draw refused", err, err)
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 6 ||
+		!strings.Contains(err.Error(), "b is not enabled (enabled: a, c)") {
+		t.Fatalf("error %T %v, want the join's second draw refused after b already fired", err, err)
 	}
 	data := exec.StateData()
 	for name, want := range map[string]string{"log": `""`, "exited": "0"} {
@@ -1567,11 +1568,11 @@ func TestReplayRefusedJoinDrawChangesNothing(t *testing.T) {
 	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
 		t.Errorf("do actions %v after the refusal, want a's do behavior paused as it was", exec.doActions)
 	}
-	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:3]) {
-		t.Errorf("the run recorded %v, want the entry's draws alone: a refused move is not one made", got)
+	if got := FormatChoices(takenOf(ctx.Choices())); got != FormatChoices(witness[:4]) {
+		t.Errorf("the run recorded %v, want the entry and do-step draws alone: a refused move is not one made", got)
 	}
-	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:3]) {
-		t.Errorf("the context holds %v, want the entry's draws alone taken", got)
+	if got := FormatChoices(ctx.ChoicesTaken()); got != FormatChoices(witness[:4]) {
+		t.Errorf("the context holds %v, want the entry and do-step draws alone taken", got)
 	}
 	if got := trace.String(); strings.Contains(got, "choice join sync") || strings.Contains(got, "exit: b") {
 		t.Errorf("trace after the refusal holds the segment fired:\n%s", got)

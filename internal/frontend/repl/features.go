@@ -15,6 +15,14 @@ import (
 // holds, and whether to write the listing as text or as JSON.
 const featuresUsage = "usage: %features <object> [all|depth <n>] [json]"
 
+// featuresUsageLine is featuresUsage without json in a build linking no graph writer.
+func featuresUsageLine() string {
+	if !graphLinked() {
+		return strings.TrimSuffix(featuresUsage, " [json]")
+	}
+	return featuresUsage
+}
+
 // maxFeatureGraphInstances bounds a JSON listing as maxFeatureValueLines bounds a
 // text one, at the count the API serializes for one object.
 func maxFeatureGraphInstances() int { return replext.Graph().DefaultInstances() }

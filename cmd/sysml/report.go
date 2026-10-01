@@ -455,13 +455,17 @@ func pathAt(paths []string, i int) string {
 type checkOutcome struct {
 	Values []namedValue `json:"values"`
 	// Error is what stopped the runs reaching this outcome, empty for one they completed.
-	Error          string `json:"error,omitempty"`
-	Linearizations int    `json:"linearizations"`
-	// Probability is the share of the schedule space reaching this outcome, a
-	// lower bound while the exploration's probabilitiesLowerBound holds.
-	Probability float64 `json:"probability"`
+	Error            string                 `json:"error,omitempty"`
+	Linearizations   int                    `json:"linearizations"`
+	Probability      *float64               `json:"probability,omitempty"`
+	ProbabilityRange *checkProbabilityRange `json:"probabilityRange,omitempty"`
 	// Witness is one run's choice sequence, a choice per entry in run order.
 	Witness []string `json:"witness"`
+}
+
+type checkProbabilityRange struct {
+	Min float64 `json:"min"`
+	Max float64 `json:"max"`
 }
 
 // checkExploration is how an exploration ended in the JSON report.
@@ -469,7 +473,8 @@ type checkExploration struct {
 	Complete bool `json:"complete"`
 	Runs     int  `json:"runs"`
 	// BudgetsHit names the budgets hit, `runs` before `depth`; empty when complete.
-	BudgetsHit []string `json:"budgetsHit"`
+	BudgetsHit           []string `json:"budgetsHit"`
+	FailedLinearizations int      `json:"failedLinearizations,omitempty"`
 	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower bounds.
 	ProbabilitiesLowerBound bool `json:"probabilitiesLowerBound"`
 }
@@ -481,13 +486,20 @@ func checkOutcomes(outcomes []repl.VerdictOutcome) []checkOutcome {
 	}
 	out := make([]checkOutcome, 0, len(outcomes))
 	for _, o := range outcomes {
-		out = append(out, checkOutcome{
+		co := checkOutcome{
 			Values:         namedValues(o.Values),
 			Error:          o.Error,
 			Linearizations: o.Linearizations,
-			Probability:    o.Probability,
 			Witness:        append([]string{}, o.Witness...),
-		})
+		}
+		if o.Probability != nil {
+			co.ProbabilityRange = &checkProbabilityRange{Min: o.Probability.Min, Max: o.Probability.Max}
+			if o.Probability.Exact() {
+				probability := o.Probability.Min
+				co.Probability = &probability
+			}
+		}
+		out = append(out, co)
 	}
 	return out
 }
@@ -501,6 +513,7 @@ func checkExplorationOf(x *repl.VerdictExploration) *checkExploration {
 		Complete:                x.Complete,
 		Runs:                    x.Runs,
 		BudgetsHit:              append([]string{}, x.BudgetsHit...),
+		FailedLinearizations:    x.FailedLinearizations,
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded,
 	}
 }

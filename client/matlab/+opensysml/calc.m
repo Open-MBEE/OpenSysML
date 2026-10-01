@@ -22,7 +22,8 @@ function result = calc(model, symbolId, varargin)
     end
     outputs = opensysml.internal.decodeOutputEntries(fieldOr(raw, 'outputs', {}), model.connection);
     value = [];
-    if isempty(fieldnames(outputs)) && isfield(raw, 'result')
+    [outputNames, ~] = opensysml.internal.mapEntries(outputs);
+    if isempty(outputNames) && isfield(raw, 'result')
         try, value = opensysml.decodeValue(raw.result);
         catch e, value = e;
         end

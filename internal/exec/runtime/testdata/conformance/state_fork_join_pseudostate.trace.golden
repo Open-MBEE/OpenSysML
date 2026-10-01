@@ -13,7 +13,6 @@ stmt action body
   stmt assign rightDone
     eval literal 1 -> 1
 transition: ready -> split
-choice join sync: states building, checking react (unordered; took building first)
 exit: building
 exit: checking
 exit: working

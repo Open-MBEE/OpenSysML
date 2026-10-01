@@ -1,0 +1,4 @@
+{
+	"type": "action",
+	"error": "feature is read-only: scaled is derived: its values are determined by the model, not written"
+}

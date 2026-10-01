@@ -14,6 +14,9 @@ function Diagnostic(d::AbstractDict)
                Int(get(span, "startCol", 0)), String(get(d, "code", "")))
 end
 
+Base.show(io::IO, d::Diagnostic) =
+    print(io, "$(d.file):$(d.line):$(d.col): $(d.severity): $(d.message)")
+
 abstract type OpenSysMLError <: Exception end
 abstract type ConnectError <: OpenSysMLError end
 const ServiceError = ConnectError

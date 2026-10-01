@@ -38,7 +38,11 @@ func (r Result) evidence() string {
 		parts = append(parts, "1 run under "+r.Question.Schedule.String())
 	case Outcomes:
 		if x := r.Exploration(); x != nil {
-			parts = append(parts, fmt.Sprintf("%s, inputs as written", plural(x.Runs, "linearization")))
+			evidence := fmt.Sprintf("%s, inputs as written", plural(x.Runs, "linearization"))
+			if failed := x.FailedLinearizations(); failed > 0 {
+				evidence = fmt.Sprintf("%s, %d failing, inputs as written", plural(x.Runs, "linearization"), failed)
+			}
+			parts = append(parts, evidence)
 		}
 	case Sweep:
 		parts = append(parts, plural(len(r.Values), "row"))

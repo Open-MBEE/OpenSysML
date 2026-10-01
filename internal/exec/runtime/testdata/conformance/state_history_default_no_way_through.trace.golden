@@ -1,0 +1,7 @@
+exit: idle
+stmt assign log
+    eval feature log -> "started"
+    eval literal " continued" -> " continued"
+  eval operator + -> "started continued"
+enter: done
+transition: idle -> done (event: accept Continue)
