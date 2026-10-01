@@ -1,5 +1,7 @@
 // Copyright 2025 Open‐MBEE Foundation. All rights reserved.
 // Use of this source code is governed by the LICENSE file.
+// Portions derived from Go's net/textproto, Copyright 2010 The Go Authors,
+// used under the BSD-style license at https://go.dev/LICENSE.
 
 package jsonrpc
 

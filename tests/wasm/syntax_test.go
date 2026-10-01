@@ -21,7 +21,7 @@ import (
 // syntaxGzipBudget bounds the gzipped js build of sysml-syntax: staying small is
 // the point of serving no resolution and no stdlib, so exceeding the budget
 // means the command pulled in a dependency it must not have.
-const syntaxGzipBudget = 1600000
+const syntaxGzipBudget = 1540000
 
 // syntaxCalls are the calls the stdio session and the host surface both make,
 // one of each method over its fixture.
@@ -191,9 +191,8 @@ func TestSyntaxCLIParity(t *testing.T) {
 	}
 	var parsed struct {
 		Diagnostics []struct {
-			Message  string `json:"message"`
-			StartCol int32  `json:"-"`
-			Span     struct {
+			Message string `json:"message"`
+			Span    struct {
 				StartLine int32 `json:"startLine"`
 				StartCol  int32 `json:"startCol"`
 			} `json:"span"`
