@@ -64,6 +64,10 @@ execute_action(model, "Demo::Action"; inputs=Dict("x" => 1))
 execute_state(model, "Demo::Machine"; events=["start"])
 ```
 
+`execute_action` returns `ActionOutputs`, a dictionary of output parameters
+with performer attributes in its `performer` field. `execute_state` returns a
+`StateRun` with `states_visited`, `final_context`, and `final_time`.
+
 `strict=true` raises `ModelError` when parsing reports error-severity
 diagnostics, matching the Python client. The separate wire option is
 `strict_conformance=true`; it asks the service for strict conformance checks.
