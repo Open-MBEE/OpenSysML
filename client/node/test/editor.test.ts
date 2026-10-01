@@ -88,6 +88,21 @@ function operationsOf(requests: ApplyEditsRequest[]): EditOperation[] {
   return requests.flatMap((request) => request.operations);
 }
 
+type OperationValue<C extends EditOperation["operation"]["case"]> =
+  EditOperation["operation"] extends infer Op
+    ? Op extends { case: C; value: infer V }
+      ? V
+      : never
+    : never;
+
+function operationValue<C extends EditOperation["operation"]["case"]>(
+  operation: EditOperation["operation"],
+  c: C,
+): OperationValue<C> {
+  assert.equal(operation.case, c);
+  return operation.value as OperationValue<C>;
+}
+
 function stubAnswer(
   requests: ApplyEditsRequest[],
   content = "edited",
@@ -128,16 +143,12 @@ test("setValue and rename operations cross exactly as written", async () => {
     .rename("Demo::SC::margin", "reserve")
     .apply();
   const [first, second] = operationsOf(requests);
-  assert.equal(first.operation.case, "setValue");
-  if (first.operation.case === "setValue") {
-    assert.equal(first.operation.value.target, "Demo::SC::unitMass");
-    assert.equal(first.operation.value.value, "1050.0[SI::kg]");
-  }
-  assert.equal(second.operation.case, "rename");
-  if (second.operation.case === "rename") {
-    assert.equal(second.operation.value.target, "Demo::SC::margin");
-    assert.equal(second.operation.value.newName, "reserve");
-  }
+  const setValue = operationValue(first.operation, "setValue");
+  assert.equal(setValue.target, "Demo::SC::unitMass");
+  assert.equal(setValue.value, "1050.0[SI::kg]");
+  const rename = operationValue(second.operation, "rename");
+  assert.equal(rename.target, "Demo::SC::margin");
+  assert.equal(rename.newName, "reserve");
   assert.equal(requests[0].acceptDocuments, true);
   assert.equal(requests[0].modelHash, "hash");
 });
@@ -155,20 +166,16 @@ test("addMember and delete requests are exact", async () => {
     .delete("Demo::sc")
     .apply();
   const [add, remove] = operationsOf(requests);
-  assert.equal(add.operation.case, "addMember");
-  if (add.operation.case === "addMember") {
-    assert.equal(add.operation.value.owner, "Demo::SC");
-    assert.equal(add.operation.value.kind, "part");
-    assert.equal(add.operation.value.name, "board");
-    assert.equal(add.operation.value.type, "Board");
-    assert.equal(add.operation.value.multiplicity, "[1]");
-    assert.equal(add.operation.value.value, "1");
-  }
-  assert.equal(remove.operation.case, "delete");
-  if (remove.operation.case === "delete") {
-    assert.equal(remove.operation.value.target, "Demo::sc");
-    assert.equal(remove.operation.value.cascade, false);
-  }
+  const member = operationValue(add.operation, "addMember");
+  assert.equal(member.owner, "Demo::SC");
+  assert.equal(member.kind, "part");
+  assert.equal(member.name, "board");
+  assert.equal(member.type, "Board");
+  assert.equal(member.multiplicity, "[1]");
+  assert.equal(member.value, "1");
+  const deleted = operationValue(remove.operation, "delete");
+  assert.equal(deleted.target, "Demo::sc");
+  assert.equal(deleted.cascade, false);
 });
 
 test("member modifiers, direction and metadata serialize", async () => {
@@ -221,12 +228,10 @@ test("sequence statements serialize their fields recursively", async () => {
     .addGuardedThen("Demo::a", "ok", "finish")
     .apply();
   const [first, thenOp, loop, guard] = operationsOf(requests);
-  assert.equal(first.operation.case, "addSequence");
-  if (first.operation.case === "addSequence") {
-    assert.equal(first.operation.value.keyword, "first");
-    assert.equal(first.operation.value.ref, "start");
-    assert.equal(first.operation.value.after, "begin");
-  }
+  const firstOp = operationValue(first.operation, "addSequence");
+  assert.equal(firstOp.keyword, "first");
+  assert.equal(firstOp.ref, "start");
+  assert.equal(firstOp.after, "begin");
   if (thenOp.operation.case === "addSequence") {
     assert.equal(thenOp.operation.value.keyword, "then");
     assert.equal(thenOp.operation.value.multiplicity, "[2]");
@@ -250,11 +255,10 @@ test("sequence statements serialize their fields recursively", async () => {
     assert.equal(looped.body[0].body[0].memberKind, "");
     assert.equal(looped.body[0].body[0].keyword, "else");
   }
-  if (guard.operation.case === "addSequence") {
-    assert.equal(guard.operation.value.keyword, "if");
-    assert.equal(guard.operation.value.condition, "ok");
-    assert.equal(guard.operation.value.ref, "finish");
-  }
+  const guardOp = operationValue(guard.operation, "addSequence");
+  assert.equal(guardOp.keyword, "if");
+  assert.equal(guardOp.condition, "ok");
+  assert.equal(guardOp.ref, "finish");
 });
 
 test("each operation family names the capability it needs", async () => {
@@ -510,7 +514,7 @@ test("a changed value is written back byte-exact outside its span", async () => 
   );
   assert.match(edited, /\/\/ The mass of one unit, measured on the bench\./);
   const again = await connection.loads(edited);
-  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.toString()).join(", "));
+  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.message).join(", "));
 });
 
 test("authored definitions and parts read back", async () => {
@@ -576,7 +580,7 @@ test("calc, action and state forms survive the round trip", async () => {
   assert.match(edited, /do action work : A \{/);
   assert.match(edited, /in attribute input : ScalarValues::Real;/);
   const again = await connection.loads(edited);
-  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.toString()).join(", "));
+  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.message).join(", "));
 });
 
 test("transitions, imports, documentation, comments and notes round-trip", async () => {
@@ -653,7 +657,7 @@ test("connections, satisfy and requirement constraints author", async () => {
   assert.match(edited, /require constraint positive/);
   assert.match(edited, /assume constraint/);
   const again = await connection.loads(edited);
-  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.toString()).join(", "));
+  assert.ok(again.ok, again.errors.map((diagnostic) => diagnostic.message).join(", "));
 });
 
 test("a referenced rename respells the references", async () => {
