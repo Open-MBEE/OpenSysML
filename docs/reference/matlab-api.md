@@ -179,7 +179,8 @@ file's bytes as `uint8`, with `fromFormat` naming `xmi`, `uml` or `mdzip`), and 
 `unmapped` and `skipped` counts, `entries` and `text`), `results`, `files` (a map from each
 image's relative path to its bytes), `sourcePath`, `experimental` and `experimentalNotice`;
 `byVerdict(verdict)` selects entries and `write(path)` writes the model with its images beside
-it, refusing to overwrite the v1 model or to write outside the model's directory. Migration is
+it, refusing to overwrite the v1 model — under any spelling or link to it — or to write outside
+the model's directory, through `..`, an absolute path or a symbolic link. Migration is
 experimental and issues the `opensysml:experimental` warning; a model the service cannot read
 raises `opensysml:diagnostics:migration`.
 

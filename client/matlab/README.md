@@ -163,8 +163,9 @@ A SysML v1 model (`.mdzip`, `.xmi`, `.uml`) is migrated, not converted:
 `content`, `report` (the `mapped`, `approximated`, `unmapped` and `skipped`
 counts, every element's entry with `report`, selected by `byVerdict`),
 `results`, the image `files`, `sourcePath`, and `write(path)`, which puts the
-images beside the model and refuses to overwrite the v1 model or to write
-outside the model's directory. The options are `fromFormat`, `report`,
+images beside the model and refuses to overwrite the v1 model — under any
+spelling or link to it — or to write outside the model's directory, through
+`..`, an absolute path or a symbolic link. The options are `fromFormat`, `report`,
 `results`, `layoutPath` or `layoutContent`, `imageBaseUrl` and `strict`.
 
 ## Queries and documents

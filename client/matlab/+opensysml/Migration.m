@@ -70,13 +70,19 @@ classdef Migration
         %WRITE Write the migrated model to path and its image files beside it, at
         %   their relative paths under path's directory, as sysml -migrate -o writes
         %   them. Nothing is written until every destination is judged: a path naming
-        %   the v1 model the migration came from, or an image that would land outside
-        %   the model's directory through .. or an absolute path, raises
-        %   opensysml:argument.
+        %   the v1 model the migration came from — by any spelling, hard link or
+        %   symbolic link — an image that would land outside the model's directory
+        %   through .., an absolute path or a symbolic link, or one whose own path
+        %   is a symbolic link, raises opensysml:argument. A directory on the way
+        %   replaced while the write is under way is not guarded against, as
+        %   sysml -migrate -o does not either.
             path = char(path);
-            absolute = opensysml.internal.absolutePath(path);
-            if ~isempty(obj.sourcePath) && exist(obj.sourcePath, 'file') == 2 && ...
-                    same_path(absolute, obj.sourcePath)
+            absolute = opensysml.internal.landing(path);
+            source = '';
+            if ~isempty(obj.sourcePath) && exist(obj.sourcePath, 'file') == 2
+                source = opensysml.internal.landing(obj.sourcePath);
+            end
+            if ~isempty(source) && same_file(absolute, source)
                 opensysml.internal.raise('opensysml:argument', sprintf( ...
                     '%s names the model being migrated; the v1 model would be replaced by its migration', path));
             end
@@ -89,14 +95,21 @@ classdef Migration
                 malformed = any(cellfun(@(s) any(strcmp(s, {'', '.', '..'})) || ...
                     any(s == '\'), segments));
                 file = fullfile(base, segments{:});
-                if malformed || ~strncmp(file, [base filesep], numel(base) + 1)
+                landed = '';
+                if ~malformed && within(file, base)
+                    landed = opensysml.internal.landing(file);
+                end
+                if isempty(landed) || ~within(landed, base)
                     opensysml.internal.raise('opensysml:argument', sprintf( ...
                         'the migration''s image %s would land outside %s', name, base));
                 end
-                if same_path(file, absolute) || ...
-                        (~isempty(obj.sourcePath) && same_path(file, obj.sourcePath))
+                if same_file(landed, absolute) || (~isempty(source) && same_file(landed, source))
                     opensysml.internal.raise('opensysml:argument', sprintf( ...
                         'the migration''s image %s would replace %s', name, file));
+                end
+                if opensysml.internal.isLink(file)
+                    opensysml.internal.raise('opensysml:argument', sprintf( ...
+                        'the migration''s image %s would be written through a symbolic link at %s', name, file));
                 end
                 destinations{i} = file;
             end
@@ -137,14 +150,23 @@ function report = decode_report(raw)
     report.entries = decoded;
 end
 
-function tf = same_path(a, b)
-    a = opensysml.internal.absolutePath(a);
-    b = opensysml.internal.absolutePath(b);
+function tf = same_file(a, b)
+%SAME_FILE Whether two landed paths name one file: the same spelling, or the
+%   same inode when both exist.
     if ispc
         tf = strcmpi(a, b);
     else
         tf = strcmp(a, b);
     end
+    tf = tf || opensysml.internal.sameFile(a, b);
+end
+
+function tf = within(path, base)
+%WITHIN Whether a path lies strictly under a directory, the root included.
+    if ~isempty(base) && base(end) ~= filesep
+        base = [base filesep];
+    end
+    tf = numel(path) > numel(base) && strncmp(path, base, numel(base));
 end
 
 function write_bytes(path, bytes)

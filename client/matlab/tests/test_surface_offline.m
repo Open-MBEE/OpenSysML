@@ -299,6 +299,45 @@ function test_surface_offline()
     delete(source);
     fromSource.write(source);
     assert_equal(fileread(source), 'package Vehicle;', 'a vacated source path protects nothing');
+    if ~ispc
+        fid = fopen(source, 'w'); fprintf(fid, '<xmi/>'); fclose(fid);
+        alias = fullfile(directory, 'Alias.sysml');
+        system(sprintf('ln -s "%s" "%s"', source, alias));
+        assert_error(@() fromSource.write(alias), 'opensysml:argument', ...
+            'overwriting the source through a link to it');
+        assert_equal(fileread(source), '<xmi/>', 'source left intact behind its link');
+        answer.files = {struct('path', 'Alias.sysml', 'content', 'AA==')};
+        aliasing = opensysml.Migration(answer, 'xmi', 'sysml', source);
+        assert_error(@() aliasing.write(fullfile(directory, 'Linked.sysml')), ...
+            'opensysml:argument', 'an image aliasing the source through a link');
+        assert_equal(fileread(source), '<xmi/>', 'source left intact behind an image link');
+        outside = tempname;
+        mkdir(outside);
+        outsideCleanup = onCleanup(@() rmdir(outside, 's'));
+        system(sprintf('ln -s "%s" "%s"', outside, fullfile(directory, 'linked')));
+        mkdir(fullfile(directory, 'dangling'));
+        system(sprintf('ln -s "%s" "%s"', fullfile(outside, 'missing'), ...
+            fullfile(directory, 'dangling', 'dir')));
+        system(sprintf('ln -s "%s" "%s"', fullfile(outside, 'file.png'), ...
+            fullfile(directory, 'dangling', 'file.png')));
+        mkdir(fullfile(directory, 'alias'));
+        system(sprintf('ln -s "%s" "%s"', fullfile(directory, 'alias', 'real.png'), ...
+            fullfile(directory, 'alias', 'alias.png')));
+        linked = {'linked/escaped.png', 'dangling/dir/escaped.png', 'dangling/file.png', ...
+            'alias/alias.png'};
+        for i = 1:numel(linked)
+            answer.files = {struct('path', linked{i}, 'content', 'AA==')};
+            bad = opensysml.Migration(answer, 'xmi', 'sysml', '');
+            assert_error(@() bad.write(fullfile(directory, 'Linked.sysml')), ...
+                'opensysml:argument', ['linked image ' linked{i}]);
+            assert_equal(exist(fullfile(directory, 'Linked.sysml'), 'file'), 0, ...
+                ['no model written for ' linked{i}]);
+        end
+        assert_equal(numel(dir(outside)), 2, 'nothing written outside through a link');
+        assert_equal(exist(fullfile(directory, 'alias', 'real.png'), 'file'), 0, ...
+            'nothing written through a link at the image''s path');
+        clear outsideCleanup;
+    end
     clear directoryCleanup warningCleanup;
     assert_error(@() opensysml.runSweep(model, 'Demo::calc', struct('x', {{1}})), ...
         'opensysml:argument', 'invalid sweep range');
