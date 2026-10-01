@@ -285,6 +285,10 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id; throws when the model declares none. */
   async symbol(name: string): Promise<ModelSymbol> {
+    // The empty name names the model itself, as Python's model.get("") does.
+    if (name === "") {
+      return this.parsed ? this.root : this.symbolById(name);
+    }
     if (this.looksQualified(name)) {
       return this.symbolById(name);
     }
@@ -506,6 +510,9 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id, breadth-first from the root. */
   async find(name: string): Promise<ModelSymbol | undefined> {
+    if (name === "") {
+      return this.parsed ? this.root : undefined;
+    }
     for await (const symbol of this.walk()) {
       if (symbol.name === name || symbol.id === name) {
         return symbol;

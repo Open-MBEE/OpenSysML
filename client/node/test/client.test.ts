@@ -658,3 +658,13 @@ function firstLine(child: ReturnType<typeof spawn>): Promise<string> {
     });
   });
 }
+
+test("the empty name names the model's root", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(`package Top { part def Wheel; }`);
+  const root = await model.symbol("");
+  assert.equal(root.id, model.root.id);
+  assert.equal(root.name, "Top");
+  const found = await model.find("");
+  assert.equal(found?.id, model.root.id);
+});
