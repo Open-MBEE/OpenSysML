@@ -27,6 +27,7 @@ pub const SCHEDULE_EXPLORE: &str = "explore";
 
 /// Value capabilities a request argument may need, named so an `UNIMPLEMENTED` refusal reads as one.
 const VALUE_CAPABILITIES: &[&str] = &[
+    CAPABILITY_ENUM_VALUES,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_MEASUREMENT_REFS,

@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::Path;
 
-use crate::capabilities::CAPABILITY_QUERY;
+use crate::capabilities::{upgrade_remedy, CAPABILITY_QUERY};
 use crate::conversion::{
     format_of_path, Conversion, ConvertOptions, ConvertSource, FORMAT_API_JSON, FORMAT_SYSML,
     FORMAT_TURTLE,
@@ -73,7 +73,11 @@ impl Model {
 
     /// An editor collecting source-preserving edits of this model.
     pub fn edit(&self) -> Editor {
-        Editor::new(self.hash().to_owned(), self.connection.clone())
+        Editor::new(
+            self.hash().to_owned(),
+            self.connection.clone(),
+            self.documents().len() > 1,
+        )
     }
 
     /// Run a SysML v2 API & Services query over the model.
@@ -156,6 +160,11 @@ impl Model {
 
     fn symbol_named(&self, name: &str) -> Result<Option<Symbol>, Error> {
         if !self.connection.capabilities().has(CAPABILITY_QUERY) {
+            if self.roots().is_empty() {
+                self.connection
+                    .capabilities()
+                    .require(CAPABILITY_QUERY, upgrade_remedy(CAPABILITY_QUERY))?;
+            }
             return self.walk_to(name, None);
         }
         let named = self.query_where(Constraint::equals(PROPERTY_NAME, name))?;

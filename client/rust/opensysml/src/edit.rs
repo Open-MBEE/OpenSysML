@@ -303,8 +303,15 @@ impl EditResult {
     pub fn wire(&self) -> &wire::ApplyEditsResponse {
         &self.wire
     }
-    /// Write the edited notation to `path`, exactly as the service returned it.
+    /// Write the edited notation to `path`, exactly as the service returned it; a model of
+    /// several documents is refused, its documents being in [`EditResult::documents`].
     pub fn write(&self, path: impl AsRef<Path>) -> Result<(), Error> {
+        if self.content.is_empty() && self.documents.len() > 1 {
+            return Err(Error::InvalidRequest(
+                "the edited model has several documents: write each of `documents` by name"
+                    .to_owned(),
+            ));
+        }
         fs::write(path, self.content.as_bytes())?;
         Ok(())
     }
@@ -815,15 +822,17 @@ pub struct Editor {
     model_hash: String,
     connection: Connection,
     document: String,
+    several_documents: bool,
     operations: Vec<wire::EditOperation>,
 }
 
 impl Editor {
-    pub(crate) fn new(model_hash: String, connection: Connection) -> Self {
+    pub(crate) fn new(model_hash: String, connection: Connection, several_documents: bool) -> Self {
         Self {
             model_hash,
             connection,
             document: String::new(),
+            several_documents,
             operations: Vec::new(),
         }
     }
@@ -1621,6 +1630,12 @@ impl Editor {
                 referrers: Vec::new(),
             })));
         }
+        if self.several_documents {
+            self.connection.capabilities().require(
+                CAPABILITY_EDIT_DOCUMENTS,
+                upgrade_remedy(CAPABILITY_EDIT_DOCUMENTS),
+            )?;
+        }
         self.connection
             .apply_edits(&self.model_hash, &self.document, self.operations)
     }
@@ -2158,5 +2173,28 @@ mod tests {
         assert_eq!(result.applied[0].document, "p.sysml");
         assert_eq!(result.documents.len(), 2);
         assert_eq!(result.wire().documents.len(), 2);
+    }
+
+    #[test]
+    fn a_result_of_several_documents_is_not_written_as_one() {
+        let result = edit_result_of(wire::ApplyEditsResponse {
+            documents: vec![
+                wire::EditedDocument {
+                    name: "p.sysml".to_owned(),
+                    content: "package P;".to_owned(),
+                },
+                wire::EditedDocument {
+                    name: "q.sysml".to_owned(),
+                    content: "package Q;".to_owned(),
+                },
+            ],
+            ..Default::default()
+        })
+        .unwrap();
+        let path = std::env::temp_dir().join("opensysml-several-documents.sysml");
+        fs::write(&path, "package Kept;").unwrap();
+        assert!(matches!(result.write(&path), Err(Error::InvalidRequest(_))));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "package Kept;");
+        fs::remove_file(path).unwrap();
     }
 }

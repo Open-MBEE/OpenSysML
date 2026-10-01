@@ -405,7 +405,7 @@ fn object_of(object: wire::DocumentObject) -> ObjectRef {
     ObjectRef {
         id: object.instance_id,
         path: object.path,
-        element: Some(boxed_element(object.element)),
+        element: object.element.map(|v| element_of(&v)),
     }
 }
 
@@ -527,6 +527,25 @@ mod tests {
         ] {
             let error = bindings_to_wire(&[("p", vec![value])]).unwrap_err();
             assert!(matches!(error, Error::InvalidRequest(_)), "{error}");
+        }
+    }
+
+    #[test]
+    fn an_object_naming_no_element_has_none() {
+        let value = DocumentValue::try_from(wire::DocumentValue {
+            element_type: String::new(),
+            kind: Some(wire::document_value::Kind::Object(Box::new(
+                wire::DocumentObject {
+                    instance_id: 7,
+                    path: "car.engine".to_owned(),
+                    element: None,
+                },
+            ))),
+        })
+        .unwrap();
+        match value {
+            DocumentValue::Object(object) => assert_eq!(object.element, None),
+            other => panic!("expected an object, got {other:?}"),
         }
     }
 

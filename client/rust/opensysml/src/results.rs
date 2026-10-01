@@ -716,7 +716,7 @@ impl AnalysisResult {
     }
     /// Whether every objective and assertion holds; a case stating none is satisfied.
     pub fn satisfied(&self) -> bool {
-        self.verdicts.iter().all(|v| v.holds)
+        self.verdicts.iter().all(|v| v.holds && v.error.is_empty())
     }
     /// The objects the run reported.
     pub fn instances(&self) -> &[Instance] {
@@ -1549,6 +1549,22 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn an_analysis_verdict_that_failed_to_evaluate_is_not_satisfied() {
+        let result = analysis_of(
+            wire::RunAnalysisResponse {
+                verdicts: vec![
+                    verdict("P::a", true, "", FailureReason::Unspecified),
+                    verdict("P::b", true, "unbound", FailureReason::Evaluation),
+                ],
+                ..Default::default()
+            },
+            &capabilities(&[]),
+        )
+        .unwrap();
+        assert!(!result.satisfied());
     }
 
     #[test]

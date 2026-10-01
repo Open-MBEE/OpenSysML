@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
-use crate::capabilities::upgrade_remedy;
+use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
     ServerInfo, Symbol,
@@ -290,7 +290,14 @@ impl Connection {
         for operation in &operations {
             reader.read(operation)?;
         }
-        let requested = reader.finish()?;
+        let mut requested = reader.finish()?;
+        if !document.is_empty() {
+            self.capabilities().require(
+                CAPABILITY_EDIT_DOCUMENTS,
+                upgrade_remedy(CAPABILITY_EDIT_DOCUMENTS),
+            )?;
+            requested.push(CAPABILITY_EDIT_DOCUMENTS);
+        }
         let request = wire::ApplyEditsRequest {
             model_hash: model_hash.to_owned(),
             operations,

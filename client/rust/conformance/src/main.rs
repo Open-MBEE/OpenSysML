@@ -324,7 +324,11 @@ impl Runner {
                     let path = fixture_path(&self.fixtures, name)?;
                     let content = fs::read_to_string(path)
                         .map_err(|error| format!("reading fixture {name}: {error}"))?;
-                    Ok(SourceDocument::inline(name.clone(), content))
+                    Ok(if spec.language.eq_ignore_ascii_case("kerml") {
+                        SourceDocument::inline_in(name.clone(), content, Language::Kerml)
+                    } else {
+                        SourceDocument::inline(name.clone(), content)
+                    })
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             let options = SourcesOptions {

@@ -1,7 +1,7 @@
 //! Request-side values: a [`Value`] as the wire carries it, checked against what the service reads.
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_COMPLEX_VALUES, CAPABILITY_FUNCTION_VALUES,
+    upgrade_remedy, CAPABILITY_COMPLEX_VALUES, CAPABILITY_ENUM_VALUES, CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_INFINITY_VALUE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_SET_VALUES, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
 };
@@ -48,6 +48,7 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         })),
         Value::Quantity(q) => kind(Kind::Quantity(quantity_to_wire(q)?)),
         Value::EnumLiteral(literal) => {
+            require(capabilities, CAPABILITY_ENUM_VALUES)?;
             if literal.literal_id.is_empty() {
                 return Err(Error::UnsupportedValue(
                     "enumeration literal naming no literal".to_owned(),
@@ -266,6 +267,7 @@ mod tests {
     use wire::value::Kind;
 
     const ALL: &[&str] = &[
+        CAPABILITY_ENUM_VALUES,
         CAPABILITY_COMPLEX_VALUES,
         CAPABILITY_STRUCTURED_VALUES,
         CAPABILITY_MEASUREMENT_REFS,
@@ -484,6 +486,22 @@ mod tests {
             count_lower: "1".to_owned(),
             count_upper: "1".to_owned(),
         }));
+    }
+
+    #[test]
+    fn an_enum_literal_needs_enum_values() {
+        let literal = Value::EnumLiteral(EnumLiteral {
+            literal_id: "P::Color::red".to_owned(),
+            enumeration_id: "P::Color".to_owned(),
+            name: "red".to_owned(),
+            value: None,
+        });
+        match value_to_wire(&literal, &capabilities(&[])) {
+            Err(Error::MissingCapability { capability, .. }) => {
+                assert_eq!(capability, CAPABILITY_ENUM_VALUES)
+            }
+            other => panic!("expected a missing capability, got {other:?}"),
+        }
     }
 
     #[test]
