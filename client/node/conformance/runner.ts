@@ -334,9 +334,10 @@ export class Runner {
       if (!Array.isArray(documents) || documents.length === 0) {
         return "the client's parseSources() refuses an empty document list before asking the service";
       }
-      const names = documents.map((entry) =>
-        String((entry as Record<string, unknown>)["filePath"] ?? (entry as Record<string, unknown>)["name"] ?? ""),
-      );
+      const names = documents.map((entry) => {
+        const record = entry as Record<string, unknown>;
+        return stringOf(record["filePath"] ?? record["name"]);
+      });
       if (new Set(names).size !== names.length) {
         return "the client's parseSources() refuses two documents of one name before asking the service";
       }
@@ -386,9 +387,9 @@ export class Runner {
         await this.connection.parseSources(
           documents.map((entry) => {
             if (typeof entry["content"] === "string") {
-              return SourceDocument.inline(String(entry["name"] ?? ""), entry["content"]);
+              return SourceDocument.inline(stringOf(entry["name"]), entry["content"]);
             }
-            return SourceDocument.file(String(entry["filePath"] ?? entry["file_path"] ?? ""));
+            return SourceDocument.file(stringOf(entry["filePath"] ?? entry["file_path"]));
           }),
           { strictConformance: request["strict_conformance"] === true },
         );
@@ -409,12 +410,12 @@ export class Runner {
         });
         return;
       case "Convert": {
-        const toFormat = String(request["to_format"] ?? "");
+        const toFormat = stringOf(request["to_format"]);
         const source =
           typeof request["content"] === "string"
-            ? { content: request["content"] as string }
+            ? { content: request["content"] }
             : typeof request["file_path"] === "string"
-              ? { path: request["file_path"] as string }
+              ? { path: request["file_path"] }
               : { modelHash };
         await this.connection.convert(toFormat, source, {
           ...(typeof request["from_format"] === "string"
@@ -426,7 +427,7 @@ export class Runner {
       case "ApplyEdits": {
         const operations = (request["operations"] as unknown[] | undefined) ?? [];
         await this.connection.applyEdits(
-          modelHash === "" ? String(request["model_hash"] ?? "") : modelHash,
+          modelHash === "" ? stringOf(request["model_hash"]) : modelHash,
           operations.map((entry) => fromJson(EditOperationSchema, entry as Record<string, JsonValue>)),
           {
             acceptDocuments: request["accept_documents"] === true,
@@ -496,8 +497,8 @@ export class Runner {
         for (const range of (request["ranges"] as Record<string, JsonValue>[] | undefined) ?? []) {
           const start = fromJson(ValueSchema, range["start"] as Record<string, JsonValue>);
           const end = fromJson(ValueSchema, range["end"] as Record<string, JsonValue>);
-          ranges[String(range["parameter"])] =
-            range["step"] === undefined
+          ranges[stringOf(range["parameter"])] =
+            !("step" in range)
               ? [start, end]
               : [start, end, fromJson(ValueSchema, range["step"] as Record<string, JsonValue>)];
         }
@@ -652,6 +653,11 @@ function asConnectError(error: unknown): ConnectError | undefined {
     return error.cause;
   }
   return undefined;
+}
+
+/** A request field read as a string; a field of another form reads as none. */
+function stringOf(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
 /** A scenario's `inputs` or `named_arguments` object, each value a wire Value JSON. */
