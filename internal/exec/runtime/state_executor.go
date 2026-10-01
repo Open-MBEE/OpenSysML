@@ -68,6 +68,8 @@ type StateExecutor struct {
 	joinArrived map[*ast.PseudostateNode][]*lower.Transition
 	// joinChosen holds the incoming segments selected by the current dispatch.
 	joinChosen map[*ast.PseudostateNode]map[*lower.Transition]bool
+	// joinProbing marks route resolution where same-occurrence peers are unknown.
+	joinProbing bool
 
 	// pendingCall is the synchronous Call the machine is running, if any.
 	pendingCall *pendingCall
@@ -1342,7 +1344,13 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 		if err != nil {
 			return nil, err
 		}
-		route, err := e.resolveRouteFor(candidate.chosen, event)
+		var route route
+		func() {
+			saved := e.joinProbing
+			e.joinProbing = true
+			defer func() { e.joinProbing = saved }()
+			route, err = e.resolveRouteFor(candidate.chosen, event)
+		}()
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -1595,6 +1603,10 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	}
 	r, err := e.resolveRouteFor(trans, event)
 	if err != nil {
+		if errors.Is(err, errNoWayThrough) {
+			e.discardDeadJoinTimerPeers(trans, event)
+			return false, nil
+		}
 		return false, err
 	}
 	if source != nil {
@@ -1602,6 +1614,41 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	}
 	defer e.taking(trans, notes)()
 	return e.fireTransition(trans, r)
+}
+
+func (e *StateExecutor) discardDeadJoinTimerPeers(trans *lower.Transition, event *Event) {
+	if event == nil || !isTimerExpiry(*event) {
+		return
+	}
+	join, ok := trans.Target.(*ast.PseudostateNode)
+	if !ok || join.Kind != ast.PseudostateJoin {
+		return
+	}
+	firingNow, completes, err := e.joinFiringNow(trans, event)
+	if err != nil || !completes {
+		return
+	}
+	for _, segment := range firingNow {
+		if segment == trans {
+			continue
+		}
+		timer, running := e.eventQueue.TimerOf(segment)
+		if !running || timer.Timestamp > event.Timestamp {
+			continue
+		}
+		if _, ok := e.eventQueue.Take(timer.ID); !ok {
+			continue
+		}
+		source, ok := segment.Source.(*ast.StateNode)
+		if !ok {
+			continue
+		}
+		for _, groupMember := range e.graph.Transitions[source] {
+			if sameTimerGroup(groupMember, segment) {
+				delete(e.timerScheduled, groupMember)
+			}
+		}
+	}
 }
 
 // chooseCompletion resolves which completion transition out of source fires on
@@ -3247,9 +3294,8 @@ func cloneJoinArrivals(arrived map[*ast.PseudostateNode][]*lower.Transition) map
 	return cloned
 }
 
-// joinFiringNow returns segments enabled by this occurrence, restricted to their
-// regions' dispatch choices when a dispatch is active, and whether they complete
-// the join with the segments already arrived.
+// joinFiringNow returns the candidate, its enabled peers for the current context,
+// and whether they complete the join.
 func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]*lower.Transition, bool, error) {
 	join, ok := trans.Target.(*ast.PseudostateNode)
 	if !ok || join.Kind != ast.PseudostateJoin {
@@ -3272,7 +3318,7 @@ func (e *StateExecutor) joinFiringNow(trans *lower.Transition, event *Event) ([]
 		if arrived[segment] {
 			continue
 		}
-		if e.joinChosen != nil && !e.joinChosen[join][segment] {
+		if e.joinProbing || (e.joinChosen != nil && !e.joinChosen[join][segment]) {
 			continue
 		}
 		source := segment.Source.(*ast.StateNode)

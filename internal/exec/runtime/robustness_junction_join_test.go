@@ -131,4 +131,77 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 			t.Fatalf("join arrivals after segment exit failure = %v, want none", exec.joinArrived)
 		}
 	})
+
+	t.Run("dead_join_exit_does_not_fire_same_occurrence_segments", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			private import ScalarValues::*;
+			attribute def Go;
+			state Machine {
+				attribute open : Boolean = false;
+				entry; then owner;
+				state owner parallel {
+					state left {
+						entry; then first;
+						state first;
+						transition first first accept Go then sync;
+					}
+					state right {
+						entry; then second;
+						state second;
+						transition first second accept Go then sync;
+					}
+					join sync;
+					transition first sync if open then done;
+				}
+				state done;
+			}
+		}`)
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want no error", err)
+		}
+		for _, name := range []string{"first", "second"} {
+			if state := stateNamed(t, exec, name); !exec.inActiveConfiguration(state) {
+				t.Errorf("state %s is not active after the dead join route", name)
+			}
+		}
+		if len(exec.joinArrived) != 0 {
+			t.Fatalf("join arrivals after dead join route = %v, want none", exec.joinArrived)
+		}
+	})
+
+	t.Run("dead_same_instant_timer_join_does_not_fire_segments", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				attribute open : Boolean = false;
+				entry; then owner;
+				state owner parallel {
+					state left {
+						entry; then first;
+						state first;
+						transition first first accept after 1 then sync;
+					}
+					state right {
+						entry; then second;
+						state second;
+						transition first second accept after 1 then sync;
+					}
+					join sync;
+					transition first sync if open then done;
+				}
+				state done;
+			}
+		}`)
+		if _, err := exec.ctx.Advance(2); err != nil {
+			t.Fatalf("Advance(2) = %v, want no error", err)
+		}
+		for _, name := range []string{"first", "second"} {
+			if state := stateNamed(t, exec, name); !exec.inActiveConfiguration(state) {
+				t.Errorf("state %s is not active after the dead timer join route", name)
+			}
+		}
+		if len(exec.joinArrived) != 0 {
+			t.Fatalf("join arrivals after dead timer join route = %v, want none", exec.joinArrived)
+		}
+	})
 }

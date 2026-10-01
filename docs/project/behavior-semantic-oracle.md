@@ -1110,6 +1110,12 @@ Derived constraints:
   segment fires only when its source is active, its trigger
   takes the occurrence, its guard holds, and its region's dispatch chose that transition; a
   competing or nested transition chosen by the region is not displaced by a sibling's join firing.
+- At selection, probes count only the candidate segment plus prior arrivals, and check the way
+  out only if they complete the join. In signal/change dispatches, firing checks completion
+  through same-occurrence peers against the segments their regions chose; if the route is dead,
+  none fire. Outside-dispatch firing counts every enabled peer, so same-instant timer expiries
+  remain one occurrence. `state_join_peer_not_chosen_does_not_block_arrival` and
+  `state_join_time_segments_expire_together` pin these distinctions.
 - A substate's steps are enclosed in its owner's state performance and are "and hence happening
   during the state performance" (`StatePerformances.kerml`); the library orders the owner's
   middle steps before its exit with `private succession [*] middle then [1] exit;`. Thus the
@@ -1132,7 +1138,9 @@ source exit and effect are one ordered unit, while arrivals are retained until t
 is complete.
 `state_join_segment_not_chosen_does_not_arrive` shows that Go fires A's segment while the middle
 region takes its nested `b1` transition; Finish records C, and the later Go fires B's segment and
-completes the join. The region's first dispatch does not also fire the unchosen B segment.
+completes the join. `state_join_peer_not_chosen_does_not_block_arrival` shows that an unchosen
+peer cannot make a dead way out disable A when A would arrive alone. The region's first dispatch
+does not also fire the unchosen B segment.
 
 ### A merge is re-entered on every traversal of a loop
 

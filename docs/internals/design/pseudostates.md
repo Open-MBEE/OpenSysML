@@ -322,6 +322,13 @@ enabled by the current occurrence and chosen by their regions in that dispatch
 cover every incoming segment and the outgoing route is available. The segments
 firing on that occurrence are drawn as `join <name>`; then arrivals clear, the
 owner is left after the last segment's effect, and the outgoing segment fires.
+At selection, probes count only the candidate and prior arrivals and check the
+way out only if they complete the join. Signal/change dispatches check same-
+occurrence peers at firing against the segments their regions chose; if the
+route is dead, none fire. Outside-dispatch firing counts every enabled peer, so
+same-instant timer expiries remain one occurrence
+(`state_join_peer_not_chosen_does_not_block_arrival`,
+`state_join_time_segments_expire_together`).
 `state_join_segments_arrive_together_on_one_occurrence` covers two segments
 arriving together on Go before Finish completes the join;
 `state_join_segment_not_chosen_does_not_arrive` shows that a nested transition

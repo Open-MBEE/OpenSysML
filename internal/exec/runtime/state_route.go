@@ -195,6 +195,9 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		}
 		defer unbind()
 
+		saved := e.joinProbing
+		e.joinProbing = true
+		defer func() { e.joinProbing = saved }()
 		_, routeErr = e.resolveRoute(trans, event)
 		if routeErr != nil {
 			return
