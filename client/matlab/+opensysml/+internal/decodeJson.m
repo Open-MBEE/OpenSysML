@@ -41,11 +41,11 @@ function value = decodeJson(text)
     keyCloses = quoteCloses(isKeyClose);
     keyLengths = keyCloses - keyOpens - 1;
     keywordNames = {'break', 'case', 'catch', 'classdef', 'continue', ...
-        'else', 'elseif', 'end', 'for', 'global', 'if', 'otherwise', ...
+        'else', 'elseif', 'end', 'for', 'function', 'global', 'if', 'otherwise', ...
         'parfor', 'persistent', 'return', 'spmd', 'switch', 'try', 'while'};
     keywordPattern = ['"(break|case|catch|classdef|continue|else|elseif|' ...
-        'end|for|global|if|otherwise|parfor|persistent|return|spmd|switch|' ...
-        'try|while|osk_x_\w*)"\s*:'];
+        'end|for|function|global|if|otherwise|parfor|persistent|return|spmd|' ...
+        'switch|try|while|osk_x_\w*)"\s*:'];
     needsCheck = keyLengths > namelengthmax | keyLengths == 0;
     if ~isempty(keyOpens)
         firstChars = text(keyOpens + 1);
@@ -156,10 +156,6 @@ function value = decodeJson(text)
 end
 
 function tf = needsKeyEscape(key, keywords)
-    if strcmp(key, 'function')
-        tf = false;
-        return;
-    end
     if isempty(key)
         tf = true;
         return;

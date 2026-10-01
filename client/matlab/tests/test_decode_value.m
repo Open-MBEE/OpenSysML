@@ -66,6 +66,18 @@ function test_decode_value()
     assert_error(@() opensysml.decodeValue(struct('function', struct('calcId', ''))), 'opensysml:decode', 'empty calcId');
     f = opensysml.decodeValue(struct('function', struct('calcId', 'C::f', 'selfId', '0')));
     assert_equal(isempty(f.self), true, 'function self 0 is no self');
+    functionValue = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    functionValue('function') = struct('calcId', 'C::f', 'selfId', '7');
+    f = opensysml.decodeValue(functionValue);
+    assert_equal(f.calcId, 'C::f', 'function Map calcId');
+    assert_equal(f.self.instanceRef, int64(7), 'function Map self');
+    nonFunctionMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    nonFunctionMap('xFunction') = 1;
+    assert_error(@() opensysml.decodeValue(nonFunctionMap), ...
+        'opensysml:decode', 'non-function Map arm');
+    emptyMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    assert_error(@() opensysml.decodeValue(emptyMap), ...
+        'opensysml:decode', 'empty Map is not a Value');
 
     s = opensysml.decodeValue(struct('set', struct('elements', {{struct('intValue', '1'), struct('intValue', '2')}})));
     assert_equal(s.set{2}, int64(2), 'set.1');
@@ -90,4 +102,3 @@ end
 function m = min_int64()
     m = intmin('int64');
 end
-

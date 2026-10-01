@@ -232,6 +232,15 @@ function test_surface_offline()
     assert_equal(decoded('osk_x_1'), 'literal', 'preserved escape-prefix key');
     decoded = opensysml.internal.decodeJson('{"@id":"a","xFunction":"literal"}');
     assert_equal(decoded('xFunction'), 'literal', 'preserved xFunction map key');
+    decoded = opensysml.internal.decodeJson('{"@id":"a","function":1}');
+    assert_equal(isa(decoded, 'containers.Map'), true, 'function map key');
+    assert_equal(numel(decoded.keys), 2, 'function and @id map entries');
+    assert_equal(decoded('@id'), 'a', 'function map @id value');
+    assert_equal(decoded('function'), 1, 'function map value');
+    decoded = opensysml.internal.decodeJson('{"function":1,"xFunction":2}');
+    assert_equal(isa(decoded, 'containers.Map'), true, 'distinct function map keys');
+    assert_equal(decoded('function'), 1, 'function key beside xFunction');
+    assert_equal(decoded('xFunction'), 2, 'xFunction key beside function');
     decoded = opensysml.internal.decodeJson( ...
         '{"items":[{"@id":"one","value":1},{"@id":"two","value":2}]}');
     arrayItems = decoded.items;
@@ -259,8 +268,33 @@ function test_surface_offline()
     assert_equal(numel(decodedLarge.content), numel(largeText), ...
         'large JSON string token');
     functionWire = opensysml.internal.decodeJson('{"function":{"calcId":"C"}}');
+    functionKeys = functionWire.keys;
+    assert_equal(isa(functionWire, 'containers.Map'), true, ...
+        'function Value remains a key map');
+    assert_equal(numel(functionKeys), 1, 'single function Value map key');
+    assert_equal(functionKeys{1}, 'function', 'function Value map key name');
     decodedFunction = opensysml.decodeValue(functionWire);
     assert_equal(decodedFunction.calcId, 'C', 'reserved function value arm');
+    expectedFunction = opensysml.decodeValue( ...
+        struct('function', struct('calcId', 'C')));
+    assert_equal(decodedFunction, expectedFunction, 'function value via map arm');
+    assert_equal(opensysml.internal.decodeValues(functionWire), expectedFunction, ...
+        'function value via decodeValues');
+    sequenceWire = opensysml.internal.decodeJson( ...
+        '{"sequence":{"elements":[{"function":{"calcId":"C"}}]}}');
+    decodedSequence = opensysml.internal.decodeValues(sequenceWire);
+    assert_equal(decodedSequence{1}, expectedFunction, ...
+        'function value nested in sequence');
+    namedValuesWire = opensysml.internal.decodeJson( ...
+        '{"values":{"this.x":{"function":{"calcId":"C"}}}}');
+    decodedNamedValues = opensysml.internal.decodeValues(namedValuesWire);
+    namedValueMap = decodedNamedValues.values;
+    assert_equal(namedValueMap('this.x'), expectedFunction, ...
+        'function value nested in named-values map');
+    decoded = opensysml.internal.decodeValues( ...
+        opensysml.internal.decodeJson('{"xFunction":1}'));
+    assert_equal(isstruct(decoded), true, 'xFunction is ordinary response data');
+    assert_equal(decoded.xFunction, 1, 'xFunction data preserved');
 
     emptyType = opensysml.Symbol(struct('id', 'Demo::Empty', 'typeInfo', struct()), model);
     assert_equal(isstruct(emptyType.typeFacts), true, 'present empty type facts');
