@@ -49,6 +49,10 @@ classdef Model < handle
             tf = isempty(m.errors());
         end
 
+        function editor = edit(m)
+            editor = opensysml.Editor(m);
+        end
+
         function result = raiseForErrors(m)
             errors = m.errors();
             if isempty(errors), result = m; return; end
