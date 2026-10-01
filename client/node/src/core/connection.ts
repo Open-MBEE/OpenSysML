@@ -453,6 +453,7 @@ export class Connection {
       report: migrationReportOf(response.report),
       results: response.results,
       files: new Map(response.files.map((file) => [file.path, file.content])),
+      sourcePath: "path" in source ? source.path : "",
       experimentalNotice: notice,
     });
   }

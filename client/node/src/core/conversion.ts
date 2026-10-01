@@ -15,9 +15,9 @@ const TURTLE_NAMES = new Set(["ttl", "turtle", "rdf"]);
 const API_JSON_NAMES = new Set(["api-json", "json"]);
 const XMI_NAMES = new Set(["xmi", "uml", "mdzip"]);
 
-/** Whether a format names SysML v1 in any of its forms: `xmi`, `uml` or `mdzip`. */
+/** Whether a format names SysML v1 in any of its forms: `xmi`, `uml` or `mdzip`, spelt as the service reads them. */
 export function isV1(format: string): boolean {
-  return XMI_NAMES.has(format);
+  return XMI_NAMES.has(format.trim().toLowerCase());
 }
 
 /** Whether a path's extension names a SysML v1 model: `.xmi`, `.uml` or `.mdzip`. */
@@ -246,6 +246,8 @@ export class Migration {
   readonly results: string;
   /** Image files the model's diagrams embed, by the relative path `content` refers to them with. */
   readonly files: ReadonlyMap<string, Uint8Array>;
+  /** The path the v1 model was read from, as given; empty when it was inline content. */
+  readonly sourcePath: string;
   /** Always true: the migration is experimental. */
   readonly experimental = true;
   /** What is experimental about it, in the service's own wording. */
@@ -258,6 +260,7 @@ export class Migration {
     report: MigrationReport;
     results: string;
     files: ReadonlyMap<string, Uint8Array>;
+    sourcePath: string;
     experimentalNotice: string;
   }) {
     this.content = init.content;
@@ -266,6 +269,7 @@ export class Migration {
     this.report = init.report;
     this.results = init.results;
     this.files = init.files;
+    this.sourcePath = init.sourcePath;
     this.experimentalNotice = init.experimentalNotice;
   }
 

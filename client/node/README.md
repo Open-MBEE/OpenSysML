@@ -429,6 +429,10 @@ for (const entry of migration.report.byVerdict("unmapped")) {
 await save(migration, "Model.sysml");             // and Model_images/… beside it
 ```
 
+`save` refuses, with a `RangeError` and before writing anything, a path that is
+the v1 model itself and an image that would land outside the model's directory
+or over the model, as `sysml -migrate -o` does.
+
 Inline `content` is the file's bytes (`Uint8Array`) and needs `fromFormat` to
 say which form they are; a v2 `fromFormat` is refused with a pointer at
 `convert`. The `Migration` carries the notation (or Turtle, `"ttl"`) and a

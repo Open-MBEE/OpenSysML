@@ -116,6 +116,7 @@ def fake_service():
 
 def test_v1_is_named_by_format_or_extension():
     assert is_v1("xmi") and is_v1("uml") and is_v1("mdzip")
+    assert is_v1("XMI") and is_v1(" mdzip ") and not is_v1(None)
     assert not is_v1("sysml") and not is_v1("ttl") and not is_v1("")
     assert path_is_v1("Model.mdzip") and path_is_v1("Model.XMI") and path_is_v1("/tmp/m.uml")
     assert not path_is_v1("Model.sysml") and not path_is_v1("Model.json")

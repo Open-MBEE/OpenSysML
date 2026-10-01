@@ -49,8 +49,9 @@ MIGRATED_NOT_CONVERTED = (
 
 
 def is_v1(from_format):
-    """Report whether ``from_format`` names a SysML v1 model: xmi, uml or mdzip."""
-    return from_format in _XMI_NAMES
+    """Report whether ``from_format`` names a SysML v1 model: xmi, uml or mdzip,
+    read as the service reads a format name, in any case and padding."""
+    return (from_format or '').strip().lower() in _XMI_NAMES
 
 
 def path_is_v1(path):
@@ -94,7 +95,7 @@ def is_experimental(from_format, to_format):
         or to_format in _TURTLE_NAMES
         or from_format in _API_JSON_NAMES
         or to_format in _API_JSON_NAMES
-        or from_format in _XMI_NAMES
+        or is_v1(from_format)
     )
 
 

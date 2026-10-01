@@ -573,7 +573,7 @@ public final class Connection implements AutoCloseable {
   }
 
   private static boolean isV1Format(String format) {
-    return switch (format) {
+    return switch (format.strip().toLowerCase(Locale.ROOT)) {
       case "xmi", "uml", "mdzip" -> true;
       default -> false;
     };

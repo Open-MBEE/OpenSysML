@@ -1077,6 +1077,14 @@ class ApiIntegrationTest {
     assertTrue(byFormat.serviceMessage().contains("the source is a SysML v1 model"));
     assertTrue(byFormat.serviceMessage().contains("call migrate"));
 
+    // A form is read as the service reads it, in any case and padding.
+    ConversionOptions asMDZIP = ConversionOptions.defaults().withFromFormat(" MDZIP ");
+    ServiceException bySpelling =
+        assertThrows(
+            ServiceException.class, () -> connection.convert("<xmi/>", "sysml", asMDZIP));
+    assertEquals(StatusCode.INVALID_ARGUMENT, bySpelling.status());
+    assertTrue(bySpelling.serviceMessage().contains("the source is a SysML v1 model"));
+
     // Named by its format, the client lets the service judge; it refuses the same way.
     ConversionOptions asXmi = ConversionOptions.defaults().withFromFormat("xmi");
     ServiceException byService =

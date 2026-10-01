@@ -2,7 +2,7 @@
 // and writing the result out with its image files.
 
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -87,7 +87,7 @@ test("convert refuses a v1 model by its extension and by its format, pointing at
       return true;
     },
   );
-  for (const fromFormat of ["xmi", "uml", "mdzip"]) {
+  for (const fromFormat of ["xmi", "uml", "mdzip", "XMI", " mdzip "]) {
     await assert.rejects(
       () => connection.convert("sysml", { content: "<xmi/>" }, { fromFormat }),
       (error: unknown) => {
@@ -97,6 +97,13 @@ test("convert refuses a v1 model by its extension and by its format, pointing at
       },
     );
   }
+});
+
+test("a v1 form is read as the service spells it, in any case and padding", async () => {
+  await using connection = await connect();
+  const migration = await connection.migrate("sysml", { path: VEHICLE_XMI }, { fromFormat: " XMI " });
+  assert.equal(migration.fromFormat, "xmi");
+  assert.match(migration.content, /part def Vehicle/);
 });
 
 test("migrate refuses a v2 source, pointing at convert", async () => {
@@ -197,6 +204,7 @@ test("save writes a migration and its image files beside it", async () => {
     }),
     results: "",
     files: new Map([["Vehicle_images/overview.png", png]]),
+    sourcePath: migrated.sourcePath,
     experimentalNotice: migrated.experimentalNotice,
   });
   const nested = join(dir, "out", "Vehicle.sysml");
@@ -206,4 +214,72 @@ test("save writes a migration and its image files beside it", async () => {
   const image = join(dir, "out", "Vehicle_images", "overview.png");
   assert.ok(existsSync(image));
   assert.deepEqual(new Uint8Array(readFileSync(image)), png);
+});
+
+test("save refuses to replace the v1 model with its migration", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  const source = join(dir, "Vehicle.xmi");
+  copyFileSync(VEHICLE_XMI, source);
+  await using connection = await connect();
+  const migration = await connection.migrate("sysml", { path: source });
+  assert.equal(migration.sourcePath, source);
+  await assert.rejects(
+    () => save(migration, source),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.equal(
+        error.message,
+        `${source} names the model being migrated; the v1 model would be replaced by its migration`,
+      );
+      return true;
+    },
+  );
+  assert.deepEqual(readFileSync(source), readFileSync(VEHICLE_XMI));
+  const inline = await connection.migrate(
+    "sysml",
+    { content: new Uint8Array(readFileSync(VEHICLE_XMI)) },
+    { fromFormat: "xmi" },
+  );
+  assert.equal(inline.sourcePath, "");
+  await save(inline, source);
+  assert.equal(readFileSync(source, "utf8"), inline.content);
+});
+
+test("save refuses an image that would escape the directory or replace the model, writing nothing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opensysml-migrate-"));
+  await using connection = await connect();
+  const migrated = await connection.migrate("sysml", { path: VEHICLE_XMI });
+  const path = join(dir, "Vehicle.sysml");
+  const withFiles = (files: [string, Uint8Array][]): Migration =>
+    new Migration({
+      content: migrated.content,
+      fromFormat: migrated.fromFormat,
+      toFormat: migrated.toFormat,
+      report: migrated.report,
+      results: "",
+      files: new Map(files),
+      sourcePath: migrated.sourcePath,
+      experimentalNotice: migrated.experimentalNotice,
+    });
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  for (const escaping of ["../escaped.png", "images/../../escaped.png", "/tmp/escaped.png", "images//escaped.png"]) {
+    await assert.rejects(
+      () => save(withFiles([[escaping, png]]), path),
+      (error: unknown) => {
+        assert.ok(error instanceof RangeError);
+        assert.equal(error.message, `the migration's image ${escaping} would land outside ${dir}`);
+        return true;
+      },
+    );
+  }
+  await assert.rejects(
+    () => save(withFiles([["Vehicle.sysml", png]]), path),
+    (error: unknown) => {
+      assert.ok(error instanceof RangeError);
+      assert.equal(error.message, `the migration's image Vehicle.sysml would replace ${path}`);
+      return true;
+    },
+  );
+  assert.ok(!existsSync(path), "nothing is written when an image is refused");
+  assert.ok(!existsSync(join(dir, "escaped.png")));
 });

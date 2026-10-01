@@ -1,7 +1,7 @@
 // Node entry point: everything the core does, plus the private-child lifecycle.
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { createConnectTransport, createGrpcTransport } from "@connectrpc/connect-node";
 import type { Transport } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
@@ -97,6 +97,9 @@ export async function connect(options: ConnectOptions = {}): Promise<Connection>
  * names, a conversion's content written as the service returned it, or a
  * migration's content with its image files beside it, at the relative paths
  * the migrated model refers to them with, as `sysml -migrate -o` writes them.
+ * A migration that would replace the v1 model it was read from, or land an
+ * image outside `path`'s directory or over the model, is refused with a
+ * `RangeError` before anything is written.
  */
 export async function save(target: Migration, path: string): Promise<Migration>;
 export async function save(
@@ -110,10 +113,9 @@ export async function save(
   options: { toFormat?: string; tolerateSyntaxErrors?: boolean } = {},
 ): Promise<Conversion | Migration> {
   if (target instanceof Migration) {
+    const files = await migrationFiles(target, path);
     await writeFile(path, target.content, "utf8");
-    const base = dirname(path);
-    for (const [relative, data] of target.files) {
-      const file = join(base, ...relative.split("/"));
+    for (const [file, data] of files) {
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, data);
     }
@@ -132,6 +134,66 @@ export async function save(
 }
 
 /** Parses a file over a connection of its own, which the model closes. */
+/**
+ * Where a migration's image files land when its model is written to `path`,
+ * refusing any that would escape the model's directory or replace the model
+ * or the v1 source, and refusing `path` itself when it is the source.
+ */
+async function migrationFiles(
+  migration: Migration,
+  path: string,
+): Promise<[string, Uint8Array][]> {
+  if (migration.sourcePath !== "" && (await samePath(path, migration.sourcePath))) {
+    throw new RangeError(
+      `${path} names the model being migrated; the v1 model would be replaced by its migration`,
+    );
+  }
+  const base = resolve(dirname(path));
+  const files: [string, Uint8Array][] = [];
+  for (const [relative, data] of migration.files) {
+    const segments = relative.split("/");
+    const file = resolve(base, ...segments);
+    if (
+      segments.some((segment) => segment === "" || segment === "." || segment === ".." || segment.includes("\\")) ||
+      !file.startsWith(base + sep)
+    ) {
+      throw new RangeError(`the migration's image ${relative} would land outside ${base}`);
+    }
+    for (const guarded of [path, migration.sourcePath]) {
+      if (guarded !== "" && (await samePath(file, guarded))) {
+        throw new RangeError(`the migration's image ${relative} would replace ${guarded}`);
+      }
+    }
+    files.push([file, data]);
+  }
+  return files;
+}
+
+/** Whether a write to `a` lands on `b`: the same file when both exist, else the same resolved path. */
+async function samePath(a: string, b: string): Promise<boolean> {
+  const [statA, statB] = await Promise.all([
+    stat(a, { bigint: true }).catch(() => undefined),
+    stat(b, { bigint: true }).catch(() => undefined),
+  ]);
+  if (statA !== undefined && statB !== undefined && statA.ino !== 0n && statB.ino !== 0n) {
+    return statA.dev === statB.dev && statA.ino === statB.ino;
+  }
+  return (await landing(a)) === (await landing(b));
+}
+
+/** The absolute path a write to `path` lands on, every symbolic link on the way followed. */
+async function landing(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    try {
+      return join(await realpath(dirname(path)), basename(path));
+    } catch {
+      return resolve(path);
+    }
+  }
+}
+
 export async function load(path: string, options: ConnectOptions & ParseOptions = {}): Promise<Model> {
   const connection = await connect(options);
   try {
