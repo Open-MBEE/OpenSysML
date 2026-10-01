@@ -351,7 +351,7 @@ fn an_array_a_vector_and_a_vector_quantity_arrive_whole() {
     assert_eq!(
         d.components()
             .iter()
-            .map(|component| component.magnitude)
+            .map(|component| component.magnitude.clone())
             .collect::<Vec<_>>(),
         [Magnitude::Real(3.0), Magnitude::Real(4.0)]
     );
@@ -754,14 +754,14 @@ fn a_set_arrives_once_per_member_and_a_tensor_with_its_rank() {
     assert_eq!(
         cube.components()
             .iter()
-            .map(|component| component.magnitude)
+            .map(|component| component.magnitude.clone())
             .collect::<Vec<_>>(),
         (1..=8)
             .map(|i| Magnitude::Real(f64::from(i)))
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+        cube.get(&[1, 0, 1]).map(|q| q.magnitude.clone()),
         Some(Magnitude::Real(6.0))
     );
 }

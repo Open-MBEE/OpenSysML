@@ -11,6 +11,7 @@ import (
 type valueKey struct {
 	kind    ValueKind
 	intVal  int64
+	bigVal  string // the decimal digits of a whole number beyond int64
 	realVal float64
 	imagVal float64
 	boolVal bool
@@ -42,11 +43,11 @@ func (ctx *Context) valueKey(v Value) valueKey {
 	switch v.Kind {
 	case ValConst:
 		switch v.Const.Kind {
-		case semantics.ValInt:
-			key.intVal = v.Const.Int
-		case semantics.ValReal:
+		case semantics.ValInt, semantics.ValReal:
 			if n, ok := v.Const.WholeNumber(); ok {
 				key.intVal = n
+			} else if n, ok := wholeBeyondInt64(v.Const); ok {
+				key.bigVal = n.FormatInt()
 			} else {
 				key.realVal = v.Const.Real
 			}
@@ -110,6 +111,8 @@ func (ctx *Context) hashElements(elements []Value) uint64 {
 			// #nosec G115 G104 -- see above.
 			h.Write([]byte{byte(k.intVal), byte(k.intVal >> 8)})
 		}
+		// #nosec G104 -- see above.
+		h.Write([]byte(k.bigVal))
 	}
 	return h.Sum64()
 }

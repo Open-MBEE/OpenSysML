@@ -31,14 +31,21 @@ func TestWriteRat(t *testing.T) {
 	}
 }
 
-// TestWriteInt: SMT-LIB numerals are non-negative, so a negative one is written
-// as a negation.
-func TestWriteInt(t *testing.T) {
-	if got := writeInt(-7); got != "(- 7)" {
-		t.Errorf("-7 writes as %s", got)
+// TestWriteBigInt: SMT-LIB numerals are non-negative and unbounded, so a
+// negative one is written as a negation and one beyond int64 in full.
+func TestWriteBigInt(t *testing.T) {
+	cases := map[string]string{
+		"-7":                     "(- 7)",
+		"7":                      "7",
+		"9223372036854775808":    "9223372036854775808",
+		"-9223372036854775809":   "(- 9223372036854775809)",
+		"1180591620717411303424": "1180591620717411303424",
 	}
-	if got := writeInt(7); got != "7" {
-		t.Errorf("7 writes as %s", got)
+	for in, want := range cases {
+		n, _ := new(big.Int).SetString(in, 10)
+		if got := writeBigInt(n); got != want {
+			t.Errorf("%s writes as %s, want %s", in, got, want)
+		}
 	}
 }
 

@@ -5,6 +5,7 @@ package docplan
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -61,7 +62,8 @@ func ValidRunStyle(style RunStyle) bool {
 }
 
 // Run is one planned inline run: a styled span, a link, or a reference to
-// a content block of this or another document, or another document's root.
+// a content block of this or another document, another document's root, or
+// a model element outside every document.
 type Run struct {
 	kind        RunKind
 	text        string
@@ -71,6 +73,8 @@ type Run struct {
 	refRoot     *symbols.Symbol
 	ref         []string
 	refDocument string
+	refElement  string
+	defaultText bool
 	origin      symbols.Origin
 }
 
@@ -95,6 +99,15 @@ func (r Run) RefPath() []string { return append([]string(nil), r.ref...) }
 // RefDocument returns the fully-qualified name of the document a reference
 // run targets, or "" when it targets the document being planned.
 func (r Run) RefDocument() string { return r.refDocument }
+
+// RefElement returns the fully-qualified name of the model element a
+// reference run targets when that is neither a content block nor a document,
+// or "" when it is one.
+func (r Run) RefElement() string { return r.refElement }
+
+// TextDefaulted reports whether a reference run's text is its target's label,
+// the run stating none.
+func (r Run) TextDefaulted() bool { return r.defaultText }
 
 // Origin returns the source declaration behind the run.
 func (r Run) Origin() symbols.Origin { return r.origin }
@@ -163,7 +176,7 @@ type BindingValue struct {
 	kind    BindingKind
 	element *symbols.Symbol
 	text    string
-	integer int64
+	integer semantics.Value
 	real    float64
 	boolean bool
 	origin  symbols.Origin
@@ -180,8 +193,20 @@ func (v BindingValue) Element() (*symbols.Symbol, bool) {
 // String returns the bound text when the value is a string.
 func (v BindingValue) String() (string, bool) { return v.text, v.kind == BindingString }
 
-// Integer returns the bound integer when the value is an integer.
-func (v BindingValue) Integer() (int64, bool) { return v.integer, v.kind == BindingInteger }
+// Integer returns the bound integer when the value is an integer within int64;
+// IntegerConst reads any integer.
+func (v BindingValue) Integer() (int64, bool) {
+	if v.kind != BindingInteger {
+		return 0, false
+	}
+	return v.integer.Int64()
+}
+
+// IntegerConst returns the bound Integer, of any size, when the value is an
+// integer.
+func (v BindingValue) IntegerConst() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingInteger
+}
 
 // Real returns the bound real when the value is a real.
 func (v BindingValue) Real() (float64, bool) { return v.real, v.kind == BindingReal }

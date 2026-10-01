@@ -3,9 +3,9 @@
   "events": [
     {"signal": "Bump"}
   ],
-  "finalState": "a1+b1+c1",
+  "finalState": "done",
   "outputs": {
-    "log": {"type": "String", "value": ""},
+    "log": {"type": "String", "value": "a b sync"},
     "level": {"type": "Integer", "value": 3}
   }
 }

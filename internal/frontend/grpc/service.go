@@ -197,6 +197,12 @@ const CapabilityVerificationVerdicts = "verification_verdicts"
 // `*` as Value.infinity, rather than reporting it as an unsupported null.
 const CapabilityInfinityValue = "infinity_value"
 
+// CapabilityBigIntValues names the capability of carrying an Integer beyond
+// int64 as Value.big_int_value, Quantity.big_int_magnitude and
+// DocumentValue.big_int_value, rather than as an unsupported null. A service
+// without it reads the arm sent to it as null, so a client must not send one.
+const CapabilityBigIntValues = "big_int_values"
+
 // CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
@@ -271,6 +277,7 @@ var capabilities = []string{
 	CapabilityDocumentationAuthoring,
 	CapabilityCommentAuthoring,
 	CapabilityActionBodyStatementAuthoring,
+	CapabilityBigIntValues,
 }
 
 type capabilityAvailability struct {
@@ -507,7 +514,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if protoconv.ValueCarriesMetaobject(pv) {
-		return s.requireCapability(CapabilityMetaobjectValues)
+		if err := s.requireCapability(CapabilityMetaobjectValues); err != nil {
+			return err
+		}
+	}
+	if protoconv.ValueCarriesBigInt(pv) {
+		return s.requireCapability(CapabilityBigIntValues)
 	}
 	return nil
 }
@@ -1090,6 +1102,9 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		if err != nil {
 			return nil, err
 		}
+		if x.setupErr != nil {
+			return &pb.ExecuteActionResponse{Error: x.setupErr.Error()}, nil
+		}
 		return &pb.ExecuteActionResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
@@ -1179,6 +1194,9 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		})
 		if err != nil {
 			return nil, err
+		}
+		if x.setupErr != nil {
+			return &pb.ExecuteStateResponse{Error: x.setupErr.Error()}, nil
 		}
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}

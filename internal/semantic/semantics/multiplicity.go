@@ -47,7 +47,9 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 	}
 	switch v.Kind {
 	case ValInt:
-		return Bound{Value: v.Int, Known: true}
+		// A bound beyond int64 bounds no collection that can exist; it is left unknown.
+		n, ok := v.Int64()
+		return Bound{Value: n, Known: ok}
 	case ValInfinity:
 		return Bound{Infinite: true, Known: true}
 	default:

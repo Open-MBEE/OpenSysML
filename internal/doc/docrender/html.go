@@ -292,6 +292,7 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		captions: captionNumbering{on: opts.NumberFigures}, names: document.ElementName,
 	}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
+	w.labels = refLabels(document, opts.NumberSections, opts.NumberFigures)
 	if err := w.writeDocument(document); err != nil {
 		return "", err
 	}
@@ -332,6 +333,7 @@ type htmlWriter struct {
 	ids      map[string]string
 	numbers  map[string]string
 	captions captionNumbering
+	labels   map[string]string
 	diagrams int
 	mermaid  []string
 	names    namer
@@ -1232,16 +1234,16 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	w.b.WriteString("</tbody>\n</table>\n")
 }
 
-// inlineRuns renders text runs joined by single spaces, each by its kind:
-// plain runs as prose, styled runs in <em>, <strong> or <code>, math runs as
-// delimited LaTeX in a math span, links and references as anchors, and
-// element-valued runs carrying their element.
+// inlineRuns renders text runs joined by single spaces (see joinRuns), each
+// by its kind: plain runs as prose, styled runs in <em>, <strong> or <code>,
+// math runs as delimited LaTeX in a math span, links and references as
+// anchors, and element-valued runs carrying their element.
 func (w *htmlWriter) inlineRuns(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
 		parts[i] = w.runHTML(run)
 	}
-	return strings.Join(parts, " ")
+	return joinRuns(runs, parts)
 }
 
 func (w *htmlWriter) runHTML(run docir.TextRun) string {
@@ -1264,8 +1266,13 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		// A scheme a document must not navigate to is kept as data, not as a link.
 		return "<a class=\"sysml-link\"" + attr("data-href", run.Target()) + ">" + htmlText(run.Text()) + "</a>"
 	case docir.RunRef:
+		// An element outside every document has no anchor to link to; the
+		// reference carries the element as data, as a table's rows do.
+		if element := run.TargetElement(); element != "" {
+			return "<a class=\"sysml-ref\"" + attr("data-element", element) + ">" + htmlText(run.Text()) + "</a>"
+		}
 		return "<a class=\"sysml-ref\"" + attr("href", refDestination(run, w.opts.Files, DocumentHTMLFileName)) +
-			attr("data-document", run.TargetDocument()) + ">" + htmlText(run.Text()) + "</a>"
+			attr("data-document", run.TargetDocument()) + ">" + htmlText(refText(run, w.labels)) + "</a>"
 	default:
 		return htmlText(run.Text())
 	}

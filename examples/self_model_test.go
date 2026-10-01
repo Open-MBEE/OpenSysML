@@ -40,6 +40,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 const selfModelDir = "self-model"
@@ -265,6 +266,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 		runtime.MaxElementsEnvVar:    {runtime.DefaultMaxElements, runtime.ErrElementLimitExceeded.Error()},
 		runtime.MaxCalcDepthEnvVar:   {runtime.DefaultMaxCalcDepth, runtime.ErrCalcRecursionLimit.Error()},
 		runtime.MaxSweepRunsEnvVar:   {runtime.DefaultMaxSweepRuns, runtime.ErrSweepBudget.Error()},
+		runtime.MaxIntegerBitsEnvVar: {runtime.DefaultMaxIntegerBits, runtime.ErrIntegerSizeLimit.Error()},
 	}
 	if fields := reflect.TypeOf(runtime.Budgets{}).NumField(); fields != len(actual) {
 		t.Fatalf("runtime.Budgets has %d fields, this test knows %d", fields, len(actual))
@@ -1368,7 +1370,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		ws.Open(name, content, 1)
 	}
 
-	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render the architecture document: %v", err)
 	}

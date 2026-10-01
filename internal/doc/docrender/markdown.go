@@ -107,7 +107,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,
-		names: document.ElementName,
+		names: document.ElementName, labels: refLabels(document, false, opts.NumberFigures),
 	}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
@@ -141,6 +141,7 @@ type markdownWriter struct {
 	diagrams     int
 	outputDir    string
 	numbers      captionNumbering
+	labels       map[string]string
 	tableColumns int
 	tableMeasure int
 	names        namer
@@ -544,16 +545,16 @@ func (w *markdownWriter) blockText(runs []docir.TextRun) string {
 	return blockStart(w.itemText(runs))
 }
 
-// itemText joins text runs by single spaces, rendering each by its kind:
-// plain runs as escaped prose, styled runs in emphasis or strong delimiters
-// or as code spans, math runs as dollar math, links and references as inline
-// links.
+// itemText joins text runs by single spaces (see joinRuns), rendering each
+// by its kind: plain runs as escaped prose, styled runs in emphasis or strong
+// delimiters or as code spans, math runs as dollar math, links and references
+// as inline links.
 func (w *markdownWriter) itemText(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
 		parts[i] = w.runText(run)
 	}
-	return strings.Join(parts, " ")
+	return joinRuns(runs, parts)
 }
 
 func (w *markdownWriter) runText(run docir.TextRun) string {
@@ -569,7 +570,11 @@ func (w *markdownWriter) runText(run docir.TextRun) string {
 	case docir.RunLink:
 		return "[" + inline(run.Text()) + "](<" + destination(run.Target()) + ">)"
 	case docir.RunRef:
-		return "[" + inline(run.Text()) + "](" + w.refDestination(run) + ")"
+		// An element outside every document has no destination; its name stands.
+		if run.TargetElement() != "" {
+			return inline(run.Text())
+		}
+		return "[" + inline(refText(run, w.labels)) + "](" + w.refDestination(run) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -709,8 +714,8 @@ func valueText(names namer, value queryexec.Value) string {
 	if text, ok := value.String(); ok {
 		return text
 	}
-	if integer, ok := value.Integer(); ok {
-		return strconv.FormatInt(integer, 10)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

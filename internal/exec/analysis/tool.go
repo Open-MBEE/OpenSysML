@@ -525,7 +525,7 @@ func encodeValue(v runtime.ToolValue) (json.RawMessage, error) {
 	}
 	switch v.Value.Kind {
 	case semantics.ValInt:
-		return json.RawMessage(strconv.FormatInt(v.Value.Int, 10)), nil
+		return json.RawMessage(v.Value.FormatInt()), nil
 	case semantics.ValReal:
 		if math.IsInf(v.Value.Real, 0) || math.IsNaN(v.Value.Real) {
 			return nil, fmt.Errorf("%v is not a JSON number", v.Value.Real)
@@ -754,8 +754,8 @@ func decodeValue(raw wiredValue) (runtime.ToolValue, error) {
 func decodeScalar(decoded any) (runtime.ToolValue, string, error) {
 	switch v := decoded.(type) {
 	case json.Number:
-		if i, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
-			return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, "number", nil
+		if i, ok := semantics.ParseInteger(v.String()); ok {
+			return runtime.ToolValue{Value: i}, "number", nil
 		}
 		f, err := strconv.ParseFloat(v.String(), 64)
 		if err != nil || math.IsInf(f, 0) {

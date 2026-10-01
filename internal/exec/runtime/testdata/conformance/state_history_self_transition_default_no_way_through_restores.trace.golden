@@ -1,0 +1,7 @@
+exit: active
+exit: outer
+stmt assign fired
+  eval literal true -> true
+enter: outer
+enter: active
+transition: active -> active (event: accept Reset)

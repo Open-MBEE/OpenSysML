@@ -608,11 +608,9 @@ func TestChangeTriggerLeavesAStateKeepingASignal(t *testing.T) {
 	}
 }
 
-// A rise enabling one segment into a join whose other segment's condition is
-// still false is an occurrence the join does not take: the poll fires nothing yet
-// consumes the rise, as a dispatched event nothing takes is consumed, so a run
-// stepped move by move sees the dispatch it was offered rather than a refusal.
-func TestChangeTriggerConsumesARiseIntoAnUnsynchronizedJoin(t *testing.T) {
+// A rising change segment arrives alone; a later rise by the other segment
+// completes the join using that saved arrival.
+func TestChangeTriggerArrivalCompletesOnLaterRise(t *testing.T) {
 	source := `package test {
 		private import ScalarValues::*;
 		state Machine {
@@ -641,31 +639,26 @@ func TestChangeTriggerConsumesARiseIntoAnUnsynchronizedJoin(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if got := activeStateNames(exec); got != "a1|b1" {
-		t.Fatalf("configuration = %s, want a1|b1: the join waits for b's condition", got)
+	if got := activeStateNames(exec); got != "b1" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after a's rise: configuration = %s, arrivals = %v; want b1 and a's waiting arrival", got, exec.joinArrived)
 	}
 	if !exec.changeFired[exec.graph.Transitions[stateNamed(t, exec, "a1")][0]] {
 		t.Error("a's rise is not latched: the next poll would offer the same occurrence again")
 	}
-	if reason := exec.SuspendReason(); !strings.Contains(reason, "a1: accept when (condition has not changed since it fired)") {
-		t.Errorf("reason = %q, want a's rise reported spent", reason)
-	}
-
-	// b's condition rising later is a new occurrence, which a's segment does not
-	// take: the join never fires.
+	// b's later rise completes the join with a's earlier occurrence.
 	exec.stateData["level"] = integerValue(3)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("raise b's condition: %v", err)
 	}
-	if got := activeStateNames(exec); got != "a1|b1" {
-		t.Errorf("configuration = %s, want a1|b1: b's later rise fired the join", got)
+	if got := activeStateNames(exec); got != "done" || len(exec.joinArrived) != 0 {
+		t.Errorf("after b's rise: configuration = %s, arrivals = %v; want done with arrivals cleared", got, exec.joinArrived)
 	}
-	if got := exec.stateData["log"]; got.Str() != "" {
-		t.Errorf("log = %q, want no segment's effect run", got.Str())
+	if got := exec.stateData["log"]; got.Str() != "a b sync" {
+		t.Errorf("log = %q, want a b sync", got.Str())
 	}
 
-	// Under the check policy the run is stepped move by move: the rise a poll
-	// consumes is a dispatch the machine makes, not one it refuses.
+	// Under the check policy each rising condition is a separate occurrence:
+	// the first leaves a waiting arrival and the later one completes the join.
 	m := parseExploreModel(t, source)
 	report, err := Check(context.Background(), m.fresh, stateStarterOf(m.state(t, "Machine"), Horizon{}), CheckBudget{}, unreduced(), nil)
 	if err != nil {
@@ -674,21 +667,19 @@ func TestChangeTriggerConsumesARiseIntoAnUnsynchronizedJoin(t *testing.T) {
 	if report.Verdict != CheckExhaustive {
 		t.Fatalf("check: %s, want exhaustive", report.Status())
 	}
-	// Work's regions are entered in either order; each order reaches the same halt.
+	// Work's regions are entered in either order; each order reaches the join.
 	if len(report.Finals) != 2 {
-		t.Fatalf("finals %+v, want one per entry order at a1+b1 with nothing logged", report.Finals)
+		t.Fatalf("finals %+v, want one per entry order with only a arrived", report.Finals)
 	}
 	for _, final := range report.Finals {
-		if final.Values["finalState"] != "a1+b1" || final.Values["log"] != `""` {
-			t.Fatalf("final %+v, want a1+b1 with nothing logged", final)
+		if final.Values["finalState"] != "b1" || final.Values["log"] != `"a "` {
+			t.Fatalf("final %+v, want b1 with only a's effect", final)
 		}
 	}
 }
 
-// A change-triggered segment into a join drawn after another region's firing
-// disarmed the join fires nothing, and neither reports a move nor draws a choice
-// the run made; its rise is consumed all the same, one rise being one occurrence.
-func TestChangeTriggerJoinDisarmedBeforeItsTurnFiresNothing(t *testing.T) {
+// A change-triggered segment arrives after a sibling disarms the other segment.
+func TestChangeTriggerDisarmedSegmentCanWaitForItsPeer(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     private import ScalarValues::*;
     state Machine {
@@ -721,8 +712,7 @@ func TestChangeTriggerJoinDisarmedBeforeItsTurnFiresNothing(t *testing.T) {
         transition first sync then done;
     }
 }`, "Machine")
-	// `declared` fires the regions in declaration order, c before a, and takes
-	// a1's first transition, the segment into the join.
+	// `declared` fires the regions in declaration order, c before a.
 	policy, err := ParseSchedulePolicy("declared")
 	if err != nil {
 		t.Fatal(err)
@@ -737,26 +727,32 @@ func TestChangeTriggerJoinDisarmedBeforeItsTurnFiresNothing(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if got := activeStateNames(exec); got != "c2|a1|b1" {
-		t.Fatalf("configuration = %s, want c2|a1|b1: c's effect disarmed b's segment, so a's fires nothing", got)
+	if got := activeStateNames(exec); got != "c2|b1" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after first rise: configuration = %s, arrivals = %v; want a's arrival while b is disarmed", got, exec.joinArrived)
 	}
+	transitionChoice := false
 	for _, c := range ctx.Choices() {
 		if c.Kind == ChoiceTransition {
-			t.Errorf("choices include %s: a's segment fired nothing, so its draw is no choice the run made", c)
+			transitionChoice = true
+			if !strings.Contains(c.String(), "took 1->sync") {
+				t.Errorf("transition choice = %s, want declared policy to take the join segment", c)
+			}
 		}
 	}
+	if !transitionChoice {
+		t.Fatal("choices have no transition draw between the join segment and a2")
+	}
 
-	// The rise a's segment was drawn on is spent; b's, blocked by its guard, is
-	// not, so re-arming the guard offers b a join whose other segment's rise is gone.
+	// Re-arming b alone does not create a new rising occurrence.
 	exec.stateData["armed"] = boolValue(true)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("re-arm: %v", err)
 	}
-	if got := activeStateNames(exec); got != "c2|a1|b1" {
-		t.Errorf("configuration = %s, want c2|a1|b1: a spent rise fired the join", got)
+	if got := activeStateNames(exec); got != "c2|b1" || len(exec.joinArrived) != 1 {
+		t.Errorf("after re-arm: configuration = %s, arrivals = %v; want a's arrival still waiting", got, exec.joinArrived)
 	}
 
-	// The condition falling and rising again is one occurrence for both segments.
+	// A new rise fires b and completes the join with a's saved arrival.
 	exec.stateData["level"] = integerValue(0)
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("lower: %v", err)
@@ -765,8 +761,8 @@ func TestChangeTriggerJoinDisarmedBeforeItsTurnFiresNothing(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("raise again: %v", err)
 	}
-	if exec.State() != StateCompleted {
-		t.Errorf("machine %v at %s after the new rise, want completed through the join", exec.State(), activeStateNames(exec))
+	if got := activeStateNames(exec); got != "done" || len(exec.joinArrived) != 0 {
+		t.Errorf("after the new rise: configuration = %s, arrivals = %v; want done with arrivals cleared", got, exec.joinArrived)
 	}
 }
 

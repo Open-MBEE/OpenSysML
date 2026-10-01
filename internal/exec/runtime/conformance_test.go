@@ -97,9 +97,10 @@ type AdmittedOutcome struct {
 	FinalState  string                   `json:"finalState,omitempty"`
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
-	// Probability states the share the explore pass expects the linearizations
-	// reaching this outcome to carry, for a case whose open choices are drawn.
+	// Probability states the exact probability from model-weighted draws.
 	Probability *float64 `json:"probability,omitempty"`
+	// ProbabilityRange states the minimum and maximum probability over schedulers.
+	ProbabilityRange *[2]float64 `json:"probabilityRange,omitempty"`
 }
 
 // ExpectedOutcome represents expected execution result
@@ -577,6 +578,15 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	ctx := fresh()
 	reached := make([]int, len(expected.Outcomes))
 	probs := make([]float64, len(expected.Outcomes))
+	probabilityRanges := make([]*ProbabilityRange, len(expected.Outcomes))
+	probabilityRangeCounts := make([]int, len(expected.Outcomes))
+	for _, outcome := range expected.Outcomes {
+		if outcome.Probability != nil || outcome.ProbabilityRange != nil {
+			if !exploration.Weighted() {
+				t.Errorf("outcome probability is stated for an exploration with no weighted choice")
+			}
+		}
+	}
 	for _, explored := range exploration.Outcomes {
 		witness := FormatChoices(explored.Witness)
 		if explored.Outcome.Err != nil {
@@ -588,8 +598,22 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 		})
 		switch len(matched) {
 		case 1:
-			reached[matched[0]-1] += explored.Linearizations
-			probs[matched[0]-1] += explored.Probability
+			index := matched[0] - 1
+			reached[index] += explored.Linearizations
+			if expected.Outcomes[index].Probability != nil {
+				if explored.Probability == nil {
+					t.Errorf("admissible outcome %d has no model probability", matched[0])
+				} else if !explored.Probability.Exact() {
+					t.Errorf("admissible outcome %d has inexact probability range %+v; probability requires an exact value",
+						matched[0], explored.Probability)
+				} else {
+					probs[index] += explored.Probability.Min
+				}
+			}
+			if expected.Outcomes[index].ProbabilityRange != nil {
+				probabilityRangeCounts[index]++
+				probabilityRanges[index] = explored.Probability
+			}
 		case 0:
 			t.Errorf("exploration reached an outcome the case does not list: %s\n  witness: %s\n  %s",
 				explored.Outcome, witness, strings.Join(report, "\n  "))
@@ -605,6 +629,16 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 		}
 		if want := expected.Outcomes[i].Probability; want != nil && math.Abs(probs[i]-*want) > 1e-9 {
 			t.Errorf("admissible outcome %d carries probability %v, want %v", i+1, probs[i], *want)
+		}
+		if want := expected.Outcomes[i].ProbabilityRange; want != nil {
+			if probabilityRangeCounts[i] != 1 {
+				t.Errorf("admissible outcome %d matches %d explored outcomes, want exactly one for probabilityRange",
+					i+1, probabilityRangeCounts[i])
+			} else if got := probabilityRanges[i]; got == nil ||
+				math.Abs(got.Min-want[0]) > 1e-9 || math.Abs(got.Max-want[1]) > 1e-9 {
+				t.Errorf("admissible outcome %d has probability range %v, want [%v, %v]",
+					i+1, got, want[0], want[1])
+			}
 		}
 	}
 	if !exploration.Complete() {
@@ -734,6 +768,13 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		}
 		if p := outcome.Probability; p != nil && (*p < 0 || *p > 1) {
 			problems = append(problems, fmt.Sprintf("outcome %d states probability %v, not one of 0.0..1.0", i+1, *p))
+		}
+		if p := outcome.ProbabilityRange; p != nil &&
+			(p[0] < 0 || p[0] > 1 || p[1] < 0 || p[1] > 1 || p[0] > p[1]) {
+			problems = append(problems, fmt.Sprintf("outcome %d states invalid probabilityRange [%v, %v]", i+1, p[0], p[1]))
+		}
+		if outcome.Probability != nil && outcome.ProbabilityRange != nil {
+			problems = append(problems, fmt.Sprintf("outcome %d states both probability and probabilityRange", i+1))
 		}
 	}
 	switch {
@@ -2049,20 +2090,27 @@ func lookupBehavioralSymbol(scope *symbols.Scope, defKind ast.DefinitionKind, us
 	return nil
 }
 
+// expectedInteger reads an expected Integer: a whole JSON number, or a decimal
+// string for one of any magnitude, whose digits no float64 rounds.
+func expectedInteger(v any) (semantics.Value, bool) {
+	switch v := v.(type) {
+	case float64:
+		return semantics.IntegerOfReal(v)
+	case string:
+		return semantics.ParseInteger(v)
+	}
+	return semantics.Value{}, false
+}
+
 // expectedToRuntimeValue converts ExpectedValue to runtime Value
 func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	switch ev.Type {
 	case "Integer":
-		var intVal int64
-		switch v := ev.Value.(type) {
-		case float64:
-			intVal = int64(v)
-		case int64:
-			intVal = v
-		default:
-			t.Fatalf("invalid Integer value type: %T", ev.Value)
+		n, ok := expectedInteger(ev.Value)
+		if !ok {
+			t.Fatalf("invalid Integer value %v (%T)", ev.Value, ev.Value)
 		}
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: intVal}}
+		return Value{Kind: ValConst, Const: n}
 	case "Real":
 		if v, ok := ev.Value.(float64); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
@@ -2196,9 +2244,13 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			t.Errorf("%s: type = %v (Const.Kind=%v), want Integer", name, actual.Kind, actual.Const.Kind)
 			return
 		}
-		want := int64(expected.Value.(float64))
-		if actual.Const.Int != want {
-			t.Errorf("%s: value = %d, want %d", name, actual.Const.Int, want)
+		want, ok := expectedInteger(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Integer value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if !actual.Const.Equal(want) {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatInt(), want.FormatInt())
 		}
 	case "Real":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValReal {

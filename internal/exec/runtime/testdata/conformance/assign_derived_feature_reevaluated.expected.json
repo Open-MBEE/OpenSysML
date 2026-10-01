@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"outputs": {
+		"before": {"type": "Integer", "value": 40},
+		"after": {"type": "Integer", "value": 50}
+	}
+}

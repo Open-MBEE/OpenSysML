@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math/big"
 	"slices"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -856,6 +857,8 @@ func valueToProto(value opensysml.Value) *pb.Value {
 		return nil
 	case opensysml.Int:
 		return &pb.Value{Kind: &pb.Value_IntValue{IntValue: int64(v)}}
+	case opensysml.BigInt:
+		return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: v.String()}}
 	case opensysml.Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}
 	case opensysml.Complex:
@@ -959,6 +962,12 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 	switch kind := value.GetKind().(type) {
 	case *pb.Value_IntValue:
 		return opensysml.Int(kind.IntValue), true
+	case *pb.Value_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return nil, false
+		}
+		return opensysml.NewInteger(n), true
 	case *pb.Value_RealValue:
 		return opensysml.Real(kind.RealValue), true
 	case *pb.Value_Complex:
@@ -1066,6 +1075,10 @@ func quantityFromProto(quantity *pb.Quantity) opensysml.Quantity {
 	switch magnitude := quantity.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
 		out.Magnitude = opensysml.Int(magnitude.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		if n, ok := new(big.Int).SetString(magnitude.BigIntMagnitude, 10); ok {
+			out.Magnitude = opensysml.NewInteger(n)
+		}
 	case *pb.Quantity_RealMagnitude:
 		out.Magnitude = opensysml.Real(magnitude.RealMagnitude)
 	}
@@ -1234,6 +1247,15 @@ func cellFromProto(value *pb.DocumentValue) opensysml.Cell {
 		return opensysml.String(kind.StringValue)
 	case *pb.DocumentValue_IntValue:
 		return opensysml.Int(kind.IntValue)
+	case *pb.DocumentValue_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return nil
+		}
+		if n.IsInt64() {
+			return opensysml.Int(n.Int64())
+		}
+		return opensysml.NewInteger(n).(opensysml.BigInt)
 	case *pb.DocumentValue_RealValue:
 		return opensysml.Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
@@ -1326,6 +1348,8 @@ func cellToProto(cell opensysml.Cell) *pb.DocumentValue {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: string(value)}}
 	case opensysml.Int:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: int64(value)}}
+	case opensysml.BigInt:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: value.String()}}
 	case opensysml.Real:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}
 	case opensysml.Bool:
@@ -1500,6 +1524,8 @@ func quantityToProto(quantity opensysml.Quantity) *pb.Quantity {
 	switch magnitude := quantity.Magnitude.(type) {
 	case opensysml.Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
+	case opensysml.BigInt:
+		out.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: magnitude.String()}
 	case opensysml.Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
 	}

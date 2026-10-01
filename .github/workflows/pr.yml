@@ -407,6 +407,11 @@ jobs:
           go vet ./...
           go vet -C tools ./...
 
+      - name: Vet and test the production sysml build (-tags sysml_prod)
+        run: |
+          go vet -tags sysml_prod ./cmd/sysml/... ./internal/frontend/repl/...
+          go test -count=1 -tags sysml_prod ./cmd/sysml -run TestProdBuild
+
       - name: Run static analysis (staticcheck + gosec)
         run: make lint
 

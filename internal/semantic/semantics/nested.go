@@ -76,60 +76,137 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	if !ok {
 		return ""
 	}
-	if fqn := familyNestedFQN(kind, usage, owner, composite); fqn != "" {
-		return fqn
+	u := NestedUsage{Kind: kind, Composite: composite, Portion: portion}
+	if usage != nil {
+		u.Performed = usage.IsPerformedAction()
+		u.Exhibited = usage.IsExhibitedState()
+		u.Included = usage.IsIncludedUseCase()
+		u.RequirementConstraint = usage.IsRequirementConstraint()
 	}
-	switch kind {
+	o, ok := nestedOwnerOf(owner)
+	if !ok {
+		return ""
+	}
+	fqn, step := nestedRuleFQN(u, o)
+	if step {
+		return m.stepNestedFQN(owner)
+	}
+	return fqn
+}
+
+// NestedUsage is what a usage's declaration alone says of it to the implicit
+// subsetting rules, for deciding them before the usage has a symbol.
+type NestedUsage struct {
+	Kind      ast.UsageKind
+	Composite bool
+	Portion   ast.PortionKind
+	// Performed, Exhibited and Included are the `perform action`, `exhibit
+	// state` and `include use case` forms; RequirementConstraint is a
+	// `require` or `assume` constraint, which subsets nothing implicitly.
+	Performed, Exhibited, Included, RequirementConstraint bool
+}
+
+// NestedOwner is the declaration kind of the type a usage nests in: a usage's
+// kind, or a definition's when IsDef.
+type NestedOwner struct {
+	Usage ast.UsageKind
+	Def   ast.DefinitionKind
+	IsDef bool
+}
+
+// nestedOwnerOf is the declaration kind of owner, false for a declaration
+// that is neither a usage (or a member form standing in for one) nor a definition.
+func nestedOwnerOf(owner *symbols.Symbol) (NestedOwner, bool) {
+	if u, ok := ownerUsageKind(owner); ok {
+		return NestedOwner{Usage: u}, true
+	}
+	if d, ok := owner.Decl.(*ast.Definition); ok {
+		return NestedOwner{Def: d.Kind, IsDef: true}, true
+	}
+	return NestedOwner{}, false
+}
+
+// stepFallbackFQNs are the features the KerML step fallback selects among,
+// by what the owner conforms to (KerML 1.1 §8.3.4.8).
+var stepFallbackFQNs = []string{
+	"Performances::Performance::subperformances",
+	"Objects::Object::ownedPerformances",
+	"Performances::Performance::enclosedPerformances",
+}
+
+// ImplicitSubsettingCandidates lists, by declaration kinds alone, the library
+// features a usage so declared may implicitly subset: the one the kind rules
+// settle on, or the step fallback's three under an owner whose kind is an
+// occurrence's, which of them depending on what the owner conforms to.
+func ImplicitSubsettingCandidates(u NestedUsage, owner NestedOwner) []string {
+	fqn, step := nestedRuleFQN(u, owner)
+	switch {
+	case fqn != "":
+		return []string{fqn}
+	case step && ownerInOccurrenceFamily(owner):
+		return slices.Clone(stepFallbackFQNs)
+	}
+	return nil
+}
+
+// nestedRuleFQN runs the rule chains by declaration kinds: the feature they
+// settle on, or step when they end in the KerML step fallback, which what the
+// owner conforms to decides.
+func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
+	if fqn := familyNestedFQN(u, owner); fqn != "" {
+		return fqn, false
+	}
+	switch u.Kind {
 	case ast.UsagePart, ast.UsageActor, ast.UsageStakeholder,
 		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation,
 		ast.UsageRendering, ast.UsageViewRendering, ast.UsageView:
-		return m.partNestedFQN(owner, composite, portion)
+		return partNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageItem, ast.UsagePort, ast.UsageOccurrence, ast.UsageIndividual:
-		return m.occurrenceNestedFQN(owner, composite, portion, false)
+		return occurrenceNestedFQN(owner, u.Composite, u.Portion, false)
 	case ast.UsageAction, ast.UsageTransition, ast.UsageFlow:
-		return m.actionNestedFQN(owner, composite, portion)
+		return actionNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageState:
-		return m.stateNestedFQN(owner, composite, portion)
+		return stateNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageCalc:
-		return m.calcNestedFQN(owner, composite, portion)
+		return calcNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
-		return m.caseNestedFQN(owner, composite, portion)
+		return caseNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageConstraint:
-		if usage.IsRequirementConstraint() {
-			return ""
+		if u.RequirementConstraint {
+			return "", false
 		}
-		return m.constraintNestedFQN(owner, composite, portion)
+		return constraintNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern, ast.UsageViewpoint:
-		return m.requirementNestedFQN(owner, composite, portion)
+		return requirementNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageStep:
-		if composite {
-			return m.stepNestedFQN(owner)
+		if u.Composite {
+			return "", true
 		}
 	}
-	return ""
+	return "", false
 }
 
 // familyNestedFQN is the feature a usage of one kind nested in an owner of its
 // own family subsets ahead of the general rule chains, "" when none applies.
-func familyNestedFQN(kind ast.UsageKind, usage *ast.Usage, owner *symbols.Symbol, composite bool) string {
-	switch kind {
+func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
+	switch u.Kind {
 	case ast.UsageAction:
-		if usage.IsPerformedAction() && ownerInPartFamily(owner) {
+		if u.Performed && ownerInPartFamily(owner) {
 			return "Parts::Part::performedActions"
 		}
 	case ast.UsageState:
-		if usage != nil && usage.IsExhibitedState() && ownerInPartFamily(owner) {
+		if u.Exhibited && ownerInPartFamily(owner) {
 			return "Parts::Part::exhibitedStates"
 		}
 	case ast.UsageUseCase:
-		if ownerInUseCaseFamily(owner) && usage.IsIncludedUseCase() {
+		if ownerInUseCaseFamily(owner) && u.Included {
 			return "UseCases::UseCase::includedUseCases"
 		}
 	}
-	if !composite {
+	if !u.Composite {
 		return ""
 	}
-	switch kind {
+	switch u.Kind {
 	case ast.UsageItem:
 		if ownerInItemFamily(owner) {
 			return "Items::Item::subitems"
@@ -167,90 +244,87 @@ func familyNestedFQN(kind ast.UsageKind, usage *ast.Usage, owner *symbols.Symbol
 
 // partNestedFQN is the rule chain of a usage whose kind nests under an item:
 // the item's `subparts` when composite, else the occurrence rules.
-func (m *Model) partNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func partNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInItemFamily(owner) {
-		return "Items::Item::subparts"
+		return "Items::Item::subparts", false
 	}
-	return m.occurrenceNestedFQN(owner, composite, portion, false)
+	return occurrenceNestedFQN(owner, composite, portion, false)
 }
 
 // actionNestedFQN is the rule chain of a usage whose kind nests under an
 // action: the action's `subactions`, the part's `ownedActions`, then the
 // occurrence rules with the KerML step fallback behind them.
-func (m *Model) actionNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func actionNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInActionFamily(owner) {
-		return "Actions::Action::subactions"
+		return "Actions::Action::subactions", false
 	}
 	if composite && ownerInPartFamily(owner) {
-		return "Parts::Part::ownedActions"
+		return "Parts::Part::ownedActions", false
 	}
-	return m.occurrenceNestedFQN(owner, composite, portion, true)
+	return occurrenceNestedFQN(owner, composite, portion, true)
 }
 
 // stateNestedFQN is the rule chain of a nested state that is not exhibited.
-func (m *Model) stateNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func stateNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInStateFamily(owner) {
-		return "States::StateAction::substates"
+		return "States::StateAction::substates", false
 	}
 	if composite && ownerInPartFamily(owner) {
-		return "Parts::Part::ownedStates"
+		return "Parts::Part::ownedStates", false
 	}
-	return m.actionNestedFQN(owner, composite, portion)
+	return actionNestedFQN(owner, composite, portion)
 }
 
 // calcNestedFQN is the rule chain of a nested calculation, which continues as
 // the action rules when no calculation owns it.
-func (m *Model) calcNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func calcNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInCalcFamily(owner) {
-		return "Calculations::Calculation::subcalculations"
+		return "Calculations::Calculation::subcalculations", false
 	}
-	return m.actionNestedFQN(owner, composite, portion)
+	return actionNestedFQN(owner, composite, portion)
 }
 
 // caseNestedFQN is the rule chain of a nested case, which continues as the
 // calculation rules when no case owns it.
-func (m *Model) caseNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func caseNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInCaseFamily(owner) {
-		return "Cases::Case::subcases"
+		return "Cases::Case::subcases", false
 	}
-	return m.calcNestedFQN(owner, composite, portion)
+	return calcNestedFQN(owner, composite, portion)
 }
 
 // constraintNestedFQN is the rule chain of a nested constraint check.
-func (m *Model) constraintNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func constraintNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInItemFamily(owner) {
-		return "Items::Item::checkedConstraints"
+		return "Items::Item::checkedConstraints", false
 	}
-	return m.occurrenceNestedFQN(owner, composite, portion, false)
+	return occurrenceNestedFQN(owner, composite, portion, false)
 }
 
 // requirementNestedFQN is the rule chain of a nested requirement check, which
 // continues as the constraint rules when no requirement owns it.
-func (m *Model) requirementNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind) string {
+func requirementNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInRequirementFamily(owner) {
-		return "Requirements::RequirementCheck::subrequirements"
+		return "Requirements::RequirementCheck::subrequirements", false
 	}
-	return m.constraintNestedFQN(owner, composite, portion)
+	return constraintNestedFQN(owner, composite, portion)
 }
 
 // occurrenceNestedFQN is the occurrence fallback every chain ends in: an
 // occurrence-family owner's `suboccurrences`, or its `timeSlices`/`snapshots`
 // for a portion usage. Behind it, for usages routed through the action rules,
 // is the KerML step fallback.
-func (m *Model) occurrenceNestedFQN(owner *symbols.Symbol, composite bool, portion ast.PortionKind, stepFallback bool) string {
+func occurrenceNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind, stepFallback bool) (string, bool) {
 	if composite && ownerInOccurrenceFamily(owner) {
 		switch portion {
 		case ast.PortionTimeslice:
-			return "Occurrences::Occurrence::timeSlices"
+			return "Occurrences::Occurrence::timeSlices", false
 		case ast.PortionSnapshot:
-			return "Occurrences::Occurrence::snapshots"
+			return "Occurrences::Occurrence::snapshots", false
 		}
-		return "Occurrences::Occurrence::suboccurrences"
+		return "Occurrences::Occurrence::suboccurrences", false
 	}
-	if stepFallback {
-		return m.stepNestedFQN(owner)
-	}
-	return ""
+	return "", stepFallback
 }
 
 // stepNestedFQN is the KerML step fallback (KerML 1.1 §8.3.4.8), whose owner is
@@ -258,11 +332,11 @@ func (m *Model) occurrenceNestedFQN(owner *symbols.Symbol, composite bool, porti
 func (m *Model) stepNestedFQN(owner *symbols.Symbol) string {
 	switch {
 	case m.conformsByName(owner, "Performances::Performance"):
-		return "Performances::Performance::subperformances"
+		return stepFallbackFQNs[0]
 	case m.conformsByName(owner, "Objects::Object"):
-		return "Objects::Object::ownedPerformances"
+		return stepFallbackFQNs[1]
 	case m.conformsByName(owner, "Occurrences::Occurrence"):
-		return "Performances::Performance::enclosedPerformances"
+		return stepFallbackFQNs[2]
 	}
 	return ""
 }
@@ -286,14 +360,11 @@ func ownerUsageKind(owner *symbols.Symbol) (ast.UsageKind, bool) {
 
 // ownerKindIn reports whether the owner's declaration kind is one of the usage
 // or definition kinds the family lists.
-func ownerKindIn(owner *symbols.Symbol, usages []ast.UsageKind, defs []ast.DefinitionKind) bool {
-	if u, ok := ownerUsageKind(owner); ok {
-		return slices.Contains(usages, u)
+func ownerKindIn(owner NestedOwner, usages []ast.UsageKind, defs []ast.DefinitionKind) bool {
+	if owner.IsDef {
+		return slices.Contains(defs, owner.Def)
 	}
-	if d, ok := owner.Decl.(*ast.Definition); ok {
-		return slices.Contains(defs, d.Kind)
-	}
-	return false
+	return slices.Contains(usages, owner.Usage)
 }
 
 var (
@@ -351,59 +422,59 @@ var (
 	}, nestedItemFamilyDefs, nestedActionFamilyDefs, nestedConstraintFamilyDefs)
 )
 
-func ownerInPartFamily(owner *symbols.Symbol) bool {
+func ownerInPartFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedPartFamilyUsages, nestedPartFamilyDefs)
 }
 
-func ownerInItemFamily(owner *symbols.Symbol) bool {
+func ownerInItemFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedItemFamilyUsages, nestedItemFamilyDefs)
 }
 
-func ownerInPortFamily(owner *symbols.Symbol) bool {
+func ownerInPortFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsagePort}, []ast.DefinitionKind{ast.DefPort})
 }
 
-func ownerInOccurrenceFamily(owner *symbols.Symbol) bool {
+func ownerInOccurrenceFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedOccurrenceFamilyUsages, nestedOccurrenceFamilyDefs)
 }
 
-func ownerInActionFamily(owner *symbols.Symbol) bool {
+func ownerInActionFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedActionFamilyUsages, nestedActionFamilyDefs)
 }
 
-func ownerInStateFamily(owner *symbols.Symbol) bool {
+func ownerInStateFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsageState}, []ast.DefinitionKind{ast.DefState})
 }
 
-func ownerInCalcFamily(owner *symbols.Symbol) bool {
+func ownerInCalcFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedCalcFamilyUsages, nestedCalcFamilyDefs)
 }
 
-func ownerInCaseFamily(owner *symbols.Symbol) bool {
+func ownerInCaseFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedCaseFamilyUsages, nestedCaseFamilyDefs)
 }
 
-func ownerInAnalysisCaseFamily(owner *symbols.Symbol) bool {
+func ownerInAnalysisCaseFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsageAnalysisCase}, []ast.DefinitionKind{ast.DefAnalysisCase})
 }
 
-func ownerInVerificationCaseFamily(owner *symbols.Symbol) bool {
+func ownerInVerificationCaseFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsageVerificationCase}, []ast.DefinitionKind{ast.DefVerificationCase})
 }
 
-func ownerInUseCaseFamily(owner *symbols.Symbol) bool {
+func ownerInUseCaseFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsageUseCase}, []ast.DefinitionKind{ast.DefUseCase})
 }
 
-func ownerInRequirementFamily(owner *symbols.Symbol) bool {
+func ownerInRequirementFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, nestedRequirementFamilyUsages, nestedRequirementFamilyDefs)
 }
 
-func ownerInViewFamily(owner *symbols.Symbol) bool {
+func ownerInViewFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner, []ast.UsageKind{ast.UsageView}, []ast.DefinitionKind{ast.DefView})
 }
 
-func ownerInRenderingFamily(owner *symbols.Symbol) bool {
+func ownerInRenderingFamily(owner NestedOwner) bool {
 	return ownerKindIn(owner,
 		[]ast.UsageKind{ast.UsageRendering, ast.UsageViewRendering},
 		[]ast.DefinitionKind{ast.DefRendering})

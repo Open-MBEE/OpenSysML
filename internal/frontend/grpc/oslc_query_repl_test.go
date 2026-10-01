@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
 )
 
 func TestOSLCQueryMatchesREPLQuery(t *testing.T) {

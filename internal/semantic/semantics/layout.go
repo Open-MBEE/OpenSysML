@@ -785,7 +785,7 @@ func (m *Model) readRealValue(site *LayoutSite, scope *symbols.Scope, value ast.
 	case symbols.FilterValueReal:
 		*into = v.Real
 	case symbols.FilterValueInt:
-		*into = float64(v.Int)
+		*into = FilterInteger(v).AsReal()
 	default:
 		site.Problems = append(site.Problems, LayoutProblem{Node: value,
 			Message: fmt.Sprintf("%s of %s is not a constant number", feature, simpleName(site.TypeFQN))})

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // compareModel: a target whose behavior shaky fails on some draws (10 / k, k drawn

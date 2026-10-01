@@ -288,6 +288,10 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	}
 	c.ctx, c.budgets = ctx, ctx.Budgets()
 	run, err := beginInvocation(ctx, start)
+	var setup *SetupError
+	if errors.As(err, &setup) {
+		return nil, err
+	}
 	check := run.checking()
 	if check.refused != nil {
 		return nil, check.refused

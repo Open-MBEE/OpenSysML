@@ -1,9 +1,10 @@
 //! Request-side values: a [`Value`] as the wire carries it, checked against what the service reads.
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_COMPLEX_VALUES, CAPABILITY_ENUM_VALUES, CAPABILITY_FUNCTION_VALUES,
-    CAPABILITY_INFINITY_VALUE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
-    CAPABILITY_SET_VALUES, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_ENUM_VALUES,
+    CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_MEASUREMENT_REFS,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_SET_VALUES, CAPABILITY_STRUCTURED_VALUES,
+    CAPABILITY_TENSOR_VALUES,
 };
 use crate::domain::{Capabilities, Magnitude, Quantity, UnitTerm, Value};
 use crate::error::Error;
@@ -28,6 +29,17 @@ fn require(capabilities: &Capabilities, capability: &str) -> Result<(), Error> {
     capabilities.require(capability, upgrade_remedy(capability))
 }
 
+/// Refuse an Integer beyond int64 to a service that would read its arm as null.
+fn require_magnitudes<'a>(
+    capabilities: &Capabilities,
+    mut magnitudes: impl Iterator<Item = &'a Magnitude>,
+) -> Result<(), Error> {
+    if magnitudes.any(|magnitude| matches!(magnitude, Magnitude::BigInteger(_))) {
+        require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
+    }
+    Ok(())
+}
+
 fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wire::Value, Error> {
     use wire::value::Kind;
     if depth > MAX_DEPTH {
@@ -38,6 +50,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
     let nested = |item: &Value| encode(item, capabilities, depth + 1);
     Ok(match value {
         Value::Integer(v) => kind(Kind::IntValue(*v)),
+        Value::BigInteger(v) => {
+            require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
+            kind(Kind::BigIntValue(v.as_str().to_owned()))
+        }
         Value::Real(v) => kind(Kind::RealValue(*v)),
         Value::Boolean(v) => kind(Kind::BoolValue(*v)),
         Value::Text(v) => kind(Kind::StringValue(v.clone())),
@@ -46,7 +62,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         Value::Sequence(elements) => kind(Kind::Sequence(wire::ValueSequence {
             elements: elements.iter().map(nested).collect::<Result<_, _>>()?,
         })),
-        Value::Quantity(q) => kind(Kind::Quantity(quantity_to_wire(q)?)),
+        Value::Quantity(q) => {
+            require_magnitudes(capabilities, std::iter::once(&q.magnitude))?;
+            kind(Kind::Quantity(quantity_to_wire(q)?))
+        }
         Value::EnumLiteral(literal) => {
             require(capabilities, CAPABILITY_ENUM_VALUES)?;
             if literal.literal_id.is_empty() {
@@ -84,14 +103,16 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         }
         Value::Vector(vector) => {
             require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
+            require_magnitudes(capabilities, vector.components.iter())?;
             kind(Kind::Vector(wire::Vector {
                 components: vector
                     .components
                     .iter()
                     .map(|component| {
-                        kind(match *component {
-                            Magnitude::Integer(v) => Kind::IntValue(v),
-                            Magnitude::Real(v) => Kind::RealValue(v),
+                        kind(match component {
+                            Magnitude::Integer(v) => Kind::IntValue(*v),
+                            Magnitude::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
+                            Magnitude::Real(v) => Kind::RealValue(*v),
                         })
                     })
                     .collect(),
@@ -99,6 +120,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         }
         Value::VectorQuantity(vector) => {
             require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
+            require_magnitudes(
+                capabilities,
+                vector.components().iter().map(|q| &q.magnitude),
+            )?;
             kind(Kind::VectorQuantity(wire::VectorQuantity {
                 components: vector
                     .components()
@@ -147,6 +172,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         }
         Value::TensorQuantity(tensor) => {
             require(capabilities, CAPABILITY_TENSOR_VALUES)?;
+            require_magnitudes(
+                capabilities,
+                tensor.components().iter().map(|q| &q.magnitude),
+            )?;
             kind(Kind::TensorQuantity(wire::TensorQuantity {
                 dimensions: tensor.dimensions().to_vec(),
                 components: tensor
@@ -229,9 +258,12 @@ pub(crate) fn quantity_to_wire(q: &Quantity) -> Result<wire::Quantity, Error> {
     Ok(wire::Quantity {
         unit: q.unit.clone(),
         unit_term,
-        magnitude: Some(match q.magnitude {
-            Magnitude::Integer(v) => wire::quantity::Magnitude::IntMagnitude(v),
-            Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(v),
+        magnitude: Some(match &q.magnitude {
+            Magnitude::Integer(v) => wire::quantity::Magnitude::IntMagnitude(*v),
+            Magnitude::BigInteger(v) => {
+                wire::quantity::Magnitude::BigIntMagnitude(v.as_str().to_owned())
+            }
+            Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(*v),
         }),
     })
 }
@@ -256,8 +288,8 @@ mod tests {
     use super::*;
     use crate::capabilities::CAPABILITY_COMPLEX_VALUES;
     use crate::domain::{
-        Array, Complex, EnumLiteral, Function, MeasurementRef, Metaobject, Set, TensorQuantity,
-        Undetermined, UnitFactor, Vector, VectorQuantity,
+        Array, BigInteger, Complex, EnumLiteral, Function, MeasurementRef, Metaobject, Set,
+        TensorQuantity, Undetermined, UnitFactor, Vector, VectorQuantity,
     };
     use wire::value::Kind;
 
@@ -271,6 +303,7 @@ mod tests {
         CAPABILITY_TENSOR_VALUES,
         CAPABILITY_METAOBJECT_VALUES,
         CAPABILITY_INFINITY_VALUE,
+        CAPABILITY_BIG_INT_VALUES,
     ];
 
     fn capabilities(names: &[&str]) -> Capabilities {
@@ -558,6 +591,48 @@ mod tests {
                 other => panic!("{value:?}: expected {expected}, got {other:?}"),
             }
         }
+    }
+
+    #[test]
+    fn an_integer_beyond_int64_needs_big_int_values_bare_or_nested() {
+        let wide = BigInteger::parse("1180591620717411303424").unwrap();
+        let quantity = metres(Magnitude::BigInteger(wide.clone()));
+        let without: Vec<&str> = ALL
+            .iter()
+            .copied()
+            .filter(|name| *name != CAPABILITY_BIG_INT_VALUES)
+            .collect();
+        for value in [
+            Value::BigInteger(wide.clone()),
+            Value::Sequence(vec![
+                Value::Integer(1),
+                Value::Sequence(vec![Value::BigInteger(wide.clone())]),
+            ]),
+            Value::Set(Set::new(vec![Value::BigInteger(wide.clone())]).unwrap()),
+            Value::Quantity(quantity.clone()),
+            Value::Vector(Vector {
+                components: vec![Magnitude::Integer(1), Magnitude::BigInteger(wide.clone())],
+            }),
+            Value::VectorQuantity(VectorQuantity::new(vec![quantity.clone()]).unwrap()),
+            Value::TensorQuantity(TensorQuantity::new(vec![1], vec![quantity.clone()]).unwrap()),
+        ] {
+            match value_to_wire(&value, &capabilities(&without)) {
+                Err(Error::MissingCapability { capability, .. }) => {
+                    assert_eq!(capability, CAPABILITY_BIG_INT_VALUES, "{value:?}")
+                }
+                other => panic!("{value:?}: expected big_int_values, got {other:?}"),
+            }
+            assert!(
+                value_to_wire(&value, &capabilities(ALL)).is_ok(),
+                "{value:?}"
+            );
+        }
+        assert_eq!(
+            value_to_wire(&Value::Integer(i64::MAX), &capabilities(&without))
+                .unwrap()
+                .kind,
+            Some(Kind::IntValue(i64::MAX))
+        );
     }
 
     #[test]

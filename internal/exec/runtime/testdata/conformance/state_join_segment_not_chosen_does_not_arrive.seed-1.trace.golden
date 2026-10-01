@@ -1,0 +1,51 @@
+choice on accept Go: next sync(join), b1(exit) (unordered; took sync(join) first)
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "A-exit " -> "A-exit "
+    eval operator + -> "A-exit "
+stmt assign log
+    eval feature log -> "A-exit "
+    eval literal "A-effect " -> "A-effect "
+  eval operator + -> "A-exit A-effect "
+exit: b1
+stmt assign log
+    eval feature log -> "A-exit A-effect "
+    eval literal "inner " -> "inner "
+  eval operator + -> "A-exit A-effect inner "
+enter: b2
+transition: b1 -> b2 (event: accept Go)
+exit: c (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect inner "
+      eval literal "C-exit " -> "C-exit "
+    eval operator + -> "A-exit A-effect inner C-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect inner C-exit "
+    eval literal "C-effect " -> "C-effect "
+  eval operator + -> "A-exit A-effect inner C-exit C-effect "
+exit: b2
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect inner C-exit C-effect "
+      eval literal "B-exit " -> "B-exit "
+    eval operator + -> "A-exit A-effect inner C-exit C-effect B-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect inner C-exit C-effect B-exit "
+    eval literal "B-effect " -> "B-effect "
+  eval operator + -> "A-exit A-effect inner C-exit C-effect B-exit B-effect "
+exit: Owner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A-exit A-effect inner C-exit C-effect B-exit B-effect "
+      eval literal "owner-exit " -> "owner-exit "
+    eval operator + -> "A-exit A-effect inner C-exit C-effect B-exit B-effect owner-exit "
+stmt assign log
+    eval feature log -> "A-exit A-effect inner C-exit C-effect B-exit B-effect owner-exit "
+    eval literal "out" -> "out"
+  eval operator + -> "A-exit A-effect inner C-exit C-effect B-exit B-effect owner-exit out"
+enter: done
+transition: Owner -> done (event: accept Go)

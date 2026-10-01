@@ -617,7 +617,15 @@ func evaluatedRun(run docplan.Run) TextRun {
 		if path := run.RefPath(); len(path) > 0 {
 			anchor = AnchorFor(path)
 		}
-		return TextRun{kind: RunRef, text: run.Text(), target: anchor, document: run.RefDocument(), origin: run.Origin()}
+		return TextRun{
+			kind:      RunRef,
+			text:      run.Text(),
+			target:    anchor,
+			document:  run.RefDocument(),
+			element:   run.RefElement(),
+			defaulted: run.TextDefaulted(),
+			origin:    run.Origin(),
+		}
 	default:
 		return TextRun{kind: styledKind(run.Style()), text: run.Text(), origin: run.Origin()}
 	}
@@ -832,8 +840,8 @@ func (e *evaluator) executionValue(value docplan.BindingValue) queryexec.Value {
 	if text, ok := value.String(); ok {
 		return queryexec.StringValue(text)
 	}
-	if integer, ok := value.Integer(); ok {
-		return queryexec.IntegerValue(integer)
+	if integer, ok := value.IntegerConst(); ok {
+		return queryexec.IntegerOf(integer)
 	}
 	if realVal, ok := value.Real(); ok {
 		return queryexec.RealValue(realVal)
@@ -882,8 +890,8 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	if text, ok := value.String(); ok {
 		return text
 	}
-	if integer, ok := value.Integer(); ok {
-		return strconv.FormatInt(integer, 10)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

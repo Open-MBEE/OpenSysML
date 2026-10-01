@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // wantBlock asserts the notation holds the lines consecutively, in order, whatever indents them.

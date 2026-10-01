@@ -197,7 +197,7 @@ func (e *Error) Error() string {
 	case ErrorAmbiguousRefTarget:
 		return fmt.Sprintf("document %s reference %s targets a usage typed by more than one document: %s", e.Document, e.Content, e.Actual)
 	case ErrorInvalidRefTarget:
-		return fmt.Sprintf("document %s reference %s must target a named content block of a document, or another document itself, got %s", e.Document, e.Content, e.Actual)
+		return fmt.Sprintf("document %s reference %s must target a named content block of a document, another document itself, or an element outside every document, got %s", e.Document, e.Content, e.Actual)
 	case ErrorUnknownGroupColumn:
 		return fmt.Sprintf("document %s table %s groups by %q, which its query does not project", e.Document, e.Content, e.Actual)
 	case ErrorInvalidColumnWidths:

@@ -237,6 +237,35 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  boolean hasBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  java.lang.String getBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  com.google.protobuf.ByteString
+      getBigIntValueBytes();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

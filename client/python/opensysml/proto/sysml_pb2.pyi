@@ -378,8 +378,16 @@ class RunAnalysisResponse(_message.Message):
     bounds: _containers.RepeatedCompositeFieldContainer[Bound]
     def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., evaluations: _Optional[_Iterable[_Union[CaseEvaluation, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ...) -> None: ...
 
+class ProbabilityRange(_message.Message):
+    __slots__ = ("min", "max")
+    MIN_FIELD_NUMBER: _ClassVar[int]
+    MAX_FIELD_NUMBER: _ClassVar[int]
+    min: float
+    max: float
+    def __init__(self, min: _Optional[float] = ..., max: _Optional[float] = ...) -> None: ...
+
 class Outcome(_message.Message):
-    __slots__ = ("outputs", "final_state", "states_visited", "error", "linearizations", "witness", "diagnostics", "probability")
+    __slots__ = ("outputs", "final_state", "states_visited", "error", "linearizations", "witness", "diagnostics", "probability", "probability_range")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -395,6 +403,7 @@ class Outcome(_message.Message):
     WITNESS_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     PROBABILITY_FIELD_NUMBER: _ClassVar[int]
+    PROBABILITY_RANGE_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     final_state: str
     states_visited: _containers.RepeatedScalarFieldContainer[str]
@@ -403,23 +412,26 @@ class Outcome(_message.Message):
     witness: _containers.RepeatedScalarFieldContainer[str]
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     probability: float
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ...) -> None: ...
+    probability_range: ProbabilityRange
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
     RUNS_BUDGET_FIELD_NUMBER: _ClassVar[int]
     DEPTH_BUDGET_FIELD_NUMBER: _ClassVar[int]
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
     runs_budget: int
     depth_budget: int
     probabilities_lower_bound: bool
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ...) -> None: ...
+    failed_linearizations: int
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ...) -> None: ...
 
 class ListEnginesRequest(_message.Message):
     __slots__ = ()
@@ -1192,7 +1204,7 @@ class AttributeInfo(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ...) -> None: ...
 
 class Value(_message.Message):
-    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined")
+    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value")
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1214,6 +1226,7 @@ class Value(_message.Message):
     TENSOR_QUANTITY_FIELD_NUMBER: _ClassVar[int]
     METAOBJECT_FIELD_NUMBER: _ClassVar[int]
     UNDETERMINED_FIELD_NUMBER: _ClassVar[int]
+    BIG_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     int_value: int
     real_value: float
     bool_value: bool
@@ -1235,7 +1248,8 @@ class Value(_message.Message):
     tensor_quantity: TensorQuantity
     metaobject: Metaobject
     undetermined: Undetermined
-    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ...) -> None: ...
+    big_int_value: str
+    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ..., big_int_value: _Optional[str] = ...) -> None: ...
 
 class Metaobject(_message.Message):
     __slots__ = ("element_id", "metaclass_id")
@@ -1322,16 +1336,18 @@ class ValueSequence(_message.Message):
     def __init__(self, elements: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
 
 class Quantity(_message.Message):
-    __slots__ = ("int_magnitude", "real_magnitude", "unit", "unit_term")
+    __slots__ = ("int_magnitude", "real_magnitude", "big_int_magnitude", "unit", "unit_term")
     INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     REAL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
+    BIG_INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     UNIT_TERM_FIELD_NUMBER: _ClassVar[int]
     int_magnitude: int
     real_magnitude: float
+    big_int_magnitude: str
     unit: str
     unit_term: UnitTerm
-    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ...) -> None: ...
+    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., big_int_magnitude: _Optional[str] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ...) -> None: ...
 
 class MeasurementRef(_message.Message):
     __slots__ = ("unit", "unit_term", "unit_id")
@@ -1574,7 +1590,7 @@ class DocumentQueryBinding(_message.Message):
     def __init__(self, parameter: _Optional[str] = ..., values: _Optional[_Iterable[_Union[DocumentValue, _Mapping]]] = ...) -> None: ...
 
 class DocumentValue(_message.Message):
-    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "verdict", "object", "state", "event", "element_type")
+    __slots__ = ("element_id", "string_value", "int_value", "real_value", "bool_value", "infinity", "quantity", "verdict", "object", "state", "event", "big_int_value", "element_type")
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1586,6 +1602,7 @@ class DocumentValue(_message.Message):
     OBJECT_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     EVENT_FIELD_NUMBER: _ClassVar[int]
+    BIG_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     element_id: str
     string_value: str
@@ -1598,8 +1615,9 @@ class DocumentValue(_message.Message):
     object: DocumentObject
     state: DocumentState
     event: DocumentEvent
+    big_int_value: str
     element_type: str
-    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., verdict: _Optional[_Union[DocumentVerdict, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., state: _Optional[_Union[DocumentState, _Mapping]] = ..., event: _Optional[_Union[DocumentEvent, _Mapping]] = ..., element_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, element_id: _Optional[str] = ..., string_value: _Optional[str] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., infinity: _Optional[bool] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., verdict: _Optional[_Union[DocumentVerdict, _Mapping]] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ..., state: _Optional[_Union[DocumentState, _Mapping]] = ..., event: _Optional[_Union[DocumentEvent, _Mapping]] = ..., big_int_value: _Optional[str] = ..., element_type: _Optional[str] = ...) -> None: ...
 
 class DocumentObject(_message.Message):
     __slots__ = ("instance_id", "path", "element")

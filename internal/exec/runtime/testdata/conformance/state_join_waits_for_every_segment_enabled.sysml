@@ -1,6 +1,5 @@
-// A join fires only when the occurrence enables every segment into it: one
-// whose trigger the occurrence does not match, or whose guard is false, holds
-// the join, and no segment's effect runs meanwhile.
+// An enabled segment fires on its own occurrence and waits at the join; a later
+// occurrence completes the join once every other segment has arrived.
 package Test {
 	private import ScalarValues::*;
 

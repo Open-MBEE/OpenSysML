@@ -23,6 +23,7 @@ import {
   VerdictSchema,
 } from "../src/generated/sysml_pb.js";
 import { MalformedValueError } from "../src/core/errors.js";
+import { CalcResult } from "../src/core/verdict.js";
 import {
   decodeValue,
   decodeVerdict,
@@ -75,6 +76,43 @@ test("integers keep their width and reals stay numbers", () => {
     kind: "real",
     value: 0.5,
   });
+});
+
+test("an integer beyond int64 travels as its decimal and reads as one bigint", () => {
+  const huge = 2n ** 70n;
+  const wire = encodeValue({ kind: "int", value: huge });
+  assert.deepEqual(wire.kind, { case: "bigIntValue", value: huge.toString() });
+  const back = decodeValue(fromBinary(ValueSchema, toBinary(ValueSchema, wire)));
+  assert.deepEqual(back, { kind: "int", value: huge });
+  assert.equal(formatValue(back), "1180591620717411303424");
+  const edge = 2n ** 63n - 1n;
+  assert.deepEqual(encodeValue({ kind: "int", value: edge }).kind, { case: "intValue", value: edge });
+  assert.deepEqual(encodeValue({ kind: "int", value: -edge - 2n }).kind, {
+    case: "bigIntValue",
+    value: (-edge - 2n).toString(),
+  });
+  assert.ok(valuesEqual(back, { kind: "real", value: 2 ** 70 }));
+  assert.ok(!valuesEqual(back, { kind: "real", value: 2 ** 69 }));
+  assert.throws(
+    () => decodeValue(create(ValueSchema, { kind: { case: "bigIntValue", value: "1e30" } })),
+    MalformedValueError,
+  );
+});
+
+test("a quantity with an integer magnitude beyond int64 keeps it", () => {
+  const huge = -(3n ** 50n);
+  const wire = create(ValueSchema, {
+    kind: {
+      case: "quantity",
+      value: create(QuantitySchema, { magnitude: { case: "bigIntMagnitude", value: huge.toString() }, unit: "" }),
+    },
+  });
+  const value = decodeValue(wire);
+  assert.ok(value.kind === "quantity");
+  assert.deepEqual(value.magnitude, { kind: "int", value: huge });
+  const again = encodeValue(value);
+  assert.ok(again.kind.case === "quantity");
+  assert.deepEqual(again.kind.value.magnitude, { case: "bigIntMagnitude", value: huge.toString() });
 });
 
 test("a complex number is one value with both parts, never two reals", () => {
@@ -1031,7 +1069,13 @@ test("a verdict carries its standing, empty from a service without engines", () 
   const bare = decodeVerdict(
     create(VerdictSchema, { kind: "constraint", elementId: "S::C", element: "S::C", holds: true }),
   );
-  assert.deepEqual(bare.standing, { engine: "", strength: "", bounds: [] });
+  assert.deepEqual(bare.standing, {
+    engine: "",
+    strength: "",
+    bounds: [],
+    reported: false,
+    reached: [],
+  });
 
   const explored = decodeVerdict(
     create(VerdictSchema, {
@@ -1056,7 +1100,28 @@ test("a verdict carries its standing, empty from a service without engines", () 
       { name: "runs", limit: 64n, reached: true },
       { name: "depth", limit: 8n, reached: false },
     ],
+    reported: true,
+    reached: [{ name: "runs", limit: 64n, reached: true }],
   });
+});
+
+test("a result reads its standing's strength and bounds like Python's does", () => {
+  const standing = {
+    engine: "explore",
+    strength: "bounded",
+    bounds: [
+      { name: "runs", limit: 64n, reached: true },
+      { name: "depth", limit: 8n, reached: false },
+    ],
+    reported: true,
+    reached: [{ name: "runs", limit: 64n, reached: true }],
+  };
+  const result = new CalcResult({ outputs: new Map(), standing });
+  assert.equal(result.engine, "explore");
+  assert.equal(result.strength, "bounded");
+  assert.equal(result.bounds, standing.bounds);
+  assert.equal(result.standing.reported, true);
+  assert.deepEqual(result.standing.reached, [standing.bounds[0]]);
 });
 
 test("every failure reason has a name", () => {

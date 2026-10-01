@@ -1,0 +1,4 @@
+{
+	"type": "state",
+	"error": "assignment to limit: feature is read-only: limit is constant: its value does not change over the lifetime of its featuring occurrence"
+}

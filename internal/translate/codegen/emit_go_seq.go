@@ -17,7 +17,7 @@ const (
 	sysmlMany
 )
 
-type sysmlElem interface{ int64 | float64 | bool }
+type sysmlElem interface{ sysmlInt | float64 | bool }
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
 type sysmlSeq[T sysmlElem] struct {
@@ -29,8 +29,6 @@ var (
 	sysmlElements    int64
 	sysmlMaxElements int64 = sysmlDefaultMaxElements
 )
-
-func sysmlFailf(format string, args ...any) { sysmlFail(fmt.Sprintf(format, args...)) }
 
 // sysmlCharge counts n materialized elements against the budget a statement
 // releases at its end.
@@ -116,7 +114,7 @@ func sysmlCheck[T sysmlElem](s sysmlSeq[T], lo, hi int64, where string) sysmlSeq
 // sysmlElemKind is the interpreter's description of an element's type.
 func sysmlElemKind[T sysmlElem](v T) string {
 	switch any(v).(type) {
-	case int64:
+	case sysmlInt:
 		return "an Integer"
 	case float64:
 		return "a Real"
@@ -127,17 +125,40 @@ func sysmlElemKind[T sysmlElem](v T) string {
 // sysmlUnique refuses the first element of s equal to an earlier one, as a
 // write to a unique feature at where does.
 func sysmlUnique[T sysmlElem](s sysmlSeq[T], where string) sysmlSeq[T] {
-	seen := make(map[T]int, len(s.data))
+	seen := make(map[any]int, len(s.data))
 	for i, v := range s.data {
-		if first, dup := seen[v]; dup {
+		k := sysmlKey(v)
+		if first, dup := seen[k]; dup {
 			sysmlFailf("%s: uniqueness violation: %s (%s) is written at positions %d and %d of a unique feature", where, sysmlFormat(v), sysmlElemKind(v), first+1, i+1)
 		}
-		seen[v] = i
+		seen[k] = i
 	}
 	return s
 }
 
-func sysmlAtLeastSeq(s sysmlSeq[int64], lo int64, typ string) sysmlSeq[int64] {
+// sysmlBigKey keys an Integer beyond int64 by its decimal digits.
+type sysmlBigKey string
+
+// sysmlKey is v as a map key: equal elements, and only they, share one.
+func sysmlKey[T sysmlElem](v T) any {
+	if i, ok := any(v).(sysmlInt); ok {
+		if i.big != nil {
+			return sysmlBigKey(i.big.String())
+		}
+		return i.small
+	}
+	return v
+}
+
+// sysmlElemEq is the '==' of two elements.
+func sysmlElemEq[T sysmlElem](a, b T) bool {
+	if x, ok := any(a).(sysmlInt); ok {
+		return sysmlICmp(x, any(b).(sysmlInt)) == 0
+	}
+	return a == b
+}
+
+func sysmlAtLeastSeq(s sysmlSeq[sysmlInt], lo int64, typ string) sysmlSeq[sysmlInt] {
 	for _, v := range s.data {
 		sysmlAtLeast(v, lo, typ)
 	}
@@ -160,14 +181,23 @@ func sysmlEquals[T sysmlElem](a, b sysmlSeq[T]) bool {
 		return false
 	}
 	for i := range a.data {
-		if a.data[i] != b.data[i] {
+		if !sysmlElemEq(a.data[i], b.data[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-func sysmlIndex[T sysmlElem](s sysmlSeq[T], i int64) T {
+// sysmlPos is an index as a position: one beyond int64 addresses none.
+func sysmlPos(i sysmlInt, op string) int64 {
+	if i.big != nil {
+		sysmlFailf("index out of range: %s: index %s addresses no position", op, i)
+	}
+	return i.small
+}
+
+func sysmlIndex[T sysmlElem](s sysmlSeq[T], at sysmlInt) T {
+	i := sysmlPos(at, "sequence index")
 	if i < 1 || i > int64(len(s.data)) {
 		sysmlFailf("index out of range: sequence index %d is outside 1..%d", i, len(s.data))
 	}
@@ -176,7 +206,7 @@ func sysmlIndex[T sysmlElem](s sysmlSeq[T], i int64) T {
 
 func sysmlContains[T sysmlElem](s sysmlSeq[T], v T) bool {
 	for _, e := range s.data {
-		if e == v {
+		if sysmlElemEq(e, v) {
 			return true
 		}
 	}
@@ -224,7 +254,8 @@ func sysmlSift[T sysmlElem](a, b sysmlSeq[T], keep bool) sysmlSeq[T] {
 	return r
 }
 
-func sysmlIncludingAt[T sysmlElem](a, b sysmlSeq[T], i int64) sysmlSeq[T] {
+func sysmlIncludingAt[T sysmlElem](a, b sysmlSeq[T], at sysmlInt) sysmlSeq[T] {
+	i := sysmlPos(at, "SequenceFunctions::includingAt")
 	n := int64(len(a.data))
 	if i < 1 || i > n+1 {
 		sysmlFailf("index out of range: SequenceFunctions::includingAt insertion index %d is outside 1..%d", i, n+1)
@@ -232,10 +263,12 @@ func sysmlIncludingAt[T sysmlElem](a, b sysmlSeq[T], i int64) sysmlSeq[T] {
 	return sysmlConcat(sysmlSeq[T]{sysmlMany, a.data[:i-1]}, b, sysmlSeq[T]{sysmlMany, a.data[i-1:]})
 }
 
-func sysmlSubsequence[T sysmlElem](s sysmlSeq[T], start, end int64, hasEnd bool) sysmlSeq[T] {
+func sysmlSubsequence[T sysmlElem](s sysmlSeq[T], from, to sysmlInt, hasEnd bool) sysmlSeq[T] {
+	start := sysmlPos(from, "SequenceFunctions::subsequence")
 	n := int64(len(s.data))
-	if !hasEnd {
-		end = n
+	end := n
+	if hasEnd {
+		end = sysmlPos(to, "SequenceFunctions::subsequence")
 	}
 	if start < 1 {
 		sysmlFailf("index out of range: SequenceFunctions::subsequence start index %d is outside 1..%d", start, n)
@@ -249,11 +282,13 @@ func sysmlSubsequence[T sysmlElem](s sysmlSeq[T], start, end int64, hasEnd bool)
 	return sysmlConcat(sysmlSeq[T]{sysmlMany, s.data[start-1 : end]})
 }
 
-func sysmlExcludingAt[T sysmlElem](s sysmlSeq[T], start, end int64, hasEnd bool) sysmlSeq[T] {
-	n := int64(len(s.data))
-	if !hasEnd {
-		end = start
+func sysmlExcludingAt[T sysmlElem](s sysmlSeq[T], from, to sysmlInt, hasEnd bool) sysmlSeq[T] {
+	start := sysmlPos(from, "SequenceFunctions::excludingAt")
+	end := start
+	if hasEnd {
+		end = sysmlPos(to, "SequenceFunctions::excludingAt")
 	}
+	n := int64(len(s.data))
 	if start < 1 || start > n {
 		sysmlFailf("index out of range: SequenceFunctions::excludingAt start index %d is outside 1..%d", start, n)
 	}
@@ -296,52 +331,49 @@ func sysmlAppend[T sysmlElem](r *sysmlSeq[T], s sysmlSeq[T]) {
 	}
 }
 
-func sysmlRange(lo, hi int64) sysmlSeq[int64] {
-	if lo > hi {
-		return sysmlManySeq[int64](0)
+// sysmlRange is lo..hi, whose count the element budget refuses before
+// anything is materialized.
+func sysmlRange(lo, hi sysmlInt) sysmlSeq[sysmlInt] {
+	if sysmlICmp(lo, hi) > 0 {
+		return sysmlManySeq[sysmlInt](0)
 	}
-	n := hi - lo + 1
-	if n <= 0 {
-		n = math.MaxInt64
+	count := sysmlAdd(sysmlSub(hi, lo), sysmlI(1))
+	n := int64(math.MaxInt64)
+	if count.big == nil {
+		n = count.small
 	}
-	r := sysmlManySeq[int64](n)
+	r := sysmlManySeq[sysmlInt](n)
+	v := lo
 	for i := range r.data {
-		r.data[i] = lo + int64(i)
+		r.data[i] = v
+		v = sysmlAdd(v, sysmlI(1))
 	}
 	return r
 }
 
 // sysmlWiden is the Real copy of an Integer collection, charged like any
 // other materialized collection.
-func sysmlWiden(s sysmlSeq[int64]) sysmlSeq[float64] {
+func sysmlWiden(s sysmlSeq[sysmlInt]) sysmlSeq[float64] {
 	sysmlCharge(int64(len(s.data)))
 	r := sysmlSeq[float64]{s.shape, make([]float64, len(s.data))}
 	for i, v := range s.data {
-		r.data[i] = float64(v)
+		r.data[i] = sysmlToReal(v)
 	}
 	return r
 }
 
-func sysmlISum(s sysmlSeq[int64], op string) int64 {
-	var acc int64
+func sysmlISum(s sysmlSeq[sysmlInt], op string) sysmlInt {
+	var acc sysmlInt
 	for _, v := range s.data {
-		r := acc + v
-		if (r > acc) != (v > 0) {
-			sysmlFailf("arithmetic overflow: %s exceeds the Integer range", op)
-		}
-		acc = r
+		acc = sysmlAdd(acc, v)
 	}
 	return acc
 }
 
-func sysmlIProduct(s sysmlSeq[int64], op string) int64 {
-	acc := int64(1)
+func sysmlIProduct(s sysmlSeq[sysmlInt], op string) sysmlInt {
+	acc := sysmlI(1)
 	for _, v := range s.data {
-		r, ok := sysmlMulOK(acc, v)
-		if !ok {
-			sysmlFailf("arithmetic overflow: %s exceeds the Integer range", op)
-		}
-		acc = r
+		acc = sysmlMul(acc, v)
 	}
 	return acc
 }
@@ -555,7 +587,7 @@ func (e *goEmitter) checked(x Checked) string {
 func (e *goEmitter) seqCall(x SeqCall, v []string) string {
 	switch x.Op {
 	case SeqSize:
-		return fmt.Sprintf("int64(len(%s.data))", v[0])
+		return fmt.Sprintf("sysmlI(int64(len(%s.data)))", v[0])
 	case SeqIsEmpty:
 		return fmt.Sprintf("(len(%s.data) == 0)", v[0])
 	case SeqNotEmpty:
@@ -652,7 +684,11 @@ func (e *goEmitter) fold(x Fold) string {
 			less = ">"
 		}
 		fmt.Fprintf(&b, "if len(s.data) == 0 { sysmlFail(%s) }; var r %s; ", strconv.Quote("multiplicity violation: "+x.Op.Name()+" requires a collection of at least one element"), goType(x.T))
-		fmt.Fprintf(&b, "for i, v := range s.data { %sk := %s; if i == 0 || k %s r { r = k } }; return r }()", bind("v"), body, less)
+		better := fmt.Sprintf("k %s r", less)
+		if x.T == TypeInt {
+			better = fmt.Sprintf("sysmlICmp(k, r) %s 0", less)
+		}
+		fmt.Fprintf(&b, "for i, v := range s.data { %sk := %s; if i == 0 || %s { r = k } }; return r }()", bind("v"), body, better)
 	default:
 		e.err = fmt.Errorf("codegen: Go emitter has no case for body operation %s", x.Op)
 	}

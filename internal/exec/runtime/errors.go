@@ -11,6 +11,9 @@ import (
 )
 
 var (
+	// errNoWayThrough marks a compound route with no statically enabled path.
+	errNoWayThrough = errors.New("no way through")
+
 	// ErrStepLimitExceeded is returned when the evaluation step counter exceeds maxSteps.
 	ErrStepLimitExceeded = errors.New("evaluation step limit exceeded")
 
@@ -18,6 +21,11 @@ var (
 	// materializes exceed maxElements. It is a bound on memory rather than on
 	// work, so it is its own error and its own budget.
 	ErrElementLimitExceeded = errors.New("collection element limit exceeded")
+
+	// ErrIntegerSizeLimit is returned when an Integer result would need more
+	// bits than the run's Integer size budget allows. Integers are unbounded;
+	// the budget bounds the memory and time one result may take.
+	ErrIntegerSizeLimit = semantics.ErrIntegerSizeLimit
 
 	// ErrInstanceLimitExceeded is returned when materializing one more object
 	// would take the context past the bound SetMaxInstances set.
@@ -425,6 +433,11 @@ var (
 	// as much as size+1 is, and each operation names what it indexed.
 	ErrIndexOutOfRange = errors.New("index out of range")
 
+	// ErrIntegerUnaddressable is returned when an Integer serves as a position,
+	// count or bound of something held, and is beyond the 64-bit range any of
+	// those can take: Integers are unbounded, what they address is not.
+	ErrIntegerUnaddressable = errors.New("integer beyond the addressable range")
+
 	// ErrBodyArity is returned when the body expression a collection operation
 	// is given declares a number of parameters the operation cannot call it
 	// with: `select` calls its selector with one element, so a selector
@@ -483,6 +496,13 @@ var (
 	// ErrClockNotAssignable is returned when an assignment targets a Clock's
 	// currentTime: the run advances it, so no statement writes it.
 	ErrClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
+
+	// ErrReadOnlyFeature is returned when a behavior writes a feature declared
+	// `constant` or `derived`, or redefining or subsetting one that is, once its
+	// featuring occurrence is initialized: a constant feature keeps its value over
+	// that occurrence's lifetime and a derived one has the values the model
+	// determines, so neither is written. The feature keeps the value it held.
+	ErrReadOnlyFeature = errors.New("feature is read-only")
 
 	// ErrNoSubject is returned when the feature a satisfaction assertion names
 	// with `by` cannot supply a subject: it resolves to nothing, or no object of
