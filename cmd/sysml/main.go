@@ -15,6 +15,8 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
