@@ -223,6 +223,26 @@ func TestMermaidUnsupportedStyleCounts(t *testing.T) {
 	}
 }
 
+func TestMermaidStateStylesSkipStatesThatRejectClasses(t *testing.T) {
+	source := (&Rendering{Kind: KindState, Roots: []*Node{{
+		ID: "Machine", Kind: "state", Name: "Machine", Style: &Style{Fill: "#FF0000"},
+		Children: []*Node{
+			{ID: "running", Kind: "state", Name: "Running", Style: &Style{Fill: "#00FF00"}},
+		},
+	}}}).Mermaid()
+	if strings.Contains(source, "class Machine style_Machine") ||
+		strings.Contains(source, "classDef style_Machine") {
+		t.Errorf("composite state style class is not supported:\n%s", source)
+	}
+	if !strings.Contains(source, "not represented: 1 state style(s) not represented: Machine") {
+		t.Errorf("composite state style is not reported by name:\n%s", source)
+	}
+	if !strings.Contains(source, "classDef style_running fill:#00FF00") ||
+		!strings.Contains(source, "class running style_running") {
+		t.Errorf("leaf state style class is missing:\n%s", source)
+	}
+}
+
 func TestMermaidPaletteParityWithDOT(t *testing.T) {
 	definition := regexp.MustCompile(`^\s*classDef (palette[0-9]+) fill:(#[0-9A-F]{6}),stroke:(#[0-9A-F]{6})$`)
 	assignment := regexp.MustCompile(`^\s*class ([^ ]+) (palette[0-9]+)$`)
@@ -361,9 +381,28 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		Roots: []*Node{{ID: "a", Kind: "part", Name: "a"}},
 		Notes: []Note{{Anchor: "missing", Text: "node"}, {EdgeFrom: "missing", EdgeTo: "a", Text: "edge"}},
 	}).Mermaid()
-	if !strings.Contains(unresolvedFlow, "2 note anchor(s) not represented") ||
+	if !strings.Contains(unresolvedFlow, "1 note anchor(s) not represented") ||
+		!strings.Contains(unresolvedFlow, "not represented: 1 note(s) not drawn because their edge is not drawn: missing->a") ||
 		strings.Contains(unresolvedFlow, "note0 -.- missing") {
 		t.Errorf("unsupported flowchart note anchors:\n%s", unresolvedFlow)
+	}
+	undrawnEdgeNote := (&Rendering{Kind: KindAction,
+		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
+		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
+	}).Mermaid()
+	if strings.Contains(undrawnEdgeNote, "note0@{") ||
+		strings.Contains(undrawnEdgeNote, "note0 -.- a") ||
+		!strings.Contains(undrawnEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
+		t.Errorf("note with no drawn edge was not omitted and noticed:\n%s", undrawnEdgeNote)
+	}
+	reversedEdgeNote := (&Rendering{Kind: KindAction,
+		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
+		Edges: []Edge{{From: "b", To: "a", Kind: EdgeFlow}},
+		Notes: []Note{{EdgeFrom: "a", EdgeTo: "b", Text: "edge note"}},
+	}).Mermaid()
+	if strings.Contains(reversedEdgeNote, "note0@{") ||
+		!strings.Contains(reversedEdgeNote, "not represented: 1 note(s) not drawn because their edge is not drawn: a->b") {
+		t.Errorf("note matched an edge with the opposite direction:\n%s", reversedEdgeNote)
 	}
 	unresolvedSequence := (&Rendering{Kind: KindSequence,
 		Roots: []*Node{{ID: "a", Kind: "part", Name: "a"}},
@@ -374,7 +413,8 @@ func TestMermaidNotesInEachGrammar(t *testing.T) {
 		t.Errorf("unsupported sequence note anchors:\n%s", unresolvedSequence)
 	}
 	emptyFlow := (&Rendering{Kind: KindTree, Notes: []Note{{Text: "free"}}}).Mermaid()
-	if !strings.Contains(emptyFlow, `note0@{ shape: notch-rect, label: "free" }`) {
+	if strings.Contains(emptyFlow, "empty[") ||
+		!strings.Contains(emptyFlow, `note0@{ shape: notch-rect, label: "free" }`) {
 		t.Errorf("free note missing from an otherwise empty flowchart:\n%s", emptyFlow)
 	}
 }

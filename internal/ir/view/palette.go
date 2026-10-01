@@ -128,7 +128,11 @@ type familyFills struct {
 // filled reports whether a node takes a family colour under a palette: a
 // plain node (a container keeps its black border) that is no control node.
 func (f *familyFills) filled(node *Node) bool {
-	return f.palette != "" && !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
+	return f.palette != "" && f.classable(node)
+}
+
+func (f *familyFills) classable(node *Node) bool {
+	return !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
 }
 
 // collect records the keyword families of the nodes under node that a palette

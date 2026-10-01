@@ -320,12 +320,9 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	fills := map[string]view.Fill{}
-	if form != view.FormMermaid || rendering.Kind != view.KindSequence {
-		fills, err = rendering.Fills(colors)
-		if err != nil {
-			return nil, err
-		}
+	fills, err := rendering.Fills(colors)
+	if err != nil {
+		return nil, err
 	}
 	data := rendering.Data()
 	out := &renderResult{

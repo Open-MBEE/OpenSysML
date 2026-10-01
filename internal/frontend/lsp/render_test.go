@@ -829,6 +829,41 @@ func TestRenderSequenceParticipantsFillWithoutBorder(t *testing.T) {
 	}
 }
 
+func TestRenderMermaidSequenceReturnsParticipantFills(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetSequence",
+		Form:         string(view.FormMermaid),
+		Palette:      string(view.PaletteOkabeIto),
+	})
+	if err != nil {
+		t.Fatalf("render the Mermaid sequence with a palette: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	filled := 0
+	for _, n := range out.Nodes {
+		if n.Fill != "" {
+			filled++
+		}
+		if n.Border != "" {
+			t.Errorf("participant %s has border %s, want none", n.ID, n.Border)
+		}
+	}
+	if filled == 0 {
+		t.Errorf("no participant filled: %+v", out.Nodes)
+	}
+	if strings.Contains(string(raw), `"border"`) {
+		t.Errorf("a Mermaid sequence rendering carries a border key:\n%s", raw)
+	}
+	if !strings.Contains(out.Artifact, "palette okabe-ito; Mermaid's sequence diagram cannot fill individual participants") {
+		t.Errorf("Mermaid sequence palette notice changed:\n%s", out.Artifact)
+	}
+}
+
 // A view's layout annotations reach the client as geometry on nodes and edges
 // and a canvas on the result; a rendering without any carries none of the fields.
 func TestRenderCarriesLayoutGeometry(t *testing.T) {
