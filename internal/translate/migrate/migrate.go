@@ -180,6 +180,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		pending:           map[*sysmlv1.Element]*pendingNotes{},
 		resolving:         map[string]bool{},
 		regionUsed:        map[*sysmlv1.Element]map[string]bool{},
+		entries:           map[*sysmlv1.Element]*regionEntry{},
 		stateUsed:         map[*sysmlv1.Element]map[string]bool{},
 		nestedIn:          map[*sysmlv1.Element]string{},
 		vertexNames:       map[*sysmlv1.Element]string{},
@@ -524,6 +525,8 @@ type migration struct {
 	observed map[*sysmlv1.Element][]*sysmlv1.Element
 	// regionUsed holds the vertex names each region's body has taken.
 	regionUsed map[*sysmlv1.Element]map[string]bool
+	// entries holds what enters each region of the machines named so far.
+	entries map[*sysmlv1.Element]*regionEntry
 	// stateUsed holds the member names each state's body has taken.
 	stateUsed map[*sysmlv1.Element]map[string]bool
 	// nestedIn names the generated action a state's behavior is written
