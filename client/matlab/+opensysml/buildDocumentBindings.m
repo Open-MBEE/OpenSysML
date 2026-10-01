@@ -94,6 +94,10 @@ end
 
 function text = valueText(value)
     if ischar(value), text = ['''' value ''''];
+    elseif isa(value, 'uint64') && isscalar(value), text = sprintf('%u', value);
+    elseif isinteger(value) && isscalar(value), text = sprintf('%d', value);
+    elseif isnumeric(value) && isscalar(value) && isreal(value) && isfinite(value) && fix(value) == value
+        text = sprintf('%.0f', value);
     elseif isnumeric(value) || islogical(value), text = num2str(value);
     elseif isstruct(value) && isfield(value, 'type')
         if strcmp(value.type, 'element'), text = value.id;
