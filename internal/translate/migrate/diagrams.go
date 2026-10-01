@@ -538,8 +538,10 @@ func (m *migration) writeView(v *view) {
 	}
 	geo := m.viewGeometry(v, x, form)
 	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	doc, docNotes := m.proseNoted(d.Documentation)
+	note = joinNotes(note, strings.Join(docNotes, "; "))
 	m.w.block(decl, func() {
-		if doc := commentText(d.Documentation); doc != "" {
+		if doc != "" {
 			m.w.lines(prefixFirst("doc ", commentLines(doc)))
 		}
 		for _, ref := range x.refs {
@@ -560,7 +562,7 @@ func (m *migration) writeView(v *view) {
 	}
 	verdict := Mapped
 	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 {
+	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
 		verdict = Approximated
 	}
 	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)

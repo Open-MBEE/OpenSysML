@@ -360,15 +360,17 @@ func TestCompileReportsRunAndGroupErrors(t *testing.T) {
 				}`,
 		},
 		{
-			name: "ref to non-content element",
+			name: "ref to a document member that is not content",
 			kind: ErrorInvalidRefTarget,
 			body: `
-				part telescope;
 				part def Report :> Document {
 					attribute redefines title = "Report";
 					part formatted : Paragraph {
-						part outside : Ref {
-							ref redefines target = telescope;
+						part lead : Span {
+							attribute redefines text = "text";
+						}
+						part inside : Ref {
+							ref redefines target = lead;
 						}
 					}
 				}`,
