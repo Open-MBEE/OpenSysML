@@ -62,9 +62,8 @@ export async function connect(options: BrowserConnectOptions): Promise<Connectio
     stale: {
       address: url,
       remedy:
-        `stop the service listening on ${url} yourself and let this client start ` +
-        `a ${required ?? "matching"} one, or accept what is running by passing ` +
-        `version: undefined and unsetting $OPENSYSML_GRPC_VERSION`,
+        `point this page at a sysml-grpc that reports ${required ?? "a matching release"}, ` +
+        `or accept what is running by omitting version`,
     },
   });
 }

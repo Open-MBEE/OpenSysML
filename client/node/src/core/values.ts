@@ -38,7 +38,6 @@ import {
 } from "../generated/sysml_pb.js";
 import {
   CAPABILITY_COMPLEX_VALUES,
-  CAPABILITY_ENUM_VALUES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_INFINITY_VALUE,
   CAPABILITY_MEASUREMENT_REFS,
@@ -46,7 +45,6 @@ import {
   CAPABILITY_SET_VALUES,
   CAPABILITY_STRUCTURED_VALUES,
   CAPABILITY_TENSOR_VALUES,
-  CAPABILITY_UNSET_VALUE,
   requireCapability,
   upgradeRemedy,
   type ServerInfo,
@@ -1213,13 +1211,9 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       require(CAPABILITY_INFINITY_VALUE);
       return;
     case "enum":
-      require(CAPABILITY_ENUM_VALUES);
       if (value.value.value !== undefined) {
         requireInput(value.value.value, info);
       }
-      return;
-    case "unset":
-      require(CAPABILITY_UNSET_VALUE);
       return;
     case "sequence":
       value.elements.forEach((element) => {
