@@ -10,16 +10,15 @@ import (
 	"time"
 )
 
+// The harness rounds the elapsed time to the millisecond, so a kill at the
+// deadline may read "2s" rather than "2.xxx s".
+var elapsedLine = regexp.MustCompile(`(?m)^elapsed: 2(\.\d+)?s$`)
+
 // TestRunnerDeadline exercises the harness's own deadline against a runtime that
 // answers and then never exits, the way a deadlocked Node exit looks: the run must
 // end at the deadline, not the test's, and fail with a report that says how long the
 // process ran, what it was, what its threads were doing and what it wrote — so a
 // hang on CI is explainable from its log.
-
-// The harness rounds the elapsed time to the millisecond, so a kill at the
-// deadline may read "2s" rather than "2.xxx s".
-var elapsedLine = regexp.MustCompile(`(?m)^elapsed: 2(\.\d+)?s$`)
-
 func TestRunnerDeadline(t *testing.T) {
 	requireNode(t)
 	node, err := exec.LookPath("node")
