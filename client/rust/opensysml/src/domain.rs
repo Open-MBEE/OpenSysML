@@ -234,7 +234,7 @@ impl fmt::Display for Quantity {
 /// A complex number in rectangular form: one value, never two reals.
 ///
 /// A service advertising `complex_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Complex {
     /// Real part.
@@ -275,7 +275,7 @@ pub struct EnumLiteral {
 /// A rank-0 array holds exactly one element. An element is any [`Value`], a
 /// nested array or a quantity included. A service advertising
 /// `structured_values` sends one as itself; an older one sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Array {
     dimensions: Vec<i64>,
@@ -325,7 +325,7 @@ impl Array {
 /// one value, never a sequence of numbers.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Vector {
     /// The components, in order.
@@ -344,7 +344,7 @@ impl Vector {
 /// need not.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VectorQuantity {
     components: Vec<Quantity>,
@@ -387,7 +387,8 @@ impl VectorQuantity {
 /// then strings, and so on), each exactly once; two sets are equal when they
 /// hold the same members whatever the order, judged by
 /// [`Value::same_value`]. A service advertising `set_values` sends one as
-/// itself; an older one sends an unsupported [`Value::Null`] in its place.
+/// itself; an older one sends an unsupported null, read as
+/// [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug)]
 pub struct Set {
     elements: Vec<Value>,
@@ -440,7 +441,7 @@ impl PartialEq for Set {
 ///
 /// A rank-one tensor stays a tensor, distinct from a [`VectorQuantity`]. A
 /// service advertising `tensor_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorQuantity {
     dimensions: Vec<i64>,
@@ -533,7 +534,7 @@ fn row_major(dimensions: &[i64], index: &[i64]) -> Option<usize> {
 /// or `m / s` as an operation composed it.
 ///
 /// A service advertising `measurement_refs` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasurementRef {
     /// Unit as written by the model (`km`), empty for one never written down.
@@ -551,7 +552,7 @@ pub struct MeasurementRef {
 /// It is the declaration it is a value of, which is its identity: two functions
 /// are equal exactly when both fields are. A function closing over the bindings
 /// of the behavior body it is declared in has no wire form; the service sends
-/// it as an unsupported [`Value::Null`], as does a service without
+/// it as an unsupported null, read as [`Error::UnsupportedValue`], as does a service without
 /// `function_values` for every function.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Function {
@@ -571,7 +572,7 @@ pub struct Function {
 /// are equal exactly when `element_id` is, whatever type each was cast to. Its
 /// features (`declaredName`, `ownedFeature`, ...) are read in the model, not
 /// carried. A service without `metaobject_values` sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
     /// FQN of the element reflected on (`Vehicle::seatBelt`).
@@ -880,6 +881,9 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .map(value_from_wire)
                 .collect::<Result<_, _>>()?,
         )),
+        wire::value::Kind::Null(reason) if !reason.is_empty() => {
+            Err(Error::UnsupportedValue(reason))
+        }
         wire::value::Kind::Null(_) => Ok(Value::Null),
         wire::value::Kind::Quantity(v) => Ok(Value::Quantity(quantity_from_wire(v)?)),
         wire::value::Kind::Array(v) => Ok(Value::Array(Array::new(
@@ -1098,13 +1102,17 @@ impl Symbol {
             inner: self.connection.clone(),
         }
     }
-    /// Child symbols, fetched lazily from the service.
+    /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        self.wire
-            .child_ids
-            .iter()
-            .map(|id| self.connection().get_symbol(&self.model_hash, id))
-            .collect()
+        let mut children = Vec::with_capacity(self.wire.child_ids.len());
+        for id in &self.wire.child_ids {
+            match self.connection().get_symbol(&self.model_hash, id) {
+                Ok(child) => children.push(child),
+                Err(Error::Model(_)) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(children)
     }
 }
 
@@ -1155,21 +1163,35 @@ pub struct FeatureValue {
     wire: wire::FeatureValue,
     value: Option<Value>,
     values: Vec<Value>,
+    unsupported: Option<String>,
 }
 
 impl FeatureValue {
     fn from_wire(wire: wire::FeatureValue) -> Result<Self, Error> {
-        let value = wire.value.clone().map(value_from_wire).transpose()?;
-        let values = wire
-            .values
-            .iter()
-            .cloned()
+        let decoded = wire
+            .value
+            .clone()
             .map(value_from_wire)
-            .collect::<Result<_, _>>()?;
+            .transpose()
+            .and_then(|value| {
+                let values = wire
+                    .values
+                    .iter()
+                    .cloned()
+                    .map(value_from_wire)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((value, values))
+            });
+        let ((value, values), unsupported) = match decoded {
+            Ok(decoded) => (decoded, None),
+            Err(Error::UnsupportedValue(reason)) => ((None, Vec::new()), Some(reason)),
+            Err(error) => return Err(error),
+        };
         Ok(Self {
             wire,
             value,
             values,
+            unsupported,
         })
     }
 
@@ -1193,9 +1215,11 @@ impl FeatureValue {
     pub fn materialized(&self) -> bool {
         self.wire.materialized
     }
-    /// In-band evaluation error for this feature.
+    /// In-band evaluation error for this feature, or why its value could not be sent.
     pub fn error(&self) -> Option<&str> {
-        (!self.wire.error.is_empty()).then_some(self.wire.error.as_str())
+        (!self.wire.error.is_empty())
+            .then_some(self.wire.error.as_str())
+            .or(self.unsupported.as_deref())
     }
 }
 
@@ -1539,6 +1563,46 @@ mod tests {
                 imaginary: 0.0
             }),
             Value::Real(1.5)
+        );
+    }
+
+    #[test]
+    fn a_null_naming_a_reason_is_an_unsupported_value_not_null() {
+        let null = |reason: &str| wire::Value {
+            kind: Some(wire::value::Kind::Null(reason.to_owned())),
+        };
+        assert_eq!(value_from_wire(null("")).ok(), Some(Value::Null));
+        assert!(matches!(
+            value_from_wire(null("coordinate frame datum")),
+            Err(Error::UnsupportedValue(reason)) if reason == "coordinate frame datum"
+        ));
+
+        let feature = |value| wire::FeatureValue {
+            value: Some(value),
+            materialized: true,
+            ..Default::default()
+        };
+        let instance = Instance::from_wire(wire::Instance {
+            id: 1,
+            feature_values: [
+                ("datum".to_owned(), feature(null("coordinate frame datum"))),
+                (
+                    "mass".to_owned(),
+                    feature(wire::Value {
+                        kind: Some(wire::value::Kind::IntValue(3)),
+                    }),
+                ),
+            ]
+            .into(),
+            ..Default::default()
+        })
+        .expect("one unsendable feature leaves the instance readable");
+        let datum = instance.feature("datum").expect("datum is reported");
+        assert_eq!(datum.value(), None);
+        assert_eq!(datum.error(), Some("coordinate frame datum"));
+        assert_eq!(
+            instance.feature("mass").and_then(FeatureValue::value),
+            Some(&Value::Integer(3))
         );
     }
 
