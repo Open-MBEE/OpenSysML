@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, HashMap};
 use crate::capabilities::*;
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    bindings_to_wire, result_of, DocumentForm, DocumentQueryResult, DocumentValue,
+    binding_holds_big_int, bindings_to_wire, result_of, DocumentForm, DocumentQueryResult,
+    DocumentValue,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -362,6 +363,9 @@ impl Connection {
     ) -> Result<DocumentQueryResult, Error> {
         let bindings = bindings_to_wire(bindings)?;
         self.require_all(&[CAPABILITY_DOCUMENT_QUERY])?;
+        if bindings.iter().any(binding_holds_big_int) {
+            self.require_all(&[CAPABILITY_BIG_INT_VALUES])?;
+        }
         let response = self.gated_rpc(
             "RunDocumentQuery",
             wire::RunDocumentQueryRequest {

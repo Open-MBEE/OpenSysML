@@ -12,6 +12,7 @@ func BudgetEnvironment() []Item {
 		{"OPENSYSML_MAX_ELEMENTS", "Collection elements one evaluation may hold, which bounds the memory a run holds rather than the work it does. Default 1000000."},
 		{"OPENSYSML_MAX_CALC_DEPTH", "Nested calc invocations one run may hold on the stack, which is what a recursion spends. Default 10000, ceiling 25000."},
 		{"OPENSYSML_MAX_SWEEP_RUNS", "Runs one parameter sweep or sample may make, each a whole analysis or calc run of its own with its own budgets. Default 1000."},
+		{"OPENSYSML_MAX_INTEGER_BITS", "Bits the magnitude of one Integer a run computes may take; Integers are otherwise unbounded, and a result past it, such as a large power, is refused before it is computed. At least 64, so every machine-word Integer fits; default 1048576."},
 	}
 }
 

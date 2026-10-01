@@ -7515,6 +7515,7 @@ type Value struct {
 	//	*Value_TensorQuantity
 	//	*Value_Metaobject
 	//	*Value_Undetermined
+	//	*Value_BigIntValue
 	Kind          isValue_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7746,6 +7747,15 @@ func (x *Value) GetUndetermined() *Undetermined {
 	return nil
 }
 
+func (x *Value) GetBigIntValue() string {
+	if x != nil {
+		if x, ok := x.Kind.(*Value_BigIntValue); ok {
+			return x.BigIntValue
+		}
+	}
+	return ""
+}
+
 type isValue_Kind interface {
 	isValue_Kind()
 }
@@ -7841,6 +7851,12 @@ type Value_Undetermined struct {
 	Undetermined *Undetermined `protobuf:"bytes,21,opt,name=undetermined,proto3,oneof"`
 }
 
+type Value_BigIntValue struct {
+	// An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+	// zeros). An Integer that fits int64 is always int_value, never this.
+	BigIntValue string `protobuf:"bytes,22,opt,name=big_int_value,json=bigIntValue,proto3,oneof"`
+}
+
 func (*Value_IntValue) isValue_Kind() {}
 
 func (*Value_RealValue) isValue_Kind() {}
@@ -7882,6 +7898,8 @@ func (*Value_TensorQuantity) isValue_Kind() {}
 func (*Value_Metaobject) isValue_Kind() {}
 
 func (*Value_Undetermined) isValue_Kind() {}
+
+func (*Value_BigIntValue) isValue_Kind() {}
 
 // Metaobject is an element of the model held as an instance of its reflective
 // metaclass: what `x meta KerML::Feature`, or the last element of
@@ -8521,6 +8539,7 @@ type Quantity struct {
 	//
 	//	*Quantity_IntMagnitude
 	//	*Quantity_RealMagnitude
+	//	*Quantity_BigIntMagnitude
 	Magnitude isQuantity_Magnitude `protobuf_oneof:"magnitude"`
 	// Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
 	// one never written down, described by unit_term alone.
@@ -8588,6 +8607,15 @@ func (x *Quantity) GetRealMagnitude() float64 {
 	return 0
 }
 
+func (x *Quantity) GetBigIntMagnitude() string {
+	if x != nil {
+		if x, ok := x.Magnitude.(*Quantity_BigIntMagnitude); ok {
+			return x.BigIntMagnitude
+		}
+	}
+	return ""
+}
+
 func (x *Quantity) GetUnit() string {
 	if x != nil {
 		return x.Unit
@@ -8614,9 +8642,16 @@ type Quantity_RealMagnitude struct {
 	RealMagnitude float64 `protobuf:"fixed64,2,opt,name=real_magnitude,json=realMagnitude,proto3,oneof"`
 }
 
+type Quantity_BigIntMagnitude struct {
+	// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+	BigIntMagnitude string `protobuf:"bytes,5,opt,name=big_int_magnitude,json=bigIntMagnitude,proto3,oneof"`
+}
+
 func (*Quantity_IntMagnitude) isQuantity_Magnitude() {}
 
 func (*Quantity_RealMagnitude) isQuantity_Magnitude() {}
+
+func (*Quantity_BigIntMagnitude) isQuantity_Magnitude() {}
 
 // MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
 // a value: a unit by itself — `SI::m`, `km`, or `m / s` as an operation composed
@@ -10213,6 +10248,7 @@ type DocumentValue struct {
 	//	*DocumentValue_Object
 	//	*DocumentValue_State
 	//	*DocumentValue_Event
+	//	*DocumentValue_BigIntValue
 	Kind isDocumentValue_Kind `protobuf_oneof:"kind"`
 	// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
 	ElementType   string `protobuf:"bytes,7,opt,name=element_type,json=elementType,proto3" json:"element_type,omitempty"`
@@ -10356,6 +10392,15 @@ func (x *DocumentValue) GetEvent() *DocumentEvent {
 	return nil
 }
 
+func (x *DocumentValue) GetBigIntValue() string {
+	if x != nil {
+		if x, ok := x.Kind.(*DocumentValue_BigIntValue); ok {
+			return x.BigIntValue
+		}
+	}
+	return ""
+}
+
 func (x *DocumentValue) GetElementType() string {
 	if x != nil {
 		return x.ElementType
@@ -10411,6 +10456,11 @@ type DocumentValue_Event struct {
 	Event *DocumentEvent `protobuf:"bytes,12,opt,name=event,proto3,oneof"` // a row Events answered; answered, never bound
 }
 
+type DocumentValue_BigIntValue struct {
+	// An Integer beyond int64, in decimal, as Value.big_int_value.
+	BigIntValue string `protobuf:"bytes,13,opt,name=big_int_value,json=bigIntValue,proto3,oneof"`
+}
+
 func (*DocumentValue_ElementId) isDocumentValue_Kind() {}
 
 func (*DocumentValue_StringValue) isDocumentValue_Kind() {}
@@ -10432,6 +10482,8 @@ func (*DocumentValue_Object) isDocumentValue_Kind() {}
 func (*DocumentValue_State) isDocumentValue_Kind() {}
 
 func (*DocumentValue_Event) isDocumentValue_Kind() {}
+
+func (*DocumentValue_BigIntValue) isDocumentValue_Kind() {}
 
 // DocumentObject is an object the service holds for the model, created by
 // Instantiate, as a query binds and answers it. A request names it by path
@@ -11812,7 +11864,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\"\n" +
 	"\x05value\x18\x03 \x01(\v2\f.sysml.ValueR\x05value\x12\x12\n" +
-	"\x04unit\x18\x04 \x01(\tR\x04unit\"\xa5\a\n" +
+	"\x04unit\x18\x04 \x01(\tR\x04unit\"\xcb\a\n" +
 	"\x05Value\x12\x1d\n" +
 	"\tint_value\x18\x01 \x01(\x03H\x00R\bintValue\x12\x1f\n" +
 	"\n" +
@@ -11840,7 +11892,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"metaobject\x18\x14 \x01(\v2\x11.sysml.MetaobjectH\x00R\n" +
 	"metaobject\x129\n" +
-	"\fundetermined\x18\x15 \x01(\v2\x13.sysml.UndeterminedH\x00R\fundeterminedB\x06\n" +
+	"\fundetermined\x18\x15 \x01(\v2\x13.sysml.UndeterminedH\x00R\fundetermined\x12$\n" +
+	"\rbig_int_value\x18\x16 \x01(\tH\x00R\vbigIntValueB\x06\n" +
 	"\x04kind\"N\n" +
 	"\n" +
 	"Metaobject\x12\x1d\n" +
@@ -11885,10 +11938,11 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\"\n" +
 	"\x05value\x18\x04 \x01(\v2\f.sysml.ValueR\x05value\"9\n" +
 	"\rValueSequence\x12(\n" +
-	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\xa9\x01\n" +
+	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\xd7\x01\n" +
 	"\bQuantity\x12%\n" +
 	"\rint_magnitude\x18\x01 \x01(\x03H\x00R\fintMagnitude\x12'\n" +
-	"\x0ereal_magnitude\x18\x02 \x01(\x01H\x00R\rrealMagnitude\x12\x12\n" +
+	"\x0ereal_magnitude\x18\x02 \x01(\x01H\x00R\rrealMagnitude\x12,\n" +
+	"\x11big_int_magnitude\x18\x05 \x01(\tH\x00R\x0fbigIntMagnitude\x12\x12\n" +
 	"\x04unit\x18\x03 \x01(\tR\x04unit\x12,\n" +
 	"\tunit_term\x18\x04 \x01(\v2\x0f.sysml.UnitTermR\bunitTermB\v\n" +
 	"\tmagnitude\"k\n" +
@@ -12008,7 +12062,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\bbindings\x18\x03 \x03(\v2\x1b.sysml.DocumentQueryBindingR\bbindings\"b\n" +
 	"\x14DocumentQueryBinding\x12\x1c\n" +
 	"\tparameter\x18\x01 \x01(\tR\tparameter\x12,\n" +
-	"\x06values\x18\x02 \x03(\v2\x14.sysml.DocumentValueR\x06values\"\xef\x03\n" +
+	"\x06values\x18\x02 \x03(\v2\x14.sysml.DocumentValueR\x06values\"\x95\x04\n" +
 	"\rDocumentValue\x12\x1f\n" +
 	"\n" +
 	"element_id\x18\x01 \x01(\tH\x00R\telementId\x12#\n" +
@@ -12024,7 +12078,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06object\x18\n" +
 	" \x01(\v2\x15.sysml.DocumentObjectH\x00R\x06object\x12,\n" +
 	"\x05state\x18\v \x01(\v2\x14.sysml.DocumentStateH\x00R\x05state\x12,\n" +
-	"\x05event\x18\f \x01(\v2\x14.sysml.DocumentEventH\x00R\x05event\x12!\n" +
+	"\x05event\x18\f \x01(\v2\x14.sysml.DocumentEventH\x00R\x05event\x12$\n" +
+	"\rbig_int_value\x18\r \x01(\tH\x00R\vbigIntValue\x12!\n" +
 	"\felement_type\x18\a \x01(\tR\velementTypeB\x06\n" +
 	"\x04kind\"u\n" +
 	"\x0eDocumentObject\x12\x1f\n" +
@@ -12604,10 +12659,12 @@ func file_sysml_proto_init() {
 		(*Value_TensorQuantity)(nil),
 		(*Value_Metaobject)(nil),
 		(*Value_Undetermined)(nil),
+		(*Value_BigIntValue)(nil),
 	}
 	file_sysml_proto_msgTypes[91].OneofWrappers = []any{
 		(*Quantity_IntMagnitude)(nil),
 		(*Quantity_RealMagnitude)(nil),
+		(*Quantity_BigIntMagnitude)(nil),
 	}
 	file_sysml_proto_msgTypes[102].OneofWrappers = []any{
 		(*Constraint_Primitive)(nil),
@@ -12625,6 +12682,7 @@ func file_sysml_proto_init() {
 		(*DocumentValue_Object)(nil),
 		(*DocumentValue_State)(nil),
 		(*DocumentValue_Event)(nil),
+		(*DocumentValue_BigIntValue)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

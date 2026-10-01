@@ -589,10 +589,11 @@ func TestEngineKeepsEveryTokenOfARevisitedFork(t *testing.T) {
 	}
 }
 
-// TestEngineWitnessesIntegerOverflow: Integer arithmetic the interpreter refuses
-// as overflowing is a failure the solver witnesses, never a value it proves
-// about; arithmetic staying within int64 is proved as before.
-func TestEngineWitnessesIntegerOverflow(t *testing.T) {
+// TestEngineIntegerArithmeticIsUnbounded: KerML Integers are the mathematical
+// integers, as SMT's Int is, so arithmetic past int64 is a value the solver
+// proves about like any other; a step whose result breaks the constraint is
+// witnessed with no failure.
+func TestEngineIntegerArithmeticIsUnbounded(t *testing.T) {
 	e := engine(t)
 	d := indexed(t, "overflow.sysml", `package test {
 	private import ScalarValues::*;
@@ -646,16 +647,18 @@ func TestEngineWitnessesIntegerOverflow(t *testing.T) {
 		{"test::Sum", "test::Sum::positive"},
 		{"test::Difference", "test::Difference::negative"},
 		{"test::Product", "test::Product::positive"},
-		{"test::Negation", "test::Negation::negative"},
+		{"test::Within", "test::Within::positive"},
 	} {
 		result := answer(t, e, d, d.holds(t, c.action, c.condition), analysis.Budget{Depth: 4})
-		expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
-		if len(result.Values) != 1 || !errors.Is(result.Values[0].Err, semantics.ErrArithmeticOverflow) {
-			t.Errorf("%s: the interpreter's overflow is not reported: %+v", c.action, result.Values)
-		}
+		expect(t, result, analysis.ClaimHolds, analysis.Proved)
 	}
-	within := answer(t, e, d, d.holds(t, "test::Within", "test::Within::positive"), analysis.Budget{Depth: 4})
-	expect(t, within, analysis.ClaimHolds, analysis.Proved)
+	// -(-9223372036854775807 - 1) is 9223372036854775808, which is not negative.
+	negation := answer(t, e, d, d.holds(t, "test::Negation", "test::Negation::negative"), analysis.Budget{Depth: 4})
+	expect(t, negation, analysis.ClaimViolated, analysis.Witnessed)
+	var violation *runtime.ViolationError
+	if len(negation.Values) != 1 || !errors.As(negation.Values[0].Err, &violation) {
+		t.Errorf("the negation's witness is not the interpreter's violation: %+v", negation.Values)
+	}
 }
 
 // TestCoversBareHoldsRefuses: a Holds question lacking the engine's payload is

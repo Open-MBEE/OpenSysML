@@ -101,11 +101,11 @@ returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
 ## Values and units
 
 `decode_value` decodes the service's value oneof and `encode_value` creates
-request values. The mapping retains exact `Int64` values, decodes sequences
-and sets recursively, and exposes structured values through `Quantity`,
-`EnumLiteral`, `ArrayValue`, `VectorValue`, `VectorQuantity`,
-`TensorQuantity`, `MeasurementRef`, `FunctionRef`, `Metaobject`,
-`Undetermined`, `Unset`, and `Infinity`.
+request values. The mapping retains exact `Int64` values and `BigInt` ones
+beyond `Int64`, decodes sequences and sets recursively, and exposes
+structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
+`VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
+`FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.
 
 `Unit` and `UnitFactor` represent units and factors. `in_unit(quantity,
 unit)` reads a magnitude in another compatible unit; `to_unit(quantity,

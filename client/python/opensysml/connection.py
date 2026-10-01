@@ -43,6 +43,7 @@ from opensysml.capabilities import (
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
+    CAPABILITY_BIG_INT_VALUES,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
@@ -75,7 +76,7 @@ from opensysml.conversion import (
     path_is_v1,
 )
 from opensysml.diagnostic import Diagnostic
-from opensysml.document import build_bindings, result_of as document_result
+from opensysml.document import binding_holds_big_int, build_bindings, result_of as document_result
 from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
@@ -110,6 +111,8 @@ from opensysml.values import (
     Vector,
     VectorQuantity,
     _Infinity,
+    integer_to_pb,
+    pb_holds_big_int,
     value_to_python,
 )
 
@@ -1758,6 +1761,12 @@ class Connection:
             query_id=query_id,
             bindings=build_bindings(bindings),
         )
+        if any(binding_holds_big_int(binding) for binding in request.bindings):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
             unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
@@ -2915,6 +2924,16 @@ class Connection:
             upgrade_remedy(CAPABILITY_INFINITY_VALUE),
         )
 
+    def _require_big_int_values(self, value):
+        """Refuse to send an Integer beyond int64 a service without ``big_int_values`` would read as null."""
+        if pb_holds_big_int(value):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
+        return value
+
     def _require_schedule(self, schedule):
         """Refuse to send a schedule a service without ``schedule`` would run under the default."""
         for capability in self._schedule_capabilities(schedule):
@@ -2985,7 +3004,7 @@ class Connection:
         elif isinstance(py_value, InstanceRef):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
-            return sysml_pb2.Value(int_value=py_value)
+            return self._require_big_int_values(integer_to_pb(py_value))
         elif isinstance(py_value, float):
             return sysml_pb2.Value(real_value=py_value)
         elif isinstance(py_value, complex):
@@ -3000,7 +3019,7 @@ class Connection:
         elif isinstance(py_value, Instance):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, Quantity):
-            return sysml_pb2.Value(quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(quantity=py_value.to_pb()))
         elif isinstance(py_value, _Infinity):
             self._require_infinity_value()
             return sysml_pb2.Value(infinity=True)
@@ -3018,16 +3037,16 @@ class Connection:
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))
         elif isinstance(py_value, Vector):
             self._require_structured_values()
-            return sysml_pb2.Value(vector=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(vector=py_value.to_pb()))
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
-            return sysml_pb2.Value(vector_quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(vector_quantity=py_value.to_pb()))
         elif isinstance(py_value, (SetValue, set, frozenset)):
             self._require_set_values()
             return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
         elif isinstance(py_value, TensorQuantity):
             self._require_tensor_values()
-            return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(tensor_quantity=py_value.to_pb()))
         elif isinstance(py_value, EnumLiteral):
             literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,

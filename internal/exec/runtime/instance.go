@@ -273,7 +273,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
 		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
-		if semVal, ok := ctx.model.semantics.Eval(feat.DefaultValue); ok {
+		if semVal, ok := ctx.model.semantics.EvalWithin(feat.DefaultValue, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
 				fv.Value = val

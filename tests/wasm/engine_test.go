@@ -17,6 +17,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -267,6 +268,8 @@ func TestEngineWireParity(t *testing.T) {
 		"7", "1.5", "true", `"enginedemo"`, "(1, 2, 3)",
 		"10.0 [SI::m] / 2.0 [SI::s]", "enginedemo::Color::red",
 		"gatedemo::total", "enginedemo::speed",
+		"9223372036854775807 + 1", "-9223372036854775808 - 1", "2 ** 70",
+		"2 ** 70 - 2 ** 70 + 1", "2 ** 70 [SI::m]",
 	} {
 		params := fmt.Sprintf(`{"modelHash":%q,"expression":%s}`,
 			hash, mustJSON(t, expression))
@@ -308,6 +311,19 @@ func TestEngineWireParity(t *testing.T) {
 	}
 	equal("ExecuteAction", actionParams, mustMarshal(t, actionRes))
 
+	// An Integer beyond int64 crosses as bigIntValue both ways, as it does
+	// through the service.
+	wideParams := fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"bigIntValue":"590295810358705651712"}}}`, hash)
+	wideRes, err := svc.ExecuteAction(ctx, mustUnmarshal[pb.ExecuteActionRequest](t, wideParams))
+	if err != nil {
+		t.Fatalf("grpc ExecuteAction with a wide input: %v", err)
+	}
+	wideOut := mustMarshal(t, wideRes)
+	if !strings.Contains(string(wideOut), `"bigIntValue":"1180591620717411303424"`) {
+		t.Errorf("the service doubled 2**69 to %s, want bigIntValue 1180591620717411303424", wideOut)
+	}
+	equal("ExecuteAction", wideParams, wideOut)
+
 	stateParams := fmt.Sprintf(`{"modelHash":%q,"stateMachineSymbolId":"enginedemo::Switch"}`, hash)
 	stateRes, err := svc.ExecuteState(ctx, mustUnmarshal[pb.ExecuteStateRequest](t, stateParams))
 	if err != nil {
@@ -322,9 +338,10 @@ func TestEngineWireParity(t *testing.T) {
 		"a dual-arm value":          {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6","realValue":7}}}`, hash)},
 		"a dual-magnitude quantity": {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"quantity":{"intMagnitude":"1","realMagnitude":2.0}}}}`, hash)},
 		"a dual-source document":    {"ParseSources", `{"documents":[{"name":"a.sysml","filePath":"a.sysml","content":"package a {}"}]}`},
+		"a dual-width Integer":      {"ExecuteAction", fmt.Sprintf(`{"modelHash":%q,"actionSymbolId":"enginedemo::Double","inputs":{"x":{"intValue":"6","bigIntValue":"9223372036854775808"}}}`, hash)},
 	} {
 		_, err := eng.Call(ctx, malformed.method, []byte(malformed.params))
-		var callErr *engine.Error
+		var callErr *jsonrpc.Error
 		if !errors.As(err, &callErr) || callErr.Code != 3 {
 			t.Errorf("%s: Call error = %v, want InvalidArgument (3)", name, err)
 		}

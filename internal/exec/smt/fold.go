@@ -1,7 +1,7 @@
 package smt
 
 import (
-	"math"
+	"math/big"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
@@ -33,7 +33,7 @@ func same(a, b *solve.Term) bool {
 	case solve.OpBool:
 		return a.Bool == b.Bool
 	case solve.OpInt:
-		return a.Int == b.Int
+		return a.IntBig().Cmp(b.IntBig()) == 0
 	case solve.OpValue:
 		return a.Sort.Equal(b.Sort) && a.Str == b.Str
 	case solve.OpVar:
@@ -122,42 +122,39 @@ func eq(a, b *solve.Term) *solve.Term {
 	return solve.Binary(solve.OpEq, solve.Bool, a, b)
 }
 
-// add is integer addition, folded over literals that stay within int64 and a
-// zero operand.
+// add is integer addition, folded over literals and a zero operand.
 func add(a, b *solve.Term) *solve.Term {
 	switch {
-	case a.Op == solve.OpInt && b.Op == solve.OpInt && !overflows(a.Int, b.Int, a.Int+b.Int):
-		return solve.IntTerm(a.Int + b.Int)
-	case a.Op == solve.OpInt && a.Int == 0:
+	case a.Op == solve.OpInt && b.Op == solve.OpInt:
+		return solve.BigIntTerm(new(big.Int).Add(a.IntBig(), b.IntBig()))
+	case zeroLiteral(a):
 		return b
-	case b.Op == solve.OpInt && b.Int == 0:
+	case zeroLiteral(b):
 		return a
 	}
 	return solve.Binary(solve.OpAdd, solve.Int, a, b)
 }
 
-// sub is integer subtraction, folded over literals that stay within int64 and
-// a zero subtrahend.
+// sub is integer subtraction, folded over literals and a zero subtrahend.
 func sub(a, b *solve.Term) *solve.Term {
 	switch {
-	case a.Op == solve.OpInt && b.Op == solve.OpInt && !overflows(a.Int, -b.Int, a.Int-b.Int):
-		return solve.IntTerm(a.Int - b.Int)
-	case b.Op == solve.OpInt && b.Int == 0:
+	case a.Op == solve.OpInt && b.Op == solve.OpInt:
+		return solve.BigIntTerm(new(big.Int).Sub(a.IntBig(), b.IntBig()))
+	case zeroLiteral(b):
 		return a
 	}
 	return solve.Binary(solve.OpSub, solve.Int, a, b)
 }
 
-// overflows reports whether sum, computed as a+b in int64, wrapped; b is
-// negated for a difference, so math.MinInt64 is never folded away.
-func overflows(a, b, sum int64) bool {
-	return b == math.MinInt64 || (b > 0 && sum < a) || (b < 0 && sum > a)
+// zeroLiteral reports whether t is the integer literal 0.
+func zeroLiteral(t *solve.Term) bool {
+	return t.Op == solve.OpInt && t.Big == nil && t.Int == 0
 }
 
 // gt is integer `>`, decided between literals.
 func gt(a, b *solve.Term) *solve.Term {
 	if a.Op == solve.OpInt && b.Op == solve.OpInt {
-		return solve.BoolTerm(a.Int > b.Int)
+		return solve.BoolTerm(a.IntBig().Cmp(b.IntBig()) > 0)
 	}
 	return solve.Binary(solve.OpGt, solve.Bool, a, b)
 }
@@ -165,7 +162,7 @@ func gt(a, b *solve.Term) *solve.Term {
 // ge is integer `>=`, decided between literals.
 func ge(a, b *solve.Term) *solve.Term {
 	if a.Op == solve.OpInt && b.Op == solve.OpInt {
-		return solve.BoolTerm(a.Int >= b.Int)
+		return solve.BoolTerm(a.IntBig().Cmp(b.IntBig()) >= 0)
 	}
 	return solve.Binary(solve.OpGe, solve.Bool, a, b)
 }

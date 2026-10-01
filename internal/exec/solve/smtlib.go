@@ -2,7 +2,6 @@ package solve
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -214,7 +213,7 @@ func writeTerm(t *Term) string {
 		}
 		return "false"
 	case OpInt:
-		return writeInt(t.Int)
+		return writeBigInt(t.IntBig())
 	case OpReal:
 		return writeRat(t.Real)
 	case OpString:
@@ -228,9 +227,6 @@ func writeTerm(t *Term) string {
 	for _, arg := range t.Args {
 		args = append(args, writeTerm(arg))
 	}
-	if t.Op == OpInt64 {
-		return "(<= " + writeInt(math.MinInt64) + " " + args[0] + " " + writeInt(math.MaxInt64) + ")"
-	}
 	op := smtOps[t.Op]
 	if t.Op == OpNe {
 		// `distinct` is SMT-LIB's inequality; the notation writes `!=`.
@@ -240,11 +236,11 @@ func writeTerm(t *Term) string {
 }
 
 // writeInt renders an integer literal, as SMT-LIB numerals are non-negative.
-func writeInt(i int64) string {
-	if i < 0 {
-		return fmt.Sprintf("(- %d)", uint64(-i))
+func writeBigInt(i *big.Int) string {
+	if i.Sign() < 0 {
+		return "(- " + new(big.Int).Neg(i).String() + ")"
 	}
-	return fmt.Sprintf("%d", i)
+	return i.String()
 }
 
 // writeRat renders a real literal exactly: as a decimal when the magnitude has a

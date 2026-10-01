@@ -113,6 +113,9 @@ pub const CAPABILITY_ENGINES: &str = "engines";
 pub const CAPABILITY_ENGINES_EXTERNAL: &str = "engines_external";
 /// A model-level result the model leaves open, as `Value.undetermined`.
 pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
+/// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
+/// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
+pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";
 
 /// The remedy for a service lacking `capability`, naming both routes to one that has it.
 pub fn upgrade_remedy(capability: &str) -> String {

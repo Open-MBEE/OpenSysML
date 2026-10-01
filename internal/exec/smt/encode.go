@@ -708,10 +708,6 @@ func (e *Encoding) initialInputs(env *env) ([]*solve.Term, error) {
 	for _, in := range e.Inputs {
 		v := in.Var
 		if in.Free {
-			if v.Sort.Kind == solve.SortInt {
-				// The interpreter's Integer is int64; beyond it there is no value to replay.
-				e.assert(solve.Int64(env.values[v.Name]), "range of "+in.Name)
-			}
 			if domain := e.domain(v.Name, env.values[v.Name]); domain != nil {
 				e.assert(domain, "domain of "+in.Name)
 			}

@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"fmt"
+	"math/big"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
@@ -91,6 +92,12 @@ func valueFromProto(value *pb.Value) Value {
 	switch kind := value.Kind.(type) {
 	case *pb.Value_IntValue:
 		return Int(kind.IntValue)
+	case *pb.Value_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return Null("unsupported: a big integer that is not decimal")
+		}
+		return NewInteger(n)
 	case *pb.Value_RealValue:
 		return Real(kind.RealValue)
 	case *pb.Value_Complex:
@@ -225,6 +232,12 @@ func valueToProto(value Value) (*pb.Value, error) {
 		return nil, nil
 	case Int:
 		return &pb.Value{Kind: &pb.Value_IntValue{IntValue: int64(v)}}, nil
+	case BigInt:
+		n := v.Int()
+		if n.IsInt64() {
+			return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n.Int64()}}, nil
+		}
+		return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: n.String()}}, nil
 	case Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}, nil
 	case Complex:
@@ -367,6 +380,12 @@ func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
+	case BigInt:
+		if n := magnitude.Int(); n.IsInt64() {
+			out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: n.Int64()}
+		} else {
+			out.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: n.String()}
+		}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
 	default:
@@ -429,6 +448,12 @@ func quantityFromProto(quantity *pb.Quantity) (Quantity, bool) {
 	switch magnitude := quantity.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
 		out.Magnitude = Int(magnitude.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		n, ok := new(big.Int).SetString(magnitude.BigIntMagnitude, 10)
+		if !ok {
+			return Quantity{}, false
+		}
+		out.Magnitude = NewInteger(n)
 	case *pb.Quantity_RealMagnitude:
 		out.Magnitude = Real(magnitude.RealMagnitude)
 	default:

@@ -215,12 +215,14 @@ def test_an_object_naming_nothing_is_refused():
         build_bindings(unnamed)
 
 
-def test_an_oversized_int_binding_is_refused():
-    """An int outside int64 is a caller error, not a protobuf ValueError."""
-    with pytest.raises(DocumentQueryError, match="signed 64-bit"):
-        build_bindings({"threshold": 1 << 63})
-    with pytest.raises(DocumentQueryError, match="signed 64-bit"):
-        build_bindings({"threshold": -(1 << 63) - 1})
+def test_an_int_binding_beyond_int64_travels_in_full():
+    """KerML Integers are unbounded: an int outside int64 binds as its decimal."""
+    bindings = build_bindings({"high": 1 << 63, "low": -(1 << 63) - 1, "edge": (1 << 63) - 1})
+    by_parameter = {b.parameter: b.values[0] for b in bindings}
+    assert by_parameter["high"].big_int_value == str(1 << 63)
+    assert by_parameter["low"].big_int_value == str(-(1 << 63) - 1)
+    assert by_parameter["edge"].WhichOneof("kind") == "int_value"
+    assert by_parameter["edge"].int_value == (1 << 63) - 1
 
 
 def test_a_quantity_the_wire_cannot_carry_is_refused():
@@ -231,9 +233,8 @@ def test_a_quantity_the_wire_cannot_carry_is_refused():
     with pytest.raises(DocumentQueryError, match="'limit'.*no reduction") as caught:
         build_bindings(unreduced)
     assert isinstance(caught.value.__cause__, UnsupportedValueError)
-    oversized = {"limit": Quantity(1 << 63, kg)}
-    with pytest.raises(DocumentQueryError, match="'limit'.*signed 64-bit"):
-        build_bindings(oversized)
+    (big,) = build_bindings({"limit": Quantity(1 << 63, kg)})
+    assert big.values[0].quantity.big_int_magnitude == str(1 << 63)
     boolean = {"limit": Quantity(True, kg)}
     with pytest.raises(DocumentQueryError, match="'limit'.*neither an Integer nor a Real"):
         build_bindings(boolean)

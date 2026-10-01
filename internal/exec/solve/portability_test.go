@@ -302,7 +302,7 @@ func portabilityCases() []portabilityCase {
 			return nil
 		},
 	}, {
-		feature: "a free real-sorted input within the int64 range of an integer one, read back exactly",
+		feature: "a free real-sorted input beside an integer one, read back exactly",
 		needs:   []Capability{CapModels},
 		run: func(t *testing.T, solver *Solver) error {
 			q, _ := freeInputQuery()
@@ -355,8 +355,7 @@ func portabilityCases() []portabilityCase {
 }
 
 // freeInputQuery is a hand-assembled query of the shape an encoding of free inputs
-// emits in its initial state: an integer input kept within int64 and its declared
-// `>= 0`, a real input under a strict bound, and an enumeration input ranging over
+// emits in its initial state: an integer input under its declared `>= 0`, a real input under a strict bound, and an enumeration input ranging over
 // the constructors of a datatype the model declares, one of them excluded.
 func freeInputQuery() (*Query, *Var) {
 	modes := Sort{Kind: SortDatatype, Name: "test::Mode", Origin: "test::Mode",
@@ -371,7 +370,6 @@ func freeInputQuery() (*Query, *Var) {
 		Sorts:   []Sort{modes},
 		Vars:    []*Var{count, rate, mode},
 		Assertions: []Assertion{
-			{Term: Int64(VarTerm(count)), From: from},
 			{Term: Binary(OpGe, Bool, VarTerm(count), IntTerm(0)), From: from},
 			{Term: Binary(OpLt, Bool, VarTerm(rate), RealTerm(big.NewRat(0, 1))), From: from},
 			{Term: Binary(OpGt, Bool, VarTerm(rate), RealTerm(big.NewRat(-1, 1))), From: from},

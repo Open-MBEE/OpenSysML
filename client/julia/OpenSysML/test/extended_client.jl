@@ -312,6 +312,10 @@ end
         """{"event":{"kind":"transition","from":"Idle","to":"Running"}}"""))
     @test event.from_state == "Idle"
     @test event.to_state == "Running"
+
+    @test OpenSysML._document_value(JSON.parse("""{"intValue":"7"}""")) === Int64(7)
+    @test OpenSysML._document_value(JSON.parse(
+        """{"bigIntValue":"1180591620717411303424"}""")) == big(2)^70
 end
 
 @testset "sweep seeds use uint64" begin
@@ -518,6 +522,15 @@ end
     @test binding_by_parameter["values"]["values"] == [
         Dict("intValue" => "1"), Dict("boolValue" => true), Dict("stringValue" => "x")]
     @test_throws DocumentQueryError build_document_bindings(Dict("empty" => ObjectRef()))
+    wide = build_document_bindings(Dict("wide" => [big(2)^70, -big(2)^63 - 1, typemax(Int64)]))
+    @test wide[1]["values"] == [
+        Dict("bigIntValue" => "1180591620717411303424"),
+        Dict("bigIntValue" => "-9223372036854775809"),
+        Dict("intValue" => "9223372036854775807")]
+    @test OpenSysML._binding_holds_big_int(wide[1])
+    @test OpenSysML._binding_holds_big_int(build_document_bindings(
+        Dict("m" => Quantity(big(2)^70, "", nothing)))[1])
+    @test !OpenSysML._binding_holds_big_int(build_document_bindings(Dict("n" => typemax(Int64)))[1])
     @test format_of_path("model.ttl") == "ttl"
     @test_throws ArgumentError format_of_path("model.unknown")
 end

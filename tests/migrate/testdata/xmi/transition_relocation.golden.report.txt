@@ -1,9 +1,9 @@
 # SysML v1 to v2 migration report: transition_relocation.xmi
-# migrated 28 element(s): 26 mapped, 0 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 28 element(s): 26 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (2)
-Pseudostate	Plant::Life::main::Parallel::region4::<Pseudostate>	_region4Init	(the initial transition's target has no v2 form here)
-Transition	Plant::Life::main::Parallel::region4::<Transition>	_crossRegionInit	(its target lies in an orthogonal region)
+## approximated (2)
+Pseudostate	Plant::Life::main::Parallel::region4::<Pseudostate>	_region4Init	(coincides with region3's own entry into 'wait3', which its transition also enters from this orthogonal region)
+Transition	Plant::Life::main::Parallel::region4::<Transition>	_crossRegionInit	(coincides with region3's own entry into 'wait3', which its transition also enters from this orthogonal region)
 
 ## mapped (26)
 Model	Model	_m	(the root model's members are written at the top level)

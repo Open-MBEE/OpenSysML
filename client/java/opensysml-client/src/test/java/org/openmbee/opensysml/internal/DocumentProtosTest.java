@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +43,31 @@ class DocumentProtosTest {
   }
 
   @Test
+  void aBindingBeyondInt64NeedsBigIntValues() {
+    java.math.BigInteger wide = java.math.BigInteger.TWO.pow(70);
+    assertTrue(
+        Protos.holdsBigInt(binding(Protos.proto(new DocumentValue.BigIntegerValue(wide)))));
+    assertTrue(
+        Protos.holdsBigInt(
+            binding(
+                org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                    .setQuantity(
+                        org.openmbee.opensysml.proto.Quantity.newBuilder()
+                            .setBigIntMagnitude(wide.toString()))
+                    .build())));
+    assertFalse(
+        Protos.holdsBigInt(binding(Protos.proto(new DocumentValue.IntegerValue(Long.MAX_VALUE)))));
+  }
+
+  private static org.openmbee.opensysml.proto.DocumentQueryBinding binding(
+      org.openmbee.opensysml.proto.DocumentValue value) {
+    return org.openmbee.opensysml.proto.DocumentQueryBinding.newBuilder()
+        .setParameter("x")
+        .addValues(value)
+        .build();
+  }
+
+  @Test
   void everyLiteralKindRoundTrips() {
     assertEquals(
         new DocumentValue.StringValue("s"),
@@ -53,6 +79,12 @@ class DocumentProtosTest {
         new DocumentValue.IntegerValue(7),
         roundTrip(
             org.openmbee.opensysml.proto.DocumentValue.newBuilder().setIntValue(7).build()));
+    assertEquals(
+        new DocumentValue.BigIntegerValue(new java.math.BigInteger("-99999999999999999999")),
+        roundTrip(
+            org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                .setBigIntValue("-99999999999999999999")
+                .build()));
     assertEquals(
         new DocumentValue.RealValue(1.5),
         roundTrip(

@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -389,8 +390,8 @@ func (v *verifyContext) witnessValue(value solve.ModelValue) (runtime.Value, boo
 	case solve.SortBool:
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: value.Bool}}, true
 	case solve.SortInt:
-		if i, ok := ratInt64(value.Number); ok {
-			return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: i}}, true
+		if value.Number != nil && value.Number.IsInt() {
+			return runtime.Value{Kind: runtime.ValConst, Const: semantics.BigIntValue(new(big.Int).Set(value.Number.Num()))}, true
 		}
 	case solve.SortReal:
 		if f, _ := value.Number.Float64(); !math.IsInf(f, 0) {
@@ -399,18 +400,10 @@ func (v *verifyContext) witnessValue(value solve.ModelValue) (runtime.Value, boo
 	case solve.SortString:
 		return runtime.NewStringValue(value.Text), true
 	case solve.SortDatatype:
-		syms := lookupNamed(v.cached.Index, value.Text)
+		syms := symbolfacts.LookupNamed(v.cached.Index, value.Text)
 		if len(syms) == 1 {
 			return runtime.NewEnumLiteral(syms[0]), true
 		}
 	}
 	return runtime.Value{}, false
-}
-
-// ratInt64 is the rational's whole-number value, false where it has none.
-func ratInt64(rat *big.Rat) (int64, bool) {
-	if rat == nil || !rat.IsInt() {
-		return 0, false
-	}
-	return rat.Num().Int64(), true
 }

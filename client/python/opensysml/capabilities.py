@@ -247,6 +247,10 @@ CAPABILITY_ENGINES = "engines"
 #: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
 CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 
+#: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
+#: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
+CAPABILITY_BIG_INT_VALUES = "big_int_values"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

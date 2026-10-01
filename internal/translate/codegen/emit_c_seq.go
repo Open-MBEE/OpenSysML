@@ -379,14 +379,14 @@ static sysml_seq_real sysml_widen(sysml_seq_int s) {
 static sysml_int sysml_isum(sysml_seq_int s, const char *op) {
 	sysml_int acc = 0;
 	for (sysml_int i = 0; i < s.len; i++)
-		if (__builtin_add_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s exceeds the Integer range", op);
+		if (__builtin_add_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
 	return acc;
 }
 
 static sysml_int sysml_iproduct(sysml_seq_int s, const char *op) {
 	sysml_int acc = 1;
 	for (sysml_int i = 0; i < s.len; i++)
-		if (__builtin_mul_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s exceeds the Integer range", op);
+		if (__builtin_mul_overflow(acc, s.data[i], &acc)) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
 	return acc;
 }
 

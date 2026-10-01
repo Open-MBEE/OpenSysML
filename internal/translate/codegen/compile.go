@@ -3,7 +3,6 @@ package codegen
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -746,11 +745,11 @@ func (fc *funcCompiler) coerce(v Expr, t Type, what string) (Expr, error) {
 func (fc *funcCompiler) compileExpr(n ast.Node) (Expr, error) {
 	switch n := n.(type) {
 	case *ast.LiteralInteger:
-		v, err := strconv.ParseInt(n.Value, 10, 64)
-		if err != nil {
-			return nil, fc.unsupported(fmt.Sprintf("literal %s is outside the Integer range", n.Value))
+		v, ok := semantics.ParseInteger(n.Value)
+		if !ok {
+			return nil, fc.unsupported(fmt.Sprintf("literal %s is not an Integer", n.Value))
 		}
-		return IntLit{Value: v}, nil
+		return intLit(v), nil
 	case *ast.LiteralReal:
 		v, err := semantics.ParseReal(n.Value)
 		if err != nil {
@@ -874,7 +873,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			// a distinction a static type cannot make of a run-time exponent.
 			lit, isLit := r.(IntLit)
 			switch {
-			case isLit && lit.Value >= 0:
+			case isLit && lit.sign() >= 0:
 			case isLit:
 				t = TypeReal
 				l, r = ToReal{X: l}, ToReal{X: r}
@@ -914,8 +913,8 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		}
 		// The least Integer is only writable as a negated literal.
 		if lit, ok := n.Operands[0].(*ast.LiteralInteger); ok && n.Operator == ast.OpNeg {
-			if v, err := strconv.ParseInt("-"+lit.Value, 10, 64); err == nil {
-				return IntLit{Value: v}, nil
+			if v, ok := semantics.ParseInteger("-" + lit.Value); ok {
+				return intLit(v), nil
 			}
 		}
 		x, err := fc.compileExpr(n.Operands[0])

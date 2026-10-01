@@ -159,6 +159,7 @@ What a request asks for is fixed per capability:
 | `measurement_refs` | Encode bare measurement references as unsupported nulls; refuse a request carrying one, at any depth. |
 | `function_values` | Encode functions (a calc read as a value) as unsupported nulls; refuse a request carrying one, at any depth. |
 | `metaobject_values` | Encode metaobjects (an element reflected on by `meta` or `.metadata`) as unsupported nulls; refuse a request carrying one, at any depth. |
+| `big_int_values` | Encode an Integer beyond `int64` (`big_int_value`, a quantity's `big_int_magnitude`) as an unsupported null; refuse a request carrying one, at any depth. |
 
 The default service reports and supports every capability above. `make conformance` also starts a
 second service with `strict_conformance` and `oslc_query` withheld, verifies that its advertisement

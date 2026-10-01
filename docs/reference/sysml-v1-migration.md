@@ -238,9 +238,10 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
-| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; a `ReadStructuralFeatureAction`'s `result` keeps its pin's multiplicity (`out result[0..*] = object.entries;`), so a feature holding none or several is read as it is declared; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after context.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `context.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
@@ -269,6 +270,7 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity with no nodes | an empty action: `entry action x;` in a state, `do action x { }` on a transition, whose target follows on the next line | mapped (the note says the action is empty) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
+| `entry` or `exit` behavior or transition `effect` that waits for the clock — an Activity with a duration constraint on itself or on one of its nodes, an accept of a time event, or a call of an activity, or of an operation whose method is an activity, that has one | the action as written; the note names the wait, since a v2 entry or exit action or transition effect is performed whole at the instant it is triggered and a run stops at the wait with a typed error (the `doActivity` may wait, and is not noted) | approximated |
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
@@ -285,6 +287,7 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
 | Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
 | SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]` | mapped / approximated |
+| SignalEvent whose signal no send or broadcast action of the document sends (neither it nor a signal specializing it, which the accept takes too), and a button of the tool's UI prototype posts (a «SimulationProfile» `SignalInstance` on a «Button» class naming the signal as its `element`) | the accept as written, on the transition or accept action; the trigger's note says that only the prototype posts the signal, which the migration does not write, so the accept waits for a message nothing in the model posts and a run stops there as a deadlock. A signal nothing at all posts is an ordinary accept, of a message from outside the model in the tool and here alike | approximated |
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
@@ -1218,6 +1221,26 @@ signal fits are bound to that name. Entry, do and exit behaviors owned by the st
 action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
 references.
 
+A region's entry is its initial pseudostate's transition, `entry; then s;`. The initial a
+region takes as its own is the one whose transition enters a vertex of the region; a further
+one entering the region is refused, as a region has one initial pseudostate. An initial
+whose transition enters an *orthogonal* region — a sibling region of the same state, or a
+region nested in one, which some tools draw an arrow into from the next region over — is
+written as the entry of the region that owns its target, in whatever body that region is
+written as: the sub-state of the `parallel` state, or the body of a nested composite state.
+Its effect follows the initial-effect rules there and its triggers and guards are dropped as
+an initial transition's are; the pseudostate and transition are approximated, the report
+naming the region written. When the target's region has an initial of its own entering the
+same vertex, the stray one coincides with it and nothing is written twice; when its own
+initial enters another vertex the two conflict, the region's own entry is kept and the stray
+one is refused with both targets named (`-strict` reports its triggers, guard and effect as
+refused with it). An initial pseudostate no transition leaves is no entry, so a donated one
+may enter its region; an initial whose transition enters a region of another state — one that
+is not orthogonal to its own — is refused, since an initial transition enters its own region.
+The owner's default entry into its `parallel` state is written once every region has an
+entry, its own or a donated one; a region none of whose initials enters it is listed in the
+owner's `no default entry` note.
+
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every
 transition into the state accepts the same signal and its attributes match the parameters in
@@ -1583,6 +1606,9 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
+| `x = e;` in a JavaScript body, `x` a name nothing declares — no pin, parameter, property, local or member of any scope the body sees | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`, as the tool's script engine creates a variable on assignment to an undeclared name; reported as an approximation naming `x`. A name some scope does declare but the body may not read — a private property, a feature reached through a swimlane whose object is plural — stays refused, as does a name read before its assignment, and every such name in a Java body, which declares its variables |
+| a read, in a script body, of a property declaring no default, before the body assigns it | the read as written; reported as an approximation naming the property: in v2 the property holds no value until assigned, so a run reaching the read first stops, where the tool's script engine reads null and its arithmetic takes 0. A body that assigns the property first, a property declaring a default, and one declared admitting no value (read under a guard, see above) are not reported |
+| a read, in a script body, of a property declaring no default, after the body assigns it only under guards — from names admitting no value, so each assignment is made only when the name it reads holds one | the read as written; reported as an approximation naming the property and every guard made before the read: a run in which none of those names holds one reaches the read unset and stops, where the tool's script engine reads null. An unguarded assignment before the read settles the property on every path, and the read is not reported | approximated |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
@@ -1610,7 +1636,7 @@ that is not expression syntax, a construct outside the subset (`for`, `while`, `
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
 translated function table`), a name that resolves to nothing readable (`context.` where the activity carries no such parameter
-no object, a property of no v2 type, a name no scope defines), or types that disagree (an
+no object, a property of no v2 type, a name no scope defines and no JavaScript assignment creates), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
 of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
@@ -1688,6 +1714,9 @@ action def 'Group 0' {
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
   `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
   consumed, and set to false they are kept in the comment and reported as having no v2 form.
+  `UI` names the tool's UI prototype frames (a «UI_Prototyping_Profile» `Frame`), through which
+  a user of the tool's run posts signals and reads values: it is kept in the comment by its
+  frames' titles and reported as an approximation, since a run here takes no input from it.
 - The tool's own results — the snapshots it stored of the configuration's runs under its
   `resultLocation` packages, one instance per run whose slots hold the observed values, most
   naming no classifier — are migrated as individuals of the most special block their slots'

@@ -111,6 +111,8 @@ export const CAPABILITY_PERFORMER = "performer";
 export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
+/** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
+export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

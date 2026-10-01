@@ -542,11 +542,11 @@ func (e *executor) evaluateLiteral(expression queryplan.Expression) (sequence, e
 		}
 		value = StringValue(text)
 	case queryplan.LiteralInteger:
-		integer, err := strconv.ParseInt(strings.ReplaceAll(raw, "_", ""), 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(strings.ReplaceAll(raw, "_", ""))
+		if !ok {
 			return sequence{}, e.invalidArgument(expression, "", raw)
 		}
-		value = IntegerValue(integer)
+		value = IntegerOf(integer)
 	case queryplan.LiteralReal:
 		realVal, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
 		if err != nil || math.IsInf(realVal, 0) || math.IsNaN(realVal) {

@@ -51,6 +51,9 @@ public final class Capabilities {
   /** A model-level result the model leaves open travels as itself rather than as an unsupported null. */
   public static final String UNDETERMINED_VALUE = "undetermined_value";
 
+  /** An Integer beyond int64 travels as {@code big_int_value} rather than as an unsupported null. */
+  public static final String BIG_INT_VALUES = "big_int_values";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 
