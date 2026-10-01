@@ -1376,7 +1376,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
 		variantTarget := e.variantReferenceTarget(n)
-		variantReference := variantTarget.Value != "" || n.IsVariantReference() && referencesFeature(n)
+		// The syntax makes a VariantReference, whether or not its name resolves.
+		variantReference := n.IsVariantReference()
 		if variantReference {
 			// A bare `variant x;` is a VariantReference (SysML-textual-bnf
 			// :343-345): a ReferenceUsage subsetting the feature x names, which
@@ -2491,23 +2492,22 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 	return e.symbolTerm(target)
 }
 
-// variantReferenceTarget is the term of the feature a bare `variant x;` names,
-// the like-named feature visible outside the variation, or the zero term when n
-// is no such reference, x names nothing, or n states its reference itself
-// (`variant P::x;`, `variant a.b;`).
+// variantReferenceTarget is the term of the feature a bare `variant x;` names:
+// the like-named feature visible outside the variation, else the name x as
+// written, the way an unresolved reference is kept; the zero term when n is no
+// such reference or states its reference itself (`variant P::x;`, `variant a.b;`).
 func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
 	if !n.IsVariantReference() || referencesFeature(n) {
 		return rdf.Term{}
 	}
-	sym := e.ids.declSym[n]
-	if sym == nil {
-		return rdf.Term{}
+	if sym := e.ids.declSym[n]; sym != nil {
+		if target := e.ids.model.ReferencedFeature(sym); target != nil && target != sym {
+			if term := e.symbolTerm(target); term.Value != "" {
+				return term
+			}
+		}
 	}
-	target := e.ids.model.ReferencedFeature(sym)
-	if target == nil || target == sym {
-		return rdf.Term{}
-	}
-	return e.symbolTerm(target)
+	return rdf.String(n.Ident.Name)
 }
 
 // symbolTerm is the term of the element a resolved symbol declares, or the zero

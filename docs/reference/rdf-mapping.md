@@ -663,7 +663,12 @@ the variant keeps its identity `P::V::e1`. It is written back bare when the
 graph names it that way, and refused when `e1` does not reach that feature from
 the variation. A qualified or chained one is anonymous, like `perform P::a;`, and is
 written back by its reference in more than one segment, since a single name would
-read back as `variant e1;`.
+read back as `variant e1;`. A `variant x;` whose `x` resolves to nothing keeps
+the name as a literal `sysml:references "x"`, as an unresolved reference
+does, and stays a `ReferenceUsage`. An anonymous variant whose reference is
+a single-name literal is refused. A variant written with a usage prefix
+(`variant ref x;`) is no reference: it declares `x`, and is written back
+with `variant` ahead of the prefix.
 
 The rest of the membership-side metaclasses the notation implies are
 standard: the mapping materializes each as the relationship element the OMG

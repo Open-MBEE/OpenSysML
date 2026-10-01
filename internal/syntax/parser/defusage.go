@@ -1500,7 +1500,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 			mods.noteUsageOnly(t)
 			// The variant element carries its own usage prefix (SysML.xtext
 			// VariantUsageElement → OccurrenceUsagePrefix): `variant ref port a;`.
+			beforeModifiers := p.peek().Span.Offset
 			p.parseMoreFeatureModifiers(&mods)
+			prefixed := p.peek().Span.Offset != beforeModifiers
 			prefixes = append(prefixes, p.parsePrefixMetadata()...)
 			if u := p.parsePortionPrefix(start, &mods, &prefixes); u != nil {
 				return applyPrefixes(u)
@@ -1516,7 +1518,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 			// (SysML-textual-bnf VariantReference :343-345, whose
 			// OwnedReferenceSubsetting is a qualified name or a feature chain);
 			// a lone `variant x;` keeps x as the name its reference resolves.
-			if p.atQualifiedOrChainedName() {
+			// A VariantReference takes no usage prefix, so `variant ref P::x;`
+			// is read as the declaration it is not and reported there.
+			if !prefixed && p.atQualifiedOrChainedName() {
 				u := p.parseReferenceMemberUsage(start, ast.UsagePart, "variant", "feature", mods, p.parseDefUsageBodyMembers, false)
 				u.IsVariant = true
 				return applyPrefixes(u)

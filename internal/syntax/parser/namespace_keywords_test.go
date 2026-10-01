@@ -164,6 +164,16 @@ func TestParseVariantReferenceByQualifiedNameOrChain(t *testing.T) {
 	}
 }
 
+// A VariantReference takes no usage prefix, so `variant ref P::x;` is no
+// reference form: `ref` begins a declaration, which a qualified name cannot name.
+func TestParsePrefixedVariantIsNoReference(t *testing.T) {
+	p := New(source.New("test.sysml", []byte("package P { variation part def C { variant ref P::x; } }")))
+	p.ParseFile()
+	if len(p.Diagnostics) == 0 {
+		t.Errorf("`variant ref P::x;` parsed without error")
+	}
+}
+
 // A keyword in name position is reported: SysML reserves keywords there, and
 // only an unrestricted name may spell one. It is a warning rather than an error
 // because the normative OMG library relies on unquoted keyword names

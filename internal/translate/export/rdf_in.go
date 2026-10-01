@@ -2038,6 +2038,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// `variant` is a member keyword: the usage prefix it carries follows it
+	// (`variant ref x;`), so as the head's keyword it is written with the
+	// modifiers, ahead of them, rather than after them in the keyword's place.
+	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
+	variantFirst := keyword == "variant" && isVariant
 	for _, flag := range []struct {
 		keyword string
 		set     bool
@@ -2045,7 +2050,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"variation", d.boolOf(el, rdf.SysML+"isVariation")},
 		// An enumerated value is a variant by what it is, not by a keyword
 		// (SysML.xtext EnumerationUsageMember); its isVariant writes nothing back.
-		{"variant", d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)},
+		{"variant", isVariant},
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
@@ -2062,7 +2067,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	} {
 		// A keyword such as `snapshot` is both a modifier and a kind keyword;
 		// writing it here as well as below would declare it twice.
-		if flag.keyword == keyword {
+		if flag.keyword == keyword && !variantFirst {
 			continue
 		}
 		if flag.set {
@@ -2079,6 +2084,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 				words = append(words, crossWords...)
 			}
 		}
+	}
+	if variantFirst {
+		keyword = ""
 	}
 	// Prefix metadata ends the usage prefix, ahead of the kind keyword
 	// (SysML.xtext UsagePrefix `UnextendedUsagePrefix UsageExtensionKeyword*`);
@@ -3073,14 +3081,36 @@ func (d *decoder) qualifiedReferences(el *element, terms []rdf.Term, written []s
 	return out, nil
 }
 
+// literalVariantName writes a variant whose reference the graph keeps as a
+// name it does not link (an unresolved `variant x;`): a single name only for
+// the variant that answers to it, since `variant x;` is read as that variant.
+// A qualified name is written as the reference form; any other single name is
+// refused, as no notation states it.
+func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error) {
+	segments, ok := source.QualifiedNameSegments(term.Value)
+	if !ok || len(segments) != 1 {
+		return "", nil
+	}
+	if strings.HasSuffix(d.writtenQName(el), "::"+segments[0]) {
+		return nameText(segments[0]), nil
+	}
+	return "", &UnsupportedError{
+		What: fmt.Sprintf("the variant <%s>", el.iri),
+		Note: fmt.Sprintf("it references the name %q, which the graph links to no element: `variant %s;` would be a variant named %s, which it is not, and a single name has no reference form", term.Value, term.Value, term.Value),
+	}
+}
+
 // variantName is the name a VariantReference is written by, `variant x;`: the
 // name of the one feature it references, when that is also the name the
 // variant answers to; the check that x reaches that feature from the variation
 // is wanted of the rendering. Empty when the reference is written instead
 // (`variant P::x;`, `variant a.b;`).
 func (d *decoder) variantName(el *element, terms []rdf.Term) (string, error) {
-	if len(terms) != 1 || terms[0].IsLiteral() {
+	if len(terms) != 1 {
 		return "", nil
+	}
+	if terms[0].IsLiteral() {
+		return d.literalVariantName(el, terms[0])
 	}
 	if isChain, err := d.chainFeatureTerm(terms[0]); err != nil || isChain {
 		return "", err

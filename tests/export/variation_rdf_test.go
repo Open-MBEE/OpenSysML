@@ -2,10 +2,12 @@ package export_test
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -246,5 +248,89 @@ func TestVariantReferenceOwnsAReferenceSubsetting(t *testing.T) {
 	if _, err := convert.Convert("m.ttl", []byte(retargeted), convert.FormatTurtle, convert.FormatSysML); err == nil ||
 		!strings.Contains(err.Error(), "`variant e1` does not name P::B::e1") {
 		t.Errorf("expected the retargeted variant to be refused, got %v", err)
+	}
+}
+
+// A `variant x;` is a VariantReference by its syntax: one whose name resolves
+// to nothing keeps x as the name it references, the way an unresolved
+// reference is kept, rather than becoming a part usage declaring x.
+func TestUnresolvedVariantReferenceKeepsItsName(t *testing.T) {
+	src := "package P {\n    variation part def V {\n        variant missing;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	var variant string
+	for _, block := range strings.Split(string(turtle), "\n\n") {
+		if strings.HasPrefix(block, "elmt:P__V__missing\n") {
+			variant = block
+		}
+	}
+	for _, want := range []string{"a sysml:ReferenceUsage", `sysml:references "missing"`} {
+		if !strings.Contains(variant, want) {
+			t.Errorf("the variant should state %q:\n%s", want, variant)
+		}
+	}
+	if strings.Contains(variant, "sysml:declaredName") {
+		t.Errorf("the variant should declare no name:\n%s", variant)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v", err)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// An anonymous variant whose reference the graph keeps as a single name it
+// links to nothing is refused: `variant e2;` would be a variant named e2, and
+// a single name has no reference form.
+func TestAnonymousVariantWithASingleNameLiteralIsRefused(t *testing.T) {
+	turtle, err := convert.Convert("m.sysml", []byte(variantReferenceModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	// The `variant P::e2;` member is anonymous; its reference becomes the literal "e2".
+	blocks := strings.Split(string(withoutSourceText(t, turtle)), "\n\n")
+	for i, block := range blocks {
+		if strings.HasPrefix(block, "elmt:P__V___401\n") || strings.HasPrefix(block, "elmt:P__V___401_rs\n") {
+			block = strings.ReplaceAll(block, "elmt:P__e2 ", `"e2" `)
+			blocks[i] = strings.ReplaceAll(block, `{\"@id\":\"P__e2\"}`, `\"e2\"`)
+		}
+	}
+	literal := strings.Join(blocks, "\n\n")
+	if !strings.Contains(literal, `sysml:references "e2" ;`) {
+		t.Fatalf("the variant was not given a literal reference:\n%s", literal)
+	}
+	_, err = convert.Convert("m.ttl", []byte(literal), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "a single name has no reference form") {
+		t.Errorf("expected the literal variant to be refused, got %v", err)
+	}
+}
+
+// A VariantReference takes no usage prefix: `variant ref x;` declares the
+// reference usage x (SysML-textual-bnf VariantUsageElement → ReferenceUsage),
+// keeping its name and its `ref`.
+func TestPrefixedVariantDeclaresItsName(t *testing.T) {
+	src := "package P {\n    part def E;\n    part x : E;\n    variation part def V {\n        variant ref x;\n    }\n}\n"
+	if diagnostics := diagnosticMessages("m.sysml", []byte(src)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	if !strings.Contains(graph, `sysml:declaredName "x"`) || strings.Contains(graph, "a sysml:ReferenceSubsetting") {
+		t.Errorf("`variant ref x;` should declare x and reference nothing:\n%s", graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v", err)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
 }
