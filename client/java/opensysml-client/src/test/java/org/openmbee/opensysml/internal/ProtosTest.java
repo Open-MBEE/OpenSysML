@@ -828,4 +828,26 @@ class ProtosTest {
             .build();
     assertThrows(TransportException.class, () -> Protos.value(nested));
   }
+
+  @Test
+  void anUnsupportedNullKeepsWhatTheServiceCouldNotSendAndIsNotTheModelsNull() {
+    String reason = "unsupported: coordinate frame datum [mm, mm, mm]";
+    org.openmbee.opensysml.proto.Value unsupported =
+        org.openmbee.opensysml.proto.Value.newBuilder().setNull(reason).build();
+    Value read = Protos.value(unsupported).orElseThrow();
+    assertEquals(new Value.NullValue(reason), read);
+    assertTrue(((Value.NullValue) read).isUnsupported());
+    assertNotEquals(new Value.NullValue(), read);
+    assertFalse(read.sameValue(new Value.NullValue()));
+    assertFalse(new Value.Sequence(List.of()).sameValue(read));
+    assertTrue(read.sameValue(new Value.NullValue(reason)));
+    assertEquals(reason, Protos.proto(read).getNull());
+
+    Value plain =
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setNull("").build())
+            .orElseThrow();
+    assertEquals(new Value.NullValue(), plain);
+    assertFalse(((Value.NullValue) plain).isUnsupported());
+    assertEquals("", Protos.proto(plain).getNull());
+  }
 }

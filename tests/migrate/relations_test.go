@@ -1119,7 +1119,7 @@ func TestOpaqueBodiesCheckCastBoundsAndUsageEnds(t *testing.T) {
 func TestCollectionModifiersAreWritten(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_o" name="o" isOrdered="true">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_o" name="o" isOrdered="true" isUnique="false">
         <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_ol" value="0"/>
         <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_ou" value="*"/>
@@ -1141,18 +1141,31 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
       <ownedEnd xmi:type="uml:Property" xmi:id="_e2" name="second" type="_a"/>
     </packagedElement>`, `
   <sysml:Block xmi:id="_s1" base_Class="_a"/>`)
-	wantLine(t, r.Notation, "attribute o : ScalarValues::Real[0..*] ordered;")
-	wantLine(t, r.Notation, "part n : A[2] nonunique;")
-	wantLine(t, r.Notation, "ref part b : A ordered nonunique :> n;")
+	wantLine(t, r.Notation, "attribute o : ScalarValues::Real[0..*] ordered nonunique;")
+	wantLine(t, r.Notation, "part n : A[2];")
+	wantLine(t, r.Notation, "ref part b : A ordered :> n;")
 	wantLine(t, r.Notation, "ref part u : A;")
 	wantLine(t, r.Notation, "end 'first' : A[0..*] ordered;")
-	for _, id := range []string{"_o", "_n", "_b", "_u", "_e1"} {
+	for _, id := range []string{"_o", "_u", "_e1"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
-	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
-		t.Errorf("%v", diags)
+	// The v1 composite `n` is isUnique=false, but a composite part in a part
+	// implicitly subsets the unique Items::Item::subparts, which uniqueness
+	// conformance forbids a nonunique feature; `b` subsets `n`, so it follows.
+	// The modifier is dropped and the drop recorded, never silent.
+	for id, want := range map[string]string{
+		"_n": "nonunique is not written: a part in a part def implicitly subsets Items::Item::subparts, which is unique",
+		"_b": "nonunique is not written: it subsets n, which is written unique",
+	} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Approximated || es[0].Note != want {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	for _, d := range errors(t, "t.sysml", r.Notation) {
+		t.Errorf("%v", d)
 	}
 	ttl, err := convert.Convert("t.sysml", r.Notation, convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {

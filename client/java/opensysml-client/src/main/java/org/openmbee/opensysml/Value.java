@@ -83,8 +83,36 @@ public sealed interface Value {
     }
   }
 
-  /** The null value: a feature that resolved to nothing. */
-  record NullValue() implements Value {}
+  /**
+   * The null value: a feature that resolved to nothing, or a value the wire cannot carry.
+   *
+   * @param unsupported empty for the model's {@code null}; otherwise what the service held and
+   *     could not send, such as {@code "unsupported: coordinate frame datum [mm, mm, mm]"}
+   */
+  record NullValue(String unsupported) implements Value {
+    /**
+     * Creates a null, which is unsupported when its text is not empty.
+     *
+     * @param unsupported what could not be sent, or empty, never {@code null}
+     */
+    public NullValue {
+      Objects.requireNonNull(unsupported, "unsupported");
+    }
+
+    /** Creates the model's {@code null}. */
+    public NullValue() {
+      this("");
+    }
+
+    /**
+     * Whether this stands for a value the service could not send rather than the model's null.
+     *
+     * @return {@code true} when {@link #unsupported()} is not empty
+     */
+    public boolean isUnsupported() {
+      return !unsupported.isEmpty();
+    }
+  }
 
   /**
    * A materialized feature of a value type that holds no value.
@@ -672,7 +700,7 @@ public sealed interface Value {
    * unit of dimension one is only its own declaration ({@code rad} is not {@code sr}); an {@link
    * EnumerationValue} is its {@link EnumLiteral#literalId()}, whatever else describes it; a {@link
    * NullValue}, an empty sequence and an empty set are one value, the model's absent value however
-   * spelt. Every other arm compares as {@link Object#equals} does, which stays structural: {@code
+   * spelt, which an unsupported {@link NullValue} is not. Every other arm compares as {@link Object#equals} does, which stays structural: {@code
    * new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
    *
    * @param other the value to compare with
@@ -719,7 +747,7 @@ public sealed interface Value {
 
   /** The model's absent value: a null, or a collection with no members. */
   private static boolean isEmpty(Value value) {
-    return value instanceof NullValue
+    return (value instanceof NullValue nul && !nul.isUnsupported())
         || (value instanceof Sequence sequence && sequence.elements().isEmpty())
         || (value instanceof SetValue set && set.elements().isEmpty());
   }

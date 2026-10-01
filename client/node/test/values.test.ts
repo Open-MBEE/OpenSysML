@@ -23,6 +23,7 @@ import {
   VerdictSchema,
 } from "../src/generated/sysml_pb.js";
 import { MalformedValueError } from "../src/core/errors.js";
+import { CalcResult } from "../src/core/verdict.js";
 import {
   decodeValue,
   decodeVerdict,
@@ -1068,7 +1069,13 @@ test("a verdict carries its standing, empty from a service without engines", () 
   const bare = decodeVerdict(
     create(VerdictSchema, { kind: "constraint", elementId: "S::C", element: "S::C", holds: true }),
   );
-  assert.deepEqual(bare.standing, { engine: "", strength: "", bounds: [] });
+  assert.deepEqual(bare.standing, {
+    engine: "",
+    strength: "",
+    bounds: [],
+    reported: false,
+    reached: [],
+  });
 
   const explored = decodeVerdict(
     create(VerdictSchema, {
@@ -1093,7 +1100,28 @@ test("a verdict carries its standing, empty from a service without engines", () 
       { name: "runs", limit: 64n, reached: true },
       { name: "depth", limit: 8n, reached: false },
     ],
+    reported: true,
+    reached: [{ name: "runs", limit: 64n, reached: true }],
   });
+});
+
+test("a result reads its standing's strength and bounds like Python's does", () => {
+  const standing = {
+    engine: "explore",
+    strength: "bounded",
+    bounds: [
+      { name: "runs", limit: 64n, reached: true },
+      { name: "depth", limit: 8n, reached: false },
+    ],
+    reported: true,
+    reached: [{ name: "runs", limit: 64n, reached: true }],
+  };
+  const result = new CalcResult({ outputs: new Map(), standing });
+  assert.equal(result.engine, "explore");
+  assert.equal(result.strength, "bounded");
+  assert.equal(result.bounds, standing.bounds);
+  assert.equal(result.standing.reported, true);
+  assert.deepEqual(result.standing.reached, [standing.bounds[0]]);
 });
 
 test("every failure reason has a name", () => {

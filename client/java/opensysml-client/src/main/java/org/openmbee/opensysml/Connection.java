@@ -378,7 +378,7 @@ public final class Connection implements AutoCloseable {
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
    *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
   public Conversion convert(String content, String toFormat) {
@@ -392,7 +392,7 @@ public final class Connection implements AutoCloseable {
    * @param toFormat the format to write
    * @param options the source format and whether unreadable notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the source format could not be inferred or the request was
    *     refused
    * @throws CapabilityException if the service does not advertise {@code convert}
@@ -408,7 +408,7 @@ public final class Connection implements AutoCloseable {
    * @param file the source to convert
    * @param toFormat the format to write
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service could not read the file
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -424,7 +424,7 @@ public final class Connection implements AutoCloseable {
    * @param options the source format, which overrides the file's extension, and whether unreadable
    *     notation is written back anyway
    * @return the conversion, carrying the text and the formats used
-   * @throws ModelException if the conversion failed; its diagnostics say why
+   * @throws ConversionException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service could not read the file
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
@@ -506,7 +506,7 @@ public final class Connection implements AutoCloseable {
         call("Convert", request.build(), ConvertResponse.getDefaultInstance());
     List<Diagnostic> diagnostics = Protos.diagnostics(response.getDiagnosticsList());
     if (!response.getError().isEmpty()) {
-      throw new ModelException(response.getError(), diagnostics);
+      throw new ConversionException(response.getError(), diagnostics);
     }
     return Protos.conversion(response);
   }
