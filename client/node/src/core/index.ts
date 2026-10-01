@@ -209,6 +209,7 @@ export {
   ServiceError,
   ServiceStartError,
   ServiceTimeoutError,
+  ServiceUnavailableError,
   StaleServiceError,
   SymbolNotFoundError,
   TypeMismatchError,

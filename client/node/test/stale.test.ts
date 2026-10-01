@@ -8,6 +8,7 @@ import { before, test } from "node:test";
 import { Connection } from "../src/core/connection.js";
 import {
   MissingCapabilityError,
+  ServiceUnavailableError,
   ParseError,
   StaleServiceError,
   connect,
@@ -189,4 +190,24 @@ test("an adopted model has no documents and no root", async () => {
   assert.equal(adopted.documents.length, 0);
   assert.equal(adopted.sourcePath, undefined);
   assert.throws(() => adopted.root, /adopted/);
+});
+
+test("a handshake the service cannot serve is a ServiceUnavailableError", async () => {
+  const transport = {
+    unary() {
+      return Promise.reject(new ConnectError("connect ECONNREFUSED 127.0.0.1:1", Code.Unavailable));
+    },
+    stream() {
+      return Promise.reject(new ConnectError("connect ECONNREFUSED 127.0.0.1:1", Code.Unavailable));
+    },
+  } as unknown as Transport;
+  const counting = countingBackend();
+  await assert.rejects(
+    Connection.open({ transport, backend: counting.backend, encoding: "protobuf" }),
+    (error: unknown) => {
+      assert.ok(error instanceof ServiceUnavailableError);
+      assert.equal(error.code, "UNAVAILABLE");
+      return true;
+    },
+  );
 });

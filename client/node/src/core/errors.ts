@@ -78,6 +78,9 @@ export class InvalidRequestError extends ServiceError {}
 /** A call exceeded its deadline, or was cancelled. */
 export class ServiceTimeoutError extends ServiceError {}
 
+/** The service was unreachable, refused the stream, or died before answering. */
+export class ServiceUnavailableError extends ServiceError {}
+
 /** The connected service does not implement the call at all. */
 export class UnsupportedOperationError extends ServiceError {}
 

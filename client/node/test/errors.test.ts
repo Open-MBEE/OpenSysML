@@ -10,6 +10,7 @@ import {
   ModelNotFoundError,
   OpenSysMLError,
   ServiceError,
+  ServiceUnavailableError,
   SymbolNotFoundError,
   connect,
   fromRpcError,
@@ -80,7 +81,7 @@ test("a handshake nothing answers names the service and the status it failed wit
     () => undefined,
     (reason: unknown) => reason,
   );
-  assert.ok(error instanceof ServiceError);
+  assert.ok(error instanceof ServiceUnavailableError);
   assert.equal(error.code, "UNAVAILABLE");
   assert.match(error.message, /127\.0\.0\.1:1.* did not answer/);
 });
@@ -88,7 +89,7 @@ test("a handshake nothing answers names the service and the status it failed wit
 test("an RPC failure becomes the error its status names, and this client's errors pass through", () => {
   assert.equal(statusName(Code.Unavailable), "UNAVAILABLE");
   const unavailable = fromRpcError(new ConnectError("nothing there", Code.Unavailable));
-  assert.ok(unavailable instanceof ServiceError);
+  assert.ok(unavailable instanceof ServiceUnavailableError);
   assert.equal(unavailable.code, "UNAVAILABLE");
   assert.match(unavailable.message, /service unavailable: nothing there/);
 

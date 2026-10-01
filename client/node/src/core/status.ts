@@ -9,6 +9,7 @@ import {
   OpenSysMLError,
   ServiceError,
   ServiceTimeoutError,
+  ServiceUnavailableError,
   SymbolNotFoundError,
   UnsupportedOperationError,
 } from "./errors.js";
@@ -51,6 +52,7 @@ const CODE_ERRORS = new Map<Code, ServiceErrorClass>([
   [Code.OutOfRange, InvalidRequestError],
   [Code.DeadlineExceeded, ServiceTimeoutError],
   [Code.Canceled, ServiceTimeoutError],
+  [Code.Unavailable, ServiceUnavailableError],
   [Code.Unimplemented, UnsupportedOperationError],
 ]);
 
