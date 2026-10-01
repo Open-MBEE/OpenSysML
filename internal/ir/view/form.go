@@ -163,8 +163,9 @@ func (r *Rendering) Write(form Form) (string, error) {
 }
 
 // WriteWith is the rendering in form, written with options. A form the kind
-// is not written in is a *WrongFormError, and an unknown form names the ones
-// there are.
+// is not written in is a *WrongFormError, an unknown form names the ones
+// there are, and a palette outside the registry is an *UnknownPaletteError
+// on every form that fills nodes.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
@@ -180,6 +181,9 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 			return r.DOTWith(options)
 		case FormPlantUML:
 			return r.PlantUMLWith(options)
+		}
+		if err := options.Palette.check(); err != nil {
+			return "", err
 		}
 		return r.MermaidWith(options), nil
 	}

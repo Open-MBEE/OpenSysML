@@ -374,6 +374,25 @@ func TestDOTEscapesNamesInStyledLabels(t *testing.T) {
 	}
 }
 
+// A palette outside the registry is the same typed error on the Mermaid form
+// as on DOT, with nothing written beside it; MermaidWith, which returns no
+// error, notes it and fills nothing.
+func TestMermaidRefusesAnUnregisteredPalette(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindTree, Roots: []*Node{{ID: "n0", Kind: "part def", Name: "Def"}}}
+	mermaid, err := rendering.WriteWith(FormMermaid, Options{Palette: Palette("rainbow")})
+	var unknown *UnknownPaletteError
+	if !errors.As(err, &unknown) || unknown.Name != "rainbow" || !errors.Is(err, ErrUnknownPalette) {
+		t.Fatalf("WriteWith(mermaid, rainbow) = %q, %v; want an UnknownPaletteError naming rainbow", mermaid, err)
+	}
+	if mermaid != "" {
+		t.Errorf("WriteWith(mermaid, rainbow) wrote %q beside the error", mermaid)
+	}
+	direct := rendering.MermaidWith(Options{Palette: Palette("rainbow")})
+	if !strings.Contains(direct, "%% not represented: unknown palette \"rainbow\"") || strings.Contains(direct, "fill:") {
+		t.Errorf("MermaidWith(rainbow) does not note the palette unfilled:\n%s", direct)
+	}
+}
+
 // Mermaid fills every node the DOT form fills, with the same hex, by a
 // flowchart `style` or a state diagram `classDef`; a sequence is excepted.
 func TestMermaidPaletteParityWithDOT(t *testing.T) {
