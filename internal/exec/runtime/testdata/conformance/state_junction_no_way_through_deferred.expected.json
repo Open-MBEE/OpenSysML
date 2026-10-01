@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [{"signal": "Start"}],
+  "finalState": "wait",
+  "outputs": {
+    "stored": {"type": "Boolean", "value": true}
+  }
+}

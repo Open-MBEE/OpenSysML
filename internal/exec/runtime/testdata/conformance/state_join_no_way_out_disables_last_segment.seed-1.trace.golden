@@ -1,0 +1,13 @@
+exit: b
+stmt assign log
+    eval feature log -> ""
+    eval literal "T1.4 " -> "T1.4 "
+  eval operator + -> "T1.4 "
+exit: a
+exit: S1
+stmt assign log
+    eval feature log -> "T1.4 "
+    eval literal "T5" -> "T5"
+  eval operator + -> "T1.4 T5"
+enter: S3
+transition: S1 -> S3 (event: accept Another)

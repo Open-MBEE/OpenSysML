@@ -1,0 +1,63 @@
+exit: c (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "C-exit " -> "C-exit "
+    eval operator + -> "C-exit "
+stmt assign log
+    eval feature log -> "C-exit "
+    eval literal "C-effect " -> "C-effect "
+  eval operator + -> "C-exit C-effect "
+choice on accept Go: next sync(join), b1(exit) (unordered; took sync(join) first)
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "C-exit C-effect "
+      eval literal "A-exit " -> "A-exit "
+    eval operator + -> "C-exit C-effect A-exit "
+stmt assign log
+    eval feature log -> "C-exit C-effect A-exit "
+    eval literal "A-effect " -> "A-effect "
+  eval operator + -> "C-exit C-effect A-exit A-effect "
+exit: b1
+stmt assign log
+    eval feature log -> "C-exit C-effect A-exit A-effect "
+    eval literal "inner " -> "inner "
+  eval operator + -> "C-exit C-effect A-exit A-effect inner "
+enter: b2
+transition: b1 -> b2 (event: accept Go)
+exit: closed
+stmt action body
+  stmt assign log
+      eval feature log -> "C-exit C-effect A-exit A-effect inner "
+      eval literal "opened " -> "opened "
+    eval operator + -> "C-exit C-effect A-exit A-effect inner opened "
+  stmt assign open
+    eval literal true -> true
+enter: opened
+transition: closed -> opened (event: accept Finish)
+eval feature open -> true
+exit: b2
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "C-exit C-effect A-exit A-effect inner opened "
+      eval literal "B-exit " -> "B-exit "
+    eval operator + -> "C-exit C-effect A-exit A-effect inner opened B-exit "
+stmt assign log
+    eval feature log -> "C-exit C-effect A-exit A-effect inner opened B-exit "
+    eval literal "B-effect " -> "B-effect "
+  eval operator + -> "C-exit C-effect A-exit A-effect inner opened B-exit B-effect "
+exit: opened
+exit: Owner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "C-exit C-effect A-exit A-effect inner opened B-exit B-effect "
+      eval literal "owner-exit " -> "owner-exit "
+    eval operator + -> "C-exit C-effect A-exit A-effect inner opened B-exit B-effect owner-exit "
+stmt assign log
+    eval feature log -> "C-exit C-effect A-exit A-effect inner opened B-exit B-effect owner-exit "
+    eval literal "out" -> "out"
+  eval operator + -> "C-exit C-effect A-exit A-effect inner opened B-exit B-effect owner-exit out"
+enter: done
+transition: Owner -> done (event: accept Go)

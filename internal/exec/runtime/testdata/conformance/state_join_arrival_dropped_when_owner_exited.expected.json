@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "X"},
+    {"signal": "Z"},
+    {"signal": "Y"}
+  ],
+  "finalState": "a",
+  "outputs": {
+    "log": {"type": "String", "value": "X Z Y "}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "outcomes": [
+    {
+      "finalState": "fallback",
+      "outputs": {
+        "log": {"type": "String", "value": "A-segment fallback "}
+      }
+    },
+    {
+      "finalState": "a",
+      "outputs": {
+        "log": {"type": "String", "value": "B-segment "}
+      }
+    },
+    {
+      "finalState": "fallback",
+      "outputs": {
+        "log": {"type": "String", "value": "fallback A-segment "}
+      }
+    }
+  ],
+  "admissible": "Same-instant timer expiries are separate join occurrences"
+}

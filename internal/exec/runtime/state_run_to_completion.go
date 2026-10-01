@@ -187,7 +187,7 @@ func (e *StateExecutor) settleEntered(leaf *ast.StateNode) error {
 	}
 	onPath := e.branchesTo(nil, leaf)
 	for region, state := range onPath {
-		e.activeConfig.regionStates[region] = state
+		e.setRegionState(region, state)
 	}
 	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
 		e.activeConfig.simpleState = leaf

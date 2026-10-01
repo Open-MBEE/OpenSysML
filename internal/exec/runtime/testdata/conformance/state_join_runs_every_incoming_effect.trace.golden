@@ -5,7 +5,6 @@ choice entering Work: next l1(entry), r1(entry) (unordered; took l1(entry) first
 enter: l1
 enter: r1
 transition: start -> Work (event: accept go)
-choice join sync: states l1, r1 react (unordered; took l1 first)
 exit: l1
 stmt assign log
     eval feature log -> ""

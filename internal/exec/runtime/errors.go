@@ -11,6 +11,9 @@ import (
 )
 
 var (
+	// errNoWayThrough marks a compound route with no statically enabled path.
+	errNoWayThrough = errors.New("no way through")
+
 	// ErrStepLimitExceeded is returned when the evaluation step counter exceeds maxSteps.
 	ErrStepLimitExceeded = errors.New("evaluation step limit exceeded")
 

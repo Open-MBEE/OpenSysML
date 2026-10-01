@@ -1,8 +1,5 @@
-// A completion event dispatched at the instant a time-triggered join segment's
-// timer is due is not that timer's expiry: a1's do behavior ends at t=1, and
-// its completion, dispatched before b1's timer due then, enables a1's segment
-// but not b1's, so it fires nothing; b1's expiry then finds a1 completed and
-// fires the join.
+// A completion segment arriving before a timer segment waits at the join; the
+// timer's own expiry completes it, with either arrival order observable.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;

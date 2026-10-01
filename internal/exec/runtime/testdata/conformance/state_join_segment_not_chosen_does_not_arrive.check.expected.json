@@ -1,0 +1,10 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"A-exit A-effect inner C-exit C-effect B-exit B-effect owner-exit out\"",
+			"\"inner A-exit A-effect C-exit C-effect B-exit B-effect owner-exit out\""
+		]
+	},
+	"agreed": {"finalState": "done"}
+}
