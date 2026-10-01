@@ -112,6 +112,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
+		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},

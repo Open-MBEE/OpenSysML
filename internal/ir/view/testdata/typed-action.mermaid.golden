@@ -1,6 +1,7 @@
 ---
 config:
   theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -8,40 +9,16 @@ config:
     secondaryColor: "#FFFFFF"
     tertiaryColor: "#FFFFFF"
     background: "#FFFFFF"
-    clusterBkg: "#FFFFFF"
-    edgeLabelBackground: "#FFFFFF"
     primaryBorderColor: "#181818"
-    lineColor: "#181818"
-    clusterBorder: "#181818"
-    noteBorderColor: "#181818"
     primaryTextColor: "#000000"
+    lineColor: "#181818"
     textColor: "#000000"
-    noteTextColor: "#000000"
     noteBkgColor: "#FEFFDD"
-    stateBkg: "#FFFFFF"
-    stateBorder: "#181818"
-    stateLabelColor: "#000000"
-    compositeBackground: "#FFFFFF"
-    compositeBorder: "#181818"
-    compositeTitleBackground: "#FFFFFF"
-    compositeTitleBorder: "#181818"
-    actorBkg: "#FFFFFF"
-    actorBorder: "#181818"
-    actorTextColor: "#000000"
-    signalColor: "#181818"
-    signalTextColor: "#000000"
-    labelBoxBkgColor: "#FFFFFF"
-    labelBoxBorderColor: "#181818"
-    labelTextColor: "#000000"
-    actorLineColor: "#181818"
-    loopTextColor: "#000000"
-    activationBorderColor: "#181818"
-    activationBkgColor: "#FFFFFF"
-    sequenceNumberColor: "#000000"
-    transitionColor: "#181818"
-    transitionLabelColor: "#000000"
-    labelBackgroundColor: "#FFFFFF"
-    specialStateColor: "#181818"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
@@ -51,12 +28,10 @@ flowchart TD
   subgraph n0 ["`**run : Cycle**
 *«action»*`"]
     direction TD
-    n1@{ shape: sm-circ, label: "" }
+    n1@{ shape: f-circ, label: "" }
     n2("`**warm : Warm**
 *«action»*`")
     n3@{ shape: fr-circ, label: "" }
   end
   n1 --> n2
   n2 --> n3
-  classDef control fill:#181818,stroke:#181818
-  class n1 control

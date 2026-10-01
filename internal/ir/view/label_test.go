@@ -290,7 +290,7 @@ func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 		{"nested three-line title", KindAction, cluster(leaf, noted), 48},
 		{"anonymous cluster", KindInterconnection, []*Node{{ID: "n0", Kind: "connect", Children: []*Node{leaf}}}, 0},
 		{"no cluster", KindInterconnection, []*Node{leaf}, 0},
-		{"tree", KindTree, cluster(leaf), 24},
+		{"tree without subgraphs", KindTree, cluster(leaf), 0},
 		{"state", KindState, cluster(leaf), 0},
 		{"sequence", KindSequence, cluster(leaf), 0},
 	}

@@ -30,8 +30,8 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"package", "part package", false, StylePilot, `["`},
 		{"usage", "part", false, StylePilot, `("`},
 		{"cameo", "part", false, StyleCameo, `["`},
-		{"start", startKind, true, StylePilot, `@{ shape: sm-circ, label: "" }`},
-		{"initial", "initial", true, StylePilot, `@{ shape: sm-circ, label: "" }`},
+		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
+		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"final", "final", true, StylePilot, `@{ shape: fr-circ, label: "" }`},
 		{"terminate", terminateKind, true, StylePilot, `@{ shape: fr-circ, label: "" }`},
 		{"junction", "junction", true, StylePilot, `@{ shape: f-circ, label: "" }`},
@@ -51,15 +51,39 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 			}
 		})
 	}
+	for _, kind := range []string{"decision", "merge", "choice"} {
+		if got := mermaidNodeShape(&Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
+			t.Errorf("empty %s shape = %q, want blank diamond", kind, got)
+		}
+	}
 
 	mermaid := (&Rendering{Kind: KindAction, Roots: []*Node{
 		{ID: "start", Kind: startKind, NameSynthesized: true},
+		{ID: "initial", Kind: "initial", NameSynthesized: true},
 		{ID: "fork", Kind: "fork", Name: "split"},
 	}}).Mermaid()
 	if !strings.Contains(mermaid, "classDef control fill:#181818,stroke:#181818\n") ||
-		!strings.Contains(mermaid, "class start,fork control\n") ||
+		!strings.Contains(mermaid, "class fork control\n") ||
+		strings.Contains(mermaid, "class start,") ||
 		!strings.Contains(mermaid, "1 fork/join name(s) (split); Mermaid's fork bar draws no label") {
 		t.Errorf("control symbols or fork notice missing:\n%s", mermaid)
+	}
+}
+
+func TestMermaidQuotedLabelsUseMermaidEscaping(t *testing.T) {
+	source := (&Rendering{Kind: KindAction, Roots: []*Node{{
+		ID: "fork", Kind: "fork", Name: `split "part"\path`,
+	}}, Notes: []Note{{Anchor: "fork", Text: `note "text"\path`}}}).Mermaid()
+	for _, want := range []string{
+		`@{ shape: fork, label: "split #quot;part#quot;\path" }`,
+		`label: "note #quot;text#quot;\path"`,
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("Mermaid literal %q missing:\n%s", want, source)
+		}
+	}
+	if strings.Contains(source, `\"`) || strings.Contains(source, `\\`) {
+		t.Errorf("Go string escaping leaked into Mermaid:\n%s", source)
 	}
 }
 
@@ -80,14 +104,31 @@ func TestMermaidMarkdownLabelsFallBackWhenUnsafe(t *testing.T) {
 }
 
 func TestMermaidFrontmatterAndPaletteClasses(t *testing.T) {
-	for _, kind := range []Kind{KindTree, KindState, KindSequence} {
+	for _, tc := range []struct {
+		kind   Kind
+		has    []string
+		absent []string
+	}{
+		{KindTree, []string{"clusterBkg", "clusterBorder", "edgeLabelBackground", "themeCSS:"}, []string{"stateBkg", "actorBkg", "transitionColor"}},
+		{KindState, []string{"stateBkg", "compositeBackground", "transitionColor"}, []string{"clusterBkg", "edgeLabelBackground", "actorBkg", "themeCSS:"}},
+		{KindSequence, []string{"actorBkg", "signalColor", "activationBkgColor"}, []string{"clusterBkg", "stateBkg", "transitionColor", "themeCSS:"}},
+	} {
+		kind := tc.kind
 		source := (&Rendering{Kind: kind, Roots: []*Node{{ID: "n", Kind: "state", Name: "n"}}}).Mermaid()
 		if !strings.HasPrefix(source, "---\nconfig:\n  theme: base\n") ||
 			!strings.Contains(source, `fontFamily: "Helvetica, Arial, sans-serif"`) ||
-			!strings.Contains(source, `fontSize: "14px"`) ||
-			!strings.Contains(source, `actorLineColor: "#181818"`) ||
-			!strings.Contains(source, `transitionColor: "#181818"`) {
+			!strings.Contains(source, `fontSize: "14px"`) {
 			t.Errorf("%s frontmatter:\n%s", kind, source)
+		}
+		for _, key := range tc.has {
+			if !strings.Contains(source, key) {
+				t.Errorf("%s frontmatter missing %q:\n%s", kind, key, source)
+			}
+		}
+		for _, key := range tc.absent {
+			if strings.Contains(source, key) {
+				t.Errorf("%s frontmatter has unrelated %q:\n%s", kind, key, source)
+			}
 		}
 	}
 	rendering := &Rendering{Kind: KindInterconnection, Roots: []*Node{
@@ -111,9 +152,8 @@ func TestMermaidFrontmatterAndPaletteClasses(t *testing.T) {
 		fmt.Sprintf(`primaryColor: %q`, firstFill),
 		fmt.Sprintf(`primaryBorderColor: %q`, cameoBlockLine),
 		fmt.Sprintf(`textColor: %q`, cameoTextColor),
-		fmt.Sprintf(`actorBkg: %q`, firstFill),
-		fmt.Sprintf(`actorLineColor: %q`, cameoEdgeColor),
-		fmt.Sprintf(`transitionColor: %q`, cameoEdgeColor),
+		fmt.Sprintf(`clusterBorder: %q`, cameoFrameColor),
+		`edgeLabelBackground: "#FFFFFF"`,
 	} {
 		if !strings.Contains(cameo, want) {
 			t.Errorf("Cameo theme variable %q missing:\n%s", want, cameo)
@@ -359,18 +399,23 @@ func TestMermaidPortsUseOnlyConnectedPins(t *testing.T) {
 		{ID: "a", Kind: "action", Name: "a", Ports: []Port{
 			{ID: "a.0", Name: "used"}, {ID: "a.1", Name: "unused"},
 		}},
-		{ID: "b", Kind: "action", Name: "b", Ports: []Port{{ID: "b.0", Name: "in"}}},
+		{ID: "b", Kind: "action", Name: "b", Ports: []Port{{ID: "b.0", Name: "in"}}, Children: []*Node{
+			{ID: "child", Kind: "action", Name: "child"},
+		}},
 	}, Edges: []Edge{{From: "a", To: "b", FromPort: "a.0", ToPort: "b.0", Kind: EdgeFlow}}}
 	source := rendering.Mermaid()
 	if !strings.Contains(source, "subgraph a [") ||
 		!strings.Contains(source, `a_p0["used"]`) ||
 		strings.Contains(source, "a_p1") ||
-		!strings.Contains(source, "a_p0 -.-> b_p0") {
+		!strings.Contains(source, "subgraph b [") ||
+		!strings.Contains(source, `b_p0["in"]`) ||
+		!strings.Contains(source, "a_p0 -.-> b_p0") ||
+		strings.Index(source, `b_p0["in"]`) > strings.Index(source, `child("`) {
 		t.Errorf("port subgraphs or ends:\n%s", source)
 	}
 }
 
-func TestMermaidNestedTreeContainmentUsesAnchor(t *testing.T) {
+func TestMermaidTreeContainmentUsesPlainNodes(t *testing.T) {
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{
 		{ID: "outer", Kind: "part def", Name: "outer", Children: []*Node{
 			{ID: "parent", Kind: "part def", Name: "parent", Children: []*Node{
@@ -379,13 +424,194 @@ func TestMermaidNestedTreeContainmentUsesAnchor(t *testing.T) {
 		}},
 	}}
 	source := rendering.Mermaid()
-	if !strings.Contains(source, `mermaid_anchor_parent((" "))`) ||
-		!strings.Contains(source, "mermaid_anchor_parent --- child") ||
-		strings.Contains(source, "\n  parent --- child\n") ||
-		!strings.Contains(source, "outer --- parent") ||
-		!strings.Contains(source, "class mermaid_anchor_parent treeAnchor") {
-		t.Errorf("nested containment anchor or links:\n%s", source)
+	if strings.Contains(source, "subgraph ") ||
+		strings.Contains(source, "mermaid_anchor_") ||
+		strings.Contains(source, "treeAnchor") ||
+		!strings.Contains(source, `outer["`) ||
+		!strings.Contains(source, `parent["`) ||
+		!strings.Contains(source, `child("`) ||
+		!strings.Contains(source, "\n  outer --- parent\n") ||
+		!strings.Contains(source, "\n  parent --- child\n") {
+		t.Errorf("tree nodes or containment links:\n%s", source)
 	}
+}
+
+func TestMermaidFlowchartClustersUseAnchorsForExternalLinksAndNotes(t *testing.T) {
+	rendering := &Rendering{Kind: KindInterconnection, Roots: []*Node{
+		{ID: "owner", Kind: "part", Name: "owner", Children: []*Node{
+			{ID: "child", Kind: "part", Name: "child"},
+		}},
+		{ID: "outside", Kind: "part", Name: "outside"},
+	}, Edges: []Edge{
+		{From: "owner", To: "outside", Kind: EdgeConnection},
+		{From: "outside", To: "owner", Kind: EdgeFlow},
+	}, Notes: []Note{{Anchor: "owner", Text: "cluster note"}}}
+	source := rendering.MermaidWith(Options{Palette: PaletteOkabeIto})
+	if !strings.Contains(source, "owner_anchor[\" \"]") ||
+		!strings.Contains(source, "owner_anchor === outside") ||
+		!strings.Contains(source, "outside -.-> owner_anchor") ||
+		!strings.Contains(source, "note0 -.- owner_anchor") ||
+		!strings.Contains(source, "classDef anchor fill:none,stroke:none") ||
+		!strings.Contains(source, "class owner_anchor anchor") ||
+		strings.Contains(source, "class owner_anchor palette") {
+		t.Errorf("cluster links or note anchor were not routed through a hidden anchor:\n%s", source)
+	}
+}
+
+func TestMermaidFlowchartNotesUseInnermostCommonBody(t *testing.T) {
+	origin := Origin{Doc: "notes.sysml", Span: source.Span{Len: 1}}
+	rendering := &Rendering{Kind: KindAction, Roots: []*Node{
+		{ID: "outer", Kind: "action", Name: "outer", Children: []*Node{
+			{ID: "inner", Kind: "action", Name: "inner", Children: []*Node{
+				{ID: "leaf", Kind: "action", Name: "leaf"},
+			}},
+		}},
+		{ID: "other", Kind: "action", Name: "other"},
+	}, Notes: []Note{
+		{Anchor: "leaf", Text: "inner note"},
+		{Anchor: "outer", Text: "outer note"},
+		{Text: "free note"},
+		{Origin: origin, Anchor: "leaf", Text: "shared inner"},
+		{Origin: origin, Anchor: "other", Text: "shared outside"},
+	}}
+	sourceText := rendering.Mermaid()
+	innerAt := strings.Index(sourceText, "subgraph inner [")
+	leafAt := strings.Index(sourceText, "leaf(")
+	innerNoteAt := strings.Index(sourceText, "note0@{")
+	firstEnd := strings.Index(sourceText[innerAt:], "\n    end\n")
+	outerNoteAt := strings.Index(sourceText, "note1@{")
+	outerEnd := strings.Index(sourceText, "\n  end\n")
+	freeAt := strings.Index(sourceText, "note2@{")
+	sharedAt := strings.Index(sourceText, "note3@{")
+	if innerAt < 0 || leafAt < innerAt || innerNoteAt < leafAt || firstEnd < 0 ||
+		innerNoteAt > innerAt+firstEnd || outerNoteAt < 0 || outerEnd < outerNoteAt ||
+		freeAt < outerEnd || sharedAt < outerEnd {
+		t.Errorf("flowchart notes are not located after their common body's nodes:\n%s", sourceText)
+	}
+}
+
+func TestMermaidFlowchartGoldenLinksHaveDeclaredEndpoints(t *testing.T) {
+	palettes := append([]Palette{""}, Palettes()...)
+	check := func(name string, rendering *Rendering) {
+		for _, palette := range palettes {
+			for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+				sourceText := rendering.MermaidWith(Options{Palette: palette, Style: style})
+				if !strings.Contains(sourceText, "\nflowchart ") {
+					continue
+				}
+				if missing := undeclaredMermaidFlowchartEndpoints(sourceText); len(missing) > 0 {
+					t.Errorf("%s palette %q style %q has undeclared link endpoint(s) %v:\n%s",
+						name, palette, style, missing, sourceText)
+				}
+			}
+		}
+	}
+	for _, tc := range plantumlGoldenCases {
+		check(tc.name, render(t, tc.file, tc.view))
+	}
+	check("state-pseudostates", render(t, "cameo-behavior.sysml", "NotationViews::alignmentView"))
+	check("pictures-inline", mermaidPicturesFixture(t))
+}
+
+func undeclaredMermaidFlowchartEndpoints(sourceText string) []string {
+	declared := map[string]bool{}
+	var endpoints [][2]string
+	inFrontmatter := strings.HasPrefix(strings.TrimSpace(sourceText), "---")
+	frontmatterStarted, inFlowchart, inQuote := false, false, false
+	for _, line := range strings.Split(sourceText, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if inFrontmatter {
+			if trimmed == "---" {
+				if frontmatterStarted {
+					inFrontmatter = false
+				} else {
+					frontmatterStarted = true
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "%%") {
+			continue
+		}
+		if !inFlowchart {
+			if strings.HasPrefix(trimmed, "flowchart ") {
+				inFlowchart = true
+			}
+			continue
+		}
+		if trimmed == "" || trimmed == "end" {
+			continue
+		}
+		wasQuoted := inQuote
+		statement := unquotedState(trimmed, &inQuote)
+		if wasQuoted {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "subgraph ") {
+			fields := strings.Fields(trimmed)
+			if len(fields) > 1 {
+				declared[fields[1]] = true
+			}
+		} else if id := mermaidFlowchartDeclarationID(trimmed); id != "" {
+			declared[id] = true
+		}
+		if from, to, ok := mermaidFlowchartLinkEndpoints(statement); ok {
+			endpoints = append(endpoints, [2]string{from, to})
+		}
+	}
+	var missing []string
+	seen := map[string]bool{}
+	for _, pair := range endpoints {
+		for _, id := range pair {
+			if !declared[id] && !seen[id] {
+				seen[id] = true
+				missing = append(missing, id)
+			}
+		}
+	}
+	return missing
+}
+
+func mermaidFlowchartDeclarationID(line string) string {
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case '@':
+			if strings.HasPrefix(line[i:], "@{") {
+				return strings.TrimSpace(line[:i])
+			}
+		case '[', '(', '{':
+			return strings.TrimSpace(line[:i])
+		}
+	}
+	return ""
+}
+
+func mermaidFlowchartLinkEndpoints(statement string) (string, string, bool) {
+	for _, arrow := range []string{"-.->", "===", "---", "-.-", "-->"} {
+		index := strings.Index(statement, " "+arrow)
+		if index <= 0 {
+			continue
+		}
+		from := strings.Fields(statement[:index])
+		if len(from) == 0 {
+			continue
+		}
+		after := strings.TrimSpace(statement[index+len(arrow)+1:])
+		if strings.HasPrefix(after, `|"`) {
+			end := strings.Index(after[2:], `"|`)
+			if end < 0 {
+				continue
+			}
+			after = strings.TrimSpace(after[2+end+2:])
+		} else if strings.HasPrefix(after, "||") {
+			after = strings.TrimSpace(after[2:])
+		}
+		to := strings.Fields(after)
+		if len(to) > 0 {
+			return from[len(from)-1], to[0], true
+		}
+	}
+	return "", "", false
 }
 
 func TestMermaidPicturesAndNotices(t *testing.T) {
@@ -500,6 +726,7 @@ func TestInlineMermaidImagesWithPicturesFixture(t *testing.T) {
 		strings.Contains(inlined, `img: "images/`) {
 		t.Errorf("picture fixture was not fully inlined:\n%s", inlined)
 	}
+	checkGolden(t, filepath.Join("testdata", "pictures-inline.mermaid.golden"), inlined)
 }
 
 type installedMermaidCase struct {

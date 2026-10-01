@@ -1,6 +1,7 @@
 ---
 config:
   theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -8,40 +9,16 @@ config:
     secondaryColor: "#FFFFFF"
     tertiaryColor: "#FFFFFF"
     background: "#FFFFFF"
-    clusterBkg: "#FFFFFF"
-    edgeLabelBackground: "#FFFFFF"
     primaryBorderColor: "#181818"
-    lineColor: "#181818"
-    clusterBorder: "#181818"
-    noteBorderColor: "#181818"
     primaryTextColor: "#000000"
+    lineColor: "#181818"
     textColor: "#000000"
-    noteTextColor: "#000000"
     noteBkgColor: "#FEFFDD"
-    stateBkg: "#FFFFFF"
-    stateBorder: "#181818"
-    stateLabelColor: "#000000"
-    compositeBackground: "#FFFFFF"
-    compositeBorder: "#181818"
-    compositeTitleBackground: "#FFFFFF"
-    compositeTitleBorder: "#181818"
-    actorBkg: "#FFFFFF"
-    actorBorder: "#181818"
-    actorTextColor: "#000000"
-    signalColor: "#181818"
-    signalTextColor: "#000000"
-    labelBoxBkgColor: "#FFFFFF"
-    labelBoxBorderColor: "#181818"
-    labelTextColor: "#000000"
-    actorLineColor: "#181818"
-    loopTextColor: "#000000"
-    activationBorderColor: "#181818"
-    activationBkgColor: "#FFFFFF"
-    sequenceNumberColor: "#000000"
-    transitionColor: "#181818"
-    transitionLabelColor: "#000000"
-    labelBackgroundColor: "#FFFFFF"
-    specialStateColor: "#181818"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
   flowchart:
     subGraphTitleMargin:
       bottom: 48
@@ -52,17 +29,20 @@ flowchart TD
   subgraph n0 ["`**Drive**
 *«action def»*`"]
     direction TD
-    n1@{ shape: sm-circ, label: "" }
+    n1@{ shape: f-circ, label: "" }
     subgraph n2 ["`**provide : Provide**
 *«action»*`"]
       direction TD
+      n2_anchor[" "]
       n2_p1["torque"]
     end
     subgraph n3 ["`**monitor**
 *«action»*
 own flow`"]
       direction TD
-      n5@{ shape: sm-circ, label: "" }
+      n3_anchor[" "]
+      n3_p0["reading"]
+      n5@{ shape: f-circ, label: "" }
       n6("`**record**
 *«action»*`")
     end
@@ -78,16 +58,18 @@ own flow`"]
   end
   n5 --> n6
   n1 --> n8
-  n2 --> n9
+  n2_anchor --> n9
   n2_p1 -.->|"torque to reading"| n3_p0
-  n3 --> n9
+  n3_anchor --> n9
   n7 --> n9
-  n8 --> n2
-  n8 --> n3
+  n8 --> n2_anchor
+  n8 --> n3_anchor
   n8 --> n7
   n9 --> n12
   n11 --> n10
   n12 -->|"[speed #gt; 0]"| n10
   n12 --> n11
   classDef control fill:#181818,stroke:#181818
-  class n1,n5,n8,n9 control
+  class n8,n9 control
+  classDef anchor fill:none,stroke:none
+  class n2_anchor,n3_anchor anchor

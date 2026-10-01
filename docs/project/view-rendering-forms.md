@@ -154,23 +154,27 @@ event feature (`accept :> shutDown`), keep their written text.
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
 actions use `flowchart`; state renderings use `stateDiagram-v2`; sequence renderings use
 `sequenceDiagram`. One YAML frontmatter block sets the Pilot black-and-white theme for every
-grammar; Cameo changes its font and supported colour variables. The table records what each
-rendering feature writes:
+grammar, with only the theme variables for that grammar; Cameo changes its font and supported
+colour variables. Trees remain plain node-and-containment-edge structures. Action and
+interconnection subgraphs use hidden anchors for links that touch their cluster boundaries. The
+table records what each rendering feature writes:
 
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
 | Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
-| Initial, final, junction, fork and join | Expanded shapes `sm-circ`, `fr-circ`, `f-circ` and `fork`; initial/fork bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
-| Decision, merge, choice and history | Diamonds, with a small blank diamond for synthesized names; shallow/deep history use `(("H"))` and `(("H*"))`. |
+| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
+| Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
+| Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows, `-->` for other edges, and `---` for tree containment. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-.->` for flows, `-->` for other edges, and `---` for tree containment. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node and subgraph titles use bold head lines, an italic keyword line and plain detail lines. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. State, sequence and edge labels are unchanged. |
-| Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. |
-| Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
-| Ports | A leaf with a used port is a subgraph containing only connected ports in declaration order; edge endpoints route through those port nodes. |
+| Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
+| Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
+| Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
+| Ports | Any node with a used port is a subgraph containing connected ports in declaration order, before its children; edge endpoints route through those port nodes. |
 | Pictures | Flowcharts write `img` shapes and geometry comments. Local images are embedded as data URLs by document backends; unreadable, unsupported and over-limit images are omitted with notices. State and sequence diagrams do not draw pictures. |
 
-The expanded shapes `sm-circ`, `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
+The expanded shapes `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
 
 ## Why DOT next to Mermaid
 
@@ -821,8 +825,11 @@ and did not change. A view-render RPC added later would take the form as a strin
   whose container is not exposed still stands as a root.
 - `internal/ir/view/mermaid_test.go`: flowchart shapes and Markdown-label safety fallbacks; Pilot
   and Cameo frontmatter; palette parity with DOT for every golden model and palette; edge syntax
-  and linkStyle indices including containment and note anchors; notes in all grammars; used-port
-  subgraphs; picture inlining and missing/unsupported-image notices; and edge counting.
+  and linkStyle indices including containment and note anchors; declared flowchart link endpoints
+  for every golden model, palette and style; plain tree containment; anchored non-tree subgraphs;
+  notes in all grammars; used-port subgraphs with children; empty decision symbols and quoted
+  note/fork strings; grammar-scoped theme variables; picture inlining and missing/unsupported-image
+  notices; and edge counting.
   `TestMermaidRendersWithInstalledMMDC` is opt-in through `OPENSYSML_MMDC` and checks every
   Mermaid golden plus palette and Cameo variants with HTML labels both on and off.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
@@ -878,7 +885,7 @@ and did not change. A view-render RPC added later would take the form as a strin
 
 ## Known limitations
 
-- Mermaid 11.3 or later is required for the expanded `sm-circ`, `fr-circ`, `f-circ`, `fork`,
+- Mermaid 11.3 or later is required for the expanded `fr-circ`, `f-circ`, `fork`,
   `notch-rect` and `img` shapes; classic shapes are used where available.
 - Mermaid's fork bars do not draw their labels. Cameo gradients become flat fills and Mermaid
   has no Cameo frame/header tab. Sequence diagrams cannot fill individual participants.

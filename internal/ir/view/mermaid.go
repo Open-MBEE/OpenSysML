@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -42,7 +43,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil)
 	labels.skin = skinOf(options.Style)
-	r.writeFlowchartFrontmatter(&b, labels, options)
+	r.writeMermaidFrontmatter(&b, labels, options)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -372,11 +373,11 @@ func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
 // mermaidTitleLine is the height in pixels of one line of a subgraph title.
 const mermaidTitleLine = 24
 
-// writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
-// height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
-func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller, options Options) {
+// writeMermaidFrontmatter writes common and grammar-specific theme variables.
+func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller, options Options) {
+	type themeVariable struct{ name, value string }
 	extra := 0
-	if r.Kind != KindState && r.Kind != KindSequence {
+	if r.Kind != KindState && r.Kind != KindSequence && r.Kind != KindTree {
 		for _, root := range r.Roots {
 			extra = max(extra, clusterTitleExtraLines(root, labels))
 		}
@@ -388,55 +389,67 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labelle
 		primary = strings.SplitN(cameoBlockFill, ":", 2)[0]
 		primaryBorder, text, line, clusterBorder, noteFill, noteBorder = cameoBlockLine, cameoTextColor, cameoEdgeColor, cameoFrameColor, cameoNoteFill, cameoLineColor
 	}
-	fmt.Fprintf(b, `---
-config:
-  theme: base
-  themeVariables:
-    fontFamily: %q
-    fontSize: %q
-    primaryColor: %q
-    secondaryColor: %q
-    tertiaryColor: %q
-    background: %q
-    clusterBkg: %q
-    edgeLabelBackground: %q
-    primaryBorderColor: %q
-    lineColor: %q
-    clusterBorder: %q
-    noteBorderColor: %q
-    primaryTextColor: %q
-    textColor: %q
-    noteTextColor: %q
-    noteBkgColor: %q
-    stateBkg: "#FFFFFF"
-    stateBorder: "#181818"
-    stateLabelColor: "#000000"
-    compositeBackground: "#FFFFFF"
-    compositeBorder: "#181818"
-    compositeTitleBackground: "#FFFFFF"
-    compositeTitleBorder: "#181818"
-    actorBkg: %q
-    actorBorder: %q
-    actorTextColor: %q
-    signalColor: %q
-    signalTextColor: %q
-    labelBoxBkgColor: %q
-    labelBoxBorderColor: %q
-    labelTextColor: %q
-    actorLineColor: %q
-    loopTextColor: %q
-    activationBorderColor: %q
-    activationBkgColor: %q
-    sequenceNumberColor: %q
-    transitionColor: %q
-    transitionLabelColor: %q
-    labelBackgroundColor: %q
-    specialStateColor: %q
-`, font, size, primary,
-		"#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF",
-		primaryBorder, line, clusterBorder, noteBorder, text, text, text, noteFill,
-		primary, primaryBorder, text, line, text, primary, primaryBorder, text,
-		line, text, line, primary, text, line, text, primary, line)
+	b.WriteString("---\nconfig:\n  theme: base\n")
+	if r.Kind != KindState && r.Kind != KindSequence {
+		b.WriteString("  themeCSS: \".edgeLabel rect { opacity: 1 !important; }\"\n")
+	}
+	b.WriteString("  themeVariables:\n")
+	variables := []themeVariable{
+		{"fontFamily", font},
+		{"fontSize", size},
+		{"primaryColor", primary},
+		{"secondaryColor", "#FFFFFF"},
+		{"tertiaryColor", "#FFFFFF"},
+		{"background", "#FFFFFF"},
+		{"primaryBorderColor", primaryBorder},
+		{"primaryTextColor", text},
+		{"lineColor", line},
+		{"textColor", text},
+		{"noteBkgColor", noteFill},
+		{"noteBorderColor", noteBorder},
+		{"noteTextColor", text},
+	}
+	switch {
+	case r.Kind == KindState:
+		variables = append(variables,
+			themeVariable{"stateBkg", "#FFFFFF"},
+			themeVariable{"stateBorder", "#181818"},
+			themeVariable{"stateLabelColor", "#000000"},
+			themeVariable{"compositeBackground", "#FFFFFF"},
+			themeVariable{"compositeBorder", "#181818"},
+			themeVariable{"compositeTitleBackground", "#FFFFFF"},
+			themeVariable{"compositeTitleBorder", "#181818"},
+			themeVariable{"transitionColor", line},
+			themeVariable{"transitionLabelColor", text},
+			themeVariable{"labelBackgroundColor", "#FFFFFF"},
+			themeVariable{"specialStateColor", "#181818"},
+		)
+	case r.Kind == KindSequence:
+		variables = append(variables,
+			themeVariable{"actorBkg", primary},
+			themeVariable{"actorBorder", primaryBorder},
+			themeVariable{"actorTextColor", text},
+			themeVariable{"actorLineColor", line},
+			themeVariable{"signalColor", line},
+			themeVariable{"signalTextColor", text},
+			themeVariable{"labelBoxBkgColor", primary},
+			themeVariable{"labelBoxBorderColor", primaryBorder},
+			themeVariable{"labelTextColor", text},
+			themeVariable{"loopTextColor", text},
+			themeVariable{"activationBorderColor", line},
+			themeVariable{"activationBkgColor", primary},
+			themeVariable{"sequenceNumberColor", text},
+		)
+	default:
+		variables = append(variables,
+			themeVariable{"clusterBkg", "#FFFFFF"},
+			themeVariable{"clusterBorder", clusterBorder},
+			themeVariable{"edgeLabelBackground", "#FFFFFF"},
+		)
+	}
+	for _, variable := range variables {
+		fmt.Fprintf(b, "    %s: \"%s\"\n", variable.name, variable.value)
+	}
 	if extra > 0 {
 		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
 	}
@@ -460,11 +473,11 @@ func clusterTitleExtraLines(node *Node, labels labeller) int {
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
 // is an edge, and every other edge is the one the rendering holds.
 type mermaidFlowWriter struct {
-	b           *strings.Builder
-	links       int
-	linkStyles  map[int]string
-	treeAnchors []string
-	cameo       bool
+	b              *strings.Builder
+	links          int
+	linkStyles     map[int]string
+	clusterAnchors map[string]string
+	cameo          bool
 }
 
 func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, kind EdgeKind) {
@@ -515,16 +528,22 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	}
 	fmt.Fprintf(b, "flowchart %s\n", flow)
 	ports := r.usedPorts()
+	portEnds := r.portEnds(ports)
+	noteOwners := r.flowchartNoteOwners(ports)
+	w.clusterAnchors = r.flowchartClusterAnchors(portEnds, ports, noteOwners)
 	if r.blank() && len(r.Pictures) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
 		for _, root := range r.Roots {
-			r.writeFlowchartNode(w, root, 1, r.Kind == KindTree, flow, labels, options, fills, ports)
+			if r.Kind == KindTree {
+				r.writeTreeNode(w, root, 1, labels, options)
+				continue
+			}
+			r.writeFlowchartNode(w, root, 1, flow, labels, options, ports, noteOwners)
 		}
 	}
-	r.writeNotes(b, labels, options)
+	r.writeNotes(b, noteOwners, "", "  ")
 	r.writePictures(b)
-	portEnds := r.portEnds(ports)
 	for _, edge := range r.Edges {
 		from, to := edge.From, edge.To
 		if end := portEnds[edge.FromPort]; end != "" {
@@ -533,6 +552,8 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		if end := portEnds[edge.ToPort]; end != "" {
 			to = end
 		}
+		from = flowchartEndpoint(from, w.clusterAnchors)
+		to = flowchartEndpoint(to, w.clusterAnchors)
 		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
 	}
 	for i, note := range r.Notes {
@@ -541,13 +562,19 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 			anchor = note.EdgeFrom
 		}
 		if id := noteGroupIDs(r.Notes)[i]; anchor != "" && r.hasNode(anchor) {
-			w.edge(id, "-.-", "", anchor, nil, EdgeTransition)
+			to := r.flowchartNoteEndpoint(i, anchor, noteOwners, w.clusterAnchors, ports)
+			w.edge(id, "-.-", "", to, nil, EdgeTransition)
 		}
 	}
 	r.writeMermaidStyles(b, fills, options, false)
-	if len(w.treeAnchors) > 0 {
-		b.WriteString("  classDef treeAnchor fill:transparent,stroke:transparent,color:transparent\n")
-		fmt.Fprintf(b, "  class %s treeAnchor\n", strings.Join(w.treeAnchors, ","))
+	if len(w.clusterAnchors) > 0 {
+		b.WriteString("  classDef anchor fill:none,stroke:none\n")
+		ids := make([]string, 0, len(w.clusterAnchors))
+		for _, id := range w.clusterAnchors {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		fmt.Fprintf(b, "  class %s anchor\n", strings.Join(ids, ","))
 	}
 	if len(r.Notes) > 0 {
 		if options.Style == StyleCameo {
@@ -564,6 +591,192 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	}
 }
 
+func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options) {
+	indent := strings.Repeat("  ", depth)
+	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
+	for _, child := range node.Children {
+		r.writeTreeNode(w, child, depth+1, labels, options)
+	}
+	for _, child := range node.Children {
+		w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
+	}
+}
+
+func (r *Rendering) flowchartSubgraph(node *Node, used map[string]map[string]bool) bool {
+	return len(node.Children) > 0 || r.hasUsedPorts(node, used)
+}
+
+func flowchartEndpoint(id string, anchors map[string]string) string {
+	if anchor := anchors[id]; anchor != "" {
+		return anchor
+	}
+	return id
+}
+
+func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map[string]map[string]bool, noteOwners map[int]string) map[string]string {
+	if r.Kind == KindTree {
+		return nil
+	}
+	subgraphs := map[string]bool{}
+	nodes := map[string]*Node{}
+	parents := map[string]string{}
+	var walk func(*Node, string)
+	walk = func(node *Node, parent string) {
+		nodes[node.ID] = node
+		parents[node.ID] = parent
+		if r.flowchartSubgraph(node, used) {
+			subgraphs[node.ID] = true
+		}
+		for _, child := range node.Children {
+			walk(child, node.ID)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root, "")
+	}
+	needed := map[string]bool{}
+	mark := func(id string) {
+		if subgraphs[id] {
+			needed[id] = true
+		}
+	}
+	for _, edge := range r.Edges {
+		from, to := edge.From, edge.To
+		if end := portEnds[edge.FromPort]; end != "" {
+			from = end
+		}
+		if end := portEnds[edge.ToPort]; end != "" {
+			to = end
+		}
+		mark(from)
+		mark(to)
+	}
+	for i, note := range r.Notes {
+		anchor := note.Anchor
+		if anchor == "" {
+			anchor = note.EdgeFrom
+		}
+		if anchor != "" && r.hasNode(anchor) {
+			if subgraphs[anchor] {
+				mark(anchor)
+				continue
+			}
+			owner := noteOwners[noteGroupIndex(r.Notes, i)]
+			for parent := parents[anchor]; parent != ""; parent = parents[parent] {
+				if parent == owner {
+					break
+				}
+				if subgraphs[parent] {
+					mark(parent)
+					break
+				}
+			}
+		}
+	}
+	anchors := make(map[string]string, len(needed))
+	for id := range needed {
+		anchors[id] = id + "_anchor"
+	}
+	return anchors
+}
+
+func (r *Rendering) flowchartNoteEndpoint(index int, anchor string, owners map[int]string, clusterAnchors map[string]string, used map[string]map[string]bool) string {
+	if clusterAnchors[anchor] != "" {
+		return clusterAnchors[anchor]
+	}
+	nodes := map[string]*Node{}
+	parents := map[string]string{}
+	var walk func(*Node, string)
+	walk = func(node *Node, parent string) {
+		nodes[node.ID] = node
+		parents[node.ID] = parent
+		for _, child := range node.Children {
+			walk(child, node.ID)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root, "")
+	}
+	owner := owners[noteGroupIndex(r.Notes, index)]
+	for parent := parents[anchor]; parent != ""; parent = parents[parent] {
+		if parent == owner {
+			break
+		}
+		if node := nodes[parent]; node != nil && r.flowchartSubgraph(node, used) {
+			if endpoint := clusterAnchors[parent]; endpoint != "" {
+				return endpoint
+			}
+		}
+	}
+	return flowchartEndpoint(anchor, clusterAnchors)
+}
+
+func (r *Rendering) flowchartNoteOwners(used map[string]map[string]bool) map[int]string {
+	nodes := map[string]*Node{}
+	parents := map[string]string{}
+	var walk func(*Node, string)
+	walk = func(node *Node, parent string) {
+		nodes[node.ID] = node
+		parents[node.ID] = parent
+		for _, child := range node.Children {
+			walk(child, node.ID)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root, "")
+	}
+	within := func(ancestor, descendant string) bool {
+		for id := descendant; id != ""; id = parents[id] {
+			if id == ancestor {
+				return true
+			}
+		}
+		return false
+	}
+	owners := map[int]string{}
+	for i := range r.Notes {
+		group := noteGroupIndex(r.Notes, i)
+		if group != i {
+			continue
+		}
+		var anchors []string
+		for j, note := range r.Notes {
+			if noteGroupIndex(r.Notes, j) != group {
+				continue
+			}
+			anchor := note.Anchor
+			if anchor == "" {
+				anchor = note.EdgeFrom
+			}
+			if nodes[anchor] != nil {
+				anchors = append(anchors, anchor)
+			}
+		}
+		for candidate := ""; len(anchors) > 0; {
+			candidate = anchors[0]
+			for candidate != "" {
+				encloses := true
+				for _, anchor := range anchors[1:] {
+					encloses = encloses && within(candidate, anchor)
+				}
+				if encloses {
+					if node := nodes[candidate]; node != nil && r.Kind != KindTree && r.flowchartSubgraph(node, used) {
+						owners[group] = candidate
+					} else if parent := parents[candidate]; parent != "" {
+						if node := nodes[parent]; node != nil && r.Kind != KindTree && r.flowchartSubgraph(node, used) {
+							owners[group] = parent
+						}
+					}
+					break
+				}
+				candidate = parents[candidate]
+			}
+			break
+		}
+	}
+	return owners
+}
+
 func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, options Options, state bool) {
 	type assignment struct{ class, css string }
 	var definitions []assignment
@@ -573,7 +786,7 @@ func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, op
 	control := false
 	var walk func(*Node)
 	walk = func(node *Node) {
-		if !state && isMermaidControlNode(node.Kind) {
+		if !state && isBarKind(node.Kind) {
 			control = true
 		}
 		var css string
@@ -634,7 +847,7 @@ func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, op
 		var ids []string
 		var find func(*Node)
 		find = func(node *Node) {
-			if isMermaidControl(node.Kind) && (node.Kind == startKind || node.Kind == "initial" || isBarKind(node.Kind)) {
+			if isBarKind(node.Kind) {
 				ids = append(ids, node.ID)
 			}
 			for _, child := range node.Children {
@@ -708,21 +921,17 @@ func mermaidFontFamily(font string) bool {
 	return true
 }
 
-// writeFlowchartNode writes a subgraph when a node holds others. Nested tree
-// links use invisible anchors because Mermaid 11.16 cannot route from a cluster.
-func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, containment bool, flow string, labels labeller, options Options, fills familyFills, used map[string]map[string]bool) {
+// writeFlowchartNode writes a subgraph for a node with children or used ports.
+func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, flow string, labels labeller, options Options, used map[string]map[string]bool, noteOwners map[int]string) {
 	indent := strings.Repeat("  ", depth)
-	if len(node.Children) == 0 && !r.hasUsedPorts(node, used) {
+	if !r.flowchartSubgraph(node, used) {
 		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
 		return
 	}
 	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, labels, options))
 	fmt.Fprintf(w.b, "%s  direction %s\n", indent, flow)
-	anchor := ""
-	if containment && depth > 1 && len(node.Children) > 0 {
-		anchor = "mermaid_anchor_" + node.ID
-		w.treeAnchors = append(w.treeAnchors, anchor)
-		fmt.Fprintf(w.b, "%s  %s((\" \"))\n", indent, anchor)
+	if anchor := w.clusterAnchors[node.ID]; anchor != "" {
+		fmt.Fprintf(w.b, "%s  %s[\" \"]\n", indent, anchor)
 	}
 	if r.hasUsedPorts(node, used) {
 		for j, port := range node.Ports {
@@ -733,25 +942,16 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 		}
 	}
 	for _, child := range node.Children {
-		r.writeFlowchartNode(w, child, depth+1, containment, flow, labels, options, fills, used)
+		r.writeFlowchartNode(w, child, depth+1, flow, labels, options, used, noteOwners)
 	}
-	if containment && anchor != "" {
-		for _, child := range node.Children {
-			w.edge(anchor, "---", "", child.ID, nil, EdgeBinding)
-		}
-	}
+	r.writeNotes(w.b, noteOwners, node.ID, indent+"  ")
 	fmt.Fprintf(w.b, "%send\n", indent)
-	if containment && anchor == "" {
-		for _, child := range node.Children {
-			w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
-		}
-	}
 }
 
 func mermaidNodeShape(node *Node, labels labeller, options Options) string {
 	switch node.Kind {
 	case startKind, "initial":
-		return `@{ shape: sm-circ, label: "" }`
+		return `@{ shape: f-circ, label: "" }`
 	case "final", terminateKind:
 		return `@{ shape: fr-circ, label: "" }`
 	case "junction":
@@ -761,10 +961,10 @@ func mermaidNodeShape(node *Node, labels labeller, options Options) string {
 		if !node.NameSynthesized {
 			name = mermaidText(node.Name)
 		}
-		return fmt.Sprintf("@{ shape: fork, label: %q }", name)
+		return `@{ shape: fork, label: "` + name + `" }`
 	case "decision", "merge", "choice":
 		name := ""
-		if !node.NameSynthesized {
+		if !node.NameSynthesized && node.Name != "" {
 			name = mermaidNodeLabel(node, labels, options)
 		} else {
 			name = `" "`
@@ -887,7 +1087,7 @@ func (r *Rendering) usedPorts() map[string]map[string]bool {
 }
 
 func (r *Rendering) hasUsedPorts(node *Node, used map[string]map[string]bool) bool {
-	return len(node.Children) == 0 && len(used[node.ID]) > 0
+	return len(used[node.ID]) > 0
 }
 
 func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string {
@@ -909,9 +1109,12 @@ func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string 
 	return ends
 }
 
-func (r *Rendering) writeNotes(b *strings.Builder, _ labeller, _ Options) {
+func (r *Rendering) writeNotes(b *strings.Builder, owners map[int]string, owner, indent string) {
 	for i := range r.Notes {
 		if noteGroupIndex(r.Notes, i) != i {
+			continue
+		}
+		if owners[i] != owner {
 			continue
 		}
 		var lines []string
@@ -922,7 +1125,7 @@ func (r *Rendering) writeNotes(b *strings.Builder, _ labeller, _ Options) {
 				}
 			}
 		}
-		fmt.Fprintf(b, "  note%d@{ shape: notch-rect, label: %q }\n", i, strings.Join(lines, "<br>"))
+		fmt.Fprintf(b, "%snote%d@{ shape: notch-rect, label: \"%s\" }\n", indent, i, strings.Join(lines, "<br>"))
 	}
 }
 
@@ -986,8 +1189,8 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 		if !ok {
 			continue
 		}
-		fmt.Fprintf(b, "  picture%d@{ img: %q, label: %q, w: %s, h: %s }\n",
-			i, src, mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
+		fmt.Fprintf(b, "  picture%d@{ img: \"%s\", label: \"%s\", w: %s, h: %s }\n",
+			i, mermaidText(src), mermaidText(picture.Alt), formatCoord(picture.Width), formatCoord(picture.Height))
 	}
 }
 
@@ -1232,7 +1435,7 @@ func (r *Rendering) writeStateDeclaration(b *strings.Builder, node *Node, indent
 		if node.Kind == deepHistoryKind {
 			label = "H*"
 		}
-		fmt.Fprintf(b, "%sstate %q as %s\n", indent, label, node.ID)
+		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, label, node.ID)
 	default:
 		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, labels.mermaid(node), node.ID)
 	}
@@ -1277,11 +1480,12 @@ func (r *Rendering) writeSequenceNote(b *strings.Builder, note Note) {
 	}
 }
 
+var mermaidImagePattern = regexp.MustCompile(`^\s*picture[0-9]+@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
+
 // InlineMermaidImages embeds each readable local flowchart image in source.
 // base is the working directory used to resolve relative image paths.
 func InlineMermaidImages(source, base string) string {
 	lines := strings.Split(source, "\n")
-	image := regexp.MustCompile(`^\s*picture[0-9]+@\{[^}\r\n]*img:\s*"([^"\r\n]*)"`)
 	size := len(source)
 	var notices []string
 	drop := func(index int, location, reason string) {
@@ -1292,7 +1496,7 @@ func InlineMermaidImages(source, base string) string {
 		size += len(notice) + 1 - len(old)
 	}
 	for i, line := range lines {
-		match := image.FindStringSubmatchIndex(line)
+		match := mermaidImagePattern.FindStringSubmatchIndex(line)
 		if match == nil {
 			continue
 		}

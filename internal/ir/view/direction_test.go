@@ -88,8 +88,9 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 		t.Errorf("interconnection subgraph does not restate LR:\n%s", got)
 	}
 	tree := &Rendering{Kind: KindTree, Roots: rendering.Roots}
-	if got := tree.Mermaid(); !strings.Contains(got, "flowchart TD\n") || strings.Count(got, "direction ") != 2 {
-		t.Errorf("tree subgraphs do not restate their direction:\n%s", got)
+	if got := tree.Mermaid(); !strings.Contains(got, "flowchart TD\n") ||
+		strings.Contains(got, "subgraph ") || strings.Contains(got, "direction ") {
+		t.Errorf("tree containment uses subgraphs or nested directions:\n%s", got)
 	}
 }
 
