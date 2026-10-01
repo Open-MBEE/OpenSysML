@@ -66,6 +66,9 @@ function test_decode_value()
     assert_error(@() opensysml.decodeValue(struct('function', struct('calcId', ''))), 'opensysml:decode', 'empty calcId');
     f = opensysml.decodeValue(struct('function', struct('calcId', 'C::f', 'selfId', '0')));
     assert_equal(isempty(f.self), true, 'function self 0 is no self');
+    f = opensysml.decodeValue(jsondecode('{"function":{"calcId":"C"}}'));
+    assert_equal(f.calcId, 'C', 'plain jsondecode function calcId');
+    assert_equal(f.self, [], 'plain jsondecode function self');
     functionValue = containers.Map('KeyType', 'char', 'ValueType', 'any');
     functionValue('function') = struct('calcId', 'C::f', 'selfId', '7');
     f = opensysml.decodeValue(functionValue);

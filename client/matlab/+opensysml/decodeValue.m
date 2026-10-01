@@ -100,7 +100,7 @@ function val = decodeValueInner(v, resolveInstance)
                 error('opensysml:decode', 'infinity arm does not carry true');
             end
             val = struct('infinity', true);
-        case 'function',   val = decodeFunction(v.function, resolveInstance);
+        case {'function', 'xFunction'}, val = decodeFunction(v.(kind), resolveInstance);
         case 'set'
             elements = mapValues(v.set, 'elements', resolveInstance);
             val = struct('set', {elements});
