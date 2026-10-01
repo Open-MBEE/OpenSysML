@@ -315,6 +315,14 @@ func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
 // root elements name it (sysx:sourceDocument), since one graph no longer keeps
 // the documents apart.
 func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
+	out, _, _, err := modelToRDF(documents, form)
+	return out, err
+}
+
+// modelToRDF is ModelToRDFWith, also returning the resolver the model was
+// analyzed with and each document's encoder, whose identity tables are the
+// ones the graph's ids were minted from.
+func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
@@ -322,7 +330,7 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	for i, doc := range documents {
 		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
 		}
 		e.model = shared
 		for node := range e.fqn {
@@ -346,11 +354,11 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
 		if err := e.encodeDocument(documents[i].Root); err != nil {
-			return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 		}
 		for _, minted := range e.minted {
 			if prior, taken := declaredIn[minted.iri]; taken {
-				return nil, &UnsupportedError{
+				return nil, nil, nil, &UnsupportedError{
 					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
 					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
 				}
@@ -369,7 +377,7 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 			}
 		}
 	}
-	return out, nil
+	return out, res, encoders, nil
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds

@@ -11,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
@@ -95,7 +96,8 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	sc := cached.SymbolContext()
 	defer sc.Lock()()
 	eval := &queryEval{sc: sc, cached: cached}
-	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).WithIdentity(eval.identity)
+	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).
+		WithIdentity(eval.identity).WithElementID(eval.elementID)
 	if req.OslcQuery != "" {
 		parsed, err := corequery.ParseOSLC(req.OslcQuery)
 		if err != nil {
@@ -104,6 +106,9 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		elements, err := corequery.Evaluate(&coreQueryModel{eval: eval, cached: cached}, parsed)
 		if err != nil {
 			return nil, queryStatus(err)
+		}
+		if eval.elementIDErr != nil {
+			return nil, elementIDStatus(eval.elementIDErr)
 		}
 		out := make([]*pb.QueryResultElement, 0, len(elements))
 		for _, element := range elements {
@@ -135,7 +140,18 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		}
 		elements = append(elements, eval.project(sym, projection))
 	}
+	if eval.elementIDErr != nil {
+		return nil, elementIDStatus(eval.elementIDErr)
+	}
 	return &pb.QueryResponse{Elements: elements}, nil
+}
+
+// elementIDStatus reports a query that read elementId of a model no conversion
+// can write: what it would report does not exist, so the query fails with the
+// conversion's refusal rather than answering without the property.
+func elementIDStatus(err error) error {
+	return statusErrorf(connect.CodeFailedPrecondition,
+		"elementId is the id a conversion of the model writes, and converting this model is refused: %v", err)
 }
 
 // queryEval evaluates one query over a model's symbol context. It holds no
@@ -145,6 +161,9 @@ type queryEval struct {
 	sc     *SymbolContext
 	reader *corequery.PropertyReader
 	cached *CachedModel
+	// elementIDErr is why the model has no elementIds, once a property read
+	// asked for one: the conversion that writes them refused the model.
+	elementIDErr error
 }
 
 // candidates returns the elements a query considers, in declaration order: every
@@ -196,6 +215,54 @@ func (e *queryEval) identity(sym *symbols.Symbol) string {
 	}
 	e.positionalNames(e.cached)
 	return e.cached.positional[sym]
+}
+
+// elementID is the elementId Convert writes for sym in the qualified id form,
+// read from a conversion of the model made once per model, so a query result
+// joins the converted graph. A model the conversion refuses has none: the
+// refusal is recorded, and a query reading elementId fails with it.
+func (e *queryEval) elementID(sym *symbols.Symbol) string {
+	cached := e.cached
+	if cached == nil {
+		return ""
+	}
+	cached.elementIDsOnce.Do(func() {
+		documents := make([]export.ModelDocument, 0, len(cached.Documents))
+		for _, doc := range cached.Documents {
+			if doc != nil && doc.Source != nil && doc.Root != nil {
+				documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+			}
+		}
+		// Convert refuses a model of several documents one of which the parser
+		// could not read whole, so no ids are read from its recovered trees.
+		if len(documents) > 1 {
+			for _, doc := range cached.Documents {
+				if doc == nil || doc.Source == nil {
+					continue
+				}
+				if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
+					cached.elementIDsErr = syntax
+					return
+				}
+			}
+		}
+		// The ids are the ones Convert writes for this model hash, so they are
+		// read from the same conversion: one document is converted from its
+		// text (convertSource), several from what parse read
+		// (convertModelOfDocuments).
+		if len(documents) == 1 {
+			doc := documents[0].File
+			cached.elementIDs, cached.elementIDsErr = export.NewElementIDsOfDocument(doc.Name(), doc.Bytes())
+			return
+		}
+		cached.elementIDs, cached.elementIDsErr = export.NewElementIDs(documents)
+	})
+	if cached.elementIDsErr != nil {
+		e.elementIDErr = cached.elementIDsErr
+		return ""
+	}
+	id, _ := cached.elementIDs.Of(e.identity(sym))
+	return id
 }
 
 func (e *queryEval) positionalNames(cached *CachedModel) {
@@ -297,7 +364,7 @@ func (w *elementWalk) members(sym *symbols.Symbol) {
 // An empty selection reports every property.
 func projectedProperties(selected []string) ([]string, error) {
 	if len(selected) == 0 {
-		return QueryPropertyNames(), nil
+		return corequery.DefaultProjection(), nil
 	}
 	out := make([]string, 0, len(selected))
 	for _, name := range selected {
