@@ -1313,6 +1313,15 @@ jobs:
             cd client/node
             npm run lint
 
+      # The verification tests ask the service solver-backed questions; the
+      # solver is an external process the service finds on PATH.
+      - run:
+          name: Install Z3
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y z3
+            z3 --version
+
       - run:
           name: Run the tests
           command: |

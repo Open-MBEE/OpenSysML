@@ -1042,11 +1042,20 @@ jobs:
           npm run typecheck
           npm run lint
 
+      # The verification tests ask the service solver-backed questions; the
+      # solver is an external process the service finds on PATH.
+      - name: Install Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          z3 --version
+
       - name: Run the tests
         working-directory: client/node
         run: npm test
 
-      # --allow-skips because v1 covers 5 of the 15 RPCs; the skipped count is
+      # --allow-skips because three scenarios ask for a request the client's
+      # public API refuses before asking the service; the skipped count is
       # reported and the artifact records which scenarios they were.
       - name: Run the conformance suite through the client
         working-directory: client/node
