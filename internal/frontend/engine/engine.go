@@ -122,18 +122,6 @@ func (m *cachedModel) primaryRoot() *symbols.Scope {
 	return m.Index.DocumentRoot(m.primary().Source.Name())
 }
 
-// documentRoots are the root scopes of the model's documents, in order, skipping
-// any the index does not hold.
-func (m *cachedModel) documentRoots() []*symbols.Scope {
-	roots := make([]*symbols.Scope, 0, len(m.Documents))
-	for _, doc := range m.Documents {
-		if root := m.Index.DocumentRoot(doc.Source.Name()); root != nil {
-			roots = append(roots, root)
-		}
-	}
-	return roots
-}
-
 // document is the source of the model's document named name, nil when none is.
 func (m *cachedModel) document(name string) *source.SourceFile {
 	if name == "" {
