@@ -526,7 +526,7 @@ func (r *dresser) clauses() []string {
 // notesShown reports whether d's stream draws el, a comment with a body, as a note
 // the view writes: a bounded Note symbol stands for it.
 func (m *migration) notesShown(d *sysmlv1.Diagram, el *sysmlv1.Element) bool {
-	if !d.Drawn || el.Type != "Comment" || commentBody(el) == "" {
+	if !d.Drawn || el.Type != "Comment" || m.commentBody(el) == "" {
 		return false
 	}
 	for _, sym := range d.Symbols {
@@ -563,7 +563,7 @@ func labelsParent(sym *sysmlv1.Symbol) bool {
 // comment, else the text the tool wrote on the symbol itself.
 func noteText(sym *sysmlv1.Symbol, m *migration) string {
 	if el := m.model.Lookup(sym.ElementID); el != nil && el.Type == "Comment" {
-		return commentBody(el)
+		return m.commentBody(el)
 	}
 	return sym.Text
 }

@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "events": [
+    {"signal": "Start"},
+    {"signal": "Continue"},
+    {"signal": "Start"}
+  ],
+  "finalState": "s2",
+  "outputs": {
+    "log": {"type": "String", "value": "T3"}
+  }
+}

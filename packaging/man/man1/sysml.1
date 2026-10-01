@@ -716,8 +716,10 @@ The input format is taken from the file extension (.sysml, .kerml, .ttl,
 \&.json, .fmu) unless \-from names it: sysml, kerml, ttl, turtle, rdf,
 api\-json, or fmu for a Functional Mock\-up Unit to import. Converting to the
 format it is already in rewrites the input: notation is reformatted, Turtle is
-normalized. A SysML v1 model (.xmi, .uml, .mdzip) is refused: it is migrated,
-not converted; see Migration.
+normalized.
+.PP
+A SysML v1 model (.xmi, .uml, .mdzip) is refused: it is migrated, not
+converted; see Migration.
 .PP
 Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or

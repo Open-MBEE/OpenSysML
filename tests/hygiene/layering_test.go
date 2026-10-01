@@ -77,6 +77,7 @@ var packageLayer = map[string]string{
 	"internal/exec/analysis/enginewire": "exec",
 	"internal/exec/analysis/modelform":  "exec",
 	"internal/exec/analysis/record":     "exec",
+	"internal/exec/simresults":          "exec",
 	"internal/exec/engines":             "exec",
 	"internal/exec/fmi":                 "exec",
 	"internal/exec/hostcap":             "exec",
@@ -92,7 +93,6 @@ var packageLayer = map[string]string{
 	"internal/translate/migrate":          "translate",
 	"internal/translate/deferred":         "translate",
 	"internal/translate/mtip":             "translate",
-	"internal/translate/simresults":       "translate",
 	"internal/translate/xmi":              "translate",
 	"internal/translate/xmi/sysmlv1":      "translate",
 	"internal/translate/codegen":          "translate",
@@ -106,6 +106,8 @@ var packageLayer = map[string]string{
 	"internal/doc/docpdf":     "doc",
 
 	"internal/workspace/model":       "workspace",
+	"internal/workspace/modelrt":     "workspace",
+	"internal/workspace/modeldoc":    "workspace",
 	"internal/semantic/highlight":    "semantic",
 	"internal/workspace/libs":        "workspace",
 	"internal/workspace/libs/errata": "workspace",
@@ -126,6 +128,13 @@ var packageLayer = map[string]string{
 	"cmd/sysml-grpc":              "frontend",
 	"cmd/sysml-lsp":               "frontend",
 	"cmd/sysml-engine":            "frontend",
+
+	"internal/frontend/repl/replext":               "frontend",
+	"internal/frontend/repl/replext/all":           "frontend",
+	"internal/frontend/repl/replext/graphviz":      "frontend",
+	"internal/frontend/repl/replext/instancegraph": "frontend",
+	"internal/frontend/repl/replext/notation":      "frontend",
+	"internal/frontend/repl/replext/positional":    "frontend",
 }
 
 // tolerated is the imports the layer table does not permit and that still
@@ -146,6 +155,7 @@ var removed = map[string][]string{
 	"internal/exec/analysis":            {"internal/translate/export"},
 	"internal/exec/analysis/enginewire": {"internal/translate/export"},
 	"internal/translate/export":         {"internal/translate/migrate", "internal/exec/runtime", "internal/ir/lower"},
+	"internal/workspace/model":          {"internal/exec/runtime", "internal/doc/queryexec", "internal/doc/docir", "internal/doc/docrender", "internal/translate/filename"},
 	"internal/check/passes/kit":         {"internal/check/passes"},
 	"internal/check/passes/document":    {"internal/check/passes"},
 	"internal/check/passes/diagram":     {"internal/check/passes"},

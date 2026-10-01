@@ -155,12 +155,8 @@ func TestJoinWaitsForEveryBranch(t *testing.T) {
 	}
 }
 
-// A transition into a join is not enabled until every branch has arrived: an
-// event reaching one branch first fires nothing, Decide and LastDispatch say so;
-// the completion of the last branch fires nothing either while the other
-// segment's trigger is not that occurrence, and the join fires on the event
-// that enables every segment at once.
-func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
+// A join segment fires on its own occurrence and waits for the other segment.
+func TestJoinSegmentFiresOnOwnOccurrence(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     attribute def Go;
     state Machine {
@@ -191,19 +187,19 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	if accepted, err := exec.AcceptsMessage(goMsg); err != nil || !accepted {
 		t.Fatalf("AcceptsMessage(Go) = %v, %v; want a in the left region to accept it", accepted, err)
 	}
-	if d, err := exec.Decide(goMsg); err != nil || d.Enabled() {
-		t.Errorf("Decide(Go) with the right branch in b0 = %+v, %v; want nothing enabled", d, err)
+	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
+		t.Fatalf("Decide(Go) with the right branch in b0 = %+v, %v; want the left segment enabled to arrive", d, err)
 	}
 
 	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired {
-		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, not fired", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
+		t.Fatalf("LastDispatch after Go = %+v, %v; want the left segment fired", d, ok)
 	}
-	if got := activeStateNames(exec); got != "a|b0" {
-		t.Fatalf("configuration after Go = %s, want a|b0", got)
+	if got := activeStateNames(exec); got != "b0" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after Go: configuration = %s, arrivals = %v; want b0 and the left segment waiting", got, exec.joinArrived)
 	}
 
 	if err := exec.ProcessNextEvent(); err != nil {
@@ -212,39 +208,23 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
 		t.Errorf("LastDispatch after the timer = %+v, %v; want b0 -> b fired", d, ok)
 	}
-	if got := activeStateNames(exec); got != "a|b" {
-		t.Fatalf("configuration after the timer = %s, want a|b", got)
+	if got := activeStateNames(exec); got != "b" {
+		t.Fatalf("configuration after the timer = %s, want b", got)
 	}
 
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, not fired: a's segment waits for Go", d, ok)
-	}
-	if got := activeStateNames(exec); got != "a|b" {
-		t.Fatalf("configuration after b completed = %s, want a|b", got)
-	}
-
-	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
-		t.Errorf("Decide(Go) with both branches arrived = %+v, %v; want the join enabled", d, err)
-	}
-	exec.SendSignal("Go", nil)
-	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(second Go): %v", err)
-	}
 	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
-		t.Errorf("LastDispatch after the second Go = %+v, %v; want the join fired", d, ok)
+		t.Fatalf("LastDispatch after b completed = %+v, %v; want b's completion to finish the join", d, ok)
 	}
-	if exec.State() != StateCompleted {
-		t.Errorf("machine %v after the join, want completed; configuration %s", exec.State(), activeStateNames(exec))
+	if got := activeStateNames(exec); got != "done" || len(exec.joinArrived) != 0 {
+		t.Fatalf("after b completed: configuration = %s, arrivals = %v; want done with arrivals cleared", got, exec.joinArrived)
 	}
 }
 
-// A segment into a join drawn among several transitions out of its source, whose
-// join another region's effect then disarms before its turn: the join fires
-// nothing, and the draw that never fired is not among the run's choices.
-func TestJoinDisarmedBeforeItsTurnRecordsNoChoice(t *testing.T) {
+// A sibling's effect can disarm one segment while another still arrives.
+func TestJoinDisarmedSegmentCanArriveAlone(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     attribute def Go;
     state Machine {
@@ -274,8 +254,7 @@ func TestJoinDisarmedBeforeItsTurnRecordsNoChoice(t *testing.T) {
         transition first sync then done;
     }
 }`, "Machine")
-	// `declared` fires the regions in declaration order, c before a, and takes
-	// a1's first transition, the segment into the join.
+	// `declared` fires the regions in declaration order, c before a.
 	policy, err := ParseSchedulePolicy("declared")
 	if err != nil {
 		t.Fatal(err)
@@ -291,13 +270,20 @@ func TestJoinDisarmedBeforeItsTurnRecordsNoChoice(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	if got := activeStateNames(exec); got != "c2|a1|b1" {
-		t.Fatalf("configuration after Go = %s, want c2|a1|b1: c's effect disarmed b's segment, so a's fires nothing", got)
+	if got := activeStateNames(exec); got != "c2|b1" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after Go: configuration = %s, arrivals = %v; want a's arrival while b is disarmed", got, exec.joinArrived)
 	}
+	transitionChoice := false
 	for _, c := range ctx.Choices() {
 		if c.Kind == ChoiceTransition {
-			t.Errorf("choices include %s: a's segment fired nothing, so its draw is no choice the run made", c)
+			transitionChoice = true
+			if !strings.Contains(c.String(), "took 1->sync") {
+				t.Errorf("transition choice = %s, want declared policy to take the join segment", c)
+			}
 		}
+	}
+	if !transitionChoice {
+		t.Fatal("choices have no transition draw between the join segment and a2")
 	}
 }
 
@@ -351,10 +337,8 @@ func TestJoinFromActiveCompositeSourcesFires(t *testing.T) {
 	}
 }
 
-// A completion segment into a join is enabled once its source has completed,
-// not while it is merely active: a Go dispatched while b's do behavior still runs
-// fires nothing and the behavior goes on; b's completion, once the behavior ends,
-// fires nothing while a's segment waits for Go; the Go that follows fires the join.
+// A's signal segment arrives while b's do behavior runs; b's completion then
+// finishes the join without abandoning that behavior early.
 func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     attribute def Go;
@@ -390,18 +374,18 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
 	goMsg := Message{SignalType: "Go"}
-	if d, err := exec.Decide(goMsg); err != nil || d.Enabled() {
-		t.Errorf("Decide(Go) with b's do behavior running = %+v, %v; want nothing enabled", d, err)
+	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
+		t.Fatalf("Decide(Go) with b's do behavior running = %+v, %v; want a's segment enabled to arrive", d, err)
 	}
 	exec.SendSignal("Go", nil)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired {
-		t.Errorf("LastDispatch after Go = %+v, %v; want dispatched, not fired", d, ok)
+	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
+		t.Fatalf("LastDispatch after Go = %+v, %v; want a's segment fired", d, ok)
 	}
-	if got := activeStateNames(exec); got != "a|b" {
-		t.Fatalf("configuration after Go = %s, want a|b", got)
+	if got := activeStateNames(exec); got != "b" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after Go: configuration = %s, arrivals = %v; want b and a's waiting arrival", got, exec.joinArrived)
 	}
 
 	exec.SendSignal("Tick", nil)
@@ -414,31 +398,16 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want dispatched, not fired: a's segment waits for Go", d, ok)
-	}
-	if got := activeStateNames(exec); got != "a|b" {
-		t.Fatalf("configuration after b completed = %s, want a|b", got)
-	}
-
-	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
-		t.Errorf("Decide(Go) with b completed = %+v, %v; want the join enabled", d, err)
-	}
-	exec.SendSignal("Go", nil)
-	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(second Go): %v", err)
-	}
 	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
-		t.Errorf("LastDispatch after the second Go = %+v, %v; want the join fired", d, ok)
+		t.Fatalf("LastDispatch after b completed = %+v, %v; want b's segment to finish the join", d, ok)
 	}
-	if exec.State() != StateCompleted {
-		t.Errorf("machine %v after the join, want completed; configuration %s", exec.State(), activeStateNames(exec))
+	if exec.State() != StateCompleted || len(exec.joinArrived) != 0 {
+		t.Errorf("machine %v after the join with arrivals %v, want completed with arrivals cleared", exec.State(), exec.joinArrived)
 	}
 }
 
-// A completion segment out of a composite state is enabled once the state's body
-// is at `done`, and re-entering the state starts its body over: a Go dispatched
-// while b's body is at b1 fires nothing; a Go once it is done fires the join.
+// A completion segment waits until its composite source's body is done, even if
+// the other segment has already arrived and the body is re-entered.
 func TestJoinCompletionSegmentWaitsForItsSourcesBody(t *testing.T) {
 	ctx, machine := loadState(t, `package test {
     attribute def Go;
@@ -479,46 +448,30 @@ func TestJoinCompletionSegmentWaitsForItsSourcesBody(t *testing.T) {
 			t.Fatalf("ProcessNextEvent(%s): %v", signal, err)
 		}
 	}
-	if d, err := exec.Decide(goMsg); err != nil || d.Enabled() {
-		t.Errorf("Decide(Go) with b's body at b1 = %+v, %v; want nothing enabled", d, err)
+	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
+		t.Fatalf("Decide(Go) with b's body at b1 = %+v, %v; want a's segment enabled to arrive", d, err)
 	}
 	dispatch("Go")
-	if got := activeStateNames(exec); got != "a|b1" {
-		t.Fatalf("configuration after Go = %s, want a|b1", got)
-	}
-
-	dispatch("Tick")
-	if err := exec.ProcessNextEvent(); err != nil {
-		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
-	}
-	if d, ok := exec.LastDispatch(); !ok || d.Fired {
-		t.Errorf("LastDispatch after b completed = %+v, %v; want nothing fired: a's segment waits for Go", d, ok)
-	}
-	if d, err := exec.Decide(goMsg); err != nil || !d.Enabled() {
-		t.Errorf("Decide(Go) with b's body done = %+v, %v; want the join enabled", d, err)
+	if got := activeStateNames(exec); got != "b1" || len(exec.joinArrived) != 1 {
+		t.Fatalf("after Go: configuration = %s, arrivals = %v; want b1 and a's waiting arrival", got, exec.joinArrived)
 	}
 
 	dispatch("Again")
-	if got := activeStateNames(exec); got != "a|b1" {
-		t.Fatalf("configuration after Again = %s, want a|b1: b re-entered starts its body over", got)
+	if got := activeStateNames(exec); got != "b1" || len(exec.joinArrived) != 1 {
+		t.Fatalf("configuration after Again = %s, want b1 with a's arrival still held", got)
 	}
 	if d, err := exec.Decide(goMsg); err != nil || d.Enabled() {
-		t.Errorf("Decide(Go) after b re-entered = %+v, %v; want nothing enabled", d, err)
-	}
-	dispatch("Go")
-	if got := activeStateNames(exec); got != "a|b1" {
-		t.Fatalf("configuration after Go = %s, want a|b1", got)
+		t.Errorf("Decide(Go) after a's segment arrived = %+v, %v; want no transition from the inactive source", d, err)
 	}
 
 	dispatch("Tick")
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(completion of b): %v", err)
 	}
-	dispatch("Go")
 	if d, ok := exec.LastDispatch(); !ok || !d.Fired {
-		t.Errorf("LastDispatch after the last Go = %+v, %v; want the join fired", d, ok)
+		t.Errorf("LastDispatch after b completed = %+v, %v; want the join fired", d, ok)
 	}
-	if exec.State() != StateCompleted {
+	if exec.State() != StateCompleted || len(exec.joinArrived) != 0 {
 		t.Errorf("machine %v after the join, want completed; configuration %s", exec.State(), activeStateNames(exec))
 	}
 }

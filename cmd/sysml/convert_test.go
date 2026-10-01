@@ -20,6 +20,8 @@ var (
 	buildOnce sync.Once
 	builtCLI  string
 	buildErr  error
+	// cliBuildFlags are extra `go build` flags for the binary, as a tagged test build's tags.
+	cliBuildFlags []string
 )
 
 // buildCLI builds the sysml binary once per test binary so the tests exercise the
@@ -33,7 +35,7 @@ func buildCLI(t *testing.T) string {
 			return
 		}
 		builtCLI = filepath.Join(dir, "sysml")
-		build := exec.Command("go", gobuild.Args(builtCLI)...)
+		build := exec.Command("go", gobuild.Args(builtCLI, cliBuildFlags...)...)
 		if out, err := build.CombinedOutput(); err != nil {
 			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}

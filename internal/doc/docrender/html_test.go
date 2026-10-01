@@ -771,3 +771,26 @@ func TestHTMLImageReportFragmentGolden(t *testing.T) {
 		"Pictures::ImageReport", HTMLOptions{Fragment: true})
 	checkGolden(t, got, filepath.Join("testdata", "image_report.fragment.golden.html"))
 }
+
+// TestHTMLReferencedReportGolden locks how references read in numbered HTML:
+// a section as "Section 2.1 - Alignment", a table as "Table 1", an element
+// outside every document as its name carrying the element as data, a stated
+// text as itself, and punctuation bound to the reference beside it.
+func TestHTMLReferencedReportGolden(t *testing.T) {
+	path := filepath.Join("testdata", "referenced_report.sysml")
+	got := renderFixtureHTML(t, path, "Referenced::ReferencedReport",
+		HTMLOptions{Fragment: true, NumberSections: true, NumberFigures: true})
+	checkGolden(t, got, filepath.Join("testdata", "referenced_report.fragment.golden.html"))
+	plain := renderFixtureHTML(t, path, "Referenced::ReferencedReport", HTMLOptions{Fragment: true})
+	for _, want := range []string{
+		`<a class="sysml-ref" href="#procedures-alignment">Alignment</a>`,
+		`<a class="sysml-ref" href="#procedures-alignment-parts">Parts aligned</a>`,
+	} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("an unnumbered reference reads as its target's title or caption, want %s:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "Section 2.1") || strings.Contains(plain, "Table 1") {
+		t.Errorf("an unnumbered document numbers no reference:\n%s", plain)
+	}
+}

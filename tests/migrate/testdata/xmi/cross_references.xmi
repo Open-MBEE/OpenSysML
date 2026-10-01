@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- The View Editor stores cross-references as <mms-cf> spans with the
+         editor's cached fallback text as their body; MagicDraw stores element
+         hyperlinks as <a href="mdel://id"> anchors. The ids are xmi:ids. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_obs" name="Observatory">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_mount" name="Mount">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_mount" annotatedElement="_blk_mount" body="&lt;p&gt;Holds the &lt;a href=&quot;mdel://_blk_optics&quot; erit:display=&quot;NAME&quot; erit:update=&quot;AUTOMATIC_UPDATE&quot;&gt;Optics&lt;/a&gt; and the &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;MMS_1461107722575_gone&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Table 7-4.name]&lt;/mms-cf&gt; steady.&lt;/p&gt;"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_optics" name="Optics">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_optics" annotatedElement="_blk_optics" body="Gathers the light."/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_focal" name="focalLength">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_dv_focal" value="2.5"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_coating" name="coating">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_point" name="Pointing">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_point" annotatedElement="_req_point" body="The &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;_blk_mount&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Mount.name]&lt;/mms-cf&gt; shall point within &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;MMS_1461107722575_slot&quot; class=&quot;mceNonEditable&quot;&gt;[cf:.val]&lt;/mms-cf&gt; of the target."/>
+      </packagedElement>
+      <!-- Two documentation references that cite each other, one naming a
+           comment itself, and two slots
+           the export gives no defining feature, one holding a literal that
+           cites its own value: a reference ends where it reaches back, and a
+           slot without a feature reads as itself. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_guider" name="Guider">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_guider" annotatedElement="_blk_guider" body="&lt;p&gt;Tracks with the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_camera&quot;&gt;[cf:Camera.com]&lt;/mms-cf&gt;, labelled &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_slot_orphan&quot;&gt;[cf:.val]&lt;/mms-cf&gt;, set to &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_slot_bare&quot;&gt;[cf:.val]&lt;/mms-cf&gt;.&lt;/p&gt;"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_camera" name="Camera">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_camera" annotatedElement="_blk_camera" body="&lt;p&gt;Images for the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_guider&quot;&gt;[cf:Guider.com]&lt;/mms-cf&gt;. &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_cmt_optics&quot;&gt;[cf:.com]&lt;/mms-cf&gt;&lt;/p&gt;"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_guider" name="guider1" classifier="_blk_guider">
+        <slot xmi:type="uml:Slot" xmi:id="_slot_orphan">
+          <value xmi:type="uml:LiteralString" xmi:id="_slot_orphan_v" value="&lt;p&gt;Label: &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_slot_orphan&quot;&gt;[cf:.val]&lt;/mms-cf&gt;&lt;/p&gt;"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_slot_bare"/>
+      </packagedElement>
+      <xmi:Extension extender="Example UML Tool 1.0">
+        <modelExtension>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_mount" name="Mount Structure" ownerOfDiagram="_pkg_obs">
+            <xmi:Extension extender="Example UML Tool 1.0">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                  <diagramContents>
+                    <usedElements>_blk_mount</usedElements>
+                    <usedElements>_blk_optics</usedElements>
+                  </diagramContents>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+        </modelExtension>
+      </xmi:Extension>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_vps" name="Viewpoints">
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_prose" name="Prose Viewpoint"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_figures" name="Figures Viewpoint" classifierBehavior="_act_figures">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_figures" name="Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_figures_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_figures_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e1" source="_figures_init" target="_figures_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e2" source="_figures_image" target="_figures_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Documents">
+      <packagedElement xmi:type="uml:Class" xmi:id="_doc_handbook" name="Observatory Handbook">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_overview" name="overview" type="_view_overview" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_figures" name="figures" type="_view_figures" aggregation="composite"/>
+      </packagedElement>
+
+      <!-- Every reference form in one paragraph: a hyperlink whose anchor text
+           is stale, a hyperlink to a view that is a section of the document, a
+           View Editor reference to a diagram that is a figure of the document,
+           a dangling View Editor placeholder, a hyperlink to a value, a
+           hyperlink to an id outside the export, a documentation reference, a
+           reference to a diagram no view is written for, and a hyperlink the
+           text runs into. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_overview" name="Overview">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_overview" general="_vp_prose"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_overview_alignment" name="alignment" type="_view_alignment" aggregation="composite"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_overview_doc" annotatedElement="_view_overview" body="&lt;html&gt;&lt;body&gt;&lt;p&gt;The &lt;a href=&quot;mdel://_blk_mount&quot; erit:display=&quot;NAME&quot; erit:update=&quot;AUTOMATIC_UPDATE&quot;&gt;Old Mount&lt;/a&gt; is aligned in &lt;a href=&quot;mdel://_view_alignment&quot; erit:display=&quot;NAME&quot; erit:update=&quot;AUTOMATIC_UPDATE&quot;&gt;Alignment&lt;/a&gt;&amp;nbsp;and drawn in &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;_diag_mount&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Mount Structure.name]&lt;/mms-cf&gt; (&lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;MMS_1461107722575_gone&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Table 7-4.name]&lt;/mms-cf&gt;). Its focal length is &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_prop_focal&quot; class=&quot;mceNonEditable&quot;&gt;[cf:focalLength.val]&lt;/mms-cf&gt;; see &lt;a href=&quot;mdel://_nowhere&quot; erit:display=&quot;NAME&quot; erit:update=&quot;AUTOMATIC_UPDATE&quot;&gt;Lost Procedure&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;Optics: &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_blk_optics&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Optics.com]&lt;/mms-cf&gt; Coating: &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;_prop_coating&quot; class=&quot;mceNonEditable&quot;&gt;[cf:coating.val]&lt;/mms-cf&gt; See &lt;mms-view-link data-mms-element-id=&quot;_view_alignment&quot;&gt;[cf:Alignment.vlink]&lt;/mms-view-link&gt;. Drawn in &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;_diag_profile&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Profile Diagram.name]&lt;/mms-cf&gt; for the &lt;mms-cf mms-cf-type=&quot;com&quot; mms-element-id=&quot;_overview_doc&quot;&gt;[cf:.com]&lt;/mms-cf&gt;&lt;a href=&quot;mdel://_blk_mount&quot; erit:display=&quot;NAME&quot; erit:update=&quot;AUTOMATIC_UPDATE&quot;&gt;Mount&lt;/a&gt;'s crew.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_alignment" name="Alignment">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_alignment" general="_vp_prose"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_alignment_doc" annotatedElement="_view_alignment" body="Align the mount to the sky."/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_figures" name="Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_figures" general="_vp_figures"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_figures" client="_view_figures" supplier="_diag_mount"/>
+    </packagedElement>
+  </uml:Model>
+
+  <!-- A profile beside the model is not written, so the diagram it owns has no view. -->
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_prof_marks" name="Marks" URI="http://www.magicdraw.com/spec/Customization/190/UML">
+    <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_marked" name="Marked"/>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_profile" name="Profile Diagram" ownerOfDiagram="_prof_marks">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Profile Diagram" umlType="Profile Diagram">
+                <diagramContents>
+                  <usedElements>_st_marked</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Profile>
+
+
+  <sysml:Block xmi:id="_st_blk_mount" base_Class="_blk_mount"/>
+  <sysml:Block xmi:id="_st_blk_optics" base_Class="_blk_optics"/>
+  <sysml:Block xmi:id="_st_blk_guider" base_Class="_blk_guider"/>
+  <sysml:Block xmi:id="_st_blk_camera" base_Class="_blk_camera"/>
+  <sysml:Requirement xmi:id="_st_req_point" base_Class="_req_point" Id="R-1" Text="The &lt;mms-cf mms-cf-type=&quot;name&quot; mms-element-id=&quot;_blk_mount&quot; class=&quot;mceNonEditable&quot;&gt;[cf:Mount.name]&lt;/mms-cf&gt; shall point within &lt;mms-cf mms-cf-type=&quot;val&quot; mms-element-id=&quot;MMS_1461107722575_slot&quot; class=&quot;mceNonEditable&quot;&gt;[cf:.val]&lt;/mms-cf&gt; of the target."/>
+
+  <sysml:Viewpoint xmi:id="_st_vp_prose" base_Class="_vp_prose"/>
+  <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
+  <sysml:View xmi:id="_st_view_overview" base_Class="_view_overview"/>
+  <sysml:View xmi:id="_st_view_alignment" base_Class="_view_alignment"/>
+  <sysml:View xmi:id="_st_view_figures" base_Class="_view_figures"/>
+  <sysml:Conform xmi:id="_st_conform_overview" base_Generalization="_gen_overview"/>
+  <sysml:Conform xmi:id="_st_conform_alignment" base_Generalization="_gen_alignment"/>
+  <sysml:Conform xmi:id="_st_conform_figures" base_Generalization="_gen_figures"/>
+  <sysml:Expose xmi:id="_st_expose_figures" base_Dependency="_expose_figures"/>
+  <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
+  <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image" showCaptions="true">
+    <captions>The mount and its optics</captions>
+  </Document_Profile_:Image>
+</xmi:XMI>

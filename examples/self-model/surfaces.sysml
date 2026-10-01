@@ -379,7 +379,7 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "internal/translate/migrate";
         attribute reader : String = "internal/translate/xmi/sysmlv1";
         attribute layoutSource : String = "internal/translate/mtip";
-        attribute resultsSchema : String = "internal/translate/simresults";
+        attribute resultsSchema : String = "internal/exec/simresults";
         attribute verb : String = "-migrate";
         attribute rpc : String = "Migrate";
         attribute reportFlag : String = "-migration-report";

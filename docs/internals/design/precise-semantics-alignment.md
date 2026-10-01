@@ -362,19 +362,18 @@ reach a final state or a terminate is reached. *v2/KerML:* SysML v2 §7.18.3: "a
 `done` indicates that the source state is the final state of the containing state performance,
 though the containing state does not necessarily terminate immediately"; `States.sysml` binds
 `done` to `StatePerformance::endShot` of the state whose body names it. The text ends the
-containing state and says nothing about the state that encloses *it*. *Runtime:*
-`state_executor.go:completeIfDone` → `machineComplete` walks outward from the completed region:
-when a composite state's regions have all reached `done`, the enclosing region counts as complete
-too, and so on up to the machine, which exits (`exitMachine`) and reports `StateCompleted`;
-`scheduleFromLeaf` schedules completion transitions for active *leaves* only, so a nil-trigger
-transition out of a composite state is never queued — a composite state's completion cannot fire
-one. `state_completion_nested_regions` pins the machine completing on the last nested `done`
-("The orthogonal regions of a composite state complete like the machine's own");
-`state_entry_transition_nested_done` pins the same through an entry into regions already at
-`done`. The spec-compliance record states the rule as adopted. Under PSSM the model
+containing state and says nothing about the state that encloses *it*. *Runtime, before the
+decision:* `state_executor.go:completeIfDone` → `machineComplete` walked outward from the completed
+region: when a composite state's regions had all reached `done`, the enclosing region counted as
+complete too, and so on up to the machine, which exited (`exitMachine`) and reported
+`StateCompleted`; `scheduleFromLeaf` scheduled completion transitions for active *leaves* only, so
+a nil-trigger transition out of a composite state was never queued — a composite state's
+completion could not fire one. `state_completion_nested_regions` pinned the machine completing on
+the last nested `done`; `state_entry_transition_nested_done` pinned the same through an entry
+into regions already at `done`. The spec-compliance record stated the rule as adopted. Under PSSM the model
 `state outer { … transition first a when Go then done; } transition first outer then next;`
-enters `next`; here it ends the machine and `next` is unreachable. **differs, v2 silent** — and
-see *Findings*, since the v2 sentence is at least uneasy with it.
+enters `next`; here it ended the machine and `next` was unreachable. *Differs, v2 silent* as first
+assessed — and see *Findings*, since the v2 sentence is at least uneasy with it.
 *Decided:* the library's reading, which PSSM's rule coincides with. `States.sysml` declares
 `ref state done: StateAction :>> Action::done, StatePerformance::endShot;`, so `then done`
 written in a composite's body reaches the `endShot` of *that composite's* performance and ends
@@ -406,6 +405,8 @@ completion transition out of the composite), their `_stay_active` siblings (no c
 transition: machine running), `TestCompositeCompletionQueuesItsTransitionsLikeALeaf`,
 `TestCompositeCompletesOnceItsDoBehaviorAndItsBodyHaveBothEnded` and
 `TestCompletedCompositeWithoutCompletionTransitionStaysActive` in `state_completion_test.go`.
+**agrees** since the decision: the composite's own completion transition fires, as PSSM's does,
+and a lost completion with none enabled ends nothing under either.
 
 #### Entry, do and exit
 
@@ -661,12 +662,12 @@ self-transition restores the configuration it is leaving). **agrees.**
 **SM28. History with nothing to restore.** PSSM requirements *History 002–003* (§9.4.15): with no prior visit, or a
 region that "had reached its FinalState", the history's outgoing transition (the default history
 transition) is taken; with no such transition "standard default entry of the Region is performed"
-(the region's initial transition). *Runtime:* `fireHistoryTransition` takes the history's own
-outgoing transition when no configuration is recorded; with neither it fails the run with "no
-recorded configuration" (`robustness_test.go:history_without_record_or_default`), where PSSM
-enters the region's initial state. A region that reached `done` is not a case here, because that
-completes the machine (SM11); a region left with no active state is forgotten
-(`forgetRegionHistory`). **differs, v2 silent.**
+(the region's initial transition). *Runtime, before the decision:* `fireHistoryTransition` took
+the history's own outgoing transition when no configuration was recorded; with neither it failed
+the run with "no recorded configuration" (`robustness_test.go:history_without_record_or_default`),
+where PSSM enters the region's initial state. A region that reached `done` was not a case here,
+because that completed the machine (SM11 before its decision); a region left with no active state is forgotten
+(`forgetRegionHistory`). *Differs, v2 silent* as first assessed.
 *Decided:* PSSM's rule. A shallow or deep history with no recorded configuration takes its own
 outgoing transition when it has one, else performs the owning state's default entry — the same
 path an ordinary transition into the composite takes, through its `entry` transition and on down;
@@ -682,7 +683,7 @@ history entry is a default entry. Implemented in `state_executor.go:historyEntry
 preferred over the entry after a completion too) and
 `history_test.go:TestHistoryOverACompletedConfigurationIsADefaultEntry` (a completed region
 beside a running one, and a body left at `done`) and
-`robustness_test.go:history_without_record_default_or_entry`.
+`robustness_test.go:history_without_record_default_or_entry`. **agrees** since the decision.
 
 #### Choice and junction
 
@@ -717,18 +718,19 @@ dynamically, when the compound transition traversal reaches this Pseudostate" �
 incoming segment's effect has run — and *Choice 002*: with several true, one is chosen.
 *v2/KerML:* no choice vertex in v2 (a `decide` is an action-body construct, not a state-body
 one); `pseudostates.md` names the choice "a dynamic conditional branch whose outgoing guards are
-evaluated when the choice is entered". *Runtime:* `transientPseudostate` returns true for both
-kinds and `resolveRoute` resolves a choice exactly as a junction: the branch is picked in
-`pseudostateBranch` when the route is resolved, before the incoming transition's effect runs, and
-the code comment states that the two are "indistinguishable for a guard over state data". So
+evaluated when the choice is entered". *Runtime, before the decision:* `transientPseudostate`
+returned true for both kinds and `resolveRoute` resolved a choice exactly as a junction: the
+branch was picked in `pseudostateBranch` when the route was resolved, before the incoming
+transition's effect ran, and the code comment stated that the two were "indistinguishable for a
+guard over state data". So
 `transition first idle do assign x := 1 then pick; transition first pick if x == 1 then seen;`
-takes the unguarded branch, not `seen`, where PSSM would take `seen`. `state_choice_pseudostate`
-pins choice routing on data the incoming effect does not touch, so the difference has no fixture
-on `develop`; it follows from the two functions and the comment. **differs, v2 silent** — and
-a *Finding*, since the project's own design note says otherwise.
+took the unguarded branch, not `seen`, where PSSM would take `seen`. `state_choice_pseudostate`
+pins choice routing on data the incoming effect does not touch, so the difference had no fixture;
+it followed from the two functions and the comment. *Differs, v2 silent* as first
+assessed — and a *Finding*, since the project's own design note says otherwise.
 *Decided:* PSSM's rule, and the project's own note. A route is resolved before firing only up
-to the first *choice*: junctions along it are resolved statically as before (SM29, SM32
-unchanged). Firing then exits the states every branch of the choice leaves (`travel` →
+to the first *choice*: junctions along it are resolved statically as before (SM29), as part
+of whether the transition is enabled at all (SM32). Firing then exits the states every branch of the choice leaves (`travel` →
 `certainExits` over the targets `reachable` past it), runs the segments' effects up to the
 choice, and only then reads the choice's guards against the data as it now stands; one enabled
 branch is taken — several enabled is the existing transition choice point, recorded as
@@ -742,34 +744,78 @@ first choice), `followOut` (junctions read statically), `travel`, `resolveChoice
 seen` reaches `seen`), `state_choice_dynamic_conflict`, `state_pseudostate_chain_junction_choice`,
 `state_pseudostate_chain_choice_junction`, `state_pseudostate_chain_choice_choice`,
 `TestExploreDynamicChoiceBranches` and `robustness_test.go:state_choice_without_an_enabled_branch`;
-`state_choice_pseudostate` and the other `state_choice_*` cases keep their outcomes.
+`state_choice_pseudostate` and the other `state_choice_*` cases keep their outcomes. **agrees**
+since the decision. The two vertices no longer share one rule: a junction's guards are read
+before the step and decide whether the transition is enabled (SM29, SM32), a choice's on arrival,
+with none enabled the typed error (SM31).
 
 **SM31. Choice with no guard true.** PSSM requirement *Choice 003* (§9.4.10): "the model is considered ill formed".
 *Runtime:* `state_route.go:resolveChoice` fails the run at the instant the choice is reached,
 after the incoming segment's effect, with the typed `ErrChoiceWithoutBranch` naming the choice
 (`robustness_test.go:state_choice_without_an_enabled_branch`); a junction with no guard true
-fails as SM32 describes (`region_pseudostate_without_satisfied_guard`). **agrees.**
+fails nothing, since the transition through it is not enabled (SM32,
+`region_pseudostate_without_satisfied_guard`). **agrees.**
 
 **SM32. Junction or join with no path through.** PSSM requirement *Junction 002* (§9.4.11): when no outgoing guard holds, "the
 entire compound transition is disabled even though its Triggers are enabled" — the incoming
 transition is not selected, and the occurrence is deferred or lost like any other unhandled one.
-*Runtime:* the incoming transition is selected on its own trigger and guard; the failure to route
-surfaces as a "no guard evaluated to true" run failure when the route is resolved, not as a
-disabled transition (`region_pseudostate_without_satisfied_guard` uses a junction).
-The same holds wherever on the compound transition the junction with no way through lies.
-*Junction 004* (§9.4.11) puts it on the default entry of a sibling region: the transition
-targets a junction inside one region of an orthogonal state, and the other region's initial
-transition leads to a junction both of whose guards are false; PSSM's static evaluation takes
-the default entry in and disables the whole transition — the state is never entered, its `entry`
-never logged, and the next occurrence fires from the source — where the runtime enters the state
-and fails at the second region's junction. *Join 003* (§9.4.12) puts it at a join's way out: the
-join's only outgoing transition is guarded false, so PSSM fires the first completion transition
-into the join on its own (a segment may end at a join, whose completion is waited for) and
-disables the second, whose entering the join would need a way through; the owner stays active
-for the next occurrence. The runtime fires nothing at the first completion (SM34: the segments
-fire together, once every source is active) and fails at the second, resolving the route out of
-the join. **differs, v2 silent.** Unchanged by the decisions below: a junction's guards stay
-static, and the runtime's rule here stays the project's. *Choice 005* traces the same reach
+*Runtime, before the decision:* the incoming transition was selected on its own trigger and
+guard; the failure to route surfaced as a "no guard evaluated to true" run failure when the route
+was resolved, not as a disabled transition (`region_pseudostate_without_satisfied_guard` used a
+junction). *Junction 004* (§9.4.11) puts the junction with no way through on the default entry
+of a sibling region: the transition targets a junction inside one region of an orthogonal state,
+and the other region's initial transition leads to a junction both of whose guards are false;
+PSSM's static evaluation takes the default entry in and disables the whole transition — the state
+is never entered, its `entry` never logged, and the next occurrence fires from the source.
+*Join 003* (§9.4.12) puts it at a join's way out: the join's only outgoing transition is guarded
+false, so PSSM fires the first completion transition into the join on its own (a segment may end
+at a join, whose completion is waited for) and disables the second, whose entering the join would
+need a way through; the owner stays active for the next occurrence. The runtime fired nothing at
+the first completion (SM34 before its decision) and failed at the second, resolving the route out
+of the join. *Differs, v2 silent* as first assessed, the project keeping its rule because choice
+and junction then shared one static reading.
+*Decided:* PSSM's rule. Once SM30 made the choice dynamic the two vertices no longer share a rule,
+and the junction's static reading is the one UML gives it, under which the guards beyond a
+junction decide whether the compound transition is enabled at all. Wherever enabledness is
+decided — a signal, call or event dispatch and its preview (`Decide`, `probeTransition`), a
+completion, a timer, a change poll — `state_route.go:routeAvailable` resolves the route in a
+preview with the trigger's arguments bound, as firing would. `followOut` marks a junction, or a
+join's way out, none of whose outgoing guards holds with the sentinel `errNoWayThrough` (the
+message still names the vertex and "no guard evaluated to true"); a branch beyond which there is
+no way through is dropped from the junction's draw, and a single branch left is taken without
+one; a route with no way through leaves the transition not enabled, so the occurrence goes to
+another enabled transition, is deferred if deferrable, or is discarded with the unmatched-event
+note, and a completion with none is dropped as one whose guard is false. For a join, selection
+probes count only the candidate and prior arrivals; signal/change dispatches count same-occurrence
+peers only when their regions chose them, and firing checks completion against those peers. If the
+route is dead, none fire. Timer expiries are separate occurrences even when due together; a dead
+completing timer segment is not enabled, leaving its source's timer-group alternatives available
+(`state_join_peer_not_chosen_does_not_block_arrival`,
+`state_join_time_segments_expire_together`,
+`state_join_dead_timer_join_keeps_group_alternative`). A transition into a
+history with nothing recorded is disabled when the history's default transition has no way
+through and the transition's source lies outside the history's owner; from within, the exit
+writes the record the history then reads (finding 7), so the default is not consulted before
+firing. Only that sentinel disables: a cycle between pseudostates, a guard that cannot be read
+and a binding failure still fail the run as the transition fires. The route is checked only as
+far as its first choice, whose guards are read on arrival (SM30), so a junction with no way
+through beyond a choice is the run's error when the choice is resolved. A region's default entry
+cannot reach a junction in v2 (an entry transition targets a state, §7.18.3), so *Junction 004*'s
+case arises only through the referee's translation. `state_junction_no_way_through_unmatched`,
+`state_junction_no_way_through_other_transition_fires`, `state_junction_no_way_through_deferred`,
+`state_junction_dead_branch_not_drawn`, `state_completion_no_way_through_dropped`,
+`state_history_default_no_way_through`,
+`state_history_self_transition_default_no_way_through_restores`,
+`state_join_no_way_out_disables_last_segment` (+ trace goldens),
+`explore_test.go:TestExploreJunctionBranchBeyondWhichNoGuardHolds`,
+`robustness_test.go:region_pseudostate_without_satisfied_guard` (the source stays active),
+`robustness_junction_exit_route_test.go`, and `robustness_junction_join_test.go`
+(`junction_after_choice_keeps_runtime_error`, `junction_cycle_keeps_runtime_error`,
+`junction_unevaluable_guard_keeps_runtime_error`). **agrees** since the decision. *Join 003*
+passes; *Junction 002* and *Junction 004* stay `fail` in the referee because their junction lies
+after the start state the translation needs (`emit.go:startTarget`), so the transition the
+runtime disables is that state's completion, not the compound transition PSSM disables (finding
+11, open decision 8). *Choice 005* traces the same reach
 from the other side — its junction on the composite's default entry is read before `T2(effect)`
 and the composite's entry — and is refused on its acting guards before the order is reached; see
 [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model).
@@ -789,8 +835,8 @@ into one region (`robustness_test.go:fork_branches_share_region`).
 `state_fork_join_pseudostate`. **agrees.**
 
 **SM34. Join.** PSSM requirement *Join 001* (§9.4.12): "all incoming Transitions have to complete before execution
-can continue through an outgoing Transition"; the join fires when every source state is active
-and the occurrence enables all incoming segments. Requirement *Join 002* (§9.4.12) and §8.5.7
+can continue through an outgoing Transition"; each incoming segment fires on its own occurrence
+and the outgoing one once every incoming segment has arrived. Requirement *Join 002* (§9.4.12) and §8.5.7
 (`JoinPseudostateActivation`): the incoming transitions and the outgoing one are segments of one
 compound transition, so every incoming segment fires — its source exited, then its effect — in
 either order, before the state owning the join is exited and the outgoing effect runs (the test's
@@ -800,23 +846,31 @@ the extension follows UML, and the library's `transitionLinkSource then effect` 
 during the state performance" fix each segment's exit-then-effect and place both segments before
 the owner's exit
 ([oracle](../../project/behavior-semantic-oracle.md#transitions-into-a-join-each-exits-its-source-and-runs-its-effect-before-the-owner-is-left-in-which-order-is-open)).
-*Runtime:* `fireJoinTransition` fires only when `joinSynchronized` finds every other segment
-into the join enabled by the occurrence being dispatched — its source active, its guard holding,
-its trigger matching the same signal, call, timer expiry or change rise — whichever path fires
-the segment: a signal or call dispatch, a timer, a completion or a change poll
-(`state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched`,
-`state_join_time_segment_needs_same_occurrence`,
-`state_join_time_segment_unsynchronized_reads_no_route` — the route out of the join is
-resolved only once the join is ready, so an expiry that holds it reads no guard beyond it —
-`state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` — each timer
-is its own occurrence, so a time-triggered segment is enabled while its own timer is due: two
-expiries at one instant fire the join, whichever is dispatched first, and expiries at different
-instants never do —
-`state_join_change_segments_rise_together`,
-`state_join_change_segment_rises_alone` — one condition rising is one occurrence, so a later
-rise of the other segment's condition does not fire the join);
-`fireJoinIncoming` then fires the incoming segments one at a time, drawing the next from the
-scheduling policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
+*Runtime:* each segment into the join fires on its own occurrence, as PSSM's does.
+`state_executor.go:joinFiringNow` takes the segment being dispatched and every other segment not
+yet arrived whose source is active, whose region's dispatch chose it, whose trigger takes the same
+signal, call, timer expiry or change rise and whose guard holds — a completion segment fires only
+on its own completion, never pulled into another occurrence — and reports whether, with the
+segments already arrived, they complete the join. At selection, including for each time expiry,
+only the candidate and prior arrivals count toward checking the way out. In signal/change
+dispatches, `fireJoinTransition` checks completion at firing against same-occurrence peers their
+regions chose; if the route is dead, none fire. Timer expiries are separate occurrences even at
+the same instant, so a dead completing segment leaves its source's timer-group alternatives
+available (`state_join_peer_not_chosen_does_not_block_arrival`,
+`state_join_time_segments_expire_together`,
+`state_join_dead_timer_join_keeps_group_alternative`). If those segments do not complete the join,
+`resolveRoute` ends the route
+at the join as an arrival, and `fireJoinTransition` fires every not-yet-arrived segment enabled by
+the occurrence and chosen by its region's dispatch in the `join <name>` order (`fireJoinIncoming`),
+exiting each source and running its effect, then records each among the join's arrivals
+(`joinArrived`), which snapshots, held images and the checker's
+canonical state (`check_state.go`) carry. A region whose segment has arrived holds no active state but waits at the join, so it does
+not count its owner complete (`regionWaitingAtJoin`); an arrival is dropped when its region is
+entered again (`setRegionState`) or the owner is left by another transition
+(`clearJoinArrivalsOwnedBy`). When they do complete it, the route out of the join is resolved and
+must have a way through (SM32), and `fireJoinIncoming` fires the segments enabled by the occurrence
+and chosen by their regions in that dispatch, one at a time, drawing the next from the scheduling
+policy as a `ChoiceRegionOrder` labelled `join <name>` (declaration order by default),
 each with the arguments its own trigger takes from the occurrence bound (`fireJoinSegment`,
 `state_join_segment_reads_its_payload`), before the owner is exited and the outgoing segment
 followed. The owner and the region of it each segment leaves are the lowerer's `JoinPlan`, found
@@ -836,9 +890,21 @@ branch is refused (`join_with_one_incoming_branch`), as is one two of whose inco
 leave the same region — UML 2.5.1 §14.2.3.5 Pseudostates has a join target "two or more
 Transitions originating from Vertices in different orthogonal Regions", so every segment fires
 when the join does and none is an alternative to another (`lower/join_check.go`). `state_fork_join_pseudostate`,
-`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored). On the shape —
-every segment exits its source and runs its effect, the outgoing effect follows the last — the
-two agree; on two orders within it they part. *Where the owner is left.* The runtime leaves the
+`state_join_runs_every_incoming_effect` (both orders as `outcomes`, explored: the two completions
+follow the regions' entry order), `state_join_segment_fires_on_own_signal`,
+`state_join_segments_arrive_together_on_one_occurrence`,
+`state_join_segment_not_chosen_does_not_arrive`,
+`state_join_waits_for_every_segment_enabled`, `state_join_segment_trigger_unmatched` (each
+segment arrives on its own trigger), `state_join_time_segment_needs_same_occurrence`,
+`state_join_time_segments_expire_together`, `state_join_time_segments_expire_apart` (each expiry
+fires its own segment, the second completing the join), `state_join_change_segments_rise_together`,
+`state_join_change_segment_rises_alone` (a later rise of the other condition completes it),
+`state_join_arrival_dropped_when_owner_exited`, `join_snapshot_test.go`,
+`pseudostate_test.go:TestJoinSegmentFiresOnOwnOccurrence`,
+`state_change_trigger_test.go:TestChangeTriggerArrivalCompletesOnLaterRise` and
+`robustness_junction_join_test.go:join_exit_failure_does_not_record_arrival`. On the shape —
+every segment exits its source and runs its effect, each on its own occurrence, and the outgoing
+effect follows the last — the two agree; on one order within it they part. *Where the owner is left.* The runtime leaves the
 state owning the regions after every incoming effect (`fireJoinIncoming`, then the outgoing
 segment's exits), the reading the oracle section derives from the library: each segment is
 declared in the owner's body and is an `enclosedPerformance` of it, ended before the owner's
@@ -849,18 +915,18 @@ admits put the owner's exit between the last source's exit and that segment's ef
 segment that completes the join climb to the compound transition's common ancestor, and its
 effect runs after them. *When the segments fire.* PSSM §8.5.7 fires each incoming transition as
 its own occurrence is dispatched — a completion transition into the join when its source's
-completion event is dequeued, the join's activation counting the segments that have arrived — so
-in *Transition 019* (§9.3.3.12) the two completion transitions into `Join1` fire in the order the
-regions completed, `T1.3(effect)` after `T1.2(effect)`'s region and `T2.3(effect)` after the
-other's, and the suite admits no trace with the join's segments in the opposite order; the
-runtime holds every segment until the join is ready and then draws their order afresh, so it
-reaches those two traces too. On neither order does v2 speak — the join is not a v2 state
+completion event is dequeued, the join's activation counting the segments that have arrived. The
+runtime, before the decision, held every segment until one occurrence enabled them all and then
+drew their order; *decided* for PSSM's rule, it now fires each as its occurrence is dispatched,
+so two completion transitions into one join fire in the order their completions are dispatched,
+the order their sources were entered (finding 11's pool order), and *Join 003*'s first segment
+arrives on its own. On where the owner is left v2 does not speak — the join is not a v2 state
 construct, and the library derivation reaches the owner's exit only through this project's
 reading of a join segment as a substate's transition — so the project's rule is the oracle
-section's: the segments fire together, in an open order, and the owner is left after the last.
-**differs, v2 silent.** Adopting PSSM's orders would leave the owner between the last source's
-exit and its effect, and tie a completion-fired segment's place to its source's completion,
-which SM19's completion choice already draws.
+section's: every segment, effect included, ends before the owner is left.
+**differs, v2 silent.** Adopting PSSM's order would leave the owner between the last source's
+exit and its effect. *Join 001* stays `fail` on this order and on its suite's malformed second
+trace ([omg-issues](../../project/omg-issues.md#pssm-join-001-admits-a-malformed-trace)).
 
 #### Transition kinds: external, local, internal
 
@@ -1504,9 +1570,9 @@ carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
-| **agrees** | 50 |
+| **agrees** | 54 |
 | **differs because v2 differs** | 7 |
-| **differs, v2 silent** | 10 |
+| **differs, v2 silent** | 6 |
 | **gap** | 3 |
 | **Total** | **70** |
 
@@ -1518,7 +1584,7 @@ delivery), C6 (behavior ports) and C9 (interface-typed ports and name-based disp
 runtime follows, quoted in the row; adopting PSSM, fUML or PSCS there would move the runtime
 away from the specification it implements, so none of them is a candidate for a port.
 
-The ten **differs, v2 silent** rows, the only ones on which a port could change behavior
+The six **differs, v2 silent** rows, the only ones on which a port could change behavior
 without contradicting v2:
 
 - **SM7** — a deferrable occurrence that also enables a transition in an enclosing state or a
@@ -1527,21 +1593,10 @@ without contradicting v2:
 - **SM9** — when a completion transition's guard is read: PSSM reads it when the completion
   occurrence is dispatched, the runtime once, at completion; the library orders the guard within
   the source's performance but fixes no instant.
-- **SM11** — what the completion of a composite state completes: PSSM fires the composite
-  state's own completion transition and the machine goes on, the runtime propagates the completion
-  outward to the machine and never fires a completion transition out of a composite state.
-- **SM28** — history with nothing to restore and no default history transition: PSSM enters the
-  region's initial pseudostate, the runtime refuses the run.
-- **SM30** — choice guards: PSSM reads them on arrival, the runtime reads them before the step,
-  as for a junction.
-- **SM32** — a junction none of whose outgoing guards holds, or a join whose only way out is
-  guarded false: PSSM disables the compound transition and the occurrence is deferred or lost,
-  the runtime selects the incoming transition and fails the run.
-- **SM34** — the orders within a join's firing: PSSM fires each incoming segment on its own
-  occurrence, so two completion transitions into one join fire in the order their sources
-  completed, and leaves the owner with the last source, before that segment's effect; the
-  runtime holds the segments until the join is ready, draws their order, and leaves the owner
-  after the last effect.
+- **SM34** — where a join's owner is left: both fire each incoming segment on its own occurrence
+  and the outgoing one once every segment has arrived, but PSSM leaves the owner with the last
+  source, before that segment's effect, and the runtime after it, as the library's reading of a
+  segment as a performance enclosed in the owner places it.
 - **SM45** — destroying an object whose behavior is still performing: fUML stops the behavior and
   destroys, the runtime refuses the destruction.
 - **C3** — a connector between multi-valued ends: PSCS instantiates one link per matching pair
@@ -1549,6 +1604,13 @@ without contradicting v2:
   ends span the collections.
 - **C8** — a send that reaches no receiver: PSCS loses the occurrence, the runtime fails the
   send with a typed error.
+
+Four rows first assessed *differs, v2 silent* now **agree**, each decided for PSSM's rule and
+implemented, the first assessment and the *Decided:* sentence kept in the row: **SM11** (a
+composite state's completion fires its own completion transition), **SM28** (an empty history
+with no default transition performs the owner's default entry), **SM30** (a choice's guards are
+read on arrival) and **SM32** (a junction or a join's way out with no path through disables the
+compound transition, and the occurrence is handled as any unmatched one).
 
 The three **gap** rows:
 
@@ -1952,9 +2014,9 @@ and "guard expressions with side effects are ill formed".
 
 | Candidate | What it would do | Result against the admitted trace |
 |---|---|---|
-| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM32 records as *differs, v2 silent* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
+| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM32 recorded as *differs, v2 silent* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
 | A `calc def` or an expression with a side effect: spell each guard as a calculation that appends to `log` and returns its literal | the trace would be reached | **refused.** A v2 expression is pure — a `calc def` is a `Function` and a `calc` usage an `Expression` (SysML v2 §7.17), an `Evaluation` that computes a result and performs no action; a transition's guard is an `Expression` (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`), so `bool guard[*]` is an `Evaluation`, not a `step`, and no `assign`, `send` or `perform` may stand in one. What acts is `step effect[*]`, ordered after the guard. UML 2.5.1 §14.5.11 calls the guard with the side effect ill formed, so the spelling would encode a construct the source specification declares malformed to observe an order the target library places differently. Not spelled |
-| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM32) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** `differs-by-design` names a *differs because v2 differs* row a test reaches (`rows.go:TestRows`); SM32 is *differs, v2 silent*, so the bucket does not apply, and the test does not run at all: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is the construct's, not the order's alone. The classifier's refusal stands; SM31 (choice with no guard true) and SM32 (junction with no path through) are unchanged, and *Junction 002*, *Junction 004* and *Join 003* keep their buckets and reasons |
+| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM32) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** `differs-by-design` names a *differs because v2 differs* row a test reaches (`rows.go:TestRows`); SM32 was then *differs, v2 silent* and now **agrees**, so the bucket does not apply, and the test does not run at all: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is the construct's, not the order's alone. The classifier's refusal stands; SM31 (choice with no guard true) and SM32 (junction with no path through) were unchanged by it, and *Junction 002*, *Junction 004* and *Join 003* kept their buckets and reasons |
 
 The classification is the settled one: *guard side effect* is a construct with no translation
 and no faithful observable, `not-expressible` with the reason naming the four transitions,
@@ -2038,16 +2100,18 @@ An advisory PSSM comparison would generally test reproduction of UML behavior un
 model and semantics have a defensible SysML v2 mapping; it must not be described as proof of
 SysML v2 conformance. Concretely: of the 61 expressible and runnable tests, every one whose
 requirement lands on an **agrees** row checks that the runtime does what UML and v2 both say;
-the tests that land on SM7, SM9, SM11, SM28, SM30 and SM32 — *Deferred 004-A/B* and their kin,
+the tests that land on SM7, SM9 and SM34 — *Deferred 004-A/B* and their kin,
 whose deferring state has a competing transition in a sibling region; a completion transition
-whose guard changes between the completion and its dispatch step; the tests whose composite
-state owns a completion transition; a history test entered with nothing recorded and no default;
-a choice whose guard reads what the incoming effect wrote; and *Junction 002* — are the ones that
-would report on a tool choice; and the 37 tests
+whose guard changes between the completion and its dispatch step; and a join whose owner's exit
+the suite places before the last segment's effect — are the ones that would report on a tool
+choice; those landing on SM11, SM28, SM30 and SM32 (a composite owning a completion transition,
+a history entered with nothing recorded and no default, a choice whose guard reads what the
+incoming effect wrote, a junction or join with no way through) report on rules decided for PSSM's
+reading, and so check that the runtime does what it was decided to do; and the 37 tests
 with no spelling or translation, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
 that are v2's, and a harness would have to exclude them by classification rather than report
-them as failures. Used that way, the suite is a second opinion on ten rows and a regression
-oracle for forty-nine; it is never a conformance statement about SysML v2.
+them as failures. Used that way, the suite is a second opinion on the tool choices and a
+regression oracle for the rows that agree; it is never a conformance statement about SysML v2.
 
 ## Options
 
@@ -2189,8 +2253,12 @@ their semantics.
 *Decided:* option (a), and on its open rows PSSM's rule throughout — SM7 and SM28 as
 recommended, SM11 as leaned and as the library's own `done`/`endShot` binding reads, and SM30 as
 the project's own `pseudostates.md` already promised, so the "keep ours" position above holds for
-SM9, SM32, SM45, C8 and C3 only. Each of the four rows carries
+SM9, SM45, C8 and C3 only. Each of the four rows carries
 its *Decided:* sentence with the functions and fixtures; option (b) remains the follow-on it was.
+SM32 was decided for PSSM's rule afterwards: the "keep ours" argument for it — one static rule for
+choice and junction — went with SM30's decision, which made the choice dynamic, and the junction's
+static reading is then the one UML gives it, which decides enabledness (SM32's *Decided:*
+sentence). SM34's segment firing was decided with it; where the owner is left stays the runtime's.
 
 Nothing here changes the architecture's position. SysML v2 and the Kernel Semantic Library
 govern; UML 2.5.1 — and now, on the state-body extensions, PSSM's reading of UML — is the
@@ -2235,7 +2303,7 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    and `state_run_to_completion_false_machine` exercise state, scoped and machine redefinitions;
    sibling and missing scopes remain typed lowering refusals. **agrees.**
 
-4. **A composite state's completion ends the machine and never fires the composite's own
+4. **A composite state's completion ended the machine and never fired the composite's own
    completion transition** (SM11). SysML v2 §7.18.3 says a transition to `done` completes "the
    containing state performance" and that the containing state "does not necessarily terminate
    immediately"; `States.sysml` binds `done` to the `StatePerformance::endShot` of the state whose
@@ -2250,11 +2318,11 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    decision: the composite's own completion transitions fire (SM11's *Decided* sentence names the
    library declarations, the functions and the fixtures), and the roadmap's Track E records the
    finding as landed.
-5. **Choice guards are read before the incoming effect runs, where the project's own note says
+5. **Choice guards were read before the incoming effect ran, where the project's own note says
    otherwise** (SM30). `pseudostates.md` describes a choice as "a dynamic conditional branch whose
    outgoing guards are evaluated when the choice is entered"; `resolveRoute`/`pseudostateBranch`
-   pick the branch before the incoming transition's effect runs, and the code comment says the
-   two pseudostates are "indistinguishable for a guard over state data". v2 has no choice vertex,
+   picked the branch before the incoming transition's effect ran, and the code comment said the
+   two pseudostates were "indistinguishable for a guard over state data". v2 has no choice vertex,
    so this is not a v2 finding; it is a disagreement between a design note and the code, and one
    of them has to change (second open decision). `state_choice_pseudostate` does not reach it.
    *Fixed* with the second open decision: the code now matches the note (SM30's *Decided*
@@ -2379,7 +2447,10 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    performs no behavior is drawn with the performing unit beside it, so *Event 016 B*'s three
    silent firings across nested regions explore 1152 linearizations rather than some 320 000.
    *Exiting 001*, *Exiting 003*, *Fork 002*, *Terminate 001* and *Deferred 006 C* reach every
-   admitted trace and pass; *Transition 019* reaches its six and stays `fail` on SM34 alone.
+   admitted trace and pass; *Transition 019* reaches its six and stays `fail`: since SM34's decision its
+   two completions into the join fire in the order their silent targets are entered (finding 11's
+   pool order), which the suite ties to the order of the regions' effects (the referee record
+   adjudicates it).
    *Fixed at the fourth site* at the grain of a token move: a due do step against the
    dispatch the machine would make at the same instant — "dispatch now" against "keep moving
    the do flow" — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`,
@@ -2527,8 +2598,8 @@ a sibling's entry unit in the change set that drew it on the entry front.
 Addressed to the maintainers; each gives the options and the lean.
 
 1. **SM11 — does a composite state's completion fire the composite's own completion transition?**
-   *Options:* (i) keep the runtime's rule — completion propagates to the machine, a nil-trigger
-   transition out of a composite state is unreachable — and amend the spec-compliance record and
+   *Options:* (i) keep the rule the runtime then had — completion propagates to the machine, a
+   nil-trigger transition out of a composite state is unreachable — and amend the spec-compliance record and
    `orthogonal-regions.md` to say so explicitly with the §7.18.3 sentence quoted; (ii) adopt
    PSSM's rule — the composite generates a completion occurrence, its completion transition fires
    if enabled, the machine ends only when its top-level regions complete — as the reading of
@@ -2548,10 +2619,11 @@ Addressed to the maintainers; each gives the options and the lean.
 2. **SM30 — dynamic or static choice guards?** *Options:* (i) make the code match
    `pseudostates.md`: evaluate a choice's guards after the incoming effect, keeping a junction's
    static; (ii) make the note match the code: one static rule for both, the choice/junction
-   distinction being one of notation. *Lean:* (i). UML's one reason to have two vertices is this
+   distinction being one of notation (the code then had a choice read as a junction is).
+   *Lean:* (i). UML's one reason to have two vertices is this
    distinction, the project's note already promises it, and PSSM's *Choice 001* test would be the
    conformance case. The cost is that `resolveRoute` must resolve a choice lazily, after the
-   segment's effect, which the route-resolution code does not do today. *Decided:* (i); see
+   segment's effect, which the route-resolution code did not do then. *Decided:* (i); see
    SM30, and `pseudostates.md` for what a chain of pseudostates does. Only
    `state_region_exit_pseudostate`'s outcome moved: its choice guard now reads the count the
    exit actions wrote.

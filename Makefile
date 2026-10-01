@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -98,6 +98,15 @@ build-sysml: ## Build sysml binary
 	$(GO_BUILD) -o $(BIN_DIR)/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml ($(VERSION))"
 
+# The production sysml leaves out the optional and developer-only feature groups
+# (sysml_prod; see cmd/sysml/features.go). Opt-in: nothing builds it by default.
+build-prod: ## Build bin/sysml-prod, sysml without the optional features (-tags sysml_prod)
+	@echo "Building sysml-prod..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml)
+	$(GO_BUILD) -tags sysml_prod -o $(BIN_DIR)/sysml-prod ./cmd/sysml
+	@echo "✓ Built $(BIN_DIR)/sysml-prod ($(VERSION))"
+
 build-lsp: ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
 	@mkdir -p $(BIN_DIR)
@@ -134,6 +143,14 @@ build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	done
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/js ($(VERSION))"
+
+build-wasm-prod: ## Build bin/wasm/{js,wasip1}/sysml-prod.wasm with -tags sysml_prod
+	@echo "Building WebAssembly sysml-prod..."
+	@mkdir -p $(WASM_DIR)/js $(WASM_DIR)/wasip1
+	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/wasip1/sysml-prod.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/js/sysml-prod.wasm ./cmd/sysml
+	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
+	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/sysml-prod.wasm ($(VERSION))"
 
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
 	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm

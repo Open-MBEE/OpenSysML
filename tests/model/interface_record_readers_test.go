@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // Readers that switch on a declaration's kind or modifiers must read the
@@ -808,7 +809,7 @@ func TestInterfaceRecordDocumentQueriesMatchLoaded(t *testing.T) {
 					t.Fatalf("%s loaded: %v", in.Name, diags)
 				}
 			}
-			want, err := loaded.RenderDocumentMarkdown(tc.name, docrender.MarkdownOptions{})
+			want, err := modeldoc.RenderDocumentMarkdown(loaded, tc.name, docrender.MarkdownOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -829,7 +830,7 @@ func TestInterfaceRecordDocumentQueriesMatchLoaded(t *testing.T) {
 			if diags := ws.Diagnostics("report.sysml"); len(diags) != 0 {
 				t.Fatalf("report.sysml over the recorded %s: %v", tc.recorded, diags)
 			}
-			got, err := ws.RenderDocumentMarkdown(tc.name, docrender.MarkdownOptions{})
+			got, err := modeldoc.RenderDocumentMarkdown(ws, tc.name, docrender.MarkdownOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}

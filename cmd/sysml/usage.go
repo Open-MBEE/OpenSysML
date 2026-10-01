@@ -5,7 +5,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 )
 
 // The help-text placeholders and check flag names the help repeats.
@@ -24,7 +23,7 @@ const (
 // doc describes the command for both the terminal help and the man page, so a
 // mode documented for one is documented for the other.
 func doc() usage.Doc {
-	return usage.Doc{
+	return withoutOmitted(usage.Doc{
 		Command:    "sysml",
 		ManSection: 1,
 		Summary:    "run, check, convert and render SysML v2 and KerML models, and migrate SysML v1",
@@ -295,8 +294,9 @@ func doc() usage.Doc {
 					"rdf, api-json, or fmu for a Functional Mock-up Unit to import. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
-					"is normalized. A SysML v1 model (.xmi, .uml, .mdzip) is refused: " +
-					"it is migrated, not converted; see Migration.",
+					"is normalized.",
+				"A SysML v1 model (.xmi, .uml, .mdzip) is refused: it is migrated, " +
+					"not converted; see Migration.",
 				"Either side may name a Flexo MMS project branch instead of a file: " +
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
 					"or flexo://{project}/{branch}, both naming the endpoint " +
@@ -389,7 +389,7 @@ func doc() usage.Doc {
 					"-sync-state), never written into the notation. -sync-apply " +
 					"refuses a change set the dry run would have flagged, sends each " +
 					"update under its retained id, and records the resulting commit; " +
-					"the token comes from " + flexo.EnvToken + ".",
+					"the token comes from " + syncTokenEnv + ".",
 			},
 		}, {
 			Title: "Rendering a view",
@@ -564,7 +564,7 @@ func doc() usage.Doc {
 			},
 		}},
 		SeeAlso: []string{"sysml-lsp(1)", "sysml-grpc(1)", "https://github.com/Open-MBEE/OpenSysML"},
-	}
+	})
 }
 
 // solverEnvironment describes the variables of the experimental solving
@@ -589,7 +589,6 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.Var(&evalExprs, "eval", "Evaluate this expression, against the model when one is loaded, and exit (repeatable)")
 	fs.Var(&evalExprs, "e", "Evaluate this expression, against the model when one is loaded, and exit (repeatable)")
-	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
 	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal or port-type-mismatch, comma-separated or repeated")
@@ -635,21 +634,12 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph. A SysML v1 model is refused: it is migrated, with -migrate")
-	fs.StringVar(&migrateFormat, "migrate", "", "Migrate the SysML v1 model (.xmi, .uml or .mdzip; -from names the format when the extension does not) to SysML v2, written in this format: sysml, kerml, ttl, turtle, rdf or api-json. Ledgered, not lossless: every element is mapped, approximated or left unmapped, and -migration-report says which (experimental)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, or fmu for a Functional Mock-up Unit to import; for -migrate: xmi, uml or mdzip, the forms of a SysML v1 model; default the input's extension")
+	fs.StringVar(&convertFormat, "convert", "", convertUsage())
+	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
-	fs.StringVar(&outputPath, "output", "", "Write what -convert, -migrate, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl or -migrate ttl, a Flexo branch URL pushes the graph to the branch")
-	fs.StringVar(&outputPath, "o", "", "Write what -convert, -migrate, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl or -migrate ttl, a Flexo branch URL pushes the graph to the branch")
-	fs.StringVar(&migrationReport, "migration-report", "", "With -migrate, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
-	fs.StringVar(&migrationResults, "migration-results", "", "With -migrate, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
-	fs.StringVar(&layoutPath, "layout", "", "With -migrate, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
-	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -migrate, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
+	fs.StringVar(&outputPath, "output", "", outputUsage())
+	fs.StringVar(&outputPath, "o", "", outputUsage())
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
-
-	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
-	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c or go")
-	fs.BoolVar(&compileSource, "source", false, "With -compile, write the generated source to -o instead of building it")
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
@@ -660,41 +650,18 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
-	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
+	fs.StringVar(&docForm, "doc-form", "", docFormUsage())
 	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot or plantuml; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
-	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")
-	fs.BoolVar(&pdfTOC, "doc-toc", false, "Write a table of contents ahead of the content (html or pdf)")
-	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
-	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, html or pdf)")
-	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
-
-	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, acm, ieee, modern, nasa, print or report")
-	fs.Var(&htmlCSS, "html-css", "Style the HTML or PDF with this stylesheet too: a file is inlined, a URL is linked (repeatable, applied in order after the default sheet)")
-	fs.BoolVar(&htmlNoCSS, "html-no-default-css", false, "Leave the default stylesheet out, so only -html-css sheets style the HTML or PDF")
-	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")
-	fs.BoolVar(&htmlShowCSS, "html-default-css", false, "Write the default document stylesheet, or with -html-theme that theme's whole sheet, and exit")
-	fs.StringVar(&htmlMermaid, "html-mermaid", "", "Have the page load Mermaid to draw its diagrams: cdn loads a pinned release from jsDelivr, a URL the script it names")
-	fs.StringVar(&htmlMath, "html-math", "", "Have the page load MathJax to typeset its formulas: cdn loads a pinned release from jsDelivr, a URL the script it names")
-
-	fs.StringVar(&syncDiffWith, "sync-diff", "", "Show the change set between the model and this repository — a graph file (.ttl) or a SysML v2 API endpoint URL — and exit; never writes")
-	fs.StringVar(&syncApplyTo, "sync-apply", "", "Apply the change set to the model's project branch at this SysML v2 API endpoint URL, then record the commit in the sync state")
-	fs.StringVar(&syncBase, "sync-base", "", "Repository graph at the last-seen commit; with it, repository changes since then surface as conflicts")
-	fs.StringVar(&syncState, "sync-state", "", "Sync state file recording project, branch and last-seen commit; default <model>.sync.json beside the model")
-	fs.BoolVar(&syncConfirmDeletes, "sync-confirm-deletes", false, "Confirm repository-side deletes; without it the diff reports them but applying is refused")
-	fs.BoolVar(&syncMintIDs, "sync-mint-ids", false, "Mint a UUID for each unannotated element being created, so the repository can address it stably")
-	fs.StringVar(&syncAnnotate, "sync-annotate", "", "Write the model to this file with each minted id declared as an @ElementId annotation (needs -sync-mint-ids)")
+	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, docNumberFiguresUsage())
 
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
-	fs.StringVar(&cpuProfilePath, "cpuprofile", "", "Write a CPU profile of the run to this file, for go tool pprof")
-	fs.StringVar(&memProfilePath, "memprofile", "", "Write a heap profile of the run to this file, for go tool pprof")
 	fs.BoolVar(&memStats, "memstats", false, "Report on stderr what the run cost: wall time, memory allocated, memory taken from the OS")
 
 	fs.Var(&deprecatedFlag{instead: "-to has been replaced by -convert, as `sysml model.sysml -convert ttl`"}, "to", "Replaced by -convert, which names the output format")
-	fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Former name of -doc-title-page, which also shapes HTML")
-	fs.BoolVar(&pdfTOC, "pdf-toc", false, "Former name of -doc-toc, which also shapes HTML")
-	fs.BoolVar(&pdfNumbering, "pdf-number-sections", false, "Former name of -doc-number-sections, which also shapes HTML")
+
+	declareFeatureFlags(fs)
 }
 
 // optionGroups lays the flags out by task, each with the placeholder its

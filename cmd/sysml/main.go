@@ -298,6 +298,9 @@ func runCLI() int {
 		// flag.CommandLine exits on error; unreachable unless that changes.
 		return 2
 	}
+	if err := omittedUse(flag.CommandLine); err != nil {
+		return fail(err)
+	}
 
 	// Help that was asked for is the result of the run: it belongs on stdout, where
 	// it can be piped, and the run did what was asked.
@@ -643,6 +646,10 @@ func runCLI() int {
 
 	for _, path := range args {
 		if f, err := convert.FormatOfPath(path); err == nil && f == convert.FormatXMI {
+			if !v1Feature.linked {
+				fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model, which this build cannot migrate (built without v1)\n", path)
+				return 2
+			}
 			fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model; migrate it first with `sysml %s -migrate sysml -output model.sysml`, then load model.sysml\n", path, path)
 			return 2
 		}

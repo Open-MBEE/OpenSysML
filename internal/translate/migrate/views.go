@@ -389,7 +389,7 @@ func (m *migration) viewpointTags(e *sysmlv1.Element, concerns []*sysmlv1.Elemen
 		m.frameConcern(concern)
 	}
 	for _, c := range concerns {
-		text := commentBody(c)
+		text := m.commentBody(c)
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue

@@ -1,9 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -15,11 +12,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
@@ -51,123 +43,6 @@ func runConvertExit(files []string) int {
 	return status
 }
 
-// runMigrate migrates the SysML v1 model named on the command line to v2,
-// written in the format -migrate asks for, to -o or to stdout. The migration
-// is ledgered, not lossless: every v1 element is mapped, approximated or left
-// unmapped, and the report (-migration-report, or its summary on stderr)
-// says which. -o may name a Flexo branch URL, the place a Turtle migration is
-// pushed.
-func runMigrateExit(files []string) int {
-	status, err := runMigrate(files)
-	if err != nil {
-		return fail(err)
-	}
-	return status
-}
-
-func runMigrate(files []string) (int, error) {
-	to, err := parseTargetFormat(migrateFormat, "-migrate")
-	if err != nil {
-		return 0, err
-	}
-	if len(files) == 0 {
-		return 0, errors.New("no model to migrate; name the SysML v1 model to migrate, as `sysml Model.mdzip -migrate sysml -o Model.sysml`")
-	}
-	if len(files) > 1 {
-		return 0, fmt.Errorf("-migrate migrates one SysML v1 model per run, and %d files were named; a .mdzip or .xmi export holds the whole project", len(files))
-	}
-	input := files[0]
-	inputRef, inputIsURL, err := flexo.ParseBranchURL(input)
-	if err != nil {
-		return 0, err
-	}
-	if inputIsURL {
-		return 0, fmt.Errorf("a repository branch holds a SysML v2 graph, which is converted, not migrated; write `sysml %s -convert %s`", inputRef, to)
-	}
-	if outputPath != "" {
-		outputRef, outputIsURL, err := flexo.ParseBranchURL(outputPath)
-		if err != nil {
-			return 0, err
-		}
-		if outputIsURL {
-			return pushBranch(input, to, outputRef, "-migrate", migrateInput)
-		}
-	}
-	if syncState != "" {
-		return 0, fmt.Errorf("-sync-state records a repository branch's head; -o %s does not name a branch", outputPath)
-	}
-
-	from, err := resolveFormat(fromFormat, input)
-	if err != nil {
-		return 0, err
-	}
-	if err := requireV1(from, input, to); err != nil {
-		return 0, err
-	}
-	name, data, err := project.ReadFile(input)
-	if err != nil {
-		return 0, err
-	}
-	for _, notice := range convert.Notices(from, to) {
-		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
-	}
-	if err := migrateFlagsMisuse(input); err != nil {
-		return 0, err
-	}
-	made, err := migrateInput(name, data, from, to)
-	if err != nil {
-		return 0, err
-	}
-	if err := writeConverted(input, to, made); err != nil {
-		return 0, err
-	}
-	return exitHolds, nil
-}
-
-// requireV1 is why -migrate refuses input that is not a SysML v1 model: a v2
-// model, an RDF graph or an FMU is converted, and -convert is the verb for that.
-func requireV1(from convert.Format, input string, to convert.Format) error {
-	if from == convert.FormatXMI {
-		return nil
-	}
-	remedy := fmt.Sprintf("write `sysml %s -convert %s`", input, to)
-	if fromFormat != "" {
-		remedy = fmt.Sprintf("write `sysml %s -from %s -convert %s`", input, fromFormat, to)
-	}
-	return &convert.NotV1Error{Name: inputLabel(input), Format: from, Remedy: remedy}
-}
-
-// refuseV1 is why -convert refuses a SysML v1 model: it is migrated, not
-// converted, and the remedy names the -migrate run that does it, its report
-// beside the model.
-func refuseV1(from convert.Format, input string, to convert.Format) error {
-	if from != convert.FormatXMI {
-		return nil
-	}
-	stem := "model"
-	source := input
-	named := ""
-	if fromFormat != "" {
-		named = " -from " + fromFormat
-	}
-	if !project.IsStdin(input) {
-		stem = strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
-		if stem == "" {
-			stem = "model"
-		}
-	}
-	remedy := fmt.Sprintf("write `sysml %s%s -migrate %s -o %s.%s -migration-report %s.report.txt`", source, named, to, stem, to, stem)
-	return &convert.NotMigratedError{Name: inputLabel(input), Remedy: remedy}
-}
-
-// inputLabel names the input in a diagnostic: its path, or standard input.
-func inputLabel(input string) string {
-	if project.IsStdin(input) {
-		return "standard input"
-	}
-	return input
-}
-
 func runConvert(files []string) (int, error) {
 	to, err := parseTargetFormat(convertFormat, "-convert")
 	if err != nil {
@@ -190,24 +65,8 @@ func runConvert(files []string) (int, error) {
 		return convertRecorded(input, to)
 	}
 
-	inputRef, inputIsURL, err := flexo.ParseBranchURL(input)
-	if err != nil {
-		return 0, err
-	}
-	outputRef := flexo.BranchRef{}
-	outputIsURL := false
-	if outputPath != "" {
-		if outputRef, outputIsURL, err = flexo.ParseBranchURL(outputPath); err != nil {
-			return 0, err
-		}
-	}
-	switch {
-	case inputIsURL && outputIsURL:
-		return 0, errors.New("a repository branch can be read or pushed in one run, not both; write the branch to a file, or convert a file to the branch")
-	case outputIsURL:
-		return pushBranch(input, to, outputRef, "-convert", convertInput)
-	case inputIsURL:
-		return readBranch(inputRef, to)
+	if status, handled, err := convertBranch(input, to); handled {
+		return status, err
 	}
 	if syncState != "" {
 		return 0, fmt.Errorf("-sync-state records a repository branch's head; neither %s nor -o names a branch", input)
@@ -244,26 +103,51 @@ func runConvert(files []string) (int, error) {
 	return exitHolds, nil
 }
 
-// migrateFlagsMisuse refuses the flag combinations that would lose the v1
-// model, its report, its results or its layout export: none may be written
-// over another, and the migration may not replace the model it reads.
-func migrateFlagsMisuse(input string) error {
-	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
-		return fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
+// requireV1 is why -migrate refuses input that is not a SysML v1 model: a v2
+// model, an RDF graph or an FMU is converted, and -convert is the verb for that.
+func requireV1(from convert.Format, input string, to convert.Format) error {
+	if from == convert.FormatXMI {
+		return nil
 	}
-	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
-		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	remedy := fmt.Sprintf("write `sysml %s -convert %s`", input, to)
+	if fromFormat != "" {
+		remedy = fmt.Sprintf("write `sysml %s -from %s -convert %s`", input, fromFormat, to)
 	}
-	if err := migrationResultsMisuse(input); err != nil {
-		return err
+	return &convert.NotV1Error{Name: inputLabel(input), Format: from, Remedy: remedy}
+}
+
+// refuseV1 is why -convert refuses a SysML v1 model: it is migrated, not
+// converted, and the remedy names the -migrate run that does it, its report
+// beside the model. A build made without the migration has no such run to name.
+func refuseV1(from convert.Format, input string, to convert.Format) error {
+	if from != convert.FormatXMI {
+		return nil
 	}
-	if err := layoutMisuse(input); err != nil {
-		return err
+	if !v1Feature.linked {
+		return fmt.Errorf("%s is a SysML v1 model, which this build cannot migrate (built without v1)", inputLabel(input))
 	}
-	if outputPath != "" && input != "-" && samePath(outputPath, input) {
-		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
+	stem := "model"
+	source := input
+	named := ""
+	if fromFormat != "" {
+		named = " -from " + fromFormat
 	}
-	return nil
+	if !project.IsStdin(input) {
+		stem = strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
+		if stem == "" {
+			stem = "model"
+		}
+	}
+	remedy := fmt.Sprintf("write `sysml %s%s -migrate %s -o %s.%s -migration-report %s.report.txt`", source, named, to, stem, to, stem)
+	return &convert.NotMigratedError{Name: inputLabel(input), Remedy: remedy}
+}
+
+// inputLabel names the input in a diagnostic: its path, or standard input.
+func inputLabel(input string) string {
+	if project.IsStdin(input) {
+		return "standard input"
+	}
+	return input
 }
 
 // writeConverted writes the converted model to stdout or -o, the images a
@@ -346,29 +230,6 @@ func convertInput(name string, data []byte, from, to convert.Format) (produced, 
 	return produced{out: out}, nil
 }
 
-// migrateInput runs the migration -migrate asks for. Its report and results
-// are written by the sidecars, once the destination has taken the model.
-func migrateInput(name string, data []byte, _ convert.Format, to convert.Format) (produced, error) {
-	migOpts, err := migrationOptions()
-	if err != nil {
-		return produced{}, err
-	}
-	migrated, err := convert.Migrate(name, data, to, migOpts)
-	if err != nil {
-		return produced{}, err
-	}
-	return produced{
-		out:   migrated.Output,
-		files: migrated.Files,
-		sidecars: func() error {
-			if err := writeMigrationReport(migrated.Report); err != nil {
-				return err
-			}
-			return writeMigrationResults(migrated.Results)
-		},
-	}, nil
-}
-
 // writeMigrationFiles writes a migration's model and its image files as one
 // set: all are staged before any is committed, the model first.
 func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bool, dir string, files map[string][]byte) error {
@@ -423,7 +284,7 @@ func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bo
 // converts: what is converted is the session the records join, not a branch
 // read or pushed.
 func recordedConvertMisuse(input string) error {
-	inRef, inputIsURL, err := flexo.ParseBranchURL(input)
+	inRef, inputIsURL, err := branchURL(input)
 	if err != nil {
 		return err
 	}
@@ -431,7 +292,7 @@ func recordedConvertMisuse(input string) error {
 		return fmt.Errorf("-record-run converts the recorded session model; a repository branch is not an input it reads (%s)", inRef)
 	}
 	if outputPath != "" {
-		outRef, outputIsURL, err := flexo.ParseBranchURL(outputPath)
+		outRef, outputIsURL, err := branchURL(outputPath)
 		if err != nil {
 			return err
 		}
@@ -535,220 +396,6 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 	return nil
 }
 
-// openBranch resolves a branch URL's repository under the shared bearer token;
-// an http(s) form naming another endpoint would split reads and writes across stacks.
-func openBranch(ref flexo.BranchRef) (*flexo.Repository, flexo.Config, error) {
-	cfg, err := flexo.ConfigFromEnv()
-	if err != nil {
-		return nil, flexo.Config{}, fmt.Errorf("a repository branch needs its bearer token: %w", err)
-	}
-	if ref.SysMLV2URL != "" && !flexo.SameEndpoint(ref.SysMLV2URL, cfg.SysMLV2URL) {
-		return nil, flexo.Config{}, fmt.Errorf("%s names a SysML v2 endpoint other than the configured %s (%s); point %s and %s at that stack together, or write flexo://%s/%s",
-			ref.SysMLV2URL, cfg.SysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvLayer1URL, ref.Project, ref.Branch)
-	}
-	if err := cfg.CheckTransport(); err != nil {
-		return nil, flexo.Config{}, err
-	}
-	return flexo.New(cfg).Repository(ref.Project, ref.Branch), cfg, nil
-}
-
-// readBranch converts a repository branch to -convert's format: the branch is
-// read as its head commit's RDF graph.
-func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
-	if fromFormat != "" {
-		if f, err := convert.ParseFormat(fromFormat); err != nil {
-			return 0, err
-		} else if f != convert.FormatTurtle {
-			return 0, fmt.Errorf("a repository branch is read as its RDF graph; -from %s does not apply", fromFormat)
-		}
-	}
-	for _, notice := range convert.Notices(convert.FormatTurtle, to) {
-		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
-	}
-	repo, cfg, err := openBranch(ref)
-	if err != nil {
-		return 0, err
-	}
-	// Resolve and check the state file before anything is written: -o must
-	// never replace it, and a state pinned elsewhere refuses first.
-	statePath := syncState
-	if statePath == "" && outputPath != "" {
-		statePath = reposync.StatePath(outputPath)
-	}
-	if statePath != "" && outputPath != "" && samePath(statePath, outputPath) {
-		return 0, fmt.Errorf("-o and -sync-state both name %s; the model would replace the recorded commit", outputPath)
-	}
-	var state *reposync.State
-	if statePath != "" {
-		if state, err = reposync.LoadState(statePath); err != nil {
-			return 0, err
-		}
-	}
-	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
-	if state != nil {
-		if err := state.Check(scope); err != nil {
-			return 0, err
-		}
-	}
-	graph, err := repo.Graph(context.Background())
-	if err != nil {
-		return failRepository(fmt.Errorf("read the repository: %w", err)), nil
-	}
-	out, err := convert.FromGraph(graph, to)
-	if err != nil {
-		return 0, err
-	}
-	if outputPath == "" {
-		if _, err := os.Stdout.Write(out); err != nil {
-			return 0, err
-		}
-	} else if err := writeConversion(outputPath, out, to); err != nil {
-		return 0, err
-	}
-	if statePath == "" {
-		return exitHolds, nil
-	}
-	return recordBranchState(repo.Seen(), state, scope, statePath)
-}
-
-// pushBranch replaces a branch's model graph with the input written as Turtle
-// by produce — converted under -convert, migrated under -migrate, which verb
-// names; a sync state the head moved past refuses the write.
-func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb string, produce producer) (int, error) {
-	if to != convert.FormatTurtle {
-		return 0, fmt.Errorf("a repository branch holds a graph; %s ttl to push, not %s", strings.TrimPrefix(verb, "-"), to)
-	}
-	statePath := syncState
-	if statePath == "" {
-		if project.IsStdin(input) {
-			return 0, errors.New("a push records the commit it makes beside the model; with the model on stdin, name the state file with -sync-state")
-		}
-		statePath = reposync.StatePath(input)
-	}
-	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
-		return 0, fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
-	}
-	if migrationReport != "" && samePath(migrationReport, statePath) {
-		return 0, fmt.Errorf("-migration-report and the sync state both name %s; the report would be replaced by the recorded commit", statePath)
-	}
-	if migrationResults != "" && samePath(migrationResults, statePath) {
-		return 0, fmt.Errorf("-migration-results and the sync state both name %s; the results would be replaced by the recorded commit", statePath)
-	}
-	repo, cfg, err := openBranch(ref)
-	if err != nil {
-		return 0, err
-	}
-	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
-	state, err := reposync.LoadState(statePath)
-	if err != nil {
-		return 0, err
-	}
-	if state != nil {
-		if err := state.Check(scope); err != nil {
-			return 0, err
-		}
-		repo.Resume(state.LastSeenCommit)
-	}
-	from, err := resolveFormat(fromFormat, input)
-	if err != nil {
-		return 0, err
-	}
-	if verb == "-migrate" {
-		err = requireV1(from, input, to)
-	} else {
-		err = refuseV1(from, input, to)
-	}
-	if err != nil {
-		return 0, err
-	}
-	name, data, err := project.ReadFile(input)
-	if err != nil {
-		return 0, err
-	}
-	for _, notice := range convert.Notices(from, to) {
-		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
-	}
-	if err := migrationResultsMisuse(input); err != nil {
-		return 0, err
-	}
-	if err := layoutMisuse(input); err != nil {
-		return 0, err
-	}
-	made, err := produce(name, data, from, to)
-	if err != nil {
-		return 0, err
-	}
-	if len(made.files) > 0 {
-		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(made.files))
-	}
-	if err := made.writeSidecars(); err != nil {
-		return 0, err
-	}
-	out := made.out
-	head, err := repo.Push(context.Background(), out, "sysml "+verb+" ttl")
-	if err != nil {
-		var stale *flexo.StaleBranchError
-		var unrecorded *flexo.UnrecordedPushError
-		var superseded *flexo.SupersededPushError
-		switch {
-		case errors.As(err, &stale):
-			fmt.Fprintf(os.Stderr, "%srefused to push: %v\n", commandPrefix, err)
-			return exitFailed, nil
-		case errors.As(err, &unrecorded), errors.As(err, &superseded):
-			fmt.Fprintf(os.Stderr, "%s%v\n", commandPrefix, err)
-			return exitFailed, nil
-		}
-		return failRepository(fmt.Errorf("push to the repository: %w", err)), nil
-	}
-	if state == nil {
-		state = &reposync.State{}
-	}
-	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = cfg.Org, ref.Project, ref.Branch, head
-	if err := state.Save(statePath); err != nil {
-		return 0, fmt.Errorf("pushed %d bytes of Turtle as commit %s, but could not record it: %w", len(out), head, err)
-	}
-	fmt.Fprintf(os.Stderr, "pushed %d bytes of Turtle to branch %s of %s; head commit %s recorded in %s\n",
-		len(out), ref.Branch, ref.Project, head, statePath)
-	return exitHolds, nil
-}
-
-// recordBranchState writes the head commit the run stood at to the sync state
-// file, over the state already loaded and checked for this scope.
-func recordBranchState(head string, state *reposync.State, scope reposync.Scope, statePath string) (int, error) {
-	if head == "" {
-		return exitHolds, nil
-	}
-	if state != nil && state.Scope() == scope && state.LastSeenCommit == head {
-		return exitHolds, nil
-	}
-	if state == nil {
-		state = &reposync.State{}
-	}
-	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = scope.Org, scope.ProjectID, scope.Branch, head
-	if err := state.Save(statePath); err != nil {
-		return 0, fmt.Errorf("could not record head commit %s: %w", head, err)
-	}
-	fmt.Fprintf(os.Stderr, "head commit %s recorded in %s\n", head, statePath)
-	return exitHolds, nil
-}
-
-// migrationOptions reads the -layout MTIP export into the migration's
-// options; none were given when the flag was not passed.
-func migrationOptions() (migrate.Options, error) {
-	if layoutPath == "" {
-		return migrate.Options{ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
-	}
-	data, err := os.ReadFile(layoutPath)
-	if err != nil {
-		return migrate.Options{}, err
-	}
-	layout, err := mtip.Parse(data)
-	if err != nil {
-		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
-	}
-	return migrate.Options{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
-}
-
 // layoutMisuse reports why -layout would be lost: the export must not name a
 // file the run rewrites.
 func layoutMisuse(input string) error {
@@ -767,28 +414,6 @@ func layoutMisuse(input string) error {
 	return nil
 }
 
-// writeMigrationReport writes the report to the -migration-report file (JSON when
-// it ends in .json), or just its summary to stderr when the flag was not given.
-func writeMigrationReport(report *migrate.Report) error {
-	if migrationReport == "" {
-		fmt.Fprintf(os.Stderr, "migration: %s; pass -migration-report FILE for the element-by-element report\n", report.Summary())
-		return nil
-	}
-	var body bytes.Buffer
-	write := report.WriteText
-	if strings.EqualFold(filepath.Ext(migrationReport), ".json") {
-		write = report.WriteJSON
-	}
-	if err := write(&body); err != nil {
-		return err
-	}
-	if _, err := export.WriteFile(migrationReport, body.Bytes()); err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "wrote %s (migration report: %s)\n", migrationReport, report.Summary())
-	return nil
-}
-
 // migrationResultsMisuse reports why -migration-results would be lost: the
 // sidecar must not replace the model or the report.
 func migrationResultsMisuse(input string) error {
@@ -802,23 +427,6 @@ func migrationResultsMisuse(input string) error {
 	case input != "-" && samePath(migrationResults, input):
 		return fmt.Errorf("-migration-results names the model being migrated, %s; the results would replace it", input)
 	}
-	return nil
-}
-
-// writeMigrationResults writes the result snapshots the migration indexed to the
-// -migration-results file as JSON, for -compare-results to read against the migrated model.
-func writeMigrationResults(results *simresults.Results) error {
-	if migrationResults == "" {
-		return nil
-	}
-	body, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		return err
-	}
-	if _, err := export.WriteFile(migrationResults, append(body, '\n')); err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "wrote %s (%s)\n", migrationResults, results.Summary())
 	return nil
 }
 
@@ -910,14 +518,14 @@ func convertModel(files []string, to convert.Format) (int, error) {
 		return 0, errors.New("a model of several files converts on its own: -record, -migration-report, -migration-results and -sync-state take one file")
 	}
 	if outputPath != "" {
-		if _, isURL, err := flexo.ParseBranchURL(outputPath); err != nil {
+		if _, isURL, err := branchURL(outputPath); err != nil {
 			return 0, err
 		} else if isURL {
 			return 0, fmt.Errorf("-o %s: a model of several files is written to a file; a repository branch is pushed from one file", outputPath)
 		}
 	}
 	for _, file := range files {
-		if _, isURL, err := flexo.ParseBranchURL(file); err != nil || isURL {
+		if _, isURL, err := branchURL(file); err != nil || isURL {
 			return 0, fmt.Errorf("%s: a model of several files converts files, not a repository branch", file)
 		}
 		from, err := resolveFormat(fromFormat, file)
