@@ -231,15 +231,21 @@ export function verificationsFor(
   return verifications.filter((v) => v.requirementId === pbVerdict.requirementId);
 }
 
-/** Wrap a wire verdict with the instances and diagnostics its response carried. */
+/** Wrap a wire verdict with the instances and diagnostics its response carried,
+ * attaching the verifications of its own requirement — every one the response
+ * carried when `attachAll` is set, as a single-verdict response asks for. */
 export function verdictOf(
   pbVerdict: PbVerdict,
   instances: readonly Instance[],
   diagnostics: readonly ModelDiagnostic[],
   verifications: readonly VerificationVerdict[],
+  attachAll = false,
 ): Verdict {
   return {
-    verdict: decodeVerdict(pbVerdict, verificationsFor(verifications, pbVerdict)),
+    verdict: decodeVerdict(
+      pbVerdict,
+      attachAll ? verifications : verificationsFor(verifications, pbVerdict),
+    ),
     instances,
     diagnostics,
   };
@@ -634,7 +640,7 @@ export function validationOf(
     verdicts,
     ...(response.summary === undefined
       ? {}
-      : { summary: verdictOf(response.summary, instances, diagnostics, verifications) }),
+      : { summary: verdictOf(response.summary, instances, diagnostics, verifications, true) }),
     instances,
     bounded: response.bounded,
     diagnostics,
@@ -656,7 +662,7 @@ export function analysisResultOf(
   const result = new AnalysisResult({
     outputs,
     verdicts: response.verdicts.map((pbVerdict) =>
-      verdictOf(pbVerdict, instances, diagnostics, verifications),
+      verdictOf(pbVerdict, instances, diagnostics, []),
     ),
     instances,
     diagnostics,

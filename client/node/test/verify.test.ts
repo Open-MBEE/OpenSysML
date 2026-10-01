@@ -1,7 +1,14 @@
 // Verification: constraints, requirements, satisfaction and validation.
 
+import { create } from "@bufbuild/protobuf";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { before, test } from "node:test";
+import {
+  VerifyRequirementResponseSchema,
+  VerifySatisfactionResponseSchema,
+} from "../src/generated/sysml_pb.js";
 import {
   MissingCapabilityError,
   WrongKindError,
@@ -11,7 +18,9 @@ import {
   verdictHolds,
 } from "../src/node/index.js";
 import { fakeConnection } from "./support/fake.js";
-import { useServiceBinary } from "./support/service.js";
+import { repoRoot, useServiceBinary } from "./support/service.js";
+
+const CASES_FIXTURE = join(repoRoot, "conformance", "fixtures", "verification_cases.sysml");
 
 before(() => {
   useServiceBinary();
@@ -145,4 +154,58 @@ test("runAnalysis engine explore is refused as an answer-about-outcomes", async 
     () => model.runAnalysis("P::lemma", { engine: "explore" }),
     /exploreAnalysis/,
   );
+});
+
+test("a direct verdict attaches every verification the response carried", async () => {
+  const conn = await fakeConnection(["verification"], () =>
+    create(VerifyRequirementResponseSchema, {
+      verdict: { kind: "requirement", element: "satisfy Demo::r", holds: true },
+      verificationVerdicts: [
+        { caseId: "Demo::checkMass", kind: "fail" },
+        { caseId: "Demo::checkMass::inner", kind: "inconclusive", subcase: true },
+      ],
+    }),
+  );
+  const verdict = await conn.verifyRequirement("hash1", "Demo::r");
+  assert.equal(verdict.verdict.kind, "holds");
+  assert.deepEqual(
+    verdict.verdict.verifications.map((v) => v.caseId),
+    ["Demo::checkMass", "Demo::checkMass::inner"],
+  );
+});
+
+test("a satisfaction verdict takes only the verifications of its own requirement", async () => {
+  const conn = await fakeConnection(["verification"], () =>
+    create(VerifySatisfactionResponseSchema, {
+      verdicts: [
+        { kind: "satisfy", elementId: "Demo::s1", requirementId: "Demo::r1", holds: true },
+        { kind: "satisfy", elementId: "Demo::s2", requirementId: "Demo::r2", holds: true },
+        { kind: "satisfy", elementId: "Demo::s3", holds: true },
+      ],
+      verificationVerdicts: [
+        { caseId: "c1", kind: "pass", requirementId: "Demo::r1" },
+        { caseId: "c2", kind: "fail", requirementId: "Demo::r2" },
+        { caseId: "c3", kind: "pass", requirementId: "Demo::r1" },
+      ],
+    }),
+  );
+  const verdicts = await conn.verifySatisfaction("hash1");
+  assert.deepEqual(
+    verdicts[0]?.verdict.verifications.map((v) => v.caseId),
+    ["c1", "c3"],
+  );
+  assert.deepEqual(
+    verdicts[1]?.verdict.verifications.map((v) => v.caseId),
+    ["c2"],
+  );
+  assert.deepEqual(verdicts[2]?.verdict.verifications, []);
+});
+
+test("verifyRequirement reports the verdicts of the case verifying it", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(CASES_FIXTURE, "utf8"));
+  const verdict = await model.verifyRequirement("Demo::zeroed");
+  assert.ok(verdict.verdict.kind === "holds" || verdict.verdict.kind === "undecided");
+  assert.ok(verdict.verdict.verifications.length > 0);
+  assert.ok(verdict.verdict.verifications.some((v) => /checkZero/.test(v.caseId)));
 });

@@ -1003,6 +1003,7 @@ export class Connection {
       this.instancesOf(response.instances),
       diagnostics,
       (response.verificationVerdicts ?? []).map(decodeVerificationVerdict),
+      true,
     );
   }
 
