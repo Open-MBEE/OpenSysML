@@ -110,8 +110,9 @@ test("an empty oslc still sends the structured query", async () => {
     oslc: "",
     where: { "@type": "PrimitiveConstraint", operator: "=", property: "@type", value: ["PartUsage"] },
   });
-  assert.equal(seen?.oslcQuery, "");
-  assert.ok(seen?.query !== undefined);
+  assert.ok(seen !== undefined);
+  assert.equal(seen.oslcQuery, "");
+  assert.ok(seen.query !== undefined);
   await connection.close();
 
   let onlyOslc: { oslcQuery?: string; query?: unknown } | undefined;
@@ -121,7 +122,8 @@ test("an empty oslc still sends the structured query", async () => {
     return { elements: [] };
   });
   await again.query("hash", { oslc: 'sysml:name="vehicle"' });
-  assert.equal(onlyOslc?.oslcQuery, 'sysml:name="vehicle"');
-  assert.equal(onlyOslc?.query, undefined);
+  assert.ok(onlyOslc !== undefined);
+  assert.equal(onlyOslc.oslcQuery, 'sysml:name="vehicle"');
+  assert.equal(onlyOslc.query, undefined);
   await again.close();
 });
