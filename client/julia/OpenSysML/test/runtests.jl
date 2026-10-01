@@ -252,3 +252,5 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
         end
     end
 end
+
+include("phase_a.jl")
