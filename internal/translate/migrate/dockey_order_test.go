@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 

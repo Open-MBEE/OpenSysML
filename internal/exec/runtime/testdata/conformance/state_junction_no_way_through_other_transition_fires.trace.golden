@@ -1,0 +1,3 @@
+exit: wait
+enter: other
+transition: wait -> other (event: accept Start)

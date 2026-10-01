@@ -49,6 +49,9 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyElementID is the elementId a conversion of the model writes for
+	// the element, reported only where the reader is given one (WithElementID).
+	PropertyElementID = "elementId"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -59,12 +62,26 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyElementID,
 }
 
 // PropertyNames returns the supported property names in stable order.
 func PropertyNames() []string {
 	out := append([]string(nil), propertyNames...)
 	sort.Strings(out)
+	return out
+}
+
+// DefaultProjection is what a query that selects nothing reports: every
+// property but elementId, which is read from a conversion of the whole model
+// and so is reported only when a query names it.
+func DefaultProjection() []string {
+	out := make([]string, 0, len(propertyNames))
+	for _, name := range PropertyNames() {
+		if name != PropertyElementID {
+			out = append(out, name)
+		}
+	}
 	return out
 }
 
@@ -196,7 +213,7 @@ func Evaluate(model Model, q Query) ([]Element, error) {
 	requestedSelect := q.Select
 	selected := append([]string(nil), requestedSelect...)
 	if len(selected) == 0 {
-		selected = PropertyNames()
+		selected = DefaultProjection()
 	} else {
 		for _, term := range q.OrderBy {
 			found := false

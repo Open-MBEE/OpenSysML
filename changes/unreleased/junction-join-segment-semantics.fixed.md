@@ -1,0 +1,1 @@
+- **Junctions without an enabled route no longer consume events or completion triggers, and join segments fire on their own occurrences while waiting for the remaining segments.** This preserves unmatched and deferred events, lets other enabled transitions proceed, and keeps a join from completing after its owner has been left.

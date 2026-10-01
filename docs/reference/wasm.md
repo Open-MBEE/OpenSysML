@@ -31,6 +31,13 @@ beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
 
+`make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
+(`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
+`-compile`, the HTML and PDF document forms, FMU import, profiling and the REPL's `%print`, `%save`
+and `%query`. A flag of a left-out group is hidden from `-help` and refused with status 2. Each group
+also has a tag of its own (`sysml_nov1`, `sysml_nosync`, `sysml_nocodegen`, `sysml_nodocpdf`,
+`sysml_nofmi`, `sysml_noprofile`, `sysml_noreplext`).
+
 ## Running a WASI build
 
 `wasip1` binaries run under any WASI preview 1 runtime. [Wasmtime](https://wasmtime.dev/) is

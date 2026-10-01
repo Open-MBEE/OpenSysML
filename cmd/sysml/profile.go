@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"runtime/pprof"
 	"time"
 )
 
@@ -35,43 +34,11 @@ func startProfiling() (func(), error) {
 		}
 	}
 
-	if cpuProfilePath != "" {
-		// #nosec G304 -- the profile is written where the command line says.
-		f, err := os.Create(cpuProfilePath)
-		if err != nil {
-			return noop, fmt.Errorf("-cpuprofile: %w", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			_ = f.Close()
-			return noop, fmt.Errorf("-cpuprofile: %w", err)
-		}
-		ends = append(ends, func() {
-			pprof.StopCPUProfile()
-			if err := f.Close(); err != nil {
-				fmt.Fprintln(os.Stderr, "sysml: -cpuprofile:", err)
-			}
-		})
+	pprofEnds, err := startPprof()
+	if err != nil {
+		return noop, err
 	}
-
-	if memProfilePath != "" {
-		// #nosec G304 -- the profile is written where the command line says.
-		f, err := os.Create(memProfilePath)
-		if err != nil {
-			stop()
-			return noop, fmt.Errorf("-memprofile: %w", err)
-		}
-		ends = append(ends, func() {
-			// The profile is written where the run ends, at which point the model it
-			// loaded is unreachable: what it records of use is where the run allocated,
-			// read with `go tool pprof -sample_index=alloc_space`.
-			if err := pprof.Lookup("heap").WriteTo(f, 0); err != nil {
-				fmt.Fprintln(os.Stderr, "sysml: -memprofile:", err)
-			}
-			if err := f.Close(); err != nil {
-				fmt.Fprintln(os.Stderr, "sysml: -memprofile:", err)
-			}
-		})
-	}
+	ends = append(ends, pprofEnds...)
 
 	if memStats {
 		ends = append(ends, func() { reportMemStats(os.Stderr, time.Since(started)) })

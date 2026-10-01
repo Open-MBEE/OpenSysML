@@ -20,6 +20,11 @@ export const ENGINE_ALL = "all";
 /** How far an answer can be trusted: who answered, how strongly, within what. */
 export type Standing = VerdictStanding;
 
+/** The standing a service that reported none carries. */
+export function emptyStanding(): Standing {
+  return { engine: "", strength: "", bounds: [], reported: false, reached: [] };
+}
+
 /** One limit an engine ran under, and whether the run stopped at it. */
 export type EngineBound = VerdictBound;
 

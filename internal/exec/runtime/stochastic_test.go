@@ -376,32 +376,41 @@ func TestExploreEnumeratesWeightedBranches(t *testing.T) {
 	}
 }
 
-// Each outcome of a complete exploration carries the probability of its
-// linearizations: the product of the run's picks' shares, weighted ones by the
-// stated weight, unweighted ones the uniform share a seed draws each with.
+func exactExploredProbability(t *testing.T, outcome ExploredOutcome) float64 {
+	t.Helper()
+	if outcome.Probability == nil || !outcome.Probability.Exact() {
+		t.Fatalf("%s has probability range %v, want an exact probability", outcome.Outcome, outcome.Probability)
+	}
+	return outcome.Probability.Min
+}
+
+// A weighted decision gives each branch the model's stated share.
 func TestExploreWeighsLinearizations(t *testing.T) {
 	m := parseLibraryModel(t, weightedRouteModel)
 	x := m.exploreAction(t, "explore", "route")
-	if !x.Complete() || len(x.Outcomes) != 2 {
+	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 2 {
 		t.Fatalf("explore found %v, want both branches", outcomeTexts(x))
 	}
+	total := 0.0
 	for _, o := range x.Outcomes {
 		want := 0.7
 		if takenInt(t, o.Outcome.Outputs, "taken") == 2 {
 			want = 0.3
 		}
-		if math.Abs(o.Probability-want) > 1e-9 {
-			t.Errorf("%s: probability %v, want %v", o.Outcome, o.Probability, want)
+		got := exactExploredProbability(t, o)
+		total += got
+		if math.Abs(got-want) > 1e-9 {
+			t.Errorf("%s: probability %v, want %v", o.Outcome, got, want)
 		}
 	}
-	if p := x.Probability(); math.Abs(p-1) > 1e-9 || x.ProbabilitiesBounded() {
-		t.Errorf("a complete exploration covers %v, want 1 exact", p)
+	if math.Abs(total-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration's model probabilities sum to %v, want 1 exact", total)
 	}
 }
 
-// An unweighted choice point contributes the uniform share of its alternatives:
-// two token orders against the 0.3/0.7 decision leave every outcome at 0.15 or 0.35.
-func TestExploreWeighsUnweightedChoicesUniformly(t *testing.T) {
+// Scheduling choices have no probability; the weighted draw is bounded over
+// the schedulers that reach each outcome.
+func TestExploreSchedulingChoicesDoNotAddProbability(t *testing.T) {
 	m := parseLibraryModel(t, `package test {
 		private import ScalarValues::*;
 		private import Stochastic::*;
@@ -429,20 +438,151 @@ func TestExploreWeighsUnweightedChoicesUniformly(t *testing.T) {
 	}`)
 	x := m.exploreAction(t, "explore", "mix")
 	if !x.Complete() || len(x.Outcomes) != 4 {
-		t.Fatalf("explore found %v, want the four orders and picks", outcomeTexts(x))
+		t.Fatalf("explore found %v, want the four scheduler and weighted outcomes", outcomeTexts(x))
 	}
-	got := map[[2]int64]float64{}
+	got := map[[2]int64]ProbabilityRange{}
 	for _, o := range x.Outcomes {
-		got[[2]int64{takenInt(t, o.Outcome.Outputs, "x"), takenInt(t, o.Outcome.Outputs, "y")}] += o.Probability
+		xy := [2]int64{takenInt(t, o.Outcome.Outputs, "x"), takenInt(t, o.Outcome.Outputs, "y")}
+		if o.Probability == nil {
+			t.Errorf("x=%d, y=%d has no probability range", xy[0], xy[1])
+			continue
+		}
+		got[xy] = *o.Probability
 	}
-	want := map[[2]int64]float64{{1, 1}: 0.15, {1, 2}: 0.35, {2, 1}: 0.15, {2, 2}: 0.35}
-	for xy, p := range want {
-		if math.Abs(got[xy]-p) > 1e-9 {
-			t.Errorf("x=%d, y=%d: probability %v, want %v", xy[0], xy[1], got[xy], p)
+	want := map[[2]int64]ProbabilityRange{
+		{1, 1}: {Min: 0, Max: 0.3}, {1, 2}: {Min: 0, Max: 0.7},
+		{2, 1}: {Min: 0, Max: 0.3}, {2, 2}: {Min: 0, Max: 0.7},
+	}
+	for xy, probability := range want {
+		if got := got[xy]; math.Abs(got.Min-probability.Min) > 1e-9 || math.Abs(got.Max-probability.Max) > 1e-9 {
+			t.Errorf("x=%d, y=%d: probability range %+v, want %+v", xy[0], xy[1], got, probability)
 		}
 	}
-	if p := x.Probability(); math.Abs(p-1) > 1e-9 {
-		t.Errorf("linearizations carry %v, want 1", p)
+	for _, o := range x.Outcomes {
+		xy := [2]int64{takenInt(t, o.Outcome.Outputs, "x"), takenInt(t, o.Outcome.Outputs, "y")}
+		if p := o.Probability; p == nil || math.Abs(p.Min-want[xy].Min) > 1e-9 || math.Abs(p.Max-want[xy].Max) > 1e-9 {
+			t.Errorf("x=%d, y=%d: probability range %v, want %+v", xy[0], xy[1], p, want[xy])
+		}
+	}
+	if !x.Weighted() {
+		t.Error("weighted model exploration reports Weighted() = false")
+	}
+}
+
+func TestExploreIncompleteProbabilityBoundsNeedWeightedDraws(t *testing.T) {
+	weighted := parseLibraryModel(t, weightedRouteModel).exploreAction(t, "explore:runs=1", "route")
+	if weighted.Complete() || !weighted.Weighted() || !weighted.ProbabilitiesBounded() {
+		t.Fatalf("weighted exploration status %q, weighted=%v bounded=%v; want incomplete weighted lower bounds",
+			weighted.Status(), weighted.Weighted(), weighted.ProbabilitiesBounded())
+	}
+	if len(weighted.Outcomes) != 1 || weighted.Outcomes[0].Probability == nil ||
+		math.Abs(weighted.Outcomes[0].Probability.Min-0.3) > 1e-9 ||
+		math.Abs(weighted.Outcomes[0].Probability.Max-0.3) > 1e-9 {
+		t.Errorf("weighted outcomes %+v, want the first 0.3 branch as a lower bound", weighted.Outcomes)
+	}
+
+	unweighted := parseExploreModel(t, threeWritersModel).exploreAction(t, "explore:runs=1", "race")
+	if unweighted.Complete() || unweighted.Weighted() || unweighted.ProbabilitiesBounded() {
+		t.Fatalf("unweighted exploration status %q, weighted=%v bounded=%v; want no probability lower bound",
+			unweighted.Status(), unweighted.Weighted(), unweighted.ProbabilitiesBounded())
+	}
+	for _, outcome := range unweighted.Outcomes {
+		if outcome.Probability != nil {
+			t.Errorf("unweighted outcome %q has probability range %+v", outcome.Outcome, outcome.Probability)
+		}
+	}
+}
+
+func TestExploreSchedulingIndependentOfWeightedDrawHasExactProbabilities(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		action mix {
+			attribute total : Integer = 0;
+			attribute taken : Integer = 0;
+			first start;
+			fork split;
+			action a { assign total := total + 1; }
+			action b { assign total := total + 10; }
+			join sync;
+			then decide select;
+			first select then slow { @Probability { p = 0.3; } }
+			first select then fast { @Probability { p = 0.7; } }
+			action slow { assign taken := 1; }
+			then done;
+			action fast { assign taken := 2; }
+			then done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+		}
+	}`)
+	x := m.exploreAction(t, "explore", "mix")
+	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore found %v, want two weighted outcomes", outcomeTexts(x))
+	}
+	for _, outcome := range x.Outcomes {
+		want := 0.3
+		if takenInt(t, outcome.Outcome.Outputs, "taken") == 2 {
+			want = 0.7
+		}
+		if got := exactExploredProbability(t, outcome); math.Abs(got-want) > 1e-9 {
+			t.Errorf("%s: probability %v, want %v independent of scheduling", outcome.Outcome, got, want)
+		}
+	}
+}
+
+func TestExploreMixedSchedulingAndWeightedProbabilityRanges(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		action mixed {
+			attribute x : Integer = 0;
+			attribute y : Integer = 0;
+			first start;
+			fork split;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			join sync;
+			then decide select;
+			if x == 1 then draw;
+			if x == 2 then keep;
+			action draw {
+				first start;
+				then decide weighted;
+				first weighted then one { @Probability { p = 0.3; } }
+				first weighted then two { @Probability { p = 0.7; } }
+				action one { assign y := 1; }
+				then done;
+				action two { assign y := 2; }
+				then done;
+			}
+			action keep { assign y := 0; }
+			then done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+		}
+	}`)
+	x := m.exploreAction(t, "explore", "mixed")
+	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 3 {
+		t.Fatalf("explore found %v, want three mixed outcomes", outcomeTexts(x))
+	}
+	want := map[[2]int64]ProbabilityRange{
+		{2, 0}: {Min: 0, Max: 1},
+		{1, 1}: {Min: 0, Max: 0.3},
+		{1, 2}: {Min: 0, Max: 0.7},
+	}
+	for _, outcome := range x.Outcomes {
+		xy := [2]int64{takenInt(t, outcome.Outcome.Outputs, "x"), takenInt(t, outcome.Outcome.Outputs, "y")}
+		got := outcome.Probability
+		if got == nil || math.Abs(got.Min-want[xy].Min) > 1e-9 || math.Abs(got.Max-want[xy].Max) > 1e-9 {
+			t.Errorf("x=%d, y=%d: probability range %v, want %+v", xy[0], xy[1], got, want[xy])
+		}
 	}
 }
 

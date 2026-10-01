@@ -50,6 +50,48 @@ func TestExploreProvesACompleteOutcomeSet(t *testing.T) {
 	}
 }
 
+func TestExploreObservesCompleteOutcomeSetWithRuntimeFailures(t *testing.T) {
+	f := parseModel(t, `package test {
+		private import ScalarValues::*;
+		action partial {
+			attribute x : Integer = 0;
+			attribute y : Integer = 0;
+			first start;
+			fork split;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			join sync;
+			then decide route;
+			if x == 1 then succeed;
+			action succeed { assign y := 1; }
+			then done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+		}
+	}`)
+	sym := f.symbol(t, "partial")
+	linearize := func(ctx *runtime.Context) (runtime.Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	question := Question{
+		Kind: Outcomes, Subject: "test::partial", Schedule: policy(t, "explore"),
+		Free: FreeSchedule, Linearize: linearize,
+	}
+	result := answered(t, Default(), f.building(), question, Budget{}).Result
+	x := result.Exploration()
+	if result.Claim != ClaimOutcomes || result.Strength != Observed ||
+		x == nil || !x.Complete() || x.FailedLinearizations() != 1 {
+		t.Fatalf("result %+v, exploration %+v; want a complete observed outcome set with one failure", result, x)
+	}
+}
+
 func TestExploreObservesAnIncompleteOutcomeSet(t *testing.T) {
 	f := parseFixture(t)
 	result := outcomes(t, f, "explore:runs=1", Budget{}).Result

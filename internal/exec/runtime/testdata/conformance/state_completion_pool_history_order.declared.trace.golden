@@ -5,8 +5,6 @@ transition: l1 -> l2 (event: accept Go)
 exit: r1
 enter: r2
 transition: r1 -> r2 (event: accept Go)
-eval feature resumed -> false
-eval feature resumed -> false
 choice exiting work: next l2(exit), r2(exit) (unordered; took l2(exit) first)
 exit: l2
 exit: r2

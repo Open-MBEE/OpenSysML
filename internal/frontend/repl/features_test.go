@@ -114,8 +114,8 @@ func TestFeaturesJSONReportsTruncation(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &resp); err != nil {
 		t.Fatalf("json listing does not parse: %v\n%.400s", err, got)
 	}
-	if len(resp.Instances) > maxFeatureGraphInstances {
-		t.Errorf("instances = %d, want the default graph bound of %d", len(resp.Instances), maxFeatureGraphInstances)
+	if len(resp.Instances) > maxFeatureGraphInstances() {
+		t.Errorf("instances = %d, want the default graph bound of %d", len(resp.Instances), maxFeatureGraphInstances())
 	}
 	if len(resp.Diagnostics) != 1 || resp.Diagnostics[0].Severity != "warning" ||
 		!strings.Contains(resp.Diagnostics[0].Message, "%features Top all") {

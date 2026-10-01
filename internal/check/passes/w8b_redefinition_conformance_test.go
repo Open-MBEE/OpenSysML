@@ -229,3 +229,53 @@ func TestW8BMetadataBodyMustRedefineOwningTypeFeature(t *testing.T) {
 		t.Fatalf("diagnostic must be located at the offending declaration: %+v", got[0])
 	}
 }
+
+// conformanceDiagsSysML returns the feature-conformance findings of a SysML source.
+func conformanceDiagsSysML(t *testing.T, src string) []diag.Diagnostic {
+	t.Helper()
+	root := parser.New(source.New("<t>.sysml", []byte(src))).ParseFile()
+	idx := newTestIndex()
+	idx.AddDocument("<t>.sysml", root)
+	var out []diag.Diagnostic
+	for _, d := range Analyze("<t>.sysml", root, nil, idx) {
+		switch d.Code {
+		case "subsetting-uniqueness-conformance", "subsetting-constancy-conformance":
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// A subsetting the feature has implicitly is a Subsetting all the same: a
+// composite action in an action definition implicitly subsets the unique
+// Actions::Action::subactions, so declaring it nonunique breaks uniqueness
+// conformance, reported once at the declaration however it subsets (#726).
+func TestW8BUniquenessConformanceOfAnImplicitSubsetting(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+		want      int
+	}{
+		{"implicit", "package N { action def A { action b[*] nonunique; } }", 1},
+		{"written and implicit", "package N { action def A { action b[*] nonunique :> subactions; } }", 1},
+		{"unique", "package N { action def A { action b[*]; } }", 0},
+		// A composite part in a part implicitly subsets Item::subitems, unique too.
+		{"composite part in a part", "package N { part def A { part b[*] nonunique; } }", 1},
+		// A message is an action: in a part it implicitly subsets Part::ownedActions, unique.
+		{"message in a part", "package N { abstract flow def F; part def C { message m : F[*] nonunique; } }", 1},
+		// A reference part or an attribute has no implicit subsetting of a unique feature.
+		{"reference part", "package N { part def A { ref part b[*] nonunique; } }", 0},
+		{"attribute", "package N { part def A { attribute b[*] nonunique; } }", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diags := conformanceDiagsSysML(t, tc.src)
+			if len(diags) != tc.want {
+				t.Fatalf("got %v, want %d uniqueness finding(s)", codes(diags), tc.want)
+			}
+			for _, d := range diags {
+				if d.Code != "subsetting-uniqueness-conformance" {
+					t.Fatalf("unexpected diagnostic %q", d.Code)
+				}
+			}
+		})
+	}
+}
