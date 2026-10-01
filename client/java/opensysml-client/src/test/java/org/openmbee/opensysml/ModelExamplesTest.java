@@ -362,7 +362,7 @@ class ModelExamplesTest {
       for (String id : List.of("Kinds::Tank", "Kinds::tank", "Kinds::Color", "Kinds::Total")) {
         assertEquals(viaProtobuf.symbol(id), viaJson.symbol(id), id);
       }
-      for (String expression : List.of("2 + 2", "1.0 / 3.0", "9223372036854775807", "(1, 2)", "null", "\"é\\t\"")) {
+      for (String expression : List.of("2 + 2", "1.0 / 3.0", "-0.0", "(1.0, -0.0)", "9223372036854775807", "(1, 2)", "null", "\"é\\t\"")) {
         assertEquals(viaProtobuf.eval(expression), viaJson.eval(expression), expression);
       }
       assertEquals(
