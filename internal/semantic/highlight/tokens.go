@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // SegmentResolver answers what the names of a document refer to. Without one,
@@ -22,7 +23,7 @@ type SegmentResolver interface {
 func Tokens(content []byte, root *ast.RootNamespace, scope *symbols.Scope, res SegmentResolver) []semtok.Token {
 	var (
 		semantic []semtok.Token
-		lexical  = semtok.Lexical(content)
+		lexical  = semtok.Lexical(content, source.KindSysML)
 	)
 	semantic = append(semantic, declarationTokens(scope)...)
 	semantic = append(semantic, referenceTokens(root, scope, res)...)

@@ -4,6 +4,7 @@
 package semtok
 
 import (
+	"fmt"
 	"testing"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -51,7 +52,7 @@ func TestLexicalClassifiesKeywordsCommentsAndLiterals(t *testing.T) {
 		"1.5":     ClassNumber,
 	}
 	seen := map[string]bool{}
-	for _, tok := range Lexical(content) {
+	for _, tok := range Lexical(content, source.KindSysML) {
 		text := string(content[tok.Span.Offset:tok.Span.End()])
 		class, ok := want[text]
 		if !ok || seen[text] {
@@ -72,11 +73,11 @@ func TestLexicalClassifiesKeywordsCommentsAndLiterals(t *testing.T) {
 // An empty document has no tokens, and a line comment's span stops before its
 // terminator rather than covering it.
 func TestLexicalEmptyAndLineEnd(t *testing.T) {
-	if toks := Lexical(nil); len(toks) != 0 {
+	if toks := Lexical(nil, source.KindSysML); len(toks) != 0 {
 		t.Errorf("tokens of an empty document = %v, want none", toks)
 	}
 	content := []byte("// note\n")
-	toks := Lexical(content)
+	toks := Lexical(content, source.KindSysML)
 	if len(toks) != 1 || toks[0].Span != (source.Span{Offset: 0, Len: 7}) {
 		t.Errorf("tokens = %v, want the comment without its newline", toks)
 	}
@@ -107,7 +108,7 @@ func TestClassAndModifierNames(t *testing.T) {
 // astral-plane rune is not shifted by the rune's byte length.
 func TestEncodeUsesUTF16Units(t *testing.T) {
 	content := []byte("// \U0001F31F\npart w;\n")
-	toks := Lexical(content)
+	toks := Lexical(content, source.KindSysML)
 	data := Encode(content, toks)
 	if len(data)%5 != 0 {
 		t.Fatalf("token data length = %d, want a multiple of 5", len(data))
@@ -120,5 +121,37 @@ func TestEncodeUsesUTF16Units(t *testing.T) {
 	// The part keyword opens line 1 at character 0, four units long.
 	if data[5] != 1 || data[6] != 0 || data[7] != 4 || data[8] != uint32(ClassKeyword) {
 		t.Errorf("keyword token encodes %v, want delta 1:0 length 4 class keyword", data[5:10])
+	}
+}
+
+// A SysML-only word is a name in KerML, not a keyword: the file's own grammar
+// decides what reserves, so the same text classifies differently by kind.
+func TestLexicalKerMLNames(t *testing.T) {
+	content := []byte("class while;\nfeature f : while;\n")
+
+	kerml := Lexical(content, source.KindKerML)
+	for _, tok := range kerml {
+		if text := string(content[tok.Span.Offset:tok.Span.End()]); text == "while" {
+			t.Errorf("KerML classified %q as %v, want it read as a name (no token)", text, tok.Class)
+		}
+	}
+	var kermlKeywords []string
+	for _, tok := range kerml {
+		if tok.Class == ClassKeyword {
+			kermlKeywords = append(kermlKeywords, string(content[tok.Span.Offset:tok.Span.End()]))
+		}
+	}
+	if got, want := fmt.Sprint(kermlKeywords), "[class feature]"; got != want {
+		t.Errorf("KerML keywords = %s, want %s", got, want)
+	}
+
+	var sysmlWhiles int
+	for _, tok := range Lexical(content, source.KindSysML) {
+		if text := string(content[tok.Span.Offset:tok.Span.End()]); text == "while" && tok.Class == ClassKeyword {
+			sysmlWhiles++
+		}
+	}
+	if sysmlWhiles != 2 {
+		t.Errorf("SysML classified %d 'while' spans as keywords, want 2", sysmlWhiles)
 	}
 }

@@ -275,7 +275,8 @@ func formatDocument(req *formatRequest) ([]byte, error) {
 // full legend and the LSP delta-encoded data over the lexer's keywords,
 // comments and literals.
 func tokens(req *tokensRequest) ([]byte, error) {
-	if _, err := kindOf(req.Language); err != nil {
+	kind, err := kindOf(req.Language)
+	if err != nil {
 		return nil, err
 	}
 	content := []byte(req.Content)
@@ -291,6 +292,6 @@ func tokens(req *tokensRequest) ([]byte, error) {
 	}
 	return marshal(&tokensResponse{
 		Legend: legend{TokenTypes: types, TokenModifiers: modifiers},
-		Data:   semtok.Encode(content, semtok.Lexical(content)),
+		Data:   semtok.Encode(content, semtok.Lexical(content, kind)),
 	})
 }

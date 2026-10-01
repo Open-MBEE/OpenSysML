@@ -5,17 +5,18 @@ package semtok
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Lexical classifies keywords, comments and literals, read from the same lexer
-// the parser uses rather than recognized again: the tokens a document carries
-// with no symbol table at all.
-func Lexical(content []byte) []Token {
+// the parser uses rather than recognized again, in a file of the given kind:
+// the tokens a document carries with no symbol table at all.
+func Lexical(content []byte, kind source.Kind) []Token {
 	if len(content) == 0 {
 		return nil
 	}
-	lx := lexer.New(source.New("", content))
+	lx := lexer.New(source.NewWithKind("", content, kind))
 	var out []Token
 	for {
 		tok := lx.Next()
@@ -25,6 +26,9 @@ func Lexical(content []byte) []Token {
 		var class Class
 		switch tok.Kind {
 		case lexer.Keyword:
+			if !parser.Reserves(kind, tok.KeywordID) {
+				continue
+			}
 			class = ClassKeyword
 		case lexer.SLNote, lexer.MLNote, lexer.RegularComment:
 			class = ClassComment
