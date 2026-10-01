@@ -280,8 +280,11 @@ digraph "VehicleViews::vehicleView" {
   part when a connector leaves it and above when one reaches it (`portSide`), the way DOT ranks
   the edge's ends, where a pin's direction places it — `port "name : Type"` elements of the
   part's `rectangle` in PlantUML with the connector between them (`n2.0 -[thickness=3]- n1.0`),
-  a `port name : Type` line under the part and `part.port` edge ends in text, and lines of the
-  part's label in Mermaid, whose flowchart has no port and whose edges stay at the parts.
+  a `port name : Type` line under the part and `part.port` edge ends in text, and in Mermaid,
+  whose flowchart has no port element, a ported part is a `subgraph` holding one node per pin
+  (`n1.0["durationIn : ~DurationPort<br>«port»"]`) with the connector between the pins
+  (`n2.0 ---|"durationInterface"| n1.0`), so no edge ends on a subgraph — which ELK, the layout
+  the pinned `mermaid-cli` applies, refuses.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
 
   | `EdgeKind` | Mermaid | DOT |

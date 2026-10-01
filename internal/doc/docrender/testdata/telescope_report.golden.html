@@ -386,10 +386,16 @@ config:
 flowchart LR
   subgraph n0 [&#34;imagingChain&lt;br&gt;«part»&#34;]
     direction LR
-    n1[&#34;camera : Camera&lt;br&gt;«part»&lt;br&gt;port output : DataPort&#34;]
-    n2[&#34;recorder : Recorder&lt;br&gt;«part»&lt;br&gt;port input : DataPort&#34;]
+    subgraph n1 [&#34;camera : Camera&lt;br&gt;«part»&#34;]
+      direction LR
+      n1.0[&#34;output : DataPort&lt;br&gt;«port»&#34;]
+    end
+    subgraph n2 [&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
+      direction LR
+      n2.0[&#34;input : DataPort&lt;br&gt;«port»&#34;]
+    end
   end
-  n1 ---|&#34;link&#34;| n2</pre>
+  n1.0 ---|&#34;link&#34;| n2.0</pre>
 <figcaption class="sysml-caption">Imaging chain interconnection</figcaption>
 </figure>
 <figure class="sysml-diagram" data-content="diagram" data-name="states" data-diagram-kind="state" data-direction="LR">

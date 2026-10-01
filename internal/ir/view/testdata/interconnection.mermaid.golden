@@ -8,9 +8,18 @@ config:
 flowchart LR
   subgraph n0 ["Loop<br>«part def»"]
     direction LR
-    n1["pump : Pump<br>«part»<br>port outlet : FluidPort"]
-    n2["tank : Tank<br>«part»<br>port inlet : FluidPort"]
-    n3["sensor : Pump<br>«part»<br>port outlet : FluidPort"]
+    subgraph n1 ["pump : Pump<br>«part»"]
+      direction LR
+      n1.0["outlet : FluidPort<br>«port»"]
+    end
+    subgraph n2 ["tank : Tank<br>«part»"]
+      direction LR
+      n2.0["inlet : FluidPort<br>«port»"]
+    end
+    subgraph n3 ["sensor : Pump<br>«part»"]
+      direction LR
+      n3.0["outlet : FluidPort<br>«port»"]
+    end
   end
-  n1 ---|"supply"| n2
+  n1.0 ---|"supply"| n2.0
   n1 -.->|"of Water"| n2

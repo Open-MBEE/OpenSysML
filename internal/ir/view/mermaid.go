@@ -137,36 +137,30 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labelle
 }
 
 // clusterTitleExtraLines is the most lines beyond the first spanned by the title
-// of node or of a cluster under it, its port lines counted when ports asks.
+// of node or of a cluster under it, a ported part being a cluster when ports asks.
 func clusterTitleExtraLines(node *Node, ports bool, labels labeller) int {
-	if len(node.Children) == 0 {
+	if !flowchartCluster(node, ports) {
 		return 0
 	}
-	extra := len(labels.lines(node)) + len(flowchartPortLines(node, ports)) - 1
+	extra := len(labels.lines(node)) - 1
 	for _, child := range node.Children {
 		extra = max(extra, clusterTitleExtraLines(child, ports, labels))
 	}
 	return extra
 }
 
-// flowchartPortLines is the lines a flowchart label names node's ports on,
-// one per port, none unless ports asks: a flowchart has no port element.
-func flowchartPortLines(node *Node, ports bool) []string {
-	if !ports {
-		return nil
-	}
-	lines := make([]string, 0, len(node.Ports))
-	for _, port := range node.Ports {
-		lines = append(lines, "port "+port.label())
-	}
-	return lines
+// flowchartCluster reports whether node is written as a subgraph: one holding
+// nodes, or one with ports when ports asks, since a flowchart has no port
+// element and a pin is a node inside its part.
+func flowchartCluster(node *Node, ports bool) bool {
+	return len(node.Children) > 0 || (ports && len(node.Ports) > 0)
 }
 
 // writeFlowchart writes the tree, interconnection and action renderings as a
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
 // is an edge, and every other edge is the one the rendering holds. A flowchart
-// has no port, so an interconnection's ports are lines of their part's label
-// and its connectors end at the parts; an action's pins are its flows' labels.
+// has no port, so an interconnection's ports are nodes inside their part's
+// subgraph and its connectors end at them; an action's pins are its flows' labels.
 func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
 	flow := "TD"
 	if r.Kind == KindInterconnection {
@@ -183,12 +177,14 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	for _, root := range r.Roots {
 		writeFlowchartNode(b, root, 1, r.Kind == KindTree, r.Kind == KindInterconnection, flow, labels)
 	}
+	ports := r.Kind == KindInterconnection
 	for _, edge := range r.Edges {
+		from, to := flowchartEnd(edge.From, edge.FromPort, ports), flowchartEnd(edge.To, edge.ToPort, ports)
 		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s %s %s\n", edge.From, mermaidArrow(edge.Kind), edge.To)
+			fmt.Fprintf(b, "  %s %s %s\n", from, mermaidArrow(edge.Kind), to)
 			continue
 		}
-		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", edge.From, mermaidArrow(edge.Kind), mermaidText(edge.Label), edge.To)
+		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", from, mermaidArrow(edge.Kind), mermaidText(edge.Label), to)
 	}
 	for _, root := range r.Roots {
 		writeMermaidStyles(b, root, false)
@@ -230,18 +226,25 @@ func mermaidStyleCSS(style *Style) string {
 	return strings.Join(props, ",")
 }
 
-// writeFlowchartNode writes one node: a subgraph when it holds others, a plain
-// node otherwise, with ports named in its label, the subgraph's title included,
-// when ports asks. containment adds an edge from a node to each of its children,
-// which is how a tree rendering shows what contains what. A subgraph restates the
-// flowchart's direction, which Mermaid does not apply inside one that states none.
+// flowchartEnd is the node an edge ends at: the pin when the end names one and
+// the kind draws pins, else the node itself.
+func flowchartEnd(node, port string, ports bool) string {
+	if ports && port != "" {
+		return port
+	}
+	return node
+}
+
+// writeFlowchartNode writes one node: a subgraph when it holds others or, when
+// ports asks, has ports — each a node of its own inside it, labelled as a port
+// is — a plain node otherwise. containment adds an edge from a node to each of
+// its children, which is how a tree rendering shows what contains what. A
+// subgraph restates the flowchart's direction, which Mermaid does not apply
+// inside one that states none.
 func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, ports bool, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	label := labels.mermaid(node)
-	for _, line := range flowchartPortLines(node, ports) {
-		label += "<br>" + mermaidText(line)
-	}
-	if len(node.Children) == 0 {
+	if !flowchartCluster(node, ports) {
 		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		return
 	}
@@ -255,6 +258,11 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment, 
 	}
 	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, label)
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
+	if ports {
+		for _, port := range node.Ports {
+			fmt.Fprintf(b, "%s  %s[\"%s<br>«port»\"]\n", indent, port.ID, mermaidText(port.label()))
+		}
+	}
 	for _, child := range node.Children {
 		writeFlowchartNode(b, child, depth+1, containment, ports, flow, labels)
 	}

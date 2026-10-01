@@ -91,10 +91,16 @@ config:
 flowchart LR
   subgraph n0 ["imagingChain<br>«part»"]
     direction LR
-    n1["camera : Camera<br>«part»<br>port output : DataPort"]
-    n2["recorder : Recorder<br>«part»<br>port input : DataPort"]
+    subgraph n1 ["camera : Camera<br>«part»"]
+      direction LR
+      n1.0["output : DataPort<br>«port»"]
+    end
+    subgraph n2 ["recorder : Recorder<br>«part»"]
+      direction LR
+      n2.0["input : DataPort<br>«port»"]
+    end
   end
-  n1 ---|"link"| n2
+  n1.0 ---|"link"| n2.0
 ```
 
 *Observatory states, left to right*
