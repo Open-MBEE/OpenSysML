@@ -216,6 +216,8 @@ function test_surface_offline()
     assert_equal(isa(decoded, 'containers.Map'), true, 'preserved JSON key map');
     assert_equal(decoded('@id'), 'a', 'preserved @id key');
     assert_equal(decoded('x'), 1, 'preserved map member');
+    decoded = opensysml.internal.decodeJson('{"@id"  : "spaced"}');
+    assert_equal(decoded('@id'), 'spaced', 'key separator whitespace');
     decoded = opensysml.internal.decodeJson('{"this.isSolid":true}');
     assert_equal(decoded('this.isSolid'), true, 'preserved dotted key');
     unicodeKey = 'μ.member';
@@ -310,9 +312,24 @@ function test_surface_offline()
         {}, verificationRecords, false);
     assert_equal(iscell(validation.instances), true, 'validation instances are ordered cells');
     assert_equal(validation.instances{1}.id, int64(1), 'validation first instance order');
+    emptyMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    encodedEmptyMap = opensysml.internal.encodeNamedArguments(emptyMap, conn);
+    assert_equal(jsonencode(encodedEmptyMap), '{}', 'empty Map encodes as JSON object');
+    assert_equal(jsonencode(opensysml.internal.encodeNamedArguments(struct(), conn)), ...
+        '{}', 'empty struct encodes as JSON object');
+    identifierArguments = containers.Map('KeyType', 'char', 'ValueType', 'any');
+    identifierArguments('validName') = int64(1);
+    encodedIdentifierArguments = ...
+        opensysml.internal.encodeNamedArguments(identifierArguments, conn);
+    assert_equal(isstruct(encodedIdentifierArguments), true, ...
+        'identifier-keyed Map encodes as struct');
+    assert_equal(~isempty(strfind(jsonencode(encodedIdentifierArguments), '"validName"')), ...
+        true, 'identifier-keyed Map JSON object');
     namedArguments = containers.Map('KeyType', 'char', 'ValueType', 'any');
     namedArguments('this.isSolid') = int64(1);
     encodedArguments = opensysml.internal.encodeNamedArguments(namedArguments, conn);
+    assert_equal(isa(encodedArguments, 'containers.Map'), true, ...
+        'nonidentifier-keyed Map remains a Map');
     assert_equal(~isempty(strfind(jsonencode(encodedArguments), '"this.isSolid"')), ...
         true, 'encode unusual named-argument key');
 

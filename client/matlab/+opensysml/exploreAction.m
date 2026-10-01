@@ -23,20 +23,5 @@ function requireExploreSchedule(schedule)
 end
 
 function encoded = encodeInputs(inputs, conn)
-    encoded = struct();
-    if isa(inputs, 'containers.Map')
-        [names, rawValues] = opensysml.internal.mapEntries(inputs);
-        encoded = containers.Map('KeyType', 'char', 'ValueType', 'any');
-        for i = 1:numel(names)
-            encoded(names{i}) = opensysml.encodeValue(rawValues{i}, conn);
-        end
-    elseif isstruct(inputs) && isscalar(inputs)
-        names = fieldnames(inputs);
-        for i = 1:numel(names)
-            encoded.(names{i}) = opensysml.encodeValue(inputs.(names{i}), conn);
-        end
-    elseif ~isempty(inputs)
-        opensysml.internal.raise('opensysml:argument', ...
-            'exploreAction inputs must be a scalar struct or containers.Map');
-    end
+    encoded = opensysml.internal.encodeNamedArguments(inputs, conn, 'exploreAction inputs');
 end

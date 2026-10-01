@@ -9,7 +9,8 @@ function values = encodeNamedArguments(arguments, conn, label)
         opensysml.internal.raise('opensysml:argument', ...
             sprintf('%s must be a scalar struct or containers.Map', label));
     end
-    useMap = isa(arguments, 'containers.Map') || any(~cellfun(@isvarname, names));
+    useMap = any(~cellfun(@isvarname, names) | ...
+        cellfun(@(name) length(name) > namelengthmax, names));
     if useMap, values = containers.Map('KeyType', 'char', 'ValueType', 'any');
     else, values = struct();
     end

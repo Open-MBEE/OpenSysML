@@ -2,65 +2,142 @@ function value = decodeJson(text)
 %DECODEJSON Decode JSON while preserving object keys MATLAB cannot name.
 
     quotePositions = strfind(text, '"');
+    escapedQuotes = false(size(quotePositions));
+    backslashQuotes = find(quotePositions > 1);
+    backslashQuotes = backslashQuotes( ...
+        text(quotePositions(backslashQuotes) - 1) == '\');
+    for i = 1:numel(backslashQuotes)
+        quoteIndex = backslashQuotes(i);
+        position = quotePositions(quoteIndex) - 1;
+        count = 0;
+        while position > 0 && text(position) == '\'
+            count = count + 1;
+            position = position - 1;
+        end
+        escapedQuotes(quoteIndex) = mod(count, 2) == 1;
+    end
+    unescapedQuotes = quotePositions(~escapedQuotes);
+    quoteOpens = unescapedQuotes(1:2:end);
+    quoteCloses = unescapedQuotes(2:2:end);
+    pairCount = numel(quoteCloses);
+    quoteOpens = quoteOpens(1:pairCount);
+
+    keyCloseCandidates = strfind(text, '":');
+    isKeyClose = ismember(quoteCloses, keyCloseCandidates);
+    spacedKeyCloseCandidates = quoteCloses(quoteCloses < numel(text));
+    spacedKeyCloseCandidates = spacedKeyCloseCandidates( ...
+        isspace(text(spacedKeyCloseCandidates + 1)));
+    if ~isempty(spacedKeyCloseCandidates)
+        colonPositions = strfind(text, ':');
+        nonWhitespacePositions = find(~isspace(text));
+        [~, colonBuckets] = histc(colonPositions, [nonWhitespacePositions Inf]);
+        hasPrevious = colonBuckets > 1;
+        previousNonWhitespace = nonWhitespacePositions(colonBuckets(hasPrevious) - 1);
+        isSpacedKeyClose = ismember(spacedKeyCloseCandidates, previousNonWhitespace);
+        isKeyClose = isKeyClose | ...
+            ismember(quoteCloses, spacedKeyCloseCandidates(isSpacedKeyClose));
+    end
+    keyOpens = quoteOpens(isKeyClose);
+    keyCloses = quoteCloses(isKeyClose);
+    keyLengths = keyCloses - keyOpens - 1;
+    keywordNames = {'break', 'case', 'catch', 'classdef', 'continue', ...
+        'else', 'elseif', 'end', 'for', 'global', 'if', 'otherwise', ...
+        'parfor', 'persistent', 'return', 'spmd', 'switch', 'try', 'while'};
+    keywordPattern = ['"(break|case|catch|classdef|continue|else|elseif|' ...
+        'end|for|global|if|otherwise|parfor|persistent|return|spmd|switch|' ...
+        'try|while|osk_x_\w*)"\s*:'];
+    needsCheck = keyLengths > namelengthmax | keyLengths == 0;
+    if ~isempty(keyOpens)
+        firstChars = text(keyOpens + 1);
+        firstLetters = (firstChars >= 'A' & firstChars <= 'Z') | ...
+            (firstChars >= 'a' & firstChars <= 'z');
+        needsCheck = needsCheck | ~firstLetters;
+        keyEvents = zeros(1, numel(text) + 1, 'int8');
+        keyStarts = keyOpens + 1;
+        keyEvents(keyStarts) = keyEvents(keyStarts) + 1;
+        keyEvents(keyCloses) = keyEvents(keyCloses) - 1;
+        keyCharacterMask = cumsum(keyEvents(1:numel(text))) > 0;
+        keyCharacterPositions = find(keyCharacterMask);
+        keyCharacters = text(keyCharacterPositions);
+        invalidKeyOffsets = regexp(keyCharacters, '[^A-Za-z0-9_"]', 'start');
+        if ~isempty(invalidKeyOffsets)
+            nonWordPositions = keyCharacterPositions(invalidKeyOffsets);
+            [~, buckets] = histc(nonWordPositions, [keyOpens Inf]);
+            validBuckets = buckets > 0 & buckets <= numel(keyOpens);
+            insideKeys = false(size(buckets));
+            insideKeys(validBuckets) = ...
+                nonWordPositions(validBuckets) < keyCloses(buckets(validBuckets));
+            needsCheck(unique(buckets(insideKeys))) = true;
+        end
+        tokenLengths = keyLengths + 3;
+        tokenStarts = [1 1 + cumsum(tokenLengths(1:end-1))];
+        keyTokens = repmat(' ', 1, sum(tokenLengths));
+        keyTokens(tokenStarts) = '"';
+        keyTokens(tokenStarts + keyLengths + 1) = '"';
+        keyTokens(tokenStarts + keyLengths + 2) = ':';
+        if any(keyLengths)
+            charIndices = 1:sum(keyLengths);
+            precedingLengths = [0 cumsum(keyLengths(1:end-1))];
+            keyIndices = repelem(1:numel(keyLengths), keyLengths);
+            charOffsets = charIndices - repelem(precedingLengths, keyLengths);
+            tokenPositions = tokenStarts(keyIndices) + charOffsets;
+            keyTokens(tokenPositions) = keyCharacters;
+        end
+        keywordStarts = regexp(keyTokens, keywordPattern, 'start');
+        needsCheck = needsCheck | ismember(tokenStarts, keywordStarts);
+    end
+
     originals = {};
     editStarts = [];
     editEnds = [];
     editText = {};
-    last = 1;
-    quoteIndex = 1;
-    while quoteIndex <= numel(quotePositions)
-        start = quotePositions(quoteIndex);
-        closeIndex = quoteIndex + 1;
-        while closeIndex <= numel(quotePositions)
-            finish = quotePositions(closeIndex);
-            slashCount = 0;
-            previous = finish - 1;
-            while previous >= start + 1 && text(previous) == '\'
-                slashCount = slashCount + 1;
-                previous = previous - 1;
+    checkedKeys = find(needsCheck);
+    for i = 1:numel(checkedKeys)
+        keyIndex = checkedKeys(i);
+        key = jsondecode(text(keyOpens(keyIndex):keyCloses(keyIndex)));
+        if needsKeyEscape(key, keywordNames)
+            originalIndex = find(strcmp(originals, key), 1);
+            if isempty(originalIndex)
+                originals{end+1} = key;
+                originalIndex = numel(originals);
             end
-            if mod(slashCount, 2) == 0, break; end
-            closeIndex = closeIndex + 1;
+            editStarts(end+1) = keyOpens(keyIndex);
+            editEnds(end+1) = keyCloses(keyIndex);
+            editText{end+1} = sprintf('"osk_x_%d"', originalIndex);
         end
-        if closeIndex > numel(quotePositions), break; end
-        token = text(start:finish);
-        prefix = text(last:start-1);
-        rewrittenPrefix = rewriteNegativeZero(prefix);
-        if ~strcmp(rewrittenPrefix, prefix)
-            editStarts(end+1) = last;
-            editEnds(end+1) = start - 1;
-            editText{end+1} = rewrittenPrefix;
-        end
-        next = finish + 1;
-        while next <= numel(text) && isspace(text(next)), next = next + 1; end
-        if next <= numel(text) && text(next) == ':'
-            key = jsondecode(token);
-            if ~strcmp(key, 'function') && ...
-                    (~isvarname(key) || length(key) > namelengthmax || ...
-                    strncmp(key, 'osk_x_', 6))
-                index = find(strcmp(originals, key), 1);
-                if isempty(index)
-                    originals{end+1} = key;
-                    index = numel(originals);
-                end
-                editStarts(end+1) = start;
-                editEnds(end+1) = finish;
-                editText{end+1} = sprintf('"osk_x_%d"', index);
-            end
-        end
-        last = finish + 1;
-        quoteIndex = closeIndex + 1;
     end
-    suffix = text(last:end);
-    rewrittenSuffix = rewriteNegativeZero(suffix);
-    if ~strcmp(rewrittenSuffix, suffix)
-        editStarts(end+1) = last;
-        editEnds(end+1) = numel(text);
-        editText{end+1} = rewrittenSuffix;
+
+    zeroStarts = [];
+    zeroEnds = [];
+    zeroMatches = {};
+    if ~isempty(strfind(text, '-0'))
+        [zeroStarts, zeroEnds, zeroMatches] = regexp(text, ...
+            '(^|[:,\[\{\s])-0(?![.eE0-9])', 'start', 'end', 'match');
     end
+    if ~isempty(zeroStarts)
+        tokenStarts = zeroEnds - 1;
+        if isempty(unescapedQuotes)
+            outsideStrings = true(size(zeroStarts));
+        else
+            [~, quoteCounts] = histc(tokenStarts, [-Inf unescapedQuotes Inf]);
+            outsideStrings = mod(quoteCounts - 1, 2) == 0;
+        end
+        zeroIndices = find(outsideStrings);
+        for i = 1:numel(zeroIndices)
+            zeroIndex = zeroIndices(i);
+            matched = zeroMatches{zeroIndex};
+            editStarts(end+1) = zeroStarts(zeroIndex);
+            editEnds(end+1) = zeroEnds(zeroIndex);
+            editText{end+1} = [matched(1:end-2) '-0.0'];
+        end
+    end
+
     if isempty(editStarts)
         value = jsondecode(text);
     else
+        [editStarts, order] = sort(editStarts);
+        editEnds = editEnds(order);
+        editText = editText(order);
         parts = {};
         cursor = 1;
         for i = 1:numel(editStarts)
@@ -78,8 +155,25 @@ function value = decodeJson(text)
     end
 end
 
-function text = rewriteNegativeZero(text)
-    text = regexprep(text, '(^|[:,\[\{\s])-0(?![.eE0-9])', '$1-0.0');
+function tf = needsKeyEscape(key, keywords)
+    if strcmp(key, 'function')
+        tf = false;
+        return;
+    end
+    if isempty(key)
+        tf = true;
+        return;
+    end
+    first = key(1);
+    firstLetter = (first >= 'A' && first <= 'Z') || ...
+        (first >= 'a' && first <= 'z');
+    rest = key(2:end);
+    restValid = all((rest >= 'A' & rest <= 'Z') | ...
+        (rest >= 'a' & rest <= 'z') | ...
+        (rest >= '0' & rest <= '9') | rest == '_');
+    tf = ~firstLetter || ~restValid || length(key) > namelengthmax || ...
+        ~isvarname(key) || any(strcmp(key, keywords)) || ...
+        strncmp(key, 'osk_x_', 6);
 end
 
 function value = restoreKeys(value, originals)
