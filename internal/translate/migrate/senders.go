@@ -147,12 +147,8 @@ func uiFrameName(e *sysmlv1.Element) string {
 	return describe(e)
 }
 
-// clockWait names the first wait on the clock the behavior b, or a behavior a
-// call of it invokes, is written with: a duration constraint bounding it or one
-// of its nodes, written as a wait before it, or an accept of a time event that is
-// written. "" when none: a bound or a trigger the writer leaves as a placeholder
-// is no wait, nor is one in a behavior named by a call written as a placeholder
-// or never firing, which invokes nothing.
+// clockWait names the first wait on the clock written for the behavior b or a
+// behavior a call of it invokes; "" when none is written (placeholders are no wait).
 func (m *migration) clockWait(b *sysmlv1.Element) string {
 	return m.clockWaitIn(b, map[*sysmlv1.Element]bool{})
 }
@@ -172,8 +168,8 @@ func (m *migration) clockWaitIn(b *sysmlv1.Element, seen map[*sysmlv1.Element]bo
 	return m.graphWait(m.scanGraph(b, def), b, seen)
 }
 
-// scanGraph links an activity graph as for writing, without writing, far enough
-// to tell the nodes written as placeholders and the pins nothing fills.
+// scanGraph links an activity graph as the writer does, without writing, far
+// enough to tell the nodes written as placeholders and the pins nothing fills.
 func (m *migration) scanGraph(act, def *sysmlv1.Element) *activity {
 	a := m.newActivity(act, def)
 	a.link()
@@ -182,11 +178,8 @@ func (m *migration) scanGraph(act, def *sysmlv1.Element) *activity {
 	return a
 }
 
-// graphWait names the first wait the graph a of the behavior b is written with,
-// in the order the writer meets its nodes: the wait before a node a duration
-// constrains, an accept of a time event, the wait of the behavior a call
-// invokes, or one in a structured node's own graph. A node that never fires,
-// whose pin nothing fills, is written without its wait.
+// graphWait names the first wait written for the graph a of the behavior b, in
+// writer order; a node whose pin nothing fills is written without its wait.
 func (m *migration) graphWait(a *activity, b *sysmlv1.Element, seen map[*sysmlv1.Element]bool) string {
 	for _, n := range a.nodes {
 		if a.starvedPin(n) != nil {
@@ -211,10 +204,8 @@ func (m *migration) graphWait(a *activity, b *sysmlv1.Element, seen map[*sysmlv1
 	return ""
 }
 
-// invokes reports whether the call n is written invoking the behavior it names
-// or the operation's method: not when it is a placeholder, calls a function of
-// the library, or is the empty step standing for a call of an operation written
-// as a usage whose target pin names no object read from this.
+// invokes reports whether the call n is written invoking its callee: not as a
+// placeholder, a library function, or the empty step of a usage with no receiver.
 func (a *activity) invokes(n *sysmlv1.Element) bool {
 	if a.dead[n] {
 		return false
@@ -238,8 +229,7 @@ func (a *activity) invokes(n *sysmlv1.Element) bool {
 	return false
 }
 
-// callee is the activity the call n invokes: the behavior it names, or the
-// method of the operation.
+// callee is the activity the call n invokes: its behavior, or the operation's method.
 func (a *activity) callee(n *sysmlv1.Element) *sysmlv1.Element {
 	if n.Type == "CallOperationAction" {
 		return a.m.bodyMethod(a.m.model.Ref(n, "operation"))
