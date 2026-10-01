@@ -103,6 +103,7 @@ build-sysml: ## Build sysml binary
 build-prod: ## Build bin/sysml-prod, sysml without the optional features (-tags sysml_prod)
 	@echo "Building sysml-prod..."
 	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml)
 	$(GO_BUILD) -tags sysml_prod -o $(BIN_DIR)/sysml-prod ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml-prod ($(VERSION))"
 
