@@ -168,7 +168,7 @@ function call(conn::Connection, method::AbstractString, request)
         root = _transport_root_cause(e)
         message = sprint(showerror, root)
         failure = "$(method) failed: $(typeof(root)): $(message)"
-        if root isa HTTP.TimeoutError || occursin("TimeoutError: Connection closed after ", message)
+        if root isa HTTP.TimeoutError
             throw(ServiceTimeoutError("deadline_exceeded", failure, 0))
         end
         throw(TransportError(failure))
