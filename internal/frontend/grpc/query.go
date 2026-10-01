@@ -261,7 +261,7 @@ func (e *queryEval) elementID(sym *symbols.Symbol) string {
 		e.elementIDErr = cached.elementIDsErr
 		return ""
 	}
-	id, _ := cached.elementIDs.Of(e.identity(sym))
+	id, _ := cached.elementIDs.OfDeclaration(sym.Decl, e.identity(sym))
 	return id
 }
 

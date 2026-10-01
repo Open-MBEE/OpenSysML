@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -16,6 +17,10 @@ import (
 // qualification come out as they are written, and a model the conversion
 // refuses has no ids at all.
 type ElementIDs struct {
+	// byNode keys each id by the declaration the conversion wrote it for: two
+	// identity scopes may declare one qualified name, and only the node tells
+	// their elements apart.
+	byNode   map[ast.Node]string
 	byName   map[string]string
 	res      *resolve.Resolver
 	encoders []*encoder
@@ -50,10 +55,11 @@ func NewElementIDsOfDocument(name string, data []byte) (*ElementIDs, error) {
 	return elementIDsOf(e.graph, e.res, []*encoder{e}), nil
 }
 
-// elementIDsOf records the elementId a converted graph writes for each element
-// by its qualified (or positional) name.
+// elementIDsOf records the elementId a converted graph writes for each element,
+// by the declaration each encoder wrote it for and by its qualified (or
+// positional) name.
 func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	ids := &ElementIDs{byName: map[string]string{}, res: res, encoders: encoders}
+	ids := &ElementIDs{byNode: map[ast.Node]string{}, byName: map[string]string{}, res: res, encoders: encoders}
 	for _, subject := range graph.Subjects() {
 		name, named := graph.Lexical(subject, rdf.SysML+pQualifiedName)
 		id, identified := graph.Lexical(subject, rdf.SysML+pElementID)
@@ -61,7 +67,31 @@ func elementIDsOf(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) 
 			ids.byName[name] = id
 		}
 	}
+	for _, e := range encoders {
+		for node, fqn := range e.fqn {
+			if id, ok := graph.Lexical(e.ids.subjectForNode(node, fqn), rdf.SysML+pElementID); ok {
+				ids.byNode[node] = id
+			}
+		}
+	}
 	return ids
+}
+
+// OfDeclaration is the elementId written for the element declared at decl,
+// named fqn: the one its own declaration was written with where the conversion
+// encoded that node, else Of(fqn). Two identity scopes may declare one
+// qualified name, and the declaration tells their ids apart where the name
+// cannot.
+func (ids *ElementIDs) OfDeclaration(decl ast.Node, fqn string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	if decl != nil {
+		if id, ok := ids.byNode[decl]; ok {
+			return id, true
+		}
+	}
+	return ids.Of(fqn)
 }
 
 // Of is the elementId written for the element named fqn: the model's own as

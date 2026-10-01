@@ -273,3 +273,58 @@ func TestQueryElementIDOfAModelWithSyntaxErrors(t *testing.T) {
 		t.Errorf("elementId of a model with a broken document: err = %v, want FAILED_PRECONDITION", err)
 	}
 }
+
+// Two identity scopes may each declare one qualified name. The conversion keeps
+// the two elements apart, and so does a query: each reports the elementId
+// written for its own declaration, not the one written last for the name.
+func TestQueryElementIDOfOneNameInTwoScopes(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	documents := inlineDocuments(
+		"one.sysml", "package P { @IdentityMetadata::ProjectRef { projectId = \"one\"; branch = \"main\"; }\n"+
+			"  part def A { @IdentityMetadata::ElementId { id = \"first-a\"; } } }\n",
+		"two.sysml", "package P { @IdentityMetadata::ProjectRef { projectId = \"two\"; branch = \"main\"; }\n"+
+			"  part def A { @IdentityMetadata::ElementId { id = \"second-a\"; } } }\n",
+	)
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: documents})
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	converted, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source:   &pb.ConvertRequest_ModelHash{ModelHash: parsed.ModelHash},
+		ToFormat: "api-json",
+	})
+	if err != nil || converted.Error != "" {
+		t.Fatalf("Convert: %v %s", err, converted.GetError())
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(converted.Content), &elements); err != nil {
+		t.Fatal(err)
+	}
+	written := map[string]int{}
+	for _, e := range elements {
+		if name, _ := e["qualifiedName"].(string); name == "P::A" {
+			id, _ := e["elementId"].(string)
+			written[id]++
+		}
+	}
+	if len(written) != 2 || written["first-a"] != 1 || written["second-a"] != 1 {
+		t.Fatalf("Convert writes elementIds %v for P::A, want first-a and second-a once each", written)
+	}
+	queried, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Scope: []string{"P::A"}, Select: []string{"@id", "elementId"}},
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	reported := map[string]int{}
+	for _, e := range queried.Elements {
+		if e.Id == "P::A" {
+			reported[e.Properties["elementId"]]++
+		}
+	}
+	if len(reported) != 2 || reported["first-a"] != 1 || reported["second-a"] != 1 {
+		t.Errorf("query reports elementIds %v for P::A, Convert writes %v", reported, written)
+	}
+}
