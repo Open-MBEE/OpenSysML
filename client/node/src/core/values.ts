@@ -37,6 +37,7 @@ import {
   VectorSchema,
 } from "../generated/sysml_pb.js";
 import {
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_INFINITY_VALUE,
@@ -1282,11 +1283,20 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
   const require = (capability: string): void => {
     requireCapability(info, capability, upgradeRemedy(capability));
   };
+  const requireMagnitudes = (magnitudes: Magnitude[]): void => {
+    if (magnitudes.some((magnitude) => magnitude.kind === "int" && !fitsInt64(magnitude.value))) {
+      require(CAPABILITY_BIG_INT_VALUES);
+    }
+  };
   switch (value.kind) {
+    case "int":
+      requireMagnitudes([value]);
+      return;
     case "complex":
       require(CAPABILITY_COMPLEX_VALUES);
       return;
     case "quantity":
+      requireMagnitudes([value.magnitude]);
       checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
       return;
     case "measurementRef": {
@@ -1329,9 +1339,11 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "vector":
       require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components);
       return;
     case "vectorQuantity":
       require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
       });
@@ -1344,6 +1356,7 @@ export function requireInput(value: SysMLValue, info: ServerInfo): void {
       return;
     case "tensorQuantity":
       require(CAPABILITY_TENSOR_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
       value.components.forEach((component) => {
         checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
       });

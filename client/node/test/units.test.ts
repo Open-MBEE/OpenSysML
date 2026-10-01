@@ -11,6 +11,7 @@ import {
   VerdictSchema,
 } from "../src/generated/sysml_pb.js";
 import {
+  CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
@@ -442,7 +443,7 @@ test("an undecodable output stays in the map as its error", async () => {
 test("an integer input outside int64 travels as big_int_value, nested included", () => {
   const full = new ServerInfo({
     version: "v",
-    capabilities: ["set_values"],
+    capabilities: ["set_values", "big_int_values"],
     answered: true,
     origin: "test",
   });
@@ -549,7 +550,7 @@ test("a unit named without its reduction is refused before the call", () => {
 test("an Integer outside int64 travels in every wire position, and an id outside it is refused", () => {
   const full = new ServerInfo({
     version: "v",
-    capabilities: ["structured_values", "tensor_values", "function_values"],
+    capabilities: ["structured_values", "tensor_values", "function_values", "big_int_values"],
     answered: true,
     origin: "test",
   });
@@ -587,6 +588,46 @@ test("an Integer outside int64 travels in every wire position, and an id outside
       },
     );
   }
+});
+
+test("an Integer outside int64 is refused before the call by a service without big_int_values", () => {
+  const older = new ServerInfo({
+    version: "v",
+    capabilities: ["structured_values", "tensor_values", "set_values"],
+    answered: true,
+    origin: "test",
+  });
+  const out = 2n ** 63n;
+  const unitTerm = { scaleNum: 1, scaleDen: 1, factors: [{ unitId: "SI::kg", exponent: 1 }] };
+  for (const input of [
+    out,
+    -(2n ** 63n) - 1n,
+    { kind: "int", value: out },
+    [1n, out],
+    { kind: "set", elements: [out] },
+    { kind: "quantity", magnitude: { kind: "int", value: out }, unit: "" },
+    { kind: "vector", components: [{ kind: "int", value: out }] },
+    {
+      kind: "vectorQuantity",
+      components: [{ magnitude: { kind: "int", value: out }, unit: "", unitTerm }],
+    },
+    {
+      kind: "tensorQuantity",
+      dimensions: [1n],
+      components: [{ magnitude: { kind: "int", value: out }, unit: "", unitTerm }],
+    },
+  ] as const) {
+    assert.throws(
+      () => toValue(input as never, older),
+      (error: unknown) => {
+        assert.ok(error instanceof MissingCapabilityError);
+        assert.equal(error.capability, CAPABILITY_BIG_INT_VALUES);
+        return true;
+      },
+    );
+  }
+  assert.equal(toValue(2n ** 63n - 1n, older).kind.case, "intValue");
+  assert.equal(toValue(-(2n ** 63n), older).kind.case, "intValue");
 });
 
 test("a measurement reference needs its reduction however the unit is named", () => {

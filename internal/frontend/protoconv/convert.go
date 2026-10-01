@@ -528,6 +528,36 @@ func ValueCarriesInfinity(pv *pb.Value) bool {
 	})
 }
 
+// ValueCarriesBigInt reports whether a value, or any value nested in it, holds
+// an Integer beyond int64: the arms the big_int_values capability governs.
+func ValueCarriesBigInt(pv *pb.Value) bool {
+	return valueCarries(pv, ValueHoldsBigInt)
+}
+
+// ValueHoldsBigInt reports whether a value is itself an Integer beyond int64 or
+// carries one as a quantity magnitude, its own or a component's; a collection's
+// elements are values of their own, which it leaves to the caller.
+func ValueHoldsBigInt(pv *pb.Value) bool {
+	switch k := pv.GetKind().(type) {
+	case *pb.Value_BigIntValue:
+		return true
+	case *pb.Value_Quantity:
+		return quantityHoldsBigInt(k.Quantity)
+	case *pb.Value_VectorQuantity:
+		return slices.ContainsFunc(k.VectorQuantity.GetComponents(), quantityHoldsBigInt)
+	case *pb.Value_TensorQuantity:
+		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsBigInt)
+	case *pb.Value_EnumLiteral:
+		return k.EnumLiteral.GetValue() != nil && ValueCarriesBigInt(k.EnumLiteral.GetValue())
+	}
+	return false
+}
+
+func quantityHoldsBigInt(q *pb.Quantity) bool {
+	_, ok := q.GetMagnitude().(*pb.Quantity_BigIntMagnitude)
+	return ok
+}
+
 // ValueCarriesComplex reports whether a value, or any value nested in it, is a
 // Complex: the kind the complex_values capability governs.
 func ValueCarriesComplex(pv *pb.Value) bool {

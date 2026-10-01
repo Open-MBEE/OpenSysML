@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -132,5 +134,84 @@ func TestEvaluateCalcTakesAndReturnsBigIntegers(t *testing.T) {
 		if got := resp.Result.GetBigIntValue(); got != tc.want {
 			t.Errorf("square(%v) = %v, want big_int_value %s", tc.arg, resp.Result, tc.want)
 		}
+	}
+}
+
+const bigIntegerCapabilityModel = `
+package W {
+  private import ScalarValues::*;
+
+  attribute wide = 2 ** 70;
+  attribute narrow = 2 ** 62;
+  attribute both [*] = (1, 2 ** 70);
+
+  action pass {
+    in x;
+    out y;
+    first start;
+    action inner { assign y := x; }
+    then done;
+    succession first start then inner;
+  }
+}
+`
+
+// The arms are advertised under their own capability, so a client can require
+// it; a service withholding it reports a wide Integer as unsupported — nested in
+// a sequence and as a quantity magnitude included — and refuses one sent to it
+// rather than reading it as null. An Integer within int64 is unaffected.
+func TestBigIntCapability(t *testing.T) {
+	ctx := context.Background()
+	if all := Capabilities(); all[len(all)-1] != CapabilityBigIntValues {
+		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityBigIntValues)
+	}
+
+	withheld := mustNewServiceWithout(t, CapabilityBigIntValues)
+	modelHash := mustParse(t, withheld, bigIntegerCapabilityModel)
+
+	const want = "unsupported: constant 1180591620717411303424"
+	if got := mustEvaluate(t, withheld, modelHash, "W::wide"); got.GetNull() != want {
+		t.Errorf("W::wide without %s = %v, want null %q", CapabilityBigIntValues, got, want)
+	}
+	if got := mustEvaluate(t, withheld, modelHash, "W::narrow"); got.GetIntValue() != 1<<62 {
+		t.Errorf("W::narrow without %s = %v, want int_value 2**62", CapabilityBigIntValues, got)
+	}
+	both := mustEvaluate(t, withheld, modelHash, "W::both").GetSequence().GetElements()
+	if len(both) != 2 || both[0].GetIntValue() != 1 || both[1].GetNull() != want {
+		t.Errorf("W::both without %s = %v, want (1, withheld)", CapabilityBigIntValues, both)
+	}
+
+	quantity := &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{
+		Magnitude: &pb.Quantity_BigIntMagnitude{BigIntMagnitude: "1180591620717411303424"},
+		UnitTerm:  &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1},
+	}}}
+	if !protoconv.ValueHoldsBigInt(quantity) {
+		t.Errorf("a quantity with a big_int_magnitude does not hold a wide Integer")
+	}
+	filtered := proto.Clone(quantity).(*pb.Value)
+	withheld.filterValueCapabilities(filtered)
+	if _, ok := protoconv.UnsupportedReason(filtered); !ok {
+		t.Errorf("quantity without %s = %v, want it reported unsupported", CapabilityBigIntValues, filtered)
+	}
+
+	wide := &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: "1180591620717411303424"}}
+	nested := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{wide}}}}
+	vector := &pb.Value{Kind: &pb.Value_Vector{Vector: &pb.Vector{Components: []*pb.Value{wide}}}}
+	for name, input := range map[string]*pb.Value{"wide": wide, "nested": nested, "vector": vector, "quantity": quantity} {
+		_, err := withheld.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+			ModelHash:      modelHash,
+			ActionSymbolId: "W::pass",
+			Inputs:         map[string]*pb.Value{"x": input},
+		})
+		if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityBigIntValues) {
+			t.Errorf("ExecuteAction with %s input without %s: err = %v, want UNIMPLEMENTED naming the capability", name, CapabilityBigIntValues, err)
+		}
+	}
+
+	available := mustNewService(t, 10)
+	t.Cleanup(available.Close)
+	availableHash := mustParse(t, available, bigIntegerCapabilityModel)
+	if got := mustEvaluate(t, available, availableHash, "W::wide"); got.GetBigIntValue() != "1180591620717411303424" {
+		t.Errorf("W::wide = %v, want big_int_value 1180591620717411303424", got)
 	}
 }

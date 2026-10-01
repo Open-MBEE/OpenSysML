@@ -58,6 +58,20 @@ function test_surface_offline()
     tensor = struct('dimensions', int64(2), 'components', {{quantity, quantity}});
     wire = opensysml.encodeValue(tensor, conn);
     assert_equal(isfield(wire, 'tensorQuantity'), true, 'tensor quantity arm');
+    wide = struct('bigInteger', '1180591620717411303424');
+    wideQuantity = struct('magnitude', wide, 'unit', 'kg');
+    for value = {wide, {int64(1), {wide}}, struct('set', {{wide}}), wideQuantity, ...
+            struct('components', {{wideQuantity}}), ...
+            struct('dimensions', int64(1), 'components', {{wideQuantity}})}
+        assert_error(@() opensysml.encodeValue(value{1}, conn), ...
+            'opensysml:missingCapability', 'Integer beyond int64 without big_int_values');
+    end
+    bigConn = opensysml.external('127.0.0.1:1');
+    bigConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
+        {[capabilities, {'big_int_values'}]}));
+    wire = opensysml.encodeValue({int64(1), {wide}}, bigConn);
+    assert_equal(wire.sequence.elements{2}.sequence.elements{1}.bigIntValue, ...
+        '1180591620717411303424', 'nested Integer beyond int64 with big_int_values');
     assert_equal(opensysml.parseUint64('18446744073709551615'), ...
         intmax('uint64'), 'exact uint64 parsing');
 

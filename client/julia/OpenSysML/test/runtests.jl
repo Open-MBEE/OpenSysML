@@ -21,6 +21,14 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    wide = Quantity(big(2)^63, "kg", nothing)
+    for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
+                  VectorQuantity([wide]), TensorQuantity([1], [wide]))
+        @test CAPABILITY_BIG_INT_VALUES in value_capabilities(value)
+    end
+    for value in (typemax(Int64), big(7), Quantity(5, "kg", nothing), true)
+        @test !(CAPABILITY_BIG_INT_VALUES in value_capabilities(value))
+    end
     @test decode_value(JSON.parse("""{"realValue":0.3333333333333333}""")) ≈ 1/3
     @test decode_value(JSON.parse("""{"realValue":20}""")) === 20.0
     @test decode_value(JSON.parse("""{"realValue":"NaN"}""")) |> isnan

@@ -80,6 +80,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 	if value == nil {
 		return
 	}
+	if !s.capabilities.has(CapabilityBigIntValues) && protoconv.ValueHoldsBigInt(value) {
+		value.Kind = protoconv.UnsupportedShown(displayValue(value))
+		return
+	}
 	switch kind := value.GetKind().(type) {
 	case *pb.Value_Sequence:
 		for _, element := range kind.Sequence.GetElements() {

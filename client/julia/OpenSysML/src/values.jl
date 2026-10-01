@@ -634,7 +634,11 @@ end
 function value_capabilities(value)
     capabilities = Set{String}()
     function visit(item)
-        if item isa Complex
+        if item isa Integer && !(item isa Bool)
+            typemin(Int64) <= item <= typemax(Int64) || push!(capabilities, CAPABILITY_BIG_INT_VALUES)
+        elseif item isa Quantity
+            visit(item.magnitude)
+        elseif item isa Complex
             push!(capabilities, CAPABILITY_COMPLEX_VALUES)
         elseif item isa MeasurementRef
             push!(capabilities, CAPABILITY_MEASUREMENT_REFS)
@@ -646,6 +650,7 @@ function value_capabilities(value)
         elseif item isa TensorQuantity
             push!(capabilities, CAPABILITY_TENSOR_VALUES)
             push!(capabilities, CAPABILITY_STRUCTURED_VALUES)
+            foreach(visit, item.components)
         elseif item isa Union{ArrayValue,VectorValue,VectorQuantity}
             push!(capabilities, CAPABILITY_STRUCTURED_VALUES)
             item isa ArrayValue && foreach(visit, item.elements)

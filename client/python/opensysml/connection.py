@@ -42,6 +42,7 @@ from opensysml.capabilities import (
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
+    CAPABILITY_BIG_INT_VALUES,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
@@ -103,6 +104,7 @@ from opensysml.values import (
     VectorQuantity,
     _Infinity,
     integer_to_pb,
+    pb_holds_big_int,
     value_to_python,
 )
 
@@ -2766,6 +2768,16 @@ class Connection:
             upgrade_remedy(CAPABILITY_INFINITY_VALUE),
         )
 
+    def _require_big_int_values(self, value):
+        """Refuse to send an Integer beyond int64 a service without ``big_int_values`` would read as null."""
+        if pb_holds_big_int(value):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
+        return value
+
     def _require_schedule(self, schedule):
         """Refuse to send a schedule a service without ``schedule`` would run under the default."""
         for capability in self._schedule_capabilities(schedule):
@@ -2836,7 +2848,7 @@ class Connection:
         elif isinstance(py_value, InstanceRef):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
-            return integer_to_pb(py_value)
+            return self._require_big_int_values(integer_to_pb(py_value))
         elif isinstance(py_value, float):
             return sysml_pb2.Value(real_value=py_value)
         elif isinstance(py_value, complex):
@@ -2851,7 +2863,7 @@ class Connection:
         elif isinstance(py_value, Instance):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, Quantity):
-            return sysml_pb2.Value(quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(quantity=py_value.to_pb()))
         elif isinstance(py_value, _Infinity):
             self._require_infinity_value()
             return sysml_pb2.Value(infinity=True)
@@ -2869,16 +2881,16 @@ class Connection:
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))
         elif isinstance(py_value, Vector):
             self._require_structured_values()
-            return sysml_pb2.Value(vector=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(vector=py_value.to_pb()))
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
-            return sysml_pb2.Value(vector_quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(vector_quantity=py_value.to_pb()))
         elif isinstance(py_value, (SetValue, set, frozenset)):
             self._require_set_values()
             return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
         elif isinstance(py_value, TensorQuantity):
             self._require_tensor_values()
-            return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
+            return self._require_big_int_values(sysml_pb2.Value(tensor_quantity=py_value.to_pb()))
         elif isinstance(py_value, EnumLiteral):
             literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,

@@ -336,6 +336,10 @@ A double would read that as `9007199254740992`.
 `intValue`, never as `bigIntValue`, so a client that never meets a wide Integer sees no change,
 and the two arms never spell the same number; a decoder rejects a `bigIntValue` that fits
 `int64` or is not canonical. The service accepts `bigIntValue` on input under the same rule.
+The arm is negotiated by the `big_int_values` capability: a service that does not advertise it
+sends a wide Integer (bare, nested, or as a `bigIntMagnitude`) as an unsupported `null` naming it,
+and, since such a service would read an unknown arm as `null`, the bundled clients refuse to send
+one to it before the call.
 
 MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs

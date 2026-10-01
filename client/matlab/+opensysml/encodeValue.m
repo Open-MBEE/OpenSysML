@@ -50,12 +50,13 @@ function v = encodeStruct(x, conn)
         requireCapability(conn, 'infinity_value');
         v = struct('infinity', true);
     elseif isfield(x, 'bigInteger')
+        requireCapability(conn, 'big_int_values');
         v = struct('bigIntValue', char(x.bigInteger));
     elseif isfield(x, 'instanceRef')
         id = integerValue(x.instanceRef, 'instance reference id');
         v = struct('instanceId', sprintf('%d', id));
     elseif isfield(x, 'magnitude') && isfield(x, 'unit')
-        v = struct('quantity', encodeQuantityBody(x));
+        v = struct('quantity', encodeQuantityBody(x, conn));
     elseif isfield(x, 'literalId')
         body = struct('literalId', x.literalId, ...
             'enumerationId', getField(x, 'enumerationId', ''), ...
@@ -99,7 +100,7 @@ function v = encodeStruct(x, conn)
         if isempty(components) || isQuantity(components{1})
             requireCapability(conn, 'tensor_values');
             dims = encodeDimensions(x.dimensions);
-            quantities = cellfun(@encodeQuantityBody, components, 'UniformOutput', false);
+            quantities = cellfun(@(q) encodeQuantityBody(q, conn), components, 'UniformOutput', false);
             validateShape(dims, numel(quantities), 'tensorQuantity');
             v = struct('tensorQuantity', ...
                 struct('dimensions', {dims}, 'components', {quantities}));
@@ -110,7 +111,7 @@ function v = encodeStruct(x, conn)
     elseif isfield(x, 'components') && hasQuantityComponents(x.components)
         requireCapability(conn, 'structured_values');
         components = valueList(x.components);
-        quantities = cellfun(@encodeQuantityBody, components, 'UniformOutput', false);
+        quantities = cellfun(@(q) encodeQuantityBody(q, conn), components, 'UniformOutput', false);
         if isempty(quantities)
             opensysml.internal.raise('opensysml:encode', 'vectorQuantity has no components');
         end
@@ -160,9 +161,10 @@ function v = encodeStruct(x, conn)
     end
 end
 
-function body = encodeQuantityBody(q)
+function body = encodeQuantityBody(q, conn)
     magnitude = q.magnitude;
     if isstruct(magnitude) && isfield(magnitude, 'bigInteger')
+        requireCapability(conn, 'big_int_values');
         body.bigIntMagnitude = char(magnitude.bigInteger);
     elseif ~isnumeric(magnitude) || ~isscalar(magnitude) || ~isreal(magnitude)
         opensysml.internal.raise('opensysml:encode', 'quantity magnitude must be a real scalar');

@@ -25,6 +25,29 @@ def fits_int64(value: int) -> bool:
     return _INT64_MIN <= value <= _INT64_MAX
 
 
+def pb_holds_big_int(value: "sysml_pb2.Value") -> bool:
+    """Whether a wire value is an Integer beyond int64 or carries one as a quantity magnitude.
+
+    A collection's elements are values of their own, which it leaves to the caller.
+    """
+    kind = value.WhichOneof("kind")
+    if kind == "big_int_value":
+        return True
+    if kind == "quantity":
+        return _quantity_holds_big_int(value.quantity)
+    if kind == "vector":
+        return any(component.WhichOneof("kind") == "big_int_value" for component in value.vector.components)
+    if kind == "vector_quantity":
+        return any(_quantity_holds_big_int(q) for q in value.vector_quantity.components)
+    if kind == "tensor_quantity":
+        return any(_quantity_holds_big_int(q) for q in value.tensor_quantity.components)
+    return False
+
+
+def _quantity_holds_big_int(quantity: "sysml_pb2.Quantity") -> bool:
+    return quantity.WhichOneof("magnitude") == "big_int_magnitude"
+
+
 def integer_to_decimal(value: int) -> str:
     """The full decimal of an Integer, however many digits it has."""
     if value < 0:
