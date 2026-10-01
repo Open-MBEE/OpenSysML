@@ -334,3 +334,24 @@ func TestPrefixedVariantDeclaresItsName(t *testing.T) {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
 }
+
+// A variant named by an unrestricted name keeps it one name, resolved or not:
+// `variant 'a::b';` is not the qualified reference `variant a::b;`.
+func TestQuotedVariantNamesStayOneName(t *testing.T) {
+	for _, src := range []string{
+		"package P {\n    variation part def V {\n        variant 'a::b';\n    }\n}\n",
+		"package P {\n    part 'a::b';\n    part 'it\\'s';\n    variation part def V {\n        variant 'a::b';\n        variant 'it\\'s';\n    }\n}\n",
+	} {
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("to turtle: %v", err)
+		}
+		back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("back to notation from the mapping alone: %v", err)
+		}
+		if string(back) != src {
+			t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+		}
+	}
+}

@@ -2493,8 +2493,8 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 }
 
 // variantReferenceTarget is the term of the feature a bare `variant x;` names:
-// the like-named feature visible outside the variation, else the name x as
-// written, the way an unresolved reference is kept; the zero term when n is no
+// the like-named feature visible outside the variation, else the name x in
+// the segment form an unresolved reference is kept in (`'a::b'` stays one name); the zero term when n is no
 // such reference or states its reference itself (`variant P::x;`, `variant a.b;`).
 func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
 	if !n.IsVariantReference() || referencesFeature(n) {
@@ -2507,7 +2507,7 @@ func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
 			}
 		}
 	}
-	return rdf.String(n.Ident.Name)
+	return rdf.String(identitySegment(n.Ident.Name))
 }
 
 // symbolTerm is the term of the element a resolved symbol declares, or the zero

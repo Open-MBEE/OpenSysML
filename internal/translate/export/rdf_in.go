@@ -3087,17 +3087,25 @@ func (d *decoder) qualifiedReferences(el *element, terms []rdf.Term, written []s
 // A qualified name is written as the reference form; any other single name is
 // refused, as no notation states it.
 func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error) {
-	segments, ok := source.QualifiedNameSegments(term.Value)
-	if !ok || len(segments) != 1 {
+	segments := identitySegments(term.Value)
+	if len(segments) != 1 {
 		return "", nil
 	}
-	if strings.HasSuffix(d.writtenQName(el), "::"+segments[0]) {
-		return nameText(segments[0]), nil
+	name := identityName(segments[0])
+	if lastName(d.writtenQName(el)) == name {
+		return nameText(name), nil
 	}
 	return "", &UnsupportedError{
 		What: fmt.Sprintf("the variant <%s>", el.iri),
 		Note: fmt.Sprintf("it references the name %q, which the graph links to no element: `variant %s;` would be a variant named %s, which it is not, and a single name has no reference form", term.Value, term.Value, term.Value),
 	}
+}
+
+// lastName is the decoded name of a qualified name's last segment, so a
+// quoted `'a::b'` compares as the one name it is.
+func lastName(qname string) string {
+	segments := identitySegments(qname)
+	return identityName(segments[len(segments)-1])
 }
 
 // variantName is the name a VariantReference is written by, `variant x;`: the
@@ -3120,7 +3128,7 @@ func (d *decoder) variantName(el *element, terms []rdf.Term) (string, error) {
 		return "", err
 	}
 	qname := d.writtenQName(el)
-	if !strings.HasSuffix(qname, "::"+name) {
+	if lastName(qname) != name {
 		return "", nil
 	}
 	d.wanted.variants[qname] = target.qname
