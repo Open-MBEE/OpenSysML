@@ -850,6 +850,50 @@ different dimensions — `Stage::mass +
 Stage::length`, or a quantity plus a bare number — are a typed
 `column-incommensurable` error naming the column, the row and both units.
 
+### Row-relative navigation and collection functions
+
+A `cell` may walk the model from the row rather than read a feature of it,
+so a column derives what the row is related to when the query runs. Every
+query operation takes the row as its `source` — `Descendants(source = row,
+maxDepth = 1)`, `WhereType(source = …, type = ("PortUsage"))`,
+`RelatedElements(source = row, relationshipKind = "typing", direction =
+"incoming", maxDepth = 1)` (the features typed by the row) — and a feature
+chain reads on from what they collect: `row.connectorEnd` is a connection's
+ends, an end's `chainingFeature` the feature chain it connects (its last the
+port or part connected, the others the path to it), `.type` the type reached
+and `.type.member` the members of that type. The standard library's
+collection functions apply to any such collection, written qualified since a
+query body imports no library: `->SequenceFunctions::size()`, `->isEmpty()`,
+`->notEmpty()`, `->head()`, `->last()`, `->includes(x)`, `->excludes(x)`,
+`->including(x)`, `->excluding(x)`; `->ControlFunctions::select {in x :
+Feature; …}`, `->reject`, `->collect`, `->exists`, `->forAll`, each body a
+lambda over one element of the kind declared; and `->DocumentQueries::Distinct()`,
+the collection with each element once, in first-seen order (the library has no
+`distinct` of its own).
+
+```sysml
+calc def ConnectionEnds :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = ("ConnectionUsage")),
+		properties = ("name"),
+		columns = (
+			Column(name = "Interfaces", cell = { in row : KerML::Kernel::Connector;
+				row.connectorEnd->ControlFunctions::collect {in e : KerML::Core::Feature;
+					e.chainingFeature->SequenceFunctions::last()}.type->DocumentQueries::Distinct() }),
+			Column(name = "Fan-out", cell = { in row : KerML::Kernel::Connector;
+				row.connectorEnd->SequenceFunctions::size() })
+		)
+	)
+}
+```
+
+A cell that collects holds every element collected: the rendered table
+comma-joins the values as it does a `[0..*]` feature, a count is one integer,
+and a collection that is empty leaves the cell empty. The SysML v1 migrator
+writes DocGen's OCL expression columns this way (see the [migration
+reference](../reference/sysml-v1-migration.md#expression-columns)).
+
 ## Query invokes query
 
 `MassTable` above already shows it: `PartsByMass(root = root)` invokes the

@@ -99,6 +99,9 @@ type executor struct {
 	derived    *derivedValues
 	depthLeft  int
 	stack      []string
+	// cell is the computed cell being evaluated, whose variables query
+	// operations invoked inside it read; nil outside a cell.
+	cell *cellContext
 }
 
 // Execute evaluates a compiled entry query into an immutable ordered row set.
@@ -436,6 +439,9 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateEvents(expression)
 	case queryplan.OperationTree:
 		return e.evaluateTree(expression)
+	case queryplan.OperationVariable, queryplan.OperationNavigate, queryplan.OperationCollection,
+		queryplan.OperationColumnOperator:
+		return e.evaluateCellOperand(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,

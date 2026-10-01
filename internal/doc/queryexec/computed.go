@@ -97,7 +97,9 @@ func (e *executor) evaluateColumnCell(
 	if column.related != nil {
 		return e.evaluateRelatedCell(column, row)
 	}
+	release := e.enterCell(column, row, tracker)
 	values, err := e.evaluateColumnExpression(column.expression, column.name, row, tracker)
+	release()
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +126,7 @@ func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity 
 	one := queryplan.Multiplicity{Lower: 1, Upper: 1, Known: true}
 	switch expression.Operation() {
 	case queryplan.OperationRowProperty, queryplan.OperationRowMember,
-		queryplan.OperationParameter:
+		queryplan.OperationParameter, queryplan.OperationNavigate, queryplan.OperationCollection:
 		return expression.Multiplicity()
 	case queryplan.OperationLiteral:
 		if kind, _ := expression.Literal(); kind == queryplan.LiteralNull {
@@ -182,7 +184,14 @@ func (e *executor) evaluateColumnExpression(
 		return append([]Value(nil), binding.values...), nil
 	case queryplan.OperationColumnOperator:
 		return e.evaluateColumnOperator(expression, column, row, tracker)
-	default:
+	case queryplan.OperationVariable:
+		return e.evaluateVariable(expression, row)
+	case queryplan.OperationNavigate:
+		return e.evaluateNavigate(expression, column, row, tracker)
+	case queryplan.OperationCollection:
+		return e.evaluateCollection(expression, column, row, tracker)
+	case queryplan.OperationLambda, queryplan.OperationColumn, queryplan.OperationRelatedColumn,
+		queryplan.OperationProject, queryplan.OperationTree, queryplan.OperationOrderBy:
 		return nil, &Error{
 			Kind:      ErrorUnsupportedOperation,
 			Query:     e.definition.Name(),
@@ -190,6 +199,14 @@ func (e *executor) evaluateColumnExpression(
 			Property:  column,
 			Origin:    expression.Origin(),
 		}
+	default:
+		// A query operation inside a cell — RelatedElements(source = row, …) —
+		// runs as a query over the cell's variables.
+		result, err := e.evaluate(expression)
+		if err != nil {
+			return nil, err
+		}
+		return result.values, nil
 	}
 }
 
@@ -493,6 +510,9 @@ func (e *executor) evaluateColumnOperator(
 ) ([]Value, error) {
 	_, operator := expression.Literal()
 	operands := expression.Arguments()
+	if values, ok, err := e.evaluateLogicalOperator(expression, column, row, tracker, operator); ok {
+		return values, err
+	}
 	if operator == "??" {
 		left, err := e.evaluateColumnExpression(operands[0].Value, column, row, tracker)
 		if err != nil {

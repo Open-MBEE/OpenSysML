@@ -376,6 +376,7 @@ package 'Fleet Documents' {
             properties = ("name", "qualifiedName", "documentation"),
             columns = (
                 DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                DocumentQueries::Column(name = "Owner Name", cell = { in row : KerML::Root::Element; row.owner.name }),
                 DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
                 DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
     }
@@ -417,7 +418,8 @@ package 'Fleet Documents' {
                     value = "^(?:.*Count)$")),
             properties = ("name", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
+                DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
     }
     calc def 'Fleet Handbook Related Elements Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -563,7 +565,8 @@ package 'Fleet Documents' {
                     value = "^(?:.*Count)$")),
             properties = ("name", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
+                DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
