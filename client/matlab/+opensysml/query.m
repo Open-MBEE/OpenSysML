@@ -35,9 +35,10 @@ function values = queryElements(raw)
     for i = 1:numel(elements)
         element = elements{i};
         properties = containers.Map('KeyType', 'char', 'ValueType', 'any');
-        fields = fieldnames(fieldOr(element, 'properties', struct()));
+        [fields, propertyValues] = opensysml.internal.mapEntries( ...
+            fieldOr(element, 'properties', struct()));
         for j = 1:numel(fields)
-            properties(fields{j}) = element.properties.(fields{j});
+            properties(fields{j}) = propertyValues{j};
         end
         values{i} = struct('id', fieldOr(element, 'id', ''), ...
             'type', fieldOr(element, 'type', ''), 'properties', properties);

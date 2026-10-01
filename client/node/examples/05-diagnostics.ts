@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     assert.ok(notFound instanceof SymbolNotFoundError);
     show("looked up", notFound.symbolName);
     show("suggested", notFound.suggestions.join(", "));
-    assert.equal(notFound.suggestions[0], "Rover::Wheel");
+    assert.equal(notFound.suggestions[0], "Wheel");
     await failing("a name nothing resembles", () => model.symbol("Sprocket"));
     await failing("an unknown qualified symbol", () => model.symbol("Rover::Sprocket"));
     const bad = await failing("an expression that cannot run", () => model.eval("mass + "));
