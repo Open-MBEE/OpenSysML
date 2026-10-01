@@ -3,6 +3,7 @@
 // SourceDocument the `inline`/`file` factories build.
 
 import { create } from "@bufbuild/protobuf";
+import { requireSourceText, requireString } from "./arguments.js";
 import type { SourceDocument as PbSourceDocument } from "../generated/sysml_pb.js";
 import { SourceDocumentSchema } from "../generated/sysml_pb.js";
 
@@ -33,17 +34,20 @@ export class SourceDocument {
     name?: string;
     language?: string;
   }) {
-    if (init.name !== undefined && typeof init.name !== "string") {
-      throw new TypeError("name must be a string");
+    if (init.name !== undefined) {
+      requireString("name", init.name);
     }
     for (const [field, value] of [
       ["path", init.path],
       ["content", init.content],
       ["language", init.language],
     ] as const) {
-      if (value !== undefined && typeof value !== "string") {
-        throw new TypeError(`${field} must be a string`);
+      if (value !== undefined) {
+        requireString(field, value);
       }
+    }
+    if (init.content !== undefined) {
+      requireSourceText("content", init.content);
     }
     if ((init.path === undefined) === (init.content === undefined)) {
       throw new RangeError("a SourceDocument is either a file path or inline content, not both");

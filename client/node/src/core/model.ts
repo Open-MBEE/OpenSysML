@@ -9,6 +9,7 @@ import {
   upgradeRemedy,
 } from "./capabilities.js";
 import type { Connection } from "./connection.js";
+import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
 import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
@@ -210,6 +211,9 @@ export class Model {
     options: ParseOptions = {},
     ownsConnection = false,
   ): Promise<Model> {
+    if (source.source.case === "content") {
+      requireSourceText("source", source.source.value);
+    }
     if (options.language !== undefined) {
       requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
@@ -259,6 +263,7 @@ export class Model {
 
   /** Evaluates a SysML expression against this model. */
   async eval(expression: string, options: EvalOptions = {}): Promise<SysMLValue> {
+    requireString("expression", expression);
     if (options.subject !== undefined) {
       requireCapability(
         this.connection.info,
@@ -285,6 +290,7 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id; throws when the model declares none. */
   async symbol(name: string): Promise<ModelSymbol> {
+    requireString("name", name);
     // The empty name names the model itself, as Python's model.get("") does.
     if (name === "") {
       return this.parsed ? this.root : this.symbolById(name);
@@ -496,6 +502,7 @@ export class Model {
 
   /** Looks a symbol up by its qualified name, in one call. */
   async symbolById(id: string): Promise<ModelSymbol> {
+    requireString("id", id);
     const response = await callRpc(
       this.connection.rpc.getSymbol(
         { modelHash: this.hash, symbolId: id },
@@ -510,6 +517,7 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id, breadth-first from the root. */
   async find(name: string): Promise<ModelSymbol | undefined> {
+    requireString("name", name);
     if (name === "") {
       return this.parsed ? this.root : undefined;
     }
@@ -536,6 +544,7 @@ export class Model {
 
   /** Instantiates a part or usage, by short name, FQN or id. */
   async instantiate(name: string): Promise<InstanceTree> {
+    requireString("name", name);
     const id = this.looksQualified(name) ? name : (await this.symbol(name)).id;
     const response = await callRpc(
       this.connection.rpc.instantiate(

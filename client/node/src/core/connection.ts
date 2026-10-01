@@ -242,6 +242,7 @@ export class Connection {
 
   /** Parses a file the service can read, and returns the model it loaded. */
   load(path: string, options: ParseOptions = {}): Promise<Model> {
+    requireString("path", path);
     return Model.parse(this, { source: { case: "filePath", value: path } }, options);
   }
 

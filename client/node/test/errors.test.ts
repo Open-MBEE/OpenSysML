@@ -10,7 +10,6 @@ import {
   SourceDocument,
   ModelNotFoundError,
   OpenSysMLError,
-  ServiceError,
   ServiceUnavailableError,
   SymbolNotFoundError,
   connect,
