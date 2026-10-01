@@ -285,6 +285,14 @@ function _download_binary_locked(version; github_repo, base_url, api_url, fetche
     asset = release_asset_name()
     binary_url = _release_download_url(resolved, asset, repo; base_url=base_url)
     checksum_url = _release_download_url(resolved, asset * ".sha256", repo; base_url=base_url)
+    pinned = pinned_digest(resolved, asset; github_repo=repo, pinned_digests=pinned_digests)
+    if isempty(pinned)
+        secure_url = startswith(lowercase(binary_url), "https://") ||
+                     startswith(lowercase(binary_url), "file://")
+        secure_url || throw(UnpinnedReleaseError(
+            "the unpinned download URL $(binary_url) is not HTTPS or file://; " *
+            "plaintext URLs need a pinned digest"))
+    end
     checksum = _served_digest(_fetch(checksum_url, MAX_METADATA_BYTES; fetcher=fetcher), checksum_url)
     expected = expected_digest(resolved, asset, checksum;
         github_repo=repo, pinned_digests=pinned_digests)

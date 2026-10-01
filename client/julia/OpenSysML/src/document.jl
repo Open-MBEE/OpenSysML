@@ -99,7 +99,9 @@ function _document_value(raw)
     elseif haskey(raw, "verdict")
         v = raw["verdict"]
         a = get(v, "assertion", Dict{String,Any}())
-        return DocumentVerdict(_document_value(a), String(get(v, "kind", "")),
+        assertion = ElementRef(String(get(a, "elementId", "")),
+                               String(get(a, "elementType", "")))
+        return DocumentVerdict(assertion, String(get(v, "kind", "")),
             String(get(v, "text", "")), String(get(v, "path", "")),
             String(get(v, "verdict", "")), String(get(v, "condition", "")),
             String(get(v, "reason", "")), String[String(x) for x in get(v, "verification", Any[])])
@@ -121,7 +123,7 @@ function _document_value(raw)
         return DocumentEvent(String(get(v, "kind", "")), time, String(get(v, "text", "")),
             obj_raw isa AbstractDict ? _document_object(obj_raw) : nothing,
             String(get(v, "machine", "")), String(get(v, "state", "")),
-            String(get(v, "fromState", "")), String(get(v, "toState", "")),
+            String(get(v, "from", "")), String(get(v, "to", "")),
             target_raw isa AbstractDict ? _document_object(target_raw) : nothing,
             String(get(v, "event", "")), String[String(x) for x in get(v, "payload", Any[])],
             String[String(x) for x in get(v, "alternatives", Any[])], String(get(v, "taken", "")))

@@ -157,7 +157,7 @@ struct SweepTable
     rows::Vector{SweepRow}
     parameters::Vector{String}
     sampled::Bool
-    seed::Int64
+    seed::UInt64
     instances::Vector{Instance}
     diagnostics::Vector{Diagnostic}
     standing::Standing

@@ -1,3 +1,21 @@
+function recording_service(capabilities; handler=(method, body) -> Dict{String,Any}())
+    listener = listen(ip"127.0.0.1", 0)
+    port = getsockname(listener)[2]
+    close(listener)
+    requests = Any[]
+    server = HTTP.serve!(ip"127.0.0.1", port) do request
+        method = last(split(String(request.target), '/'))
+        body = isempty(request.body) ? Dict{String,Any}() :
+            JSON.parse(String(request.body))
+        push!(requests, (method=method, body=body))
+        answer = method == "GetServerInfo" ?
+            Dict("version" => "test", "capabilities" => capabilities) :
+            handler(method, body)
+        HTTP.Response(200, ["Content-Type" => "application/json"], JSON.json(answer))
+    end
+    server, requests, "127.0.0.1:$(port)"
+end
+
 @testset "errors and capabilities" begin
     @test ConnectError("not_found", "model not found: abc", 404) isa ModelNotFoundError
     @test ConnectError("not_found", "file not found: a.sysml", 404) isa ModelFileNotFoundError
@@ -15,6 +33,83 @@
     @test occursin("1.2.3", OpenSysML.describe(info))
     @test mismatch_reason(info; version="1.2.4") !== nothing
     @test_throws MissingCapabilityError require_capability(info, "convert")
+end
+
+@testset "empty service version requests" begin
+    withenv("OPENSYSML_GRPC_VERSION" => "") do
+        @test OpenSysML._version_request(nothing) === nothing
+        @test OpenSysML._version_request("") === nothing
+    end
+    withenv("OPENSYSML_GRPC_VERSION" => "v1.2.3") do
+        @test OpenSysML._version_request("") == "v1.2.3"
+    end
+end
+
+@testset "OSLC query capability preflight" begin
+    server, requests, address = recording_service(["query"])
+    conn = external(address)
+    try
+        err = try
+            query(Model(conn, "hash", Diagnostic[]), "name = 'car'")
+            nothing
+        catch exception
+            exception
+        end
+        @test err isa MissingCapabilityError
+        @test err.capability == CAPABILITY_OSLC_QUERY
+        @test [request.method for request in requests] == ["GetServerInfo"]
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "file parsing does not require inline language capability" begin
+    server, requests, address = recording_service(String[];
+        handler=(method, body) -> Dict("modelHash" => "file-hash"))
+    conn = external(address)
+    try
+        info = server_info(conn)
+        @test CAPABILITY_INLINE_LANGUAGE ∉ info
+        model = parse_file(conn, "model.sysml"; language="sysml")
+        @test model.hash == "file-hash"
+        parse_request = only(request for request in requests if request.method == "ParseFile")
+        @test parse_request.body["filePath"] == "model.sysml"
+        @test parse_request.body["language"] == "sysml"
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "document verdict and event decoding" begin
+    verdict = OpenSysML._document_value(JSON.parse(
+        """{"verdict":{"assertion":{"elementType":"SysML::RequirementUsage"},
+        "kind":"requirement","verdict":"pass"}}"""))
+    @test verdict.assertion == ElementRef("", "SysML::RequirementUsage")
+
+    event = OpenSysML._document_value(JSON.parse(
+        """{"event":{"kind":"transition","from":"Idle","to":"Running"}}"""))
+    @test event.from_state == "Idle"
+    @test event.to_state == "Running"
+end
+
+@testset "sweep seeds use uint64" begin
+    seed = typemax(UInt64)
+    server, requests, address = recording_service([
+        CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES
+    ]; handler=(method, body) -> Dict("seed" => string(seed)))
+    conn = external(address)
+    try
+        table = run_sweep(Model(conn, "hash", Diagnostic[]), "Demo::Sweep",
+            "x" => (1, 2); seed=seed)
+        @test table.seed === seed
+        request = only(request for request in requests if request.method == "RunSweep")
+        @test request.body["seed"] == string(seed)
+    finally
+        close(conn)
+        close(server)
+    end
 end
 
 @testset "protected RPCs are preflighted" begin
@@ -65,6 +160,14 @@ end
     @test to_unit(quantity, metre).magnitude == 2000.0
     @test quantity + Quantity(500, "m", metre) == Quantity(2.5, "km", kilometre)
     @test_throws IncommensurableUnitsError quantity + Quantity(1, "s", Unit("s"; factors=[UnitFactor("SI::second", 1)]))
+    @test in_unit(Quantity(5, "m"), Unit("m")) == 5
+    @test_throws IncommensurableUnitsError in_unit(Quantity(5, "m"), Unit("s"))
+    @test_throws IncommensurableUnitsError Quantity(5, "m") + Quantity(1, "s")
+    @test_throws IncommensurableUnitsError Quantity(5, "m") < Quantity(1, "s")
+    huge = Unit("u"; scale_num=1, factors=[UnitFactor("SI::u", 1)])
+    @test Quantity(9007199254740992, "u", huge) != Quantity(9007199254740993, "u", huge)
+    @test Quantity(1, "km", kilometre) == Quantity(1000, "m", metre)
+    @test hash(Quantity(1, "km", kilometre)) == hash(Quantity(1000, "m", metre))
     @test MeasurementRef("m", "SI::metre", metre) ==
           MeasurementRef("SI::m", "SI::metre", Unit("SI::m"; factors=[UnitFactor("SI::metre", 1)]))
     @test !same_value(MeasurementRef("rad", "SI::rad", Unit("rad"; reduction_given=true)),

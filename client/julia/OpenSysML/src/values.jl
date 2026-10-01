@@ -85,6 +85,8 @@ struct Quantity
     unit::String
     unit_term::Union{Nothing,Unit}
 end
+Quantity(magnitude::Bool, unit::AbstractString, term=nothing) =
+    Quantity(Float64(magnitude), unit, term)
 Quantity(magnitude::Integer, unit::AbstractString, term=nothing) =
     Quantity(Int64(magnitude), String(unit), term === nothing ? nothing :
              term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : error("invalid unit term"))
@@ -236,11 +238,15 @@ magnitudes(value::VectorQuantity) = VectorValue([component.magnitude for compone
 function _unit(q::Quantity)
     q.unit_term === nothing ? Unit(q.unit) : q.unit_term
 end
+function _quantity_units_commensurable(left::Unit, right::Unit)
+    (!reduced(left) || !reduced(right)) ? left == right : commensurable(left, right)
+end
 """Express the magnitude of `q` in a commensurable unit."""
 function in_unit(q::Quantity, unit::Unit)
     source = _unit(q)
-    commensurable(source, unit) ||
+    _quantity_units_commensurable(source, unit) ||
         throw(IncommensurableUnitsError("express", source, unit))
+    (!reduced(source) || !reduced(unit)) && return q.magnitude
     source.scale_den * unit.scale_num == 0 &&
         throw(DivideError())
     return q.magnitude * (source.scale_num * unit.scale_den) /
@@ -255,7 +261,7 @@ to_unit(q::Quantity, unit::Quantity) = to_unit(q, _unit(unit))
 function _sum_quantities(left::Quantity, right::Quantity, sign::Int)
     target = _unit(left)
     other = _unit(right)
-    commensurable(target, other) ||
+    _quantity_units_commensurable(target, other) ||
         throw(IncommensurableUnitsError(sign > 0 ? "add" : "subtract", target, other))
     Quantity(left.magnitude + sign * in_unit(right, target), left.unit, left.unit_term)
 end
@@ -266,6 +272,18 @@ Base.abs(q::Quantity) = Quantity(abs(q.magnitude), q.unit, q.unit_term)
 Base.:*(q::Quantity, n::Real) = Quantity(q.magnitude * n, q.unit, q.unit_term)
 Base.:*(n::Real, q::Quantity) = q * n
 Base.:/(q::Quantity, n::Real) = Quantity(q.magnitude / n, q.unit, q.unit_term)
+function _exact_base_magnitude(q::Quantity, unit::Unit)
+    magnitude = q.magnitude
+    magnitude isa Integer && !(magnitude isa Bool) ||
+        return nothing
+    isfinite(unit.scale_num) && isinteger(unit.scale_num) ||
+        return nothing
+    isfinite(unit.scale_den) && isinteger(unit.scale_den) ||
+        return nothing
+    (unit.scale_num == 0 || unit.scale_den == 0) && return nothing
+    Rational{BigInt}(BigInt(magnitude) * BigInt(round(unit.scale_num)),
+                     BigInt(round(unit.scale_den)))
+end
 function Base.:(==)(left::Quantity, right::Quantity)
     a, b = _unit(left), _unit(right)
     if !reduced(a) || !reduced(b)
@@ -273,14 +291,36 @@ function Base.:(==)(left::Quantity, right::Quantity)
     end
     commensurable(a, b) || return false
     (zero_scale(a) || zero_scale(b)) && return false
+    left_exact = _exact_base_magnitude(left, a)
+    right_exact = _exact_base_magnitude(right, b)
+    left_exact !== nothing && right_exact !== nothing &&
+        return left_exact == right_exact
     return left.magnitude * a.scale_num / a.scale_den ==
            right.magnitude * b.scale_num / b.scale_den
 end
 function Base.isless(left::Quantity, right::Quantity)
     a, b = _unit(left), _unit(right)
-    commensurable(a, b) || throw(IncommensurableUnitsError("order", a, b))
+    _quantity_units_commensurable(a, b) ||
+        throw(IncommensurableUnitsError("order", a, b))
+    if !reduced(a) || !reduced(b)
+        return left.magnitude < right.magnitude
+    end
+    left_exact = _exact_base_magnitude(left, a)
+    right_exact = _exact_base_magnitude(right, b)
+    left_exact !== nothing && right_exact !== nothing &&
+        return left_exact < right_exact
     return left.magnitude * a.scale_num / a.scale_den <
            right.magnitude * b.scale_num / b.scale_den
+end
+function Base.hash(value::Quantity, seed::UInt)
+    unit = _unit(value)
+    if !reduced(unit) || zero_scale(unit)
+        return hash((value.magnitude, value.unit), seed)
+    end
+    exact = _exact_base_magnitude(value, unit)
+    base = exact === nothing ? value.magnitude * unit.scale_num / unit.scale_den : exact
+    dimensions = Tuple(sort!(collect(exponents(unit)); by=first))
+    hash((base, dimensions), seed)
 end
 Base.show(io::IO, q::Quantity) = print(io, "$(q.magnitude) [$(q.unit)]")
 

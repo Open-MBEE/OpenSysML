@@ -24,7 +24,9 @@ function _base_url(address::AbstractString)
 end
 
 function _version_request(version)
-    requested = version === nothing ? get(ENV, "OPENSYSML_GRPC_VERSION", nothing) : String(version)
+    requested = version === nothing || isempty(String(version)) ?
+        get(ENV, "OPENSYSML_GRPC_VERSION", nothing) : String(version)
+    (requested === nothing || isempty(requested)) && return nothing
     requested == "latest" || return requested
     try
         resolve_latest_version()

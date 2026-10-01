@@ -153,9 +153,7 @@ function parse_file(conn::Connection, path::AbstractString; language::AbstractSt
     if !isempty(language)
         language in ("sysml", "kerml") ||
             throw(ArgumentError("language must be 'sysml' or 'kerml'"))
-        require_capability(conn, CAPABILITY_INLINE_LANGUAGE)
         request["language"] = String(language)
-        push!(needed, CAPABILITY_INLINE_LANGUAGE)
     end
     if strict_conformance
         require_capability(conn, CAPABILITY_STRICT_CONFORMANCE)
@@ -406,7 +404,9 @@ end
 """Run a legacy OSLC query and return its decoded response dictionary."""
 function query(model::Model, query_text::AbstractString)
     require_capability(model.connection, CAPABILITY_QUERY)
-    answer = _translate(; capabilities=(CAPABILITY_QUERY,), connection=model.connection) do
+    require_capability(model.connection, CAPABILITY_OSLC_QUERY)
+    answer = _translate(; capabilities=(CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY),
+                        connection=model.connection) do
         call(model.connection, "Query",
              Dict{String,Any}("modelHash" => model.hash, "oslcQuery" => String(query_text)))
     end

@@ -52,6 +52,24 @@ using SHA
                 pinned_digests=Dict(), binary_path=joinpath(directory, "allowed"))
             @test read(joinpath(directory, "allowed")) == bytes
         end
+        fetches = Ref(0)
+        plaintext_fetcher = (url, limit) -> begin
+            fetches[] += 1
+            unpinned(url, limit)
+        end
+        withenv(OpenSysML.ALLOW_UNPINNED_ENV => "1") do
+            err = try
+                download_binary(version; github_repo=repo, base_url="http://release.invalid",
+                    fetcher=plaintext_fetcher, pinned_digests=Dict(),
+                    binary_path=joinpath(directory, "plaintext"))
+                nothing
+            catch exception
+                exception
+            end
+            @test err isa UnpinnedReleaseError
+            @test occursin("plaintext URLs need a pinned digest", sprint(showerror, err))
+            @test fetches[] == 0
+        end
 
         latest_fetcher = (url, limit) ->
             occursin("/releases/latest", url) ?
