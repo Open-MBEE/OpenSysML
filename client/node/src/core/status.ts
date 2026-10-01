@@ -117,11 +117,8 @@ export function fromHandshakeError(error: unknown, origin: string): ServiceError
   });
 }
 
-// A browser transport answers a dead address, a CORS refusal and a service
-// gone mid-call the same way: fetch rejects with a TypeError, which
-// ConnectError.from reports as UNKNOWN carrying the TypeError as its cause.
-// That shape — not the message — is what marks an unreachable service here;
-// an UNKNOWN of another cause stays a plain ServiceError.
+// A browser fetch that never reached the service rejects with a TypeError,
+// which ConnectError.from reports as UNKNOWN with that TypeError as its cause.
 function fetchRefused(connectError: ConnectError): boolean {
   return (
     connectError.code === Code.Unknown && connectError.cause instanceof TypeError
