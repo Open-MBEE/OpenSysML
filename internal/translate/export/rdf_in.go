@@ -1768,8 +1768,10 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	// order survives the round trip. A `succession` declaration whose head was
 	// kept verbatim never reaches here — print() writes its source text.
 	// A `succession` declaration that states the form its ends are written in
-	// is a head that binds ends, not an edge between two members.
-	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el)) {
+	// is a head that binds ends, not an edge between two members. The
+	// keyword-less `first a then b` owns its ends too, and is written by its
+	// source and target once they agree with them.
+	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el) || d.initialNode(el)) {
 		return d.successionHead(el)
 	}
 	// A control node, statement, state or region: the behavioral half of the

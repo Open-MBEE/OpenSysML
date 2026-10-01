@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -394,6 +395,184 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	}
 	if string(back) != src {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// `first a then b;` is a SuccessionAsUsage owning its two ends
+// (SysML-textual-bnf SuccessionAsUsage, :714-718): each a ConnectorEnd under
+// an EndFeatureMembership whose ReferenceSubsetting references the feature it
+// names (ConnectorEnd, :693-696), as `succession first a then b;` is. The
+// source of `first start then a;` is the library's Actions::Action::start.
+// The graph alone reads back as the notation, and in the API's JSON each
+// succession's connectorEnd lists both ends.
+func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        first start then a;\n        first a then b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	for _, want := range []string{
+		"sysml:referencedFeature elmt:P__A__a",
+		"sysml:referencedFeature elmt:P__A__b",
+		// Actions::Action::start, by its normative id.
+		"sysml:referencedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the graph should state %q:\n%s", want, graph)
+		}
+	}
+	if n := strings.Count(graph, "a sysml:EndFeatureMembership"); n != 4 {
+		t.Errorf("the two successions should own two ends each, found %d end memberships:\n%s", n, graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, e := range elements {
+		id, _ := e["@id"].(string)
+		ids[id] = true
+	}
+	successions := 0
+	for _, e := range elements {
+		if e["@type"] != "SuccessionAsUsage" {
+			continue
+		}
+		successions++
+		ends, _ := e["connectorEnd"].([]any)
+		if len(ends) != 2 {
+			t.Errorf("%v: connectorEnd %v, want two ends", e["@id"], e["connectorEnd"])
+			continue
+		}
+		for _, end := range ends {
+			if id, _ := end.(map[string]any)["@id"].(string); !ids[id] {
+				t.Errorf("%v: connector end %v is not in the output", e["@id"], end)
+			}
+		}
+	}
+	if successions != 2 {
+		t.Errorf("want two SuccessionAsUsages, found %d", successions)
+	}
+	if _, err := convert.Convert("m.json", doc, convert.FormatAPIJSON, convert.FormatSysML); err != nil {
+		t.Errorf("the API JSON did not read back: %v", err)
+	}
+}
+
+// A `first a then b` whose connector ends and sysml:sourceFeature/targetFeature
+// name different features is refused, with or without its source text: the
+// notation states each end once, so writing one would drop the other.
+func TestFirstThenWithDisagreeingEndsIsRefused(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        action c : Step;\n        first a then b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	const succession = "elmt:P__A___403"
+	// retarget rewrites b as c in the blocks whose subject edit selects.
+	retarget := func(graph string, edit func(subject string) bool) string {
+		blocks := strings.Split(graph, "\n\n")
+		for i, block := range blocks {
+			if subject, _, _ := strings.Cut(block, "\n"); edit(subject) {
+				block = strings.ReplaceAll(block, "elmt:P__A__b ", "elmt:P__A__c ")
+				blocks[i] = strings.ReplaceAll(block, `\"P__A__b\"`, `\"P__A__c\"`)
+			}
+		}
+		edited := strings.Join(blocks, "\n\n")
+		if edited == graph {
+			t.Fatalf("nothing was retargeted:\n%s", graph)
+		}
+		return edited
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(subject string) bool
+		want string
+	}{
+		{"edited end", func(subject string) bool { return strings.HasPrefix(subject, "expr:P__A___403_pend1") }, "references <urn:sysmlv2:element:P__A__c> and its sysml:targetFeature is <urn:sysmlv2:element:P__A__b>"},
+		{"edited targetFeature", func(subject string) bool { return subject == succession }, "references <urn:sysmlv2:element:P__A__b> and its sysml:targetFeature is <urn:sysmlv2:element:P__A__c>"},
+	} {
+		for _, graph := range []struct {
+			name   string
+			turtle string
+		}{
+			{"with source text", string(turtle)},
+			{"graph only", string(withoutTriples(t, turtle, "sysx:sourceText"))},
+		} {
+			t.Run(tc.name+", "+graph.name, func(t *testing.T) {
+				_, err := convert.Convert("m.ttl", []byte(retarget(graph.turtle, tc.edit)), convert.FormatTurtle, convert.FormatSysML)
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.want) {
+					t.Errorf("expected the disagreement to be refused with %q, got %v", tc.want, err)
+				}
+			})
+		}
+	}
+}
+
+// A `first a then b` end declaring a name or bounds is refused, with or
+// without its source text: the notation writes each end as the bare feature
+// it names, so writing it would drop them. The declaring end is the one
+// `succession first a then … b;` exports, at the same ids.
+func TestFirstThenWithADeclaringEndIsRefused(t *testing.T) {
+	const prefix = "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n        "
+	graph := func(t *testing.T, member string) string {
+		t.Helper()
+		turtle, err := convert.Convert("m.sysml", []byte(prefix+member+"\n    }\n}\n"), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("to turtle: %v", err)
+		}
+		return string(turtle)
+	}
+	plain := graph(t, "first a then b;")
+	const end = "expr:P__A___402_pend1"
+	for _, tc := range []struct{ name, declaring, want string }{
+		{"bound", "succession first a then [2] b;", `declares "[2]"`},
+		{"name", "succession first a then tgt ::> b;", `declares "tgt ::>"`},
+	} {
+		// Swap the plain end's blocks for the declaring end's.
+		var declared []string
+		for _, block := range strings.Split(graph(t, tc.declaring), "\n\n") {
+			if strings.HasPrefix(block, end) {
+				declared = append(declared, block)
+			}
+		}
+		var blocks []string
+		for _, block := range strings.Split(plain, "\n\n") {
+			if !strings.HasPrefix(block, end) {
+				blocks = append(blocks, block)
+			}
+		}
+		edited := []byte(strings.Join(append(blocks, declared...), "\n\n"))
+		for _, form := range []struct {
+			name   string
+			turtle []byte
+		}{
+			{"with source text", edited},
+			{"graph only", withoutTriples(t, edited, "sysx:sourceText")},
+		} {
+			t.Run(tc.name+", "+form.name, func(t *testing.T) {
+				_, err := convert.Convert("m.ttl", form.turtle, convert.FormatTurtle, convert.FormatSysML)
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.want) {
+					t.Errorf("expected the end to be refused with %q, got %v", tc.want, err)
+				}
+			})
+		}
 	}
 }
 
