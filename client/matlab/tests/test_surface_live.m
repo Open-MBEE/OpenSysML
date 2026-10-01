@@ -1,8 +1,8 @@
-function test_parity_live()
-%TEST_PARITY_LIVE Exercise parity APIs against the running service.
+function test_surface_live()
+%TEST_SURFACE_LIVE Exercise client APIs against the running service.
 
     if isempty(getenv('OPENSYSML_SERVICE'))
-        fprintf('parity live: skipped (OPENSYSML_SERVICE unset)\n');
+        fprintf('surface live: skipped (OPENSYSML_SERVICE unset)\n');
         return;
     end
     conn = opensysml.connect();
@@ -38,8 +38,6 @@ function test_parity_live()
         true, 'Model.get');
     assert_equal(isa(simple.find('SimplePart'), 'opensysml.Symbol'), ...
         true, 'Model.find');
-    assert_equal(isa(simple.lookup('SimplePart'), 'opensysml.Symbol'), ...
-        true, 'Model.lookup');
     assert_equal(~isempty(simple.walk()), true, 'Model.walk');
     assert_equal(simple.evaluate('2 + 2'), int64(4), 'Model.evaluate');
     instance = simple.instantiate('Test::SimplePart');
@@ -204,7 +202,7 @@ function test_parity_live()
     expect_identifier(@() opensysml.runDocumentQuery(documentModel, ...
         'Observatory::NoSuchQuery'), ...
         'opensysml:connect:symbolNotFound', 'symbolNotFound');
-    expect_identifier(@() opensysml.parseFile(conn, '/no-such-parity-model.sysml'), ...
+    expect_identifier(@() opensysml.parseFile(conn, '/no-such-matlab-model.sysml'), ...
         'opensysml:connect:modelFileNotFound', 'modelFileNotFound');
     expect_identifier(@() opensysml.calc(verification, 'Demo::Vehicle::massPositive'), ...
         'opensysml:diagnostics:wrongKind', 'wrongKind');
@@ -214,7 +212,7 @@ function test_parity_live()
     expect_identifier(@() opensysml.parseSource(conn, 'package Broken {', ...
         'name', 'broken.sysml', 'raiseForErrors', true), ...
         'opensysml:diagnostics:model', 'model');
-    fprintf('parity live ok\n');
+    fprintf('surface live ok\n');
 end
 
 function deleteIfPresent(path)

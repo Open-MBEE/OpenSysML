@@ -1,5 +1,5 @@
-function test_parity_offline()
-%TEST_PARITY_OFFLINE Check local validation and response decoding.
+function test_surface_offline()
+%TEST_SURFACE_OFFLINE Check local validation and response decoding.
 
     capabilities = {'verification', 'verification_questions', 'engines', ...
         'schedule', 'schedule_explore', 'performer', 'complex_values', ...
@@ -159,7 +159,7 @@ function test_parity_offline()
     assert_error(@() opensysml.executeAction(model, 'Demo::action', ...
         'schedule', 'explore'), 'opensysml:argument', 'executeAction exploration schedule');
     last = opensysml.lastError();
-    assert_equal(~isempty(strfind(last.message, 'explore_action')), true, ...
+    assert_equal(~isempty(strfind(last.message, 'opensysml.exploreAction')), true, ...
         'executeAction exploration remedy');
     assert_error(@() opensysml.executeState(model, 'Demo::Machine', ...
         'schedule', 'explore'), 'opensysml:argument', 'executeState exploration schedule');
@@ -171,5 +171,5 @@ function test_parity_offline()
         'schedule', 'explore'), 'opensysml:argument', 'runAnalysis exploration schedule');
     assert_error(@() opensysml.exploreAnalysis(model, 'Demo::analysis', ...
         'schedule', 'declared'), 'opensysml:argument', 'exploreAnalysis schedule');
-    fprintf('parity offline ok\n');
+    fprintf('surface offline ok\n');
 end
