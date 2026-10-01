@@ -2349,7 +2349,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 		}
 		a.names[r] = pname
 		mult, mnote := a.m.multiplicity(r)
-		a.m.w.line("out " + writeName(pname) + shaped(mult, r, true) + " = " + expr + ";")
+		a.m.w.line("out " + writeName(pname) + shaped(mult, r, true, false) + " = " + expr + ";")
 		a.m.add(r, verdictFor(mnote), a.m.v2Name(n)+"."+pname, mnote)
 		a.m.add(n, Mapped, name, "")
 	})
