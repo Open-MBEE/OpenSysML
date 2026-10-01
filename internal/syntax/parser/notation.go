@@ -35,10 +35,16 @@ var sysmlOnlyWords = map[string]bool{
 	"timeslice": true,
 }
 
+// Reserves reports whether keywordID is reserved in a file of the given kind;
+// the SysML-only words are names in KerML.
+func Reserves(kind source.Kind, keywordID string) bool {
+	return kind != source.KindKerML || !sysmlOnlyWords[keywordID]
+}
+
 // unreserved reclassifies a keyword the file's grammar does not reserve as the
 // name it is, so every position that takes a name accepts it.
 func (p *Parser) unreserved(tok lexer.Token) lexer.Token {
-	if tok.Kind != lexer.Keyword || p.src.Kind() != source.KindKerML || !sysmlOnlyWords[tok.KeywordID] {
+	if tok.Kind != lexer.Keyword || Reserves(p.src.Kind(), tok.KeywordID) {
 		return tok
 	}
 	tok.Kind = lexer.Identifier

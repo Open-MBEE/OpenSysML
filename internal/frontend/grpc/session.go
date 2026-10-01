@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -671,7 +672,7 @@ func (ss *Session) diagnostics(notes []runtime.RunNote) []*pb.Diagnostic {
 
 // declared resolves a symbol id in the session's model.
 func (ss *Session) declared(symbolID string) (*symbols.Symbol, error) {
-	syms := lookupNamed(ss.cached.Index, symbolID)
+	syms := symbolfacts.LookupNamed(ss.cached.Index, symbolID)
 	if len(syms) == 0 {
 		return nil, sessionFailuref("symbol not found: %s", symbolID)
 	}

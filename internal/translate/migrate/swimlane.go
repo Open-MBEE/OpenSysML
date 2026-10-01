@@ -402,6 +402,16 @@ func (m *migration) laneFeature(l *lane, n string) *sysmlv1.Element {
 	return f
 }
 
+// laneKnows reports whether the lane's type has a member named n, whether or
+// not the lane reads it: a name the partition's object bears is not unknown.
+func (m *migration) laneKnows(l *lane, n string) bool {
+	if l == nil || l.typ == nil {
+		return false
+	}
+	visible, _ := m.membersOf(l.typ, memberAny)
+	return visible[n] != nil
+}
+
 // lanePerformer is the object, read from the activity's context, that performs
 // the behavior a call behavior action n calls: the object n's swimlane represents,
 // when it is of the classifier owning the behavior and not the context itself;

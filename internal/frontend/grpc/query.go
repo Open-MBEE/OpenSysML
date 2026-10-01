@@ -9,6 +9,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -158,7 +159,7 @@ func elementIDStatus(err error) error {
 // element state of its own: every property is read from the index and semantic
 // model on demand.
 type queryEval struct {
-	sc     *SymbolContext
+	sc     *symbolfacts.Context
 	reader *corequery.PropertyReader
 	cached *CachedModel
 	// elementIDErr is why the model has no elementIds, once a property read

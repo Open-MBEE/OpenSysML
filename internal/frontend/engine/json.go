@@ -16,6 +16,8 @@ import (
 	"math"
 	"sort"
 	"strconv"
+
+	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 )
 
 // I64 is a proto3 int64/uint64 under protojson: on the wire a decimal string.
@@ -273,22 +275,12 @@ type JInstance struct {
 	FeatureValues map[string]*JFeatureValue `json:"featureValues,omitempty"`
 }
 
-// JDiagnostic is the Diagnostic message.
-type JDiagnostic struct {
-	Severity string `json:"severity,omitempty"`
-	Message  string `json:"message,omitempty"`
-	Span     *JSpan `json:"span,omitempty"`
-	Code     string `json:"code,omitempty"`
-}
+// JDiagnostic is the Diagnostic message, shaped in frontend/syntax where the
+// syntactic command answers with it too.
+type JDiagnostic = fsyntax.Diagnostic
 
 // JSpan is the Span message.
-type JSpan struct {
-	File      string `json:"file,omitempty"`
-	StartLine int32  `json:"startLine,omitempty"`
-	StartCol  int32  `json:"startCol,omitempty"`
-	EndLine   int32  `json:"endLine,omitempty"`
-	EndCol    int32  `json:"endCol,omitempty"`
-}
+type JSpan = fsyntax.Span
 
 // JSourceDocument is the SourceDocument message; Source is its oneof.
 type JSourceDocument struct {

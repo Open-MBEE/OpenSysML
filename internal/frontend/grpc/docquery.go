@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -166,7 +167,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 // documentSymbol resolves the query or document a request names, failing with
 // NOT_FOUND when the model does not declare it.
 func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
-	syms := lookupNamed(idx, id)
+	syms := symbolfacts.LookupNamed(idx, id)
 	if len(syms) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", id)
 	}
@@ -207,7 +208,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		}
 		return queryexec.ObjectValue(inst, label), nil
 	case *pb.DocumentValue_ElementId:
-		syms := lookupNamed(idx, kind.ElementId)
+		syms := symbolfacts.LookupNamed(idx, kind.ElementId)
 		if len(syms) == 0 {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 				"binding %s names an element the model does not have: %q", parameter, kind.ElementId)
