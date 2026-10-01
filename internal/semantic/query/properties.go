@@ -16,6 +16,7 @@ type PropertyReader struct {
 	resolver  *resolve.Resolver
 	semantics *semantics.Model
 	identity  func(*symbols.Symbol) string
+	elementID func(*symbols.Symbol) string
 }
 
 // NewPropertyReader constructs a reader over one index and semantic model.
@@ -26,6 +27,13 @@ func NewPropertyReader(index *symbols.Index, resolver *resolve.Resolver, model *
 // WithIdentity overrides how element identities are reported by this reader.
 func (r *PropertyReader) WithIdentity(identity func(*symbols.Symbol) string) *PropertyReader {
 	r.identity = identity
+	return r
+}
+
+// WithElementID sets how an element's elementId is read: the id a conversion
+// of the model writes for it. Without one, elementId is absent.
+func (r *PropertyReader) WithElementID(elementID func(*symbols.Symbol) string) *PropertyReader {
+	r.elementID = elementID
 	return r
 }
 
@@ -63,6 +71,10 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyElementID:
+		if r.elementID != nil {
+			return presentValues(r.elementID(sym))
+		}
 	}
 	return nil, false
 }

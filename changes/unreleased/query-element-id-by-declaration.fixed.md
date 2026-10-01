@@ -1,0 +1,1 @@
+- **A query reports each element's own `elementId` where two identity scopes declare one qualified name.** The ids a conversion writes were recorded by qualified name, so of two elements named alike in two scopes the query reported the id written last for both. They are now recorded by declaration as well, so each reports the id `Convert` writes for it.

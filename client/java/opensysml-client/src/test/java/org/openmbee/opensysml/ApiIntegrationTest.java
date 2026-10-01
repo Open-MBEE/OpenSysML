@@ -1058,10 +1058,14 @@ class ApiIntegrationTest {
   void convertOfUnreadableNotationIsAModelFailure() throws Exception {
     String source = Files.readString(fixture("syntax_error.sysml"));
     ConversionOptions convertOptions = ConversionOptions.defaults().withFromFormat("sysml");
-    ModelException failed =
+    ConversionException failed =
         assertThrows(
-            ModelException.class, () -> connection.convert(source, "sysml", convertOptions));
+            ConversionException.class, () -> connection.convert(source, "sysml", convertOptions));
     assertFalse(failed.diagnostics().isEmpty());
+    Model broken = connection.parse(source);
+    ConversionException fromModel =
+        assertThrows(ConversionException.class, () -> broken.convert("sysml"));
+    assertFalse(fromModel.diagnostics().isEmpty());
   }
 
   @Test
@@ -1319,6 +1323,9 @@ class ApiIntegrationTest {
     ModelNotFoundException model =
         assertThrows(ModelNotFoundException.class, () -> evicted.eval("1 + 1"));
     assertEquals(StatusCode.NOT_FOUND, model.status());
+    assertThrows(ModelNotFoundException.class, () -> evicted.convert("sysml"));
+    assertThrows(
+        ModelNotFoundException.class, () -> evicted.edit().addPart("A", "b").apply());
     ModelFileNotFoundException file =
         assertThrows(
             ModelFileNotFoundException.class,

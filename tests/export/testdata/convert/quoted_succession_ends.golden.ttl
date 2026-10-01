@@ -168,7 +168,19 @@ elmt:QuotedSuccessionEnds__provide_20power___403
     sysx:declaredKeyword "first" ;
     sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
-    sysx:sourceText "        first start then engineStarted;\n" .
+    sysml:connectorEnd expr:QuotedSuccessionEnds__provide_20power___403_pend0, expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend0_om, expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
+    sysml:ownedMembership expr:QuotedSuccessionEnds__provide_20power___403_pend0_om, expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
+    sysml:ownedFeatureMembership expr:QuotedSuccessionEnds__provide_20power___403_pend0_om, expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
+    sysml:ownedFeature expr:QuotedSuccessionEnds__provide_20power___403_pend0, expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:ownedEndFeature expr:QuotedSuccessionEnds__provide_20power___403_pend0, expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysx:sourceText "        first start then engineStarted;\n" ;
+    json:connectorEnd "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power___403_om
     a sysml:FeatureMembership ;
@@ -181,6 +193,87 @@ elmt:QuotedSuccessionEnds__provide_20power___403_om
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:ownedMemberFeature elmt:QuotedSuccessionEnds__provide_20power___403 ;
     sysml:owningType elmt:QuotedSuccessionEnds__provide_20power .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend0_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___403_pend0_om ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend0_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___403 .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend0_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:referencedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:subsettedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:general <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:target <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend0, <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend0 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend0\"},{\"@id\":\"9a0d2905-0f9c-5bb4-af74-9780d6db1817\"}]" .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
+    sysx:sourceText "engineStarted" ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend1_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___403 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___403 .
+
+expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___403_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend1, elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___403_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___403_pend1\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__engineStarted\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power___404
     a sysml:SuccessionAsUsage ;
@@ -198,7 +291,19 @@ elmt:QuotedSuccessionEnds__provide_20power___404
     sysx:declaredKeyword "first" ;
     sysml:sourceFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
-    sysx:sourceText "        first engineStarted then 'generate torque';\n" .
+    sysml:connectorEnd expr:QuotedSuccessionEnds__provide_20power___404_pend0, expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend0_om, expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
+    sysml:ownedMembership expr:QuotedSuccessionEnds__provide_20power___404_pend0_om, expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
+    sysml:ownedFeatureMembership expr:QuotedSuccessionEnds__provide_20power___404_pend0_om, expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
+    sysml:ownedFeature expr:QuotedSuccessionEnds__provide_20power___404_pend0, expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:ownedEndFeature expr:QuotedSuccessionEnds__provide_20power___404_pend0, expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysx:sourceText "        first engineStarted then 'generate torque';\n" ;
+    json:connectorEnd "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power___404_om
     a sysml:FeatureMembership ;
@@ -211,6 +316,87 @@ elmt:QuotedSuccessionEnds__provide_20power___404_om
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:ownedMemberFeature elmt:QuotedSuccessionEnds__provide_20power___404 ;
     sysml:owningType elmt:QuotedSuccessionEnds__provide_20power .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend0_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___404_pend0_om ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend0_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___404 .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend0_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend0, elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend0 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__engineStarted\"}]" .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
+    sysx:sourceText "'generate torque'" ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend1_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___404 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___404 .
+
+expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___404_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend1, elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___404_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___404_pend1\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__generate_20torque\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power___405
     a sysml:SuccessionAsUsage ;
@@ -228,7 +414,19 @@ elmt:QuotedSuccessionEnds__provide_20power___405
     sysx:declaredKeyword "first" ;
     sysml:sourceFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
-    sysx:sourceText "        first 'generate torque' then 'amplify torque';\n" .
+    sysml:connectorEnd expr:QuotedSuccessionEnds__provide_20power___405_pend0, expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend0_om, expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
+    sysml:ownedMembership expr:QuotedSuccessionEnds__provide_20power___405_pend0_om, expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
+    sysml:ownedFeatureMembership expr:QuotedSuccessionEnds__provide_20power___405_pend0_om, expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
+    sysml:ownedFeature expr:QuotedSuccessionEnds__provide_20power___405_pend0, expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:ownedEndFeature expr:QuotedSuccessionEnds__provide_20power___405_pend0, expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysx:sourceText "        first 'generate torque' then 'amplify torque';\n" ;
+    json:connectorEnd "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power___405_om
     a sysml:FeatureMembership ;
@@ -241,6 +439,87 @@ elmt:QuotedSuccessionEnds__provide_20power___405_om
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:ownedMemberFeature elmt:QuotedSuccessionEnds__provide_20power___405 ;
     sysml:owningType elmt:QuotedSuccessionEnds__provide_20power .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend0_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___405_pend0_om ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend0_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___405 .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend0_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend0, elmt:QuotedSuccessionEnds__provide_20power__generate_20torque ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend0 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__generate_20torque\"}]" .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
+    sysx:sourceText "'amplify torque'" ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend1_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power___405 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power___405 .
+
+expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power___405_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend1, elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power___405_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power___405_pend1\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__amplify_20torque\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power__s
     a sysml:SuccessionAsUsage ;

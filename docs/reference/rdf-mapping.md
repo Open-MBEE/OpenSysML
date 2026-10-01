@@ -645,6 +645,7 @@ keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
 | `sysml:IncludeUseCaseUsage` | `include use case iu : U` | `include u1;` |
 | `sysml:AssertConstraintUsage` | `assert constraint ac : C` | `assert c1;` |
 | `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
+| `sysml:ReferenceUsage` (a variant's) | `variant part vp : P` (the usage it declares) | `variant e1;`, `variant P::e2;`, `variant q.k;` |
 
 An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
 where another writer collapses it there) — a chain target comes back as the
@@ -653,6 +654,21 @@ where another writer collapses it there) — a chain target comes back as the
 the reference form cannot say. A `sysx:declaredKeyword`/`sysx:declaredPrefix`
 that contradicts the metaclass (`perform` on a plain `sysml:ActionUsage`) is
 refused rather than one of the two written.
+
+A variant's reference form is SysML.xtext `VariantReference`: an unnamed
+`sysml:ReferenceUsage` its `VariantMembership` owns, with an owned
+`sysml:ReferenceSubsetting` to the feature it names, or to the chain feature of
+`q.k`. `variant e1;` answers to the name of the feature it references, so
+the variant keeps its identity `P::V::e1`. It is written back bare when the
+graph names it that way, and refused when `e1` does not reach that feature from
+the variation. A qualified or chained one is anonymous, like `perform P::a;`, and is
+written back by its reference in more than one segment, since a single name would
+read back as `variant e1;`. A `variant x;` whose `x` resolves to nothing keeps
+the name as a literal `sysml:references "x"`, as an unresolved reference
+does, and stays a `ReferenceUsage`. An anonymous variant whose reference is
+a single-name literal is refused. A variant written with a usage prefix
+(`variant ref x;`) is no reference: it declares `x`, and is written back
+with `variant` ahead of the prefix.
 
 The rest of the membership-side metaclasses the notation implies are
 standard: the mapping materializes each as the relationship element the OMG
@@ -1250,7 +1266,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | written | metaclass | carries |
 |---|---|---|
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
-| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
+| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
 | `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
@@ -1778,12 +1794,18 @@ a condition are carried, each as the `sysx:` metaclass named above with its
 condition as `sysx:condition`: a constraint body's conditions (`assert`,
 `assume`, a bare condition, and the `not` of `assert not …` as
 `sysml:isNegated`), a nested `assert constraint [name] { … }`, a requirement's
-`assume`/`require` members in all three forms (an expression, the constraint
-they name, or a body) together with the declaration of the constraint usage they
-own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBound`
+`assume`/`require` members in both forms (the constraint they name, or a
+`constraint` they declare, with or without a body) together with the declaration
+of the constraint usage they own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBound`
 and `sysml:value` with its `default`/`:=` operator (`require #Goal constraint braked [1] = true;`) — and
 `subject s : X;` as the `sysml:SubjectMembership` it declares. The `assert` prefixing a named usage
-(`assert constraint c : C`) is carried as `sysx:declaredPrefix`. The conditions
+(`assert constraint c : C`) is carried as `sysx:declaredPrefix`. A member that
+names its constraint — bare or qualified (`assume c;`, `require P::c;`,
+`assert c;`) or by a feature chain (`require q.k;`) — is the reference form
+(SysML.xtext `RequirementConstraintUsage`, `AssertConstraintUsage`): the
+constraint usage owns a `sysml:ReferenceSubsetting` to the feature, or to the
+chain feature of `q.k`, and states no `sysx:condition`. A graph that states one
+inline is still read. The conditions
 themselves are notation, with the limits stated above. The keyword-less condition
 that closes a body is written bare, as a [result expression](#result-expressions)
 is, because a name alone before a `;` (`ready;`) declares a kind-less feature rather
