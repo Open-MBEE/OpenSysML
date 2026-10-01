@@ -71,6 +71,24 @@ func TestRuntimeRobustnessUnorderedSubactions(t *testing.T) {
 			t.Fatalf("c = %v, want 0: neither usage is a composite subaction", c)
 		}
 	})
+	for name, decl := range map[string]string{
+		"reference": "ref action r { assign x := 1; }",
+		"abstract":  "abstract action r { assign x := 1; }",
+	} {
+		t.Run("sole_"+name+"_usage_not_performed", func(t *testing.T) {
+			outputs, err := executeActionSource(t, "host", `package test {
+				private import ScalarValues::*;
+				action host {
+					attribute x : Integer := 0;
+					`+decl+`
+				}
+			}`)
+			if err != nil {
+				t.Fatalf("error = %v, want the action to end with nothing to perform", err)
+			}
+			assertIntOutput(t, outputs, "x", 0)
+		})
+	}
 	t.Run("two_unpreceded_steps_both_start", func(t *testing.T) {
 		outputs, err := executeActionSource(t, "Count", `package P {
 			private import ScalarValues::*;

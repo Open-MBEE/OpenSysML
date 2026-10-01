@@ -55,6 +55,18 @@ func FlowStartError(graph *ActionGraph) error {
 	return fmt.Errorf("the successions form a cycle among the steps, leaving none to start at")
 }
 
+// performedStep reports a node a flow may start at where nothing precedes it:
+// anything but a `ref` or abstract usage no succession leaves, which is no step of
+// the owner's performance (startsConcurrently) nor of the flow it states. A sole
+// `perform` performs the behavior it names.
+func performedStep(graph *ActionGraph, node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok || len(graph.Edges[node]) > 0 || usage.IsPerformedAction() {
+		return true
+	}
+	return semantics.UsageDeclIsComposite(usage) && !usage.IsAbstract
+}
+
 // unorderedSubactions returns the composite subactions of graph that no succession
 // leads to, Initial aside, in declaration order.
 func unorderedSubactions(graph *ActionGraph) []ast.Node {

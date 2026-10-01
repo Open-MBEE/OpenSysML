@@ -1,0 +1,22 @@
+enter analysis test::tally
+  stmt declare count
+    eval literal 0 -> 0
+  stmt declare got
+    eval literal 0 -> 0
+  stmt action body
+enter action node: analysis test::tally
+    stmt assign count
+        eval feature count -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+choice step 1: tokens 1@start, 2@*ast.AssignmentActionNode (unordered; took 2@*ast.AssignmentActionNode first)
+    stmt assign got
+      eval literal 5 -> 5
+leave action node: analysis test::tally
+  stmt return
+        eval feature count -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval feature got -> 5
+    eval operator + -> 15
+exit analysis test::tally -> 15

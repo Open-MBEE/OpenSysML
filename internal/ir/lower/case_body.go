@@ -56,10 +56,18 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 
 	// The flow's nodes and the members sequencing them are the graph's; the
 	// other members are the case's locals and results, as in a calc body.
+	graph, err := ToActionGraphWith(owner, scope, resolver)
+	var nodes map[ast.Node]bool
+	if err == nil {
+		nodes = make(map[ast.Node]bool, len(graph.Nodes))
+		for _, node := range graph.Nodes {
+			nodes[node] = true
+		}
+	}
 	var locals, results []Statement
 	sequenced := sequencedMembers(body)
 	for _, member := range body {
-		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] {
+		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
 		}
 		stmt, states := calcStep(member, scope)
@@ -72,7 +80,6 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		}
 		locals = append(locals, stmt)
 	}
-	graph, err := ToActionGraphWith(owner, scope, resolver)
 	if err != nil {
 		unsupported := Unsupported{
 			Description: "the flow the steps of the body state: " + err.Error(),
@@ -147,13 +154,14 @@ func StartFlow(graph *ActionGraph) {
 }
 
 // CaseFlowStart finds the step a flow starts at where no `first` or start node
-// states one: the single step no succession leads to. Two such steps leave the
-// start unstated, and none is a cycle; either is reported.
+// states one: the single step no succession leads to that the flow performs
+// (performedStep). Two such steps leave the start unstated, and none is a
+// cycle; either is reported.
 func CaseFlowStart(graph *ActionGraph) (ast.Node, error) {
 	preceded := precededNodes(graph)
 	var starts []ast.Node
 	for _, node := range graph.Nodes {
-		if _, final := node.(*ast.FinalNode); !final && !preceded[node] {
+		if _, final := node.(*ast.FinalNode); !final && !preceded[node] && performedStep(graph, node) {
 			starts = append(starts, node)
 		}
 	}
