@@ -3,6 +3,7 @@ package semantics
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -740,8 +741,7 @@ func (m *Model) evalComparison(p *symbols.FilterPredicate, cand *symbols.Symbol)
 	if left.Kind == symbols.FilterValueQuantity || right.Kind == symbols.FilterValueQuantity {
 		return m.compareQuantityValues(p, left, right)
 	}
-	if left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueInt {
-		order := CompareInt(FilterInteger(left), FilterInteger(right))
+	if order, ok := exactFilterOrder(left, right); ok {
 		var holds bool
 		switch p.Op {
 		case symbols.FilterEq:
@@ -1316,6 +1316,20 @@ func boolValue(b bool) symbols.FilterValue {
 // emptyValue is the empty sequence, the value of a feature bound to nothing.
 func emptyValue() symbols.FilterValue {
 	return symbols.FilterValue{Kind: symbols.FilterValueEmpty}
+}
+
+// exactFilterOrder orders two Integers, or an Integer and a non-NaN Real,
+// without rounding either: -1, 0 or 1, and whether it applies.
+func exactFilterOrder(left, right symbols.FilterValue) (int, bool) {
+	switch {
+	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueInt:
+		return CompareInt(FilterInteger(left), FilterInteger(right)), true
+	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueReal && !math.IsNaN(right.Real):
+		return CompareIntReal(FilterInteger(left), right.Real), true
+	case left.Kind == symbols.FilterValueReal && right.Kind == symbols.FilterValueInt && !math.IsNaN(left.Real):
+		return -CompareIntReal(FilterInteger(right), left.Real), true
+	}
+	return 0, false
 }
 
 // numericValue returns a value as a float64 for comparison, and whether it is a
