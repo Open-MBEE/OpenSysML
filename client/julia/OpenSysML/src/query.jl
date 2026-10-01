@@ -11,7 +11,10 @@ as_dict(element::QueryElement) = Dict{String,Any}("@id" => element.id, "@type" =
 
 function _reject_unknown(payload, known, what)
     unknown = sort!(String[String(k) for k in keys(payload) if !(String(k) in known)])
-    isempty(unknown) || throw(QueryError("a $(what) has no $(join(unknown, ", "))"))
+    isempty(unknown) && return nothing
+    label = what == "Query" ? "a query" : "a $(what)"
+    remedy = what == "Query" ? "; the standard's query is scope, select and where" : ""
+    throw(QueryError("$(label) has no $(join(unknown, ", "))$(remedy)"))
 end
 
 function _sequence(field, value)
@@ -27,7 +30,7 @@ function _scope_id(entry)
     entry isa AbstractString && return String(entry)
     entry isa AbstractDict && get(entry, "@id", nothing) isa AbstractString &&
         return String(entry["@id"])
-    throw(QueryError("a scope entry is an element's qualified name or an {'@id': ...} reference, not $(repr(entry))"))
+    throw(QueryError("a scope entry is an element's qualified name or a {'@id': ...} reference, not $(repr(entry))"))
 end
 
 function _query_value(value)
@@ -73,7 +76,7 @@ function _constraint(payload)
         haskey(operators, operator) ||
             throw(QueryError("unknown composite operator $(repr(operator)); expected one of and, or"))
         nested = get(payload, "constraint", nothing)
-        nested isa AbstractVector && !isempty(nested) ||
+        (nested isa AbstractVector || nested isa Tuple) && !isempty(nested) ||
             throw(QueryError("a composite constraint combines a non-empty list of constraints, not $(repr(nested))"))
         return Dict{String,Any}("composite" => Dict(
             "operator" => operators[operator],
