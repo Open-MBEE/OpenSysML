@@ -100,6 +100,7 @@ export class Model {
     diagnostics: readonly ModelDiagnostic[];
     ownsConnection: boolean;
     documents?: readonly string[];
+    sourcePath?: string;
   }) {
     this.connection = init.connection;
     this.hash = init.hash;
@@ -107,6 +108,7 @@ export class Model {
     this.diagnostics = init.diagnostics;
     this.ownsConnection = init.ownsConnection;
     this.documents = init.documents ?? [];
+    this.sourcePath = init.sourcePath;
   }
 
   /** Adopts a model the service already holds, by the hash it holds it under. */
@@ -153,10 +155,9 @@ export class Model {
     return this.rootSymbols;
   }
 
-  /** The path this model was loaded from, when it was parsed from a single file. */
-  get sourcePath(): string | undefined {
-    return this.documents.length === 1 ? this.documents[0] : undefined;
-  }
+  /** The path this model was loaded from, when it was parsed from a file;
+   * inline content and parseSources models have none, whatever they are named. */
+  readonly sourcePath: string | undefined;
 
   /** The error-severity diagnostics the parse reported. */
   get errors(): ModelDiagnostic[] {
@@ -219,7 +220,9 @@ export class Model {
       roots: [new ModelSymbol(connection, response.modelHash, response.root)],
       diagnostics,
       ownsConnection,
-      ...(source.source.case === "filePath" ? { documents: [source.source.value] } : {}),
+      ...(source.source.case === "filePath"
+        ? { documents: [source.source.value], sourcePath: source.source.value }
+        : {}),
     });
   }
 
