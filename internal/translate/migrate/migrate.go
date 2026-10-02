@@ -2793,7 +2793,13 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		target = m.v2Name(c)
 	}
 	m.wroteEdge(c, m.scope, kw, m.nameOf(c))
-	m.w.block(decl, func() { m.metadataUsages(c) })
+	m.w.block(decl, func() {
+		saved := m.scope
+		m.scope = c
+		m.comments(c)
+		m.scope = saved
+		m.metadataUsages(c)
+	})
 	m.madeUp(c, writeName(m.nameOf(c)))
 	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)

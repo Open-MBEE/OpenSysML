@@ -81,6 +81,9 @@ type compiler struct {
 	signatures     map[*symbols.Symbol]compiledSignature
 	stack          []*symbols.Symbol
 	definitions    []Definition
+	// cell is the variable scope of the cell being compiled, so the query
+	// operations it invokes read its variables; nil outside a cell.
+	cell *columnRow
 }
 
 // IsQueryDefinition reports whether sym specializes DocumentQueries::Query.
@@ -585,6 +588,9 @@ func (c *compiler) compileExpression(
 	node ast.Node,
 	dependency func(string),
 ) (typedExpression, error) {
+	if typed, ok, err := c.compileCellOperand(query, owner, node); ok {
+		return typed, err
+	}
 	switch expression := node.(type) {
 	case *ast.FeatureReference:
 		return c.compileReference(query, owner, expression)
