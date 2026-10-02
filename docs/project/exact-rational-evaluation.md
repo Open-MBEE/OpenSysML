@@ -248,7 +248,33 @@ every call lands in `pilot-unevaluated` and the operator quotient agrees.
 
 ## Cost
 
-COST_PLACEHOLDER
+Small Rationals are held inline — an `int64` numerator over a `uint32` denominator in the
+`Value` itself — and only terms beyond that use a normalized `math/big.Rat`, so the `Value` stays
+32 bytes and ordinary arithmetic allocates nothing it did not allocate as binary64. Literals, a
+double converted exactly, and Integer arithmetic beyond `int64` take the same allocation-free paths.
+
+Interleaved runs on one machine (8 cores, six samples each side, `benchstat`), against the
+binary64 implementation:
+
+| Benchmark | Time | Bytes/op | Allocs/op |
+|-----------|------|----------|-----------|
+| `internal/exec/runtime`, all seven existing benchmarks | geomean +2.1%, no significant change | geomean +3.5% | unchanged |
+| `IntegerArithmeticLoopBeyondInt64` | no significant change | +27% (227.6 KiB → 290.1 KiB) | unchanged |
+| `tests/perf` (`REPLEvalExpr`, `ExecuteAction`, `BatchConstraints`, `SameConstraintManyInstances`, `BatchSatisfy`, `Instantiate`, `GRPCEvaluate`) | no significant change on any | at most +2.8% (`GRPCEvaluate`) | unchanged |
+| `RationalDecimalLoop` (1,000 steps of exact decimal arithmetic) | no significant change | unchanged | unchanged |
+| `RealDecimalLoop` (the same loop over a feature declared `Real`) | no significant change | unchanged | unchanged |
+| `RationalHarmonicLoop` (200 exact terms of 1/i) | +47% to +55% | ×4.3 | +69% |
+
+```
+go test ./internal/exec/runtime -run '^$' -bench . -benchmem -count=6
+go test ./tests/perf -run '^$' -bench 'Instantiate|BatchConstraints|BatchSatisfy|ExecuteAction$|GRPCEvaluate|REPLEvalExpr|SameConstraint' -benchtime=20x -benchmem -count=6
+```
+
+An Integer beyond `int64` is the numerator of a `big.Rat` over one, which is the byte increase in
+`IntegerArithmeticLoopBeyondInt64`. The harmonic sum is what exactness costs where it is real:
+its denominator outgrows `int64` within a few dozen terms and reaches hundreds of bits, where
+binary64 kept 53. An accumulation whose terms keep growing is stopped by
+`ErrRationalSizeLimit` at the configured size budget rather than slowing without bound.
 
 ## The rounded-query census
 
