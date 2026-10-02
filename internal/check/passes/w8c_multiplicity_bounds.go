@@ -13,9 +13,9 @@ import (
 const msgMultiplicityBoundNatural = "Must have a Natural value"
 
 // MultiplicityBoundsPass checks that every multiplicity bound has a Natural
-// value (KerML 8.3.3.1.9, validateMultiplicityRangeBoundResultTypes): a
-// model-level evaluable bound must evaluate to a non-negative whole number or
-// `*`, and any other bound must have an Integer-conforming result type.
+// value (KerML 8.3.3.1.9, validateMultiplicityRangeBoundResultTypes): an evaluable
+// bound must fold to a non-negative integer or `*` and must not read a valueless
+// feature; any other bound must have an Integer-conforming result type.
 type MultiplicityBoundsPass struct{}
 
 func (MultiplicityBoundsPass) Level() PassLevel { return LevelConstraint }
@@ -56,16 +56,41 @@ func (c *multiplicityBoundsChecker) checkBound(scope *symbols.Scope, bound ast.N
 	if bound == nil {
 		return
 	}
-	if v, ok := c.model.EvalIn(scope, bound); ok {
-		if v.Kind == semantics.ValInfinity || (v.Kind == semantics.ValInt && v.IntSign() >= 0) {
+	if c.model.ModelLevelEvaluable(scope, bound) {
+		if v, ok := c.model.EvalIn(scope, bound); ok {
+			if v.Kind != semantics.ValInfinity && !(v.Kind == semantics.ValInt && v.IntSign() >= 0) {
+				c.report(bound)
+			}
 			return
 		}
-		c.report(bound)
-		return
+		if c.readsValuelessFeature(scope, bound) {
+			c.report(bound)
+			return
+		}
 	}
 	if !c.boundIsInteger(scope, bound) {
 		c.report(bound)
 	}
+}
+
+// readsValuelessFeature reports whether bound names a feature with no value, which
+// model-level evaluation yields as the feature itself rather than a number.
+func (c *multiplicityBoundsChecker) readsValuelessFeature(scope *symbols.Scope, bound ast.Node) bool {
+	if !kit.IsReference(bound) {
+		return false
+	}
+	sym, ok := c.resolver.ResolveTarget(scope, bound)
+	if !ok || sym == nil {
+		return false
+	}
+	if target, aliasOK := c.resolver.ResolveAliasTarget(sym); aliasOK {
+		sym = target
+	}
+	if !sym.Kind.IsFeature() {
+		return false
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	return isUsage && usage.Value == nil
 }
 
 // boundIsInteger reports whether a bound's result may be an Integer: a known
