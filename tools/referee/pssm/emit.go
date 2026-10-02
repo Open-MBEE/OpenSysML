@@ -139,22 +139,16 @@ func (e *emitter) fail(where, reason string) error {
 	return &TranslateError{Test: e.test.ID, Where: where, Reason: reason}
 }
 
-// nameVertices names every state and pseudostate by its path as an identifier,
-// suffixing a name two vertices share so each is one endpoint. An initial
-// pseudostate is named for the helper state startTarget may declare for it.
+// nameVertices names each state or pseudostate endpoint by its path, suffixing
+// a name two vertices share so each is one endpoint.
 func (e *emitter) nameVertices(regions []*Region) {
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
 			for _, v := range r.Vertices {
-				if v.Kind == VertexFinal {
-					continue
+				if v.Kind != VertexInitial && v.Kind != VertexFinal {
+					e.names[v] = e.take(identifier(v.Path()))
 				}
-				base := identifier(v.Path())
-				if v.Kind == VertexInitial {
-					base += "_start"
-				}
-				e.names[v] = e.take(base)
 				visit(v.Regions)
 			}
 		}
@@ -501,13 +495,22 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 	if path != "" {
 		entryName = path + initialSuffix
 	}
-	var initialTarget string
+	var initial *entryStart
 	if len(regions) == 1 {
-		if initialTarget, err = e.startEntry(b, inner, regions[0], where); err != nil {
+		if initial, err = e.startEntry(inner, regions[0], where); err != nil {
 			return err
 		}
+		if parts.entry == "" && initial != nil && initial.effectTransition {
+			regionPath := regions[0].Name
+			if path != "" {
+				regionPath = path + "/" + regionPath
+			}
+			entryName = regionPath + initialSuffix
+		}
 	}
-	writeEntry(b, inner, entryName, parts.entry, initialTarget)
+	if err := writeEntry(b, inner, entryName, parts.entry, initial); err != nil {
+		return err
+	}
 	if kept != nil {
 		if err := e.keptBehaviors(w, kept, state, parts.exit, where); err != nil {
 			return err
@@ -658,14 +661,13 @@ func (w *indentWriter) Raw(text string) { w.b.WriteString(text) }
 
 func (w *indentWriter) MadeUp(string) {}
 
-// startEntry spells a single region's initial transition as the destination of
-// the state's entry; an empty region contributes no destination.
-func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, where string) (string, error) {
+// startEntry returns a single region's initial transition, if it has one.
+func (e *emitter) startEntry(inner string, region *Region, where string) (*entryStart, error) {
 	init, tr, err := e.initial(region, where)
 	if err != nil || init == nil {
-		return "", err
+		return nil, err
 	}
-	return e.startTarget(b, inner, init, tr, where)
+	return e.startTarget(inner, tr, where)
 }
 
 // initialSuffix names the entry action a state's or region's path is suffixed with.
@@ -728,17 +730,38 @@ func (e *emitter) plainAction(bh *Behavior, ind, where string) (string, error) {
 	return b.String() + ind + "}", nil
 }
 
-// writeEntry emits a state's entry: bare `entry; then`, or an entry action
-// (entry is its text after `action`) with or without a transition following.
-func writeEntry(b *strings.Builder, inner, entryName, entry, initialTarget string) {
-	switch {
-	case entry == "" && initialTarget != "":
-		fmt.Fprintf(b, "%sentry; then %s;\n", inner, initialTarget)
-	case entry != "" && initialTarget != "":
-		fmt.Fprintf(b, "%sentry action %s%s\n%stransition %s then %s;\n", inner, spell(entryName), entry, inner, spell(entryName), initialTarget)
-	case entry != "":
-		fmt.Fprintf(b, "%sentry action%s\n", inner, entry)
+type entryStart struct {
+	target           string
+	effect           []string
+	forceNamed       bool
+	effectTransition bool
+}
+
+// writeEntry emits a state's entry action and its initial transition.
+func writeEntry(b *strings.Builder, inner, entryName, entry string, start *entryStart) error {
+	if start == nil {
+		if entry != "" {
+			fmt.Fprintf(b, "%sentry action%s\n", inner, entry)
+		}
+		return nil
 	}
+	if entry != "" || start.forceNamed {
+		if entry == "" {
+			fmt.Fprintf(b, "%sentry action %s;\n", inner, spell(entryName))
+		} else {
+			fmt.Fprintf(b, "%sentry action %s%s\n", inner, spell(entryName), entry)
+		}
+		fmt.Fprintf(b, "%stransition %s", inner, spell(entryName))
+		if len(start.effect) > 0 {
+			b.WriteString(" do {\n")
+			writeStmts(b, inner+"    ", start.effect)
+			b.WriteString(inner + "}")
+		}
+		fmt.Fprintf(b, " then %s;\n", start.target)
+		return nil
+	}
+	fmt.Fprintf(b, "%sentry; then %s;\n", inner, start.target)
+	return nil
 }
 
 // parallelRegion emits one region of an orthogonal state as a parallel substate
@@ -756,11 +779,13 @@ func (e *emitter) parallelRegion(b *strings.Builder, depth int, path string, r *
 		return err
 	}
 	if init != nil {
-		target, err := e.startTarget(b, inner+"    ", init, tr, regionWhere(regionName))
+		start, err := e.startTarget(inner+"    ", tr, regionWhere(regionName))
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
+		if err := writeEntry(b, inner+"    ", regionName+initialSuffix, "", start); err != nil {
+			return err
+		}
 	}
 	if err := e.region(b, depth+2, r, path); err != nil {
 		return err
@@ -801,32 +826,27 @@ func (e *emitter) initial(r *Region, where string) (*Vertex, *Transition, error)
 	return init, out, nil
 }
 
-// startTarget spells where a region starts: an initial transition with an effect
-// or a pseudostate target starts in a helper state whose completion carries it.
-func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *Transition, where string) (string, error) {
+// startTarget spells a region's initial target and effect.
+func (e *emitter) startTarget(ind string, tr *Transition, where string) (*entryStart, error) {
 	target, err := e.target(tr, where)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if tr.Effect == nil && (tr.Target == nil || !tr.Target.Kind.IsPseudostate()) {
-		return target, nil
-	}
-	helper := e.names[init]
-	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s", ind, helper, ind, helper)
+	start := &entryStart{target: target, effectTransition: tr.Effect != nil}
+	start.forceNamed = tr.Effect != nil || tr.Target.Kind.IsPseudostate()
 	if tr.Effect != nil {
-		if _, err := e.binding(tr.Effect, effectOf(tr)); err != nil {
-			return "", err
+		var stmts []string
+		if hasParams(tr.Effect) {
+			stmts, err = e.boundEffect(tr.Effect, ind+"    ", effectOf(tr), tr.Name+" effect")
+		} else {
+			stmts, err = e.plainBody(tr.Effect, effectOf(tr))
 		}
-		stmts, err := e.plainBody(tr.Effect, effectOf(tr))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		b.WriteString(" do {\n")
-		writeStmts(b, ind+"    ", stmts)
-		b.WriteString(ind + "}")
+		start.effect = stmts
 	}
-	fmt.Fprintf(b, " then %s;\n", target)
-	return helper, nil
+	return start, nil
 }
 
 // region emits a region's vertices other than its initial and final states (a

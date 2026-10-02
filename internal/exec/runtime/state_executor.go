@@ -157,7 +157,8 @@ type StateExecutor struct {
 	moving *moveMark
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
-	front *unitFront
+	front                    *unitFront
+	pendingRouteEntryEffects map[*ast.StateRegion][]routeEffect
 	// began are the do behaviors the move under way started, whose due steps its entry sites
 	// draw against the entries left; path is the draw along an entry path no front orders.
 	began []*doAction
@@ -2304,19 +2305,58 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 		fromName = currentState.Name
 	}
 	lca := e.moveBoundary(currentState, trans, targetState)
+	immediate, entryEffects := e.routeEntryFrontEffects(effects, e.descendantChain(lca, targetState), targetState)
+	previousEffects := e.pendingRouteEntryEffects
+	e.pendingRouteEntryEffects = cloneRouteEntryEffects(previousEffects)
+	if e.pendingRouteEntryEffects == nil && len(entryEffects) > 0 {
+		e.pendingRouteEntryEffects = make(map[*ast.StateRegion][]routeEffect)
+	}
+	for region, routeEffects := range entryEffects {
+		e.pendingRouteEntryEffects[region] = append(e.pendingRouteEntryEffects[region], routeEffects...)
+	}
+	defer func() { e.pendingRouteEntryEffects = previousEffects }()
 
 	// Exit states (deepest to shallowest)
 	if err := e.exitStates(e.exitPath(currentState, lca, nil)); err != nil {
 		return err
 	}
 
-	if err := e.runEffects(effects, e.descendantChain(lca, targetState)); err != nil {
+	if err := e.runEffects(immediate, e.descendantChain(lca, targetState)); err != nil {
 		return err
 	}
 	if lca == targetState {
 		return e.completeInto(trans, fromName, targetState)
 	}
 	return e.enterBelow(trans, fromName, lca, targetState, branches)
+}
+
+func (e *StateExecutor) routeEntryFrontEffects(
+	effects []routeEffect,
+	chain []*ast.StateNode,
+	target *ast.StateNode,
+) ([]routeEffect, map[*ast.StateRegion][]routeEffect) {
+	entering := make(map[*ast.StateNode]bool, len(chain))
+	for _, state := range chain {
+		entering[state] = true
+	}
+	var immediate []routeEffect
+	byRegion := make(map[*ast.StateRegion][]routeEffect)
+	for _, effect := range effects {
+		source, ok := effect.segment.Source.(*ast.PseudostateNode)
+		if !ok {
+			immediate = append(immediate, effect)
+			continue
+		}
+		region := e.graph.PseudostateRegion[source]
+		owner := e.graph.RegionOwner[region]
+		if region == nil || owner == nil || !entering[owner] ||
+			e.regionUnder(owner, target) != region {
+			immediate = append(immediate, effect)
+			continue
+		}
+		byRegion[region] = append(byRegion[region], effect)
+	}
+	return immediate, byRegion
 }
 
 // enterBelow finishes a move whose exits and effects are done: it enters the
@@ -4950,9 +4990,7 @@ func (e *StateExecutor) enterMachineRegions() error {
 	return nil
 }
 
-// startIn chooses the state owner's body starts in: the target of the first
-// transition out of its entry action whose guard holds, in declaration order.
-// It is nil when the body declares none; when none holds, that is an error.
+// startIn chooses where the owner's body starts and performs its entry route.
 func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 	transitions := e.graph.StartOf(owner)
 	for _, entry := range transitions {
@@ -4961,10 +4999,21 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			return nil, err
 		}
 		if holds {
-			if entry.Decl != nil {
-				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entry.Target, Owner: e.graph.EntryOwner(owner)})
+			if err := e.runEntryEffect(owner, entry); err != nil {
+				return nil, err
 			}
-			return entry.Target, nil
+			target := entry.Target
+			if entry.Via != nil {
+				var err error
+				target, err = e.followEntryRoute(owner, entry.Via)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if entry.Decl != nil {
+				e.fired = append(e.fired, FiredTransition{Decl: entry.Decl, Target: entryTarget(entry), Owner: e.graph.EntryOwner(owner)})
+			}
+			return target, nil
 		}
 	}
 	if len(transitions) > 0 {
@@ -4972,6 +5021,84 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			ErrNoEntryTransitionHolds, e.describeBody(owner), len(transitions))
 	}
 	return nil, nil
+}
+
+func entryTarget(entry *lower.EntryTransition) ast.Node {
+	if entry.Via != nil {
+		return entry.Via
+	}
+	return entry.Target
+}
+
+func (e *StateExecutor) runEntryEffect(owner ast.Node, entry *lower.EntryTransition) error {
+	if len(entry.Effect) == 0 {
+		return nil
+	}
+	if _, err := e.unit(ChoiceEntryOrder, e.entryTransitionEffectHead(owner, entry)); err != nil {
+		return err
+	}
+	if err := e.executeBehaviors(entry.Effect); err != nil {
+		return fmt.Errorf("entry transition effect: %w", err)
+	}
+	return nil
+}
+
+func (e *StateExecutor) followEntryRoute(owner ast.Node, via *ast.PseudostateNode) (*ast.StateNode, error) {
+	route, err := e.followOut(via, route{})
+	if err != nil {
+		return nil, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
+	}
+	for {
+		if route.draw != nil {
+			route, err = e.settleDraws(route)
+			e.noteAll(route.notes)
+			route.notes = nil
+			if err != nil {
+				return nil, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
+			}
+		}
+		if err := e.runEntryRouteEffects(route.effects(e.graph)); err != nil {
+			return nil, err
+		}
+		e.noteFired(route.segments...)
+		e.noteAll(route.notes)
+		route.notes = nil
+		if route.choice == nil {
+			if route.target == nil {
+				return nil, fmt.Errorf("entry transition through %s %s has no state target", via.Kind, via.Name)
+			}
+			return route.target, nil
+		}
+		route, err = e.resolveChoice(route)
+		if err != nil {
+			if errors.Is(err, ErrChoiceWithoutBranch) {
+				err = fmt.Errorf("%w: %w", errNoWayThrough, err)
+			}
+			return nil, fmt.Errorf("entry transition through choice %s: %w", via.Name, err)
+		}
+	}
+}
+
+func (e *StateExecutor) runEntryRouteEffects(effects []routeEffect) error {
+	var ended []ast.Node
+	for i, effect := range effects {
+		if e.endedBefore(ended, effect.behavior) {
+			continue
+		}
+		if i == 0 || effects[i-1].segment != effect.segment {
+			if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.effectLabel(effect.segment), at: effect.segment.Decl}); err != nil {
+				return err
+			}
+		}
+		terminated, err := e.executeBehavior(effect.behavior)
+		if err != nil {
+			return fmt.Errorf("entry route transition effect: %w", err)
+		}
+		if terminated {
+			ended = append(ended, effect.behavior.Block)
+		}
+	}
+	return nil
 }
 
 // entryGuardHolds evaluates an entry transition's guard in the body it is
@@ -4982,10 +5109,10 @@ func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransi
 	}
 	val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
 	if err != nil {
-		return false, fmt.Errorf("eval guard of the entry transition into %s: %w", entry.Target.Name, err)
+		return false, fmt.Errorf("eval guard of the entry transition into %s: %w", StateVertexName(entryTarget(entry)), err)
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", entry.Target.Name, val.Kind)
+		return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", StateVertexName(entryTarget(entry)), val.Kind)
 	}
 	return val.Const.Bool, nil
 }

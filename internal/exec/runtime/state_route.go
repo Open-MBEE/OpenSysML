@@ -75,6 +75,17 @@ type routeEffect struct {
 	segment  *lower.Transition
 }
 
+func cloneRouteEntryEffects(effects map[*ast.StateRegion][]routeEffect) map[*ast.StateRegion][]routeEffect {
+	if effects == nil {
+		return nil
+	}
+	cloned := make(map[*ast.StateRegion][]routeEffect, len(effects))
+	for region, routeEffects := range effects {
+		cloned[region] = slices.Clone(routeEffects)
+	}
+	return cloned
+}
+
 // effects are the behaviors the route's segments perform, in path order, each
 // with the state enclosing it.
 func (r route) effects(g *lower.StateGraph) []routeEffect {
@@ -195,12 +206,14 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		}
 		defer unbind()
 
-		_, routeErr = e.resolveRoute(trans, event)
+		resolved, err := e.resolveRoute(trans, event)
+		routeErr = err
 		if routeErr != nil {
 			return
 		}
 		hist, ok := trans.Target.(*ast.PseudostateNode)
 		if !ok || hist.Kind != ast.PseudostateShallowHistory && hist.Kind != ast.PseudostateDeepHistory {
+			routeErr = e.defaultEntryRoutesAvailable(trans, resolved)
 			return
 		}
 		owner, err := e.historyOwner(hist)
@@ -211,9 +224,147 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		if ok && (source == owner || e.nestedIn(source, owner)) {
 			return
 		}
-		_, routeErr = e.followOut(hist, route{})
+		fallback, err := e.followOut(hist, route{})
+		routeErr = err
+		if routeErr == nil {
+			routeErr = e.defaultEntryRoutesAvailable(trans, fallback)
+		}
 	})
 	return !errors.Is(routeErr, errNoWayThrough)
+}
+
+func (e *StateExecutor) defaultEntryRoutesAvailable(trans *lower.Transition, route route) error {
+	targets, stops, err := e.reachable(route)
+	if err != nil || len(stops) > 0 {
+		return err
+	}
+	current := e.moveOrigin()
+	for _, target := range targets {
+		available := true
+		seenBodies := make(map[ast.Node]bool)
+		seenStates := make(map[*ast.StateNode]bool)
+		for _, entered := range e.enteredByMove(current, trans, target) {
+			if entered == target {
+				available = e.defaultEntryBodyAvailable(entered, seenBodies, seenStates)
+				if !available {
+					break
+				}
+				continue
+			}
+			regions, composite := e.graph.CompositeStates[entered]
+			if !composite {
+				continue
+			}
+			explicitRegion := e.regionUnder(entered, target)
+			for _, region := range regions {
+				if region == explicitRegion {
+					continue
+				}
+				if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
+					available = false
+					break
+				}
+			}
+			if !available {
+				break
+			}
+		}
+		if available {
+			return nil
+		}
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+	return errNoWayThrough
+}
+
+func (e *StateExecutor) defaultEntryBodyAvailable(
+	owner ast.Node,
+	seenBodies map[ast.Node]bool,
+	seenStates map[*ast.StateNode]bool,
+) bool {
+	if seenBodies[owner] {
+		return true
+	}
+	seenBodies[owner] = true
+	entries := e.graph.StartOf(owner)
+	if len(entries) == 0 || entries[0].Guard != nil {
+		return true
+	}
+	entry := entries[0]
+	var targets []*ast.StateNode
+	if entry.Via != nil {
+		var resolved route
+		var routeErr error
+		e.preview(func() {
+			resolved, routeErr = e.followOut(entry.Via, route{})
+		})
+		if errors.Is(routeErr, errNoWayThrough) {
+			return false
+		}
+		if routeErr != nil {
+			return true
+		}
+		if !e.defaultEntryRouteAvailable(resolved) {
+			return false
+		}
+		var stops []*ast.Usage
+		targets, stops, routeErr = e.reachable(resolved)
+		if routeErr != nil || len(stops) > 0 {
+			return true
+		}
+	} else if entry.Target != nil {
+		targets = append(targets, entry.Target)
+	}
+	for _, target := range targets {
+		if seenStates[target] {
+			continue
+		}
+		seenStates[target] = true
+		regions, composite := e.graph.CompositeStates[target]
+		if !composite {
+			if !e.defaultEntryBodyAvailable(target, seenBodies, seenStates) {
+				return false
+			}
+			continue
+		}
+		for _, region := range regions {
+			if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (e *StateExecutor) defaultEntryRouteAvailable(current route) bool {
+	if current.draw != nil {
+		for _, branch := range current.draw.beyond {
+			if e.defaultEntryRouteAvailable(branch.route) {
+				return true
+			}
+		}
+		return false
+	}
+	if current.choice == nil {
+		return true
+	}
+	outgoing := e.graph.Transitions[current.choice]
+	enabled, _, err := e.enabledBranches(current.choice, outgoing)
+	if err != nil {
+		return true
+	}
+	for _, index := range enabled {
+		beyond, err := e.follow(current.choice, outgoing[index], route{crossed: current.crossed})
+		if errors.Is(err, errNoWayThrough) {
+			continue
+		}
+		if err != nil || e.defaultEntryRouteAvailable(beyond) {
+			return true
+		}
+	}
+	return false
 }
 
 // settleDraws makes the draws the route is open at, in turn, once the transition

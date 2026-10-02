@@ -350,9 +350,7 @@ func TestGuardedEntryTransitionIsLegal(t *testing.T) {
 }`)
 }
 
-// An entry transition chooses the starting state by its guard alone (SysML v2
-// §7.18.3): a trigger or an effect on it, or a target that is no state, is
-// reported where the endpoint diagnostics report.
+// An entry transition accepts a guard alone unless it has an explicit source.
 func TestEntryTransitionShapeIsReported(t *testing.T) {
 	wantOneError(t, `package test {
 	state def M {
@@ -360,7 +358,7 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		accept go then active;
 		state active;
 	}
-}`, behavior.CodeEntryTransitionShape, "carries a trigger")
+}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;
@@ -368,23 +366,49 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		state init;
 		state active;
 	}
-}`, behavior.CodeEntryTransitionShape, "carries a trigger")
+}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
 	wantOneError(t, `package test {
 	state def M {
 		entry;
 		if true do action mark then active;
 		state active;
 	}
-}`, behavior.CodeEntryTransitionShape, "carries an effect")
+}`, behavior.CodeEntryTransitionShape, "a shorthand transition out of an entry action may carry a guard at most")
 	wantOneError(t, `package test {
 	state def M {
 		entry;
 		if true then pick;
+		fork pick;
+		state active;
+	}
+}`, behavior.CodeEntryTransitionTarget, "reaches the fork pick")
+	wantOneError(t, `package test {
+	state def M {
+		entry action boot { }
+		transition boot accept go then active;
+		state active;
+	}
+}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
+	wantClean(t, `package test {
+	action def mark;
+	state def M {
+		entry action boot { }
+		transition boot do action mark then active;
+		state active;
+	}
+}`)
+}
+
+func TestEntryActionTransitionIntoChoiceIsClean(t *testing.T) {
+	wantClean(t, `package test {
+	state def M {
+		entry action boot { }
+		transition boot then pick;
 		choice pick;
 		transition first pick then active;
 		state active;
 	}
-}`, behavior.CodeEntryTransitionTarget, "reaches the choice pick")
+}`)
 }
 
 // The member before the shorthand is an entry action or an attribute rather than
@@ -643,14 +667,14 @@ func TestTransitionOutOfEntryActionIsLegal(t *testing.T) {
 // guarded or not: a triggered transition is an edge between two vertices, and
 // an entry action is none. A trigger names the accepter rule, which is the
 // specific reading of the same rejection.
-func TestTriggeredTransitionOutOfEntryActionIsNotAVertex(t *testing.T) {
+func TestTriggeredTransitionOutOfEntryActionIsRejected(t *testing.T) {
 	wantOneError(t, `package test {
 	state def M {
 		entry action begin { }
 		transition begin accept Warning then busy;
 		state busy;
 	}
-}`, behavior.CodeAccepterSourceNotState, "must have a state as its source")
+}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
 	wantClean(t, `package test {
 	state def M {
 		in attribute c : Boolean;
@@ -687,18 +711,31 @@ func TestTransitionOutOfAnotherStatesEntryActionIsNotAVertex(t *testing.T) {
 }`, behavior.CodeEndpointNotOfMachine, "begin")
 }
 
-// A start designation names the state the machine starts in, so a transition out
-// of an entry action into a pseudostate is not one.
-func TestEntryActionTransitionIntoPseudostateIsNotAVertex(t *testing.T) {
-	wantOneError(t, `package test {
+// A transition out of an entry action may target a junction or choice route.
+func TestEntryActionTransitionIntoJunctionIsClean(t *testing.T) {
+	wantClean(t, `package test {
 	state def M {
 		entry action begin { }
 		transition begin then j;
 		junction j;
 		state b;
-		transition j then b;
+		transition first j then b;
 	}
-}`, behavior.CodeEndpointNotOfMachine, "begin")
+}`)
+}
+
+func TestEntryActionTransitionIntoJunctionInAnotherBodyIsReported(t *testing.T) {
+	wantOneError(t, `package test {
+	state def M {
+		entry action begin { }
+		transition begin then inner::route;
+		state inner {
+			junction route;
+			state active;
+			transition route then active;
+		}
+	}
+}`, behavior.CodeEntryTransitionTarget, "not a state or junction/choice route the body can start in")
 }
 
 // TestImplicitSourcePseudostateBothSpellings: a sourceless transition hangs

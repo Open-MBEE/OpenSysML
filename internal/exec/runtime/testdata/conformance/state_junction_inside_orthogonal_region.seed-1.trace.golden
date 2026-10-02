@@ -13,25 +13,24 @@ stmt action body
       eval feature log -> "go(effect);"
       eval literal "both(entry);" -> "both(entry);"
     eval operator + -> "go(effect);both(entry);"
-choice entering both: next split->l1(effect), r0(entry) (unordered; took split->l1(effect) first)
-stmt action body
-  stmt assign log
-      eval feature log -> "go(effect);both(entry);"
-      eval literal "split(effect);" -> "split(effect);"
-    eval operator + -> "go(effect);both(entry);split(effect);"
-choice entering both: next l1(entry), r0(entry) (unordered; took l1(entry) first)
-enter: l1 (entry action)
-stmt action body
-  stmt assign log
-      eval feature log -> "go(effect);both(entry);split(effect);"
-      eval literal "l1(entry);" -> "l1(entry);"
-    eval operator + -> "go(effect);both(entry);split(effect);l1(entry);"
+choice entering both: next split->l1(effect), r0(entry) (unordered; took r0(entry) first)
 enter: r0 (entry action)
 stmt action body
   stmt assign log
-      eval feature log -> "go(effect);both(entry);split(effect);l1(entry);"
+      eval feature log -> "go(effect);both(entry);"
       eval literal "r0(entry);" -> "r0(entry);"
-    eval operator + -> "go(effect);both(entry);split(effect);l1(entry);r0(entry);"
+    eval operator + -> "go(effect);both(entry);r0(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);both(entry);r0(entry);"
+      eval literal "split(effect);" -> "split(effect);"
+    eval operator + -> "go(effect);both(entry);r0(entry);split(effect);"
+enter: l1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);both(entry);r0(entry);split(effect);"
+      eval literal "l1(entry);" -> "l1(entry);"
+    eval operator + -> "go(effect);both(entry);r0(entry);split(effect);l1(entry);"
 transition: idle -> l1 (event: accept Go)
 choice exiting both: next l1(exit), r0(exit) (unordered; took l1(exit) first)
 exit: l1
@@ -39,8 +38,8 @@ exit: r0
 exit: both (exit action)
 stmt action body
   stmt assign log
-      eval feature log -> "go(effect);both(entry);split(effect);l1(entry);r0(entry);"
+      eval feature log -> "go(effect);both(entry);r0(entry);split(effect);l1(entry);"
       eval literal "both(exit);" -> "both(exit);"
-    eval operator + -> "go(effect);both(entry);split(effect);l1(entry);r0(entry);both(exit);"
+    eval operator + -> "go(effect);both(entry);r0(entry);split(effect);l1(entry);both(exit);"
 enter: done
 transition: both -> done (event: accept Stop)

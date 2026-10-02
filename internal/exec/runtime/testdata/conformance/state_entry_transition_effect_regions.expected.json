@@ -1,0 +1,32 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "outcomes": [
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "a-effect a-entry b-effect b-entry "}}
+    },
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "a-effect b-effect a-entry b-entry "}}
+    },
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "a-effect b-effect b-entry a-entry "}}
+    },
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "b-effect a-effect a-entry b-entry "}}
+    },
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "b-effect a-effect b-entry a-entry "}}
+    },
+    {
+      "finalState": "active+active",
+      "outputs": {"log": {"type": "String", "value": "b-effect b-entry a-effect a-entry "}}
+    }
+  ],
+  "admissible": "Entry transitions in the regions of a parallel state: each effect precedes its own target's entry, the regions interleave"
+}

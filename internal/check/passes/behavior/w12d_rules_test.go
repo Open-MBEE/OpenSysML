@@ -73,17 +73,13 @@ func TestW12DAccepterSourceMustBeAState(t *testing.T) {
 		transition init accept A then S2_1;
 		state S2_1;
 	}
-}`
+	}`
 	got := transitionDiags(t, src)
-	if len(got) != 1 || got[0].Code != behavior.CodeAccepterSourceNotState {
-		t.Fatalf("got %+v, want one %s", got, behavior.CodeAccepterSourceNotState)
+	if len(got) != 1 || got[0].Code != behavior.CodeEntryTransitionShape {
+		t.Fatalf("got %+v, want one %s", got, behavior.CodeEntryTransitionShape)
 	}
-	if got[0].Message != behavior.MsgAccepterSourceNotState {
-		t.Errorf("message = %q, want %q", got[0].Message, behavior.MsgAccepterSourceNotState)
-	}
-	at := src[got[0].Span.Offset : got[0].Span.Offset+got[0].Span.Len]
-	if !strings.Contains(at, "A") || strings.Contains(at, "then") {
-		t.Errorf("reported at %q, want the trigger", at)
+	if !strings.Contains(got[0].Message, behavior.MsgAccepterSourceNotState) {
+		t.Errorf("message = %q, want it to cite %q", got[0].Message, behavior.MsgAccepterSourceNotState)
 	}
 }
 

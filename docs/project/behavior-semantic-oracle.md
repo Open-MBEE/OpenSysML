@@ -1730,6 +1730,10 @@ which is drawn against the branches' remaining target entries, six outcomes.
 `state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
 begins before its top regions are entered: six outcomes.
 
+### Entry transitions in the regions of a parallel state: each effect precedes its own target's entry, the regions interleave
+
+Derivation pending.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

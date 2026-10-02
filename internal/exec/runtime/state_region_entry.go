@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -13,6 +14,7 @@ type regionEntry struct {
 	container *ast.StateNode
 	branches  map[*ast.StateRegion]*ast.StateNode
 	target    *ast.StateNode // where the region starts instead of its own start, if anywhere
+	effects   []routeEffect
 }
 
 // lazyEntry is the chain of states a fork's branches still have to enter down to
@@ -40,7 +42,12 @@ func (e *StateExecutor) forkEntry(boundary, owner *ast.StateNode) *lazyEntry {
 func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) error {
 	entries := make([]*regionEntry, 0, len(regions))
 	for _, region := range regions {
-		entries = append(entries, &regionEntry{region: region, container: container, branches: branches, target: branches[region]})
+		entry := &regionEntry{region: region, container: container, branches: branches, target: branches[region]}
+		if effects := e.pendingRouteEntryEffects[region]; len(effects) > 0 {
+			entry.effects = slices.Clone(effects)
+			delete(e.pendingRouteEntryEffects, region)
+		}
+		entries = append(entries, entry)
 	}
 	return e.enterRegions(container, entries, true)
 }
@@ -128,6 +135,9 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 // enterRegion enters one region down to the state it starts in, as a transition does; a start
 // its guards decide is drawn before they are read, so they read what earlier units wrote.
 func (e *StateExecutor) enterRegion(w *regionEntry) error {
+	if err := e.runEntryRouteEffects(w.effects); err != nil {
+		return err
+	}
 	if w.target == nil && e.graph.RegionState[w.region] == nil && len(e.graph.StartOf(w.region)) > 0 {
 		if err := e.unitAhead(ChoiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
 			return err
@@ -155,6 +165,12 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead {
 	starts := e.graph.StartOf(body)
 	if len(starts) > 0 && starts[0].Guard == nil {
+		if len(starts[0].Effect) > 0 {
+			return e.entryTransitionEffectHead(body, starts[0])
+		}
+		if starts[0].Via != nil {
+			return unitHead{label: "start of " + e.describeBody(body), at: body, site: e.bodySite(body)}
+		}
 		target := starts[0].Target
 		for _, state := range e.descendantChain(above, target) {
 			if e.entryIsUnit(state) {

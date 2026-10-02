@@ -1,0 +1,6 @@
+exit: idle
+enter: working (entry action)
+stmt action body
+eval literal false -> false
+enter: accepted
+transition: idle -> working (event: accept Go)
