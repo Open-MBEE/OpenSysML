@@ -3,8 +3,8 @@ package test {
 
 	action def Own {
 		in x : Integer;
-		out a : Integer := 0;
-		out b : Integer := 0;
+		attribute a : Integer := 0;
+		attribute b : Integer := 0;
 		first start then s1;
 		action s1 { assign a := x; }
 		then s2;
@@ -15,7 +15,7 @@ package test {
 	action def OwnCallees {
 		attribute sum : Integer = 0;
 		// Oracle (docs/project/behavior-semantic-oracle.md): each branch performs Own in an
-		// executor of its own, touching only features its performance holds; one outcome.
+		// executor of its own, touching only attributes and inputs its performance holds; one outcome.
 		first start;
 		then fork f;
 			then p;

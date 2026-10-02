@@ -546,9 +546,12 @@ move, because every interleaving inside it only reorders independent moves. The 
 one leaf body keep declaration order, as the previous section records. A performance invoked in an
 executor of its own, under a body or a flow driven one move at a time, is analysed by its own
 flow: its start shot and each move that may touch what it does not hold (`lower.BodySharesMoves`,
-`lower.FlowSharesMoves`) are boundaries too. The parameters and attributes its definition declares
-are its performance's own, so moves touching only them are not boundaries
-(`action_explore_body_own_callees`: one outcome in two runs).
+`lower.FlowSharesMoves`) are boundaries too. The attributes and `in` parameters its definition
+declares are its performance's own, so moves touching only them are not boundaries
+(`action_explore_body_own_callees`: one outcome in two runs). Its outputs are not: each write to
+one lands at the invoking node's pin and goes on along its streaming flows as it is made, so a
+performance beside it may read the pin before, between or after two writes
+(`action_explore_body_callee_outputs` under `testdata/robustness`: `seen` is 0, 1 or 2).
 
 Not covered: object behaviors, state machines and actions run by separate executors on one
 clock interleave by whole turns. The executor drawn to run at an instant runs until it has no

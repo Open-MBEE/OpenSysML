@@ -2,7 +2,10 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -20,6 +23,7 @@ func TestRuntimeRobustnessExploreBodyInterleavings(t *testing.T) {
 	t.Run("checker_finds_every_outcome", testBodyInterleavingsChecked)
 	t.Run("callee_executors_interleave", testBodyInterleavingsCallees)
 	t.Run("callees_touching_only_their_own_features_run_whole", testBodyInterleavingsOwnCallees)
+	t.Run("callee_output_writes_are_observed_one_at_a_time", testBodyInterleavingsCalleeOutputs)
 }
 
 // caseRun runs the case's one action under ctx and reports its outcome.
@@ -267,5 +271,33 @@ func testBodyInterleavingsOwnCallees(t *testing.T) {
 	}
 	if runs := x.Runs; runs > 2 {
 		t.Errorf("explore took %d runs, want at most 2: the callees share nothing", runs)
+	}
+}
+
+func testBodyInterleavingsCalleeOutputs(t *testing.T) {
+	text, err := os.ReadFile(filepath.Join("testdata", "robustness", "action_explore_body_callee_outputs.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := parseExploreModel(t, string(text))
+	x := m.exploreAction(t, "explore", "CalleeOutputs")
+	if !x.Complete() {
+		t.Fatalf("exploration %s, want complete", x.Status())
+	}
+	var got []string
+	errs := 0
+	for _, o := range x.Outcomes {
+		if o.Outcome.Err != nil {
+			if !errors.Is(o.Outcome.Err, ErrNodeNotPerformed) {
+				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, ErrNodeNotPerformed)
+			}
+			errs++
+			continue
+		}
+		got = append(got, outcomeValue(t, o.Outcome, "seen"))
+	}
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"0", "1", "2"}) || errs != 1 {
+		t.Fatalf("seen over every schedule = %v with %d error outcomes, want [0 1 2] and the read before producer is performed", got, errs)
 	}
 }

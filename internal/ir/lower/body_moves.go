@@ -73,7 +73,7 @@ func BodySharesMoves(graph *ActionGraph, node ast.Node) bool {
 
 // FlowSharesMoves reports whether two or more moves of a performance of graph's flow,
 // its start shot and its subflows' moves included, may touch what another performance does;
-// the features the performance holds its own values of are not shared.
+// the attributes and in parameters the performance holds its own values of are not shared.
 func FlowSharesMoves(graph *ActionGraph) bool {
 	own := ownFeatures(graph)
 	touches := func(f Footprint) bool { return touchesShared(withoutPlaces(f, own)) }
@@ -110,10 +110,14 @@ func FlowSharesMoves(graph *ActionGraph) bool {
 	return walk(graph)
 }
 
-// ownFeatures are the symbols of the parameters and attributes graph's action declares.
+// ownFeatures are the symbols of the attributes and in parameters graph's action declares;
+// an output's writes stream to the caller, so outputs are not its own.
 func ownFeatures(graph *ActionGraph) map[*symbols.Symbol]bool {
 	own := make(map[*symbols.Symbol]bool)
 	for _, attr := range graph.Attributes {
+		if attr.IsResult || attr.Direction == ast.DirOut || attr.Direction == ast.DirInOut {
+			continue
+		}
 		if sym := featureSymbol(graph.Scope, Feature{Name: attr.Name, Node: attr.Node}); sym != nil {
 			own[sym] = true
 		}
