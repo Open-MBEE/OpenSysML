@@ -388,7 +388,7 @@ func TestEntryTransitionShapeIsReported(t *testing.T) {
 		transition boot accept go then active;
 		state active;
 	}
-}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
+}`, behavior.CodeAccepterSourceNotState, behavior.MsgAccepterSourceNotState)
 	wantClean(t, `package test {
 	action def mark;
 	state def M {
@@ -668,13 +668,21 @@ func TestTransitionOutOfEntryActionIsLegal(t *testing.T) {
 // an entry action is none. A trigger names the accepter rule, which is the
 // specific reading of the same rejection.
 func TestTriggeredTransitionOutOfEntryActionIsRejected(t *testing.T) {
-	wantOneError(t, `package test {
+	src := `package test {
 	state def M {
 		entry action begin { }
 		transition begin accept Warning then busy;
 		state busy;
 	}
-}`, behavior.CodeEntryTransitionShape, "A transition with an accepter must have a state as its source")
+	}`
+	d := wantOneError(t, src, behavior.CodeAccepterSourceNotState, behavior.MsgAccepterSourceNotState)
+	if d.Message != behavior.MsgAccepterSourceNotState {
+		t.Fatalf("message = %q, want %q", d.Message, behavior.MsgAccepterSourceNotState)
+	}
+	at := src[d.Span.Offset : d.Span.Offset+d.Span.Len]
+	if at != "accept Warning" {
+		t.Fatalf("reported at %q, want the trigger span %q", at, "accept Warning")
+	}
 	wantClean(t, `package test {
 	state def M {
 		in attribute c : Boolean;
@@ -685,6 +693,36 @@ func TestTriggeredTransitionOutOfEntryActionIsRejected(t *testing.T) {
 		state idle;
 	}
 }`)
+}
+
+func TestTriggeredTransitionOutOfEntryActionIntoRoutingPseudostateKeepsAccepterDiagnostic(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		pseudostate string
+	}{
+		{name: "junction", pseudostate: "junction"},
+		{name: "choice", pseudostate: "choice"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+	state def M {
+		entry action begin { }
+		transition begin accept Warning then route;
+		` + tc.pseudostate + ` route;
+		transition first route then active;
+		state active;
+	}
+}`
+			d := wantOneError(t, src, behavior.CodeAccepterSourceNotState, behavior.MsgAccepterSourceNotState)
+			if d.Message != behavior.MsgAccepterSourceNotState {
+				t.Fatalf("message = %q, want %q", d.Message, behavior.MsgAccepterSourceNotState)
+			}
+			at := src[d.Span.Offset : d.Span.Offset+d.Span.Len]
+			if at != "accept Warning" {
+				t.Fatalf("reported at %q, want the trigger span %q", at, "accept Warning")
+			}
+		})
+	}
 }
 
 // Nothing transitions into an entry action.

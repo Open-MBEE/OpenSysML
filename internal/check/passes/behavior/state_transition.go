@@ -319,8 +319,8 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 				c.checkEndpoint(m, scope, n.Target, true, nil)
 				continue
 			}
-			if c.entryActionSource(scope, n.Source, starts) {
-				c.checkNamedEntryTransition(m, scope, n)
+			if n.Trigger == nil && c.entryActionSource(scope, n.Source, starts) {
+				c.checkEntryTransitionTarget(m, scope, n.Target)
 				c.checkEndpoint(m, scope, n.Target, true, nil)
 				continue
 			}
@@ -404,14 +404,6 @@ func (c *transitionChecker) checkImplicitSource(m *machine, scope *symbols.Scope
 // entry action: it carries a guard alone and starts the body in a state.
 func (c *transitionChecker) checkEntryTransition(m *machine, scope *symbols.Scope, n *ast.TransitionMember) {
 	if n.Trigger != nil || len(n.Effect) > 0 {
-		c.report(n.Span(), CodeEntryTransitionShape, (&lower.EntryTransitionShapeError{Transition: n}).Error())
-		return
-	}
-	c.checkEntryTransitionTarget(m, scope, n.Target)
-}
-
-func (c *transitionChecker) checkNamedEntryTransition(m *machine, scope *symbols.Scope, n *ast.TransitionMember) {
-	if n.Trigger != nil {
 		c.report(n.Span(), CodeEntryTransitionShape, (&lower.EntryTransitionShapeError{Transition: n}).Error())
 		return
 	}
