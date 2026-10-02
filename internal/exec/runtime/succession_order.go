@@ -188,24 +188,6 @@ func sortInstancesByID(instances []*Instance) {
 	})
 }
 
-func (ctx *Context) orderEndTargets(order lower.BehaviorOrder, end lower.BehaviorOrderEnd) []*Instance {
-	if len(end.Path) == 0 {
-		return nil
-	}
-	instances := ctx.orderFeaturingInstances(order, end)
-	var targets []*Instance
-	seen := make(map[*Instance]bool)
-	for _, featuring := range instances {
-		for _, target := range ctx.orderEndTargetsFrom(order, end, featuring) {
-			if !seen[target] {
-				seen[target] = true
-				targets = append(targets, target)
-			}
-		}
-	}
-	return targets
-}
-
 func (ctx *Context) orderEndTargetsFrom(order lower.BehaviorOrder, end lower.BehaviorOrderEnd, featuring *Instance) []*Instance {
 	if order.Featuring == nil {
 		if len(end.Path) == 1 {
