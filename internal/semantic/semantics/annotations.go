@@ -1596,10 +1596,16 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	if !m.isReflectiveFeature(sym) {
 		return symbols.FilterValue{}, false
 	}
-	if feature == "isVariable" && sym.Recorded() && !m.isKerMLDoc(sym) &&
-		m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
-		// Records omit the Usage::portion prefix, so mayTimeVary is not decidable without the AST.
-		return symbols.FilterValue{}, false
+	if sym.Recorded() && !m.isKerMLDoc(sym) && m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
+		switch feature {
+		case "isVariable":
+			// Records omit the Usage::portion prefix, so mayTimeVary is not decidable without the AST.
+			return symbols.FilterValue{}, false
+		case "isConstant":
+			if sym.Facts.Modifiers.Has(symbols.ModEnd) && !sym.Facts.Modifiers.Has(symbols.ModConstant) {
+				return symbols.FilterValue{}, false
+			}
+		}
 	}
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
@@ -1660,6 +1666,10 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isEnd = d.IsEnd
 			flags.isPortion = d.IsPortion || d.Portion != ast.PortionNone
 			flags.isConstant = d.IsConstant
+			if !m.isKerMLDoc(sym) && d.IsEnd && m.FeatureIsVariable(sym) {
+				// Mirror the pilot's implicit constant ends.
+				flags.isConstant = true
+			}
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
 			flags.isOrdered = d.IsOrdered

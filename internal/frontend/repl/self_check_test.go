@@ -159,6 +159,41 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 	}
 }
 
+func TestSelfCheckRuntimeTypeErrorMakesSummaryUnresolved(t *testing.T) {
+	const src = `
+		package T {
+			constraint def invalidBooleanResult {
+				in element : KerML::Type;
+				1;
+			}
+			part def P;
+		}
+	`
+	s := NewSession()
+	s.SubmitFiles([]SourceFile{{Name: "type_error_self_check.sysml", Text: src}})
+
+	verdicts, stats := s.selfCheckWithCounts("T", true)
+	if stats.checks == 0 || stats.violations != 0 || stats.unevaluated != 0 || stats.evaluationErrors == 0 {
+		t.Fatalf("self-check counts = %+v, want evaluation errors only", stats)
+	}
+	foundError := false
+	for _, verdict := range verdicts[:len(verdicts)-1] {
+		joined := strings.Join(verdict.Lines, "\n")
+		if verdict.Status == VerdictUnresolved && strings.Contains(joined, "error: could not be evaluated:") &&
+			strings.Contains(joined, "Boolean") {
+			foundError = true
+			break
+		}
+	}
+	if !foundError {
+		t.Fatalf("no unresolved evaluation-error verdict: %+v", verdicts)
+	}
+	summary := verdicts[len(verdicts)-1]
+	if summary.Status != VerdictUnresolved {
+		t.Fatalf("evaluation-error summary = %+v, want unresolved", summary)
+	}
+}
+
 func TestSelfCheckReportsNestedCompositePortUsageViolation(t *testing.T) {
 	s := loadSelfCheckRepoFixture(t, "tools/referee/reject/testdata/negative/semantic/s25-port-nested-composite-part.sysml")
 	verdicts := s.SelfCheck()

@@ -151,6 +151,10 @@ func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
 	constantCheck := check(t, binary, constantAttribute, "-self-check")
 	wantReport(t, constantCheck, 0, "Self-model check: ", ", 0 violations,")
 
+	const connectionEnds = `package P { connection def C { end part a; end part b; } }`
+	endsCheck := check(t, binary, connectionEnds, "-self-check")
+	wantReport(t, endsCheck, 0, "Self-model check: ", ", 0 violations,")
+
 	const broken = `package P { part def A :> Missing; }`
 	failed := check(t, binary, broken, "-self-check")
 	if failed.status == 0 || !strings.Contains(failed.output(), "did not analyse cleanly; no check was made") {

@@ -700,11 +700,23 @@ func (r *reporter) verdict(v repl.Verdict) {
 func (r *reporter) selfCheck(verdicts []repl.Verdict) {
 	for _, v := range verdicts {
 		r.verdicts = append(r.verdicts, v)
-		if v.Subject == "Self-model check" {
+		if v.Subject == "Self-model check" || selfCheckEvaluationError(v) {
 			r.statusVerdicts = append(r.statusVerdicts, v)
 		}
 		r.reportVerdict(v)
 	}
+}
+
+func selfCheckEvaluationError(v repl.Verdict) bool {
+	if v.Status != repl.VerdictUnresolved {
+		return false
+	}
+	for _, line := range v.Lines {
+		if strings.Contains(line, "error: could not be evaluated:") {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *reporter) reportVerdict(v repl.Verdict) {

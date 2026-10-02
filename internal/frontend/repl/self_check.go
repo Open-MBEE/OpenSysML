@@ -119,8 +119,10 @@ func (s *Session) selfCheckWithCounts(pkg string, includeWorkspacePackages bool)
 	}
 
 	summaryStatus := VerdictHolds
-	if counts.violations > 0 || counts.evaluationErrors > 0 {
+	if counts.violations > 0 {
 		summaryStatus = VerdictFails
+	} else if counts.evaluationErrors > 0 {
+		summaryStatus = VerdictUnresolved
 	}
 	summary := fmt.Sprintf("Self-model check: %d elements, %d checks, %d violations, %d unevaluated",
 		counts.elements, counts.checks, counts.violations, counts.unevaluated)
