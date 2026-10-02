@@ -776,26 +776,46 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 	})
 }
 
-// declarationKeywordSpan spans the kind keyword of a declaration, which prefix
-// metadata (whose name may spell the keyword, `#'class' class C;`) and
-// modifiers (`abstract`, `in`) may precede; without the source text it falls
-// back to the word after the prefix metadata.
+// declarationKeywordSpan spans the kind keyword of a declaration. Modifiers
+// (`abstract`, `in`) may precede it, and so may prefix metadata whose name
+// spells the keyword (`#'class' class C;`); some keywords instead take their
+// prefix metadata after themselves (`subject #M s;`). An occurrence inside a
+// prefix is therefore never the keyword. Without the source text the span
+// falls back to the word after the prefixes the declaration opens with.
 func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
 	sp := n.Span()
-	if prefixes, _, ok := ast.DeclaredMetadata(n); ok && len(prefixes) > 0 {
-		if end := prefixes[len(prefixes)-1].Span().End(); end > sp.Offset && end <= sp.End() {
+	prefixes, _, _ := ast.DeclaredMetadata(n)
+	if w.lookup != nil {
+		text := w.lookup(w.doc, sp)
+		for from := 0; from < len(text); {
+			at := indexWord(text[from:], keyword)
+			if at < 0 {
+				break
+			}
+			at += from
+			word := source.Span{Offset: sp.Offset + at, Len: len(keyword)}
+			if !insidePrefixMetadata(prefixes, word) {
+				return word
+			}
+			from = at + len(keyword)
+		}
+	}
+	if len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
+		if end := prefixes[len(prefixes)-1].Span().End(); end < sp.End() {
 			sp.Len = sp.End() - end
 			sp.Offset = end
 		}
 	}
-	if w.lookup != nil {
-		if at := indexWord(w.lookup(w.doc, sp), keyword); at >= 0 {
-			sp.Offset += at
-			sp.Len = len(keyword)
-			return sp
+	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
+}
+
+func insidePrefixMetadata(prefixes []*ast.PrefixMetadata, word source.Span) bool {
+	for _, pm := range prefixes {
+		if pm.Span().Contains(word) {
+			return true
 		}
 	}
-	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
+	return false
 }
 
 // indexWord is the offset of the first occurrence of word in text that no
