@@ -5887,9 +5887,8 @@ func testAcceptDeadlockReportsEveryWaitingAccept(t *testing.T) {
 	}
 }
 
-// testAcceptStatementDeadlockInALoop: an accept node written in a loop body would
-// have to suspend a flow that has no token to park, so it is reported when reached
-// rather than passed over or looped on forever.
+// testAcceptStatementDeadlockInALoop: a loop accept with no possible sender
+// deadlocks with the parked accept named in the error.
 func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
@@ -5916,11 +5915,11 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 		t.Fatal("a loop waiting for a message that cannot arrive did not terminate")
 	}
 
-	if err == nil {
-		t.Fatal("expected an error, the accept in the loop body was passed over")
+	if !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 	}
-	if !strings.Contains(err.Error(), "'accept' in a loop or branch body") {
-		t.Errorf("expected the accept in a loop body to be reported, got: %v", err)
+	if !strings.Contains(err.Error(), "accept n") {
+		t.Errorf("expected the parked accept in the error, got: %v", err)
 	}
 }
 

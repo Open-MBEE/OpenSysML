@@ -106,8 +106,8 @@ func (f *subflowFrame) clone() bodyFrame {
 // runSubflow performs the flow perf owns to completion where a body statement,
 // not a token of the enclosing flow, performs its node: the tokens of that flow
 // alone are stepped until its last one retires, pausing where a breakpoint is
-// met as RunToCompletion does. Nothing outside can post a message meanwhile, so
-// a token parked at an accept for one is a deadlock, as under RunToCompletion;
+// met as RunToCompletion does. A body around the run can pause for a message,
+// while an unowned run with a token parked at an accept is a deadlock;
 // one parked on the clock pauses the body until the clock is advanced to its
 // instant; a run with no body to pause (a case body's) advances the clock itself.
 func (e *ActionExecutor) runSubflow(perf *actionFrame) error {

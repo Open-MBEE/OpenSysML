@@ -488,7 +488,7 @@ func (e *ActionExecutor) allTokensParked() bool {
 // for work of its own that waits on the clock.
 func (e *ActionExecutor) anyTokenWaiting() bool {
 	for _, token := range e.tokens {
-		if token.Wait != nil || token.pausedOnClock() {
+		if token.Wait != nil || token.pausedOnClock() || token.pausedOnMessage() {
 			return true
 		}
 	}
@@ -501,12 +501,37 @@ func (e *ActionExecutor) anyTokenWaiting() bool {
 func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 	waiting := make([]Token, 0, len(e.tokens))
 	for _, token := range e.tokens {
-		if token.Wait != nil && token.inFlowOf(perf) {
+		if (token.Wait != nil || token.pausedOnMessage()) && token.inFlowOf(perf) {
 			waiting = append(waiting, token)
 		}
 	}
 	sort.Slice(waiting, func(i, j int) bool { return waiting[i].ID < waiting[j].ID })
 	return waiting
+}
+
+type waitTarget struct {
+	exec *ActionExecutor
+	perf *actionFrame
+}
+
+func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]bool) bool {
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
+	for _, token := range e.tokens {
+		if !token.inFlowOf(perf) {
+			continue
+		}
+		if token.Wait != nil && !token.Wait.Timed {
+			return true
+		}
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.waitsForMessage(seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // deadlockError describes a suspension that can never end: the accepts still
@@ -523,16 +548,85 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 
 // describeWaits lists what the parked tokens of perf's flow (the action's for nil) wait for.
 func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
+	seen := make(map[waitToken]bool)
+	return strings.Join(e.describeWaitsIn(perf, seen), "; ")
+}
+
+type waitToken struct {
+	exec  *ActionExecutor
+	token int64
+}
+
+func (e *ActionExecutor) describeWaitsIn(perf *actionFrame, seen map[waitToken]bool) []string {
 	waiting := e.waitingTokens(perf)
-	descriptions := make([]string, 0, len(waiting))
+	descriptions := make([]string, 0, len(waiting)+1)
 	for _, token := range waiting {
-		descriptions = append(descriptions, token.Wait.String())
+		key := waitToken{exec: e, token: token.ID}
+		if token.Wait != nil {
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			description := token.Wait.String()
+			if token.frame != nil {
+				if path := token.frame.path(); path != "" {
+					description += " (in " + path + ")"
+				}
+			}
+			descriptions = append(descriptions, description)
+			continue
+		}
+		descriptions = append(descriptions, e.describePausedWait(token, seen)...)
 	}
 	if blocked := len(e.tokensIn(perf)) - len(waiting); blocked > 0 {
 		descriptions = append(descriptions,
 			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
 	}
-	return strings.Join(descriptions, "; ")
+	return descriptions
+}
+
+func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool) []string {
+	wait := token.body.paused.wait
+	var (
+		descriptions []string
+		performance  string
+	)
+	if wait.held != nil {
+		descriptions = wait.held.describeWaitsIn(nil, seen)
+		performance = wait.held.performanceName()
+	} else if wait.exec != nil {
+		descriptions = wait.exec.describeWaitsIn(wait.perf, seen)
+		performance = wait.exec.performanceName()
+		if wait.perf != nil && wait.perf.node != nil {
+			performance = ActionNodeName(wait.perf.node)
+		}
+	}
+	if len(descriptions) == 0 {
+		return nil
+	}
+	caller := ActionNodeName(token.Location)
+	if caller == "" {
+		caller = "caller"
+	}
+	for i, description := range descriptions {
+		if strings.Contains(description, " token(s) blocked for another reason") {
+			continue
+		}
+		context := ""
+		if performance != "" {
+			context = "in " + performance
+		}
+		if caller != "" {
+			if context != "" {
+				context += ", "
+			}
+			context += "performed by " + caller
+		}
+		if context != "" {
+			descriptions[i] += " (" + context + ")"
+		}
+	}
+	return descriptions
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -544,11 +638,9 @@ func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
 // again or stepped with Step; PausedAt names the node it stopped at. With no
 // breakpoints set the run is unconditional.
 //
-// Nothing outside the action can post a message while this runs, so an action
-// whose every remaining token is parked at an accept for a message can never be
-// resumed: the suspension is a deadlock and is reported as ErrAcceptDeadlock at
-// the first step that makes no progress. A token parked on the clock is resumed
-// by advancing it to its instant, running whatever else is due there too.
+// A message-parked action can be resumed by its caller posting a matching message
+// after this run returns; an unowned run reports ErrAcceptDeadlock when none can.
+// A token parked on the clock is resumed by advancing it to its instant.
 func (e *ActionExecutor) RunToCompletion() error {
 	return e.run(false)
 }
@@ -573,8 +665,8 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		e.state = StateRunning
 	}
 
-	// A run may start from StateWaiting: a caller that stepped an action into a
-	// suspension and then posted the awaited message resumes it here.
+	// A run may start from StateWaiting: a caller can post the awaited message
+	// between calls and resume the suspension here.
 	var progress dueProgress
 	wait := bodyWait{held: e}
 	for e.state == StateRunning || e.state == StateWaiting {
@@ -620,8 +712,9 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
+		err := e.deadlockError(nil)
 		e.endPausedBodies()
-		return e.deadlockError(nil)
+		return err
 	}
 	return nil
 }

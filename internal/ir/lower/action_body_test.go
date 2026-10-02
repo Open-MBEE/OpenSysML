@@ -264,10 +264,8 @@ func TestActionBodyUnexecutableMemberIsLowered(t *testing.T) {
 	}
 }
 
-// An accept node written in a loop body would have to suspend the action, which
-// the block's flow has no token to park, so it is lowered as unsupported rather
-// than passed over silently.
-func TestAcceptInALoopBodyIsLoweredAsUnsupported(t *testing.T) {
+// An accept in a loop body states a token flow so that it can suspend.
+func TestAcceptInALoopBodyIsLoweredAsAnAcceptNode(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action test {
 			first start;
@@ -291,16 +289,24 @@ func TestAcceptInALoopBodyIsLoweredAsUnsupported(t *testing.T) {
 	if flow == nil {
 		t.Fatalf("the loop body lowered to statements, want the flow its accept node states")
 	}
-	stmts := flow.Bodies[flow.Initial]
-	if len(stmts) != 1 {
-		t.Fatalf("the accept node lowered to %d statements, want 1", len(stmts))
+	if !loop.Body.Stated {
+		t.Fatal("the loop body flow is not stated")
 	}
-	unsupported, ok := stmts[0].(Unsupported)
-	if !ok {
-		t.Fatalf("the accept node lowered to %T, want Unsupported", stmts[0])
+	if len(flow.Accepts) != 1 {
+		t.Fatalf("flow has %d accepts, want 1", len(flow.Accepts))
 	}
-	if !strings.Contains(unsupported.Description, "'accept'") {
-		t.Errorf("description = %q, want it to name the accept", unsupported.Description)
+	for node, accept := range flow.Accepts {
+		if accept.ParamName != "n" {
+			t.Errorf("accept parameter = %q, want n", accept.ParamName)
+		}
+		for _, stmt := range flow.Bodies[node] {
+			if _, ok := stmt.(Unsupported); ok {
+				t.Errorf("accept body contains Unsupported: %#v", stmt)
+			}
+			if effect, ok := stmt.(Effect); ok && effect.Kind == EffectAccept {
+				t.Errorf("accept body contains an accept effect: %#v", stmt)
+			}
+		}
 	}
 }
 

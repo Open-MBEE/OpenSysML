@@ -62,7 +62,7 @@ type bodyRun struct {
 	// traceBase is the nesting the work resumed at, which its levels count from.
 	traceBase int
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
-	// while its machine goes on; a token's step run waits only on the clock.
+	// while its machine goes on; an outer body sets the waits its run may pause for.
 	awaitsMessages bool
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
@@ -97,16 +97,30 @@ func (w bodyWait) goesOn() bool {
 		if e.state != StateWaiting || e.canProceed(nil) {
 			return false
 		}
-		return w.onMessage || e.waitsOnClock(nil)
+		return w.onMessage && e.waitsForMessage(nil, make(map[waitTarget]bool)) || e.waitsOnClock(nil)
 	}
 	e := w.exec
 	if e.canProceed(w.perf) {
 		return false
 	}
 	if w.onMessage {
-		return len(e.waitingTokens(w.perf)) > 0
+		return e.waitsForMessage(w.perf, make(map[waitTarget]bool))
 	}
 	return e.waitsOnClock(w.perf)
+}
+
+// waitsForMessage reports whether the wait ultimately holds a non-clock accept.
+func (w bodyWait) waitsForMessage(seen map[waitTarget]bool) bool {
+	if !w.onMessage {
+		return false
+	}
+	if w.held != nil {
+		return w.held.waitsForMessage(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.waitsForMessage(w.perf, seen)
+	}
+	return false
 }
 
 // waiter is the executor the paused work waits on, nil for none: the action it
@@ -412,7 +426,7 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 
 // runBody starts work for the token at tokenIdx and drives it to its first pause or end.
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
-	run := &bodyRun{work: work}
+	run := &bodyRun{work: work, awaitsMessages: true}
 	if outer := e.ctx.body; outer != nil {
 		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
 	}
@@ -589,7 +603,11 @@ func (ctx *Context) driveClock(waits string) error {
 // pausedOnClock reports a token whose work waits on the clock through a flow it
 // runs or an action it performs; the tokens parked there hold the wait, not this one.
 func (t Token) pausedOnClock() bool {
-	return t.body != nil && t.body.paused.onWait
+	return t.body != nil && t.body.paused.onWait && !t.body.paused.wait.onMessage
+}
+
+func (t Token) pausedOnMessage() bool {
+	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.waitsForMessage(make(map[waitTarget]bool))
 }
 
 // resumable reports a token whose paused work would go on if resumed now: paused

@@ -718,7 +718,7 @@ func (ctx *Context) leaveRun() {
 
 // beginRun starts a run and returns the function that ends it: a top-level run
 // starts on a fresh state, so the budget bounds one run, not a whole session.
-// No body around the run pauses for a wait under it (syncBoundary).
+// An enclosing body does not drive this run; its own token bodies may pause on waits.
 func (ctx *Context) beginRun() func() {
 	leave := ctx.nestRun()
 	restore := ctx.syncBoundary()
@@ -1607,7 +1607,7 @@ func startActionStep(exec *ActionExecutor) error {
 
 // performActionFrom creates the executor for a performance of performed running
 // action, seeds its inputs, starts it with start, and runs it to completion; the
-// clock drives it no further, and no body around it pauses for its waits.
+// clock drives it no further, and an enclosing body does not drive its waits.
 func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
