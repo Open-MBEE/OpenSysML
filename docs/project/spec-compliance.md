@@ -821,7 +821,9 @@ Where the specification is silent, and what the tool decides:
   instead.
 - **Order of statements in a block without successions** stays the existing declaration-order
   policy of these bodies (see the block-flow row of the Action table); the accept is one node of
-  that order.
+  that order. An accept written directly among a leaf action's members is not such a block: it
+  is one of the action's unordered subactions (the unordered-subactions row), so what reads its
+  payload is ordered after it only by a succession (`then`).
 - **Which accept takes a transfer, and when a woken chain runs relative to its siblings**, are
   unchanged: routing and matching are `Context.messageReaches`/`acceptMatch`, and the order of
   resumption is a scheduling choice the explorer and checker enumerate.
