@@ -69,23 +69,26 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	}
 	ctx.behaviorRunDepth++
 	ctx.attachBehavior(inst, decl.member)
-	behavior, err := ctx.attachClassifierBehavior(inst, decl)
+	behaviors, err := ctx.attachClassifierBehavior(inst, decl)
 	ctx.behaviorAttached(inst, decl.member)
 	ctx.behaviorRunDepth--
 	if err != nil {
 		// An explicit start keeps nothing the failed attachment made.
-		if behavior != nil {
+		for _, behavior := range behaviors {
 			behavior.leaveClock()
 		}
 		rollback()
 		return err
 	}
-	behavior.binding = ctx.bindingIndex(typ, decl.member)
+	binding := ctx.bindingIndex(typ, decl.member)
 	// Older behaviors the start wakes run once it is kept: what they do is no part of it.
 	endBoundary := ctx.beginRunBoundary()
-	inst.behaviors = append(inst.behaviors, behavior)
-	ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
-	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	for _, behavior := range behaviors {
+		behavior.binding = binding
+		inst.behaviors = append(inst.behaviors, behavior)
+		ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+		ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	}
 	ctx.workChanged()
 	err = ctx.runAttachedBehaviors()
 	endBoundary()

@@ -115,8 +115,8 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
-			name: "while block ignores repeated count",
-			code: "action-step-multiplicity-unsupported",
+			name: "while block sequences a repeated step",
+			code: "action-step-order-unsatisfiable",
 			model: `package P {
 				private import ScalarValues::*;
 				action def A {
@@ -132,71 +132,7 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				}
 			}`,
 			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "unordered step in a while block",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					while true {
-						action anchor;
-						first start then anchor;
-						action tick[3] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "while block ignores zero count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					attribute i : Integer = 0;
-					while i < 1 {
-						action tick[0] { }
-						assign i := i + 1;
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[0]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "if block ignores repeated count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					if true {
-						action tick[3] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[3]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
-		},
-		{
-			name: "if block ignores zero count",
-			code: "action-step-multiplicity-unsupported",
-			model: `action def A {
-				first start then worker;
-				action worker {
-					if true {
-						action tick[0] { }
-					}
-				}
-				then done;
-			}`,
-			step: "tick", multiplicity: "[0]",
-			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			reason: "the succession's end multiplicities exclude the declared step count",
 		},
 		{
 			name: "unevaluable succession-end count",
@@ -207,26 +143,6 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				succession first p then [n] a;
 			}`,
 			step: "a", multiplicity: "[3]",
-		},
-		{
-			name: "nested external feature read",
-			code: "action-step-multiplicity-unsupported",
-			model: `package P {
-				private import ScalarValues::*;
-				action def A {
-					attribute total : Integer = 0;
-					first start then outer;
-					action outer {
-						first start then inner;
-						action inner[3] { attribute x : Integer = 1; }
-						then done;
-					}
-					then q;
-					action q { assign total := outer.inner.x; }
-					then done;
-				}
-			}`,
-			step: "inner", multiplicity: "[3]",
 		},
 	}
 	for _, test := range tests {
@@ -461,40 +377,6 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 			}`,
 			step: "tick",
 		},
-		{
-			name: "part-level performed action multiplicity",
-			model: `package P {
-				action def Act { }
-				part def Host {
-					perform action run[2] : Act;
-				}
-			}`,
-			step: "run",
-		},
-		{
-			name: "part-level performed action nested in part usage",
-			model: `package P {
-				action def Act { }
-				part def Camera { }
-				part def Host {
-					part camera : Camera {
-						perform action takePhoto[2] : Act;
-					}
-				}
-			}`,
-			step: "takePhoto",
-		},
-		{
-			name: "part-level performed action on top-level part usage",
-			model: `package P {
-				action def Act { }
-				part def Camera { }
-				part camera : Camera {
-					perform action takePhoto[2] : Act;
-				}
-			}`,
-			step: "takePhoto",
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -562,5 +444,122 @@ func TestActionStepMultiplicityPassSkipsElementsWithLowerTierFailures(t *testing
 	independent := strings.Index(text, "action def Independent")
 	if multiplicityWarnings[0].Span.Offset < independent {
 		t.Fatalf("multiplicity warning = %+v, want it in Independent after offset %d", multiplicityWarnings[0], independent)
+	}
+}
+
+func TestActionStepMultiplicityPassAcceptsExecutedRepetition(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+	}{
+		{
+			name: "unordered step in a while block",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					while true {
+						action anchor;
+						first start then anchor;
+						action tick[3] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "while block ignores zero count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					attribute i : Integer = 0;
+					while i < 1 {
+						action tick[0] { }
+						assign i := i + 1;
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "if block ignores repeated count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[3] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "if block ignores zero count",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					if true {
+						action tick[0] { }
+					}
+				}
+				then done;
+			}`,
+		},
+		{
+			name: "nested external feature read",
+			model: `package P {
+				private import ScalarValues::*;
+				private import SequenceFunctions::*;
+				action def A {
+					attribute total : Integer = 0;
+					first start then outer;
+					action outer {
+						first start then inner;
+						action inner[3] { attribute x : Integer = 1; }
+						then done;
+					}
+					then q;
+					action q { assign total := size(outer.inner.x); }
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action multiplicity",
+			model: `package P {
+				action def Act { }
+				part def Host {
+					perform action run[2] : Act;
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action nested in part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part def Host {
+					part camera : Camera {
+						perform action takePhoto[2] : Act;
+					}
+				}
+			}`,
+		},
+		{
+			name: "part-level performed action on top-level part usage",
+			model: `package P {
+				action def Act { }
+				part def Camera { }
+				part camera : Camera {
+					perform action takePhoto[2] : Act;
+				}
+			}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := actionStepMultiplicityDiags(t, test.model); len(got) != 0 {
+				t.Fatalf("diagnostics = %+v, want none", got)
+			}
+		})
 	}
 }

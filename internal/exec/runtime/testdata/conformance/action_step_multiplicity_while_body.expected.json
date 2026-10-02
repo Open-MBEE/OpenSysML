@@ -2,8 +2,9 @@
 	"type": "action",
 	"libraries": true,
 	"schedule": "declared",
+	"trace": true,
 	"outputs": {
 		"c": {"type": "Integer", "value": 6},
-		"i": {"type": "Integer", "value": 2}
+		"passes": {"type": "Integer", "value": 2}
 	}
 }

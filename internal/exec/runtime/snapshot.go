@@ -520,6 +520,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 					visit(repeated)
 				}
 			}
+			for _, perfs := range perf.repeatedPerfs {
+				for _, repeated := range perfs {
+					visit(repeated)
+				}
+			}
 		}
 	}
 	visit(e.root)
@@ -554,6 +559,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.repeats = cloneStepRepetitions(perf.repeats)
+	c.saved.repeatedPerfs = cloneRepeatedPerfs(perf.repeatedPerfs)
 	c.saved.pending = clonePending(perf.pending)
 	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
@@ -578,6 +584,7 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.repeats = cloneStepRepetitions(c.saved.repeats)
+	perf.repeatedPerfs = cloneRepeatedPerfs(c.saved.repeatedPerfs)
 	perf.pending = clonePending(c.saved.pending)
 	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
@@ -596,6 +603,17 @@ func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[rep
 			continue
 		}
 		cloned[group] = &stepRepetition{node: state.node, remaining: state.remaining, live: slices.Clone(state.live)}
+	}
+	return cloned
+}
+
+func cloneRepeatedPerfs(repeated map[ast.Node][]*actionFrame) map[ast.Node][]*actionFrame {
+	if repeated == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node][]*actionFrame, len(repeated))
+	for node, perfs := range repeated {
+		cloned[node] = slices.Clone(perfs)
 	}
 	return cloned
 }

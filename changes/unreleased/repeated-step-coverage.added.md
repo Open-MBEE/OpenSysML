@@ -1,0 +1,1 @@
+- Repeated action steps (`a[n]`) now execute in `while`/`for`/`if` bodies, as `perform action run[n]` on parts, and support external reads of their features (a sequence over all performances, in repetition-index order), per-performance pin values, and enclosing `bind` assignments with a single-valued end.

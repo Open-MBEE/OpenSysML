@@ -346,7 +346,7 @@ func TestActionGraphCheckStepRejectsRepeatedPins(t *testing.T) {
 		{
 			name: "binding",
 			configure: func(graph *ActionGraph, node ast.Node) {
-				graph.Bindings = []PinBinding{{Node: node, Pin: "in"}}
+				graph.Bindings = []PinBinding{{Node: node, Pin: "in", OtherNode: stepTestNode("q"), OtherPin: "out"}}
 			},
 		},
 		{

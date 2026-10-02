@@ -300,13 +300,39 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 			return Value{}, fmt.Errorf("%w: %s declares no node or pin %s to read %s through",
 				ErrNodePin, perf.describe(), part.Text, parts[len(parts)-1].Text)
 		}
-		value, err := perf.pin(part.Text)
+		var value Value
+		var err error
+		if ec.readsAcross(perf) {
+			value, err = perf.repeatedPin(part.Text)
+		} else {
+			value, err = perf.pin(part.Text)
+		}
 		if err != nil {
 			return Value{}, err
 		}
 		return ec.chainMemberValue(value, parts[i+1:], perf.path()+"."+part.Text)
 	}
+	if ec.readsAcross(perf) && perf.result != "" {
+		return perf.repeatedPin(perf.result)
+	}
 	return perf.resultValue()
+}
+
+// readsAcross reports whether perf is a performance of a repeated node read from
+// outside every one of its performances, which sees the sequence over them all.
+func (ec *EvalContext) readsAcross(perf *actionFrame) bool {
+	siblings := perf.repetitionSiblings()
+	if len(siblings) == 0 {
+		return false
+	}
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		for reader := ec.frames[i].perf; reader != nil; reader = reader.parent {
+			if reader == perf || slices.Contains(siblings, reader) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Pop removes the top frame from the stack (on return, lambda exit).

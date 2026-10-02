@@ -112,13 +112,15 @@ func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
 	if len(decls) != 1 {
 		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
 	}
-	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	behaviors, err := ctx.attachClassifierBehavior(host, decls[0])
 	if err != nil {
 		t.Fatalf("attachClassifierBehavior: %v", err)
 	}
-	behavior.binding = 0
-	host.behaviors = append(host.behaviors, behavior)
-	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	for _, behavior := range behaviors {
+		behavior.binding = 0
+		host.behaviors = append(host.behaviors, behavior)
+	}
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behaviors...)
 	state, ok := host.ExhibitedState()
 	if !ok {
 		t.Fatal("Host exhibits no state machine")

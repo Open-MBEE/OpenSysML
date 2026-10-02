@@ -683,24 +683,32 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 			}
 			ctx.attachBehavior(inst, decl.member)
-			behavior, err := ctx.attachClassifierBehavior(inst, decl)
+			behaviors, err := ctx.attachClassifierBehavior(inst, decl)
 			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
-				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
-					if behavior != nil {
-						behavior.leaveClock()
+				var failed *ObjectBehavior
+				if len(behaviors) > 0 {
+					failed = behaviors[len(behaviors)-1]
+					behaviors = behaviors[:len(behaviors)-1]
+				}
+				if failed == nil || !errors.Is(err, ErrUnboundParameter) {
+					if failed != nil {
+						failed.leaveClock()
 					}
 					return err
 				}
-				ctx.endFailedPerformance(behavior, fmt.Errorf("%s: %w", behavior.Describe(), err))
+				ctx.endFailedPerformance(failed, fmt.Errorf("%s: %w", failed.Describe(), err))
+				behaviors = append(behaviors, failed)
 			}
-			behavior.typeBound = true
-			behavior.binding = i
-			inst.behaviors = append(inst.behaviors, behavior)
-			ctx.behaviorsAttached++
-			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
-			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
-			ctx.workChanged()
+			for _, behavior := range behaviors {
+				behavior.typeBound = true
+				behavior.binding = i
+				inst.behaviors = append(inst.behaviors, behavior)
+				ctx.behaviorsAttached++
+				ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+				ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+				ctx.workChanged()
+			}
 		}
 	}
 
@@ -1009,10 +1017,12 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 	}
 }
 
-// attachClassifierBehavior builds the object's own execution of one behavior its
-// type binds, seeded with the values the binding declaration supplies, and
-// initializes it so its start is reported where every other behavior's is.
-func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
+// attachClassifierBehavior builds the object's own executions of one behavior
+// its type binds: a performed action declared [n] enacts n performances, each
+// its own behavior answering to the same name on the object; [0] enacts none.
+// On a per-performance failure the returned slice ends with the failed behavior.
+func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) ([]*ObjectBehavior, error) {
+	count := int64(1)
 	if usage := decl.behavior.Decl; lower.IsPerformedActionUsage(usage) && usage.Multiplicity != nil {
 		scope := decl.member.OwnerScope
 		graph := &lower.ActionGraph{
@@ -1020,17 +1030,30 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			Multiplicities: map[ast.Node]*ast.Multiplicity{usage: usage.Multiplicity},
 			Scopes:         map[ast.Node]*symbols.Scope{usage: scope},
 		}
-		count, err := graph.StepCount(usage, ctx.Semantics())
+		fixed, err := graph.StepCount(usage, ctx.Semantics())
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
 		}
-		if count != 1 {
-			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
-				usage, ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-				"part-level performed actions cannot execute with multiplicity other than [1]", nil))
+		count = fixed
+	}
+	var behaviors []*ObjectBehavior
+	for i := int64(0); i < count; i++ {
+		behavior, err := ctx.attachOneClassifierBehavior(inst, decl, i)
+		if behavior != nil {
+			behaviors = append(behaviors, behavior)
+		}
+		if err != nil {
+			return behaviors, err
 		}
 	}
-	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
+	return behaviors, nil
+}
+
+// attachOneClassifierBehavior builds the object's own execution of one behavior
+// its type binds, seeded with the values the binding declaration supplies, and
+// initializes it so its start is reported where every other behavior's is.
+func (ctx *Context) attachOneClassifierBehavior(inst *Instance, decl classifierBehaviorDecl, occurrenceIndex int64) (*ObjectBehavior, error) {
+	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl, occurrenceIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -1084,7 +1107,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 
 // bindClassifierBehavior is the object's binding of one behavior its type declares,
 // its execution still to be made, and the performance occurrence the binding holds.
-func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, *Instance, error) {
+func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl, occurrenceIndex int64) (*ObjectBehavior, *Instance, error) {
 	chain, err := ctx.classifierBehaviorChain(decl)
 	if err != nil {
 		return nil, nil, err
@@ -1102,9 +1125,9 @@ func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehavi
 	var occurrence *Instance
 	switch decl.behavior.Kind {
 	case lower.ExhibitedState:
-		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence, 0)
 	case lower.PerformedAction:
-		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence, occurrenceIndex)
 	default:
 		return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
 	}
@@ -1123,6 +1146,7 @@ func (ctx *Context) performanceOccurrence(
 	decl classifierBehaviorDecl,
 	behavior *symbols.Symbol,
 	sentinel error,
+	occurrenceIndex int64,
 ) (*Instance, error) {
 	name := decl.behavior.Name
 	fv, ok := inst.FeatureValues[name]
@@ -1160,7 +1184,21 @@ func (ctx *Context) performanceOccurrence(
 		ctx.afterWrite(fv, before)
 		return occurrence, nil
 	}
-	id, ok := fv.HeldValue().Object()
+	held := fv.HeldValue()
+	// A performed action declared [n] holds an occurrence per performance:
+	// this performance takes the one at its index in the feature's value.
+	if held.Kind == ValSequence || held.Kind == ValSet {
+		var elements []Value
+		if held.Kind == ValSequence {
+			elements = held.Sequence().Elements()
+		} else {
+			elements = held.Set().Elements()
+		}
+		if int64(len(elements)) > occurrenceIndex && elements[occurrenceIndex].Kind == ValInstance {
+			held = elements[occurrenceIndex]
+		}
+	}
+	id, ok := held.Object()
 	if !ok {
 		return nil, fmt.Errorf("%w: %s of object #%d holds %s, not an occurrence",
 			sentinel, name, inst.ID, fv.HeldValue().Kind)
