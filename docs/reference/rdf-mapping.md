@@ -1087,9 +1087,15 @@ The rules the tree follows:
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
-  `"true"^^xsd:boolean`, and a string with its escapes resolved. Read back, a
+  `"true"^^xsd:boolean`, and a string with its escapes resolved. The literal
+  denotes exactly the Rational the token does: an exponent token no double holds
+  is written as the `xsd:decimal` it denotes (`1E-1` is `"0.1"^^xsd:decimal`),
+  and a JSON number in the API JSON form is read the same way. Read back, a
   value is spelled as that token again: a rational with no fractional digits
-  (`"3"^^xsd:decimal`) gains them (`3.0`), a boolean is `true` or `false`, a
+  (`"3"^^xsd:decimal`) gains them (`3.0`), an `xsd:double` or `xsd:float` whose
+  binary value differs from its lexical form is spelled as the exact decimal of
+  that binary value (`"0.1"^^xsd:float` is `0.100000001490116119384765625`), a
+  boolean is `true` or `false`, a
   string is quoted and escaped; a value no token spells — a signed number, `INF`,
   `NaN` — is reported as unsupported, naming the node, since the notation states
   a sign as an operator applied to a literal.

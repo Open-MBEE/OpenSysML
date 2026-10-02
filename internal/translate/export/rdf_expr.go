@@ -5,11 +5,15 @@ package export
 // sysx:sourceText. See docs/reference/rdf-mapping.md § Expressions.
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -165,7 +169,11 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		e.graph.Add(subject, e.sysml(pValue), rdf.TypedLiteral(n.Value, rdf.XSD+"integer"))
 
 	case *ast.LiteralReal:
-		e.graph.Add(subject, e.sysml(pValue), rdf.TypedLiteral(n.Value, realDatatype(n.Value)))
+		literal, err := exactRealLiteral(n.Value)
+		if err != nil {
+			return &UnsupportedError{What: fmt.Sprintf("the rational literal %s at %s", n.Value, e.where(n)), Note: err.Error()}
+		}
+		e.graph.Add(subject, e.sysml(pValue), literal)
 
 	case *ast.QualifiedName:
 		// A position whose notation is a bare name holds the feature it names.
@@ -328,6 +336,65 @@ func realDatatype(value string) string {
 		return rdf.XSD + "double"
 	}
 	return rdf.XSD + "decimal"
+}
+
+// exactRealLiteral is the typed literal denoting exactly the Rational a decimal
+// token does: the token under realDatatype where that datatype's value is the
+// token's, else the same value as an xsd:decimal (`1E-1` is `0.1`).
+func exactRealLiteral(token string) (rdf.Term, error) {
+	datatype := realDatatype(token)
+	if datatype == rdf.XSD+"decimal" {
+		return rdf.TypedLiteral(token, datatype), nil
+	}
+	exact, err := semantics.ParseRational(strings.TrimPrefix(token, "+"), semantics.DefaultMaxIntegerBits)
+	if err != nil {
+		return rdf.Term{}, err
+	}
+	if _, ok := exact.BinaryExact(); ok {
+		return rdf.TypedLiteral(token, datatype), nil
+	}
+	return rdf.TypedLiteral(decimalText(exact.Rat(), decimalPlaces(token)), rdf.XSD+"decimal"), nil
+}
+
+// decimalPlaces bounds the fraction digits the decimal a token denotes needs.
+func decimalPlaces(token string) int {
+	mantissa, exponent, _ := strings.Cut(strings.ToLower(token), "e")
+	_, fraction, _ := strings.Cut(mantissa, ".")
+	e, _ := strconv.Atoi(exponent)
+	return max(len(fraction)-e, 1)
+}
+
+// decimalText spells a terminating r with at most places fraction digits,
+// trailing zeros dropped but for the one after the point.
+func decimalText(r *big.Rat, places int) string {
+	text := strings.TrimRight(r.FloatString(places), "0")
+	if strings.HasSuffix(text, ".") {
+		text += "0"
+	}
+	return text
+}
+
+// binaryLiteralText is the token a binary xsd:double or xsd:float literal
+// denotes exactly: its own lexical form where that is its value, else the
+// exact decimal of the binary value (`"0.1"^^xsd:float` is 0.100000001490116119384765625).
+func binaryLiteralText(term rdf.Term) string {
+	bits := 64
+	switch term.Datatype {
+	case rdf.XSD + "double":
+	case rdf.XSD + "float":
+		bits = 32
+	default:
+		return term.Value
+	}
+	binary, err := strconv.ParseFloat(term.Value, bits)
+	if math.IsInf(binary, 0) || math.IsNaN(binary) || (err != nil && !errors.Is(err, strconv.ErrRange)) {
+		return term.Value
+	}
+	value := new(big.Rat).SetFloat64(binary)
+	if exact, err := semantics.ParseRational(term.Value, semantics.DefaultMaxIntegerBits); err == nil && exact.Rat().Cmp(value) == 0 {
+		return term.Value
+	}
+	return decimalText(value, max(int(value.Denom().TrailingZeroBits()), 1))
 }
 
 func (e *encoder) typed(subject rdf.Term, metaclass string) {
@@ -1182,10 +1249,11 @@ func (d *decoder) expressionForm(node rdf.Term, in *element) (operand, error) {
 		}
 		return primary(value, nil)
 	case mLiteralRational:
-		value, ok := d.graph.Lexical(node, rdf.SysML+pValue)
+		term, ok := d.graph.Object(node, rdf.SysML+pValue)
 		if !ok {
 			return primary("", unsupported(literalStatesValue))
 		}
+		value := binaryLiteralText(term)
 		text, ok := realValueText(value)
 		if !ok {
 			return primary("", unsupported(fmt.Sprintf("the notation spells a rational literal as an unsigned finite number, not %q; a sign is an OperatorExpression applied to it", value)))
