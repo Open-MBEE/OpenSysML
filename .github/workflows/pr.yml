@@ -19,6 +19,8 @@ env:
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
   # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+  # Same for the pinned OMG SysML v1 to v2 transformation model, gated by tools/census/transformation.
+  OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
   # Same for the pinned fUML reference-implementation suite, gated by tools/referee/fuml.
   OPENSYSML_REQUIRE_FUML_SUITE: "1"
   # Same for the pilot's XMI of the standard library, downloaded below and
@@ -198,6 +200,17 @@ jobs:
       - name: Download the OMG PSSM test suite
         run: ./scripts/download-pssm-suite.sh
 
+      # The SysML v1 to v2 transformation model is one pinned file; keyed on its
+      # download script and pin.
+      - name: Cache the SysML v1 to v2 transformation model
+        uses: actions/cache@v4
+        with:
+          path: build/sysml-v1tov2
+          key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
+
+      - name: Download the SysML v1 to v2 transformation model
+        run: ./scripts/download-sysml-v1tov2.sh
+
       # The fUML reference implementation's models and jar, checksummed; keyed
       # on its download script and pin. Never run in CI: the Go tests read the
       # committed expected-record (docs/project/fuml-referee.md).
@@ -373,6 +386,15 @@ jobs:
       - name: Download the OMG PSSM test suite
         run: ./scripts/download-pssm-suite.sh
 
+      - name: Cache the SysML v1 to v2 transformation model
+        uses: actions/cache@v4
+        with:
+          path: build/sysml-v1tov2
+          key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
+
+      - name: Download the SysML v1 to v2 transformation model
+        run: ./scripts/download-sysml-v1tov2.sh
+
       - name: Cache the fUML reference-implementation suite
         uses: actions/cache@v4
         with:
@@ -488,6 +510,12 @@ jobs:
       # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
       - name: PSSM referee reproduces its baseline counts
         run: go run -C tools ./cmd/pssm-referee -check
+
+      # The transformation census's baseline lists the mapping classes the
+      # pinned model declares; here the model is provisioned, so the baseline
+      # is compared against a fresh extraction.
+      - name: Transformation census lists what the pinned model contains
+        run: go run -C tools ./cmd/transformation-census -check -require-xmi
 
       # The migration of the PSSM suite to v2 notation on its own, so its report
       # totals are legible in the log and a skip must not pass; see
@@ -1019,6 +1047,11 @@ jobs:
       # table row must be a constraint the baseline records (and vice versa).
       - name: Check the validation-constraint census matches its baseline
         run: go run -C tools ./cmd/validation-census -check
+
+      # Same for the transformation census; this job does not provision the
+      # model, so the comparison against it runs in the gate job that does.
+      - name: Check the transformation census matches its baseline
+        run: go run -C tools ./cmd/transformation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments

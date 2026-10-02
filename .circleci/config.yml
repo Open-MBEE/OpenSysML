@@ -185,6 +185,21 @@ commands:
           paths:
             - build/pssm
 
+      # The SysML v1 to v2 transformation model, one pinned file, gated by
+      # tools/census/transformation.
+      - restore_cache:
+          keys:
+            - sysml-v1tov2-v1-{{ checksum "scripts/download-sysml-v1tov2.sh" }}-{{ checksum "scripts/sysml-v1tov2-pin.sh" }}
+
+      - run:
+          name: Download the SysML v1 to v2 transformation model
+          command: ./scripts/download-sysml-v1tov2.sh
+
+      - save_cache:
+          key: sysml-v1tov2-v1-{{ checksum "scripts/download-sysml-v1tov2.sh" }}-{{ checksum "scripts/sysml-v1tov2-pin.sh" }}
+          paths:
+            - build/sysml-v1tov2
+
       # The fUML reference implementation's models and jar, gated by tools/referee/fuml;
       # the jar is never run here (docs/project/fuml-referee.md).
       - restore_cache:
@@ -303,6 +318,12 @@ jobs:
           name: Check the validation-constraint census matches its baseline
           command: go run -C tools ./cmd/validation-census -check
 
+      # Same for the transformation census; this job does not provision the
+      # model, so the comparison against it runs in the gate job that does.
+      - run:
+          name: Check the transformation census matches its baseline
+          command: go run -C tools ./cmd/transformation-census -check
+
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - run:
           name: Check changelog fragments
@@ -417,6 +438,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
@@ -452,6 +474,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
@@ -554,6 +577,15 @@ jobs:
             go run -C tools ./cmd/pssm-referee -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+
+      # The transformation census's baseline lists the mapping classes the pinned
+      # model declares; here the model is provisioned, so the baseline is
+      # compared against a fresh extraction.
+      - run:
+          name: Transformation census lists what the pinned model contains
+          command: go run -C tools ./cmd/transformation-census -check -require-xmi
+          environment:
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
 
       # The migration of the PSSM suite to v2 notation alone, so its report totals
       # are legible in the log and a skip cannot hide behind a green suite
