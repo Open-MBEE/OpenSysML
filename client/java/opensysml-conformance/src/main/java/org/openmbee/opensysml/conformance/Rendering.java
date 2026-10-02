@@ -440,6 +440,53 @@ final class Rendering {
   }
 
   /**
+   * A migration, as the generated answer the wire gives.
+   *
+   * @param migration the public migration
+   * @return the generated answer
+   */
+  static org.openmbee.opensysml.proto.MigrateResponse migration(
+      org.openmbee.opensysml.Migration migration) {
+    org.openmbee.opensysml.MigrationReport report = migration.report();
+    org.openmbee.opensysml.proto.MigrationReport.Builder rendered =
+        org.openmbee.opensysml.proto.MigrationReport.newBuilder()
+            .setSource(report.source())
+            .setExporter(report.exporter())
+            .setSummary(report.summary())
+            .setMapped(report.mapped())
+            .setApproximated(report.approximated())
+            .setUnmapped(report.unmapped())
+            .setSkipped(report.skipped())
+            .setText(report.text());
+    for (org.openmbee.opensysml.MigrationEntry entry : report.entries()) {
+      rendered.addEntries(
+          org.openmbee.opensysml.proto.MigrationEntry.newBuilder()
+              .setId(entry.id())
+              .setKind(entry.kind())
+              .setName(entry.name())
+              .setTarget(entry.target())
+              .setVerdict(entry.verdict())
+              .setNote(entry.note()));
+    }
+    org.openmbee.opensysml.proto.MigrateResponse.Builder response =
+        org.openmbee.opensysml.proto.MigrateResponse.newBuilder()
+            .setContent(migration.content())
+            .setFromFormat(migration.fromFormat())
+            .setToFormat(migration.toFormat())
+            .setExperimental(true)
+            .setExperimentalNotice(migration.experimentalNotice())
+            .setReport(rendered)
+            .setResults(migration.results());
+    for (Map.Entry<String, byte[]> file : migration.files().entrySet()) {
+      response.addFiles(
+          org.openmbee.opensysml.proto.MigrationFile.newBuilder()
+              .setPath(file.getKey())
+              .setContent(com.google.protobuf.ByteString.copyFrom(file.getValue())));
+    }
+    return response.build();
+  }
+
+  /**
    * The edits a batch applied.
    *
    * @param applied the immutable edits

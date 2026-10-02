@@ -88,6 +88,7 @@ call, and `AutoCloseable`'s `close()` here throws nothing.
 | `StaleServiceException` | a `ServiceStartException`: the service reports another release than the one asked for |
 | `ModelException`       | the call succeeded and the answer reports a model failure; `failureReason()` classifies it |
 | `ConversionException`  | a `ModelException` from a conversion the service could not write; its `diagnostics()` say why when the source did not parse |
+| `MigrationException`   | a `ModelException` from a SysML v1 model the service could not migrate at all; an element it has no v2 form for is reported, not thrown |
 | `AnalysisException`    | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException`        | a `ModelException` from `applyEdits` whose `failure()` names the `EditFailure` kind and whose `referringElements()`/`referrers()` name what a refused delete or move is referenced from |
 | `TransportException`   | HTTP or IO failure; the service was not reached or answered. `UNAVAILABLE`, except `DEADLINE_EXCEEDED` for a call that outlived its `requestTimeout` |

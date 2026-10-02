@@ -252,6 +252,7 @@ The wider surface adds its own:
 | `WrongKindError` | a verification or analysis named a symbol of another kind |
 | `AnalysisRunError` | an analysis run failed before it could report |
 | `ConversionError` | the service could not write the notation asked for |
+| `MigrationError` | the service could not read the SysML v1 model, so nothing of it was migrated |
 | `UnsupportedValueError` | the service sent a value this version of the client cannot decode |
 | `QueryError` | a `Query` failed in-band |
 | `DocumentQueryError` | a `runDocumentQuery` failed in-band |
@@ -409,6 +410,39 @@ await save(rdf, "copy.ttl");             // a Conversion writes what it holds
 
 An experimental conversion emits a warning (`process.emitWarning`) rather than
 failing, and reports it through `Conversion.experimentalNotice`.
+
+## Migrating a SysML v1 model
+
+A SysML v1 model — a Cameo/MagicDraw `.mdzip`, a UML XMI `.xmi` or an Eclipse
+UML2 `.uml` export — is **migrated, not converted**: a conversion is lossless,
+and a migration accounts for every v1 element as `mapped`, `approximated`,
+`unmapped` or `skipped`. `connection.convert` refuses one with an
+`InvalidRequestError` that says so and names `migrate`, whether `fromFormat` is
+`xmi`, `uml` or `mdzip` or the path's extension is; `connection.migrate` is the
+verb, and `save` writes what it answers with its image files beside it:
+
+```ts
+const migration = await connection.migrate("sysml", { path: "Model.mdzip" }, { report: true });
+console.log(migration.report.summary);            // migrated 93 element(s): 77 mapped, …
+for (const entry of migration.report.byVerdict("unmapped")) {
+  console.log(`${entry.kind} ${entry.name}: ${entry.note}`);
+}
+await save(migration, "Model.sysml");             // and images/… beside it
+```
+
+`save` refuses, with a `RangeError` and before writing anything, a path that is
+the v1 model itself and an image that would land outside the model's directory
+or over the model, as `sysml -migrate -o` does.
+
+Inline `content` is the file's bytes (`Uint8Array`) and needs `fromFormat` to
+say which form they are; a v2 `fromFormat` is refused with a pointer at
+`convert`. The `Migration` carries the notation (or Turtle, `"ttl"`) and a
+`MigrationReport` whose `summary` and four counts always come back; `report:
+true` adds every element's `MigrationEntry` and the `text` the command's
+`-migration-report` writes, `results: true` the `-migration-results` index,
+and `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` are the other
+companion flags. Migration is experimental and warns as the RDF direction does;
+a model the service cannot read at all is a `MigrationError`.
 
 ## Query and documents
 
@@ -587,7 +621,7 @@ npm run example 03        # one, by number or name
 
 The suite in `conformance/` is the service contract, and this client runs it
 **through its public API** — `load`/`loads`, `parseSources`, `eval`, `symbol`,
-`instantiate`, `executeAction`, `convert`, `applyEdits`, `verifyConstraint`,
+`instantiate`, `executeAction`, `convert`, `migrate`, `applyEdits`, `verifyConstraint`,
 `query`, `runDocumentQuery`, `renderDocument`, `runAnalysis`, `runSweep`,
 `listEngines` — not through the generated stubs. The only scenarios skipped are
 the ones whose request the public API refuses eagerly rather than asking the
@@ -599,16 +633,19 @@ npm run conformance -- --allow-skips --report report.json
 
 | protocol | ran | passed | failed | skipped |
 | --- | --: | --: | --: | --: |
-| `grpc` | 151 | 148 | 0 | 3 |
-| `connect` | 151 | 148 | 0 | 3 |
-| `connect-json` | 151 | 148 | 0 | 3 |
-| **total** | **453** | **444** | **0** | **9** |
+| `grpc` | 158 | 155 | 0 | 3 |
+| `connect` | 158 | 155 | 0 | 3 |
+| `connect-json` | 158 | 155 | 0 | 3 |
+| **total** | **474** | **465** | **0** | **9** |
 
 The 3 skips per protocol are the requests the public API cannot express because
 it validates them before calling: a `ParseFile` naming no source (`load` and
 `loads` always name one), a `ParseSources` naming no document and a
 `ParseSources` naming two documents alike (`parseSources` refuses both). Every
-skip carries its reason in the report.
+skip carries its reason in the report. A refusal the client makes before asking,
+in the service's own words and with the status the service would answer — a v1
+model offered to `convert`, a v2 one to `migrate` — is reported as that status,
+so those scenarios run rather than skip.
 
 **The runner is not vacuous.** `--mutate <name>` corrupts a response on its way
 through the client, and each mutation makes at least one scenario fail:

@@ -962,11 +962,12 @@ pub struct ExecuteStateResponse {
 /// change the answer; a file_path is read afresh and content is carried inline.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConvertRequest {
-    /// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
-    /// "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
-    /// v2 and never written. Empty infers from file_path's extension, and is
-    /// notation for a model_hash, since that is what parse reads; inline content
-    /// has neither, so it must say.
+    /// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+    /// Empty infers from file_path's extension, and is notation for a model_hash,
+    /// since that is what parse reads; inline content has neither, so it must say.
+    /// A SysML v1 model ("xmi", "uml" or "mdzip", named or inferred from the
+    /// extension) is INVALID_ARGUMENT, pointing at Migrate: a v1 model is
+    /// migrated, element by element and reported, not converted.
     #[prost(string, tag="3")]
     pub from_format: ::prost::alloc::string::String,
     /// Format to write, named as in from_format; the v1 names are refused, since
@@ -1023,15 +1024,178 @@ pub struct ConvertResponse {
     /// Set when either format is RDF or the API's JSON element form, whose
     /// mapping is experimental: it covers model structure and the behavior its
     /// bodies state, refuses what it cannot write back, and its vocabulary may
-    /// change without a compatibility path. Also set when the source is SysML v1,
-    /// whose migration is experimental in the same sense. Notation to notation is
-    /// stable and leaves this unset.
+    /// change without a compatibility path. Notation to notation is stable and
+    /// leaves this unset.
     #[prost(bool, tag="6")]
     pub experimental: bool,
     /// What is experimental about the conversion, in the wording every surface
     /// reports it in. Empty when experimental is false.
     #[prost(string, tag="7")]
     pub experimental_notice: ::prost::alloc::string::String,
+}
+/// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
+/// file_path the service reads, or the document carried inline as content —
+/// bytes, since a .mdzip archive is binary. There is no model_hash form: parse
+/// reads v2 notation, and a v1 model is never parsed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrateRequest {
+    /// "xmi" (UML XMI 2.5.1 with the SysML profile applied), "uml" (an Eclipse
+    /// UML2 file) or "mdzip" (a Cameo/MagicDraw archive). Empty infers from
+    /// file_path's extension; inline content has none, so it must say. A v2
+    /// format is INVALID_ARGUMENT, pointing at Convert.
+    #[prost(string, tag="3")]
+    pub from_format: ::prost::alloc::string::String,
+    /// Format to write: "sysml", "kerml", "text", "ttl", "turtle", "rdf",
+    /// "api-json" or "json", as Convert names them. The v1 names are refused,
+    /// since a v2 model has no v1 form. Empty is rejected.
+    #[prost(string, tag="4")]
+    pub to_format: ::prost::alloc::string::String,
+    /// Carry every element's verdict in the response's report, as the command's
+    /// -migration-report writes it. The report's summary and counts are carried
+    /// whether or not this is set.
+    #[prost(bool, tag="5")]
+    pub report: bool,
+    /// Carry the result snapshots the v1 tool stored with the model, indexed as
+    /// the command's -migration-results writes them, so the migrated runs can be
+    /// compared with the tool's (`sysml -compare-results`).
+    #[prost(bool, tag="6")]
+    pub results: bool,
+    /// Absolute http(s) URL that a server-relative image reference in a v1
+    /// comment (<img src="/projects/…">) is resolved against.
+    #[prost(string, tag="9")]
+    pub image_base_url: ::prost::alloc::string::String,
+    /// Write only notation a pinned SysML v2 production admits: a construct whose
+    /// only v2 form is an OpenSysML extension (a deferred event, a choice,
+    /// junction or history pseudostate) is reported unmapped instead of written.
+    #[prost(bool, tag="10")]
+    pub strict: bool,
+    #[prost(oneof="migrate_request::Source", tags="1, 2")]
+    pub source: ::core::option::Option<migrate_request::Source>,
+    /// An MTIP export of the model's diagrams (Model_mtip.xml), laying the
+    /// migrated views out as the v1 tool drew them: a path the service reads, or
+    /// the document itself.
+    #[prost(oneof="migrate_request::Layout", tags="7, 8")]
+    pub layout: ::core::option::Option<migrate_request::Layout>,
+}
+/// Nested message and enum types in `MigrateRequest`.
+pub mod migrate_request {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Source {
+        #[prost(string, tag="1")]
+        FilePath(::prost::alloc::string::String),
+        #[prost(bytes, tag="2")]
+        Content(::prost::alloc::vec::Vec<u8>),
+    }
+    /// An MTIP export of the model's diagrams (Model_mtip.xml), laying the
+    /// migrated views out as the v1 tool drew them: a path the service reads, or
+    /// the document itself.
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Layout {
+        #[prost(string, tag="7")]
+        LayoutPath(::prost::alloc::string::String),
+        #[prost(string, tag="8")]
+        LayoutContent(::prost::alloc::string::String),
+    }
+}
+/// MigrateResponse carries the migrated model and the account of what the
+/// migration did with every v1 element.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MigrateResponse {
+    #[prost(string, tag="1")]
+    pub content: ::prost::alloc::string::String,
+    /// Formats used, canonical ("xmi" for every v1 form), so a caller that let
+    /// from_format be inferred learns what it was inferred as.
+    #[prost(string, tag="2")]
+    pub from_format: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub to_format: ::prost::alloc::string::String,
+    /// non-empty if the migration failed; content is unset
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
+    /// Always set: migration is experimental, in the sense Convert's
+    /// experimental says, and experimental_notice says so in the wording every
+    /// surface reports it in.
+    #[prost(bool, tag="5")]
+    pub experimental: bool,
+    #[prost(string, tag="6")]
+    pub experimental_notice: ::prost::alloc::string::String,
+    /// What the migration did, element by element. Its entries are carried when
+    /// the request set report; its summary and counts always.
+    #[prost(message, optional, tag="7")]
+    pub report: ::core::option::Option<MigrationReport>,
+    /// The result snapshots the v1 tool stored, as the JSON `sysml
+    /// -compare-results` reads, when the request set results and the model
+    /// holds any.
+    #[prost(string, tag="8")]
+    pub results: ::prost::alloc::string::String,
+    /// Image files the migrated model refers to by relative path (a picture a v1
+    /// comment embeds), to be written beside it.
+    #[prost(message, repeated, tag="9")]
+    pub files: ::prost::alloc::vec::Vec<MigrationFile>,
+}
+/// MigrationReport accounts for every element of a SysML v1 model: mapped to a
+/// v2 counterpart that states the same thing, approximated by a v2 form that
+/// loses or restates part of what v1 said, left unmapped and recorded as a
+/// comment where it stood, or skipped as a profile, library or notation-only
+/// element nothing in the model refers to.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MigrationReport {
+    /// The v1 document migrated, and the tool that exported it when it said.
+    #[prost(string, tag="1")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub exporter: ::prost::alloc::string::String,
+    /// The one-line account the command prints after migrating.
+    #[prost(string, tag="3")]
+    pub summary: ::prost::alloc::string::String,
+    #[prost(int32, tag="4")]
+    pub mapped: i32,
+    #[prost(int32, tag="5")]
+    pub approximated: i32,
+    #[prost(int32, tag="6")]
+    pub unmapped: i32,
+    #[prost(int32, tag="7")]
+    pub skipped: i32,
+    /// Every element's verdict, when the request asked for the report; empty
+    /// otherwise, the counts above standing in.
+    #[prost(message, repeated, tag="8")]
+    pub entries: ::prost::alloc::vec::Vec<MigrationEntry>,
+    /// The report as the command's -migration-report writes it to a text file,
+    /// when the request asked for the report: the entries grouped by verdict,
+    /// the elements that need attention first, with the layout account.
+    #[prost(string, tag="9")]
+    pub text: ::prost::alloc::string::String,
+}
+/// MigrationEntry is the verdict on one SysML v1 element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrationEntry {
+    /// The element's xmi:id, the handle a v1 tool addresses it by.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The element as modeled: its stereotype when one classifies it («Block»,
+    /// «Requirement»), else its UML metaclass; and its qualified name in v1.
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// The v2 declaration written for it, a qualified name with its keyword, or
+    /// empty when nothing was.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    /// "mapped", "approximated", "unmapped" or "skipped".
+    #[prost(string, tag="5")]
+    pub verdict: ::prost::alloc::string::String,
+    /// Why it was approximated, left unmapped or skipped.
+    #[prost(string, tag="6")]
+    pub note: ::prost::alloc::string::String,
+}
+/// MigrationFile is a file the migrated model refers to, named relative to it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrationFile {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="2")]
+    pub content: ::prost::alloc::vec::Vec<u8>,
 }
 /// ApplyEditsRequest asks for a model's source with edits applied to it. The
 /// source edited is the one parse read, named by its hash, so an edit is applied

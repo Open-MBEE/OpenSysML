@@ -21,12 +21,33 @@ type Migration struct {
 	Files map[string][]byte
 }
 
+// MigrateOptions carries a migration's augments, as Migrate takes them: an MTIP
+// export whose diagram records lay out the views, the server a comment's
+// relative image is resolved against, and strictness. It is migrate.Options,
+// named here so a caller drives the migration through this package alone.
+type MigrateOptions = migrate.Options
+
+// MigrationReport is the ledger a migration writes: one entry per v1 element
+// with its Verdict.
+type MigrationReport = migrate.Report
+
+// Verdict is what the report records for one v1 element.
+type Verdict = migrate.Verdict
+
+// The verdicts a migration report records.
+const (
+	Mapped       = migrate.Mapped
+	Approximated = migrate.Approximated
+	Unmapped     = migrate.Unmapped
+	Skipped      = migrate.Skipped
+)
+
 // Migrate reads a SysML v1 model in XMI and writes it in the to format. opts
 // carries the migration's augments: an MTIP export whose diagram records lay
 // out the views the migration writes.
-func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migration, error) {
+func Migrate(name string, data []byte, to Format, opts MigrateOptions) (*Migration, error) {
 	if !to.Writable() {
-		return nil, &NotWritableError{Format: to}
+		return nil, &NotWritableError{Format: to, Migrating: true}
 	}
 	result, err := migrate.MigrateOptions(name, data, opts)
 	if err != nil {

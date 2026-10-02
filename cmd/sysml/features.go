@@ -51,10 +51,11 @@ func boolFlags(names ...string) []featureFlag {
 // The feature groups, one per sysml_no<name> tag; sysml_prod leaves out all.
 var (
 	v1Feature = &feature{
-		name:    "v1",
-		flags:   flags("migration-report", "migration-results", "layout", "image-base-url"),
-		values:  map[string][]string{"from": {"xmi", "uml", "mdzip"}},
-		markers: []string{"SysML v1"},
+		name:     "v1",
+		flags:    flags("migrate", "migration-report", "migration-results", "layout", "image-base-url"),
+		values:   map[string][]string{"from": {"xmi", "uml", "mdzip"}},
+		sections: []string{"Migration"},
+		markers:  []string{"SysML v1"},
 	}
 	syncFeature = &feature{
 		name: "sync",
@@ -292,23 +293,28 @@ func isFlagByte(b byte) bool {
 func fromUsage() string {
 	text := "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json"
 	if fmiFeature.linked {
-		text += ", fmu for a Functional Mock-up Unit to import"
+		text += ", or fmu for a Functional Mock-up Unit to import"
 	}
 	if v1Feature.linked {
-		text += ", or xmi, uml or mdzip for a SysML v1 model to migrate (experimental)"
+		text += "; for -migrate: xmi, uml or mdzip, the forms of a SysML v1 model"
 	}
 	return text + "; default the input's extension"
 }
 
 // outputUsage is -output's usage, naming the modes this build writes.
 func outputUsage() string {
-	modes := "-convert, -render or -render-document"
-	if codegenFeature.linked {
-		modes = "-convert, -compile, -render or -render-document"
+	modes := []string{"-convert"}
+	pushes := "-convert ttl"
+	if v1Feature.linked {
+		modes = append(modes, "-migrate")
+		pushes = "-convert ttl or -migrate ttl"
 	}
-	text := "Write what " + modes + " produces to this file instead of stdout"
+	if codegenFeature.linked {
+		modes = append(modes, "-compile")
+	}
+	text := "Write what " + strings.Join(modes, ", ") + ", -render or -render-document produces to this file instead of stdout"
 	if syncFeature.linked {
-		text += "; with -convert ttl, a Flexo branch URL pushes the graph to the branch"
+		text += "; with " + pushes + ", a Flexo branch URL pushes the graph to the branch"
 	}
 	return text
 }
@@ -334,6 +340,9 @@ func convertUsage() string {
 	text := "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental)"
 	if syncFeature.linked {
 		text += ". The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph"
+	}
+	if v1Feature.linked {
+		text += ". A SysML v1 model is refused: it is migrated, with -migrate"
 	}
 	return text
 }

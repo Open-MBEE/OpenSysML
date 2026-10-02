@@ -245,6 +245,14 @@ func (r *remote) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conve
 	return resp.Msg, nil
 }
 
+func (r *remote) migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error) {
+	resp, err := r.rpc.Migrate(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error) {
 	resp, err := r.rpc.ApplyEdits(ctx, connect.NewRequest(req))
 	if err != nil {

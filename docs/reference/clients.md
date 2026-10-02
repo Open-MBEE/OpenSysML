@@ -51,8 +51,9 @@ The Node client covers everything the Python one does, the whole service surface
 The Java client covers the whole service surface, as typed immutable results:
 
 - the v1 calls — parsing, diagnostics, symbol lookup, evaluation and instantiation — plus
-  `parseSources` for a model of several documents and `convert`/`convertFile`/`Model.convert`
-  for conversion between notations;
+  `parseSources` for a model of several documents, `convert`/`convertFile`/`Model.convert`
+  for conversion between notations and `migrate`/`migrateFile` for migrating a SysML v1 model
+  with its element-by-element report;
 - verification (`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance`),
   keeping a false verdict as an answer rather than a failure;
 - `EvaluateCalc` and `RunAnalysis`, with `ListEngines` and the `engine` selection they take, and

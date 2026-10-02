@@ -72,6 +72,7 @@ there are any, and `raiseForErrors()` raises with the diagnostics and model in t
 | Analysis | `calc`, `runAnalysis`, `exploreAnalysis`, `runSweep` |
 | Query and documents | `query`, `runDocumentQuery`, `renderDocument` |
 | Notation | `convert`, `toSysml`, `toTurtle`, `toApiJson`, `save` |
+| Migration | `opensysml.migrate`, `Migration.write`, `Migration.byVerdict` |
 
 `get(fqn)` resolves a qualified id. `find(name)` accepts a short name and returns an empty value
 when it finds no result. `walk(depth)` traverses child symbols to the requested depth; its default
@@ -159,7 +160,31 @@ model; `toSysml`, `toTurtle`, and `toApiJson` select common output formats. `Mod
 ...)` infers format from the path unless `format` is supplied and writes the returned content.
 `Conversion` has `content`, `fromFormat`, `toFormat`, `diagnostics`, `experimental`,
 `experimentalNotice`, `char`, `length`, and `write(path)`. Experimental RDF conversions can
-issue the `opensysml:experimental` warning.
+issue the `opensysml:experimental` warning. A SysML v1 model — `fromFormat` `xmi`, `uml` or
+`mdzip`, or a `filePath` with that extension — is refused with `opensysml:argument`: it is
+migrated, not converted.
+
+## Migration
+
+```matlab
+migrated = opensysml.migrate(conn, 'sysml', 'filePath', 'Vehicle.mdzip', 'report', true);
+migrated.report.summary
+cellfun(@(e) e.name, migrated.byVerdict('unmapped'), 'UniformOutput', false)
+migrated.write('Vehicle.sysml');   % images beside it, under images/
+```
+
+`opensysml.migrate(conn, toFormat, ...)` takes exactly one of `filePath` or `content` (the
+file's bytes as `uint8`, with `fromFormat` naming `xmi`, `uml` or `mdzip`), and the options
+`sysml -migrate` has: `fromFormat`, `report`, `results`, `layoutPath` or `layoutContent`,
+`imageBaseUrl`, `strict`. The returned `Migration` has `content`, `fromFormat`, `toFormat`,
+`report` (a struct with `source`, `exporter`, `summary`, the `mapped`, `approximated`,
+`unmapped` and `skipped` counts, `entries` and `text`), `results`, `files` (a map from each
+image's relative path to its bytes), `sourcePath`, `experimental` and `experimentalNotice`;
+`byVerdict(verdict)` selects entries and `write(path)` writes the model with its images beside
+it, refusing to overwrite the v1 model — under any spelling or link to it — or to write outside
+the model's directory, through `..`, an absolute path or a symbolic link. Migration is
+experimental and issues the `opensysml:experimental` warning; a model the service cannot read
+raises `opensysml:diagnostics:migration`.
 
 ## Query and document APIs
 

@@ -99,10 +99,18 @@ func ParseFormat(name string) (Format, error) {
 }
 
 // NotWritableError reports a request to write a format that is only read.
-type NotWritableError struct{ Format Format }
+// Migrating is set when the request was a migration, so the remedy names that verb.
+type NotWritableError struct {
+	Format    Format
+	Migrating bool
+}
 
 func (e *NotWritableError) Error() string {
-	return fmt.Sprintf("cannot write %s: it is read and imported, never written; convert to sysml or ttl", e.Format)
+	verb := "convert"
+	if e.Migrating {
+		verb = "migrate"
+	}
+	return fmt.Sprintf("cannot write %s: it is read and imported, never written; %s to sysml or ttl", e.Format, verb)
 }
 
 // UnknownFormatError reports that a path does not say which format to write.

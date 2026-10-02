@@ -764,6 +764,98 @@ class ConvertResponse(_message.Message):
     experimental_notice: str
     def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ...) -> None: ...
 
+class MigrateRequest(_message.Message):
+    __slots__ = ("file_path", "content", "from_format", "to_format", "report", "results", "layout_path", "layout_content", "image_base_url", "strict")
+    FILE_PATH_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    FROM_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    TO_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    REPORT_FIELD_NUMBER: _ClassVar[int]
+    RESULTS_FIELD_NUMBER: _ClassVar[int]
+    LAYOUT_PATH_FIELD_NUMBER: _ClassVar[int]
+    LAYOUT_CONTENT_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_BASE_URL_FIELD_NUMBER: _ClassVar[int]
+    STRICT_FIELD_NUMBER: _ClassVar[int]
+    file_path: str
+    content: bytes
+    from_format: str
+    to_format: str
+    report: bool
+    results: bool
+    layout_path: str
+    layout_content: str
+    image_base_url: str
+    strict: bool
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[bytes] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., report: _Optional[bool] = ..., results: _Optional[bool] = ..., layout_path: _Optional[str] = ..., layout_content: _Optional[str] = ..., image_base_url: _Optional[str] = ..., strict: _Optional[bool] = ...) -> None: ...
+
+class MigrateResponse(_message.Message):
+    __slots__ = ("content", "from_format", "to_format", "error", "experimental", "experimental_notice", "report", "results", "files")
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    FROM_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    TO_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENTAL_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENTAL_NOTICE_FIELD_NUMBER: _ClassVar[int]
+    REPORT_FIELD_NUMBER: _ClassVar[int]
+    RESULTS_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    content: str
+    from_format: str
+    to_format: str
+    error: str
+    experimental: bool
+    experimental_notice: str
+    report: MigrationReport
+    results: str
+    files: _containers.RepeatedCompositeFieldContainer[MigrationFile]
+    def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ..., report: _Optional[_Union[MigrationReport, _Mapping]] = ..., results: _Optional[str] = ..., files: _Optional[_Iterable[_Union[MigrationFile, _Mapping]]] = ...) -> None: ...
+
+class MigrationReport(_message.Message):
+    __slots__ = ("source", "exporter", "summary", "mapped", "approximated", "unmapped", "skipped", "entries", "text")
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    EXPORTER_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    MAPPED_FIELD_NUMBER: _ClassVar[int]
+    APPROXIMATED_FIELD_NUMBER: _ClassVar[int]
+    UNMAPPED_FIELD_NUMBER: _ClassVar[int]
+    SKIPPED_FIELD_NUMBER: _ClassVar[int]
+    ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    source: str
+    exporter: str
+    summary: str
+    mapped: int
+    approximated: int
+    unmapped: int
+    skipped: int
+    entries: _containers.RepeatedCompositeFieldContainer[MigrationEntry]
+    text: str
+    def __init__(self, source: _Optional[str] = ..., exporter: _Optional[str] = ..., summary: _Optional[str] = ..., mapped: _Optional[int] = ..., approximated: _Optional[int] = ..., unmapped: _Optional[int] = ..., skipped: _Optional[int] = ..., entries: _Optional[_Iterable[_Union[MigrationEntry, _Mapping]]] = ..., text: _Optional[str] = ...) -> None: ...
+
+class MigrationEntry(_message.Message):
+    __slots__ = ("id", "kind", "name", "target", "verdict", "note")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    VERDICT_FIELD_NUMBER: _ClassVar[int]
+    NOTE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    kind: str
+    name: str
+    target: str
+    verdict: str
+    note: str
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., target: _Optional[str] = ..., verdict: _Optional[str] = ..., note: _Optional[str] = ...) -> None: ...
+
+class MigrationFile(_message.Message):
+    __slots__ = ("path", "content")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    content: bytes
+    def __init__(self, path: _Optional[str] = ..., content: _Optional[bytes] = ...) -> None: ...
+
 class ApplyEditsRequest(_message.Message):
     __slots__ = ("model_hash", "operations", "document", "accept_documents")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]

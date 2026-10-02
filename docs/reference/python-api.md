@@ -284,9 +284,10 @@ make python-proto
 - `sources.py` — `SourceDocument`, the documents `parse_sources` parses together as one model
 - `symbol.py` — lazy symbol proxy, fetches children on demand
 - `instance.py` — instantiated object and its feature values
-- `conversion.py` — a written model, its formats (the SysML v1 names `xmi`, `uml` and `mdzip`
-  among those read, migrated on the way in), extension inference for the path written, and the
-  `ExperimentalFeatureWarning` an RDF conversion or a v1 migration raises
+- `conversion.py` — a written model and its formats, extension inference for the path written,
+  the `ExperimentalFeatureWarning` an RDF conversion or a v1 migration raises, and the
+  `Migration` a SysML v1 model (`xmi`, `uml` or `mdzip`, which `convert` refuses) becomes through
+  `migrate`, with its `MigrationReport` of every element's verdict
 - `query.py` — the standard's Query payload, translated and its answers
 - `document.py` — native document queries: typed bindings, typed rows, and
   `model.render_document`'s Markdown or HTML

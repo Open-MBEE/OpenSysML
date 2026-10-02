@@ -40,7 +40,8 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
 | `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
-| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`, `xmi`) |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`); refuses a SysML v1 model, which is migrated |
+| `migrate(byte[] content, String toFormat, MigrationOptions)`, `migrateFile(Path, String[, MigrationOptions])` | migrates a SysML v1 model (`xmi`, `uml`, `mdzip`) to v2, answering a `Migration` with its element-by-element `MigrationReport` |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
 | `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
@@ -246,6 +247,32 @@ extension, and `EditResult.save(Path)` writes a one-document edit and refuses on
 adopted by hash first edits without reading documents, which the service refuses
 for a model of several, and only then with them.
 
+A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
+not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
+`INVALID_ARGUMENT` whose message says so and names `migrate`, since a migration is ledgered
+rather than lossless. `Connection.migrate(byte[] content, String toFormat, MigrationOptions)` and
+`migrateFile(Path, String[, MigrationOptions])` answer a `Migration` (`content`, the canonical
+`fromFormat`/`toFormat`, `experimentalNotice`, the `report`, the `results` index and the image
+`files`). `MigrationReport` always carries the `summary` and the `mapped`, `approximated`,
+`unmapped` and `skipped` counts; `MigrationOptions.withReport(true)` adds every element's
+`MigrationEntry` (`byVerdict("unmapped")` selects them) and the `text` the `sysml
+-migration-report` flag writes. The other options are the command's companion flags:
+`withFromFormat` (inline content must name `xmi`, `uml` or `mdzip`), `withResults`,
+`withLayoutFile`/`withLayoutContent` for an MTIP export, `withImageBaseUrl` and `withStrict`.
+Inline content is `byte[]`, since a `.mdzip` archive is binary.
+
+```java
+Migration migration =
+    connection.migrateFile(
+        Path.of("Vehicle.mdzip"), "sysml", MigrationOptions.defaults().withReport(true));
+Files.writeString(Path.of("Vehicle.sysml"), migration.content());
+MigrationReport report = migration.report();
+System.err.println(report.summary());
+for (MigrationEntry left : report.byVerdict("unmapped")) {
+  System.err.println(left.name() + ": " + left.note());
+}
+```
+
 ### Edits
 
 ```java
@@ -401,6 +428,8 @@ throws nothing.
 | `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
 | `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
+| `ConversionException` | a `ModelException` from a conversion the service could not write; its `diagnostics()` say why when the source did not parse |
+| `MigrationException` | a `ModelException` from a SysML v1 model the service could not migrate at all; an element it has no v2 form for is reported in the `MigrationReport`, not thrown |
 | `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |

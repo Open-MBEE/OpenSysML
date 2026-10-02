@@ -1002,6 +1002,13 @@ class ApiIntegrationTest {
     assertTrue(holding.holds());
   }
 
+  private static Path v1Fixture(String name) {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../tests/migrate/testdata/xmi")
+        .resolve(name)
+        .normalize();
+  }
+
   private static Path fixture(String name) {
     return Path.of(System.getProperty("user.dir"))
         .resolve("../../../conformance/fixtures")
@@ -1052,6 +1059,127 @@ class ApiIntegrationTest {
     Model model = connection.load(fixture("vehicle.sysml"));
     Conversion roundTrip = model.convert("sysml");
     assertFalse(roundTrip.content().isBlank());
+  }
+
+  @Test
+  void aSysMLv1ModelIsMigratedNotConverted() throws Exception {
+    Path vehicle = v1Fixture("vehicle.xmi");
+    ServiceException byExtension =
+        assertThrows(ServiceException.class, () -> connection.convertFile(vehicle, "sysml"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byExtension.status());
+    assertTrue(byExtension.serviceMessage().contains(vehicle.toString()));
+    assertTrue(
+        byExtension.serviceMessage().contains("is a SysML v1 model, which is migrated, not converted"));
+    assertTrue(byExtension.serviceMessage().contains("call migrateFile"));
+
+    ConversionOptions asMdzip = ConversionOptions.defaults().withFromFormat("mdzip");
+    ServiceException byFormat =
+        assertThrows(
+            ServiceException.class, () -> connection.convert("<xmi/>", "sysml", asMdzip));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byFormat.status());
+    assertTrue(byFormat.serviceMessage().contains("the source is a SysML v1 model"));
+    assertTrue(byFormat.serviceMessage().contains("call migrate"));
+
+    // A form is read as the service reads it, in any case and padding.
+    ConversionOptions asMDZIP = ConversionOptions.defaults().withFromFormat(" MDZIP ");
+    ServiceException bySpelling =
+        assertThrows(
+            ServiceException.class, () -> connection.convert("<xmi/>", "sysml", asMDZIP));
+    assertEquals(StatusCode.INVALID_ARGUMENT, bySpelling.status());
+    assertTrue(bySpelling.serviceMessage().contains("the source is a SysML v1 model"));
+
+    // Named by its format, the client lets the service judge; it refuses the same way.
+    ConversionOptions asXmi = ConversionOptions.defaults().withFromFormat("xmi");
+    ServiceException byService =
+        assertThrows(
+            ServiceException.class, () -> connection.convertFile(vehicle, "sysml", asXmi));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byService.status());
+    assertTrue(byService.serviceMessage().contains("migrated, not converted"));
+  }
+
+  @Test
+  void migrateAccountsForEveryElement() throws Exception {
+    Path vehicle = v1Fixture("vehicle.xmi");
+    Migration byFile = connection.migrateFile(vehicle, "sysml");
+    assertTrue(byFile.content().contains("part def Vehicle"));
+    assertEquals("xmi", byFile.fromFormat());
+    assertEquals("sysml", byFile.toFormat());
+    assertFalse(byFile.experimentalNotice().isBlank());
+    MigrationReport summary = byFile.report();
+    assertTrue(summary.summary().startsWith("migrated "));
+    assertTrue(summary.mapped() > 0);
+    assertTrue(summary.entries().isEmpty(), "the report was not asked for");
+    assertTrue(summary.text().isEmpty());
+    assertTrue(byFile.results().isEmpty());
+
+    Migration byContent =
+        connection.migrate(
+            Files.readAllBytes(vehicle),
+            "sysml",
+            MigrationOptions.defaults().withFromFormat("xmi").withReport(true).withResults(true));
+    assertEquals(byFile.content(), byContent.content());
+    MigrationReport report = byContent.report();
+    assertFalse(report.entries().isEmpty(), "the report was asked for");
+    assertEquals(report.mapped(), report.byVerdict("mapped").size());
+    assertEquals(report.approximated(), report.byVerdict("approximated").size());
+    assertEquals(report.unmapped(), report.byVerdict("unmapped").size());
+    assertEquals(report.skipped(), report.byVerdict("skipped").size());
+    assertTrue(report.text().startsWith("# SysML v1 to v2 migration report"));
+    assertTrue(report.text().contains(report.summary()));
+    assertFalse(byContent.results().isEmpty());
+
+    Migration asTurtle = connection.migrateFile(vehicle, "ttl");
+    assertEquals("ttl", asTurtle.toFormat());
+    assertTrue(asTurtle.content().contains("@prefix"));
+
+    Migration laidOut =
+        connection.migrateFile(
+            v1Fixture("layout.xmi"),
+            "sysml",
+            MigrationOptions.defaults().withLayoutFile(v1Fixture("layout.layout.xml")));
+    assertTrue(laidOut.report().summary().contains("laid out"));
+    Migration inlineLayout =
+        connection.migrateFile(
+            v1Fixture("layout.xmi"),
+            "sysml",
+            MigrationOptions.defaults()
+                .withLayoutContent(Files.readString(v1Fixture("layout.layout.xml"))));
+    assertEquals(laidOut.content(), inlineLayout.content());
+  }
+
+  @Test
+  void migrateRefusesWhatIsNotAv1Model() {
+    Path v2 = fixture("vehicle.sysml");
+    ServiceException byExtension =
+        assertThrows(ServiceException.class, () -> connection.migrateFile(v2, "sysml"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byExtension.status());
+    assertTrue(byExtension.serviceMessage().contains("converted, not migrated"));
+
+    MigrationOptions asNotation = MigrationOptions.defaults().withFromFormat("sysml");
+    ServiceException byFormat =
+        assertThrows(
+            ServiceException.class,
+            () -> connection.migrate("package P;".getBytes(), "sysml", asNotation));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byFormat.status());
+    assertTrue(byFormat.serviceMessage().contains("call convert"));
+
+    ServiceException unnamed =
+        assertThrows(
+            ServiceException.class,
+            () -> connection.migrate("<xmi/>".getBytes(), "sysml", MigrationOptions.defaults()));
+    assertEquals(StatusCode.INVALID_ARGUMENT, unnamed.status());
+
+    MigrationOptions asXmi = MigrationOptions.defaults().withFromFormat("xmi");
+    MigrationException unreadable =
+        assertThrows(
+            MigrationException.class,
+            () -> connection.migrate("<xmi/>".getBytes(), "sysml", asXmi));
+    assertFalse(unreadable.getMessage().isEmpty());
+
+    ServiceException missing =
+        assertThrows(
+            ServiceException.class, () -> connection.migrateFile(v1Fixture("nonexistent.xmi"), "sysml"));
+    assertEquals(StatusCode.NOT_FOUND, missing.status());
   }
 
   @Test
