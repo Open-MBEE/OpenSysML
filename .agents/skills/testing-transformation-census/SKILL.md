@@ -17,8 +17,11 @@ mapping's extracted fields (`package`, `qualified`, `abstract`, `from`, `to`, `g
 
 - Go on PATH. Nothing else for `-check` without the model: it reads only committed files.
 - The model comparison needs `./scripts/download-sysml-v1tov2.sh`, which writes
-  `build/sysml-v1tov2/SysMLv1Tov2.xmi`. `-check` compares against it when present and skips
-  (saying so) when absent; `-check -require-xmi` fails when it is absent.
+  `build/sysml-v1tov2/SysMLv1Tov2.xmi`; `SYSML_V1TOV2_ROOT` points both the downloader and
+  `-check` at a different directory holding the file (absolute as-is, relative resolved
+  against the repository root; `-xmi` overrides everything). `-check` compares against the
+  model when present and skips (saying so) when absent; `-check -require-xmi` — or
+  `OPENSYSML_REQUIRE_SYSML_V1TOV2=1` — fails when it is absent, naming the downloader.
 - The scope-token measurement reads the PSSM suite (`build/pssm/PSSM_TestSuite.xmi`, from
   `./scripts/download-pssm-suite.sh`) and the migration fixtures
   (`tests/migrate/testdata/xmi/*.xmi` plus `conformance/fixtures/vehicle.xmi`). `-check` recomputes
@@ -54,9 +57,9 @@ scope and reason** — dozens of sub-mappings carry one scope — ranked by tota
 ties by first mapping name).
 
 Two CI env nuances: `-check` consults `OPENSYSML_REQUIRE_PSSM_SUITE` only for the measurement
-comparison (a job that provisions neither input sets it to `""` at step level so an
-`OPENSYSML_REQUIRE_PSSM_SUITE=1` ambient env cannot fail it), and `OPENSYSML_REQUIRE_SYSML_V1TOV2`
-is consulted only by the Go test gate — `-require-xmi` is the command-level equivalent.
+comparison and `OPENSYSML_REQUIRE_SYSML_V1TOV2` only for the model comparison (a job that
+provisions neither input sets both to `""` at step level so an ambient `=1` cannot fail it —
+pr.yml sets them workflow-wide, CircleCI per provisioning step).
 
 ## Mutations the gate must catch
 

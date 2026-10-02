@@ -80,6 +80,80 @@ func TestCheckRejectsAnAbsentRequiredModel(t *testing.T) {
 	}
 }
 
+// TestCheckHonoursTheRequireEnv: an absent model is a skip normally but a
+// failure under OPENSYSML_REQUIRE_SYSML_V1TOV2=1, as -require-xmi is.
+func TestCheckHonoursTheRequireEnv(t *testing.T) {
+	root := testRoot(t, testBaseline())
+	t.Setenv(RootEnv, t.TempDir())
+	t.Setenv(RequireEnv, "1")
+	if err := runCheck(root, options{}, &bytes.Buffer{}); err == nil ||
+		!strings.Contains(err.Error(), "download-sysml-v1tov2.sh") {
+		t.Fatalf("-check with %s=1 over an absent model must name the downloader, got %v", RequireEnv, err)
+	}
+	t.Setenv(RequireEnv, "")
+	if err := runCheck(root, options{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("-check over an absent model must skip the comparison, got %v", err)
+	}
+	if err := runCheck(root, options{requireXMI: true}, &bytes.Buffer{}); err == nil ||
+		!strings.Contains(err.Error(), "download-sysml-v1tov2.sh") {
+		t.Fatalf("-check -require-xmi over an absent model must name the downloader, got %v", err)
+	}
+}
+
+// TestModelPathPrecedence: -xmi wins, then SYSML_V1TOV2_ROOT (absolute used
+// as-is, relative resolved against the repository root), then the default.
+func TestModelPathPrecedence(t *testing.T) {
+	root := filepath.Join(string(filepath.Separator), "repo")
+	def := filepath.Join(root, "build", "sysml-v1tov2", "m.xmi")
+	t.Setenv(RootEnv, "")
+	if got := modelPath(root, "m.xmi", "given.xmi"); got != "given.xmi" {
+		t.Fatalf("-xmi given: %q, want given.xmi", got)
+	}
+	if got := modelPath(root, "m.xmi", ""); got != def {
+		t.Fatalf("default: %q, want %q", got, def)
+	}
+	abs := filepath.Join(string(filepath.Separator), "elsewhere")
+	t.Setenv(RootEnv, abs)
+	if got := modelPath(root, "m.xmi", ""); got != filepath.Join(abs, "m.xmi") {
+		t.Fatalf("absolute %s: %q", RootEnv, got)
+	}
+	t.Setenv(RootEnv, "rel/dir")
+	if got := modelPath(root, "m.xmi", ""); got != filepath.Join(root, "rel", "dir", "m.xmi") {
+		t.Fatalf("relative %s resolves against the repository root: %q", RootEnv, got)
+	}
+}
+
+// TestCheckHonoursTheRedirectedRoot: -check reads the model from
+// SYSML_V1TOV2_ROOT's directory. Needs the model provisioned; skips absent.
+func TestCheckHonoursTheRedirectedRoot(t *testing.T) {
+	root, err := repo.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin, err := ReadPin(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(RootEnv, "")
+	def := modelPath(root, pin.File, "")
+	if _, err := os.Stat(def); err != nil {
+		t.Skipf("pinned model not provisioned at %s (run ./scripts/download-sysml-v1tov2.sh)", def)
+	}
+	dir := t.TempDir()
+	if err := os.Symlink(def, filepath.Join(dir, pin.File)); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(RootEnv, dir)
+	if err := runCheck(root, options{requireXMI: true}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("-check over the redirected root must read the model, got %v", err)
+	}
+	t.Setenv(RootEnv, t.TempDir())
+	if err := runCheck(root, options{requireXMI: true}, &bytes.Buffer{}); err == nil ||
+		!strings.Contains(err.Error(), "download-sysml-v1tov2.sh") {
+		t.Fatalf("-check -require-xmi over an absent redirected root must name the downloader, got %v", err)
+	}
+}
+
 // testRoot builds a minimal repository: the pin script, a baseline and a
 // census document consistent with it, for the mutation tests below.
 func testRoot(t *testing.T, base *Baseline) string {

@@ -18,6 +18,10 @@ const RequireEnv = "OPENSYSML_REQUIRE_SYSML_V1TOV2"
 // ModelDir is the directory the downloader provisions the model into.
 const ModelDir = "build/sysml-v1tov2"
 
+// RootEnv redirects the model's directory, as scripts/download-sysml-v1tov2.sh's
+// SYSML_V1TOV2_ROOT does.
+const RootEnv = "SYSML_V1TOV2_ROOT"
+
 // Pin is the model's identity as scripts/sysml-v1tov2-pin.sh records it.
 type Pin struct {
 	Document string
@@ -84,12 +88,21 @@ func readPinDefaults(repo string) (Pin, error) {
 	return Pin{Document: string(doc[1]), Version: string(version[1]), URL: string(url[1]), SHA256: string(sum[1]), File: string(file[1])}, nil
 }
 
-// ModelPath is where the pin's file is provisioned, unless -xmi overrides it.
+// modelPath is where the pin's file is provisioned: -xmi wins, then
+// SYSML_V1TOV2_ROOT (absolute used as-is, relative resolved against the
+// repository root), then the default build/sysml-v1tov2.
 func modelPath(root, pinFile, given string) string {
 	if given != "" {
 		return given
 	}
-	return filepath.Join(root, filepath.FromSlash(ModelDir), pinFile)
+	dir := os.Getenv(RootEnv)
+	if dir == "" {
+		dir = ModelDir
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(root, dir)
+	}
+	return filepath.Join(dir, pinFile)
 }
 
 // Digest is the sha256 of the model file at path, as the pin spells it.

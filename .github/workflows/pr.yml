@@ -1049,10 +1049,12 @@ jobs:
         run: go run -C tools ./cmd/validation-census -check
 
       # Same for the transformation census; this job provisions neither input,
-      # so the model and measurement comparisons run in the gate job that does.
+      # so the model and measurement comparisons run in the gate job that does,
+      # and the workflow-wide require variables are lifted here.
       - name: Check the transformation census matches its baseline
         env:
           OPENSYSML_REQUIRE_PSSM_SUITE: ""
+          OPENSYSML_REQUIRE_SYSML_V1TOV2: ""
         run: go run -C tools ./cmd/transformation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.

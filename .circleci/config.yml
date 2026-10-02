@@ -325,6 +325,7 @@ jobs:
           command: go run -C tools ./cmd/transformation-census -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: ""
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: ""
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - run:

@@ -101,7 +101,7 @@ func (o options) xmiPath(root string, pin Pin) (string, bool, error) {
 		path = modelPath(root, pin.File, "")
 	}
 	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) && o.xmi == "" && !o.requireXMI {
+		if os.IsNotExist(err) && o.xmi == "" && !o.requireXMI && os.Getenv(RequireEnv) != "1" {
 			return path, false, nil
 		}
 		return path, false, fmt.Errorf("pinned model %s: %w (run ./scripts/download-sysml-v1tov2.sh)", path, err)
