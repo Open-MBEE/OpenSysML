@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -32,9 +33,10 @@ type Condition struct {
 	// condition stating an expression.
 	Group []Condition
 
-	// Statement is an action statement the body states before its conditions,
-	// which the evaluator does not execute; nil for a condition or a group.
-	Statement ast.Node
+	// Steps are the statements the body performs before its Group's conditions
+	// are evaluated, as one Boolean function performance; nil for a condition
+	// or a group stating none.
+	Steps *BodySteps
 
 	// Conflict is a second result expression, stated or inherited (KerML
 	// 8.3.4.8); no verdict is reached. Nil otherwise.
@@ -52,6 +54,15 @@ type Condition struct {
 	// their types, outermost first: each one's parameter values mask the
 	// enclosing ones', which mask the checked element's. Empty reads the latter alone.
 	Constraints []*symbols.Symbol
+}
+
+// BodySteps is the statements one constraint body performs before its
+// conditions are evaluated — lowered in declaration order, with the body scope
+// for spans and the resolution of names the statements' own scopes do not reach.
+type BodySteps struct {
+	Stmts []lower.Statement
+	Scope *symbols.Scope
+	Node  ast.Node // first statement, for spans
 }
 
 // Label renders the condition as written, negation and grouping included.
@@ -118,6 +129,17 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	required bool, seen map[*symbols.Symbol]bool) []Condition {
 	out = ctx.appendResultConflict(out, sym, required)
 	var effective map[*symbols.Symbol]bool
+	start := len(out)
+	hasStatements := false
+	for _, member := range members {
+		if _, ok := statementKeyword(unwrapBodyMember(member.node)); ok {
+			hasStatements = true
+			break
+		}
+	}
+	var steps []lower.Statement
+	var stepScope *symbols.Scope
+	var stepNode ast.Node
 	for _, member := range members {
 		if owner := ctx.namedConstraintOf(member); owner != nil && owner != sym && owner.Name != "" {
 			if effective == nil {
@@ -127,7 +149,21 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 				continue
 			}
 		}
+		if hasStatements {
+			if stmt, ok := ctx.constraintBodyStep(member.node, member.scope); ok {
+				if stepNode == nil {
+					stepNode, stepScope = member.node, member.scope
+				}
+				steps = append(steps, stmt)
+				continue
+			}
+		}
 		out = ctx.appendConditions(out, member.node, member.scope, required, false, seen)
+	}
+	if len(steps) > 0 {
+		group := append([]Condition(nil), out[start:]...)
+		out = append(out[:start], Condition{Group: group, Required: required,
+			Steps: &BodySteps{Stmts: steps, Scope: stepScope, Node: stepNode}})
 	}
 	return out
 }
@@ -187,9 +223,33 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 			return out
 		}
 		var body []Condition
+		var steps []lower.Statement
+		var stepNode ast.Node
+		hasStatements := bodyHasStatements(m.Body)
 		bodyScope := symbols.ConstraintBodyScope(scope, m)
 		for _, nested := range m.Body {
+			if hasStatements {
+				if stmt, ok := ctx.constraintBodyStep(nested, bodyScope); ok {
+					if stepNode == nil {
+						stepNode = nested
+					}
+					steps = append(steps, stmt)
+					continue
+				}
+			}
 			body = ctx.appendConditions(body, nested, bodyScope, true, false, seen)
+		}
+		if len(steps) > 0 {
+			withSteps := Condition{Group: body, Required: required,
+				Steps: &BodySteps{Stmts: steps, Scope: bodyScope, Node: stepNode}}
+			if !negated {
+				for i := range withSteps.Group {
+					withSteps.Group[i].Required = withSteps.Group[i].Required && required
+				}
+				return append(out, withSteps)
+			}
+			withSteps.Negated = true
+			return append(out, withSteps)
 		}
 		if !negated {
 			for _, c := range body {
@@ -215,9 +275,9 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 	case *ast.Membership:
 		out = ctx.appendConditions(out, m.Member, scope, required, negated, seen)
 	default:
-		if _, ok := statementKeyword(m); ok {
-			out = append(out, Condition{Statement: m, Scope: scope, Required: required})
-		}
+		// A member stating neither a condition nor a step — an expression, a
+		// declaration — states nothing here; the body's steps were collected by
+		// the caller that knew the body.
 	}
 	return out
 }
@@ -246,8 +306,26 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 		return out
 	}
 	bodyScope := symbols.ConstraintBodyScope(scope, member)
+	start := len(out)
+	hasStatements := bodyHasStatements(body)
+	var steps []lower.Statement
+	var stepNode ast.Node
 	for _, nested := range body {
+		if hasStatements {
+			if stmt, ok := ctx.constraintBodyStep(nested, bodyScope); ok {
+				if stepNode == nil {
+					stepNode = nested
+				}
+				steps = append(steps, stmt)
+				continue
+			}
+		}
 		out = ctx.appendConditions(out, nested, bodyScope, required, false, seen)
+	}
+	if len(steps) > 0 {
+		group := append([]Condition(nil), out[start:]...)
+		out = append(out[:start], Condition{Group: group, Required: required,
+			Steps: &BodySteps{Stmts: steps, Scope: bodyScope, Node: stepNode}})
 	}
 	return out
 }
@@ -288,18 +366,43 @@ func conflictText(conflict *semantics.ResultExpressionConflict) string {
 	}
 }
 
-// unexecutedStatement returns the first statement conds state, groups included,
-// or nil when they state none.
-func unexecutedStatement(conds []Condition) ast.Node {
-	for _, cond := range conds {
-		if cond.Statement != nil {
-			return cond.Statement
-		}
-		if stmt := unexecutedStatement(cond.Group); stmt != nil {
-			return stmt
+// bodyHasStatements reports whether a constraint body's members include a
+// statement — only then are the body's attribute and kind-less declarations
+// steps interleaved with them; a body of declarations alone declares features
+// of the check, read as they always were.
+func bodyHasStatements(members []ast.Node) bool {
+	for _, member := range members {
+		if _, ok := statementKeyword(unwrapBodyMember(member)); ok {
+			return true
 		}
 	}
-	return nil
+	return false
+}
+
+// unwrapBodyMember is the element a membership carries, else the node itself.
+func unwrapBodyMember(node ast.Node) ast.Node {
+	if m, ok := node.(*ast.Membership); ok && m.Member != nil {
+		return m.Member
+	}
+	return node
+}
+
+// constraintBodyStep lowers a member of a constraint body to the step it
+// performs, once per member node over the run's model; false for the members
+// stating conditions instead (see lower.ConstraintStep).
+func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (lower.Statement, bool) {
+	if ctx.model.constraintSteps == nil {
+		ctx.model.constraintSteps = make(map[ast.Node]lower.Statement)
+	}
+	if stmt, ok := ctx.model.constraintSteps[node]; ok {
+		return stmt, true
+	}
+	stmt, ok := lower.ConstraintStep(node, scope)
+	if !ok {
+		return nil, false
+	}
+	ctx.model.constraintSteps[node] = stmt
+	return stmt, true
 }
 
 // statementKeyword names the keyword a body item the evaluator does not run
@@ -440,13 +543,6 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	if len(conds) == 0 {
 		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
 	}
-	// A statement anywhere in the body could change what the conditions read, so
-	// no verdict is reached, not even from a condition stated before it.
-	if stmt := unexecutedStatement(conds); stmt != nil {
-		keyword, _ := statementKeyword(stmt)
-		return false, fmt.Errorf("%s %s: %s evaluation failed: `%s` %w; bind the value as a feature value or compute it in a calc the condition reads",
-			check.kind, check.name(), check.what, keyword, ErrStatementNotExecuted)
-	}
 	if conflict := conflictingResultExpression(conds); conflict != nil {
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %s: %w; a redefinition keeps the inherited condition and tightens it with a nested `assert constraint { … }`",
 			check.kind, check.name(), check.what, conflictText(conflict), ErrConflictingResultExpressions)
@@ -460,6 +556,18 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	required := false
 	for _, cond := range conds {
 		required = required || cond.Required
+		if cond.Steps != nil && !cond.Negated {
+			// The body's steps ran once; each condition it left is judged on its
+			// own Required, as the conditions of a body stating no steps are.
+			done, err := ctx.evaluateStepsConditions(activation, check, cond, features, self)
+			if err != nil {
+				return false, err
+			}
+			if done {
+				return true, nil
+			}
+			continue
+		}
 		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
 		if err != nil {
 			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
@@ -482,6 +590,40 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// evaluateStepsConditions is the loop of evaluateConditions for one body that
+// states steps: the steps run once against the chain's features and bindings,
+// then each condition of the body is evaluated in the frame they left — judged
+// on its own Required, so an assumption failing among them still denies
+// nothing. done reports a verdict reached early, which happens only for a
+// negated element, where one required condition failing is the verdict.
+func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (done bool, err error) {
+	scoped, bindings := features, check.bindings
+	for _, constraint := range cond.Constraints {
+		scoped, bindings = ctx.constraintScope(scoped, bindings, constraint)
+	}
+	stepFrame, err := ctx.runConstraintSteps(cond.Steps, scoped, self, check.frames, bindings)
+	if err != nil {
+		return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+	}
+	if len(cond.Group) == 0 {
+		return false, fmt.Errorf("%s %s: %s evaluation failed: %w: the body's steps leave it no result expression to evaluate",
+			check.kind, check.name(), check.what, ErrNoConditions)
+	}
+	for _, sub := range cond.Group {
+		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
+		if err != nil {
+			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
+		}
+		if sub.Required && !holds {
+			if check.negated {
+				return true, nil
+			}
+			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: conditionLabel(sub)}
+		}
+	}
+	return false, nil
 }
 
 // conditionSubject is the object a check is about: the one supplied when it
@@ -884,13 +1026,30 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 // conditionHolds evaluates one condition: an expression, or a group that holds
 // when all of its conditions hold. Its negation, if any, is applied last.
 func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame) (bool, error) {
+	return ctx.conditionHoldsAt(activation, cond, features, self, frames, bindings, nil)
+}
+
+// conditionHoldsAt is conditionHolds evaluated in the state stepFrame left when
+// the body's statements ran — innermost of the frames read. A condition stating
+// steps runs them first, replacing stepFrame for the group that follows them.
+func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
 	for _, constraint := range cond.Constraints {
 		features, bindings = ctx.constraintScope(features, bindings, constraint)
+	}
+	if cond.Steps != nil {
+		left, err := ctx.runConstraintSteps(cond.Steps, features, self, frames, bindings)
+		if err != nil {
+			return false, err
+		}
+		stepFrame = &left
+		if len(cond.Group) == 0 {
+			return false, fmt.Errorf("%w: the body's steps leave it no result expression to evaluate", ErrNoConditions)
+		}
 	}
 	holds := true
 	if cond.Group != nil {
 		for _, sub := range cond.Group {
-			subHolds, err := ctx.conditionHolds(activation, sub, features, self, frames, bindings)
+			subHolds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
 			if err != nil {
 				return false, err
 			}
@@ -905,6 +1064,9 @@ func (ctx *Context) conditionHolds(activation int64, cond Condition, features ma
 		}
 		if bindings.vars != nil {
 			ec.pushFrame(bindings)
+		}
+		if stepFrame != nil {
+			ec.pushFrame(*stepFrame)
 		}
 		result, err := ec.Eval(cond.Expr)
 		if err != nil {
@@ -1033,9 +1195,19 @@ func unmasked(bindings frame, features map[string]scopedExpr) frame {
 // conditionLabel renders a condition as written, so a violation names the
 // condition that failed, negation and grouping included.
 func conditionLabel(cond Condition) string {
-	if cond.Statement != nil {
-		keyword, _ := statementKeyword(cond.Statement)
-		return "`" + keyword + "` statement"
+	if cond.Steps != nil {
+		parts := make([]string, 0, len(cond.Group))
+		for _, sub := range cond.Group {
+			parts = append(parts, conditionLabel(sub))
+		}
+		if len(parts) == 0 {
+			return "the body's steps"
+		}
+		text := "the body's steps then { " + strings.Join(parts, "; ") + " }"
+		if cond.Negated {
+			text = "not " + text
+		}
+		return text
 	}
 	if cond.Conflict != nil {
 		return "conflicting result expression"

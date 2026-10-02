@@ -81,6 +81,10 @@ type Model struct {
 	// defaults, result expression) per calc symbol.
 	calcShapes map[*symbols.Symbol]*calcShape
 
+	// constraintSteps memoizes the step each member of a constraint body lowers
+	// to, one lowering per member node however often a check reads the body.
+	constraintSteps map[ast.Node]lower.Statement
+
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
 	predicateShapes map[*symbols.Symbol]*calcShape
@@ -211,6 +215,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
+		constraintSteps:     make(map[ast.Node]lower.Statement),
 		librarySymbols:      make(map[string]*symbols.Symbol),
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
