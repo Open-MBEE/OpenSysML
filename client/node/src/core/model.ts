@@ -121,7 +121,7 @@ function multiplicityBound(bound: string): number | undefined {
   if (!/^[+-]?\d+$/.test(trimmed)) {
     return undefined;
   }
-  return parseInt(trimmed, 10);
+  return Number.parseInt(trimmed, 10);
 }
 
 /** Builds a Multiplicity whose predicates mirror Python's. */

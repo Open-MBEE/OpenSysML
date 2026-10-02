@@ -355,7 +355,7 @@ func TestSensitivityUnderDeadlockIsTheDeadlock(t *testing.T) {
 	action def Stuck {
 		attribute x : Integer = 0;
 		first start;
-		action stranded { assign x := 1; }
+		ref action stranded { assign x := 1; }
 		join j;
 		done;
 		succession first start then j;

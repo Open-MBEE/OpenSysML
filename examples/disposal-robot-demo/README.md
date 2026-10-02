@@ -139,10 +139,10 @@ config:
 ---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Platform<br>«part def»"]
+  subgraph n0 ["«part def»<br>Platform"]
     direction LR
-    n3["battery : Battery<br>«part»"]
-    n5["mobility : Mobility<br>«part»"]
+    n3["«part»<br>battery : Battery"]
+    n5["«part»<br>mobility : Mobility"]
     …
   end
   n3 ---|"drivePower"| n5

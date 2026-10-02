@@ -55,6 +55,17 @@ const (
 	OperationUnion  Operation = "union"
 	// OperationTree arranges rows as a containment tree, each with its depth.
 	OperationTree Operation = "tree"
+	// OperationVariable reads a cell's row parameter or the element a
+	// collection body is bound to.
+	OperationVariable Operation = "variable"
+	// OperationNavigate reads one feature of each element its source yields.
+	OperationNavigate Operation = "navigate"
+	// OperationCollection applies a sequence function — `->size()`,
+	// `->select {in e; …}` — to its source.
+	OperationCollection Operation = "collection"
+	// OperationLambda is the body a collection function evaluates once per
+	// element, bound to the variable it names.
+	OperationLambda Operation = "lambda"
 )
 
 // LiteralKind classifies a literal retained in a query plan.

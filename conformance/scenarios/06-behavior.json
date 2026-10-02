@@ -52,7 +52,7 @@
     },
     {
       "id": "execute_action/an_action_with_no_initial_node_is_reported",
-      "description": "The failure surfaces when the action is initialized, as an error on the response.",
+      "description": "Its successions form a cycle over every step, so none starts the flow; the failure surfaces when the action is initialized, as an error on the response.",
       "rpc": "ExecuteAction",
       "model": {
         "fixture": "behavior.sysml"

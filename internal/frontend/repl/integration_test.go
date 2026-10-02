@@ -136,3 +136,50 @@ func TestStopCommand(t *testing.T) {
 		t.Errorf("missing session error:\n%s", got)
 	}
 }
+
+// interruptReader yields scripted lines, a nil-error entry for each line and
+// ErrInterrupt where interrupted is set.
+type interruptReader struct {
+	lines       []string
+	interrupted []bool
+	prompts     []string
+}
+
+func (r *interruptReader) ReadLine(prompt string) (string, error) {
+	r.prompts = append(r.prompts, prompt)
+	i := len(r.prompts) - 1
+	if i >= len(r.lines) {
+		return "", io.EOF
+	}
+	if r.interrupted[i] {
+		return r.lines[i], ErrInterrupt
+	}
+	return r.lines[i], nil
+}
+
+// TestLoopInterrupt checks that Ctrl-C discards a typed line and a buffered
+// continuation, and ends the session at an empty primary prompt.
+func TestLoopInterrupt(t *testing.T) {
+	r := &interruptReader{
+		lines:       []string{"package Typed", "package Cont {", "part def X;", "", "package Kept;", "", "package Never;"},
+		interrupted: []bool{true, false, false, true, false, true, false},
+	}
+	var out strings.Builder
+	s := NewSession()
+	if err := Loop(r, &out, s); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	wantPrompts := []string{primaryPrompt, primaryPrompt, contPrompt, contPrompt, primaryPrompt, primaryPrompt}
+	if strings.Join(r.prompts, "|") != strings.Join(wantPrompts, "|") {
+		t.Errorf("prompts = %q, want %q", r.prompts, wantPrompts)
+	}
+	got := out.String()
+	if !strings.Contains(got, "package Kept") {
+		t.Errorf("submission after an interrupt was not taken:\n%s", got)
+	}
+	for _, gone := range []string{"Typed", "Cont", "Never"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("output mentions %q, which an interrupt should have discarded or the exit never read:\n%s", gone, got)
+		}
+	}
+}

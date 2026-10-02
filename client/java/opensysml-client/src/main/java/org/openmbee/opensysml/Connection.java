@@ -110,7 +110,13 @@ public final class Connection implements AutoCloseable {
         transport.close();
         throw e;
       }
-      return connection.checked(options);
+      try {
+        connection.requireOptions(options);
+      } catch (RuntimeException e) {
+        connection.close();
+        throw e;
+      }
+      return connection;
     }
     if (!options.autoStart()) {
       throw new ServiceStartException(
@@ -129,18 +135,18 @@ public final class Connection implements AutoCloseable {
       ServiceRegistry.release(service);
       throw e;
     }
-    return connection.checked(options);
-  }
-
-  private Connection checked(ConnectionOptions options) {
     try {
-      requiredRelease(options).ifPresent(this::requireRelease);
-      new TreeSet<>(options.requiredCapabilities()).forEach(capabilities::require);
-      return this;
+      connection.requireOptions(options);
     } catch (RuntimeException e) {
-      close();
+      connection.close();
       throw e;
     }
+    return connection;
+  }
+
+  private void requireOptions(ConnectionOptions options) {
+    requiredRelease(options).ifPresent(this::requireRelease);
+    new TreeSet<>(options.requiredCapabilities()).forEach(capabilities::require);
   }
 
   private static Optional<String> requiredRelease(ConnectionOptions options) {

@@ -170,7 +170,7 @@ func TestReplayScheduleReportsADeadlockAsTheRunsError(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		action starve {
 			first start;
-			action stranded;
+			ref action stranded;
 			join sync;
 			done;
 			succession first start then sync;

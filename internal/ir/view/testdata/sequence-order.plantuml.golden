@@ -40,8 +40,8 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-participant "**left**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
-participant "**right**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**left**" as n0 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**right**" as n1 <<part>> <<usage>>
 n0 -> n1 : early
 n0 -> n1 : late
 @enduml

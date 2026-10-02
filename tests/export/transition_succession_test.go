@@ -1,10 +1,14 @@
 package export_test
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // A `transition t first a then b;` owns its succession as a SuccessionAsUsage
@@ -76,7 +80,8 @@ func TestTransitionOwnsItsSuccession(t *testing.T) {
 
 // The grammar's member order puts the TransitionSuccessionMember after the
 // guard and effect memberships and before the body's (SysML.xtext
-// TransitionUsage): the ownedRelationship list states it in that order.
+// TransitionUsage): the ownedRelationship list states it in that order, after
+// the FeatureChainMember naming the source and the EmptyParameterMember.
 func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	src := `package T {
     attribute g : Boolean;
@@ -93,8 +98,8 @@ func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
 	graph := string(turtle)
 	if !strings.Contains(graph,
-		"sysml:ownedRelationship expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
-		t.Errorf("the memberships should order guard, effect, succession, body:\n%s", graph)
+		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
+		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body:\n%s", graph)
 	}
 	notation := string(back)
 	for _, want := range []string{"transition t first a if g do send a to b then c {\n", "state inner;\n"} {
@@ -126,5 +131,274 @@ func TestTransitionSuccessionDisagreementIsRefused(t *testing.T) {
 		graph[start+end:]
 	if _, err := convert.Convert("m.ttl", []byte(mutated), convert.FormatTurtle, convert.FormatSysML); err == nil {
 		t.Errorf("a succession targeting c under a transition targeting b should be refused")
+	}
+}
+
+// A named transition owns, ahead of its trigger, the FeatureChainMember naming
+// its source and an EmptyParameterMember, and a second EmptyParameterMember
+// ahead of a trigger it owns (SysML-textual-bnf TransitionUsage, :1281-1290); a
+// chained source or target is an owned feature chain (FeatureChainMember
+// :1111-1116, OwnedReferenceSubsetting :463-466), not the feature it reaches.
+func TestTransitionOwnsItsSourceParameterAndChainedEnds(t *testing.T) {
+	src := "package P {\n    item def Sig;\n    state def S {\n        entry;\n        then a;\n        state a;\n        state b {\n            entry;\n            then c;\n            state c;\n        }\n" +
+		"        transition t first a then b.c;\n        transition u first a accept Sig then b;\n        transition v first b.c then a;\n    }\n}\n"
+	if diagnostics := diagnosticMessages("m.sysml", []byte(src)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	if _, back := graphOnlyRoundTrip(t, "m.sysml", []byte(src)); string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, e := range elements {
+		byID[e["@id"].(string)] = e
+	}
+	ref := func(v any) string {
+		id, _ := v.(map[string]any)["@id"].(string)
+		return id
+	}
+	refs := func(v any) []string {
+		var out []string
+		list, _ := v.([]any)
+		for _, r := range list {
+			out = append(out, ref(r))
+		}
+		return out
+	}
+	// chain is the qualified names a chain Feature chains, or nil.
+	chain := func(id string) []string { return refs(byID[id]["chainingFeature"]) }
+	transitions := map[string]map[string]any{}
+	for _, e := range elements {
+		if e["@type"] == "TransitionUsage" {
+			transitions[e["declaredName"].(string)] = e
+		}
+	}
+	for _, tc := range []struct {
+		name        string
+		head        []string // metaclasses of the owned relationships ahead of the succession
+		source      []string // the source member: one element, or a chain
+		target      []string // the target end's referenced feature: one element, or a chain
+		chainSource bool
+		chainTarget bool
+	}{
+		{"t", []string{"Membership", "ParameterMembership"}, []string{"P__S__a"}, []string{"P__S__b", "P__S__b__c"}, false, true},
+		{"u", []string{"Membership", "ParameterMembership", "ParameterMembership", "TransitionFeatureMembership"}, []string{"P__S__a"}, []string{"P__S__b"}, false, false},
+		{"v", []string{"OwningMembership", "ParameterMembership"}, []string{"P__S__b", "P__S__b__c"}, []string{"P__S__a"}, true, false},
+	} {
+		transition := transitions[tc.name]
+		if transition == nil {
+			t.Fatalf("no transition %s in the API JSON", tc.name)
+		}
+		owned := refs(transition["ownedRelationship"])
+		if len(owned) < len(tc.head)+1 {
+			t.Fatalf("%s: ownedRelationship %v, want %v ahead of the succession", tc.name, owned, tc.head)
+		}
+		for i, metaclass := range tc.head {
+			if got := byID[owned[i]]["@type"]; got != metaclass {
+				t.Errorf("%s: owned relationship %d is a %v, want %s", tc.name, i, got, metaclass)
+			}
+		}
+		source := byID[owned[0]]
+		if tc.chainSource {
+			if got := chain(refs(source["ownedRelatedElement"])[0]); strings.Join(got, ",") != strings.Join(tc.source, ",") {
+				t.Errorf("%s: source chain %v, want %v", tc.name, got, tc.source)
+			}
+		} else if got := ref(source["memberElement"]); got != tc.source[0] {
+			t.Errorf("%s: source member %s, want %s", tc.name, got, tc.source[0])
+		}
+		for _, membership := range owned[1:] {
+			if byID[membership]["@type"] != "ParameterMembership" {
+				continue
+			}
+			parameter := byID[refs(byID[membership]["ownedRelatedElement"])[0]]
+			if parameter["@type"] != "ReferenceUsage" || parameter["declaredName"] != nil {
+				t.Errorf("%s: parameter %v, want an EmptyUsage", tc.name, parameter)
+			}
+		}
+		succession := byID[ref(transition["succession"])]
+		ends := refs(succession["connectorEnd"])
+		subsetting := byID[ref(byID[ends[1]]["ownedReferenceSubsetting"])]
+		referenced := ref(subsetting["referencedFeature"])
+		if tc.chainTarget {
+			if got := chain(referenced); strings.Join(got, ",") != strings.Join(tc.target, ",") {
+				t.Errorf("%s: target chain %v, want %v", tc.name, got, tc.target)
+			}
+		} else if referenced != tc.target[0] {
+			t.Errorf("%s: target %s, want %s", tc.name, referenced, tc.target[0])
+		}
+	}
+	if _, err := convert.Convert("m.json", doc, convert.FormatAPIJSON, convert.FormatSysML); err != nil {
+		t.Errorf("the API JSON did not read back: %v", err)
+	}
+
+	// A source member naming another state than the transition's source is
+	// refused: the notation writes the source once.
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	const member = "expr:P__S__t_psourcemember\n"
+	at := strings.Index(graph, member)
+	if at < 0 {
+		t.Fatalf("no source member %s in the graph:\n%s", member, graph)
+	}
+	block := graph[at:]
+	if end := strings.Index(block, "\n\n"); end >= 0 {
+		block = block[:end]
+	}
+	edited := strings.Replace(graph, block, strings.Replace(block, "sysml:memberElement elmt:P__S__a", "sysml:memberElement elmt:P__S__b", 1), 1)
+	if edited == graph {
+		t.Fatalf("the source member was not edited:\n%s", block)
+	}
+	_, err = convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "source") {
+		t.Errorf("expected the disagreeing source member to be refused, got %v", err)
+	}
+}
+
+// A graph in the API element form reads back as written with only the
+// structure stating each transition's head: without the collapsed source and
+// target, the source member, source chain and chained succession end state
+// them; and a chain stated only by its derived chainingFeature list, with no
+// FeatureChaining elements, reaches the same features. (A transition with a
+// trigger does not yet read from the element form.)
+func TestTransitionStructureAloneReadsBack(t *testing.T) {
+	src := "package P {\n    state def S {\n        state a;\n        state b {\n            state c;\n        }\n" +
+		"        transition t first a then b.c;\n        transition v first b.c then a;\n        transition w first a then b;\n    }\n}\n"
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	chainings := map[string]bool{}
+	for _, e := range elements {
+		if e["@type"] == "FeatureChaining" {
+			chainings[fmt.Sprint(e["@id"])] = true
+		}
+	}
+	if len(chainings) == 0 {
+		t.Fatal("the graph states no FeatureChaining")
+	}
+	// elementForm is the document in the element form, every element stating
+	// its defaults, the transitions with no collapsed source or target, and
+	// without FeatureChaining elements when dropChainings says so.
+	elementForm := func(dropChainings bool) []byte {
+		var out []map[string]any
+		for _, original := range elements {
+			if dropChainings && chainings[fmt.Sprint(original["@id"])] {
+				continue
+			}
+			e := map[string]any{"isImpliedIncluded": false}
+			for key, value := range original {
+				if list, ok := value.([]any); ok && dropChainings {
+					var keep []any
+					for _, item := range list {
+						if ref, ok := item.(map[string]any); !ok || !chainings[fmt.Sprint(ref["@id"])] {
+							keep = append(keep, item)
+						}
+					}
+					value = keep
+				}
+				e[key] = value
+			}
+			if e["@type"] == "TransitionUsage" {
+				delete(e, "source")
+				delete(e, "target")
+			}
+			out = append(out, e)
+		}
+		document, err := json.Marshal(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return document
+	}
+	for _, tc := range []struct {
+		name          string
+		dropChainings bool
+	}{
+		{"no collapsed source or target", false},
+		{"chains by their chainingFeature lists", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			back, err := convert.Convert("m.json", elementForm(tc.dropChainings), convert.FormatAPIJSON, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if string(back) != src {
+				t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+			}
+		})
+	}
+}
+
+// A transition whose head states a chain as its endpoint names that chain: a
+// structural chain reaching the same feature through other links (`a1.c`
+// against `a2.c`, both `T::c`) is refused, not written in its place. The head's
+// own chain, or the feature it reaches, agrees.
+func TestTransitionChainEndpointsCompareByTheirLinks(t *testing.T) {
+	src := "package P {\n    state def T {\n        state c;\n    }\n    state def S {\n        state a1 : T;\n        state a2 : T;\n        state b;\n" +
+		"        transition v first a1.c then b;\n        transition w first a2.c then b;\n        transition x first b then a1.c;\n        transition y first b then a2.c;\n    }\n}\n"
+	if diagnostics := diagnosticMessages("m.sysml", []byte(src)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	// restate points a transition's collapsed endpoint, T::c, at a chain feature.
+	restate := func(t *testing.T, transition, property, to string) string {
+		t.Helper()
+		blocks := strings.Split(graph, "\n\n")
+		edited := false
+		line := "sysml:" + property + " elmt:P__T__c "
+		for i, block := range blocks {
+			if strings.HasPrefix(block, transition+"\n") && strings.Contains(block, line) {
+				blocks[i], edited = strings.Replace(block, line, "sysml:"+property+" "+to+" ", 1), true
+			}
+		}
+		if !edited {
+			t.Fatalf("%s states no %s:\n%s", transition, line, graph)
+		}
+		return strings.Join(blocks, "\n\n")
+	}
+	for _, tc := range []struct {
+		name, transition, property, to string
+		refused                        bool
+	}{
+		{"source chain through other links", "elmt:P__S__v", "source", "expr:P__S__w_psourcechain", true},
+		{"its own source chain", "elmt:P__S__v", "source", "expr:P__S__v_psourcechain", false},
+		{"target chain through other links", "elmt:P__S__x", "target", "expr:P__S__y_succession_pend1_pchain", true},
+		{"its own target chain", "elmt:P__S__x", "target", "expr:P__S__x_succession_pend1_pchain", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !strings.Contains(graph, tc.to+"\n") {
+				t.Fatalf("no chain %s in the graph", tc.to)
+			}
+			back, err := convert.Convert("m.ttl", []byte(restate(t, tc.transition, tc.property, tc.to)), convert.FormatTurtle, convert.FormatSysML)
+			var unsupported *export.UnsupportedError
+			switch {
+			case tc.refused && (!errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.property)):
+				t.Errorf("expected the disagreeing %s to be refused, got %v\n%s", tc.property, err, back)
+			case !tc.refused && err != nil:
+				t.Errorf("the transition's own chain should agree: %v", err)
+			case !tc.refused && string(back) != src:
+				t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+			}
+		})
 	}
 }

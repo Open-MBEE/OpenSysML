@@ -721,8 +721,8 @@ func TestRenderFillsFromThePaletteAsked(t *testing.T) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("decode render result: %v", err)
 	}
-	if !strings.Contains(out.Artifact, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
-		t.Errorf("Mermaid does not note the palette:\n%s", out.Artifact)
+	if !strings.Contains(out.Artifact, "\n  style n0 fill:#") || strings.Contains(out.Artifact, "not represented: palette") {
+		t.Errorf("the Mermaid artifact is not filled from the palette:\n%s", out.Artifact)
 	}
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1139,5 +1139,74 @@ package StyledViews {
 	}
 	if !strings.Contains(out.Artifact, `fillcolor="#FFE8BD"`) {
 		t.Errorf("the DOT artifact does not draw the Style:\n%s", out.Artifact)
+	}
+}
+
+// A request's `ports` chooses how much of a part's ports an interconnection
+// draws — minimal, the default, the ports a connector ends at, named alone, or
+// full, every port typed — the displays listed under the capability; a name
+// that is neither is refused with the two there are.
+func TestRenderTakesAPortDisplay(t *testing.T) {
+	const ported = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; port spare : Signal; }
+    part def Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+	s, docURI := renderServer(t, "ported.sysml", ported)
+	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
+	if err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	experimental := res.Capabilities.Experimental.(map[string]any)
+	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
+		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
+	}
+	render := func(t *testing.T, ports string) string {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports,
+		})
+		if err != nil {
+			t.Fatalf("render ports=%q: %v", ports, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		return out.Artifact
+	}
+	minimal := render(t, "")
+	for _, want := range []string{`port "out1" as `, `port "in1" as `} {
+		if !strings.Contains(minimal, want) {
+			t.Errorf("the default lacks %q:\n%s", want, minimal)
+		}
+	}
+	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
+		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
+	}
+	if render(t, "minimal") != minimal {
+		t.Errorf("ports=minimal differs from the default")
+	}
+	full := render(t, "full")
+	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+		if !strings.Contains(full, want) {
+			t.Errorf("ports=full lacks %q:\n%s", want, full)
+		}
+	}
+	_, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
+	})
+	want := `unknown port display "all"; the displays are minimal, full`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %v, want it to refuse the port display by name", err)
 	}
 }

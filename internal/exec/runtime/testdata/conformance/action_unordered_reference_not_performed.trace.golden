@@ -1,0 +1,5 @@
+stmt assign c
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 1: no active tokens

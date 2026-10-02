@@ -5,8 +5,8 @@ package MissionSequence {
     private import ISQ::*;
     private import SI::*;
 
-    // Three phases with no order between them: well-formed, but asked to
-    // perform it the runtime has nowhere to begin.
+    // Three phases with no order between them: each is a subaction performed
+    // during the mission, in whichever order the scheduler picks.
     action def LunarMissionUnordered {
         action outbound;
         action lunarOps;

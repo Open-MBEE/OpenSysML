@@ -1,0 +1,8 @@
+{
+	"type": "instance",
+	"trace": true,
+	"instantiate": "test::Sys",
+	"objects": [
+		{"path": "rx", "finalState": "hit"}
+	]
+}

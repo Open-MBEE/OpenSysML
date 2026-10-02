@@ -243,8 +243,9 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
-| `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-palette <name>` | | Palette the `mermaid`, `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. A Mermaid sequence diagram notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-style <style>` | | Drawing style the `dot` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid and PlantUML note it as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
@@ -464,8 +465,18 @@ diagram, a state machine, an action flow, a sequence diagram and a table. A geom
 recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
 every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
 `#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
-render the named element directly. Only the kinds this build produces are offered; newly supported
-kinds become pseudo-views automatically.
+render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
+Only the kinds this build produces are offered; newly supported kinds become pseudo-views
+automatically.
+
+An interconnection draws the exposed parts, the ports on their borders, and the connectors between
+them. A part's ports are those its definition declares as well as any it declares itself — `part
+heating : HeatingSystem` shows the `durationIn : ~DurationPort` HeatingSystem declares, `~` marking a
+conjugated port — and a connection, interface, flow or binding whose end names a port
+(`connect control.durationOut to heating.durationIn`) is drawn to that port, not to the part. The
+text form writes each port as a `port` line under its part and an edge's ends as `part.port`; the
+library's own `ownedPorts`, `subports` and `interfacingPorts` are not drawn. A part whose definition
+declares no port is a plain node.
 
 ```bash
 # The ASCII text form a person reads, written to fit the terminal
@@ -561,18 +572,18 @@ The forms a kind can be written in:
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
-A node's label follows the graphical notation's header: the element's name leads, with ` : Type`
-after it for a typed usage, the kind follows on its own line in guillemets, and any note (`initial`,
-`already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
+A node's label follows the graphical notation's header: the kind leads on its own line in
+guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
+(`initial`, `already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
 keyword line. The text form keeps the notation's keyword-leading declaration order instead. One node
 in each form:
 
 | Form | `part pump : Pump` |
 | --- | --- |
 | `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
-| `mermaid` | `n1["pump : Pump<br>«part»"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
-| `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
-| `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
+| `mermaid` | `n1["«part»<br>pump : Pump"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
+| `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
+| `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
@@ -586,13 +597,14 @@ extra line:
 ```
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["«part def»<br>Loop"]
     direction LR
   …
 ```
@@ -609,7 +621,10 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). The drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
+HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. The
+drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
@@ -624,8 +639,9 @@ visualizer draws with PlantUML — with the same header as `'` comments (`' <vie
 one `' not represented:` line per notice), the Pilot's B&W style inline as a `<style>` block plus
 `skinparam wrapWidth 300`, and one grammar per kind: a tree is a class diagram (`hide circle`,
 `hide empty members`, containment as `parent -- child` edges as the other forms draw it), an
-interconnection nested `rectangle` blocks with the Pilot's heavy `-[thickness=3]-` connectors and
-dashed `-[dashed]->` flows, a state rendering the `state` grammar with composite states, `[*] -->`
+interconnection nested `rectangle` blocks with a `port "name : Type"` element on the border of each
+part that has one, the Pilot's heavy `-[thickness=3]-` connectors and dashed `-[dashed]->` flows
+drawn between the ports they name (`n2.0 -[thickness=3]- n1.0`), a state rendering the `state` grammar with composite states, `[*] -->`
 starts and PlantUML's pseudostate stereotypes, an action rendering the state grammar too (PlantUML's
 activity syntax is procedural and cannot hold an arbitrary graph of successions and flows), and a
 sequence `participant`s and `->` messages one for one with the Mermaid form. Each node's keyword is
@@ -640,8 +656,8 @@ edges between them, with the unplaced accounted for in a `' not represented:` no
 node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
-`-render-palette <name>` fills the DOT and PlantUML nodes with a colourblind-safe palette by **keyword
-family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
+`-render-palette <name>` fills the Mermaid, DOT and PlantUML nodes with a colourblind-safe palette by
+**keyword family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
 item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
 case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
 the family colour, a usage with a lighter tint of it, both bordered in the colour; every fill is
@@ -650,11 +666,11 @@ nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Ok
 `tol-bright`, `tol-muted` and `tol-light` (Paul Tol), `brewer-set2` and `brewer-dark2`
 (ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
 across the families the view draws, darkest first
-([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
-applies to the `dot` and `plantuml` forms alone, which fill each node with the same hex
-(`#hex;line:hex` on a PlantUML element; a sequence participant takes the fill by keyword family):
-`-render-form mermaid` writes a `%% not represented:` comment naming it, and the text and Markdown
-forms ignore it. A name that is no palette is refused with
+([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The `mermaid`,
+`dot` and `plantuml` forms fill each node with the same hex (a flowchart `style` or state diagram
+`classDef` statement; `#hex;line:hex` on a PlantUML element; a PlantUML sequence participant takes
+the fill by keyword family, where `-render-form mermaid` writes a `%% not represented:` comment
+naming the palette, Mermaid filling no participant), and the text and Markdown forms ignore it. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
@@ -678,6 +694,22 @@ render is refused likewise.
 ```bash
 sysml Project.sysml -render-document Project::DesignDescription \
     -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
+```
+
+`-render-ports <display>` is how much of a part's ports an interconnection draws. `minimal`,
+the default, draws on each part the ports a connector, interface, flow or binding of the view
+ends at and no other — each a small square on the part's border with its name beside it, the
+connector ending at the square — so a crowded diagram shows what it connects and nothing more;
+a part none of whose ports is connected draws as a part without ports does. `full` draws every
+port a part has, its own and those from its definition, labelled `name : Type` with `~` for a
+conjugated one. The display applies to the DOT, PlantUML, Mermaid and text forms alike, and to
+no kind but the interconnection; a `Diagram` block of a document states its own
+([`ports`](../manual/authoring.md#diagrams)). A name that is neither display is refused with
+status 2 and the two there are; `-render-ports` without `-render` or `-render-all` is refused
+likewise.
+
+```bash
+sysml model.sysml -render Views::loopView -render-form dot -render-ports full -o loop.dot
 ```
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The

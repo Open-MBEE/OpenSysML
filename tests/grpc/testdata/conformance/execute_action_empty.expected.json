@@ -1,0 +1,4 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::SimpleAction"
+}

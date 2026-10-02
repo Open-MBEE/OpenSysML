@@ -15,14 +15,20 @@ const (
 	contPrompt    = "  ...> "
 )
 
+// ErrInterrupt is returned by a LineReader, with the text typed so far, when the
+// line is interrupted (Ctrl-C).
+var ErrInterrupt = errors.New("interrupt")
+
 // LineReader yields input lines; the prompt argument switches between primary
 // and continuation prompts. Implemented by a readline adapter in cmd, and by a
-// slice in tests. ReadLine returns io.EOF at end of input.
+// slice in tests. ReadLine returns io.EOF at end of input and ErrInterrupt when
+// the line is interrupted.
 type LineReader interface {
 	ReadLine(prompt string) (string, error)
 }
 
-// Loop runs the read/eval/print cycle until the reader returns io.EOF (Ctrl-D).
+// Loop runs until io.EOF (Ctrl-D) or an interrupt at an empty prompt (Ctrl-C);
+// any other interrupt discards the line and the buffered continuation.
 func Loop(r LineReader, out io.Writer, s *Session) error {
 	w := bufio.NewWriter(out)
 	defer func() { _ = w.Flush() }()
@@ -32,6 +38,14 @@ func Loop(r LineReader, out io.Writer, s *Session) error {
 		line, err := r.ReadLine(prompt)
 		if errors.Is(err, io.EOF) {
 			return nil
+		}
+		if errors.Is(err, ErrInterrupt) {
+			if buf.Len() == 0 && line == "" {
+				return nil
+			}
+			buf.Reset()
+			prompt = primaryPrompt
+			continue
 		}
 		if err != nil {
 			return err

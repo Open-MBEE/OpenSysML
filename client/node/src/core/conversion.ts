@@ -1,6 +1,7 @@
 // Writing a model back out, in SysML notation or RDF Turtle. The formats are
 // named as the `sysml` CLI's -from/-to name them.
 
+import { byCodeUnit } from "./capabilities.js";
 import type { ModelDiagnostic } from "./errors.js";
 
 /** SysML v2 / KerML textual notation. `kerml` and `text` name it too. */
@@ -46,7 +47,7 @@ export function formatOfPath(path: string): string {
   const ext = dot === -1 ? "" : path.slice(dot).toLowerCase();
   const format = EXTENSIONS.get(ext);
   if (format === undefined) {
-    const known = [...EXTENSIONS.keys()].sort().join(", ");
+    const known = [...EXTENSIONS.keys()].sort(byCodeUnit).join(", ");
     throw new RangeError(
       `cannot tell the format to write ${JSON.stringify(path)} as: expected one of ${known}, ` +
         `or pass toFormat explicitly`,

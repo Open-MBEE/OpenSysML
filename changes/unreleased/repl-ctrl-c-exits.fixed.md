@@ -1,0 +1,1 @@
+- **Ctrl-C at an empty REPL prompt exits the REPL.** Ctrl-C used to only clear the line, so it never ended a session. It still discards a partly typed line, and at a `...>` continuation prompt it now discards the buffered text instead of submitting it; a second Ctrl-C at the empty `sysml>` prompt then exits with the status `%quit` and Ctrl-D leave.

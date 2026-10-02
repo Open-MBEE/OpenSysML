@@ -1,0 +1,10 @@
+stmt assign d
+  eval literal 7 -> 7
+choice step 1: tokens 1@start, 2@side (unordered; took 2@side first)
+step 1: token 1@a
+stmt assign c
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens

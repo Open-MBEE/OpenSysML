@@ -502,7 +502,7 @@ function accessor(feature: Feature): string {
  * Newlines are normalized so the same model checked out with CRLF endings
  * stamps identically; nothing else about the text is interpreted. */
 export function modelStamp(sourceText: string): string {
-  const normalized = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalized = sourceText.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
   return createHash(MODEL_HASH_ALGORITHM).update(normalized, "utf8").digest("hex");
 }
 

@@ -58,7 +58,7 @@ func readMIMEHeader(r *bufio.Reader) (mimeHeader, error) {
 		if err != nil {
 			return m, err
 		}
-		return m, protocolError("malformed MIME header initial line: " + string(line))
+		return m, protocolError(fmt.Sprintf("malformed MIME header initial line: %q", line))
 	}
 
 	for {
@@ -70,15 +70,15 @@ func readMIMEHeader(r *bufio.Reader) (mimeHeader, error) {
 		// Key ends at first colon.
 		k, v, ok := bytes.Cut(kv, colonBytes)
 		if !ok {
-			return m, protocolError("malformed MIME header line: " + string(kv))
+			return m, protocolError(fmt.Sprintf("malformed MIME header line: %q", kv))
 		}
 		key, ok := canonicalMIMEHeaderKey(k)
 		if !ok {
-			return m, protocolError("malformed MIME header line: " + string(kv))
+			return m, protocolError(fmt.Sprintf("malformed MIME header line: %q", kv))
 		}
 		for _, c := range v {
 			if !validHeaderValueByte(c) {
-				return m, protocolError("malformed MIME header line: " + string(kv))
+				return m, protocolError(fmt.Sprintf("malformed MIME header line: %q", kv))
 			}
 		}
 
