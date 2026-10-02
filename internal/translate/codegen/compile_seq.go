@@ -58,6 +58,8 @@ func (fc *funcCompiler) toMany(v Expr, t Type, what string) (Expr, error) {
 // collection type t.
 func (fc *funcCompiler) retype(v Expr, t Type) Expr {
 	switch v := v.(type) {
+	case Steps:
+		return Steps{N: v.N, X: fc.retype(v.X, t)}
 	case NullLit:
 		return NullLit{T: t}
 	case SeqLit:
@@ -460,7 +462,8 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 	default:
 		return nil, fc.unsupported(op.Name() + " with a body")
 	}
-	return Fold{Op: op, Seq: seq, Body: lambda, T: t}, nil
+	// The body is a value of its own, evaluated after the operand.
+	return Fold{Op: op, Seq: seq, Steps: 1, Body: lambda, T: t}, nil
 }
 
 // compileLambda compiles a body `{in a; in b; …; result}` whose parameters

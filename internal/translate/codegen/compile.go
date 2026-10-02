@@ -742,7 +742,16 @@ func (fc *funcCompiler) coerce(v Expr, t Type, what string) (Expr, error) {
 	return nil, fc.unsupported(fmt.Sprintf("a %s %s where %s is expected", v.Type(), what, t))
 }
 
+// compileExpr compiles n charged the steps the interpreter spends on it.
 func (fc *funcCompiler) compileExpr(n ast.Node) (Expr, error) {
+	x, err := fc.compileNode(n)
+	if err != nil {
+		return nil, err
+	}
+	return fc.stepped(n, x), nil
+}
+
+func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 	switch n := n.(type) {
 	case *ast.LiteralInteger:
 		v, ok := semantics.ParseInteger(n.Value)
@@ -871,7 +880,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if n.Operator == ast.OpPow && t == TypeInt {
 			// Integer ** Integer is an Integer only for a non-negative exponent,
 			// a distinction a static type cannot make of a run-time exponent.
-			lit, isLit := r.(IntLit)
+			lit, isLit := bare(r).(IntLit)
 			switch {
 			case isLit && lit.sign() >= 0:
 			case isLit:
@@ -945,16 +954,19 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 
 // binaryOperands compiles both operands of a strict operator n as scalars: a
 // collection operand is taken as the one value it holds, failing as the
-// interpreter's operator does. Two collection operands are evaluated once each
-// into temporaries the returned wrap binds around the operation, so a failure
-// can describe both.
+// interpreter's operator does. A collection left operand is checked only once
+// both are evaluated, into temporaries the returned wrap binds around the operation.
 func (fc *funcCompiler) binaryOperands(n *ast.OperatorExpr) (Expr, Expr, func(Expr) Expr, error) {
 	l, r, err := fc.rawOperands(n)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	wrap := func(x Expr) Expr { return x }
-	if l.Type().Many() && r.Type().Many() {
+	if l.Type().Many() {
+		// A right operand whose evaluation only spends steps spends them in place.
+		if n, x := leading(r); n > 0 && pure(x) {
+			l, r = fc.then(l, n), x
+		}
 		var lets []Let
 		l, lets = fc.hoist(l, lets)
 		r, lets = fc.hoist(r, lets)
@@ -1088,7 +1100,7 @@ func (fc *funcCompiler) callCalc(sym *symbols.Symbol, n *ast.InvocationExpr) (Ex
 	if err != nil {
 		return nil, err
 	}
-	args, fargs, err := fc.bindArgs(n, fc.c.name(sym), params)
+	args, fargs, trailing, err := fc.bindArgs(n, fc.c.name(sym), params)
 	if err != nil {
 		return nil, err
 	}
@@ -1096,7 +1108,23 @@ func (fc *funcCompiler) callCalc(sym *symbols.Symbol, n *ast.InvocationExpr) (Ex
 	if err != nil {
 		return nil, err
 	}
-	return fc.finishCalcCall(callee, args)
+	call, err := fc.finishCalcCall(callee, args)
+	if err != nil || trailing == 0 {
+		return call, err
+	}
+	c := call.(Call)
+	if len(c.Args) == 0 {
+		return charged(trailing, c), nil
+	}
+	last := &c.Args[len(c.Args)-1]
+	last.Value = fc.then(last.Value, trailing)
+	return c, nil
+}
+
+// then is x followed by spending n steps once it is evaluated.
+func (fc *funcCompiler) then(x Expr, n int64) Expr {
+	t := fc.temp(x.Type())
+	return Let{Name: t.Name, Value: x, In: Steps{N: n, X: Var{Name: t.Name, T: t.Type}}}
 }
 
 // finishCalcCall binds the value arguments args to callee's parameters.
@@ -1142,7 +1170,7 @@ func (fc *funcCompiler) compileLibCall(n *ast.InvocationExpr, fqn string) (Expr,
 	for i, p := range params {
 		decls[i] = paramDecl{name: p}
 	}
-	args, _, err := fc.bindArgs(n, fqn, decls)
+	args, _, _, err := fc.bindArgs(n, fqn, decls)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,7 +1204,9 @@ func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (
 // every parameter must be bound, by position or by name. A value argument is
 // an Arg indexed among the value parameters; a function value bound to an
 // `in calc` parameter is returned among fargs, in parameter order.
-func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []paramDecl) ([]Arg, []funcValue, error) {
+// A function-value argument spends the step reading it, charged before the
+// next value argument; trailing is what the arguments after the last spend.
+func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []paramDecl) (args []Arg, fargs []funcValue, trailing int64, err error) {
 	names := make([]string, len(params))
 	valueIndex := make([]int, len(params))
 	var fnCount, valueCount int
@@ -1190,8 +1220,7 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 			valueCount++
 		}
 	}
-	var args []Arg
-	fargs := make([]funcValue, fnCount)
+	fargs = make([]funcValue, fnCount)
 	bound := make([]bool, len(params))
 	bindOne := func(i int, node ast.Node) error {
 		if params[i].fn {
@@ -1203,6 +1232,7 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 				return err
 			}
 			fargs[valueIndex[i]] = f
+			trailing++
 		} else {
 			if what, isFn := fc.functionValueRead(node); isFn {
 				return fc.unsupported(fmt.Sprintf("%s: %s where a value is expected", paramWhere(params[i].name), what))
@@ -1210,6 +1240,9 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 			v, err := fc.compileExpr(node)
 			if err != nil {
 				return err
+			}
+			if trailing > 0 {
+				v, trailing = charged(trailing, v), 0
 			}
 			args = append(args, Arg{Param: valueIndex[i], Value: v})
 		}
@@ -1220,31 +1253,31 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 		for _, na := range n.NamedArgs {
 			i := paramIndex(names, na.Name)
 			if i < 0 {
-				return nil, nil, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, qnText(na.Name)))
+				return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, qnText(na.Name)))
 			}
 			if bound[i] {
-				return nil, nil, fc.unsupported(fmt.Sprintf("%s binds parameter %s twice", callee, names[i]))
+				return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s binds parameter %s twice", callee, names[i]))
 			}
 			if err := bindOne(i, na.Value); err != nil {
-				return nil, nil, err
+				return nil, nil, 0, err
 			}
 		}
 	} else {
 		if len(n.Args) != len(params) {
-			return nil, nil, fc.unsupported(fmt.Sprintf("%s takes %d arguments, %d given", callee, len(params), len(n.Args)))
+			return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s takes %d arguments, %d given", callee, len(params), len(n.Args)))
 		}
 		for i, a := range n.Args {
 			if err := bindOne(i, a); err != nil {
-				return nil, nil, err
+				return nil, nil, 0, err
 			}
 		}
 	}
 	for i, b := range bound {
 		if !b {
-			return nil, nil, fc.unsupported(fmt.Sprintf("%s: parameter %s is not bound", callee, names[i]))
+			return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s: parameter %s is not bound", callee, names[i]))
 		}
 	}
-	return args, fargs, nil
+	return args, fargs, trailing, nil
 }
 
 func paramIndex(params []string, name *ast.QualifiedName) int {

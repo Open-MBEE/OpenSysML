@@ -359,11 +359,21 @@ static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const cha
 	return s;
 }
 
+/* Spends a step, then an element, per element of an n-element range, failing
+   at the element where the interpreter's range does. */
+static void sysml_range_charge(sysml_int n) {
+	sysml_int room = sysml_max_steps - sysml_steps;
+	if (n > room && room <= sysml_max_elements - sysml_elements) sysml_step_fail();
+	sysml_charge(n);
+	sysml_steps += n;
+}
+
 static sysml_seq_int sysml_range(sysml_int lo, sysml_int hi) {
 	if (lo > hi) return sysml_many_int(0);
 	sysml_int n;
 	if (__builtin_sub_overflow(hi, lo, &n) || __builtin_add_overflow(n, 1, &n)) n = INT64_MAX;
-	sysml_seq_int r = sysml_many_int(n);
+	sysml_range_charge(n);
+	sysml_seq_int r = {SYSML_MANY, n, sysml_alloc((size_t)n * sizeof(sysml_int))};
 	for (sysml_int i = 0; i < n; i++) r.data[i] = lo + i;
 	return r;
 }
@@ -429,27 +439,6 @@ static inline uint64_t sysml_real_key(sysml_real r) {
 	if (r == 0) r = 0;
 	memcpy(&k, &r, sizeof k);
 	return k;
-}
-
-static void sysml_read_max_elements(void) {
-	const char *raw = getenv("OPENSYSML_MAX_ELEMENTS");
-	if (!raw) return;
-	const char *s = raw;
-	while (*s == ' ' || *s == '\t' || *s == '\n') s++;
-	if (!*s) return;
-	char *end;
-	errno = 0;
-	long long n = strtoll(s, &end, 10);
-	while (*end == ' ' || *end == '\t' || *end == '\n') end++;
-	if (*end || errno) {
-		fprintf(stderr, "OPENSYSML_MAX_ELEMENTS=\"%s\" is not an integer: set it to a positive number of collection elements (default %lld)\n", raw, (long long)SYSML_DEFAULT_MAX_ELEMENTS);
-		exit(2);
-	}
-	if (n <= 0) {
-		fprintf(stderr, "OPENSYSML_MAX_ELEMENTS=\"%s\" must be greater than zero: the budget is what stops a runaway run (default %lld)\n", raw, (long long)SYSML_DEFAULT_MAX_ELEMENTS);
-		exit(2);
-	}
-	sysml_max_elements = n;
 }
 `
 
@@ -560,9 +549,10 @@ func (e *cEmitter) sample(s Sample) string {
 	x := s.Body.Params[0]
 	var b strings.Builder
 	fmt.Fprintf(&b, "sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; ", dsfx, dom, rsfx, rng)
-	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; sysml_enter(); ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n)
-	fmt.Fprintf(&b, "for (sysml_int sysml_i = 0; sysml_i < sysml_s%d.len; sysml_i++) { %s %s = sysml_s%d.data[sysml_i]; %s sysml_v%d = %s; ", n, cType(x.Type), cLocal(x.Name), n, cType(s.Body.Body.Type()), n, e.expr(s.Body.Body))
-	fmt.Fprintf(&b, "sysml_push_%s(&%s, &sysml_c%d, %s); sysml_push_%s(&%s, &sysml_d%d, sysml_v%d); sysml_charge(1); } } sysml_leave();", dsfx, dom, n, cLocal(x.Name), rsfx, rng, n, n)
+	st := s.Steps
+	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; sysml_enter(); sysml_step(%d); ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n, st.Enter)
+	fmt.Fprintf(&b, "for (sysml_int sysml_i = 0; sysml_i < sysml_s%d.len; sysml_i++) { %s %s = sysml_s%d.data[sysml_i]; sysml_step(%d); %s sysml_v%d = %s; sysml_step(%d); ", n, cType(x.Type), cLocal(x.Name), n, st.Before, cType(s.Body.Body.Type()), n, e.expr(s.Body.Body), st.After)
+	fmt.Fprintf(&b, "sysml_push_%s(&%s, &sysml_c%d, %s); sysml_push_%s(&%s, &sysml_d%d, sysml_v%d); sysml_charge(1); } sysml_step(%d); } sysml_leave();", dsfx, dom, n, cLocal(x.Name), rsfx, rng, n, n, st.Done)
 	return b.String()
 }
 
@@ -670,6 +660,9 @@ func (e *cEmitter) fold(x Fold) string {
 	sfx := cSeqSuffix(elem)
 	var b strings.Builder
 	fmt.Fprintf(&b, "({ %s %s = %s; ", cType(x.Seq.Type()), seq, e.expr(x.Seq))
+	if x.Steps > 0 {
+		fmt.Fprintf(&b, "sysml_step(%d); ", x.Steps)
+	}
 	// bind opens the loop body with the parameters bound to args.
 	bind := func(args ...string) string {
 		var s strings.Builder
@@ -737,6 +730,7 @@ func (e *cEmitter) forEach(s ForEach) {
 	mark := e.arenaMark()
 	e.linef("for (sysml_int sysml_i = 0; sysml_i < %s.len; sysml_i++) {", seq)
 	e.indent++
+	e.linef("sysml_step(1);")
 	e.linef("%s %s = %s.data[sysml_i];", cType(elem), cLocal(s.Var), seq)
 	e.block(s.Body)
 	e.compact(escapingSeqs(s), mark)

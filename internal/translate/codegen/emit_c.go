@@ -15,6 +15,11 @@ const cAssign = "%s = %s;"
 
 // cPrelude is the runtime every generated C program carries: checked int64,
 // finite-only binary64, and the interpreter's once-rounded Integer quotient.
+// cBudgetDefines are the interpreter's budget defaults the C prelude reads.
+func cBudgetDefines() string {
+	return fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n#define SYSML_DEFAULT_MAX_STEPS %d\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps)
+}
+
 const cPrelude = `#include <errno.h>
 #include <inttypes.h>
 #include <locale.h>
@@ -48,6 +53,46 @@ static inline void sysml_enter(void) {
 }
 
 static inline void sysml_leave(void) { sysml_depth--; }
+
+static sysml_int sysml_steps;
+static sysml_int sysml_max_steps = SYSML_DEFAULT_MAX_STEPS;
+
+static void sysml_step_fail(void) __attribute__((noreturn));
+static void sysml_step_fail(void) {
+	static char msg[128];
+	sysml_steps = sysml_max_steps + 1;
+	snprintf(msg, sizeof msg, "evaluation step limit exceeded (%lld steps; raise OPENSYSML_MAX_STEPS to allow more)", (long long)sysml_max_steps);
+	sysml_fail(msg);
+	__builtin_unreachable();
+}
+
+/* Spends n evaluation steps of the run's budget. */
+static inline void sysml_step(sysml_int n) {
+	sysml_steps += n;
+	if (__builtin_expect(sysml_steps > sysml_max_steps, 0)) sysml_step_fail();
+}
+
+/* The positive budget the variable env sets, def when it is unset or blank. */
+static sysml_int sysml_read_budget(const char *env, const char *counts, sysml_int def) {
+	const char *raw = getenv(env);
+	if (!raw) return def;
+	const char *s = raw;
+	while (*s == ' ' || *s == '\t' || *s == '\n') s++;
+	if (!*s) return def;
+	char *end;
+	errno = 0;
+	long long n = strtoll(s, &end, 10);
+	while (*end == ' ' || *end == '\t' || *end == '\n') end++;
+	if (*end || errno) {
+		fprintf(stderr, "%s=\"%s\" is not an integer: set it to a positive number of %s (default %lld)\n", env, raw, counts, (long long)def);
+		exit(2);
+	}
+	if (n <= 0) {
+		fprintf(stderr, "%s=\"%s\" must be greater than zero: the budget is what stops a runaway run (default %lld)\n", env, raw, (long long)def);
+		exit(2);
+	}
+	return n;
+}
 
 static inline sysml_int sysml_add(sysml_int a, sysml_int b) {
 	sysml_int r;
@@ -421,7 +466,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
-	e.raw(fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n", runtime.DefaultMaxCalcDepth))
+	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
 	if p.Collections {
 		e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_ELEMENTS %d\n", runtime.DefaultMaxElements))
@@ -686,7 +731,7 @@ func (e *cEmitter) stmt(s Stmt) {
 		if e.collections {
 			mark = e.arenaMark()
 		}
-		e.linef("while (%s) {", e.expr(s.Cond))
+		e.linef("while ((sysml_step(1), %s)) {", e.expr(s.Cond))
 		e.indent++
 		e.block(s.Body)
 		until := ""
@@ -769,6 +814,8 @@ func (e *cEmitter) expr(x Expr) string {
 		return e.sequenced(argValues(x.Args), func(names []string) string {
 			return x.Op.cExpr(callOperands(x.Args, len(x.Op.Operands()), names))
 		})
+	case Steps:
+		return fmt.Sprintf("(sysml_step(%d), %s)", x.N, e.expr(x.X))
 	}
 	if s, ok := e.seqExpr(x); ok {
 		return s
@@ -934,6 +981,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("int sysml_run(%s%s *result) {", params, cType(fn.Result))
 	e.indent++
 	e.linef("sysml_depth = 0;")
+	e.linef("sysml_steps = 0;")
 	if e.collections {
 		e.linef("sysml_run_begin();")
 	}
@@ -942,9 +990,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	for i, p := range fn.Params {
 		args[i] = cLocal(p.Name)
 		if p.Type.Many() {
-			// The run holds its collection arguments throughout, as the interpreter
-			// holds the literals it evaluated them from.
-			e.linef("sysml_charge(%s.len);", args[i])
+			// The run holds its sequence arguments throughout, as the interpreter
+			// holds the sequence literals it evaluated them from.
+			e.linef("if (%s.shape == SYSML_MANY) sysml_charge(%s.len);", args[i], args[i])
 		}
 	}
 	e.linef("*result = %s(%s);", fn.Ident, strings.Join(args, ", "))
@@ -970,8 +1018,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("return 2;")
 	e.indent--
 	e.linef("}")
+	e.linef("sysml_max_steps = sysml_read_budget(\"OPENSYSML_MAX_STEPS\", \"evaluation steps\", SYSML_DEFAULT_MAX_STEPS);")
 	if e.collections {
-		e.linef("sysml_read_max_elements();")
+		e.linef("sysml_max_elements = sysml_read_budget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", SYSML_DEFAULT_MAX_ELEMENTS);")
 	}
 	for i, p := range fn.Params {
 		e.linef("%s %s = sysml_parse_%s(argv[%d], \"%s\");", cType(p.Type), cLocal(p.Name), cType(p.Type)[len("sysml_"):], i+1, p.Name)

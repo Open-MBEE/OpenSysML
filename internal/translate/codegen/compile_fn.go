@@ -401,16 +401,21 @@ type sampledFn struct {
 	onDemand   *Sample
 }
 
-// sampledRead is `Domain(s)` or `Range(s)` of the SampledFunction s holds.
-func (fc *funcCompiler) sampledRead(s *sampledFn, rangeRead bool) Expr {
+// sampledRead is `Domain(s)` or `Range(s)` of the SampledFunction s holds,
+// spending the step reading s where an attribute holds it.
+func (fc *funcCompiler) sampledRead(s *sampledFn, rangeRead, held bool) Expr {
 	read := Var{Name: s.dom, T: s.domT}
 	if rangeRead {
 		read = Var{Name: s.rng, T: s.rngT}
 	}
+	var x Expr = fc.projection(read)
 	if s.onDemand != nil {
-		return Sampled{S: *s.onDemand, In: fc.projection(read)}
+		x = Sampled{S: *s.onDemand, In: x}
 	}
-	return fc.projection(read)
+	if held {
+		return charged(1, x)
+	}
+	return x
 }
 
 const (
@@ -438,9 +443,12 @@ func (fc *funcCompiler) sampleCall(node ast.Node) (*ast.InvocationExpr, bool) {
 // samples to `[]`, as the library's collect does) and the range the
 // calculation at each, in order, failing at the first element that fails.
 func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
-	args, fargs, err := fc.bindArgs(n, sampleCalc, []paramDecl{{name: "calculation", fn: true}, {name: "domainValues"}})
+	args, fargs, trailing, err := fc.bindArgs(n, sampleCalc, []paramDecl{{name: "calculation", fn: true}, {name: "domainValues"}})
 	if err != nil {
 		return Sample{}, err
+	}
+	if trailing > 0 {
+		args[0].Value = fc.then(args[0].Value, trailing)
 	}
 	dom := args[0].Value
 	if dom.Type() == TypeNull {
@@ -462,8 +470,17 @@ func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
 		return Sample{}, fc.unsupported(fmt.Sprintf("Sample of a calc whose result is a %s, not a scalar", at.Type()))
 	}
 	fc.c.collections = true
-	return Sample{Dom: fc.temp(dom.Type()).Name, Rng: fc.temp(at.Type().Seq()).Name, Seq: dom, Body: Lambda{Params: []Param{x}, Body: at}}, nil
+	return Sample{Dom: fc.temp(dom.Type()).Name, Rng: fc.temp(at.Type().Seq()).Name, Seq: charged(1, dom), Body: Lambda{Params: []Param{x}, Body: at}, Steps: sampleSteps}, nil
 }
+
+// sampleSteps are the steps SampledFunctions::Sample's body spends: `new
+// SampledFunction(samples = domainValues->collect { in x; … })` on entry, `new
+// SamplePair(x, calculation(x))` before the calculation's own, each pair's
+// materialization after it, and the SampledFunction's once all are collected.
+var sampleSteps = SampleSteps{Enter: 4, Before: 4, After: 1, Done: 1}
+
+// projectionSteps are the steps Domain or Range spends reading `fn.samples.domainValue`.
+const projectionSteps = 3
 
 // temp is a fresh hidden local of type t.
 func (fc *funcCompiler) temp(t Type) Param {
@@ -475,7 +492,7 @@ func (fc *funcCompiler) temp(t Type) Param {
 // in seq: the library calc collects them into a fresh sequence, one frame deeper.
 func (fc *funcCompiler) projection(seq Var) Expr {
 	x := fc.temp(seq.T.Elem())
-	return Framed{X: Fold{Op: SeqCollect, Seq: seq, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: seq.T}}
+	return Framed{X: charged(projectionSteps, Fold{Op: SeqCollect, Seq: seq, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: seq.T})}
 }
 
 // compileSampledDeclare declares an attribute holding a SampledFunction, which
@@ -524,7 +541,7 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 			if b.sampled == nil {
 				return nil, fc.unsupported(fmt.Sprintf("%s of %s, which is not a SampledFunction", fqn, ref.Name.Parts[0].Text))
 			}
-			return fc.sampledRead(b.sampled, rangeRead), nil
+			return fc.sampledRead(b.sampled, rangeRead, true), nil
 		}
 	}
 	n, ok := fc.sampleCall(arg)
@@ -535,7 +552,7 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 	if err != nil {
 		return nil, err
 	}
-	return fc.sampledRead(sampledFnOf(sample, true), rangeRead), nil
+	return fc.sampledRead(sampledFnOf(sample, true), rangeRead, false), nil
 }
 
 // sampledFnOf is the SampledFunction the sample holds, taken once where declared or at each read.

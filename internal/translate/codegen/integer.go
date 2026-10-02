@@ -181,6 +181,8 @@ func unboundedIntExpr(x Expr) string {
 		return unboundedIntExprs(x.X)
 	case Sampled:
 		return unboundedIntExprs(x.S.Seq, x.S.Body.Body, x.In)
+	case Steps:
+		return unboundedIntExprs(x.X)
 	default:
 		return fmt.Sprintf("expression %T", x)
 	}
@@ -195,8 +197,8 @@ func unboundedIntBinary(x Binary) string {
 		if x.L.Type() != TypeInt {
 			return ""
 		}
-		l, lok := x.L.(IntLit)
-		r, rok := x.R.(IntLit)
+		l, lok := bare(x.L).(IntLit)
+		r, rok := bare(x.R).(IntLit)
 		if lok && rok && l.Big == nil && r.Big == nil {
 			res, err := semantics.IntArith(x.Op, semantics.IntValue(l.Value), semantics.IntValue(r.Value), semantics.DefaultMaxIntegerBits)
 			if _, fits := res.Int64(); err == nil && fits {
@@ -207,7 +209,7 @@ func unboundedIntBinary(x Binary) string {
 		if x.T != TypeInt {
 			return ""
 		}
-		if n, ok := x.R.(IntLit); ok && n.Big == nil && (n.Value == 0 || n.Value == 1) {
+		if n, ok := bare(x.R).(IntLit); ok && n.Big == nil && (n.Value == 0 || n.Value == 1) {
 			return ""
 		}
 	default:

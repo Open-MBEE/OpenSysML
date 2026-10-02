@@ -342,13 +342,24 @@ func sysmlRange(lo, hi sysmlInt) sysmlSeq[sysmlInt] {
 	if count.big == nil {
 		n = count.small
 	}
-	r := sysmlManySeq[sysmlInt](n)
+	sysmlRangeCharge(n)
+	r := sysmlSeq[sysmlInt]{sysmlMany, make([]sysmlInt, n)}
 	v := lo
 	for i := range r.data {
 		r.data[i] = v
 		v = sysmlAdd(v, sysmlI(1))
 	}
 	return r
+}
+
+// sysmlRangeCharge spends a step, then an element, per element of an
+// n-element range, failing at the element where the interpreter's range does.
+func sysmlRangeCharge(n int64) {
+	if room := sysmlMaxSteps - sysmlSteps; n > room && room <= sysmlMaxElements-sysmlElements {
+		sysmlStepFail()
+	}
+	sysmlCharge(n)
+	sysmlSteps += n
 }
 
 // sysmlWiden is the Real copy of an Integer collection, charged like any
@@ -464,23 +475,6 @@ func sysmlParseSeq[T sysmlElem](s, name string, elem func(string, string) T) sys
 	}
 	return r
 }
-
-func sysmlReadMaxElements() {
-	raw, ok := os.LookupEnv("OPENSYSML_MAX_ELEMENTS")
-	if !ok || strings.TrimSpace(raw) == "" {
-		return
-	}
-	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_ELEMENTS=%q is not an integer: set it to a positive number of collection elements (default %d)\n", raw, sysmlDefaultMaxElements)
-		os.Exit(2)
-	}
-	if n <= 0 {
-		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_ELEMENTS=%q must be greater than zero: the budget is what stops a runaway run (default %d)\n", raw, sysmlDefaultMaxElements)
-		os.Exit(2)
-	}
-	sysmlMaxElements = n
-}
 `
 
 // goElem is the Go element type of a collection.
@@ -546,7 +540,9 @@ func (e *goEmitter) sample(s Sample) string {
 	x := goLocal(s.Body.Params[0].Name)
 	var b strings.Builder
 	fmt.Fprintf(&b, "var %s = %s{sysmlMany, nil}; var %s = %s{sysmlMany, nil}; ", dom, goSeqType(s.DomType()), rng, goSeqType(s.RngType()))
-	fmt.Fprintf(&b, "{ s := %s; sysmlEnter(); for _, %s := range s.data { y := %s; sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlLeave() }", e.expr(s.Seq), x, e.expr(s.Body.Body), dom, x, rng)
+	st := s.Steps
+	fmt.Fprintf(&b, "{ s := %s; sysmlEnter(); sysmlStep(%d); for _, %s := range s.data { sysmlStep(%d); y := %s; sysmlStep(%d); sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlStep(%d); sysmlLeave() }",
+		e.expr(s.Seq), st.Enter, x, st.Before, e.expr(s.Body.Body), st.After, dom, x, rng, st.Done)
 	return b.String()
 }
 
@@ -646,6 +642,9 @@ func (e *goEmitter) fold(x Fold) string {
 	elem := goElem(x.Seq.Type())
 	var b strings.Builder
 	fmt.Fprintf(&b, "func() %s { s := %s; ", goType(x.T), e.expr(x.Seq))
+	if x.Steps > 0 {
+		fmt.Fprintf(&b, "sysmlStep(%d); ", x.Steps)
+	}
 	// bind opens the loop body with the parameters bound to args.
 	bind := func(args ...string) string {
 		var s strings.Builder
@@ -706,6 +705,7 @@ func (e *goEmitter) forEach(s ForEach) {
 	e.linef("}")
 	e.linef("for _, %s := range s.data {", goLocal(s.Var))
 	e.indent++
+	e.linef("sysmlStep(1)")
 	e.linef("_ = %s", goLocal(s.Var))
 	e.block(s.Body)
 	e.indent--

@@ -265,7 +265,8 @@ type Index struct {
 	Seq, I Expr
 }
 
-// RangeExpr is `Lo..Hi`, the Integers from Lo to Hi, empty when Lo > Hi.
+// RangeExpr is `Lo..Hi`, the Integers from Lo to Hi, empty when Lo > Hi; each
+// element spends a step, then is charged to the element budget.
 type RangeExpr struct{ Lo, Hi Expr }
 
 // SeqCall applies a collection operation (seqops.go) to operands in
@@ -284,18 +285,25 @@ type Lambda struct {
 	Body   Expr
 }
 
-// Fold applies a body operation (seqops.go) over the elements of Seq; T is
-// its result type.
+// Fold applies a body operation (seqops.go) over the elements of Seq, spending
+// Steps once Seq is evaluated; T is its result type.
 type Fold struct {
-	Op   SeqOp
-	Seq  Expr
-	Body Lambda
-	T    Type
+	Op    SeqOp
+	Seq   Expr
+	Steps int64
+	Body  Lambda
+	T     Type
 }
 
 // Framed evaluates X as the inlined body of a library calc: one frame
 // deeper against the recursion budget, left once X has answered.
 type Framed struct{ X Expr }
+
+// Steps spends N evaluation steps of the run's step budget, then evaluates X.
+type Steps struct {
+	N int64
+	X Expr
+}
 
 // Sampled takes the sample S for the duration of In, which reads S.Dom and
 // S.Rng as Vars.
@@ -333,6 +341,7 @@ func (s SeqCall) Type() Type  { return s.T }
 func (f Fold) Type() Type     { return f.T }
 func (f Framed) Type() Type   { return f.X.Type() }
 func (s Sampled) Type() Type  { return s.In.Type() }
+func (s Steps) Type() Type    { return s.X.Type() }
 
 // Stmt is a statement of a function body.
 type Stmt interface{ stmt() }
@@ -363,15 +372,15 @@ type If struct {
 }
 
 // While runs Body while Cond holds; Until, if set, is tested after each pass
-// and stops the loop when it holds.
+// and stops the loop when it holds. Each pass spends a step before Cond.
 type While struct {
 	Cond  Expr
 	Until Expr
 	Body  []Stmt
 }
 
-// ForEach runs Body once per element of Seq, bound to Var; a bare scalar
-// is not iterable and fails, as the interpreter's `for` does.
+// ForEach runs Body once per element of Seq, bound to Var, each pass spending
+// a step; a bare scalar is not iterable and fails, as the interpreter's `for` does.
 type ForEach struct {
 	Var  string
 	Seq  Expr
@@ -380,10 +389,18 @@ type ForEach struct {
 
 // Sample takes `Sample(f, Seq)` one frame deeper: Dom gets the domain values,
 // Rng Body at each in order, every sample charged as the interpreter's pair is.
+// Steps are spent on entering the frame, before and after Body at each
+// element, and once all are taken.
 type Sample struct {
 	Dom, Rng string
 	Seq      Expr
 	Body     Lambda
+	Steps    SampleSteps
+}
+
+// SampleSteps are the steps a Sample spends at each point of its library body.
+type SampleSteps struct {
+	Enter, Before, After, Done int64
 }
 
 // DomType and RngType are the collection types of Dom and Rng.

@@ -245,6 +245,11 @@ func failureClass(calc, msg string) string {
 			return class
 		}
 	}
+	// The step-limit error is compared whole, wherever in a nested call it surfaced.
+	if _, rest, ok := strings.Cut(msg, runtime.ErrStepLimitExceeded.Error()); ok {
+		line, _, _ := strings.Cut(rest, "\n")
+		return runtime.ErrStepLimitExceeded.Error() + line
+	}
 	msg = strings.TrimSpace(msg)
 	if _, rest, ok := strings.Cut(msg, "Compiled::"+calc+": "); ok {
 		msg = rest
@@ -273,6 +278,14 @@ func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure strin
 		t.Fatalf("%s%v: no value in %q", c.calc, c.args, v.Lines)
 	}
 	return "", failureClass(c.calc, strings.Join(verdictLines(v), "\n"))
+}
+
+// argumentsSpent reports whether the interpreter's run of c failed while still
+// evaluating its argument expressions.
+func argumentsSpent(t *testing.T, s *Session, c compiledCase) bool {
+	t.Helper()
+	v := s.RunCalc("Compiled::" + c.calc + "(" + strings.Join(c.args, ", ") + ")")
+	return v.Status != VerdictHolds && strings.Contains(strings.Join(v.Lines, "\n"), "evaluation of argument ")
 }
 
 // verdictLines is the verdict without its standing line, which no compiled program prints.
@@ -335,8 +348,8 @@ func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe
 	return true
 }
 
-// loadCompileFixture loads the fixture into a session whose step budget is
-// lifted: compiled code has none, so the oracle must run each case to its end.
+// loadCompileFixture loads the fixture into a session with the default budgets,
+// which a compiled program also defaults to.
 func loadCompileFixture(t testing.TB) *Session {
 	t.Helper()
 	data, err := os.ReadFile("testdata/compile_calcs.sysml")
@@ -346,11 +359,6 @@ func loadCompileFixture(t testing.TB) *Session {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(string(data)).Diagnostics); len(errs) > 0 {
 		t.Fatalf("fixture has errors: %v", errs)
-	}
-	budgets := runtime.DefaultBudgets()
-	budgets.MaxSteps = 1 << 40
-	if err := s.SetBudgets(budgets); err != nil {
-		t.Fatal(err)
 	}
 	return s
 }
@@ -453,7 +461,6 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			}
 			s := loadCompileFixture(t)
 			budgets := runtime.DefaultBudgets()
-			budgets.MaxSteps = 1 << 40
 			budgets.MaxElements = limit
 			if err := s.SetBudgets(budgets); err != nil {
 				t.Fatal(err)
@@ -513,6 +520,103 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 	}
 }
 
+// stepsTaken is the least step budget under which the interpreter answers c
+// without exceeding it, or false when that is above limit.
+func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, bool) {
+	t.Helper()
+	over := func(n int64) bool {
+		budgets := runtime.DefaultBudgets()
+		budgets.MaxSteps = n
+		if err := s.SetBudgets(budgets); err != nil {
+			t.Fatal(err)
+		}
+		_, failure := interpreted(t, s, c)
+		return strings.Contains(failure, runtime.ErrStepLimitExceeded.Error())
+	}
+	lo, hi := int64(0), int64(1)
+	for over(hi) {
+		if hi >= limit {
+			return 0, false
+		}
+		lo, hi = hi, min(2*hi, limit)
+	}
+	for hi-lo > 1 {
+		if mid := lo + (hi-lo)/2; over(mid) {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	return hi, true
+}
+
+// A compiled program spends the interpreter's steps: with OPENSYSML_MAX_STEPS
+// at the least budget the interpreter needs it answers as the interpreter
+// does, and one step fewer it fails with the interpreter's step-limit error.
+func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
+	const limit = 1 << 20
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := loadCompileFixture(t)
+			dir := t.TempDir()
+			exes := map[string]string{}
+			refused := map[string]bool{}
+			checked := 0
+			for _, c := range compiledCases {
+				if refused[c.calc] || (target == codegen.TargetC && beyondInt64(c.args)) {
+					continue
+				}
+				exe, built := exes[c.calc]
+				if !built {
+					exe = filepath.Join(dir, c.calc)
+					if !buildCalc(t, s, c.calc, target, exe) {
+						refused[c.calc] = true
+						continue
+					}
+					exes[c.calc] = exe
+				}
+				steps, ok := stepsTaken(t, s, c, limit)
+				if !ok {
+					continue
+				}
+				checked++
+				for _, budget := range []int64{steps, steps - 1} {
+					if budget == 0 {
+						continue
+					}
+					budgets := runtime.DefaultBudgets()
+					budgets.MaxSteps = budget
+					if err := s.SetBudgets(budgets); err != nil {
+						t.Fatal(err)
+					}
+					t.Setenv(runtime.MaxStepsEnvVar, strconv.FormatInt(budget, 10))
+					wantValue, wantFailure := interpreted(t, s, c)
+					if argumentsSpent(t, s, c) {
+						// A compiled program is given values, not argument expressions to evaluate.
+						continue
+					}
+					gotValue, gotFailure := compiledRun(t, exe, c)
+					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
+						continue
+					}
+					if gotValue != wantValue || gotFailure != wantFailure {
+						t.Errorf("%s(%s) with %d steps: compiled = (%q, %q), interpreted = (%q, %q)",
+							c.calc, strings.Join(c.args, ", "), budget, gotValue, gotFailure, wantValue, wantFailure)
+					}
+				}
+			}
+			if checked < len(compiledCases)/2 {
+				t.Errorf("only %d cases were checked against the step budget", checked)
+			}
+		})
+	}
+}
+
 // A C loop's memory is bounded by what it keeps live, not by how many passes
 // it makes: gigabytes of dead temporaries complete under a 64 MB limit.
 func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
@@ -533,7 +637,10 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 		if err := codegen.Build(program, codegen.TargetC, exe); err != nil {
 			t.Fatal(err)
 		}
-		out, err := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" "$1"`, exe, arg).CombinedOutput()
+		// The loops outrun the default step budget, which is not what is measured here.
+		cmd := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" "$1"`, exe, arg)
+		cmd.Env = append(os.Environ(), runtime.MaxStepsEnvVar+"=1000000000000")
+		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Errorf("%s(%s) under a 64 MB limit: %v\n%s", calc, arg, err, out)
 		}

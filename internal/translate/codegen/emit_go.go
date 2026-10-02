@@ -46,6 +46,45 @@ func sysmlEnter() {
 
 func sysmlLeave() { sysmlDepth-- }
 
+var (
+	sysmlSteps    int64
+	sysmlMaxSteps int64 = sysmlDefaultMaxSteps
+)
+
+// sysmlStep spends n evaluation steps of the run's budget.
+func sysmlStep(n int64) struct{} {
+	if sysmlSteps += n; sysmlSteps > sysmlMaxSteps {
+		sysmlStepFail()
+	}
+	return struct{}{}
+}
+
+func sysmlStepFail() {
+	sysmlSteps = sysmlMaxSteps + 1
+	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
+}
+
+// sysmlAfter is x, evaluated after the call giving its first argument.
+func sysmlAfter[T any](_ struct{}, x T) T { return x }
+
+// sysmlReadBudget is the positive budget the variable env sets, def when unset.
+func sysmlReadBudget(env, counts string, def int64) int64 {
+	raw, ok := os.LookupEnv(env)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return def
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s=%q is not an integer: set it to a positive number of %s (default %d)\n", env, raw, counts, def)
+		os.Exit(2)
+	}
+	if n <= 0 {
+		fmt.Fprintf(os.Stderr, "%s=%q must be greater than zero: the budget is what stops a runaway run (default %d)\n", env, raw, def)
+		os.Exit(2)
+	}
+	return n
+}
+
 // sysmlInt is an Integer, unbounded as KerML's are: small holds one within
 // int64 and big is nil, else big holds it. A result within int64 is always
 // small, so each Integer has one representation.
@@ -520,7 +559,7 @@ func sysmlFormat(v any) string {
 
 // sysmlRun invokes fn, converting a failed check into an error.
 func sysmlRun(fn func()) (err error) {
-	sysmlDepth = 0
+	sysmlDepth, sysmlSteps = 0, 0
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(sysmlError); ok {
@@ -540,7 +579,7 @@ func sysmlRun(fn func()) (err error) {
 func EmitGo(w io.Writer, p *Program) error {
 	e := &goEmitter{w: w, collections: p.Collections}
 	e.raw(goPrelude)
-	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\n", runtime.DefaultMaxCalcDepth))
+	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\nconst sysmlDefaultMaxSteps = %d\n\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps))
 	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\nconst sysmlMinMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
 	if p.Collections {
 		e.raw(fmt.Sprintf("const sysmlDefaultMaxElements = %d\n", runtime.DefaultMaxElements))
@@ -682,7 +721,7 @@ func (e *goEmitter) stmt(s Stmt) {
 		}
 		e.linef("}")
 	case While:
-		e.linef("for %s {", e.expr(s.Cond))
+		e.linef("for sysmlAfter(sysmlStep(1), %s) {", e.expr(s.Cond))
 		e.indent++
 		e.block(s.Body)
 		if s.Until != nil {
@@ -748,6 +787,8 @@ func (e *goEmitter) expr(x Expr) string {
 		})
 	case LibCall:
 		return e.call(x.Args, len(x.Op.Operands()), goType(x.Op.Result()), x.Op.goExpr)
+	case Steps:
+		return fmt.Sprintf("sysmlAfter(sysmlStep(%d), %s)", x.N, e.expr(x.X))
 	}
 	if s, ok := e.seqExpr(x); ok {
 		return s
@@ -852,8 +893,9 @@ func (e *goEmitter) main(fn *Func) {
 	e.linef("\tos.Exit(2)")
 	e.linef("}")
 	e.linef("sysmlReadMaxIntegerBits()")
+	e.linef("sysmlMaxSteps = sysmlReadBudget(\"OPENSYSML_MAX_STEPS\", \"evaluation steps\", sysmlDefaultMaxSteps)")
 	if e.collections {
-		e.linef("sysmlReadMaxElements()")
+		e.linef("sysmlMaxElements = sysmlReadBudget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", sysmlDefaultMaxElements)")
 	}
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
@@ -869,12 +911,12 @@ func (e *goEmitter) main(fn *Func) {
 	e.linef("var result %s", goType(fn.Result))
 	reset := ""
 	if e.collections {
-		// A run holds its collection arguments throughout, as the interpreter
-		// holds the literals it evaluated them from.
+		// A run holds its sequence arguments throughout, as the interpreter
+		// holds the sequence literals it evaluated them from.
 		reset = "sysmlElements = 0; "
 		for i, p := range fn.Params {
 			if p.Type.Many() {
-				reset += fmt.Sprintf("sysmlCharge(int64(len(%s.data))); ", args[i])
+				reset += fmt.Sprintf("if %s.shape == sysmlMany { sysmlCharge(int64(len(%s.data))) }; ", args[i], args[i])
 			}
 		}
 	}
