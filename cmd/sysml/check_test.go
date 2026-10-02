@@ -134,6 +134,29 @@ func TestCheckExitStatus(t *testing.T) {
 	rejectReport(t, undecided, "✗ Requirement Rover::touchdown failed")
 }
 
+func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
+	binary := buildCLI(t)
+	const clean = `package P { part def A; }`
+	got := check(t, binary, clean, "-self-check")
+	wantReport(t, got, 0, "Self-model check: ", ", 0 violations,")
+
+	jsonReport := check(t, binary, clean, "-self-check", "-json")
+	if jsonReport.status != 0 || !json.Valid([]byte(jsonReport.stdout)) ||
+		!strings.Contains(jsonReport.stdout, "Self-model check: ") {
+		t.Errorf("JSON self-check report status=%d is invalid or missing its summary:\n%s",
+			jsonReport.status, jsonReport.output())
+	}
+
+	const broken = `package P { part def A :> Missing; }`
+	failed := check(t, binary, broken, "-self-check")
+	if failed.status == 0 || !strings.Contains(failed.output(), "did not analyse cleanly; no check was made") {
+		t.Errorf("self-check ran on a model with errors (status %d):\n%s", failed.status, failed.output())
+	}
+	if strings.Contains(failed.output(), "Self-model check:") {
+		t.Errorf("self-check reported a verdict for a model with errors:\n%s", failed.output())
+	}
+}
+
 // rejectReport checks that a report does not say something, which is how wording
 // that contradicts the exit status is caught.
 func rejectReport(t *testing.T, got runOutcome, substrings ...string) {

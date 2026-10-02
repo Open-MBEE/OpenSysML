@@ -10,6 +10,32 @@
 identifiers, prefixes included (`w8c_`, `W10B…`); they name nothing outside the source tree, and a
 reader who only wants the verdicts can ignore them.
 
+## OpenSysML self-model validation
+
+The `SysMLValidation` standard-library package states 13 validation constraints as SysML
+constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
+applies each constraint to every reflectively classified element in the non-library workspace.
+The library currently states:
+
+- `validateFeaturePortionNotVariable`
+- `validateFeatureConstantIsVariable`
+- `validateFeatureEndNotDerivedAbstractCompositeOrPortion`
+- `validateFeatureEndIsConstant`
+- `validateAttributeUsageIsReference`
+- `validateAttributeUsageFeatures`
+- `validateAttributeDefinitionFeatures`
+- `validateEnumerationDefinitionIsVariation`
+- `validateReferenceUsageIsReference`
+- `validateEventOccurrenceUsageIsReference`
+- `validateControlNodeIsComposite`
+- `validatePortDefinitionOwnedUsagesNotComposite`
+- `validatePortUsageNestedUsagesNotComposite`
+
+Constraints whose OCL reads reflective features the current model does not derive are omitted
+from the library. If an included constraint cannot be evaluated because a reflective feature is
+unsupported or a metaclass is unavailable, the self-check reports that application as
+unevaluated rather than as a violation.
+
 The pilot validators name every constraint they check (`validateNamespaceDistinguishability`,
 `validateUsageType`, …), OpenSysML does not: its diagnostics are worded for the reader and its
 checks are grouped by pass, so before this census 157 of the pilot's names occurred nowhere in this repository. This

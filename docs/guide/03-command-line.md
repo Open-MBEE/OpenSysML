@@ -63,7 +63,7 @@ package MyModel {
 }
 ```
 
-Each flag may be repeated. `-instantiate` always runs first, whatever order the flags are
+Flags may be combined. `-instantiate` always runs first, whatever order the flags are
 written in, so the verdicts that follow apply to the object it created. The object is created
 whole — the parts nested in it whose types exhibit or perform behaviors are created and run
 with it — so an `-e` expression naming the usage or a feature under it (`-e "ctx.recv.got"`)
@@ -86,6 +86,11 @@ $ sysml -satisfy checks.sysml
   Required condition evaluated to false: sensor.reading <= sensor.threshold
   standing: violated (witnessed: 1 run under reverse)
 ```
+
+`-self-check` applies the 13 constraints in OpenSysML's `SysMLValidation` library to every
+reflectively classified element in the workspace. A clean run reports the number of checked
+elements and applications; constraints whose reflective features are not derived are counted
+as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
 
 The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
 of the evidence and what earned it. One run under the default schedule is *observed* evidence

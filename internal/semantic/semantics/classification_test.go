@@ -173,6 +173,85 @@ func TestClassificationOfASubjectFromAnotherIndexGeneration(t *testing.T) {
 	}
 }
 
+func TestMetaclassOfControlNodesAndEventOccurrences(t *testing.T) {
+	const src = `
+		package N {
+			action def A2 {
+				fork f2;
+				join j2;
+				merge m2;
+				decide d2;
+			}
+			action def A3 {
+				first start;
+				then fork f;
+			}
+			part def Q { event occurrence e2; }
+		}
+	`
+	m, root := buildModelWithStdlib(t, src)
+	n := sym(t, root, "N")
+	a2 := sym(t, n.Scope, "A2")
+	a3 := sym(t, n.Scope, "A3")
+	q := sym(t, n.Scope, "Q")
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{sym(t, a2.Scope, "f2"), "ForkNode"},
+		{sym(t, a2.Scope, "j2"), "JoinNode"},
+		{sym(t, a2.Scope, "m2"), "MergeNode"},
+		{sym(t, a2.Scope, "d2"), "DecisionNode"},
+		{sym(t, a3.Scope, "f"), "ForkNode"},
+		{sym(t, q.Scope, "e2"), "EventOccurrenceUsage"},
+	} {
+		meta := m.MetaclassOf(tc.sym)
+		if meta == nil || meta.Name != tc.want {
+			t.Errorf("%s metaclass = %v, want SysML::%s", tc.sym.Name, meta, tc.want)
+		}
+	}
+
+	event := sym(t, q.Scope, "e2")
+	if ref, ok := m.ReflectiveFeatureValue(event, "isReference"); !ok || !ref.Bool {
+		t.Errorf("event occurrence isReference = %v (present %t), want true", ref, ok)
+	}
+
+	p := parser.New(source.New("<classification>", []byte("@SysML::ActionUsage")))
+	filter, ok := p.ParseExpression().(*ast.OperatorExpr)
+	if len(p.Diagnostics) != 0 || !ok {
+		t.Fatalf("failed to parse action usage filter: %v", p.Diagnostics)
+	}
+	elementFilter := symbols.ElementFilter{Expr: filter, Scope: root, Span: filter.Span()}
+	for _, name := range []string{"f2", "j2", "m2", "d2"} {
+		if got, err := m.EvalElementFilter(elementFilter, sym(t, a2.Scope, name)); err != nil || !got {
+			t.Errorf("@SysML::ActionUsage for %s = %t, err=%v; want true", name, got, err)
+		}
+	}
+}
+
+func TestEnumerationUsageIsReferentialAndNonComposite(t *testing.T) {
+	const src = `
+		package E {
+			enum def Color { red; green; }
+		}
+	`
+	m, root := buildModelWithStdlib(t, src)
+	color := sym(t, sym(t, root, "E").Scope, "Color")
+	for _, name := range []string{"red", "green"} {
+		literal := sym(t, color.Scope, name)
+		meta := m.MetaclassOf(literal)
+		if meta == nil || meta.Name != "EnumerationUsage" {
+			t.Errorf("%s metaclass = %v, want SysML::EnumerationUsage", name, meta)
+		}
+		for feature, want := range map[string]bool{"isComposite": false, "isReference": true} {
+			got, ok := m.ReflectiveFeatureValue(literal, feature)
+			if !ok || got.Bool != want {
+				t.Errorf("%s.%s = %v (present %t), want %t", name, feature, got, ok, want)
+			}
+		}
+	}
+}
+
 // A body-local declaration is judged as itself: its name is unqualified, so a
 // top-level element of the same name must not answer for it.
 func TestClassificationOfABodyLocalNamesakeOfAnAnnotatedElement(t *testing.T) {

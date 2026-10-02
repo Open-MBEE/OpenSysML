@@ -1,0 +1,113 @@
+package repl
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
+	var files []SourceFile
+	for _, name := range []string{"self_model_m.sysml", "self_model_n.sysml"} {
+		text, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, SourceFile{Name: name, Text: string(text)})
+	}
+	s := NewSession()
+	result := s.SubmitFiles(files)
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixtures did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixtures have model errors")
+	}
+
+	verdicts := s.SelfCheck()
+	if len(verdicts) == 0 || verdicts[len(verdicts)-1].Status != VerdictHolds {
+		t.Fatalf("SelfCheck() = %+v, want a passing summary", verdicts)
+	}
+	counts := strings.Join(verdicts[len(verdicts)-1].Lines, "\n")
+	if !strings.Contains(counts, "Self-model check: ") || strings.Contains(counts, ", 0 violations,") == false {
+		t.Fatalf("summary = %q, want zero violations", counts)
+	}
+
+	_, stats := s.selfCheckWithCounts("SysMLValidation")
+	for constraint, want := range map[string]int{
+		"validateControlNodeIsComposite":                6,
+		"validateEventOccurrenceUsageIsReference":       2,
+		"validateEnumerationDefinitionIsVariation":      1,
+		"validatePortDefinitionOwnedUsagesNotComposite": 2,
+		"validateAttributeUsageIsReference":             7,
+	} {
+		got := 0
+		for name, count := range stats.applications {
+			if strings.HasSuffix(name, "::"+constraint) {
+				got = count
+			}
+		}
+		if got != want {
+			t.Errorf("%s applications = %d, want %d", constraint, got, want)
+		}
+	}
+	if stats.violations != 0 || stats.evaluationErrors != 0 {
+		t.Errorf("clean fixture produced %d violations and %d evaluation errors",
+			stats.violations, stats.evaluationErrors)
+	}
+}
+
+func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
+	const src = `
+		package T {
+			private import ControlFunctions::*;
+			private import SequenceFunctions::*;
+			constraint def rejectCompositeFeatures {
+				in element : KerML::Feature;
+				not element.isComposite;
+			}
+			constraint def inspectTypeSpecializations {
+				in element : KerML::Type;
+				element.ownedSpecialization->isEmpty();
+			}
+			part def P { part c; }
+		}
+	`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{{Name: "self_check.sysml", Text: src}})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("model has errors")
+	}
+
+	verdicts, stats := s.selfCheckWithCounts("T")
+	if stats.violations == 0 {
+		t.Fatal("false constraint produced no violation verdicts")
+	}
+	if stats.unevaluated == 0 {
+		t.Fatal("unsupported reflective feature was not counted as unevaluated")
+	}
+	if stats.evaluationErrors != 0 {
+		t.Fatalf("self-check had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	}
+	foundViolation, foundUnevaluated := false, false
+	for _, verdict := range verdicts {
+		joined := strings.Join(verdict.Lines, "\n")
+		if verdict.Status == VerdictFails && strings.Contains(joined, "rejectCompositeFeatures") &&
+			strings.Contains(joined, "T::P::c") && strings.Contains(joined, "self_check.sysml:") {
+			foundViolation = true
+		}
+		if strings.Contains(joined, "could not be evaluated") {
+			foundUnevaluated = true
+		}
+	}
+	if !foundViolation {
+		t.Fatalf("no source-located violation for composite feature: %+v", verdicts)
+	}
+	if !foundUnevaluated {
+		t.Fatalf("no unevaluated verdict: %+v", verdicts)
+	}
+}

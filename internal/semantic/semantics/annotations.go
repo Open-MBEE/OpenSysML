@@ -987,6 +987,23 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
+		return "EventOccurrenceUsage"
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.ForkNode:
+		return "ForkNode"
+	case *ast.JoinNode:
+		return "JoinNode"
+	case *ast.MergeNode:
+		return "MergeNode"
+	case *ast.DecisionNode:
+		return "DecisionNode"
+	case *ast.Usage:
+		if decl.IsEvent {
+			return "EventOccurrenceUsage"
+		}
+	}
 	switch sym.Kind {
 	case symbols.SymbolConnectorEnd:
 		return ConnectorEndMetaclassName(sym)
@@ -997,6 +1014,18 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case symbols.SymbolActionUsage:
 		if sym.DeclaresTransition() {
 			return usageMetaclassNames[ast.UsageTransition]
+		}
+	}
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeFork:
+			return "ForkNode"
+		case symbols.NodeJoin:
+			return "JoinNode"
+		case symbols.NodeMerge:
+			return "MergeNode"
+		case symbols.NodeDecision:
+			return "DecisionNode"
 		}
 	}
 	return metaclassName(sym.Kind)

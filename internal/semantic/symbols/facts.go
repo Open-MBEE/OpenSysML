@@ -123,6 +123,10 @@ const (
 	NodePrefixMetadata
 	NodeTransition
 	NodeOther
+	NodeFork
+	NodeJoin
+	NodeMerge
+	NodeDecision
 )
 
 // NodeKindOf classifies a declaring node.
@@ -156,6 +160,14 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodePrefixMetadata
 	case *ast.TransitionMember:
 		return NodeTransition
+	case *ast.ForkNode:
+		return NodeFork
+	case *ast.JoinNode:
+		return NodeJoin
+	case *ast.MergeNode:
+		return NodeMerge
+	case *ast.DecisionNode:
+		return NodeDecision
 	}
 	return NodeOther
 }
