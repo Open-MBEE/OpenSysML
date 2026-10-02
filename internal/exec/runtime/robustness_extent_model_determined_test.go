@@ -222,6 +222,44 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 	})
 
+	t.Run("a valueless structured binding shares one value", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			attribute def Point { attribute x : Integer = 1; }
+			attribute a : Point[1];
+			attribute b : Point[1];
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		same, err := evalIn(t, ctx, pkg.Scope, "a === b")
+		if err != nil {
+			t.Fatalf("a === b: %v", err)
+		}
+		if FormatValue(same) != "true" {
+			t.Fatalf("a === b = %s, want true: a structured value's binding shares the one it denotes", FormatValue(same))
+		}
+		got, err := evalIn(t, ctx, pkg.Scope, "a.x")
+		if err != nil {
+			t.Fatalf("a.x: %v", err)
+		}
+		if FormatValue(got) != "1" {
+			t.Fatalf("a.x = %s, want 1: the shared structured value carries its features", FormatValue(got))
+		}
+		aVal, err := evalIn(t, ctx, pkg.Scope, "a")
+		if err != nil {
+			t.Fatalf("a: %v", err)
+		}
+		bVal, err := evalIn(t, ctx, pkg.Scope, "b")
+		if err != nil {
+			t.Fatalf("b: %v", err)
+		}
+		if ids := heldObjects(aVal); !slices.Equal(ids, heldObjects(bVal)) || len(ids) != 1 {
+			t.Fatalf("a = %v, b = %v, want the class's one Point", ids, heldObjects(bVal))
+		}
+	})
+
 	t.Run("a class's materialized members honor every member's multiplicity", func(t *testing.T) {
 		src := `package test {
 			part def Car;

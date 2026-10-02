@@ -318,7 +318,8 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		// a valueless scalar binding leaves each member undetermined.
 		objectBearing := false
 		for _, member := range class.members {
-			if isOccurrenceUsage(member) || objectFeature(member) {
+			if ctx.namesOneObject(member) || ctx.namesObjects(member) ||
+				isOccurrenceUsage(member) || objectFeature(member) {
 				objectBearing = true
 				break
 			}
