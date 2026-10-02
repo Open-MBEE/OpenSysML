@@ -124,11 +124,12 @@ type StateExecutor struct {
 
 	// changeFired holds the change-triggered transitions already taken on a
 	// condition that has stayed true, so an unchanged one does not re-fire.
-	changeFired      map[*lower.Transition]bool
-	changeObserved   map[*lower.Transition]bool
-	changePending    map[*lower.Transition]bool
-	changeReads      map[*lower.Transition][]*FeatureValue
-	changeEvaluating bool
+	changeFired       map[*lower.Transition]bool
+	changeObserved    map[*lower.Transition]bool
+	changePending     map[*lower.Transition]bool
+	changeReads       map[*lower.Transition][]*FeatureValue
+	changeEvaluating  bool
+	hasChangeTriggers bool
 
 	// firingChange is the change-triggered transition being taken, whose latch the
 	// state entries it causes must leave alone.
@@ -270,6 +271,18 @@ func newStateExecutorOn(
 	self, occurrence *Instance,
 	graph *lower.StateGraph,
 ) *StateExecutor {
+	hasChangeTriggers := false
+	for _, transitions := range graph.Transitions {
+		for _, trans := range transitions {
+			if _, ok := trans.Trigger.(*ast.ChangeEvent); ok {
+				hasChangeTriggers = true
+				break
+			}
+		}
+		if hasChangeTriggers {
+			break
+		}
+	}
 	exec := &StateExecutor{
 		ctx:                ctx,
 		stateMachine:       stateMachine,
@@ -277,6 +290,7 @@ func newStateExecutorOn(
 		occurrence:         occurrence,
 		state:              StateReady,
 		graph:              graph,
+		hasChangeTriggers:  hasChangeTriggers,
 		nextEventID:        1,
 		eventQueue:         NewEventQueue(),
 		stateData:          make(map[string]Value),

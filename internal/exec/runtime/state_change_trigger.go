@@ -281,7 +281,7 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 }
 
 func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
-	if fv == nil || e.ctx.probes > 0 || e.changeEvaluating {
+	if !e.hasChangeTriggers || fv == nil || e.ctx.probes > 0 || e.changeEvaluating {
 		return
 	}
 	e.observeChangedValue(func(reads []*FeatureValue) bool {
@@ -290,7 +290,7 @@ func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
 }
 
 func (e *StateExecutor) observeStateDataWrite() {
-	if e.ctx.probes > 0 || e.changeEvaluating {
+	if !e.hasChangeTriggers || e.ctx.probes > 0 || e.changeEvaluating {
 		return
 	}
 	e.observeChangedValue(func([]*FeatureValue) bool { return true })

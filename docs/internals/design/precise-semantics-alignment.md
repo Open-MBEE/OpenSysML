@@ -812,10 +812,10 @@ case arises only through the referee's translation. `state_junction_no_way_throu
 `robustness_junction_exit_route_test.go`, and `robustness_junction_join_test.go`
 (`junction_after_choice_keeps_runtime_error`, `junction_cycle_keeps_runtime_error`,
 `junction_unevaluable_guard_keeps_runtime_error`). **agrees** since the decision. *Join 003*
-passes; *Junction 002* and *Junction 004* stay `fail` in the referee because their junction lies
-after the start state the translation needs (`emit.go:startTarget`), so the transition the
-runtime disables is that state's completion, not the compound transition PSSM disables (finding
-11, open decision 8). *Choice 005* traces the same reach
+passes, and so do *Junction 002* and *Junction 004* since the initial transition is written out
+of the region's named entry action: the junction is then the body's own entry route, and a
+transition whose entry would start a body through it is not enabled
+(`state_route.go:defaultEntryRoutesAvailable`), the compound transition PSSM disables. *Choice 005* traces the same reach
 from the other side — its junction on the composite's default entry is read before `T2(effect)`
 and the composite's entry — and is refused on its acting guards before the order is reached; see
 [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model).
@@ -1035,11 +1035,14 @@ duration` when the state is entered (a composite's timer counts from entering th
 (`state_time_trigger_restarts_on_re_entry`); units are converted to seconds
 (`state_time_trigger_test.go`). **agrees** (by exclusion).
 
-**SM40. Change triggers.** *v2/KerML:* §7.18.3 `accept when <condition>`, a `ChangeSignal`
-accepted when its condition becomes true; the project takes a rising edge. *Runtime:*
-`state_change_trigger.go` polls the conditions of the active configuration's transitions once
-per `runStep`, after the do round and before the queued occurrence, firing on a false-to-true
-edge through the same `dispatchInOrder` as a signal (`state_change_trigger_rising_edge`,
+**SM40. Change triggers.** *v2/KerML:* §7.18.3 `accept when <condition>`, `Triggers.kerml`
+`TriggerWhen`: a `ChangeSignal` sent when its condition changes from false to true, observed by
+`ObserveChange` after each completed feature write (`FeatureWritePerformance` assigns when its
+performance ends). *Runtime:* `feature_write_watch.go` re-evaluates, after every completed
+outermost write, the conditions of the active configuration's transitions whose read set the
+write touched, and `state_change_trigger.go` queues each rise and dispatches it once per
+`runStep`, after the do round and before the queued occurrence, through the same
+`dispatchInOrder` as a signal (`state_change_trigger_transient_rise`, `state_change_trigger_atomic_write`, (`state_change_trigger_rising_edge`,
 `state_change_trigger_event_order`, `state_change_trigger_autonomous`). **agrees** (by exclusion).
 
 **SM41. The shared clock: quiescence before time moves.** PSSM §2.3: a tool "may be limited to a
@@ -2555,7 +2558,12 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
       apart by the source performing nothing, which neither v2 nor PSSM does. The three stay
       `fail`, their reasons citing the language difference. Whether that difference takes a
       *differs because v2 differs* row — moving the three to `differs-by-design` through
-      `tools/referee/pssm/rows.go:TestRows` — is open decision 8.
+      `tools/referee/pssm/rows.go:TestRows` — was open decision 8. *Withdrawn*: the reading
+      that v2 cannot place the effect holds for the shorthand `EntryTransitionMember` only. A
+      transition out of a named entry action is a `TransitionUsage` performed as a
+      `NonStateTransitionPerformance`, its effect after the entry action and before the
+      target's entry, within the entry; the emitter spells the initial transition that way and
+      the three pass (see the referee record).
     - *History 001-C*'s first half is about the **pool's order** (SM10): PSSM
       generates a completion event as its source is entered and dispatches in generation order
       (§8.5.9), so the entry draw decides the pool's order, which `scheduleTransitionEvents`
@@ -2665,4 +2673,6 @@ Addressed to the maintainers; each gives the options and the lean.
    construct both languages have, and the runtime implements the v2 side; this one would name a construct
    v2 lacks, and a `differs-by-design` count that grows by three on a translation limit reads as
    conformance gained. The three reasons are precise and stable, and the bucket can be moved in a
-   change of its own if the maintainers read it otherwise.
+   change of its own if the maintainers read it otherwise. *Withdrawn*: the premise was the
+   shorthand's. A transition out of a named entry action carries an effect within the entry
+   (`TransitionPerformances.kerml` `NonStateTransitionPerformance`), and the three pass.

@@ -655,6 +655,14 @@ an empty `StatePerformance` and a completion like any other) and PSSM contradict
 event is dispatched after the step whatever the source performs). That is a special case of the
 translation's shape, not a semantics.
 
+*Since resolved for these three.* The spelling argument above holds for the shorthand
+`EntryTransitionMember` only. A transition out of a named entry action is a `TransitionUsage`
+whose source is an action, a `NonStateTransitionPerformance` (`TransitionPerformances.kerml`):
+it follows the entry action within the entry and runs its effect before the target's entry,
+which is the entry-unit row exactly. The emitter now writes the initial transition that way, the
+effect is a unit of its region's queue on the entry front, and *Entering 010*, *Entering 011* and
+*Junction 005* pass with no runtime rule about completions.
+
 **The first halves of the History tests are about the pool's order.** Both regions enter a
 silent state whose completion is enabled at once. PSSM's pool holds the two completion events in
 the order they were generated — §8.5.9, "a new `CompletionEventOccurrence` is placed into the

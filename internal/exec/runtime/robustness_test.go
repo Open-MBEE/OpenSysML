@@ -7991,7 +7991,7 @@ func testEntryTransitionCarriesATrigger(t *testing.T) {
 	if !errors.As(err, &shapeErr) {
 		t.Fatalf("expected EntryTransitionShapeError, got %v", err)
 	}
-	want := "create state executor: lower state machine: " + shapeErr.Error()
+	want := "create state executor: lower state machine: " + lower.EntryTransitionAccepterSourceMessage
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}

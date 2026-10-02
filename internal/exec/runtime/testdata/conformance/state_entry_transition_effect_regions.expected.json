@@ -28,5 +28,5 @@
       "outputs": {"log": {"type": "String", "value": "b-effect b-entry a-effect a-entry "}}
     }
   ],
-  "admissible": "Entry transitions in the regions of a parallel state: each effect precedes its own target's entry, the regions interleave"
+  "admissible": "Effects on the way into the regions of a parallel state: each precedes its own target's entry, the regions interleave"
 }
