@@ -19,9 +19,15 @@ const (
 )
 
 const (
-	transitionKeyword = "transition "
-	actionKeyword     = "action "
+	transitionKeyword   = "transition "
+	actionKeyword       = "action "
+	noInitialTargetForm = "the initial transition's target has no v2 form here"
 )
+
+// targetLiesIn opens the note for an initial transition whose target sits in region where.
+func targetLiesIn(target *sysmlv1.Element, where string) string {
+	return "its target " + describe(target) + " lies in " + where
+}
 
 func theTransition(t *sysmlv1.Element) string { return "the transition " + describe(t) }
 
@@ -974,7 +980,7 @@ func (s *stateRegion) initial(entered bool) {
 	tgt := s.m.model.Ref(t, "target")
 	to, ok := s.target(t, tgt)
 	if !ok {
-		s.m.unmapped(init, "the initial transition's target has no v2 form here")
+		s.m.unmapped(init, noInitialTargetForm)
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
@@ -1016,7 +1022,7 @@ func (s *stateRegion) initial(entered bool) {
 	} else {
 		here := s.m.regionLabel(s.r)
 		s.m.add(init, Approximated, "", "written as the entry of "+here+", which owns its target "+describe(tgt)+", not of "+s.m.regionLabel(e.donor)+", the orthogonal region that owns the pseudostate")
-		note = joinNotes(note, "its target "+describe(tgt)+" lies in "+here+", an orthogonal region of the pseudostate's, so it is written as the entry of "+here)
+		note = joinNotes(note, targetLiesIn(tgt, here)+", an orthogonal region of the pseudostate's, so it is written as the entry of "+here)
 	}
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), note)
 }
@@ -1052,15 +1058,15 @@ func (s *stateRegion) stray(st *strayInitial) {
 		if st.ownDonor != nil {
 			own = "whose entry, donated by " + s.m.regionLabel(st.ownDonor) + "'s initial pseudostate, enters " + describe(st.ownTarget)
 		}
-		why := "its target " + describe(st.target) + " lies in " + into + ", an orthogonal region " + own + "; that entry is kept"
-		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
+		why := targetLiesIn(st.target, into) + ", an orthogonal region " + own + "; that entry is kept"
+		s.m.unmapped(st.init, noInitialTargetForm)
 		s.m.unmapped(st.transition, why)
 		if s.m.strict {
 			s.refusedParts(st.transition, why)
 		}
 	case strayForeign:
-		why := "its target " + describe(st.target) + " lies in " + describe(st.into) + ", a region of " + describe(st.into.Parent) + " and no orthogonal region of the pseudostate's; an initial transition enters its own region"
-		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
+		why := targetLiesIn(st.target, describe(st.into)) + ", a region of " + describe(st.into.Parent) + " and no orthogonal region of the pseudostate's; an initial transition enters its own region"
+		s.m.unmapped(st.init, noInitialTargetForm)
 		s.m.unmapped(st.transition, why)
 		if s.m.strict {
 			s.refusedParts(st.transition, why)

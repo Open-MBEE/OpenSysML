@@ -398,6 +398,16 @@ func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
 // mermaidTitleLine is the height in pixels of one line of a subgraph title.
 const mermaidTitleLine = 24
 
+// The default theme's palette and the CSS fragments the classDefs are spelled with.
+const (
+	mermaidWhite  = "#FFFFFF"
+	mermaidInk    = "#181818"
+	mermaidStroke = ",stroke:"
+)
+
+// mermaidUnreadable is the note for a picture whose file does not read.
+const mermaidUnreadable = "the file does not read"
+
 // writeMermaidFrontmatter writes common and grammar-specific theme variables.
 func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller, options Options, ports portView) {
 	type themeVariable struct{ name, value string }
@@ -408,7 +418,7 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 		}
 	}
 	font, size := "Helvetica, Arial, sans-serif", "14px"
-	primary, primaryBorder, text, line, clusterBorder, noteFill, noteBorder := "#FFFFFF", "#181818", "#000000", "#181818", "#181818", "#FEFFDD", "#181818"
+	primary, primaryBorder, text, line, clusterBorder, noteFill, noteBorder := mermaidWhite, mermaidInk, "#000000", mermaidInk, mermaidInk, "#FEFFDD", mermaidInk
 	if options.Style == StyleCameo {
 		font, size = "Arial, Helvetica, sans-serif", "11px"
 		primary = strings.SplitN(cameoBlockFill, ":", 2)[0]
@@ -424,9 +434,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 		{"fontFamily", font},
 		{"fontSize", size},
 		{"primaryColor", primary},
-		{"secondaryColor", "#FFFFFF"},
-		{"tertiaryColor", "#FFFFFF"},
-		{"background", "#FFFFFF"},
+		{"secondaryColor", mermaidWhite},
+		{"tertiaryColor", mermaidWhite},
+		{"background", mermaidWhite},
 		{"primaryBorderColor", primaryBorder},
 		{"primaryTextColor", text},
 		{"lineColor", line},
@@ -438,17 +448,17 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	switch {
 	case r.Kind == KindState:
 		variables = append(variables,
-			themeVariable{"stateBkg", "#FFFFFF"},
-			themeVariable{"stateBorder", "#181818"},
+			themeVariable{"stateBkg", mermaidWhite},
+			themeVariable{"stateBorder", mermaidInk},
 			themeVariable{"stateLabelColor", "#000000"},
-			themeVariable{"compositeBackground", "#FFFFFF"},
-			themeVariable{"compositeBorder", "#181818"},
-			themeVariable{"compositeTitleBackground", "#FFFFFF"},
-			themeVariable{"compositeTitleBorder", "#181818"},
+			themeVariable{"compositeBackground", mermaidWhite},
+			themeVariable{"compositeBorder", mermaidInk},
+			themeVariable{"compositeTitleBackground", mermaidWhite},
+			themeVariable{"compositeTitleBorder", mermaidInk},
 			themeVariable{"transitionColor", line},
 			themeVariable{"transitionLabelColor", text},
-			themeVariable{"labelBackgroundColor", "#FFFFFF"},
-			themeVariable{"specialStateColor", "#181818"},
+			themeVariable{"labelBackgroundColor", mermaidWhite},
+			themeVariable{"specialStateColor", mermaidInk},
 		)
 	case r.Kind == KindSequence:
 		variables = append(variables,
@@ -468,9 +478,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 		)
 	default:
 		variables = append(variables,
-			themeVariable{"clusterBkg", "#FFFFFF"},
+			themeVariable{"clusterBkg", mermaidWhite},
 			themeVariable{"clusterBorder", clusterBorder},
-			themeVariable{"edgeLabelBackground", "#FFFFFF"},
+			themeVariable{"edgeLabelBackground", mermaidWhite},
 		)
 	}
 	for _, variable := range variables {
@@ -620,7 +630,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		if options.Style == StyleCameo {
 			fmt.Fprintf(b, "  classDef note fill:%s,stroke:%s\n", cameoNoteFill, cameoLineColor)
 		} else {
-			b.WriteString("  classDef note fill:#FEFFDD,stroke:#181818\n")
+			b.WriteString("  classDef note fill:#FEFFDD" + mermaidStroke + mermaidInk + "\n")
 		}
 		fmt.Fprintf(b, "  class %s note\n", strings.Join(uniqueNoteGroupIDs(flowchart.Notes), ","))
 	}
@@ -854,13 +864,10 @@ func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, op
 		var css string
 		if fills.filled(node) {
 			fill, border := fills.fill(node), fills.color(node)
-			css = "fill:" + fill + ",stroke:" + border
-		} else if options.Style == StyleCameo && (len(node.Children) == 0 || isMermaidDiamond(node.Kind)) && !isMermaidControl(node.Kind) {
+			css = "fill:" + fill + mermaidStroke + border
+		} else if options.Style == StyleCameo && (isMermaidDiamond(node.Kind) || (len(node.Children) == 0 && !isMermaidControl(node.Kind))) {
 			fill, border := cameoFill(node.Kind)
-			css = "fill:" + strings.SplitN(fill, ":", 2)[0] + ",stroke:" + border
-		} else if options.Style == StyleCameo && isMermaidDiamond(node.Kind) {
-			fill, border := cameoFill(node.Kind)
-			css = "fill:" + strings.SplitN(fill, ":", 2)[0] + ",stroke:" + border
+			css = "fill:" + strings.SplitN(fill, ":", 2)[0] + mermaidStroke + border
 		}
 		if css != "" {
 			class, ok := pairs[css]
@@ -880,7 +887,7 @@ func (r *Rendering) writeMermaidStyles(b *strings.Builder, fills familyFills, op
 		walk(root)
 	}
 	if control && !state {
-		b.WriteString("  classDef control fill:#181818,stroke:#181818\n")
+		b.WriteString("  classDef control fill:" + mermaidInk + mermaidStroke + mermaidInk + "\n")
 	}
 	for _, item := range definitions {
 		fmt.Fprintf(b, "  classDef %s %s\n", item.class, item.css)
@@ -1293,7 +1300,7 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 	path := picture.Path()
 	info, err := os.Stat(path)
 	if err != nil {
-		return "", "the file does not read", false
+		return "", mermaidUnreadable, false
 	}
 	if !info.Mode().IsRegular() {
 		return "", "the file is not a regular image", false
@@ -1304,7 +1311,7 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 	}
 	data, err := os.ReadFile(path) // #nosec G304 -- Mermaid pictures are intentionally loaded from their declared path.
 	if err != nil {
-		return "", "the file does not read", false
+		return "", mermaidUnreadable, false
 	}
 	if imagefile.ContentType(data) == "" {
 		return "", "the image type is not supported", false
@@ -1611,7 +1618,7 @@ func InlineMermaidImages(source, base string) string {
 		}
 		data, err := os.ReadFile(path) // #nosec G304 -- Mermaid pictures are intentionally loaded from their declared path.
 		if err != nil {
-			drop(i, location, "the file does not read")
+			drop(i, location, mermaidUnreadable)
 			continue
 		}
 		contentType := imagefile.ContentType(data)

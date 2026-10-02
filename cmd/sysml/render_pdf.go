@@ -8,7 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/graphviz"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/graphviz" // registers the Graphviz REPL commands
 )
 
 func init() {
