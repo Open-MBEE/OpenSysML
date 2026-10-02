@@ -500,6 +500,31 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	}
 }
 
+// A repeated performed action's image binds each copied behavior its own
+// occurrence: the run feature holds one distinct occurrence per performance.
+func TestHeldImageCarriesDistinctRepeatedOccurrences(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		part def Performer {
+			attribute visits : Integer = 0;
+			perform action run[2] {
+				action heard accept g : Integer;
+				first start then heard;
+			}
+		}
+	`
+	idx, _, src := buildRuntimeWithLibraries(t, "repeated-performer.sysml", parseAndBuild(t, source))
+	performer, err := src.Instantiate(resolveSymbol(t, idx.DocumentRoot("repeated-performer.sysml"), "Performer"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	assertDistinctRunOccurrences(t, src, performer)
+
+	dst := imageInto(t, src, performer)
+	copied, _ := dst.Instance(performer.ID)
+	assertDistinctRunOccurrences(t, dst, copied)
+}
+
 // lampMachine is the machine the bulb exhibits.
 func lampMachine(t *testing.T, bulb *Instance) *StateExecutor {
 	t.Helper()

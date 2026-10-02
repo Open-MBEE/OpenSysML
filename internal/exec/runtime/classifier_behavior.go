@@ -1171,32 +1171,44 @@ func (ctx *Context) performanceOccurrence(
 				sentinel, name, inst.ID, err)
 		}
 	}
-	if fv.HeldValue().Kind == ValInvalid {
+	held := fv.HeldValue()
+	var elements []Value
+	switch held.Kind {
+	case ValSequence:
+		elements = append(elements, held.Sequence().Elements()...)
+	case ValSet:
+		elements = append(elements, held.Set().Elements()...)
+	case ValInstance:
+		elements = append(elements, held)
+	}
+	// A performed action declared [n] holds an occurrence per performance: this
+	// performance materializes the one at its index when the feature holds
+	// fewer, the feature listing every occurrence so far in index order. A held
+	// value that is no occurrence at all is left to be reported below.
+	materializable := held.Kind == ValInvalid || len(elements) > 0
+	materialized := false
+	for int64(len(elements)) <= occurrenceIndex && materializable {
 		occurrence, err := ctx.materialize(behavior, 0, inst, name)
 		if err != nil {
 			return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
 				sentinel, name, inst.ID, err)
 		}
+		elements = append(elements, Value{Kind: ValInstance, Instance: occurrence.ID})
+		materialized = true
+	}
+	if materialized {
 		ctx.noteProbeWrite(fv)
 		before := ctx.beforeWrite(fv)
-		fv.Value = Value{Kind: ValInstance, Instance: occurrence.ID}
+		if len(elements) == 1 {
+			fv.Value = elements[0]
+		} else {
+			fv.Value = sequenceOf(elements)
+		}
 		fv.Materialized = true
 		ctx.afterWrite(fv, before)
-		return occurrence, nil
 	}
-	held := fv.HeldValue()
-	// A performed action declared [n] holds an occurrence per performance:
-	// this performance takes the one at its index in the feature's value.
-	if held.Kind == ValSequence || held.Kind == ValSet {
-		var elements []Value
-		if held.Kind == ValSequence {
-			elements = held.Sequence().Elements()
-		} else {
-			elements = held.Set().Elements()
-		}
-		if int64(len(elements)) > occurrenceIndex && elements[occurrenceIndex].Kind == ValInstance {
-			held = elements[occurrenceIndex]
-		}
+	if int64(len(elements)) > occurrenceIndex {
+		held = elements[occurrenceIndex]
 	}
 	id, ok := held.Object()
 	if !ok {

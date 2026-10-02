@@ -32,6 +32,22 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		if !errors.Is(err, ErrBindingConflict) {
 			t.Fatalf("execution error = %v, want ErrBindingConflict", err)
 		}
+		var conflict *BindingConflictError
+		if !errors.As(err, &conflict) {
+			t.Fatalf("execution error = %v, want *BindingConflictError", err)
+		}
+		if !strings.Contains(err.Error(), "y") {
+			t.Errorf("execution error = %q, want the pin named", err)
+		}
+		for _, held := range []Value{conflict.LeftValue, conflict.RightValue} {
+			if held.Kind != ValConst || held.Const.Kind != semantics.ValInt {
+				t.Fatalf("conflict ends = %v and %v, want the two performance outputs", conflict.LeftValue, conflict.RightValue)
+			}
+		}
+		got := map[int64]bool{conflict.LeftValue.Const.Int: true, conflict.RightValue.Const.Int: true}
+		if !got[1] || !got[2] {
+			t.Errorf("conflict ends = %v and %v, want the outputs 1 and 2 of the two performances", conflict.LeftValue, conflict.RightValue)
+		}
 	})
 
 	// A bind at a repeated step's in-pin takes a single value for every
@@ -140,6 +156,9 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 				}
 				if got := featureIntValue(t, ctx, inst, "count"); got != test.want {
 					t.Errorf("count = %d, want %d", got, test.want)
+				}
+				if test.want == 2 {
+					assertDistinctRunOccurrences(t, ctx, inst)
 				}
 			})
 		}
@@ -267,6 +286,51 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Errorf("total = %d, want 10", got)
 		}
 	})
+}
+
+// assertDistinctRunOccurrences checks a `perform action run[n]`'s part gives
+// each attached behavior its own performance occurrence: the `run` feature
+// holds one instance value per behavior, all distinct, matching what each
+// behavior's executor binds.
+func assertDistinctRunOccurrences(t *testing.T, ctx *Context, inst *Instance) {
+	t.Helper()
+	fv, err := inst.GetFeatureValue(ctx, "run")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(run): %v", err)
+	}
+	held := fv.HeldValue()
+	if held.Kind != ValSequence {
+		t.Fatalf("run = %v, want a sequence of performance occurrences", held)
+	}
+	elements := held.Sequence().Elements()
+	var runs []*ObjectBehavior
+	for _, behavior := range inst.Behaviors() {
+		if behavior.Name == "run" {
+			runs = append(runs, behavior)
+		}
+	}
+	if len(elements) != len(runs) {
+		t.Fatalf("run holds %d occurrence values against %d run behaviors", len(elements), len(runs))
+	}
+	seen := make(map[int64]bool, len(elements))
+	for i, element := range elements {
+		if element.Kind != ValInstance {
+			t.Fatalf("run[%d] = %v, want an occurrence instance", i, element)
+		}
+		if seen[element.Instance] {
+			t.Errorf("run[%d] repeats occurrence #%d", i, element.Instance)
+		}
+		seen[element.Instance] = true
+	}
+	for i, behavior := range runs {
+		if behavior.Action == nil || behavior.Action.occurrence == nil {
+			t.Fatalf("run behavior %d binds no occurrence", i)
+		}
+		if behavior.Action.occurrence.ID != elements[i].Instance {
+			t.Errorf("run behavior %d binds occurrence #%d, want #%d at its index in the run feature",
+				i, behavior.Action.occurrence.ID, elements[i].Instance)
+		}
+	}
 }
 
 // featureIntValue reads an integer-valued feature of an instance.

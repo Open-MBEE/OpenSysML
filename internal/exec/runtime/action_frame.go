@@ -784,8 +784,6 @@ func (f *actionFrame) repeatedPin(name string) (Value, error) {
 func (f *actionFrame) pin(name string) (Value, error) {
 	value, ok := f.data[f.key(name)]
 	if ok {
-		if value.Kind == ValSequence {
-		}
 		return value, nil
 	}
 	if f.declares(name) {
@@ -1312,8 +1310,6 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 			}
 			return err
 		}
-		if value.Kind == ValSequence {
-		}
 		if perf.repeatedStep() && !end.FromValue && valueMultiValued(value) {
 			return perf.repeatedBindError(end)
 		}
@@ -1362,7 +1358,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 				return &BindingConflictError{
 					Target:     end.pinText(),
 					Left:       bindingEndText(end.Other),
-					Right:      bindingEndText(end.Other),
+					Right:      end.pinText(),
 					LeftValue:  other,
 					RightValue: value,
 				}
