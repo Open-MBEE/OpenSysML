@@ -300,8 +300,8 @@ func readJSON(name string, data []byte, m *Map) ([]Row, error) {
 	if err := dec.Decode(&doc); err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	if dec.More() {
-		return nil, fmt.Errorf("%s: more than one JSON value; read JSON Lines as jsonl", name)
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, fmt.Errorf("%s: text follows the JSON value; read JSON Lines as jsonl", name)
 	}
 	records := doc
 	if m.Records != "" {
@@ -349,6 +349,9 @@ func readJSONLines(name string, data []byte, m *Map) ([]Row, error) {
 		var rec any
 		if err := dec.Decode(&rec); err != nil {
 			return nil, fmt.Errorf("%s: %w", where, err)
+		}
+		if _, err := dec.Token(); err != io.EOF {
+			return nil, fmt.Errorf("%s: a line holds one JSON value; text follows it", where)
 		}
 		keys, err := objectKeys(line)
 		if err != nil {

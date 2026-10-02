@@ -100,6 +100,18 @@ func TestReadJSON(t *testing.T) {
 	}
 }
 
+func TestReadJSONPathsConsumeTheirMembers(t *testing.T) {
+	m := &Map{Element: Field{Path: "/id", Prefix: "P::"}, Features: map[string]Field{"mass": {Path: "/m", UnitPath: "/u"}}}
+	rows, err := Read("r.json", []byte(`[{"id": "a", "m": 2, "u": "kg", "count": 1}]`), FormatJSON, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"P::a::mass=2[kg]@r.json record 1, /m", "P::a::count=1[]@r.json record 1, field count"}
+	if got := cells(rows); !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
 func TestReadErrors(t *testing.T) {
 	for name, tc := range map[string]struct {
 		data   string
@@ -116,6 +128,9 @@ func TestReadErrors(t *testing.T) {
 		"not an array":      {`{"element": "a"}`, FormatJSON, nil, "the records are not a JSON array"},
 		"nested value":      {`[{"element": "a", "perf": {"m": 1}}]`, FormatJSON, nil, "d record 1, field perf: the value is not a number"},
 		"bad json line":     {"{\"element\": \"a\"}\n{bad\n", FormatJSONL, nil, "d line 2:"},
+		"json line garbage": {"{\"element\": \"a\", \"n\": 1} GARBAGE\n", FormatJSONL, nil, "d line 1: a line holds one JSON value"},
+		"json line two":     {"{\"element\": \"a\"} {\"element\": \"b\"}\n", FormatJSONL, nil, "d line 1: a line holds one JSON value"},
+		"json trailing":     {"[{\"element\": \"a\"}]]", FormatJSON, nil, "d: text follows the JSON value"},
 		"unsupported as":    {"element\n", FormatCSV, &Map{As: "elements"}, `as "elements" is not supported`},
 	} {
 		t.Run(name, func(t *testing.T) {

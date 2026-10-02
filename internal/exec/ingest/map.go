@@ -166,6 +166,9 @@ func (m *Map) jsonFields(obj map[string]any, keys []string, elementKey string) (
 	for _, name := range m.Ignore {
 		consumed[name] = true
 	}
+	if head, ok := pointerHead(m.Element.Path); ok {
+		consumed[head] = true
+	}
 	var fields []jsonField
 	for _, feature := range sortedKeys(m.Features) {
 		f := m.Features[feature]
@@ -173,8 +176,11 @@ func (m *Map) jsonFields(obj map[string]any, keys []string, elementKey string) (
 		if f.Path == "" {
 			field.key = f.columnOr(feature)
 			consumed[field.key] = true
-		} else if segs := strings.Split(f.Path, "/"); len(segs) > 1 {
-			consumed[unescapePointer(segs[1])] = true
+		} else if head, ok := pointerHead(f.Path); ok {
+			consumed[head] = true
+		}
+		if head, ok := pointerHead(f.UnitPath); ok {
+			consumed[head] = true
 		}
 		if f.UnitColumn != "" {
 			field.unitPath = "/" + escapePointer(f.UnitColumn)
@@ -193,6 +199,15 @@ func (m *Map) jsonFields(obj map[string]any, keys []string, elementKey string) (
 		fields = append(fields, jsonField{feature: name, key: key, unit: unit})
 	}
 	return fields, nil
+}
+
+// pointerHead is the top-level member a JSON Pointer reads from.
+func pointerHead(p string) (string, bool) {
+	segs := strings.Split(p, "/")
+	if len(segs) < 2 || segs[0] != "" {
+		return "", false
+	}
+	return unescapePointer(segs[1]), true
 }
 
 func sortedKeys[V any](m map[string]V) []string {
