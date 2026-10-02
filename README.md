@@ -12,7 +12,7 @@
 [![PyPI](https://img.shields.io/pypi/v/opensysml?label=pypi)](https://pypi.org/project/opensysml/)
 [![Python versions](https://img.shields.io/pypi/pyversions/opensysml)](https://pypi.org/project/opensysml/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-opensysml.org-blue)](https://opensysml.org/)
+[![Documentation](https://img.shields.io/badge/docs-implementation.opensysml.org-blue)](https://implementation.opensysml.org/)
 
 OpenSysML is a SysML v2 and KerML 1.1 implementation in Go. It provides a language server, an
 interactive REPL, an execution runtime, an embeddable Go API, and Python, Node/TypeScript, Java
@@ -49,7 +49,7 @@ certification is claimed.
 **Introductory material:** [the guide](docs/guide/) and the
 [document generation manual](docs/manual/README.md)
 
-**Complete searchable documentation:** <https://opensysml.org/> — the same pages as
+**Complete searchable documentation:** <https://implementation.opensysml.org/> — the same pages as
 [docs/](docs/), rendered from `main`.
 
 ### Install
