@@ -238,6 +238,7 @@ nav:
       - Exact-rational evaluation: project/exact-rational-evaluation.md
       - Expansion regions: project/expansion-regions.md
       - Bitwise complement: project/bitwise-complement.md
+      - Constraint-body steps: project/constraint-body-steps.md
       - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
       - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md

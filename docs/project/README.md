@@ -61,6 +61,9 @@ within these records and means nothing outside this repository.
   can give it, adjudicated against the specification, the Kernel Function Library, the corpora
   and the pinned pilot, and closed abstract-only: the runtime keeps its typed refusal and the
   checker warns on every use
+- **[Constraint-body steps and the `all T` extent](constraint-body-steps.md)** — what a
+  constraint body's statements and the extent of a type mean, derived from KerML and SysML, what
+  the runtime executes, and what it leaves tool-defined or refuses
 - **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
   or exception propagation, adjudicated against the specifications, the library, the corpora and
   the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a
