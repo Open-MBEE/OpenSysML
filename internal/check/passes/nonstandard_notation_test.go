@@ -384,6 +384,8 @@ func TestDeclarationKeywordSpanSkipsPrefixMetadata(t *testing.T) {
 		{"a.sysml", "package P { metadata def 'class'; #'class' class C; }", "class"},
 		{"a.sysml", "package P { metadata def 'step'; #'step' #'step' step s; }", "step"},
 		{"a.kerml", "package P { metaclass 'part'; #'part' part def D; }", "part"},
+		{"a.sysml", "package P { metadata def M; #M::class class C; }", "class"},
+		{"a.kerml", "package P { metaclass M; #M::part part def D; }", "part"},
 	} {
 		_, _, got := notationDiagnostics(t, tc.file, tc.src)
 		if len(got) != 1 {

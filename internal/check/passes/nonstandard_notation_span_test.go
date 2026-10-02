@@ -55,3 +55,22 @@ func TestDeclarationKeywordSpanSkipsComments(t *testing.T) {
 		}
 	}
 }
+
+// A compound keyword (`assoc struct`) is spanned whole, however its words are
+// separated.
+func TestDeclarationKeywordSpanCoversCompoundKeyword(t *testing.T) {
+	for _, src := range []string{
+		"package P { part def X; part def Y; assoc struct A { end a : X; end b : Y; } }",
+		"package P { part def X; part def Y; assoc   struct A { end a : X; end b : Y; } }",
+	} {
+		_, _, got := notationDiagnostics(t, "a.sysml", src)
+		if len(got) != 1 {
+			t.Fatalf("%q: got %d diagnostics %+v, want 1", src, len(got), got)
+		}
+		at := strings.Index(src, "assoc")
+		want := source.Span{Offset: at, Len: strings.Index(src, "struct") + len("struct") - at}
+		if got[0].Span != want {
+			t.Errorf("%q: span = %+v, want %+v", src, got[0].Span, want)
+		}
+	}
+}

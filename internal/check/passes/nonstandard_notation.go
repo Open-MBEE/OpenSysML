@@ -777,29 +777,54 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 	})
 }
 
-// declarationKeywordSpan spans the kind keyword of a declaration: the first
-// keyword token spelling it, past modifiers (`abstract`, `in`), prefix
-// metadata whose quoted name repeats it (`#'class' class C;`) and comments.
-// Without the source text the span falls back to the word after the prefixes
-// the declaration opens with.
+// declarationKeywordSpan spans the kind keyword of a declaration: its first
+// keyword tokens spelling the (possibly compound) keyword outside any prefix
+// metadata, past modifiers (`abstract`, `in`), comments and prefix names that
+// repeat it (`#'class' class C;`, `#M::class class C;`). Without the source
+// text the span falls back to the word after the prefixes the declaration
+// opens with.
 func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
 	sp := n.Span()
-	word, _, _ := strings.Cut(keyword, " ")
+	prefixes, _, _ := ast.DeclaredMetadata(n)
 	if w.lookup != nil {
+		words := strings.Fields(keyword)
 		lx := lexer.New(source.New(w.doc, []byte(w.lookup(w.doc, sp))))
+		var span source.Span
+		matched := 0
 		for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
-			if tok.Kind == lexer.Keyword && tok.KeywordID == word {
-				return source.Span{Offset: sp.Offset + tok.Span.Offset, Len: tok.Span.Len}
+			if tok.IsTrivia() {
+				continue
+			}
+			at := source.Span{Offset: sp.Offset + tok.Span.Offset, Len: tok.Span.Len}
+			if tok.Kind != lexer.Keyword || tok.KeywordID != words[matched] || insidePrefixMetadata(prefixes, at) {
+				matched = 0
+				continue
+			}
+			if matched == 0 {
+				span = at
+			}
+			if matched++; matched == len(words) {
+				span.Len = at.End() - span.Offset
+				return span
 			}
 		}
 	}
-	if prefixes, _, _ := ast.DeclaredMetadata(n); len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
+	if len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
 		if end := prefixes[len(prefixes)-1].Span().End(); end < sp.End() {
 			sp.Len = sp.End() - end
 			sp.Offset = end
 		}
 	}
 	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
+}
+
+func insidePrefixMetadata(prefixes []*ast.PrefixMetadata, word source.Span) bool {
+	for _, pm := range prefixes {
+		if pm.Span().Contains(word) {
+			return true
+		}
+	}
+	return false
 }
 
 // keywordSpan spans the notation that opens a node, so the diagnostic points at
