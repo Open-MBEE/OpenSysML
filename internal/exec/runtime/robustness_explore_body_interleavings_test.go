@@ -19,6 +19,7 @@ func TestRuntimeRobustnessExploreBodyInterleavings(t *testing.T) {
 	t.Run("declared_and_reverse_keep_their_results", testBodyInterleavingsFixedPolicies)
 	t.Run("checker_finds_every_outcome", testBodyInterleavingsChecked)
 	t.Run("callee_executors_interleave", testBodyInterleavingsCallees)
+	t.Run("callees_touching_only_their_own_features_run_whole", testBodyInterleavingsOwnCallees)
 }
 
 // caseRun runs the case's one action under ctx and reports its outcome.
@@ -251,5 +252,20 @@ func testBodyInterleavingsCallees(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func testBodyInterleavingsOwnCallees(t *testing.T) {
+	m := conformanceModel(t, "action_explore_body_own_callees")
+	x := m.exploreAction(t, "explore", "OwnCallees")
+	if !x.Complete() {
+		t.Fatalf("exploration %s, want complete", x.Status())
+	}
+	got := featureValues(t, x, "sum")
+	if got = slices.Compact(got); !slices.Equal(got, []string{"5"}) {
+		t.Fatalf("sum over every schedule = %v, want [5]", got)
+	}
+	if runs := x.Runs; runs > 2 {
+		t.Errorf("explore took %d runs, want at most 2: the callees share nothing", runs)
 	}
 }

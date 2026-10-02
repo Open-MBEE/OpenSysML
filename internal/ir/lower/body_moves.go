@@ -1,6 +1,9 @@
 package lower
 
-import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
 
 // A leaf body's performance encloses its start shot, where its initial values and
 // inputs are read, and one assignment or other statement performance per statement.
@@ -69,8 +72,11 @@ func BodySharesMoves(graph *ActionGraph, node ast.Node) bool {
 }
 
 // FlowSharesMoves reports whether two or more moves of a performance of graph's flow,
-// its start shot and its subflows' moves included, may touch what another performance does.
+// its start shot and its subflows' moves included, may touch what another performance does;
+// the features the performance holds its own values of are not shared.
 func FlowSharesMoves(graph *ActionGraph) bool {
+	own := ownFeatures(graph)
+	touches := func(f Footprint) bool { return touchesShared(withoutPlaces(f, own)) }
 	shared := 0
 	b := &footprintBuilder{graph: graph, scope: graph.Scope, declared: declaredFeatures(graph)}
 	for _, attr := range graph.Attributes {
@@ -80,13 +86,13 @@ func FlowSharesMoves(graph *ActionGraph) bool {
 		}
 		b.reads(scope, attr.Value)
 	}
-	if touchesShared(b.footprint) {
+	if touches(b.footprint) {
 		shared++
 	}
 	var walk func(g *ActionGraph) bool
 	walk = func(g *ActionGraph) bool {
 		for _, n := range g.Nodes {
-			if touchesShared(g.Footprints()[n]) {
+			if touches(g.Footprints()[n]) {
 				shared++
 				if g.Multiplicities[n] != nil {
 					shared++
@@ -102,6 +108,32 @@ func FlowSharesMoves(graph *ActionGraph) bool {
 		return false
 	}
 	return walk(graph)
+}
+
+// ownFeatures are the symbols of the parameters and attributes graph's action declares.
+func ownFeatures(graph *ActionGraph) map[*symbols.Symbol]bool {
+	own := make(map[*symbols.Symbol]bool)
+	for _, attr := range graph.Attributes {
+		if sym := featureSymbol(graph.Scope, Feature{Name: attr.Name, Node: attr.Node}); sym != nil {
+			own[sym] = true
+		}
+	}
+	return own
+}
+
+// withoutPlaces drops from f the places resolving to one of syms.
+func withoutPlaces(f Footprint, syms map[*symbols.Symbol]bool) Footprint {
+	keep := func(places []Place) []Place {
+		var out []Place
+		for _, p := range places {
+			if p.Sym == nil || !syms[p.Sym] {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	f.Reads, f.Writes = keep(f.Reads), keep(f.Writes)
+	return f
 }
 
 // touchesShared reports whether a move may touch what another performance does: a

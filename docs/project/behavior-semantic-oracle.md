@@ -546,7 +546,9 @@ move, because every interleaving inside it only reorders independent moves. The 
 one leaf body keep declaration order, as the previous section records. A performance invoked in an
 executor of its own, under a body or a flow driven one move at a time, is analysed by its own
 flow: its start shot and each move that may touch what it does not hold (`lower.BodySharesMoves`,
-`lower.FlowSharesMoves`) are boundaries too.
+`lower.FlowSharesMoves`) are boundaries too. The parameters and attributes its definition declares
+are its performance's own, so moves touching only them are not boundaries
+(`action_explore_body_own_callees`: one outcome in two runs).
 
 Not covered: object behaviors, state machines and actions run by separate executors on one
 clock interleave by whole turns. The executor drawn to run at an instant runs until it has no

@@ -157,7 +157,8 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   driving it goes one move at a time, the callee's start shot is a boundary
   (`Context.startShotMove`), its own bodies divide where two of their moves may touch what they
   do not hold (`lower.BodySharesMoves`), and its flow pauses after each move when two of its
-  moves may (`lower.FlowSharesMoves`, `Context.tokenStepBody`). A pause inside a body-driven
+  moves may (`lower.FlowSharesMoves`, `Context.tokenStepBody`); the parameters and attributes
+  the callee's definition declares are its performance's own, not shared. A pause inside a body-driven
   token propagates to the body driving it. A seeded run whose step holds another token pauses
   there when `drawYield` says so (`Context.drawsTokenSteps`), so seeds reach those outcomes too.
 - **Executors on one clock.** Separate executors — object behaviors, state machines, actions
