@@ -33,6 +33,7 @@ func oneSignal() *Encoding {
 	return &Encoding{
 		Buffer: "keepDoor", Split: "keepDoorSplit", Flush: "flushDoor",
 		Including: "SequenceFunctions::including",
+		Keeper:    "MigrationMetadata::DeferredKeeper",
 		Signals: []Signal{{
 			Ref: "Door", Buffer: "deferredDoor", Item: "kept", Clear: "clearDoor",
 			Loops: []Loop{{Receive: "receiveDoor", Keep: "keepDoorOnce", Payload: "door", Accept: "Door"}},
@@ -49,7 +50,7 @@ func TestOneSignalOneRouteIsALoopWithNoFork(t *testing.T) {
 	want := `item deferredDoor : Door[*] ordered;
 do action keepDoor {
     first start then receiveDoor;
-    action receiveDoor accept door : Door;
+    #MigrationMetadata::DeferredKeeper action receiveDoor accept door : Door;
     then action keepDoorOnce { assign deferredDoor := SequenceFunctions::including(deferredDoor, receiveDoor.door); }
     then receiveDoor;
 }
@@ -92,10 +93,10 @@ do action keepDoor {
     then receiveDoor;
     then receiveDoorViaP;
     action work { }
-    action receiveDoor accept door : Door;
+    #MigrationMetadata::DeferredKeeper action receiveDoor accept door : Door;
     then action keepDoorOnce { assign deferredDoor := SequenceFunctions::including(deferredDoor, receiveDoor.door); }
     then receiveDoor;
-    action receiveDoorViaP accept door : Door via p;
+    #MigrationMetadata::DeferredKeeper action receiveDoorViaP accept door : Door via p;
     then action keepDoorViaP { assign deferredDoor := SequenceFunctions::including(deferredDoor, receiveDoorViaP.door); }
     then receiveDoorViaP;
 }

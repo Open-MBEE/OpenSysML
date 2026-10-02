@@ -274,7 +274,7 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
-| State `deferrableTrigger` on a SignalEvent | the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal, and the standard encoding described under [Deferred signals](#deferred-signals): an `item` buffer the state's do action fills from an accept loop while the state is active, substates included, which its exit action sends back to the object once the state is left; the same in both modes | approximated |
+| State `deferrableTrigger` on a SignalEvent | the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal, and the standard encoding described under [Deferred signals](#deferred-signals): an `item` buffer the state's do action fills from an accept loop, its accept marked `#MigrationMetadata::DeferredKeeper`, while the state is active, substates included, which its exit action sends back to the object once the state is left; the same in both modes | approximated |
 | State `deferrableTrigger` on a SignalEvent a transition out of the state itself accepts without a guard | the annotation alone by the routes the transition accepts by (all of them when its trigger names no port): in v1 the transition takes precedence over the deferral, so the signal is never kept there; a route the transition does not accept by, such as the object itself when the trigger names one port, keeps its accept loop. A transition on a general of the deferred signal accepts it too, as a v2 `accept` typed by the general does | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent a transition out of the state accepts under a guard, or a transition out of a substate accepts, or a transition accepts a specialization of | the standard encoding: the signal is kept while the guard is false or the substate inactive, or when the occurrence is not of the specialization, the transition taking it otherwise | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent the same state also defers a general of, or defers again by another trigger | the annotation alone by the routes the other deferral's accept loop accepts by: that loop keeps every occurrence of the signal already, and a loop of its own would keep each occurrence twice, the exit action then sending it twice | approximated (the note names the deferral that keeps it) |
@@ -1946,7 +1946,7 @@ state Off {
     item deferred : Door[*] ordered;
     do action buffer {
         first start then receive;
-        action receive accept kept : Door;
+        #MigrationMetadata::DeferredKeeper action receive accept kept : Door;
         then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
         then receive;
     }
@@ -2013,3 +2013,18 @@ so).
 The `@MigrationMetadata::DeferredEvent` annotation is written for every signal the state
 declares deferrable, kept or not, so a consumer sees what the state deferred without reading
 the encoding; `MigrationMetadata` is a bundled OpenSysML library the migrated document imports.
+
+The accept of each keeping loop is written
+`#MigrationMetadata::DeferredKeeper action receive accept kept : Sig;`. The annotation marks
+it as the accept that keeps the signal for the state rather than consuming it: the runtime
+lets any other accept of the signal the state's own do behavior is parked at take an
+occurrence first, and the loop keeps only what nothing else of the state takes. The keeper is
+known by the annotation's resolved type alone, never by where the accept stands, so an accept
+of the deferred signal written without it — at any level of the do action — is an ordinary
+accept. Output migrated before the marker existed wrote the loop's accept bare, so the checker
+reports an unmarked accept of a deferred signal at the root of a `DeferredEvent` state's do
+action, where no accept of that signal is marked, with the `deferred-keeper-unmarked` warning ([diagnostics](diagnostics.md#deferred-keeper-unmarked)):
+the model still analyses and runs, the accept consuming each occurrence rather than keeping it;
+re-migrate it, or write the marker on the accept. Both annotations are written through
+`$::MigrationMetadata` where a package of the
+model shadows the library's name.

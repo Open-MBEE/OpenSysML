@@ -1363,8 +1363,12 @@ func (d *deferrals) encoded() bool {
 	return len(d.kept) > 0
 }
 
-// deferredEventFQN names the library metadata marking a deferred signal.
-const deferredEventFQN = "MigrationMetadata::DeferredEvent"
+// deferredEventFQN names the library metadata marking a deferred signal;
+// deferredKeeperFQN the one marking the accept that keeps it for the state.
+const (
+	deferredEventFQN  = "MigrationMetadata::DeferredEvent"
+	deferredKeeperFQN = "MigrationMetadata::DeferredKeeper"
+)
 
 // deferrals reads a state's deferrable triggers: v2 defers the signal a
 // transition would accept, so no other event kind can be, and a signal a
@@ -1988,9 +1992,13 @@ func (s *stateRegion) encoding(v *sysmlv1.Element, d *deferrals) *deferred.Encod
 		Split:     d.split,
 		Flush:     writeName(d.flush),
 		Including: "SequenceFunctions::including",
+		Keeper:    deferredKeeperFQN,
 	}
 	if s.m.shadowsLibrary("SequenceFunctions", v) {
 		e.Including = "$::" + e.Including
+	}
+	if s.m.shadowsLibrary("MigrationMetadata", v) {
+		e.Keeper = "$::" + e.Keeper
 	}
 	for _, k := range d.kept {
 		sig := deferred.Signal{

@@ -70,3 +70,9 @@ func TestPassesGoldenCorpusNotation(t *testing.T) { runPassesGolden(t, "corpus_n
 // A multi-valued feature is unique unless declared nonunique: a const-decidable
 // repeat is a diagnostic, one only a run decides is left to the runtime.
 func TestPassesGoldenUniqueValues(t *testing.T) { runPassesGolden(t, "unique_values") }
+
+// An accept of a deferred signal at the root of a deferring state's do action
+// is the keeping loop only when marked DeferredKeeper: the unmarked one is
+// warned about, the marked one and an accept under a state deferring nothing
+// are not.
+func TestPassesGoldenDeferredKeeper(t *testing.T) { runPassesGolden(t, "deferred_keeper") }

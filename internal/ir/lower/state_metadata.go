@@ -17,8 +17,13 @@ var pseudostateMetadataFQN = map[string]ast.PseudostateKind{
 }
 
 // deferredEventMetadataFQN is the metadata definition a migration annotates a
-// state with for each signal the source state deferred.
-const deferredEventMetadataFQN = "MigrationMetadata::DeferredEvent"
+// state with for each signal the source state deferred; deferredKeeperMetadataFQN
+// the one marking the accept of the standard deferred-signal encoding that keeps
+// the signal for the state.
+const (
+	deferredEventMetadataFQN  = "MigrationMetadata::DeferredEvent"
+	deferredKeeperMetadataFQN = "MigrationMetadata::DeferredKeeper"
+)
 
 // DeferredSignal is one signal a state defers, as a DeferredEvent annotation on
 // the state names it: `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }`.
@@ -121,30 +126,30 @@ func pseudostateAnnotationKeyword(kind ast.PseudostateKind) string {
 	}
 }
 
-// recordDeferred records the signals a state's declaration defers through its
-// DeferredEvent annotations, read in the state's body scope, where they were written.
-func (g *StateGraph) recordDeferred(state *ast.StateNode, scope *symbols.Scope) {
-	usage, ok := g.declOf[state].(*ast.Usage)
-	if !ok {
-		return
+// IsDeferredKeeper reports whether an accept node carries a DeferredKeeper
+// annotation, read in the scope the node was written in. Detection is by
+// resolved annotation type, never by the annotation's spelling.
+func IsDeferredKeeper(resolver *resolve.Resolver, scope *symbols.Scope, node *ast.Usage) bool {
+	for _, a := range semantics.MetadataAnnotationsOf(node) {
+		if symbols.FQNOf(annotationSymbol(resolver, scope, node, a)) == deferredKeeperMetadataFQN {
+			return true
+		}
 	}
-	if deferred := deferredSignalsOf(g.resolver, scope, usage); len(deferred) > 0 {
-		g.Deferred[state] = deferred
-	}
+	return false
 }
 
-// deferredSignalsOf reads the signals a state usage defers: one per DeferredEvent
-// annotation whose body types its `signal`, in declaration order. Detection is
-// by resolved annotation type, never by the annotation's spelling.
-func deferredSignalsOf(resolver *resolve.Resolver, scope *symbols.Scope, usage *ast.Usage) []DeferredSignal {
+// DeferredSignals reads the signals a state usage defers, for the scope it was
+// written in: one per DeferredEvent annotation whose body types its `signal`,
+// in declaration order, each with the state's body scope, where the body reads.
+// Detection is by resolved annotation type, never by the annotation's spelling.
+func DeferredSignals(resolver *resolve.Resolver, scope *symbols.Scope, usage *ast.Usage) []DeferredSignal {
 	var deferred []DeferredSignal
 	for _, a := range semantics.MetadataAnnotationsOf(usage) {
-		sym := annotationSymbolIn(resolver, []*symbols.Scope{scope}, a)
-		if symbols.FQNOf(sym) != deferredEventMetadataFQN {
+		if symbols.FQNOf(annotationSymbol(resolver, scope, usage, a)) != deferredEventMetadataFQN {
 			continue
 		}
 		if signal := deferredSignalType(a.Node); signal != nil {
-			deferred = append(deferred, DeferredSignal{Type: signal, Scope: scope})
+			deferred = append(deferred, DeferredSignal{Type: signal, Scope: childScope(scope, usage)})
 		}
 	}
 	return deferred
@@ -161,14 +166,7 @@ func deferredSignalType(node *ast.PrefixMetadata) *ast.QualifiedName {
 		if name, _ := ast.EffectiveName(u); name != "signal" {
 			continue
 		}
-		for _, rel := range u.Relationships {
-			if rel == nil || rel.Kind != ast.RelTyping {
-				continue
-			}
-			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-				return qn
-			}
-		}
+		return typingTarget(u)
 	}
 	return nil
 }
