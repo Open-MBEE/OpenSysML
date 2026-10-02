@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"trace": true,
+	"finalState": "done",
+	"outputs": {
+		"total": {"type": "Integer", "value": 111},
+		"seen": {"type": "Integer", "value": 11},
+		"cRuns": {"type": "Integer", "value": 1},
+		"doneA": {"type": "Boolean", "value": true},
+		"doneB": {"type": "Boolean", "value": true}
+	}
+}

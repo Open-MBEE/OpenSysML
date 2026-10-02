@@ -1,0 +1,4 @@
+{
+	"verdict": "no violation, exhaustive",
+	"agreed": {"total": "111", "seen": "11", "cRuns": "1", "doneA": "true", "doneB": "true"}
+}

@@ -56,7 +56,7 @@ const analysisModel = `
 			subject s : Ship;
 			first a;
 			action a { out v : Real = s.cost; }
-			action stranded;
+			ref action stranded;
 			action b { out w : Real = a.v; }
 			join sync;
 			succession first a then sync;
@@ -103,7 +103,7 @@ func TestAnalysisRobustness(t *testing.T) {
 	t.Run("step_budget", testAnalysisStepBudget)
 	t.Run("cyclic_successions", testAnalysisCyclicSuccessions)
 	t.Run("deadlocked_body", testAnalysisDeadlockedBody)
-	t.Run("flow_with_no_start", testAnalysisFlowWithNoStart)
+	t.Run("unordered_steps", testAnalysisUnorderedSteps)
 	t.Run("not_an_analysis", testAnalysisNotAnAnalysis)
 }
 
@@ -339,22 +339,17 @@ func testAnalysisCyclicSuccessions(t *testing.T) {
 	}
 }
 
-// testAnalysisFlowWithNoStart: two steps no succession leads to leave the start
-// unstated; the flow is reported invalid, naming both.
-func testAnalysisFlowWithNoStart(t *testing.T) {
+// testAnalysisUnorderedSteps: two steps no succession leads to are both performed
+// as the case starts, and the step both precede runs after the two.
+func testAnalysisUnorderedSteps(t *testing.T) {
 	ctx, idx, sym := analysisRuntime(t, "test::Unstarted")
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
-	_, err := ctx.RunAnalysis(sym, AnalysisArgs{Subject: ship}, nil, nil)
-	if err == nil {
-		t.Fatal("a flow with no start ran to completion")
+	result, err := ctx.RunAnalysis(sym, AnalysisArgs{Subject: ship}, nil, nil)
+	if err != nil {
+		t.Fatalf("run: %v", err)
 	}
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
-	}
-	for _, want := range []string{"test::Unstarted", `"a"`, `"b"`, "'first'"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not mention %s", err, want)
-		}
+	if len(result.Outputs) != 1 || FormatValue(result.Outputs[0].Value) != "12.0" {
+		t.Fatalf("outputs = %v, want 12.0: c reads a.v + b.w after both ran", result.Outputs)
 	}
 }
 

@@ -1,0 +1,40 @@
+exit: start
+enter: busy
+transition: start -> busy
+do: busy
+stmt action body
+enter action node: state behavior buffer
+enter action node: work
+do: busy
+materialize: Ping #1
+  stmt assign heard
+      eval feature heard -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+leave action node: work
+do: busy
+materialize: Ping #2
+  stmt assign deferred
+      enter calc SequenceFunctions::including
+        eval feature deferred -> ()
+        eval chain kept -> instance#2
+        bind seq = () [argument]
+        bind values = instance#2 [argument]
+      exit calc SequenceFunctions::including -> (instance#2)
+    eval invoke SequenceFunctions::including -> (instance#2)
+exit: busy (exit action)
+stmt action body
+enter action node: state behavior flush
+  stmt for kept
+    eval feature deferred -> (instance#2)
+    iteration 1
+      stmt send
+        eval feature kept -> instance#2
+  stmt assign deferred
+    eval null -> null
+leave action node: state behavior flush
+enter: ready
+transition: busy -> ready (event: accept Go)
+exit: ready
+enter: done
+transition: ready -> done (event: accept Ping)

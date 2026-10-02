@@ -1,0 +1,13 @@
+materialize: panel #1
+start: exhibited state machine quick of #1
+materialize: quick #2
+enter: done
+enter: idle (entry action)
+stmt action body
+  stmt send
+materialize: Ping #3
+  eval literal 1 -> 1
+eval index -> 1 [s]
+exit: idle
+enter: armed
+transition: idle -> armed (event: time)

@@ -1,0 +1,10 @@
+materialize: panel #1
+enter: idle (entry action)
+stmt action body
+  stmt send
+materialize: Ping #2
+  eval literal 1 -> 1
+eval index -> 1 [s]
+exit: idle
+enter: armed
+transition: idle -> armed (event: time)

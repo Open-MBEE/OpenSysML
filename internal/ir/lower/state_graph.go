@@ -34,6 +34,10 @@ type StateGraph struct {
 	// executable statements by the time it is reached.
 	Behaviors map[*ast.StateNode]*StateBehaviors
 
+	// Deferred: state → the signals it defers, as the DeferredEvent annotations
+	// its declaration carries name them; absent for a state deferring none.
+	Deferred map[*ast.StateNode][]DeferredSignal
+
 	// HiddenStates are graph-only composite owners synthesized for parallel
 	// regions. They execute behaviors but are not user-visible state visits.
 	HiddenStates map[*ast.StateNode]bool
@@ -636,6 +640,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		endpoints:            endpoints,
 		StateScopes:          make(map[*ast.StateNode]*symbols.Scope),
 		Behaviors:            make(map[*ast.StateNode]*StateBehaviors),
+		Deferred:             make(map[*ast.StateNode][]DeferredSignal),
 		HiddenStates:         make(map[*ast.StateNode]bool),
 		HiddenRegionOf:       make(map[*ast.StateNode]*ast.StateRegion),
 		RegionState:          make(map[*ast.StateRegion]*ast.StateNode),
@@ -889,6 +894,7 @@ func collectStates(graph *StateGraph, state *ast.StateNode, parent *ast.StateNod
 	graph.recordDecl(state)
 	graph.StateScopes[state] = scope
 	graph.Behaviors[state] = graph.lowerStateBehaviors(state, scope)
+	graph.recordDeferred(state, scope)
 	if parent != nil {
 		graph.ParentState[state] = parent
 	}

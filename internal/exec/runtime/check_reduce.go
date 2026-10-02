@@ -211,8 +211,10 @@ func (c *checker) reach(graph *lower.ActionGraph, node ast.Node) lower.Footprint
 		}
 		seen[n] = true
 		future = unionFootprints(future, graph.Footprints()[n])
-		if sub, owns := graph.Subflows[n]; owns && sub != nil && sub.Graph != nil && sub.Graph.Initial != nil {
-			future = unionFootprints(future, c.reach(sub.Graph, sub.Graph.Initial))
+		if sub, owns := graph.Subflows[n]; owns && sub != nil && sub.Graph != nil {
+			for _, start := range sub.Graph.Starts() {
+				future = unionFootprints(future, c.reach(sub.Graph, start))
+			}
 		}
 		for _, edge := range graph.Edges[n] {
 			work = append(work, edge.Target)
