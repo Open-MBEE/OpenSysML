@@ -138,8 +138,9 @@ An edge is labelled by its own text when it has any, and by its name only when i
 [g] / act`; a succession's its guard and probability, `[g] p = 0.5`; a flow's the pins or the
 payload it carries, `out to in`, `of Water`; and a connection's the name, else the declared type,
 else the keyword. A flow between named pins also records the pins as its ends (`Edge.FromPort`,
-`Edge.ToPort`, the IDs of the nodes' `Ports`), so a writer that draws the pins on the action's
-border attaches the flow to them and leaves the `out to in` text off; a writer that does not
+`Edge.ToPort`, the IDs of the nodes' `Ports`), as does a parameter binding between two pins
+(`bread = b`), so a writer that draws the pins on the action's
+border attaches the edge to them and leaves the `out to in` text off; a writer that does not
 keeps the text. An interconnection's connector at a port records the port the same way and keeps
 its label in every form, the port naming only where it attaches. A named edge with none of that — a completion transition, a plain succession, a
 binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
@@ -279,7 +280,18 @@ digraph "VehicleViews::vehicleView" {
   `entry` and `exit` are its behaviours, drawn in its compartment.
 - **Action pins.** An action node's directed parameters and its bound result are its `Ports`
   (`actionPorts`, `inheritedPorts` in `behavior.go`: what it declares, then what its type gives
-  it, and a pin a flow names that neither declared). A boxed node's pins are nodes of their own,
+  it, and a pin a flow names that neither declared). The rendered action's own parameters
+  (`ActionGraph.Parameters`) are the `Ports` of its root node the same way, the frame's pins,
+  `in` and `inout` on the frame's input side and `out`/`return` on the output side, as the
+  specification's action-flow notation sets an action definition's parameters on its frame. A
+  parameter binding — a node's pin valued by a name (`ActionGraph.ValueBindings`: `in b =
+  bread;`, `in b = ToastBread::bread;`, `in t = heat.t;`, `out x :>> x = y;`) or an explicit
+  `bind` with an end at a pin (`ActionGraph.Bindings`: `bind pack.boxed = toast;`, `bind heat.t
+  = pack.t;`) — is an `EdgeBinding` between the two pins (`bindingEdges`), `FromPort`/`ToPort`
+  set, running the way the values go: from the frame's input or a node's output to the pin that
+  takes them. A binding whose other end is no drawn pin (`PinBinding.OtherParameter` and
+  `OtherNode` both empty: a literal, an expression, an attribute) draws nothing and raises no
+  notice; it states a value, not a wire. A boxed node's pins are nodes of their own,
   `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
   fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
   beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
@@ -295,7 +307,16 @@ digraph "VehicleViews::vehicleView" {
   row of squares above the head for the inputs and below it for the outputs, and a flow ends at
   the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
-  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
+  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside. The
+  frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
+  root cluster). The text form lists a node's pins under it by direction and name (`in bread`)
+  and names the pins an edge joins as its ends (`heat.t => pack.t`, `ToastBread.bread ==
+  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart draws the
+  pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and names the rest in a `not
+  represented` notice, `N pin(s) not drawn (…); a flowchart draws the pins an edge ends at`.
+  PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps its label
+  naming the pins (`n0 -- n1 : bread = b`) and every pin is named in a `not represented` notice,
+  `N pin(s) not drawn (…); PlantUML's state grammar has no pin, so the edges name them`.
 - **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
   definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
   `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members

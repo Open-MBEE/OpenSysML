@@ -26,6 +26,7 @@ config:
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
+%% not represented: 1 pin(s) not drawn (provide.fuel); a flowchart draws the pins an edge ends at
 flowchart TD
   subgraph n0 ["`*«action def»*
 **Drive**`"]

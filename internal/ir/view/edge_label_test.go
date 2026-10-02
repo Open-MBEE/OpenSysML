@@ -132,6 +132,8 @@ func TestTriggerLabelsHeadTheirSignalByItsEndName(t *testing.T) {
 
 // A name labels an edge only when the edge has no text of its own: a trigger, guard,
 // pin or payload takes the label and the name is left out, given or synthesized.
+// A flow at drawn pins has no text of its own, the pins naming what it carries,
+// so its given name labels it.
 func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 	r, idx := loadSources(t, []string{"labels.sysml"}, [][]byte{[]byte(edgeLabelModel)})
 	cases := []struct {
@@ -143,8 +145,8 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 			[]string{"off -> on: 'off then on'", "on -> idle: accept Sig"},
 			[]string{"'on accept Sig then idle'"}},
 		{"Labels::driveView",
-			[]string{"start -> a: 'start to a'", "a -> b: [true]", "b -> c: 'b to c'", "a => b: o to i"},
-			[]string{"'a to b'", "'a.o to b.i'"}},
+			[]string{"start -> a: 'start to a'", "a -> b: [true]", "b -> c: 'b to c'", "a.o => b.i: 'a.o to b.i'"},
+			[]string{"'a to b'", "o to i"}},
 		{"Labels::loopView",
 			[]string{"pump.outlet -- tank.inlet: supply", "pump.level == tank.level: 'pump.level = tank.level'", "pump.outlet => tank.inlet: of Water"},
 			[]string{"'pump.outlet to tank.inlet'"}},
