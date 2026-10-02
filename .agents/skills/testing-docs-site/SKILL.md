@@ -39,6 +39,13 @@ If browser inspection tooling appears to alter `target="_blank"` attributes, rep
 tests from a fresh page without annotated DOM inspection before the click. Read-only CDP inspection
 plus native mouse input distinguishes tooling interference from the built page's behavior.
 
+When the change under test is in `overrides/` — a stylesheet or template — do not
+assume `mkdocs serve` reloaded it. The live reload may keep serving the old asset
+through a browser hard refresh. Restart the server, wait for the build and serving
+messages, reload, and confirm the loaded file carries the intended rule before
+diagnosing a CSS fix as ineffective. Do not change repository configuration solely
+to make a preview work.
+
 ### Devin Secrets Needed
 
 None for the public local site and public outbound link checks.
