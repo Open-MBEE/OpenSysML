@@ -18,7 +18,7 @@ const (
 )
 
 type sysmlElem interface {
-	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum
+	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum | sysmlFn
 }
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
@@ -129,6 +129,8 @@ func sysmlElemKind[T sysmlElem](v T) string {
 		return "string"
 	case sysmlEnum:
 		return "enumeration literal"
+	case sysmlFn:
+		return "function"
 	}
 	return "a Boolean"
 }
@@ -169,6 +171,9 @@ func sysmlKey[T sysmlElem](v T) any {
 		}
 		return i.small
 	}
+	if f, ok := any(v).(sysmlFn); ok {
+		return sysmlFnKey{f.c, f.run}
+	}
 	return v
 }
 
@@ -179,6 +184,8 @@ func sysmlElemEq[T sysmlElem](a, b T) bool {
 		return sysmlICmp(x, any(b).(sysmlInt)) == 0
 	case sysmlNum:
 		return sysmlNCmp(x, any(b).(sysmlNum)) == 0
+	case sysmlFn:
+		return sysmlFnEq(x, any(b).(sysmlFn))
 	}
 	return a == b
 }

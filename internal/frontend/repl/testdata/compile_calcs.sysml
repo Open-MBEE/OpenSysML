@@ -380,6 +380,81 @@ package Compiled {
 		calc def PickQualified { in n : Integer; return : Integer = Both::pick(n) + Both::pick(n > 0); }
 	}
 
+	// Function values computed at run time: chosen, stored, returned, compared,
+	// collected, and closures over the run of the body declaring them.
+	package Closure {
+		private import ScalarValues::*;
+		private import ControlFunctions::*;
+		private import SequenceFunctions::*;
+		private import Base::*;
+		private import Compiled::Fn::Apply;
+
+		calc def Sq { in v : Real; return : Real = v * v; }
+		calc def Half { in v : Real; return : Real = v / 2.0; }
+		calc def Inc { in n : Integer; return : Integer = n + 1; }
+		calc sqU : Sq;
+		calc halfU : Half;
+		calc incU : Inc;
+		calc def Id { in calc f { in v : Real; return : Real; } return r = f; }
+		calc def Pick { in b : Boolean; return r = if b ? sqU else halfU; }
+		calc def PickId { in b : Boolean; return r = Id(if b ? Sq else Half); }
+		calc def PickApply { in b : Boolean; in a : Real; return : Real = Apply(Pick(b), a); }
+		calc def Chosen { in b : Boolean; in a : Real; return : Real = Apply(if b ? Sq else Half, a); }
+		calc def Stored { in b : Boolean; in a : Real; attribute g = if b ? sqU else halfU; return : Real = Apply(g, a) + Apply(g, 1.0); }
+		calc def Reassigned { in b : Boolean; in a : Real; attribute g = sqU; if b { assign g := halfU; } return : Real = Apply(g, a); }
+		calc def Eq { in b : Boolean; in c : Boolean; return : Boolean = Pick(b) == Pick(c); }
+		calc def Ident { in b : Boolean; in c : Boolean; return : Boolean = Pick(b) === Pick(c); }
+		calc def Neq { in b : Boolean; return : Boolean = Pick(b) != sqU; }
+		calc def EqNum { in b : Boolean; return : Boolean = Pick(b) == 3; }
+		calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
+		calc def SameSq { in b : Boolean; return : Boolean = Same(Sq, if b ? Sq else Half); }
+		calc def Pair { return r : Anything[0..*] = (sqU, halfU); }
+		calc def PairUntyped { return r = (sqU, halfU); }
+		calc def PairApply { in a : Real; attribute s = (sqU, halfU); return : Real[0..*] = s->collect {in f; Apply(f, a)}; }
+		calc def MixedKind { in b : Boolean; in a : Real; return : Real = Apply(if b ? sqU else RealFunctions::sqrt, a); }
+		calc def ToStr { in b : Boolean; return : String = BaseFunctions::ToString(Pick(b)); }
+		calc def ReturnedApply { in a : Real; return : Real = Apply(Id(Sq), a); }
+		calc def NullF { in b : Boolean; return r = if b ? sqU else null; }
+		calc def Includes { in b : Boolean; return r = (sqU, halfU)->includes(Pick(b)); }
+		calc def Unique { in b : Boolean; attribute s : Anything[0..*] nonunique = (sqU, Pick(b)); attribute u : Anything[0..*] = s; return r = u->size(); }
+		calc def SeqFmt { in b : Boolean; return r : Anything[0..*] = (Pick(b), halfU); }
+		calc def Indexed { in b : Boolean; attribute s = (Pick(b), halfU); return r = Apply(s#(1), 2.0); }
+		calc def Selected { in b : Boolean; attribute s = (sqU, halfU, Pick(b)); return r = s->select {in f; f == sqU}->size(); }
+		// Functions are not numbers, Booleans or ordered.
+		calc def Lt { in b : Boolean; return : Boolean = Pick(b) < Pick(b); }
+		calc def Plus { in b : Boolean; return r = Pick(b) + 1; }
+		calc def Neg { in b : Boolean; return r = -Pick(b); }
+		calc def Not { in b : Boolean; return r = not Pick(b); }
+		calc def MulR { in b : Boolean; return r = 2 * Pick(b); }
+		calc def CondF { in b : Boolean; return r = if Pick(b) ? 1 else 2; }
+		calc def StmtIf { in b : Boolean; attribute x : Integer = 1; if Pick(b) { assign x := 2; } return r = x; }
+
+		// Closures: a body-local calc reads the bindings of the run declaring it.
+		calc def Local { in k : Real; in a : Real; calc scale { in v : Real; return : Real = v * k; } return : Real = Apply(scale, a) + scale(1.0); }
+		calc def Mk { in k : Real; calc s { in v : Real; return : Real = v * k; } return r = s; }
+		calc def MkApply { in k : Real; in a : Real; return : Real = Apply(Mk(k), a); }
+		calc def MkSame { in k : Real; calc s { in v : Real; return : Real = v * k; } return : Boolean = s == s; }
+		calc def MkTwice { in k : Real; return : Boolean = Mk(k) == Mk(k); }
+		calc def MkPair { in k : Real; attribute f = Mk(k); attribute g = Mk(k + 1.0); return r = Apply(f, 1.0) + Apply(g, 1.0); }
+		calc def Late { in k : Real; attribute m : Real = k + 1.0; calc s { in v : Real; return : Real = v * m; } return : Real = Apply(s, 2.0); }
+		calc def Rec { in k : Real; calc s { in v : Real; return : Real = if v > 3.0 ? v else s(v + k); } return r = s(1.0); }
+		calc def Sib { in k : Real; calc u { in v : Real; return : Real = v + k; } calc s { in v : Real; return r = u; } return r = Apply(s(1.0), 2.0); }
+		calc def SibEq { in k : Real; calc u { in v : Real; return : Real = v + k; } calc s { in v : Real; return r = u; } return r = s(1.0) == u; }
+		calc def Inner { in k : Real; calc s { in v : Real; calc t { in w : Real; return : Real = w + k + v; } return : Real = t(1.0); } return : Real = s(2.0); }
+		calc def ChooseClosure { in b : Boolean; in k : Real; calc s { in v : Real; return : Real = v * k; } attribute g = if b ? s else sqU; return r = Apply(g, 3.0); }
+		calc def IntClosure { in n : Integer; calc s { in m : Integer; return : Integer = m + n; } return r = s(n); }
+		calc def ClosureSeq { in k : Real; calc s { in v : Real; return : Real = v + k; } attribute fs = (s, sqU, s); return r = fs->collect {in f; Apply(f, 2.0)}; }
+		calc def ClosureUnique { in k : Real; attribute fs : Anything[0..*] nonunique = (Mk(k), Mk(k)); attribute u : Anything[0..*] = fs; return r = u->size(); }
+		// What a closure captures: every kind of value a body binds.
+		calc def ApplyS { in calc f { in n : Integer; return : String; } in n : Integer; return : String = f(n); }
+		calc def MkStr { in s : String; calc f { in n : Integer; return : String = StringFunctions::Substring(s, 1, n); } return r = f; }
+		calc def StrClosure { in s : String; in n : Integer; return : String = ApplyS(MkStr(s), n); }
+		calc def SeqClosure { in k : Real; attribute xs : Real[0..*] = (k, k * 2.0); calc f { in v : Real; return : Real = v * xs#(2); } return : Real = Apply(f, 3.0); }
+		calc def FnClosure { in b : Boolean; attribute g = Pick(b); calc f { in v : Real; return : Real = Apply(g, v) + 1.0; } return : Real = Apply(f, 3.0); }
+		calc def BoolClosure { in b : Boolean; calc f { in v : Real; return : Real = if b ? v else -v; } return : Real = Apply(f, 2.0); }
+		calc def EnumClosure { in c : Compiled::E::Color; calc f { in v : Real; return : Real = if c == Compiled::E::Color::red ? v else 0.0; } return : Real = Apply(f, 2.0); }
+	}
+
 	// Function values: a calc bound to an `in calc` parameter is compiled once
 	// per calc it is applied to, so every call through the parameter is direct.
 	package Fn {
@@ -647,13 +722,13 @@ package Refused {
 	calc def Add2 { in x : Real; in y : Real; return : Real = x + y; }
 	calc def CalcParam { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
 	calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
-	calc def EscapingParam { in a : Real; return r = Identity(Sq); }
-	calc def ReturnedFunction { in a : Real; return : Real = Compiled::Fn::Apply(Identity(Sq), a); }
 	calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
-	calc def FunctionEquality { in a : Real; return : Boolean = Same(Sq, Sq2); }
 	calc def FunctionAsValue { in a : Real; return : Real = Compiled::Fn::Apply(Sq, Sq); }
 	calc def ValueAsFunction { in a : Real; return : Real = Compiled::Fn::Apply(a, a); }
-	calc def ChosenFunction { in b : Boolean; in a : Real; return : Real = Compiled::Fn::Apply(if b ? Sq else Sq2, a); }
+	calc def IncR { in n : Integer; return : Integer = n + 1; }
+	calc sqR : Sq;
+	calc incR : IncR;
+	calc def MixedArity { in a : Real; attribute g = if a > 0.0 ? sqR else incR; return r = Compiled::Fn::Apply(g, a); }
 	calc def WrongArity { in a : Real; return : Real = Compiled::Fn::Apply(Add2, a); }
 	calc def WrongName { in a : Real; return : Real = Compiled::Fn::ByName(Sq2, a); }
 	// A parameter typed by a calc refuses a function value of a calc that does not specialize it.

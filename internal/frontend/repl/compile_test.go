@@ -154,6 +154,45 @@ var compiledCases = []compiledCase{
 	{"Seq::UniqLocAny", []string{"(1,1)"}},
 	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
 	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
+	{"Closure::Pick", []string{"true"}}, {"Closure::Pick", []string{"false"}},
+	{"Closure::PickId", []string{"true"}}, {"Closure::PickId", []string{"false"}},
+	{"Closure::PickApply", []string{"true", "3.0"}}, {"Closure::PickApply", []string{"false", "3.0"}},
+	{"Closure::Chosen", []string{"true", "3.0"}}, {"Closure::Chosen", []string{"false", "3.0"}},
+	{"Closure::Stored", []string{"true", "3.0"}}, {"Closure::Stored", []string{"false", "3.0"}},
+	{"Closure::Reassigned", []string{"true", "3.0"}}, {"Closure::Reassigned", []string{"false", "3.0"}},
+	{"Closure::Eq", []string{"true", "true"}}, {"Closure::Eq", []string{"true", "false"}},
+	{"Closure::Ident", []string{"false", "false"}}, {"Closure::Ident", []string{"false", "true"}},
+	{"Closure::Neq", []string{"true"}}, {"Closure::Neq", []string{"false"}},
+	{"Closure::EqNum", []string{"true"}},
+	{"Closure::SameSq", []string{"true"}}, {"Closure::SameSq", []string{"false"}},
+	{"Closure::Pair", nil}, {"Closure::PairUntyped", nil}, {"Closure::PairApply", []string{"3.0"}},
+	{"Closure::MixedKind", []string{"true", "4.0"}}, {"Closure::MixedKind", []string{"false", "4.0"}}, {"Closure::MixedKind", []string{"false", "-4.0"}},
+	{"Closure::ToStr", []string{"true"}}, {"Closure::ToStr", []string{"false"}},
+	{"Closure::ReturnedApply", []string{"3.0"}},
+	{"Closure::NullF", []string{"true"}}, {"Closure::NullF", []string{"false"}},
+	{"Closure::Includes", []string{"true"}}, {"Closure::Includes", []string{"false"}},
+	{"Closure::Unique", []string{"true"}}, {"Closure::Unique", []string{"false"}},
+	{"Closure::SeqFmt", []string{"true"}}, {"Closure::SeqFmt", []string{"false"}},
+	{"Closure::Indexed", []string{"true"}}, {"Closure::Indexed", []string{"false"}},
+	{"Closure::Selected", []string{"true"}}, {"Closure::Selected", []string{"false"}},
+	{"Closure::Lt", []string{"true"}}, {"Closure::Plus", []string{"true"}}, {"Closure::Neg", []string{"true"}},
+	{"Closure::Not", []string{"true"}}, {"Closure::MulR", []string{"false"}}, {"Closure::CondF", []string{"true"}},
+	{"Closure::StmtIf", []string{"true"}},
+	{"Closure::Local", []string{"2.0", "3.0"}},
+	{"Closure::Mk", []string{"2.0"}}, {"Closure::MkApply", []string{"2.0", "3.0"}},
+	{"Closure::MkSame", []string{"1.0"}}, {"Closure::MkTwice", []string{"1.0"}}, {"Closure::MkPair", []string{"2.0"}},
+	{"Closure::Late", []string{"1.0"}},
+	{"Closure::Rec", []string{"1.0"}}, {"Closure::Rec", []string{"0.5"}},
+	{"Closure::Sib", []string{"1.0"}}, {"Closure::SibEq", []string{"1.0"}},
+	{"Closure::Inner", []string{"1.0"}},
+	{"Closure::ChooseClosure", []string{"true", "2.0"}}, {"Closure::ChooseClosure", []string{"false", "2.0"}},
+	{"Closure::IntClosure", []string{"3"}}, {"Closure::IntClosure", []string{"4611686018427387904"}},
+	{"Closure::ClosureSeq", []string{"1.0"}}, {"Closure::ClosureUnique", []string{"1.0"}},
+	{"Closure::StrClosure", []string{`"héllo"`, "3"}}, {"Closure::StrClosure", []string{`"hi"`, "2"}},
+	{"Closure::SeqClosure", []string{"1.5"}},
+	{"Closure::FnClosure", []string{"true"}}, {"Closure::FnClosure", []string{"false"}},
+	{"Closure::BoolClosure", []string{"true"}}, {"Closure::BoolClosure", []string{"false"}},
+	{"Closure::EnumClosure", []string{"Compiled::E::Color::red"}}, {"Closure::EnumClosure", []string{"Compiled::E::Color::blue"}},
 	{"Fn::ApplySq", []string{"3.0"}}, {"Fn::ApplySq", []string{"1e200"}},
 	{"Fn::ApplyUsage", []string{"3.0"}},
 	{"Fn::ApplyRecip", []string{"4.0"}}, {"Fn::ApplyRecip", []string{"0.0"}},
@@ -405,6 +444,9 @@ func integerForReal(p *codegen.Program, args []string) bool {
 func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
 	program, err := s.CompileCalc("Compiled::"+calc, target)
+	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
+		return nil
+	}
 	if err != nil {
 		t.Fatalf("compile %s: %v", calc, err)
 	}
@@ -488,8 +530,9 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
-			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
-				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
+			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"] ||
+				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
+				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
 			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
 				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
@@ -745,12 +788,9 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
 		{"CalcParam", "parameter f binds a function value, which a program cannot take on its command line"},
-		{"EscapingParam", "the function value f escaping as the result"},
-		{"ReturnedFunction", "an invocation where a function value is expected"},
-		{"FunctionEquality", "the function value f where a value is expected"},
-		{"FunctionAsValue", "the function value Refused::Sq where a value is expected"},
+		{"FunctionAsValue", "a function bound at argument for parameter \"a\", which holds Real"},
 		{"ValueAsFunction", "a, a Real, where a function value is expected"},
-		{"ChosenFunction", "an `if` choosing a function value at run time"},
+		{"MixedArity", "a Real bound at argument for parameter \"n\", which holds Integer"},
 		{"WrongArity", "Refused::Add2 takes 2 arguments, 1 given"},
 		{"WrongName", "Refused::Sq2 has no parameter v"},
 		{"UnrelatedTyped", `in calc Refused::UnrelatedTyped: argument for parameter "f": cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq`},
@@ -758,8 +798,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"GeneralForSub", "cannot bind the function value Compiled::Fn::Sq to a parameter typed by Compiled::Fn::SubSq"},
 		{"ForwardedUnrelated", "cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq"},
 		{"IntegerNullRange", "a Real[0..*] at result, which holds Integer[0..*]"},
-		{"BodyClosure", "a body-local calc usage"},
-		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, whose function value closes over that run's bindings"},
+		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, read from the body of Refused::OuterClosure"},
 		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
 		{"ObjectCalc", "a calc owned by Refused::Scaler, whose function value closes over that object"},
 		{"ReceiverQualified", "an invocation of a function value with a receiver (`x->f()`)"},

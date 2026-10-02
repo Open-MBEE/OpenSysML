@@ -518,6 +518,9 @@ func cSeqSuffix(t Type) string {
 	if t.IsEnum() {
 		return fmt.Sprintf("enum%d", t.Elem().Enum.ID)
 	}
+	if t.IsFn() {
+		return "fn"
+	}
 	switch t.Elem() {
 	case TypeInt:
 		return "int"

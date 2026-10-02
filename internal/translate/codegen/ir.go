@@ -11,10 +11,12 @@ import (
 // Type is a type of the compiled subset: a scalar, or a collection of scalars.
 // A collection value is the interpreter's dynamic view of a multi-valued
 // feature: null, one bare scalar, or a sequence of any length (its shape).
-// An enumeration-literal type names its enumeration in Enum.
+// An enumeration-literal type names its enumeration in Enum, a function
+// type the functions its values range over in Fns.
 type Type struct {
 	k    typeKind
 	Enum *Enum
+	Fns  *FnSet
 }
 
 type typeKind uint8
@@ -27,13 +29,16 @@ const (
 	kindNum
 	kindString
 	kindEnum
+	kindFunc
 	kindNull
+	kindRun
 	kindSeqInt
 	kindSeqReal
 	kindSeqBool
 	kindSeqNum
 	kindSeqString
 	kindSeqEnum
+	kindSeqFunc
 )
 
 var (
@@ -44,6 +49,7 @@ var (
 	TypeNum       = Type{k: kindNum}       // a Real-typed value, an Integer or a Real by run-time kind
 	TypeString    = Type{k: kindString}    // a String, its characters Unicode code points held as UTF-8
 	TypeNull      = Type{k: kindNull}      // `null` before context fixes its collection type
+	TypeRun       = Type{k: kindRun}       // the identity of one run of a calc body, which its closures carry
 	TypeSeqInt    = Type{k: kindSeqInt}    // collection of Integers
 	TypeSeqReal   = Type{k: kindSeqReal}   // collection of Reals
 	TypeSeqBool   = Type{k: kindSeqBool}   // collection of Booleans
@@ -79,8 +85,12 @@ func (t Type) String() string {
 		return "String"
 	case kindEnum:
 		return t.Enum.Name
+	case kindFunc:
+		return "function"
 	case kindNull:
 		return "null"
+	case kindRun:
+		return "run"
 	}
 	if t.Many() {
 		return t.Elem().String() + "[0..*]"
@@ -89,11 +99,14 @@ func (t Type) String() string {
 }
 
 // Scalar reports whether t is exactly one Integer, Real, Boolean, number,
-// String or enumeration literal.
-func (t Type) Scalar() bool { return t.k >= kindInt && t.k <= kindEnum }
+// String, enumeration literal or function.
+func (t Type) Scalar() bool { return t.k >= kindInt && t.k <= kindFunc }
 
 // IsEnum reports whether t's values are enumeration literals.
 func (t Type) IsEnum() bool { return t.Elem().k == kindEnum }
+
+// IsFn reports whether t's values are functions.
+func (t Type) IsFn() bool { return t.Elem().k == kindFunc }
 
 // numeric reports whether t's values are Integers, Reals or numbers.
 func numeric(t Type) bool {
@@ -107,7 +120,7 @@ func (t Type) Many() bool { return t.k >= kindSeqInt }
 // Elem is the scalar type of t's values: t itself for a scalar.
 func (t Type) Elem() Type {
 	if t.Many() {
-		return Type{k: t.k - kindSeqInt + kindInt, Enum: t.Enum}
+		return Type{k: t.k - kindSeqInt + kindInt, Enum: t.Enum, Fns: t.Fns}
 	}
 	return t
 }
@@ -117,7 +130,7 @@ func (t Type) Seq() Type {
 	if !t.Scalar() {
 		return t
 	}
-	return Type{k: t.k - kindInt + kindSeqInt, Enum: t.Enum}
+	return Type{k: t.k - kindInt + kindSeqInt, Enum: t.Enum, Fns: t.Fns}
 }
 
 // Mult is a declared multiplicity, checked on the count of values a collection
@@ -172,6 +185,7 @@ func (r Range) Lower() int64 {
 type Program struct {
 	Funcs       []*Func
 	Enums       []*Enum
+	FnCases     []*FnCase
 	Entry       *Func
 	Collections bool
 	// Target is the backend the program was compiled for.
@@ -188,6 +202,12 @@ type Func struct {
 	// multiplicity is checked by the Checked the return wraps.
 	ResultRange Range
 	Body        []Stmt
+	// Captured is the count of trailing Params a closure's value carries, the
+	// bindings of its enclosing body it reads.
+	Captured int
+	// Run names the variable holding this run's identity, which the closures
+	// the body declares carry; empty when none is read.
+	Run string
 }
 
 // Param is one input parameter; Range and, for a collection, Mult and Unique

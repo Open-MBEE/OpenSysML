@@ -23,6 +23,19 @@ func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, erro
 		v = ToReal{X: v}
 	case b.t.Elem() == TypeNum && (ve == TypeInt || ve == TypeReal):
 		v = ToNum{X: v}
+	case b.t.IsFn() && ve.IsFn() && v.Type() != b.t && v.Type() != b.t.Elem():
+		// A write of other functions widens the feature to them too.
+		if !fnSubset(ve, b.t) {
+			if b.slot == nil {
+				return nil, fc.unsupported(fmt.Sprintf("a function value of %s bound at %s, which holds only %s", fc.fnNames(ve), where, fc.fnNames(b.t)))
+			}
+			fc.c.widenFn(*b.slot, fc.c.fnUnion(ve, b.t.Elem()))
+		}
+		t := b.t.Elem()
+		if v.Type().Many() {
+			t = t.Seq()
+		}
+		v = FnWiden{X: v, T: t}
 	}
 	vt := v.Type()
 	if b.t.Scalar() {
@@ -159,6 +172,11 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 			return nil, err
 		}
 		if t := v.Type(); t != TypeNull {
+			if elem != TypeInvalid && elem.IsFn() && t.IsFn() {
+				elem = fc.c.fnUnion(elem, t.Elem())
+				elems[i] = v
+				continue
+			}
 			if elem != TypeInvalid && elem != t.Elem() && (!numeric(elem) || !numeric(t.Elem())) {
 				return nil, fc.unsupported(fmt.Sprintf("a sequence mixing %s and %s elements", elem, t.Elem()))
 			}
@@ -174,7 +192,13 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 		return SeqLit{Elems: elems, T: TypeNull}, nil
 	}
 	for i, v := range elems {
-		if v.Type() != TypeNull && v.Type().Elem() != elem {
+		switch vt := v.Type(); {
+		case vt == TypeNull || vt.Elem() == elem:
+		case elem.IsFn() && vt.Many():
+			elems[i] = FnWiden{X: v, T: elem.Seq()}
+		case elem.IsFn():
+			elems[i] = FnWiden{X: v, T: elem}
+		default:
 			elems[i] = ToNum{X: v}
 		}
 	}
@@ -281,8 +305,9 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		if neq {
 			op = ast.OpNeq
 		}
-		if lt.IsEnum() {
-			// A literal is identified by itself, so `===` is `==`.
+		if lt.IsEnum() || lt.IsFn() {
+			// A literal is identified by itself, and a function value by its
+			// function and the run it closes over, so `===` is `==`.
 			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
 		}
 		if lt != rt || lt == TypeNum {
@@ -303,6 +328,10 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	case lt == TypeNull:
 		le = re
 	case rt == TypeNull:
+		re = le
+	}
+	if le.IsFn() && re.IsFn() {
+		le = fc.c.fnUnion(le, re)
 		re = le
 	}
 	if le != re && !(le.IsEnum() && re.IsEnum()) {
@@ -329,6 +358,8 @@ func identityKind(t Type) int {
 		return 1
 	case t.IsEnum():
 		return 2
+	case t.IsFn():
+		return 3
 	}
 	return 0
 }

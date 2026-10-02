@@ -66,6 +66,8 @@ func (e *goEmitter) refusal(x Refusal) string {
 			continue
 		case op.Type().IsEnum():
 			msg = append(msg, fmt.Sprintf("%q", x.Parts[i]+"the enumeration literal "), "sysmlLiterals["+v+"]")
+		case op.Type().IsFn():
+			msg = append(msg, fmt.Sprintf("%q", x.Parts[i]+"the function "), "sysmlFnNames["+v+".c]")
 		default:
 			msg = append(msg, fmt.Sprintf("%q", x.Parts[i]), "sysmlElemKind("+v+")")
 		}
@@ -143,6 +145,8 @@ func (e *cEmitter) refusal(x Refusal) string {
 				fmt.Fprintf(&ignored, "(void)(%s), ", v[i])
 			case op.Type().IsEnum():
 				args = append(args, cString(x.Parts[i]+"the enumeration literal "), "sysml_literals["+v[i]+"]")
+			case op.Type().IsFn():
+				args = append(args, cString(x.Parts[i]+"the function "), "sysml_fn_names["+v[i]+".c]")
 			case op.Type() == TypeNum:
 				args = append(args, cString(x.Parts[i]), "sysml_num_kind("+v[i]+")")
 			default:

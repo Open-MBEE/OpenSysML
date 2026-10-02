@@ -524,10 +524,12 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
 	e.raw(cEnumRuntime(p))
+	e.raw(cFnRuntime(p))
 	if p.Collections {
 		e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_ELEMENTS %d\n", runtime.DefaultMaxElements))
 		e.raw(cSeqRuntime())
 		e.raw(cEnumSeqRuntime(p))
+		e.raw(cFnSeqRuntime(p))
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -605,11 +607,17 @@ func (e *cEmitter) linef(format string, args ...any) {
 }
 
 func cType(t Type) string {
-	if t.IsEnum() {
+	if t.IsEnum() || t.IsFn() {
 		if t.Many() {
 			return "sysml_seq_" + cSeqSuffix(t)
 		}
+		if t.IsFn() {
+			return "sysml_fn"
+		}
 		return "sysml_enum"
+	}
+	if t == TypeRun {
+		return "int64_t"
 	}
 	switch t {
 	case TypeInt:
@@ -652,6 +660,9 @@ func (e *cEmitter) function(fn *Func) {
 	e.linef("static %s %s(%s) {", cType(fn.Result), fn.Ident, cParams(fn))
 	e.indent++
 	e.linef("sysml_enter();")
+	if fn.Run != "" {
+		e.linef("int64_t %s = sysml_next_run(); (void)%[1]s;", cLocal(fn.Run))
+	}
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
@@ -856,6 +867,8 @@ func cZero(t Type) string {
 		return "sysml_ni(0)"
 	case t == TypeString:
 		return "sysml_str_empty()"
+	case t.IsFn():
+		return "((sysml_fn){0})"
 	}
 	return "0"
 }
@@ -926,6 +939,9 @@ func (e *cEmitter) expr(x Expr) string {
 		return fmt.Sprintf("(sysml_step(%d), %s)", x.N, e.expr(x.X))
 	}
 	if s, ok := e.seqExpr(x); ok {
+		return s
+	}
+	if s, ok := e.fnExpr(x); ok {
 		return s
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no case for %T", x)
@@ -999,6 +1015,14 @@ func (e *cEmitter) binary(x Binary) string {
 	if i, ok := widenedInt(x.R); ok && isComparison(x.Op) && !isWidenedInt(x.L) {
 		return e.sequenced([]Expr{x.L, i}, func(v []string) string {
 			return fmt.Sprintf("(-sysml_cmp_ir(%s, %s) %s 0)", v[1], v[0], cOperator(x.Op))
+		})
+	}
+	if x.L.Type().IsFn() {
+		return e.sequenced([]Expr{x.L, x.R}, func(v []string) string {
+			if x.Op == ast.OpNeq {
+				return fmt.Sprintf("(!sysml_fn_eq(%s, %s))", v[0], v[1])
+			}
+			return fmt.Sprintf("sysml_fn_eq(%s, %s)", v[0], v[1])
 		})
 	}
 	switch x.Op {
@@ -1166,6 +1190,8 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	switch {
 	case fn.Result.IsEnum() && !fn.Result.Many():
 		e.linef("sysml_print_enum(result);")
+	case fn.Result.IsFn() && !fn.Result.Many():
+		e.linef("sysml_print_fn(result);")
 	case fn.Result == TypeInt:
 		e.linef("printf(\"%%\" PRId64 \"\\n\", result);")
 	case fn.Result == TypeReal:

@@ -669,6 +669,9 @@ func sysmlFormat(v any) string {
 	if l, ok := v.(sysmlEnum); ok {
 		return sysmlLiterals[l]
 	}
+	if f, ok := v.(sysmlFn); ok {
+		return sysmlFnNames[f.c]
+	}
 	if n, ok := v.(sysmlNum); ok {
 		if n.real {
 			v = n.r
@@ -717,6 +720,8 @@ func EmitGo(w io.Writer, p *Program) error {
 	e.raw(goPrelude)
 	e.raw(goEnumPrelude)
 	e.raw(goEnumTables(p))
+	e.raw(goFnPrelude)
+	e.raw(goFnTables(p))
 	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\nconst sysmlDefaultMaxSteps = %d\n\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps))
 	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\nconst sysmlMinMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
 	if p.Collections {
@@ -757,11 +762,17 @@ func (e *goEmitter) linef(format string, args ...any) {
 }
 
 func goType(t Type) string {
-	if t.IsEnum() {
+	if t.IsEnum() || t.IsFn() {
 		if t.Many() {
 			return goSeqType(t)
 		}
+		if t.IsFn() {
+			return "sysmlFn"
+		}
 		return "sysmlEnum"
+	}
+	if t == TypeRun {
+		return "int64"
 	}
 	switch t {
 	case TypeInt:
@@ -804,6 +815,10 @@ func (e *goEmitter) function(fn *Func) {
 	e.indent++
 	e.linef("sysmlEnter()")
 	e.linef("defer sysmlLeave()")
+	if fn.Run != "" {
+		e.linef("%s := sysmlNextRun()", goLocal(fn.Run))
+		e.linef("_ = %s", goLocal(fn.Run))
+	}
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
@@ -968,6 +983,9 @@ func (e *goEmitter) expr(x Expr) string {
 	if s, ok := e.seqExpr(x); ok {
 		return s
 	}
+	if s, ok := e.fnExpr(x); ok {
+		return s
+	}
 	e.err = fmt.Errorf("codegen: Go emitter has no case for %T", x)
 	return "0"
 }
@@ -997,6 +1015,12 @@ func (e *goEmitter) binary(x Binary) string {
 		return c
 	}
 	l, r := e.expr(x.L), e.expr(x.R)
+	if x.L.Type().IsFn() {
+		if x.Op == ast.OpNeq {
+			return fmt.Sprintf("(!sysmlFnEq(%s, %s))", l, r)
+		}
+		return fmt.Sprintf("sysmlFnEq(%s, %s)", l, r)
+	}
 	if x.L.Type() == TypeNum {
 		switch x.Op {
 		case ast.OpEqEqEq:

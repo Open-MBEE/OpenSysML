@@ -193,6 +193,13 @@ func unboundedIntExpr(x Expr) string {
 		return unboundedIntExprs(x.S.Seq, x.S.Body.Body, x.In)
 	case Steps:
 		return unboundedIntExprs(x.X)
+	case FnLit:
+		return unboundedIntExprs(x.Env...)
+	case FnWiden:
+		return unboundedIntExprs(x.X)
+	case FnEnv:
+	case FnDispatch:
+		return unboundedIntExprs(append([]Expr{x.F}, x.Cases...)...)
 	default:
 		return fmt.Sprintf("expression %T", x)
 	}
