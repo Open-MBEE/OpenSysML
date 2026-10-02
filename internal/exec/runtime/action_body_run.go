@@ -454,9 +454,8 @@ func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	if outer := e.ctx.body; outer != nil {
 		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
 	}
-	if !e.tokens[tokenIdx].drivenByBody() && e.bodyDivides(work) {
-		run.yields, run.draws = e.ctx.scheduling().bodyYields(len(e.tokens) > 1)
-		run.token = e.tokens[tokenIdx].ID
+	if yields, draws := e.ctx.scheduling().bodyYields(len(e.tokens) > 1); yields && !e.tokens[tokenIdx].drivenByBody() && e.bodyDivides(work) {
+		run.yields, run.draws, run.token = yields, draws, e.tokens[tokenIdx].ID
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
