@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please check [the compliance record](https://implementation.opensysml.org/project/spec-compliance/)
-        and [the OMG-materials defect list](https://implementation.opensysml.org/project/omg-issues/)
+        Please check [the compliance record](https://opensysml.org/project/spec-compliance/)
+        and [the OMG-materials defect list](https://opensysml.org/project/omg-issues/)
         first — a known divergence is usually already a row there, with the reasoning behind it.
 
   - type: textarea
