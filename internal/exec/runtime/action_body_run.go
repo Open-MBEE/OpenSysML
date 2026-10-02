@@ -67,6 +67,11 @@ type bodyRun struct {
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
 	yields, performed bool
+	// draws has a seeded run draw whether to yield at each such boundary, by the
+	// token the run is for and how many boundaries it drew at before.
+	draws    bool
+	token    int64
+	boundary uint64
 	// steps has the run pause after each token move of the flows and actions it
 	// drives where a step is one move, its machine going on between the moves.
 	steps bool
@@ -292,6 +297,9 @@ func (w *usageWork) perform() error {
 			w.phase = usageBody
 		default:
 			w.phase = usageBody
+			if lower.ReadsAtStart(w.graph, w.usage) {
+				e.ctx.bodyPerformed()
+			}
 		}
 	}
 	if w.phase == usageBody {
@@ -410,11 +418,45 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 	return idx, nil
 }
 
+// bodyDivides reports whether another performance may interleave inside work's
+// body with an effect on an outcome, so a run going one move at a time yields in it.
+func (e *ActionExecutor) bodyDivides(work bodyWork) bool {
+	var graph *lower.ActionGraph
+	var node ast.Node
+	switch w := work.(type) {
+	case *usageWork:
+		if w.performs {
+			return false
+		}
+		graph, node = w.graph, w.usage
+	case *statementWork:
+		graph, node = e.graph, w.node
+	default:
+		return false
+	}
+	if graph == nil {
+		return false
+	}
+	divides, known := e.divides[node]
+	if !known {
+		divides = lower.BodyDivides(graph, node)
+		if e.divides == nil {
+			e.divides = make(map[ast.Node]bool)
+		}
+		e.divides[node] = divides
+	}
+	return divides
+}
+
 // runBody starts work for the token at tokenIdx and drives it to its first pause or end.
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work}
 	if outer := e.ctx.body; outer != nil {
 		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
+	}
+	if !e.tokens[tokenIdx].drivenByBody() && e.bodyDivides(work) {
+		run.yields, run.draws = e.ctx.scheduling().bodyYields(len(e.tokens) > 1)
+		run.token = e.tokens[tokenIdx].ID
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
@@ -478,7 +520,12 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		if !pause.onWait && !pause.tokenStep {
+		switch {
+		case pause.yielded:
+			if i := e.tokenIndex(id); i >= 0 {
+				e.tokens[i].moved = e.sweep
+			}
+		case !pause.onWait && !pause.tokenStep:
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
@@ -515,6 +562,12 @@ func (ctx *Context) pauseBody(pause bodyPause) error {
 func (ctx *Context) yieldBody() error {
 	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
 		return nil
+	}
+	if ctx.body.draws {
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
 	}
 	return ctx.pauseBody(bodyPause{yielded: true})
 }

@@ -305,7 +305,13 @@ type stmtListFrame struct {
 	elements int64
 }
 
-func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+// abandon gives back the elements the paused statement held; one yielded before
+// its next statement has none open.
+func (f *stmtListFrame) abandon(*Context) {
+	if f.run != nil {
+		f.run.elements = f.elements
+	}
+}
 
 func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
 

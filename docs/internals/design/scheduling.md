@@ -121,6 +121,50 @@ interaction the multiplicity checker cannot support, is refused before the node 
 two-reading treatment of unwritten succession ends is documented in the
 [semantic oracle](../../project/behavior-semantic-oracle.md#repeated-action-steps-and-shared-writes).
 
+## Leaf action-body interleavings
+
+A leaf action body — a node's initial feature values and its direct statements, with no flow of
+its own — runs through the statement engine (`usageWork.perform`, `stmtEngine`). Its performance
+encloses separate times the [semantic
+oracle](../../project/behavior-semantic-oracle.md#a-leaf-bodys-start-shot-and-its-assignments-another-performance-may-run-between-them)
+derives: the start shot, where `attribute t : Integer := c` snapshots `c`, and one subperformance
+per statement, an `assign` writing when it ends. Another performance may run between any two.
+
+- **Atomic units.** One initialization (every initial value of the body, read at its start
+  shot) and one statement are each one move: an assignment reads its value and writes it with
+  no boundary between, since the library places nothing between them. A loop iteration and a
+  step of a flow the body drives are one move each, as they already were.
+- **Scheduler boundaries.** Where a body divides, the run yields after its start shot and after
+  each statement (`Context.bodyPerformed`, `Context.yieldBody`, `bodyPause.yielded`): the token
+  goes back to the step's steppable tokens with its body frame held, and the next pick among
+  them is an ordinary `ChoiceTokenOrder`. No new choice kind is added, so a witness, a replay
+  file, a snapshot and a held image name a body boundary as they name any token move, and the
+  body frame is resumed where it paused.
+- **Where a body divides.** `lower.BodyDivides` lists a body's moves (its start shot, then each
+  statement, a conditional's test by itself and a loop counted twice) with their footprints
+  (`Footprint`, the reduction's), and the footprints of every node of the outermost flow and its
+  nested flows; the node's own, with its per-performance pins removed, when it may run beside
+  itself. When the flow can hold two tokens at once and two or more of the body's moves are
+  dependent on one of those footprints, the body divides. With at most one, every interleaving
+  inside the body only reorders independent moves, so the body stays one move and the state
+  space does not grow.
+- **Ordered and unordered statements.** A succession inside a nested flow orders its steps, so
+  no boundary reorders them; a boundary lets only another performance in. The direct statements
+  of one leaf body, which no succession orders, still run in declaration order: the library
+  leaves their mutual order open, and this is the executor's choice, recorded in
+  [spec compliance](../../project/spec-compliance.md).
+- **Policies.** `explore`, replay and the checker step one move at a time and yield at every
+  boundary of a dividing body. `reverse` and `declared` never yield, so a body runs whole as
+  before and their results do not change. A seeded run whose step holds another token yields
+  at a boundary when `scheduler.drawYield` — a hash of the seed, the token's ID and the
+  boundary's ordinal — says so. That draw does not consume the generator the run's picks
+  come from, so one seed still reproduces one run.
+- **Checker and SMT.** The checker's moves are the executor's, so it reaches every interleaving
+  exploration does, under its reduction and state merging; a paused body frame is part of the
+  state it keys. The SMT encoding performs a body as one move and refuses a flow whose body
+  divides (`Flow.checkBodyInterleaving`, `UnsupportedError` construct `body interleaving`), so
+  it reports such a flow as not covered rather than encoding one order.
+
 ## Policies (`scheduler.go`)
 
 A `SchedulePolicy` is parsed from one spelling and printed back to it:
@@ -129,7 +173,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 |----------|----------------------|--------------------------------------|-----------|
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
-| `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
+| `seed:<n>` | shuffle of the tokens not parked; a dividing body yields where the seed's hash says | uniform draw | uniform draw |
 | `replay:<file>` | the witness's `step n: …` line, then `reverse`'s pick alone | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 

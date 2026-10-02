@@ -159,10 +159,14 @@ func TestSeededSchedulingIsReproducible(t *testing.T) {
 		if first != second {
 			t.Fatalf("%s: two runs differ\n=== FIRST ===\n%s\n=== SECOND ===\n%s", policy, first, second)
 		}
-		if len(choices) != 4 {
-			t.Fatalf("%s: choices = %v, want token order, two write orders and a decision branch", policy, choices)
+		kinds := make(map[ChoiceKind]int)
+		for _, c := range choices {
+			kinds[c.Kind]++
 		}
-		assertChoicesMatchRun(t, choices, outputs)
+		if kinds[ChoiceTokenOrder] < 1 || kinds[ChoiceWriteOrder] < 2 || kinds[ChoiceDecisionBranch] != 1 {
+			t.Fatalf("%s: choices = %v, want token orders, two or more write orders and a decision branch", policy, choices)
+		}
+		assertChoicesMatchTrace(t, policy, first, choices, outputs)
 		traces[first] = true
 	}
 	if len(traces) < 3 {
@@ -192,6 +196,65 @@ func assertChoicesMatchRun(t *testing.T, choices []ChoicePoint, outputs map[stri
 			want := map[string]string{"1": "1->warn", "2": "2->alarm"}[FormatTraceValue(outputs["handler"])]
 			if took != want {
 				t.Errorf("%s: took %q, but handler = %s", c, took, FormatTraceValue(outputs["handler"]))
+			}
+		}
+	}
+}
+
+// assertChoicesMatchTrace checks each choice point against the step of the trace
+// it ends, as a run whose branch bodies a seed splits across steps writes it: the
+// token stepped first wrote first, the write that stood was the step's last.
+func assertChoicesMatchTrace(t *testing.T, policy SchedulePolicy, trace string, choices []ChoicePoint, outputs map[string]Value) {
+	t.Helper()
+	noted := make(map[string]ChoicePoint, len(choices))
+	for _, c := range choices {
+		noted[c.String()] = c
+	}
+	type write struct{ feature, value, branch string }
+	var step []write
+	var target string
+	for _, line := range strings.Split(trace, "\n") {
+		switch {
+		case strings.HasPrefix(line, "step "):
+			step, target = nil, ""
+		case strings.HasPrefix(line, "stmt assign "):
+			target = strings.TrimPrefix(line, "stmt assign ")
+		case target != "" && strings.HasPrefix(line, "  eval ") && strings.Contains(line, " -> "):
+			value := line[strings.LastIndex(line, " -> ")+len(" -> "):]
+			branch := strings.Trim(value, `"`)
+			if target == "x" {
+				branch = map[string]string{"1": "a", "2": "b", "3": "c"}[value]
+			}
+			if target == "x" || target == "order" {
+				step = append(step, write{target, value, branch[len(branch)-1:]})
+			}
+			target = ""
+		}
+		c, ok := noted[line]
+		if !ok {
+			continue
+		}
+		took := c.Alternatives[c.Taken]
+		switch c.Kind {
+		case ChoiceTokenOrder:
+			if len(step) == 0 || !strings.HasSuffix(took, "@"+step[0].branch) {
+				t.Errorf("%s: %s: took %q, but the step's writes were %v", policy, c, took, step)
+			}
+		case ChoiceWriteOrder:
+			name := strings.SplitN(took, " := ", 2)[0]
+			last := ""
+			for _, w := range step {
+				if w.feature == name {
+					last = w.value
+				}
+			}
+			if !strings.HasPrefix(took, name+" := "+last+" ") {
+				t.Errorf("%s: %s: %q stood, but the step's last write of %s was %s", policy, c, took, name, last)
+			}
+		case ChoiceDecisionBranch:
+			want := map[string]string{"1": "1->warn", "2": "2->alarm"}[FormatTraceValue(outputs["handler"])]
+			if took != want {
+				t.Errorf("%s: %s: took %q, but handler = %s", policy, c, took, FormatTraceValue(outputs["handler"]))
 			}
 		}
 	}

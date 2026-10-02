@@ -47,6 +47,8 @@ type ActionExecutor struct {
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
 	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
+	// divides caches, by node, whether a body's moves may interleave with another's (lower.BodyDivides).
+	divides map[ast.Node]bool
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute
