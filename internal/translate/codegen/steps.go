@@ -98,7 +98,7 @@ func lazy(op ast.OperatorKind) bool {
 // infallible is an expression that spends no step and cannot fail.
 func infallible(x Expr) bool {
 	switch x := x.(type) {
-	case IntLit, RealLit, BoolLit, Var, NullLit:
+	case IntLit, RealLit, BoolLit, StrLit, Var, NullLit:
 		return true
 	case ToReal:
 		return infallible(x.X)

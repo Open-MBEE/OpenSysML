@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type sysmlError struct{ msg string }
@@ -372,6 +373,40 @@ func sysmlNaturalArg(v sysmlInt) sysmlInt {
 	return v
 }
 
+func sysmlNaturalString(v sysmlInt) string {
+	if v.sign() < 0 {
+		sysmlFailf("type mismatch: function NaturalFunctions::ToString parameter \"x\" requires a Natural value, got %s", v)
+	}
+	return v.String()
+}
+
+func sysmlLength(x string) sysmlInt { return sysmlI(int64(utf8.RuneCountInString(x))) }
+
+// sysmlPosition is a Substring position as an int64, which any Integer naming a character is.
+func sysmlPosition(v sysmlInt, param string) int64 {
+	if v.big != nil {
+		sysmlFailf("integer beyond the addressable range: StringFunctions::Substring parameter %q is %s", param, v)
+	}
+	return v.small
+}
+
+// sysmlSubstring is StringFunctions::Substring: characters lower to upper,
+// counting code points from 1; empty when lower > upper.
+func sysmlSubstring(x string, lower, upper sysmlInt) string {
+	chars := []rune(x)
+	lo, hi := sysmlPosition(lower, "lower"), sysmlPosition(upper, "upper")
+	if lo < 1 {
+		sysmlFailf("index out of range: function StringFunctions::Substring lower character %d is outside 1..%d", lo, len(chars))
+	}
+	if lo > hi {
+		return ""
+	}
+	if hi > int64(len(chars)) {
+		sysmlFailf("index out of range: function StringFunctions::Substring upper character %d is outside 1..%d", hi, len(chars))
+	}
+	return string(chars[lo-1 : hi])
+}
+
 func sysmlTan(t float64) float64 { return sysmlLibReal(math.Sin(t) / math.Cos(t)) }
 func sysmlCot(t float64) float64 { return sysmlLibReal(math.Cos(t) / math.Sin(t)) }
 
@@ -583,7 +618,54 @@ func sysmlParseBool(s, name string) bool {
 	return false
 }
 
+// sysmlParseString reads a String argument written as a KerML string literal.
+func sysmlParseString(s, name string) string {
+	bad := func() string {
+		fmt.Fprintf(os.Stderr, "argument %s: %s is not a String literal\n", name, s)
+		os.Exit(2)
+		return ""
+	}
+	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' || !utf8.ValidString(s) {
+		return bad()
+	}
+	body := s[1 : len(s)-1]
+	var b strings.Builder
+	for i := 0; i < len(body); i++ {
+		c := body[i]
+		if c == '"' {
+			return bad()
+		}
+		if c != '\\' {
+			b.WriteByte(c)
+			continue
+		}
+		if i++; i == len(body) {
+			return bad()
+		}
+		switch body[i] {
+		case 'b':
+			b.WriteByte('\b')
+		case 't':
+			b.WriteByte('\t')
+		case 'n':
+			b.WriteByte('\n')
+		case 'f':
+			b.WriteByte('\f')
+		case 'r':
+			b.WriteByte('\r')
+		case '"', '\'', '\\':
+			b.WriteByte(body[i])
+		default:
+			return bad()
+		}
+	}
+	return b.String()
+}
+
 func sysmlFormat(v any) string {
+	if t, ok := v.(string); ok {
+		return strconv.Quote(t)
+	}
 	if n, ok := v.(sysmlNum); ok {
 		if n.real {
 			v = n.r
@@ -679,7 +761,9 @@ func goType(t Type) string {
 		return "bool"
 	case TypeNum:
 		return "sysmlNum"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
+	case TypeString:
+		return "string"
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum, TypeSeqString:
 		return goSeqType(t)
 	}
 	return "struct{}"
@@ -810,6 +894,8 @@ func (e *goEmitter) expr(x Expr) string {
 		return "float64(" + cReal(x.Value) + ")"
 	case BoolLit:
 		return strconv.FormatBool(x.Value)
+	case StrLit:
+		return strconv.Quote(x.Value)
 	case Var:
 		return goLocal(x.Name)
 	case ToReal:
@@ -903,6 +989,9 @@ func (e *goEmitter) binary(x Binary) string {
 		}
 		return fmt.Sprintf("(sysmlNCmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
 	}
+	if x.L.Type() == TypeString {
+		return fmt.Sprintf("(%s %s %s)", l, cOperator(x.Op), r)
+	}
 	ints := x.L.Type() == TypeInt
 	switch x.Op {
 	case ast.OpAdd, ast.OpSub, ast.OpMul:
@@ -980,7 +1069,7 @@ func (e *goEmitter) main(fn *Func) {
 	}
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
-		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool", TypeNum: "sysmlParseNum"}[p.Type.Elem()]
+		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool", TypeNum: "sysmlParseNum", TypeString: "sysmlParseString"}[p.Type.Elem()]
 		if p.Type.Many() {
 			parser = fmt.Sprintf("sysmlParseSeq[%s](args[%d], %q, %s)", goElem(p.Type), i, p.Name, parser)
 		} else {

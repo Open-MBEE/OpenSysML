@@ -18,7 +18,7 @@ const (
 )
 
 type sysmlElem interface {
-	sysmlInt | float64 | bool | sysmlNum
+	sysmlInt | float64 | bool | sysmlNum | string
 }
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
@@ -125,6 +125,8 @@ func sysmlElemKind[T sysmlElem](v T) string {
 			return "a Real"
 		}
 		return "an Integer"
+	case string:
+		return "string"
 	}
 	return "a Boolean"
 }
@@ -502,6 +504,24 @@ func sysmlFormatSeq[T sysmlElem](s sysmlSeq[T]) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
+// sysmlSplitElems splits a sequence body at its commas outside string literals.
+func sysmlSplitElems(body string) []string {
+	var toks []string
+	start, quoted := 0, false
+	for i := 0; i < len(body); i++ {
+		switch c := body[i]; {
+		case quoted && c == '\\':
+			i++
+		case c == '"':
+			quoted = !quoted
+		case !quoted && c == ',':
+			toks = append(toks, body[start:i])
+			start = i + 1
+		}
+	}
+	return append(toks, body[start:])
+}
+
 // sysmlParseSeq parses a collection argument in the notation the interpreter
 // reads and prints: null, a bare value, (a, b, ...) with (a) a bare value,
 // [a, b, ...].
@@ -525,7 +545,7 @@ func sysmlParseSeq[T sysmlElem](s, name string, elem func(string, string) T) sys
 	if body == "" {
 		return r
 	}
-	toks := strings.Split(body, ",")
+	toks := sysmlSplitElems(body)
 	if s[0] == '(' && len(toks) == 1 {
 		return sysmlOneSeq(elem(strings.TrimSpace(body), name))
 	}

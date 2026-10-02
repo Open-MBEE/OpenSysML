@@ -18,12 +18,14 @@ const (
 	TypeInt          // Integer and its subtypes, unbounded (int64 until a result leaves it)
 	TypeReal         // Real and Rational, IEEE 754 binary64
 	TypeBool
-	TypeNum     // a Real-typed value, an Integer or a Real by run-time kind
-	TypeNull    // `null` before context fixes its collection type
-	TypeSeqInt  // collection of Integers
-	TypeSeqReal // collection of Reals
-	TypeSeqBool // collection of Booleans
-	TypeSeqNum  // collection of numbers, each element of its own kind
+	TypeNum       // a Real-typed value, an Integer or a Real by run-time kind
+	TypeString    // a String, its characters Unicode code points held as UTF-8
+	TypeNull      // `null` before context fixes its collection type
+	TypeSeqInt    // collection of Integers
+	TypeSeqReal   // collection of Reals
+	TypeSeqBool   // collection of Booleans
+	TypeSeqNum    // collection of numbers, each element of its own kind
+	TypeSeqString // collection of Strings
 )
 
 func (t Type) String() string {
@@ -36,16 +38,24 @@ func (t Type) String() string {
 		return "Boolean"
 	case TypeNum:
 		return "Real"
+	case TypeString:
+		return "String"
 	case TypeNull:
 		return "null"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum, TypeSeqString:
 		return t.Elem().String() + "[0..*]"
 	}
 	return "invalid"
 }
 
-// Scalar reports whether t is exactly one Integer, Real, Boolean or number.
-func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeNum }
+// Scalar reports whether t is exactly one Integer, Real, Boolean, number or String.
+func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeString }
+
+// numeric reports whether t's values are Integers, Reals or numbers.
+func numeric(t Type) bool {
+	e := t.Elem()
+	return e == TypeInt || e == TypeReal || e == TypeNum
+}
 
 // Many reports whether t is a collection type.
 func (t Type) Many() bool { return t >= TypeSeqInt }
@@ -158,6 +168,9 @@ type IntLit struct {
 }
 type RealLit struct{ Value float64 }
 type BoolLit struct{ Value bool }
+
+// StrLit is a String literal, Value its characters as UTF-8.
+type StrLit struct{ Value string }
 
 // Var reads a parameter or a body-local variable.
 type Var struct {
@@ -337,6 +350,7 @@ type Sampled struct {
 func (IntLit) Type() Type    { return TypeInt }
 func (RealLit) Type() Type   { return TypeReal }
 func (BoolLit) Type() Type   { return TypeBool }
+func (StrLit) Type() Type    { return TypeString }
 func (v Var) Type() Type     { return v.T }
 func (b Binary) Type() Type  { return b.T }
 func (u Unary) Type() Type   { return u.T }

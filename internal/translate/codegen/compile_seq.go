@@ -128,6 +128,9 @@ func failStmtCondition(kw string) string {
 
 // scalarOperandOf is v as the argument for param of the scalar library function fqn.
 func (fc *funcCompiler) scalarOperandOf(v Expr, fqn, param string) (Expr, error) {
+	if kind := stringLibParam(fqn, param); kind != "" {
+		return fc.scalarOperandWith(v, fmt.Sprintf("type mismatch: function %s parameter %q requires %s value, got %%s", fqn, param, kind), false, fqn)
+	}
 	return fc.scalarOperandWith(v, fmt.Sprintf("type mismatch: function %s parameter %q requires a numeric value", fqn, param), false, fqn)
 }
 
@@ -156,7 +159,7 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 			return nil, err
 		}
 		if t := v.Type(); t != TypeNull {
-			if elem != TypeInvalid && elem != t.Elem() && (elem == TypeBool || t.Elem() == TypeBool) {
+			if elem != TypeInvalid && elem != t.Elem() && (!numeric(elem) || !numeric(t.Elem())) {
 				return nil, fc.unsupported(fmt.Sprintf("a sequence mixing %s and %s elements", elem, t.Elem()))
 			}
 			if elem != TypeInvalid && elem != t.Elem() {
@@ -236,7 +239,7 @@ func (fc *funcCompiler) compileCoalesce(n *ast.OperatorExpr) (Expr, error) {
 	if t == TypeNull {
 		return nil, fc.unsupported("'??' between two nulls")
 	}
-	if le, re := t.Elem(), r.Type().Elem(); r.Type() != TypeNull && le != re && le != TypeBool && re != TypeBool {
+	if le, re := t.Elem(), r.Type().Elem(); r.Type() != TypeNull && le != re && numeric(le) && numeric(re) {
 		t = TypeSeqNum
 	}
 	if l, err = fc.coerce(l, t, "the left operand of '??'"); err != nil {
@@ -259,6 +262,17 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
 	ident := n.Operator == ast.OpEqEqEq || n.Operator == ast.OpNeqEqEq
 	lt, rt := l.Type(), r.Type()
+	if lt.Scalar() && rt.Scalar() && (lt == TypeString) != (rt == TypeString) {
+		// A String equals no value of another kind, whatever its operands hold.
+		var lets []Let
+		_, lets = fc.hoist(l, lets)
+		_, lets = fc.hoist(r, lets)
+		var x Expr = BoolLit{Value: neq}
+		for i := len(lets) - 1; i >= 0; i-- {
+			x = Let{Name: lets[i].Name, Value: lets[i].Value, In: x}
+		}
+		return x, nil
+	}
 	if (lt == TypeBool) != (rt == TypeBool) && lt != TypeNull && rt != TypeNull {
 		return nil, fc.unsupported("equality between a Boolean and a number")
 	}
@@ -288,7 +302,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		re = le
 	}
 	if le != re {
-		if le == TypeBool || re == TypeBool {
+		if !numeric(le) || !numeric(re) {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
 		}
 		// Collections compare their elements as numbers, under `===` too.
@@ -351,8 +365,8 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 		switch t := a.Type().Elem(); {
 		case elem == TypeInvalid:
 			elem = t
-		case elem != t && (elem == TypeBool || t == TypeBool):
-			return nil, fc.unsupported(fmt.Sprintf("%s over Boolean and numeric collections", op.Name()))
+		case elem != t && (!numeric(elem) || !numeric(t)):
+			return nil, fc.unsupported(fmt.Sprintf("%s over collections of %s and %s", op.Name(), elem, t))
 		case elem != t:
 			elem = TypeNum
 		}
@@ -360,7 +374,7 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 	if elem == TypeInvalid {
 		elem = TypeInt
 	}
-	if realAgg && elem != TypeBool {
+	if realAgg && numeric(elem) {
 		elem = TypeReal
 	}
 	var err error
@@ -409,8 +423,8 @@ func (fc *funcCompiler) seqResult(op SeqOp, elem Type) (Type, error) {
 		}
 		return TypeBool, nil
 	case SeqSum, SeqProduct:
-		if elem == TypeBool {
-			return TypeInvalid, fc.unsupported(fmt.Sprintf("%s over Boolean elements", op.Name()))
+		if !numeric(elem) {
+			return TypeInvalid, fc.unsupported(fmt.Sprintf("%s over %s elements", op.Name(), elem))
 		}
 		return elem, nil
 	}

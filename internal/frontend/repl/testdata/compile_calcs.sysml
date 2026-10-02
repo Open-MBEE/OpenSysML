@@ -546,6 +546,40 @@ package Compiled {
 		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
 		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }
 	}
+	package Str {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import StringFunctions::*;
+		calc def Concat { in a : String; in b : String; return : String = a + b; }
+		calc def Lit { return : String = "héllo, \"w\"\\\n" + "!"; }
+		calc def Len { in a : String; return : Integer = Length(a); }
+		calc def Sub { in a : String; in l : Integer; in u : Integer; return : String = Substring(a, l, u); }
+		calc def Less { in a : String; in b : String; return : Boolean = a < b; }
+		calc def AtMost { in a : String; in b : String; return : Boolean = a <= b; }
+		calc def More { in a : String; in b : String; return : Boolean = a > b; }
+		calc def AtLeast { in a : String; in b : String; return : Boolean = a >= b; }
+		calc def Eq { in a : String; in b : String; return : Boolean = a == b; }
+		calc def Neq { in a : String; in b : String; return : Boolean = a != b; }
+		calc def Same { in a : String; in b : String; return : Boolean = a === b; }
+		calc def EqNum { in a : String; return : Boolean = a == 3; }
+		calc def IntStr { in n : Integer; return : String = IntegerFunctions::ToString(n); }
+		calc def NatStr { in n : Integer; return : String = NaturalFunctions::ToString(n); }
+		calc def RealStr { in r : Real; return : String = RealFunctions::ToString(r); }
+		calc def BoolStr { in b : Boolean; return : String = BooleanFunctions::ToString(b); }
+		calc def StrStr { in a : String; return : String = StringFunctions::ToString(a); }
+		calc def BaseStr { in n : Integer; return : String = BaseFunctions::ToString(n); }
+		calc def Pick { in b : Boolean; return : String = if b ? "yes" else "no"; }
+		calc def Local { in a : String; attribute s : String = a + a; return : Integer = Length(s); }
+		calc def Seq { in a : String; return : String[0..*] = (a, "x", a); }
+		calc def Unique { in a : String; attribute x : String[0..*] = (a, "x"); return : String[0..*] = x; }
+		calc def Lengths { in x : String[0..*]; return : Integer[0..*] = x->collect {in s : String; Length(s)}; }
+		calc def Has { in a : String; return : Boolean = includes(("p", "q"), a); }
+		calc def Joined { in x : String[0..*]; return : String = x->reduce {in a : String; in b : String; a + "," + b}; }
+		calc def Build { in a : String; in n : Integer; attribute s : String = ""; while Length(s) < n { assign s := s + a; } return : String = s; }
+		calc def Names { in n : Integer; attribute keep : String[0..*] = (); while size(keep) < n { assign keep := including(keep, "n" + IntegerFunctions::ToString(size(keep))); } return : String[0..*] = keep; }
+		calc def ForS { in x : String[0..*]; attribute s : String = ""; for v in x { assign s := s + v + ";"; } return : String = s; }
+		calc def Ctrl { in a : String; return : String = "\b\t\f\r" + a; }
+	}
 }
 
 // Calculations outside the subset, each refused for the reason its name states.
@@ -618,11 +652,6 @@ package Refused {
 	calc def SampledValue { in xs : Real[0..*]; attribute s : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); return : Integer = CollectionFunctions::size(s); }
 	calc def SampledEscapes { in xs : Real[0..*]; return : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); }
 	calc def UnevaluatedFunction { in xs : Integer[0..*]; return : Integer[0..*] = SampledFunctions::Range(SampledFunctions::Sample(ControlFunctions::collect, xs)); }
-
-	calc def StringResult {
-		in s : String;
-		return : String = s;
-	}
 
 	calc def Defaulted {
 		in n : Integer = 3;

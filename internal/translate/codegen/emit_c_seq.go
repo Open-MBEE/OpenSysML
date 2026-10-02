@@ -67,11 +67,17 @@ static void *sysml_alloc(size_t n) {
 
 static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
 static void sysml_failf(const char *fmt, ...) {
-	static char msg[512];
-	va_list ap;
+	static char *msg;
+	va_list ap, again;
 	va_start(ap, fmt);
-	vsnprintf(msg, sizeof msg, fmt, ap);
+	va_copy(again, ap);
+	int n = vsnprintf(NULL, 0, fmt, ap);
 	va_end(ap);
+	free(msg);
+	msg = malloc((size_t)n + 1);
+	if (!msg) sysml_fail("out of memory");
+	vsnprintf(msg, (size_t)n + 1, fmt, again);
+	va_end(again);
 	sysml_fail(msg);
 }
 
@@ -102,6 +108,17 @@ static char *sysml_trim(char *tok) {
 	return tok;
 }
 
+/* The next comma of a sequence body outside a string literal, or NULL. */
+static char *sysml_next_comma(char *s) {
+	bool quoted = false;
+	for (; *s; s++) {
+		if (quoted && *s == '\\' && s[1]) s++;
+		else if (*s == '"') quoted = !quoted;
+		else if (!quoted && *s == ',') return s;
+	}
+	return NULL;
+}
+
 static void sysml_seq_open(void) { fputc('[', stdout); }
 static void sysml_seq_close(void) { fputc(']', stdout); fputc('\n', stdout); }
 static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
@@ -122,6 +139,13 @@ static inline sysml_seq_SFX sysml_one_SFX(ELEM v) {
 	return (sysml_seq_SFX){SYSML_ONE, 1, p};
 }
 
+/* One element as the interpreter prints it, in memory the run owns. */
+static const char *sysml_show64_SFX(ELEM v) {
+	char *text = sysml_alloc(64);
+	FORMAT(v, text, 64);
+	return text;
+}
+
 /* An uninitialized sequence of n elements, charged to the budget. */
 static sysml_seq_SFX sysml_many_SFX(sysml_int n) {
 	sysml_charge(n);
@@ -134,6 +158,7 @@ static ELEM *sysml_save_SFX(sysml_seq_SFX s, sysml_mark m) {
 	ELEM *t = malloc((size_t)s.len * sizeof(ELEM));
 	if (!t) sysml_fail("out of memory");
 	memcpy(t, s.data, (size_t)s.len * sizeof(ELEM));
+	SAVEELEMS(t, s.len);
 	return t;
 }
 
@@ -142,6 +167,7 @@ static void sysml_restore_SFX(sysml_seq_SFX *s, ELEM *t) {
 	if (!t) return;
 	s->data = sysml_alloc((size_t)s->len * sizeof(ELEM));
 	memcpy(s->data, t, (size_t)s->len * sizeof(ELEM));
+	RESTOREELEMS(s->data, s->len);
 	free(t);
 }
 
@@ -192,8 +218,7 @@ static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
 			if (!slots[k]) { slots[k] = i + 1; break; }
 			if (EQ(s.data[slots[k] - 1], v)) {
 				sysml_int first = slots[k];
-				char text[64];
-				FORMAT(v, text, sizeof text);
+				const char *text = SHOW(v);
 				free(slots);
 				sysml_failf("%s: uniqueness violation: %s (%s) is written at positions %lld and %lld of a unique feature", where, text, KINDOF(v), (long long)first, (long long)i + 1);
 			}
@@ -331,7 +356,7 @@ static sysml_seq_SFX sysml_parse_seq_SFX(const char *s, const char *name) {
 	char *body = strndup(s + 1, n - 2);
 	if (!body) sysml_fail("out of memory");
 	sysml_int count = 1;
-	for (size_t i = 0; body[i]; i++) if (body[i] == ',') count++;
+	for (char *c = body; (c = sysml_next_comma(c)); c++) count++;
 	if (s[0] == '(' && count == 1 && n > 2) {
 		sysml_seq_SFX r = sysml_one_SFX(sysml_parse_ELEMNAME(sysml_trim(body), name));
 		free(body);
@@ -340,7 +365,7 @@ static sysml_seq_SFX sysml_parse_seq_SFX(const char *s, const char *name) {
 	sysml_seq_SFX r = {SYSML_MANY, 0, n > 2 ? sysml_alloc((size_t)count * sizeof(ELEM)) : NULL};
 	if (n > 2) {
 		char *tok = body;
-		for (char *comma; (comma = strchr(tok, ',')); tok = comma + 1) {
+		for (char *comma; (comma = sysml_next_comma(tok)); tok = comma + 1) {
 			*comma = 0;
 			r.data[r.len++] = sysml_parse_ELEMNAME(sysml_trim(tok), name);
 		}
@@ -497,6 +522,8 @@ func cSeqSuffix(t Type) string {
 		return "real"
 	case TypeNum:
 		return "num"
+	case TypeString:
+		return "str"
 	}
 	return "bool"
 }
@@ -505,15 +532,21 @@ func cSeqSuffix(t Type) string {
 func cSeqRuntime() string {
 	var b strings.Builder
 	b.WriteString(cSeqPrelude)
+	b.WriteString(cUnprintable())
+	b.WriteString(cStrRuntime)
 	// Element printers precede the template; the Real printer is the scalar one.
 	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
 	b.WriteString("static void sysml_format_int(sysml_int v, char *out, size_t size);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
 	b.WriteString("static inline uint64_t sysml_num_key(sysml_num n);\n")
-	b.WriteString("#define SYSML_SCALAR_EQ(a, b) ((a) == (b))\n#define SYSML_NEVER(v) false\n#define SYSML_KIND_INT(v) \"an Integer\"\n#define SYSML_KIND_REAL(v) \"a Real\"\n#define SYSML_KIND_BOOL(v) \"a Boolean\"\n")
-	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum} {
+	b.WriteString("#define SYSML_SCALAR_EQ(a, b) ((a) == (b))\n#define SYSML_NEVER(v) false\n#define SYSML_KIND_INT(v) \"an Integer\"\n#define SYSML_KIND_REAL(v) \"a Real\"\n#define SYSML_KIND_BOOL(v) \"a Boolean\"\n#define SYSML_KIND_STR(v) \"string\"\n#define SYSML_NO_ELEMS(t, n) ((void)0)\n")
+	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum, TypeString} {
 		printer := "sysml_print_" + cSeqSuffix(t)
 		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "false && ", "SYSML_SCALAR_EQ"
+		show, save, restore := "sysml_show64_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
 		switch t {
+		case TypeString:
+			printer, kind, key, skip, eq = "sysml_print_str_value", "SYSML_KIND_STR", "sysml_str_key", "SYSML_NEVER", "sysml_str_eq"
+			show, save, restore = "sysml_show_str", "sysml_save_texts", "sysml_restore_texts"
 		case TypeReal:
 			printer, kind, key, skip = "sysml_print_real_value", "SYSML_KIND_REAL", "sysml_real_key", "isnan"
 		case TypeBool:
@@ -522,7 +555,8 @@ func cSeqRuntime() string {
 			printer, kind, key, skip, eq = "sysml_print_num_value", "sysml_num_kind", "sysml_num_key", "SYSML_NEVER", "sysml_num_eq"
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
-			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq)
+			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
+			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)

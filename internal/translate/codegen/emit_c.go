@@ -553,7 +553,7 @@ type cEmitter struct {
 // pure is an operand whose evaluation cannot fail, so its order is immaterial.
 func pure(x Expr) bool {
 	switch x := x.(type) {
-	case IntLit, RealLit, BoolLit, Var, NullLit:
+	case IntLit, RealLit, BoolLit, StrLit, Var, NullLit:
 		return true
 	case ToReal:
 		return pure(x.X)
@@ -612,7 +612,9 @@ func cType(t Type) string {
 		return "sysml_bool"
 	case TypeNum:
 		return "sysml_num"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
+	case TypeString:
+		return "sysml_str"
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum, TypeSeqString:
 		return "sysml_seq_" + cSeqSuffix(t)
 	}
 	return "void"
@@ -702,30 +704,38 @@ func (e *cEmitter) arenaMark() string {
 	return mark
 }
 
-// compact releases the arena to mark, keeping the collections a loop pass
-// stored into variables that outlive it.
+// compact releases the arena to mark, keeping the collections and Strings a
+// loop pass stored into variables that outlive it.
 func (e *cEmitter) compact(kept []Var, mark string) {
 	saved := make([]string, len(kept))
 	for i, v := range kept {
 		e.temps++
 		saved[i] = fmt.Sprintf("sysml_k%d", e.temps)
+		if v.T == TypeString {
+			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cLocal(v.Name), mark)
+			continue
+		}
 		e.linef("%s *%s = sysml_save_%s(%s, %s);", cType(v.T.Elem()), saved[i], cSeqSuffix(v.T), cLocal(v.Name), mark)
 	}
 	e.linef("sysml_arena_release(%s);", mark)
 	for i, v := range kept {
+		if v.T == TypeString {
+			e.linef("sysml_restore_text(&%s, %s);", cLocal(v.Name), saved[i])
+			continue
+		}
 		e.linef("sysml_restore_%s(&%s, %s);", cSeqSuffix(v.T), cLocal(v.Name), saved[i])
 	}
 }
 
-// escapingSeqs lists the collection variables a statement stores into that
-// outlive it: its own declaration and assignments to enclosing variables.
+// escapingSeqs lists the collection and String variables a statement stores
+// into that outlive it: its own declaration and assignments to enclosing variables.
 func escapingSeqs(s Stmt) []Var {
 	var out []Var
 	seen := map[string]bool{}
 	var walk func(s Stmt, inner map[string]bool)
 	walk = func(s Stmt, inner map[string]bool) {
 		store := func(name string, t Type) {
-			if !t.Many() || inner[name] || seen[name] {
+			if !t.Many() && t != TypeString || inner[name] || seen[name] {
 				return
 			}
 			seen[name] = true
@@ -836,6 +846,8 @@ func cZero(t Type) string {
 		return fmt.Sprintf("sysml_null_%s()", cSeqSuffix(t))
 	case t == TypeNum:
 		return "sysml_ni(0)"
+	case t == TypeString:
+		return "sysml_str_empty()"
 	}
 	return "0"
 }
@@ -854,6 +866,8 @@ func (e *cEmitter) expr(x Expr) string {
 			return "true"
 		}
 		return "false"
+	case StrLit:
+		return cStrLit(x.Value)
 	case Var:
 		return cLocal(x.Name)
 	case ToReal:
@@ -987,6 +1001,12 @@ func (e *cEmitter) binary(x Binary) string {
 // strict is a binary operator whose operands l and r are already evaluated.
 func (e *cEmitter) strict(x Binary, l, r string) string {
 	operands := x.L.Type()
+	if operands == TypeString {
+		if x.Op == ast.OpAdd {
+			return fmt.Sprintf("sysml_str_cat(%s, %s)", l, r)
+		}
+		return fmt.Sprintf("(sysml_str_cmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+	}
 	if operands == TypeNum {
 		switch x.Op {
 		case ast.OpEqEqEq:
@@ -1134,6 +1154,8 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 		e.linef("puts(result ? \"true\" : \"false\");")
 	case TypeNum:
 		e.linef("sysml_print_num(result);")
+	case TypeString:
+		e.linef("sysml_print_str(result);")
 	default:
 		e.linef("sysml_print_seq_%s(result);", cSeqSuffix(fn.Result))
 	}

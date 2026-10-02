@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ErrUnsupported reports notation outside the compiled subset. The message
@@ -488,7 +489,10 @@ func (fc *funcCompiler) declaredType(scope *symbols.Scope, u *ast.Usage, name st
 	}
 	t, r, ok := scalarType(fc.c.name(typ))
 	if !ok {
-		return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: type %s is not Integer, Real or Boolean", name, fc.c.name(typ)))
+		return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: type %s is not Integer, Real, Boolean or String", name, fc.c.name(typ)))
+	}
+	if t == TypeString {
+		fc.c.collections = true
 	}
 	return t, r, nil
 }
@@ -507,6 +511,8 @@ func scalarType(fqn string) (Type, Range, bool) {
 		return TypeReal, RangeAny, true
 	case "ScalarValues::Boolean":
 		return TypeBool, RangeAny, true
+	case "ScalarValues::String":
+		return TypeString, RangeAny, true
 	}
 	return TypeInvalid, RangeAny, false
 }
@@ -837,6 +843,9 @@ func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 		return RealLit{Value: v}, nil
 	case *ast.LiteralBool:
 		return BoolLit{Value: n.Value}, nil
+	case *ast.LiteralString:
+		fc.c.collections = true
+		return StrLit{Value: source.StringValue(n.Value)}, nil
 	case *ast.FeatureReference:
 		return fc.compileName(n.Name)
 	case *ast.OperatorExpr:
@@ -942,6 +951,12 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		l, r, t, wrap, err := fc.numericOperands(n)
 		if err != nil {
 			return nil, err
+		}
+		if t == TypeString {
+			if n.Operator != ast.OpAdd {
+				return nil, fc.unsupported(fmt.Sprintf("'%s' over Strings", n.Operator))
+			}
+			return wrap(Binary{Op: n.Operator, L: l, R: r, T: TypeString}), nil
 		}
 		if t == TypeNum {
 			x, err := fc.numArith(n.Operator, l, r)
@@ -1107,8 +1122,11 @@ func (fc *funcCompiler) numericOperands(n *ast.OperatorExpr) (Expr, Expr, Type, 
 	if err != nil {
 		return nil, nil, TypeInvalid, nil, err
 	}
-	if l.Type() == TypeBool || r.Type() == TypeBool {
-		return nil, nil, TypeInvalid, nil, fc.unsupported(fmt.Sprintf("'%s' over a Boolean", n.Operator))
+	if l.Type() == TypeString && r.Type() == TypeString {
+		return l, r, TypeString, wrap, nil
+	}
+	if !numeric(l.Type()) || !numeric(r.Type()) {
+		return nil, nil, TypeInvalid, nil, fc.unsupported(fmt.Sprintf("'%s' over %s and %s", n.Operator, l.Type(), r.Type()))
 	}
 	if l.Type() == TypeNum || r.Type() == TypeNum {
 		return l, r, TypeNum, wrap, nil
@@ -1135,7 +1153,7 @@ func (fc *funcCompiler) unify(a, b Expr, what string) (Type, error) {
 		return at.Seq(), nil
 	case at.Elem() == bt.Elem():
 		return at.Seq(), nil
-	case at.Elem() == TypeBool || bt.Elem() == TypeBool:
+	case !numeric(at) || !numeric(bt):
 		return TypeInvalid, fc.unsupported(fmt.Sprintf("%s are %s and %s", what, at, bt))
 	}
 	if at.Scalar() && bt.Scalar() {
@@ -1302,6 +1320,9 @@ func (fc *funcCompiler) libCall(op LibOp, fqn string, params []string, args []Ar
 		if args[i].Value, err = fc.coerce(a.Value, op.Operands()[a.Param], fmt.Sprintf("argument for %s of %s", params[a.Param], fqn)); err != nil {
 			return nil, err
 		}
+	}
+	if op.Result() == TypeString || slices.Contains(op.Operands(), TypeString) {
+		fc.c.collections = true
 	}
 	return LibCall{Op: op, Args: args}, nil
 }
