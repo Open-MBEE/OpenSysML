@@ -27,28 +27,29 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 311,
-        "digest": "sha256:e0e4dd77f66dfb82065cedbd25cff02c06b3044274e048e1cf65090c3ed3f46d"
+        "files": 312,
+        "digest": "sha256:2e30292021138a84093d0a233f0d20f3796cf641ec3e9f7edaf291ab4bb1bbbd"
       }
     ],
-    "recorded": "2026-09-30"
+    "recorded": "2026-10-02"
   },
   "totals": {
-    "cases": 311,
-    "bothReject": 302,
+    "cases": 312,
+    "bothReject": 303,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x09-expose-in-view-def-body.sysml"
+    "extensions/x09-expose-in-view-def-body.sysml",
+    "extensions/x10-connector-in-sysml.sysml"
   ],
   "sources": [
     {
       "source": "extensions",
-      "cases": 9,
-      "bothReject": 9,
+      "cases": 10,
+      "bothReject": 10,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -174,6 +175,16 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
+      "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x10-connector-in-sysml.sysml",
+      "source": "extensions",
+      "rule": "'connector' is a KerML declaration keyword with no SysML production; a SysML package body admits ConnectionUsage, not Connector (KerML.xtext:824 Connector, SysML.xtext:220 PackageMember, :1062 ConnectionUsage).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3,
       "defaultBucket": "pilot-only-rejects"
     },
     {
@@ -3026,8 +3037,8 @@
       }
     ],
     "totals": {
-      "cases": 311,
-      "bothReject": 302,
+      "cases": 312,
+      "bothReject": 303,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

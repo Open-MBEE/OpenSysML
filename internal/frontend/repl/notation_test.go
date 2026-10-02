@@ -74,3 +74,61 @@ func TestLoadedSysMLNamespaceWarns(t *testing.T) {
 		t.Fatalf("the notation stays parsed, so it must not error: %v", s.DiagnosticLines())
 	}
 }
+
+// kermlDeclarationsSrc declares members with keywords only KerML.xtext spells,
+// written so that the text is legal KerML and parses as SysML too.
+const kermlDeclarationsSrc = "package K { class C; feature f; step s; inv { true } connector c from f to s; }\n"
+
+// A snippet loaded from a .kerml file declares with KerML keywords legally, so
+// the buffer must not report them there.
+func TestLoadedKerMLDeclarationsAreSilent(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "decl.kerml"), kermlDeclarationsSrc)
+
+	s := NewSession()
+	if _, err := s.LoadPaths([]string{dir}); err != nil {
+		t.Fatalf("LoadPaths: %v", err)
+	}
+	if diags := s.Diagnostics(); hasCode(diags, passes.CodeKerMLNotation) {
+		t.Fatalf("KerML declarations are legal in .kerml, got %v", codesOf(diags))
+	}
+}
+
+// The same text in a .sysml file, or typed at the prompt that reads as SysML,
+// draws one kerml-notation warning per declaration and no error.
+func TestKerMLDeclarationsWarnInSysMLAndAtThePrompt(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "decl.sysml"), kermlDeclarationsSrc)
+
+	s := NewSession()
+	if _, err := s.LoadPaths([]string{dir}); err != nil {
+		t.Fatalf("LoadPaths: %v", err)
+	}
+	if got := countCode(s.Diagnostics(), passes.CodeKerMLNotation); got != 5 {
+		t.Fatalf("loaded .sysml: want 5 %s findings, got %d in %v", passes.CodeKerMLNotation, got, codesOf(s.Diagnostics()))
+	}
+	if s.HasErrors() {
+		t.Fatalf("the notation stays parsed, so it must not error: %v", s.DiagnosticLines())
+	}
+
+	prompt := NewSession()
+	res := prompt.Submit(kermlDeclarationsSrc)
+	if got := countCode(res.Diagnostics, passes.CodeKerMLNotation); got != 5 {
+		t.Fatalf("prompt: want 5 %s findings, got %d in %v", passes.CodeKerMLNotation, got, codesOf(res.Diagnostics))
+	}
+	for _, d := range res.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("the notation stays parsed, so it must not error: %v", d)
+		}
+	}
+}
+
+func countCode(diags []diag.Diagnostic, code string) int {
+	n := 0
+	for _, d := range diags {
+		if d.Code == code {
+			n++
+		}
+	}
+	return n
+}

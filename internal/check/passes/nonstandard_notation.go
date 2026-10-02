@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -97,6 +98,9 @@ type notationWalker struct {
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
+	// inKerMLDeclaration counts the enclosing declarations already reported as
+	// KerML notation; their members move with them, so are not reported again.
+	inKerMLDeclaration int
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
@@ -161,11 +165,14 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.keywordAsName(n.Ident)
 			w.walkPackageMembers(n.Members)
 		case *ast.Definition:
+			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.Usage:
+			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			if n.CrossFeature != nil {
 				w.kermlRelationships(n.CrossFeature.Relationships)
@@ -173,6 +180,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
 			w.expose(n)
 			w.walk(n.Body)
@@ -182,8 +190,10 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.keywordAsName(n.Ident)
 			w.walk(n.Body)
 		case *ast.MultiplicityDecl:
+			reported := w.kermlDeclaration(n, "multiplicity")
 			w.keywordAsName(n.Ident)
 			w.walk(n.Members)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
 			w.walk(n.Body)
 		case *ast.AssumeMember:
@@ -582,7 +592,7 @@ func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) 
 // kermlNamespace reports a `namespace` declaration in a SysML file, whose root
 // production admits package members only.
 func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
-	if !w.sysml {
+	if !w.sysml || w.inKerMLDeclaration > 0 {
 		return
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
@@ -598,7 +608,7 @@ func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
 // kermlRelationships reports a `featured by` clause in a SysML file: the
 // featuring relationship is KerML.xtext:569 only, absent from SysML.xtext.
 func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
-	if !w.sysml {
+	if !w.sysml || w.inKerMLDeclaration > 0 {
 		return
 	}
 	for _, rel := range rels {
@@ -644,6 +654,70 @@ var kermlRelationshipClauses = map[ast.RelationshipKind]struct {
 	ast.RelInverseOf:   {"inverse of", "inverting"},
 }
 
+// kermlDeclarationAlternatives names the SysML v2 declaration that takes the
+// place of a KerML-only one; a keyword outside the map (`interaction`,
+// `multiplicity`) has no SysML spelling and can only move to a .kerml file.
+var kermlDeclarationAlternatives = map[string]string{
+	"assoc":         "`connection def`",
+	"assoc struct":  "`connection def`",
+	"behavior":      "`action def`",
+	"bool":          "`constraint`",
+	"class":         "`occurrence def`",
+	"classifier":    "a `… def` form such as `part def`",
+	"connector":     "`connection` or `connect` (or `binding` for a binding connector)",
+	"datatype":      "`attribute def`",
+	"expr":          "`calc`",
+	"feature":       "a usage keyword such as `attribute`, `part` or `ref`",
+	"function":      "`calc def`",
+	"inv":           "`constraint` or `assert constraint`",
+	"metaclass":     "`metadata def`",
+	"predicate":     "`constraint def`",
+	"step":          "`action`",
+	"struct":        "`item def` or `part def`",
+	"subclassifier": "`specializes` on the definition itself",
+}
+
+// isKerMLOnlyDeclarationKeyword reports whether a declaration keyword is a
+// literal of the pinned KerML grammar that the pinned SysML grammar does not
+// spell, read from the per-language keyword sets of source. A compound keyword
+// (`assoc struct`) is classified by its leading word.
+func isKerMLOnlyDeclarationKeyword(keyword string) bool {
+	word, _, _ := strings.Cut(keyword, " ")
+	return source.IsKeywordIn(word, source.KindKerML) && !source.IsKeywordIn(word, source.KindSysML)
+}
+
+// kermlDeclaration reports a declaration whose keyword is KerML notation in a
+// SysML file — `connector`, `class`, `feature`, `inv`, … — and reports whether
+// it did, so the walk can withhold the findings its members would repeat. The
+// declaration stays parsed for editor and analysis consumers; no fix rewrites
+// it, since a keyword swap changes the declared kind.
+func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
+	if !w.sysml || w.inKerMLDeclaration > 0 || keyword == "" || !isKerMLOnlyDeclarationKeyword(keyword) {
+		return false
+	}
+	remedy := "move the declaration to a .kerml file"
+	if alternative, ok := kermlDeclarationAlternatives[keyword]; ok {
+		remedy = "write " + alternative + " here or " + remedy
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     w.declarationKeywordSpan(n, keyword),
+		Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s declaration, so %s",
+			keyword, keyword, remedy),
+		Code:   CodeKerMLNotation,
+		Source: "syntax",
+	})
+	w.inKerMLDeclaration++
+	return true
+}
+
+// leaveKerMLDeclaration closes the scope kermlDeclaration opened when it reported.
+func (w *notationWalker) leaveKerMLDeclaration(reported bool) {
+	if reported {
+		w.inKerMLDeclaration--
+	}
+}
+
 // kermlDeclarationKeywords are the definition and usage keywords the pinned
 // KerML grammar spells; a kind keyword outside the set is SysML-only.
 var kermlDeclarationKeywords = map[string]bool{
@@ -663,7 +737,7 @@ func (w *notationWalker) sysmlDeclaration(n ast.Node, keyword string) {
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
-		Span:     keywordSpan(n, keyword),
+		Span:     w.declarationKeywordSpan(n, keyword),
 		Message: fmt.Sprintf("`%s` is SysML notation: the KerML grammar has no such declaration keyword, "+
 			"so move the declaration to a .sysml file", keyword),
 		Code:   CodeSysMLNotation,
@@ -700,6 +774,39 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 		Code:   CodeNonstandardNotation,
 		Source: "syntax",
 	})
+}
+
+// declarationKeywordSpan spans the kind keyword of a declaration, which its
+// prefixes (`abstract`, `in`) may precede; without the source text it falls
+// back to the word that opens the declaration.
+func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
+	sp := n.Span()
+	if w.lookup != nil {
+		if at := indexWord(w.lookup(w.doc, sp), keyword); at >= 0 {
+			sp.Offset += at
+			sp.Len = len(keyword)
+			return sp
+		}
+	}
+	return keywordSpan(n, keyword)
+}
+
+// indexWord is the offset of the first occurrence of word in text that no
+// identifier character adjoins, or -1.
+func indexWord(text, word string) int {
+	for from := 0; from < len(text); {
+		at := strings.Index(text[from:], word)
+		if at < 0 {
+			return -1
+		}
+		at += from
+		end := at + len(word)
+		if (at == 0 || !source.IsIdentCont(text[at-1])) && (end == len(text) || !source.IsIdentCont(text[end])) {
+			return at
+		}
+		from = at + 1
+	}
+	return -1
 }
 
 // keywordSpan spans the notation that opens a node, so the diagnostic points at
