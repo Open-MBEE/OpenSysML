@@ -13,10 +13,12 @@ import {
 } from "./errors.js";
 import type { Instance } from "./model.js";
 import {
+  rationalOfDouble,
   rationalToNumber,
   type ComplexValue,
   type EnumValue,
   type QuantityValue,
+  type RationalValue,
   type SysMLValue,
 } from "./values.js";
 
@@ -175,7 +177,7 @@ export function asInt(featureName: string, value: SysMLValue): bigint {
   throw mismatch(featureName, "int", value);
 }
 
-/** Decode a Real/Rational feature value; an integer value widens to float. */
+/** Decode a Real feature value; an Integer or exact Rational widens to the nearest double. */
 export function asReal(featureName: string, value: SysMLValue): number {
   if (value.kind === "real") {
     return value.value;
@@ -187,6 +189,21 @@ export function asReal(featureName: string, value: SysMLValue): number {
     return rationalToNumber(value);
   }
   throw mismatch(featureName, "float", value);
+}
+
+/** Decode a Rational feature value exactly, whichever wire arm carried it. */
+export function asRational(featureName: string, value: SysMLValue): RationalValue {
+  if (value.kind === "rational") {
+    return { numerator: value.numerator, denominator: value.denominator };
+  }
+  if (value.kind === "int") {
+    return { numerator: value.value, denominator: 1n };
+  }
+  if (value.kind === "real" && Number.isFinite(value.value)) {
+    const { numerator, denominator } = rationalOfDouble(value.value);
+    return { numerator, denominator };
+  }
+  throw mismatch(featureName, "Rational", value);
 }
 
 /** Decode a Complex feature value; a real value widens to complex. */

@@ -902,6 +902,20 @@ function bitLength(n: bigint): number {
   return n === 0n ? 0 : (n < 0n ? -n : n).toString(2).length;
 }
 
+/** The exact Rational a finite double holds. */
+export function rationalOfDouble(x: number): { kind: "rational" } & RationalValue {
+  if (!Number.isFinite(x)) {
+    throw new RangeError(`${x} is no Rational`);
+  }
+  let whole = x;
+  let denominator = 1n;
+  while (!Number.isInteger(whole)) {
+    whole *= 2;
+    denominator *= 2n;
+  }
+  return rational(BigInt(whole), denominator);
+}
+
 /** The double that holds a reduced Rational exactly, or undefined where none does. */
 export function rationalAsDouble(value: RationalValue): number | undefined {
   const { numerator, denominator } = value;
