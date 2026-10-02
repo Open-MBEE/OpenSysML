@@ -14,6 +14,9 @@ package test {
 		total > 3
 	}
 
+	// A specialization inherits its steps through the member chain.
+	constraint def Deeper :> SumBelow { }
+
 	requirement def Safing {
 		require constraint { attribute m : Real = 0; assign m := 9; m > 4 }
 		assume constraint { attribute b : Boolean = true; assign b := false; not b }
@@ -26,10 +29,14 @@ package test {
 		constraint summed : SumBelow { in xs = (2, 4); }
 		// z names a local of the performance, not the part's feature it shadows.
 		constraint shadowed { attribute z : Real = 0; assign z := 5; z > 3 }
+		// Declaration order decides: (1 * 10) + 2 == 12, not 1 * 10 + 2's reverse.
+		constraint ordered { attribute y : Integer = 1; assign y := y * 10; assign y := y + 2; y == 12 }
+		constraint deep : Deeper { in xs = (5, 0); }
 		assert not constraint { attribute w : Real = 0; assign w := 5; w > 100 }
 		requirement safing : Safing;
 		requirement fitted {
-			require constraint { attribute k : Real = 0; assign k := 7; k > 4 }
+			subject v : Vehicle = vehicle;
+			require constraint { attribute m : Real = 0; assign m := v.z * 2; m > 1 }
 		}
 	}
 

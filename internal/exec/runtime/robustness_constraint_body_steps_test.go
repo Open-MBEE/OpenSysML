@@ -160,4 +160,47 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 			t.Errorf("err = %v, want it to say the body states no result expression", err)
 		}
 	})
+
+	t.Run("an assumption failing among steps denies nothing", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			requirement pessimistic {
+				attribute a : Real = 2.0;
+				assume constraint { attribute b : Real = 1; assign b := b + 5; b <= 3 }
+				require constraint { a > 0 }
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		pessimistic := lookupOne(t, idx, "test::pessimistic")
+		satisfied, err := ctx.EvaluateRequirement(pessimistic, pessimistic.OwnerScope)
+		if err != nil {
+			t.Fatalf("err = %v", err)
+		}
+		if !satisfied {
+			t.Error("a false assumption is trusted, not a violation — the requirement should hold")
+		}
+	})
+
+	t.Run("a negated body evaluates its steps before negating", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			part def Rig {
+				assert not constraint denied { attribute w : Real = 0; assign w := 101; w > 100 }
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		rig := lookupOne(t, idx, "test::Rig")
+		feat := featureNamed(ctx, rig, "denied")
+		if feat == nil || feat.Symbol == nil {
+			t.Fatal("constraint denied not found")
+		}
+		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+		var violation *ViolationError
+		if !errors.As(err, &violation) {
+			t.Fatalf("err = %v, want a *ViolationError: the steps made the condition hold, so the negated assertion fails", err)
+		}
+		if satisfied {
+			t.Error("the negated assertion holds while the condition its steps made true does")
+		}
+	})
 }

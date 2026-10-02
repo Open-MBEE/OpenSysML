@@ -8,7 +8,9 @@
 		"assigned": true,
 		"branched": true,
 		"summed": true,
-		"shadowed": true
+		"shadowed": true,
+		"ordered": true,
+		"deep": true
 	},
 	"validation": {
 		"verdicts": [

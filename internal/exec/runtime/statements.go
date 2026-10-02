@@ -431,7 +431,14 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			e.env.declare(s.Name, evaluated)
 			return flowNext, nil
 		}
-		e.env.declareUnvalued(s.Name)
+		// A constraint body's performance declares a valueless name as missing
+		// until a step binds it — a read answers as missing, a write binds it;
+		// every other body binds null for it, as it always has.
+		if _, constraint := e.host.(*constraintStmtHost); constraint {
+			e.env.declareUnvalued(s.Name)
+		} else {
+			e.env.declare(s.Name, Value{Kind: ValNull})
+		}
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
