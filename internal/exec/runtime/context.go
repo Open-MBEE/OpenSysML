@@ -288,6 +288,13 @@ type Context struct {
 	// readingSubsetted holds the optional features whose subsetted collections are
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
+
+	// resolvingNamespaceBindings holds the namespace-owned binding connectors being
+	// resolved, so an end read while one is under way is a cycle, not a recursion.
+	resolvingNamespaceBindings map[*ast.Usage]bool
+	// namespaceCollecting holds the namespace usages whose subsetting usages are
+	// being read, so two subsetting each other are reported as a cycle.
+	namespaceCollecting map[*symbols.Symbol]bool
 }
 
 // featureValueRef identifies one feature value of one instance.
@@ -361,6 +368,9 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+
+		resolvingNamespaceBindings: make(map[*ast.Usage]bool),
+		namespaceCollecting:        make(map[*symbols.Symbol]bool),
 
 		shareDefaults:  SharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),

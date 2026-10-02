@@ -1081,6 +1081,15 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if !namespaceObjectUsage(sym) {
 		return ec.evaluateDeclared(sym, value)
 	}
+	// A binding connector joining this usage makes its ends denote the same
+	// values; resolving it records the binding before the value is read.
+	if _, bound, err := ec.ctx.namespaceBoundObjects(sym); err != nil {
+		return Value{}, err
+	} else if bound {
+		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+			return val, nil
+		}
+	}
 	if ec.ctx.binding(sym) {
 		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
 	}

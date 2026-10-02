@@ -1,0 +1,41 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: a #1
+materialize: d #2
+materialize: Car #3
+              eval chain w2 -> instance#3
+            eval operator all -> (instance#1, instance#3, instance#2)
+            bind seq = (instance#1, instance#3, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 3
+        eval invoke size -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+        eval feature a -> instance#1
+        eval feature b -> instance#1
+      eval operator === -> true
+        eval feature c -> instance#3
+        eval chain w2 -> instance#3
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#3, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature a -> instance#1
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#3, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature b -> instance#1
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#3, instance#2)
+          eval literal 2 -> 2
+        eval index -> instance#3
+        eval feature c -> instance#3
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#3, instance#2)
+          eval literal 3 -> 3
+        eval index -> instance#2
+        eval feature d -> instance#2
+      eval operator === -> true
+    eval sequence of 7 -> (true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true)

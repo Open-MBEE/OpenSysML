@@ -712,18 +712,18 @@ type heldObject struct {
 // materializing a lazy one as reading its feature value does. A feature value that cannot be read
 // yields no object: one that is not there is no subject either.
 func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
-	out, _ := ctx.heldObjectsOf(inst, nil, false)
+	out, _ := ctx.heldObjectsOf(inst, nil, false, holdsObjects)
 	return out
 }
 
 // heldObjectsOf is nestedObjects reading a feature as `through` reads it (every one, when nil),
 // taking what a feature it leaves unread already holds; a failed read is skipped or, where every
 // object counts, is the error.
-func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, ObjectFeature) (*FeatureValue, error), everyObject bool) ([]heldObject, error) {
+func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, ObjectFeature) (*FeatureValue, error), everyObject bool, holds func(*EffectiveFeature) bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
-		if of.Name == "" || !holdsObjects(of.Feature) {
+		if of.Name == "" || !holds(of.Feature) {
 			continue
 		}
 		var fv *FeatureValue

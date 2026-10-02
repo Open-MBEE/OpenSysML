@@ -137,6 +137,9 @@ type Model struct {
 	bindingRoots    map[*symbols.Symbol]map[string]bool
 	bindingFeatures map[*symbols.Symbol]map[string][]lower.Binding
 
+	// namespaceBindingIR memoizes the binding connectors each namespace scope owns.
+	namespaceBindingIR map[*symbols.Scope][]lower.Binding
+
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
@@ -225,6 +228,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
 		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),
+		namespaceBindingIR:  make(map[*symbols.Scope][]lower.Binding),
 		classifierBehaviors: make(map[*symbols.Symbol][]classifierBehaviorDecl),
 		triggerTypes:        make(map[triggerTypeKey]*symbols.Symbol),
 		signalMatches:       make(map[signalMatchKey]bool),
