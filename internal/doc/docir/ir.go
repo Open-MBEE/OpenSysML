@@ -172,6 +172,7 @@ type Content struct {
 	rendering   *view.Rendering
 	direction   view.Direction
 	palette     view.Palette
+	ports       view.Ports
 	children    []Content
 	query       string
 	queryOrigin symbols.Origin
@@ -263,10 +264,14 @@ func (c Content) Direction() view.Direction { return c.direction }
 // Palette returns the stated palette of a diagram, empty for black and white.
 func (c Content) Palette() view.Palette { return c.palette }
 
+// Ports returns the stated port display of a diagram, empty for the default,
+// minimal.
+func (c Content) Ports() view.Ports { return c.ports }
+
 // Options returns what a diagram's rendering is written with: its stated
 // direction and palette.
 func (c Content) Options() view.Options {
-	return view.Options{Direction: c.direction, Palette: c.palette}
+	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports}
 }
 
 // Children returns the nested content of a section in declaration order.
@@ -305,6 +310,7 @@ func cloneContent(content []Content) []Content {
 			rendering:   child.rendering.Clone(),
 			direction:   child.direction,
 			palette:     child.palette,
+			ports:       child.ports,
 			children:    cloneContent(child.children),
 			query:       child.query,
 			queryOrigin: child.queryOrigin,

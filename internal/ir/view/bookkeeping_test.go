@@ -131,7 +131,7 @@ func TestSynthesizedNamesAreReadFromTheModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(dot, "label=<<b>: Wheel</b>") || strings.Contains(dot, ">wheel") {
+	if !strings.Contains(dot, "<br/><b>: Wheel</b>>") || strings.Contains(dot, ">wheel") {
 		t.Errorf("part with a synthesized name is not drawn as `: Wheel` alone:\n%s", dot)
 	}
 }

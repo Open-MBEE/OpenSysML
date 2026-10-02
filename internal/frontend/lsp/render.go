@@ -47,6 +47,20 @@ const RenderFormsCapability = "openSysmlRenderForms"
 // the default; a server without it draws the Pilot look alone.
 const RenderStylesCapability = "openSysmlRenderStyles"
 
+// RenderPortsCapability is the experimental capability whose value lists the
+// port displays a render request's `ports` draws an interconnection's parts
+// with, the first the default; a server without it draws every port.
+const RenderPortsCapability = "openSysmlRenderPorts"
+
+// renderPortsNames lists the port displays in the order the writer defines them.
+func renderPortsNames() []string {
+	names := make([]string, 0, len(view.PortsChoices()))
+	for _, ports := range view.PortsChoices() {
+		names = append(names, string(ports))
+	}
+	return names
+}
+
 // renderStyleNames lists the drawing styles in the order the writer defines them.
 func renderStyleNames() []string {
 	names := make([]string, 0, len(view.DrawingStyles()))
@@ -71,12 +85,15 @@ func renderFormNames() []string {
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 // Style names the drawing style the DOT form draws in; empty is the default, pilot.
+// Ports names how much of a part's ports an interconnection draws; empty is the
+// default, minimal.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
 	Form         string                          `json:"form,omitempty"`
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
+	Ports        string                          `json:"ports,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -316,7 +333,11 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style})
+	ports, err := renderPorts(params.Ports)
+	if err != nil {
+		return nil, err
+	}
+	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style, Ports: ports})
 	if err != nil {
 		return nil, err
 	}
@@ -483,6 +504,16 @@ func renderDrawingStyle(asked string) (view.DrawingStyle, error) {
 		return "", &view.UnknownDrawingStyleError{Name: asked}
 	}
 	return style, nil
+}
+
+// renderPorts is the port display a request names, the default when it names
+// none, and an error listing the displays there are when it names something else.
+func renderPorts(asked string) (view.Ports, error) {
+	ports, ok := view.ParsePorts(asked)
+	if !ok {
+		return "", &view.UnknownPortsError{Name: asked}
+	}
+	return ports, nil
 }
 
 // wireStyle is a node's or edge's Style as the wire carries it; nil for none.

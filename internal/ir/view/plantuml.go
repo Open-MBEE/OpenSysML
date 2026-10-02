@@ -33,9 +33,12 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Unplaced.check(); err != nil {
 		return "", err
 	}
+	if err := options.Ports.check(); err != nil {
+		return "", err
+	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil)}
+		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports)}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -93,6 +96,7 @@ type plantumlWriter struct {
 	borders bool        // whether a filled node's border takes the family colour; a participant's cannot
 	fills   familyFills // the palette fills, by keyword family
 	labels  labeller    // the node labels, headed relative to the roots' namespace
+	ports   portView    // the ports drawn of each node, and how they are named
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -214,8 +218,10 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 }
 
 // writeRectangleDiagram writes an interconnection as nested rectangles: a node
-// with children is a rectangle block holding them, a connection an undirected
-// heavy line, a flow a dashed arrow.
+// with children or drawn ports is a rectangle block holding them, a port a
+// `port` on the rectangle's border — named alone under the minimal display,
+// `name : Type` under the full — a connection an undirected heavy line, a flow
+// a dashed arrow, each ending at the port it names.
 func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 	if r.blank() {
 		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
@@ -225,19 +231,32 @@ func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 		w.writeRectangleNode(root, 0)
 	}
 	for _, edge := range r.Edges {
-		w.writeEdge(edge)
+		w.writeArrow("", portOr(edge.FromPort, edge.From), portOr(edge.ToPort, edge.To), plantumlArrow(edge.Kind), edge.Label)
 	}
 }
 
-// writeRectangleNode writes one rectangle, a block of its children when it has any.
+// portOr is the alias an edge ends at: the port when it names one, else the node.
+func portOr(port, node string) string {
+	if port != "" {
+		return port
+	}
+	return node
+}
+
+// writeRectangleNode writes one rectangle, a block of its ports and children
+// when it has any.
 func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
-	if len(node.Children) == 0 {
+	ports := w.ports.of(node)
+	if len(node.Children) == 0 && len(ports) == 0 {
 		w.b.WriteString("\n")
 		return
 	}
 	w.b.WriteString(" {\n")
+	for _, port := range ports {
+		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(w.ports.pinLabel(port))), port.ID)
+	}
 	for _, child := range node.Children {
 		w.writeRectangleNode(child, depth+1)
 	}
@@ -412,16 +431,16 @@ func plantumlShapeStereotype(node *Node) string {
 	return plantumlUsageStereotype
 }
 
-// plantumlLabel is a node's label ready to quote: the name line bold, the
-// keyword line italic at the skin's stereotype size, every line escaped.
+// plantumlLabel is a node's label ready to quote: the keyword line italic at
+// the skin's stereotype size, the name line bold under it, every line escaped.
 func (w *plantumlWriter) plantumlLabel(node *Node) string {
-	head, lines := w.labels.head(node), w.labels.lines(node)
-	parts := []string{"**" + plantumlText(head) + "**"}
-	for _, line := range lines[len(w.labels.headLines(node)):] {
-		parts = append(parts, plantumlText(line))
+	var parts []string
+	if keyword := w.labels.keyword(node); keyword != "" {
+		parts = append(parts, fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, plantumlText(keyword)))
 	}
-	if keyworded(node) {
-		parts[1] = fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, parts[1])
+	parts = append(parts, "**"+plantumlText(w.labels.head(node))+"**")
+	for _, line := range w.labels.details(node) {
+		parts = append(parts, plantumlText(line))
 	}
 	return strings.Join(parts, `\n`)
 }

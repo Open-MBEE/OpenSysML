@@ -1,0 +1,23 @@
+---
+config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 ["«part def»<br>Toaster"]
+    direction LR
+    subgraph n1 ["«part»<br>heating : HeatingSystem"]
+      direction LR
+      n1.0["durationIn"]
+    end
+    subgraph n2 ["«part»<br>control : ControlSystem"]
+      direction LR
+      n2.0["durationOut"]
+    end
+    n3["«part»<br>chassis : Chassis"]
+  end
+  n2.0 ---|"durationInterface"| n1.0
+  n2.0 -.->|"of Real"| n1.0

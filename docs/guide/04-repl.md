@@ -315,7 +315,7 @@ exposed elements, what they declare, and the views nested inside the rendered vi
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
 `%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
 into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
-heads a compartment — the name first, `wheel : Wheel`, then the kind in guillemets, `«part»`, on
+heads a compartment — the kind in guillemets, `«part»`, first, then the name, `wheel : Wheel`, on
 the next line — while the text form above keeps the keyword leading, as the notation declares it.
 If you ask for a form the rendering kind does not support, the REPL tells you which form it does
 support. State and action renderings read the

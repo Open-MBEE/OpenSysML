@@ -353,6 +353,11 @@ library package DocumentQueries {
 		 * nodes of a DOT or PlantUML diagram by keyword family, black and white
 		 * when absent. */
 		attribute palette : String[0..1];
+		/* ports: "minimal" or "full"; how much of a part's ports an
+		 * interconnection diagram draws — those its connectors end at, each a
+		 * small square on the part's border named beside it, or every port,
+		 * labelled name : Type. Minimal when absent. */
+		attribute ports : String[0..1];
 		ref source : Element[0..1];
 	}
 
