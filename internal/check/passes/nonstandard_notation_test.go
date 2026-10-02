@@ -374,6 +374,32 @@ func TestKerMLDeclarationIsReportedAtItsKeyword(t *testing.T) {
 	}
 }
 
+// Prefix metadata may spell the keyword as a name (`#'class' class C;`); the
+// span is the keyword after the prefixes, in either direction and with or
+// without the source text.
+func TestDeclarationKeywordSpanSkipsPrefixMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		file, src, word string
+	}{
+		{"a.sysml", "package P { metadata def 'class'; #'class' class C; }", "class"},
+		{"a.sysml", "package P { metadata def 'step'; #'step' #'step' step s; }", "step"},
+		{"a.kerml", "package P { metaclass 'part'; #'part' part def D; }", "part"},
+	} {
+		_, _, got := notationDiagnostics(t, tc.file, tc.src)
+		if len(got) != 1 {
+			t.Fatalf("%s: got %d diagnostics %+v, want 1", tc.src, len(got), got)
+		}
+		want := source.Span{Offset: strings.LastIndex(tc.src, tc.word), Len: len(tc.word)}
+		if got[0].Span != want {
+			t.Errorf("%s: span = %+v, want %+v", tc.src, got[0].Span, want)
+		}
+		without := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
+		if len(without) != 1 || without[0].Span.Offset <= strings.LastIndex(tc.src, "'") || without[0].Span.End() > want.End() {
+			t.Errorf("%s without source text: got %+v, want a span after the prefixes", tc.src, without)
+		}
+	}
+}
+
 // The members of a reported declaration move with it to a .kerml file, so
 // neither their keywords nor their KerML clauses are reported again; a sibling
 // after the declaration still is.

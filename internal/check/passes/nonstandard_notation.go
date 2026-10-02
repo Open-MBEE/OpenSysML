@@ -776,11 +776,18 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 	})
 }
 
-// declarationKeywordSpan spans the kind keyword of a declaration, which its
-// prefixes (`abstract`, `in`) may precede; without the source text it falls
-// back to the word that opens the declaration.
+// declarationKeywordSpan spans the kind keyword of a declaration, which prefix
+// metadata (whose name may spell the keyword, `#'class' class C;`) and
+// modifiers (`abstract`, `in`) may precede; without the source text it falls
+// back to the word after the prefix metadata.
 func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
 	sp := n.Span()
+	if prefixes, _, ok := ast.DeclaredMetadata(n); ok && len(prefixes) > 0 {
+		if end := prefixes[len(prefixes)-1].Span().End(); end > sp.Offset && end <= sp.End() {
+			sp.Len = sp.End() - end
+			sp.Offset = end
+		}
+	}
 	if w.lookup != nil {
 		if at := indexWord(w.lookup(w.doc, sp), keyword); at >= 0 {
 			sp.Offset += at
@@ -788,7 +795,7 @@ func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) sour
 			return sp
 		}
 	}
-	return keywordSpan(n, keyword)
+	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
 }
 
 // indexWord is the offset of the first occurrence of word in text that no
