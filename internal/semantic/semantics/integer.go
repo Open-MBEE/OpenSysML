@@ -24,6 +24,11 @@ const MinMaxIntegerBits int64 = 64
 // bits than the evaluation's Integer size budget allows.
 var ErrIntegerSizeLimit = errors.New("integer size limit exceeded")
 
+// ErrIntegerUnaddressable is returned when an Integer serves as a position,
+// count or bound of something held, and is beyond the 64-bit range any of
+// those can take: Integers are unbounded, what they address is not.
+var ErrIntegerUnaddressable = errors.New("integer beyond the addressable range")
+
 // IntValue is the Integer i.
 func IntValue(i int64) Value { return Value{Kind: ValInt, Int: i} }
 

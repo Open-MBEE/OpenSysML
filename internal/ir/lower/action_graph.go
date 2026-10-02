@@ -33,6 +33,9 @@ type ActionGraph struct {
 	// Edges: source node → successions in declaration order.
 	Edges map[ast.Node][]ActionEdge
 
+	// Multiplicities are the declarations on action nodes themselves.
+	Multiplicities map[ast.Node]*ast.Multiplicity
+
 	// DataFlows: source node → list of object flows
 	DataFlows map[ast.Node][]ObjectFlow
 
@@ -177,12 +180,14 @@ func (g *ActionGraph) Inherited() []Inherited {
 // Probability is the weight its `@Probability` states, nil for an unweighted succession.
 // Name is the name the succession was declared with, "" for an anonymous one.
 type ActionEdge struct {
-	Source      ast.Node
-	Target      ast.Node
-	Guard       ast.Node
-	Decl        ast.Node
-	Probability *Probability
-	Name        string
+	Source             ast.Node
+	Target             ast.Node
+	Guard              ast.Node
+	Decl               ast.Node
+	Probability        *Probability
+	Name               string
+	SourceMultiplicity *ast.Multiplicity
+	TargetMultiplicity *ast.Multiplicity
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -815,7 +820,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "")
+	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "", nil, nil)
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -832,10 +837,12 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 		return err
 	}
 	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
-		Source:      sourceNode,
-		Target:      targetNode,
-		Decl:        n,
-		Probability: weight,
+		Source:             sourceNode,
+		Target:             targetNode,
+		Decl:               n,
+		Probability:        weight,
+		SourceMultiplicity: n.SourceMultiplicity,
+		TargetMultiplicity: n.TargetMultiplicity,
 	})
 	return nil
 }
@@ -945,7 +952,7 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 		return fmt.Errorf("action succession has unsupported body")
 	}
 	for i, end := range n.ConnectorEnds {
-		if end.Multiplicity != nil {
+		if end.Multiplicity != nil && !hasDeclaredNodeMultiplicity(l.graph, n.ConnectorEnds) {
 			return fmt.Errorf("action succession end %d has unsupported multiplicity", i+1)
 		}
 	}
@@ -956,7 +963,27 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
 	name, _ := ast.EffectiveName(n)
-	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight, name)
+	return lowerSuccession(
+		l.graph,
+		sourceRef,
+		targetRef,
+		nil,
+		n,
+		weight,
+		name,
+		n.ConnectorEnds[0].Multiplicity,
+		n.ConnectorEnds[1].Multiplicity,
+	)
+}
+
+func hasDeclaredNodeMultiplicity(graph *ActionGraph, ends []*ast.ConnectorEnd) bool {
+	for _, end := range ends {
+		node := resolveActionEndpoint(graph, connectorEndReference(end), false)
+		if graph.Multiplicities[node] != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // lowerInheritedPinConnections lowers the bindings and flows the actions the
@@ -1092,7 +1119,7 @@ func resolveFirstNode(graph *ActionGraph) error {
 
 // lowerSuccession adds the edge a succession states between the nodes its two
 // ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string) error {
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string, sourceMultiplicity, targetMultiplicity *ast.Multiplicity) error {
 	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
 	if sourceNode == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
@@ -1102,12 +1129,14 @@ func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.N
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
 	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-		Source:      sourceNode,
-		Target:      targetNode,
-		Guard:       guard,
-		Decl:        decl,
-		Probability: weight,
-		Name:        name,
+		Source:             sourceNode,
+		Target:             targetNode,
+		Guard:              guard,
+		Decl:               decl,
+		Probability:        weight,
+		Name:               name,
+		SourceMultiplicity: sourceMultiplicity,
+		TargetMultiplicity: targetMultiplicity,
 	})
 	return nil
 }

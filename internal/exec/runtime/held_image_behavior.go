@@ -34,6 +34,7 @@ type imagedAction struct {
 	tokenFrames       []int
 	state             ExecutionState
 	nextTokenID       int64
+	nextRepetitionID  repetitionGroupID
 	stepCount         int
 	sweep, sweeps     uint64
 	inputs            map[string]Value
@@ -62,9 +63,16 @@ type imagedFrame struct {
 	data       map[string]Value
 	outer      []imagedOuter
 	subactions map[ast.Node]int
+	repeats    map[repetitionGroupID]imagedRepetition
 	pending    map[ast.Node]map[string][]Value
 	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
+}
+
+type imagedRepetition struct {
+	node      ast.Node
+	remaining int64
+	live      []int
 }
 
 // imagedStaged is a staged streaming write, its source performance by position.
@@ -162,7 +170,8 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	frames := e.reachableFrames()
 	at := func(perf *actionFrame) int { return slices.Index(frames, perf) }
 	img := &imagedAction{
-		graph: e.graph, state: e.state, nextTokenID: e.nextTokenID, stepCount: e.stepCount,
+		graph: e.graph, state: e.state, nextTokenID: e.nextTokenID,
+		nextRepetitionID: e.nextRepetitionID, stepCount: e.stepCount,
 		sweep: e.sweep, sweeps: e.sweeps, pausedAt: e.pausedAt, released: e.released,
 		pauses: e.pauses, steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved,
 		awaiting:         at(e.awaiting),
@@ -218,7 +227,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil
+	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -245,6 +254,16 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		f.subactions = make(map[ast.Node]int, len(perf.subactions))
 		for node, sub := range perf.subactions {
 			f.subactions[node] = at(sub)
+		}
+	}
+	if perf.repeats != nil {
+		f.repeats = make(map[repetitionGroupID]imagedRepetition, len(perf.repeats))
+		for group, state := range perf.repeats {
+			repeated := imagedRepetition{node: state.node, remaining: state.remaining, live: make([]int, 0, len(state.live))}
+			for _, live := range state.live {
+				repeated.live = append(repeated.live, at(live))
+			}
+			f.repeats[group] = repeated
 		}
 	}
 	if err := t.nestedValues(perf.pending); err != nil {
@@ -540,7 +559,8 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 		copied.frame = frameAt(img.tokenFrames[i])
 		e.tokens = append(e.tokens, copied)
 	}
-	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = img.state, img.nextTokenID, img.stepCount, img.sweep, img.sweeps
+	e.state, e.nextTokenID, e.nextRepetitionID, e.stepCount, e.sweep, e.sweeps =
+		img.state, img.nextTokenID, img.nextRepetitionID, img.stepCount, img.sweep, img.sweeps
 	e.pausedAt, e.released, e.pauses = img.pausedAt, img.released, img.pauses
 	e.steps, e.stepsSpent, e.inRun, e.moved = img.steps, img.stepsSpent, img.inRun, img.moved
 	e.awaiting = frameAt(img.awaiting)
@@ -606,6 +626,16 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		perf.subactions = make(map[ast.Node]*actionFrame, len(img.subactions))
 		for node, at := range img.subactions {
 			perf.subactions[node] = frameAt(at)
+		}
+	}
+	if img.repeats != nil {
+		perf.repeats = make(map[repetitionGroupID]*stepRepetition, len(img.repeats))
+		for group, repeated := range img.repeats {
+			state := &stepRepetition{node: repeated.node, remaining: repeated.remaining, live: make([]*actionFrame, 0, len(repeated.live))}
+			for _, at := range repeated.live {
+				state.live = append(state.live, frameAt(at))
+			}
+			perf.repeats[group] = state
 		}
 	}
 	if err := m.pending(perf, img.pending); err != nil {

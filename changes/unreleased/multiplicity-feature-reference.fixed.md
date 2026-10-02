@@ -1,0 +1,1 @@
+- **Accept feature references to named multiplicities.** KerML defines a multiplicity as a feature, so it can be used where a feature reference is required.

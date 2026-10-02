@@ -86,6 +86,7 @@ type stateSpeller struct {
 	names  map[checkedExecutor]string
 	frames []*actionFrame
 	labels map[*actionFrame]string
+	groups map[repetitionGroupID]string
 	tokens map[tokenKey]string
 	out    strings.Builder
 }
@@ -171,10 +172,54 @@ func (s *stateSpeller) action(e *ActionExecutor) {
 // enter makes e the action being spelled, its performances labelled, and returns
 // the restorer of the one spelled around it.
 func (s *stateSpeller) enter(e *ActionExecutor) func() {
-	exec, frames, labels := s.exec, s.frames, s.labels
+	exec, frames, labels, groups := s.exec, s.frames, s.labels, s.groups
 	s.exec = e
 	s.frames = s.labelFrames()
-	return func() { s.exec, s.frames, s.labels = exec, frames, labels }
+	s.groups = s.labelRepetitionGroups()
+	return func() { s.exec, s.frames, s.labels, s.groups = exec, frames, labels, groups }
+}
+
+type repetitionGroupSpelling struct {
+	id         repetitionGroupID
+	base       string
+	descriptor string
+}
+
+func (s *stateSpeller) labelRepetitionGroups() map[repetitionGroupID]string {
+	var groups []repetitionGroupSpelling
+	for _, owner := range s.frames {
+		for id, state := range owner.repeats {
+			live := make([]string, 0, len(state.live))
+			for _, perf := range state.live {
+				live = append(live, s.frameLabel(perf))
+			}
+			sort.Strings(live)
+			var tokens []string
+			for _, token := range s.exec.tokens {
+				if token.repetitionGroup == id {
+					tokens = append(tokens, s.tokenCore(token))
+				}
+			}
+			sort.Strings(tokens)
+			base := s.frameLabel(owner) + " repeat " + s.node(owner.graph, state.node)
+			descriptor := nodeKey(state.node) + "|" + strconv.FormatInt(state.remaining, 10) +
+				"|" + strings.Join(live, ",") + "|" + strings.Join(tokens, ",")
+			groups = append(groups, repetitionGroupSpelling{id: id, base: base, descriptor: descriptor})
+		}
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].base != groups[j].base {
+			return groups[i].base < groups[j].base
+		}
+		return groups[i].descriptor < groups[j].descriptor
+	})
+	labels := make(map[repetitionGroupID]string, len(groups))
+	byBase := make(map[string]int, len(groups))
+	for _, group := range groups {
+		byBase[group.base]++
+		labels[group.id] = fmt.Sprintf("%s group#%d", group.base, byBase[group.base])
+	}
+	return labels
 }
 
 // tokenLines spells the tokens of the action being spelled, sorted, naming each
@@ -437,6 +482,12 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	if perf.inBody {
 		b.WriteString(" body")
 	}
+	if perf.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", perf.repetition)
+	}
+	if group := s.groups[perf.repetitionGroup]; group != "" {
+		fmt.Fprintf(&b, " %s", group)
+	}
 	fmt.Fprintf(&b, " live=%d", perf.live)
 	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
 	for _, local := range perf.locals {
@@ -465,6 +516,24 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	}
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	}
+	groups := slices.Collect(maps.Keys(perf.repeats))
+	sort.Slice(groups, func(i, j int) bool { return s.groups[groups[i]] < s.groups[groups[j]] })
+	for _, id := range groups {
+		state := perf.repeats[id]
+		live := make([]string, 0, len(state.live))
+		for _, repeated := range state.live {
+			live = append(live, s.frameLabel(repeated))
+		}
+		sort.Strings(live)
+		fmt.Fprintf(&b, " repeat{%s remaining=%d live=", s.groups[id], state.remaining)
+		for i, repeated := range live {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(repeated)
+		}
+		b.WriteByte('}')
 	}
 	streamed := slices.Sorted(maps.Keys(perf.streamed))
 	if len(streamed) > 0 {
@@ -517,12 +586,23 @@ func (s *stateSpeller) node(graph *lower.ActionGraph, node ast.Node) string {
 // token spells a token by its node, performance, the succession it arrived over
 // and the wait it is parked in; its id is scheduling detail and is dropped.
 func (s *stateSpeller) token(t Token) string {
+	text := s.tokenCore(t)
+	if group := s.groups[t.repetitionGroup]; group != "" {
+		text += " " + group
+	}
+	return text
+}
+
+func (s *stateSpeller) tokenCore(t Token) string {
 	graph := s.exec.graph
 	if t.frame != nil && t.frame.graph != nil {
 		graph = t.frame.graph
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "token %s in %s", s.node(graph, t.Location), s.frameLabel(t.frame))
+	if t.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", t.repetition)
+	}
 	if t.Via != (lower.ActionEdge{}) {
 		fmt.Fprintf(&b, " via %s", s.edge(graph, t.Via))
 	}

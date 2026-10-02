@@ -1,0 +1,6 @@
+{
+	"type": "state",
+	"libraries": true,
+	"evaluate": "test::Machine",
+	"error": "action step enter[2]: the state entry, do, and exit performances have multiplicity [1]"
+}

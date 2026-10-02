@@ -601,7 +601,7 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	if site.invocationArgumentValue && target.Kind == symbols.SymbolCalcUsage {
 		return
 	}
-	if !isUsageKind(target.Kind) {
+	if !isUsageKind(target.Kind) && target.Kind != symbols.SymbolMultiplicity {
 		if site.invocationArgumentValue {
 			return
 		}

@@ -88,7 +88,7 @@ type pin struct {
 // defaults it declares. A feature held bound by nothing is free in state 0, in
 // the domain its declared type gives it; releases names bound ones to free too.
 func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, releases []string, k, unroll int) (*Encoding, error) {
-	f, err := Analyze(graph, k)
+	f, err := Analyze(graph, ctx.Semantics(), k)
 	if err != nil {
 		return nil, err
 	}
