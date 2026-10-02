@@ -98,16 +98,22 @@ func acceptSuspensionClockSource(depth int) string {
 	return strings.Replace(source, "assign total := r.n;", "assign total := 1;", 1)
 }
 
-func acceptSuspensionForkBody(choice bool) string {
-	body := `first start;
-		fork split;
-		action caller {
+func acceptSuspensionForkBody(choice, nodeBodyPerform bool) string {
+	caller := `perform action caller : $CALL;`
+	if nodeBodyPerform {
+		caller = `action caller {
 			out attribute total : Integer = 0;
 			perform action nested : $CALL;
-		}
+		}`
+	}
+	body := fmt.Sprintf(`first start;
+		fork split;
+		%s
 		action gate1;
 		action gate2;
 		action gate3;
+		action gate4;
+		action gate5;
 		action sender { send 7; }
 		action output { assign total := caller.total; }
 		join sync;
@@ -117,11 +123,13 @@ func acceptSuspensionForkBody(choice bool) string {
 		succession first split then gate1;
 		succession first gate1 then gate2;
 		succession first gate2 then gate3;
-		succession first gate3 then sender;
+		succession first gate3 then gate4;
+		succession first gate4 then gate5;
+		succession first gate5 then sender;
 		succession first caller then output;
 		succession first output then sync;
 		succession first sender then sync;
-		succession first sync then done;`
+		succession first sync then done;`, caller)
 	if !choice {
 		return body
 	}
@@ -142,7 +150,20 @@ func acceptSuspensionForkBody(choice bool) string {
 
 func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 	t.Run("deadlocks_name_nested_accept_and_call_chain", func(t *testing.T) {
-		for depth := 1; depth <= 3; depth++ {
+		want := []string{
+			"accept deadlock in action Main: nothing can post the awaited message " +
+				"(accept n waiting since step 2 for a message of type Integer (in Reader, performed by caller))",
+			"accept deadlock in action Main: nothing can post the awaited message " +
+				"(accept n waiting since step 2 for a message of type Integer (in Reader, performed by caller) " +
+				"(in Mid1, performed by caller))",
+			"accept deadlock in action Main: nothing can post the awaited message " +
+				"(accept n waiting since step 2 for a message of type Integer (in Reader, performed by caller) " +
+				"(in Mid1, performed by caller) (in Mid2, performed by caller))",
+			"accept deadlock in action Main: nothing can post the awaited message " +
+				"(accept n waiting since step 2 for a message of type Integer (in Reader, performed by caller) " +
+				"(in Mid1, performed by caller) (in Mid2, performed by caller) (in Mid3, performed by caller))",
+		}
+		for depth := 1; depth <= len(want); depth++ {
 			t.Run(fmt.Sprintf("depth_%d", depth), func(t *testing.T) {
 				_, exec := acceptSuspensionExecutor(t, acceptSuspensionChainSource(depth, acceptSuspensionCallBody()), "Main")
 				_, err := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
@@ -151,23 +172,8 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 				if !errors.Is(err, ErrAcceptDeadlock) {
 					t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 				}
-				if depth == 3 {
-					const want = "invoke action Mid2: execute action: accept deadlock in action Mid2: nothing can post the awaited message " +
-						"(accept n waiting since step 2 for a message of type Integer (in Reader, performed by caller) " +
-						"(in Mid1, performed by caller))"
-					if err.Error() != want {
-						t.Errorf("depth-3 deadlock = %q, want %q", err, want)
-					}
-				}
-				for _, want := range []string{"accept n", "in Reader", "performed by caller"} {
-					if !strings.Contains(err.Error(), want) {
-						t.Errorf("deadlock %q does not name %q", err, want)
-					}
-				}
-				for level := 1; level < depth; level++ {
-					if want := fmt.Sprintf("Mid%d", level); !strings.Contains(err.Error(), want) {
-						t.Errorf("depth-%d deadlock %q does not name %s", depth, err, want)
-					}
+				if got := err.Error(); got != want[depth-1] {
+					t.Errorf("depth-%d deadlock = %q, want %q", depth, got, want[depth-1])
 				}
 			})
 		}
@@ -235,15 +241,25 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 	}
 
 	t.Run("sibling_wakes_nested_chain", func(t *testing.T) {
-		source := acceptSuspensionChainSource(2, acceptSuspensionForkBody(false))
-		_, exec := acceptSuspensionExecutor(t, source, "Main")
-		_, err := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
-			return struct{}{}, exec.RunToCompletion()
-		})
-		if err != nil {
-			t.Fatalf("RunToCompletion: %v", err)
+		for depth := 1; depth <= 4; depth++ {
+			for _, nodeBodyPerform := range []bool{false, true} {
+				form := "direct_perform"
+				if nodeBodyPerform {
+					form = "node_body_perform"
+				}
+				t.Run(fmt.Sprintf("depth_%d_%s", depth, form), func(t *testing.T) {
+					source := acceptSuspensionChainSource(depth, acceptSuspensionForkBody(false, nodeBodyPerform))
+					_, exec := acceptSuspensionExecutor(t, source, "Main")
+					_, err := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
+						return struct{}{}, exec.RunToCompletion()
+					})
+					if err != nil {
+						t.Fatalf("RunToCompletion: %v", err)
+					}
+					assertIntOutput(t, exec.Results(), "total", 7)
+				})
+			}
 		}
-		assertIntOutput(t, exec.Results(), "total", 7)
 	})
 
 	t.Run("clock_wakes_nested_chain_at_requested_instant", func(t *testing.T) {
@@ -315,7 +331,7 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 		if first, second := parkedKey(), parkedKey(); first != second {
 			t.Fatalf("parked-chain state keys differ: %s and %s", first, second)
 		}
-		model := parseLibraryModel(t, acceptSuspensionChainSource(2, acceptSuspensionForkBody(true)))
+		model := parseLibraryModel(t, acceptSuspensionChainSource(2, acceptSuspensionForkBody(true, true)))
 		action := model.action(t, "Main")
 		policy := mustPolicy(t, "explore")
 		explore := func() *Exploration {

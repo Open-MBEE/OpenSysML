@@ -509,11 +509,13 @@ func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 	return waiting
 }
 
+// waitTarget identifies a flow whose nested message waits are being inspected.
 type waitTarget struct {
 	exec *ActionExecutor
 	perf *actionFrame
 }
 
+// waitsForMessage reports whether a token in perf's flow is ultimately parked on a message.
 func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]bool) bool {
 	target := waitTarget{exec: e, perf: perf}
 	if seen[target] {
@@ -549,17 +551,24 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 // describeWaits lists what the parked tokens of perf's flow (the action's for nil) wait for.
 func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
 	seen := make(map[waitToken]bool)
-	return strings.Join(e.describeWaitsIn(perf, seen), "; ")
+	descriptions, blocked := e.describeWaitsIn(perf, seen)
+	if blocked > 0 {
+		descriptions = append(descriptions, fmt.Sprintf("%d token(s) blocked for another reason", blocked))
+	}
+	return strings.Join(descriptions, "; ")
 }
 
+// waitToken identifies a token whose nested wait description is being visited.
 type waitToken struct {
 	exec  *ActionExecutor
 	token int64
 }
 
-func (e *ActionExecutor) describeWaitsIn(perf *actionFrame, seen map[waitToken]bool) []string {
+// describeWaitsIn returns this flow's wait descriptions and the blocked token count below it.
+func (e *ActionExecutor) describeWaitsIn(perf *actionFrame, seen map[waitToken]bool) ([]string, int) {
 	waiting := e.waitingTokens(perf)
-	descriptions := make([]string, 0, len(waiting)+1)
+	descriptions := make([]string, 0, len(waiting))
+	blocked := len(e.tokensIn(perf)) - len(waiting)
 	for _, token := range waiting {
 		key := waitToken{exec: e, token: token.ID}
 		if token.Wait != nil {
@@ -576,57 +585,48 @@ func (e *ActionExecutor) describeWaitsIn(perf *actionFrame, seen map[waitToken]b
 			descriptions = append(descriptions, description)
 			continue
 		}
-		descriptions = append(descriptions, e.describePausedWait(token, seen)...)
+		nested, nestedBlocked := e.describePausedWait(token, seen)
+		descriptions = append(descriptions, nested...)
+		blocked += nestedBlocked
 	}
-	if blocked := len(e.tokensIn(perf)) - len(waiting); blocked > 0 {
-		descriptions = append(descriptions,
-			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
-	}
-	return descriptions
+	return descriptions, blocked
 }
 
-func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool) []string {
+// describePausedWait adds the nested performance and caller to its wait descriptions.
+func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool) ([]string, int) {
 	wait := token.body.paused.wait
 	var (
 		descriptions []string
 		performance  string
+		blocked      int
 	)
 	if wait.held != nil {
-		descriptions = wait.held.describeWaitsIn(nil, seen)
+		descriptions, blocked = wait.held.describeWaitsIn(nil, seen)
 		performance = wait.held.performanceName()
 	} else if wait.exec != nil {
-		descriptions = wait.exec.describeWaitsIn(wait.perf, seen)
+		descriptions, blocked = wait.exec.describeWaitsIn(wait.perf, seen)
 		performance = wait.exec.performanceName()
 		if wait.perf != nil && wait.perf.node != nil {
 			performance = ActionNodeName(wait.perf.node)
 		}
 	}
 	if len(descriptions) == 0 {
-		return nil
+		return nil, blocked
 	}
 	caller := ActionNodeName(token.Location)
-	if caller == "" {
-		caller = "caller"
-	}
-	for i, description := range descriptions {
-		if strings.Contains(description, " token(s) blocked for another reason") {
-			continue
-		}
-		context := ""
+	for i := range descriptions {
+		context := make([]string, 0, 2)
 		if performance != "" {
-			context = "in " + performance
+			context = append(context, "in "+performance)
 		}
 		if caller != "" {
-			if context != "" {
-				context += ", "
-			}
-			context += "performed by " + caller
+			context = append(context, "performed by "+caller)
 		}
-		if context != "" {
-			descriptions[i] += " (" + context + ")"
+		if len(context) > 0 {
+			descriptions[i] += " (" + strings.Join(context, ", ") + ")"
 		}
 	}
-	return descriptions
+	return descriptions, blocked
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -2759,15 +2759,14 @@ func (e *ActionExecutor) tokenWaits() []ClockWait {
 	return waits
 }
 
-// dueWork reports a token that can move at this instant (not parked nor paused on
-// the clock, not held at a join, due, or with a message in flight) in the flow
-// awaiting the clock, else the action's.
+// dueWork reports whether a token can move now, not counting waits for clock or messages.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && !token.pausedOnClock() && !e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
+		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() &&
+			!e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
 			return true
 		}
 	}

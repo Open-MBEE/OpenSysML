@@ -606,6 +606,7 @@ func (t Token) pausedOnClock() bool {
 	return t.body != nil && t.body.paused.onWait && !t.body.paused.wait.onMessage
 }
 
+// pausedOnMessage reports whether a token's paused body ultimately waits on a message.
 func (t Token) pausedOnMessage() bool {
 	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.waitsForMessage(make(map[waitTarget]bool))
 }

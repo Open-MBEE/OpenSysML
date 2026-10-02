@@ -9,7 +9,7 @@ package test {
 		then done;
 	}
 
-	action def Mid {
+	action def Mid1 {
 		out attribute got : Integer;
 		first start;
 		then perform action reader : Reader;
@@ -17,11 +17,19 @@ package test {
 		then done;
 	}
 
+	action def Mid2 {
+		out attribute got : Integer;
+		first start;
+		then perform action inner : Mid1;
+		then action keep { assign got := inner.got; }
+		then done;
+	}
+
 	action nested {
 		attribute received : Integer = 0;
 		first start;
 		fork split;
-		action m : Mid { assign received := m.got; }
+		action m : Mid2 { assign received := m.got; }
 		action gate1;
 		action gate2;
 		action gate3;
