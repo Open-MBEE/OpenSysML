@@ -382,6 +382,13 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 			if FormatValue(got) != "5" {
 				t.Fatalf("a after %s first = %s, want 5: the binding's value, not an empty read", first, FormatValue(got))
 			}
+			declared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::a"))
+			if err != nil {
+				t.Fatalf("EvalDeclaredValue a after %s first: %v", first, err)
+			}
+			if FormatValue(declared) != "5" {
+				t.Fatalf("EvalDeclaredValue a after %s first = %s, want 5, as the expression read gives", first, FormatValue(declared))
+			}
 		}
 		ctx, idx := contextForSource(t, src)
 		pkg := lookupOne(t, idx, "test")
@@ -391,6 +398,39 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 		if FormatValue(got) == "5" {
 			t.Fatalf("u = %s, want undetermined: an unbound optional attribute still reads as before", FormatValue(got))
+		}
+		undeclared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::u"))
+		if err != nil {
+			t.Fatalf("EvalDeclaredValue u: %v", err)
+		}
+		if FormatValue(undeclared) != "<undetermined>" {
+			t.Fatalf("EvalDeclaredValue u = %s, want undetermined, as before", FormatValue(undeclared))
+		}
+	})
+
+	t.Run("a required attribute bound to a value reads that value", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			attribute a : Integer;
+			attribute b : Integer = 5;
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		got, err := evalIn(t, ctx, pkg.Scope, "a")
+		if err != nil {
+			t.Fatalf("a: %v", err)
+		}
+		if FormatValue(got) != "5" {
+			t.Fatalf("a = %s, want 5: a valueless usage a binding governs reads the binding's value", FormatValue(got))
+		}
+		declared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::a"))
+		if err != nil {
+			t.Fatalf("EvalDeclaredValue a: %v", err)
+		}
+		if FormatValue(declared) != "5" {
+			t.Fatalf("EvalDeclaredValue a = %s, want 5, as the expression read gives", FormatValue(declared))
 		}
 	})
 

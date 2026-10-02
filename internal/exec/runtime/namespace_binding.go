@@ -401,6 +401,32 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 	return nil, true, nil
 }
 
+// namespaceBoundValue is the value a usage a binding connector governs reads as:
+// the value resolving its class recorded for it when one was kept, else the live
+// objects it denotes — as a read through the binding answers.
+func (ctx *Context) namespaceBoundValue(sym *symbols.Symbol) (Value, bool, error) {
+	objs, bound, err := ctx.namespaceBoundObjects(sym)
+	if err != nil || !bound {
+		return Value{}, bound, err
+	}
+	if val, ok := ctx.namespaceBindings[sym]; ok {
+		return val, true, nil
+	}
+	elements := make([]Value, 0, len(objs))
+	for _, inst := range objs {
+		obj, err := ctx.objectValue(inst)
+		if err != nil {
+			return Value{}, true, err
+		}
+		elements = append(elements, obj)
+	}
+	val := sequenceOf(elements)
+	if len(elements) == 1 {
+		val = elements[0]
+	}
+	return val, true, nil
+}
+
 // namespaceBindingCounts refuses an end or connector multiplicity other than the one
 // link a binding connector declares, as a binding between object features is refused.
 func (ctx *Context) namespaceBindingCounts(binding lower.Binding) error {

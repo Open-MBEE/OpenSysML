@@ -435,6 +435,13 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		if ctx.namesOneObject(sym) || ctx.namesObjects(sym) {
 			return ctx.denotedValue(sym)
 		}
+		// A usage a binding connector governs reads as the binding's value, as
+		// an expression read of the same name answers.
+		if ctx.namespaceModelIndex().classes[sym] != nil {
+			if val, bound, err := ctx.namespaceBoundValue(sym); bound || err != nil {
+				return val, err
+			}
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return NewEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
 	}
@@ -1168,32 +1175,13 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 // materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
 	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		if !ec.ctx.optionalValueless(sym) {
+		if ec.ctx.namespaceModelIndex().classes[sym] == nil {
 			return Value{}, false, nil
 		}
-		// Of itself an optional usage denotes nothing, but a binding connector
+		// Of itself the usage may denote nothing, but a binding connector
 		// may have bound it to another usage's value.
 		ec.ctx.noteDeclarationRead(sym)
-		objs, bound, err := ec.ctx.namespaceBoundObjects(sym)
-		if err != nil || !bound {
-			return Value{}, bound, err
-		}
-		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
-			return val, true, nil
-		}
-		elements := make([]Value, 0, len(objs))
-		for _, inst := range objs {
-			obj, err := ec.ctx.objectValue(inst)
-			if err != nil {
-				return Value{}, true, err
-			}
-			elements = append(elements, obj)
-		}
-		val := sequenceOf(elements)
-		if len(elements) == 1 {
-			val = elements[0]
-		}
-		return val, true, nil
+		return ec.ctx.namespaceBoundValue(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
