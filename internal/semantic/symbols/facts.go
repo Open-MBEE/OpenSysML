@@ -77,6 +77,14 @@ type LibraryFacts struct {
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
 
+	// RelatedFeatures are the features a connector's ends reference, in end
+	// order, as derived from the declaration.
+	RelatedFeatures []ElementRef
+
+	// MetadataType is the type named by a prefix metadata usage, zero when it
+	// does not resolve.
+	MetadataType ElementRef
+
 	// Node is the class of declaration the symbol was made from.
 	Node NodeKind
 
@@ -182,9 +190,11 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
+	f.RelatedFeatures = cloneRefs(f.RelatedFeatures)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
 	f.BaseType = f.BaseType.Clone()
+	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
 	for i := range f.Relationships {
 		f.Relationships[i].Target = f.Relationships[i].Target.Clone()

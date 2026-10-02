@@ -79,6 +79,232 @@ func TestReflectiveAttributeFeaturesAreReferentialAndNonComposite(t *testing.T) 
 	}
 }
 
+func TestReflectiveVariationsAreAbstract(t *testing.T) {
+	const src = `package P {
+		part def Base;
+		variation part def Choices :> Base { variant part small : Base; }
+		part def Owner {
+			variation part choice : Base { variant part small : Base; }
+		}
+		enum def Color { red; green; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "variations.sysml", source.KindSysML, src) {
+		for _, path := range []string{"P::Choices", "P::Owner::choice", "P::Color"} {
+			sym := nestedSym(t, fixture.root, path)
+			got, ok := fixture.model.ReflectiveFeatureValue(sym, "isAbstract")
+			if !ok || got.Kind != symbols.FilterValueBool || !got.Bool {
+				t.Errorf("%s.isAbstract = %v (present %t), want true", path, got, ok)
+			}
+		}
+	}
+}
+
+func TestReflectiveConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		part def A {
+			attribute x : Integer;
+			attribute y : Integer;
+		}
+		part def Host {
+			part a : A;
+			part b : A;
+			connection byPair connect (a, b);
+			flow byFlow of Integer from a.x to b.y;
+			message byMessage of Integer from a.x to b.y;
+			binding byReferences {
+				end feature references a;
+				end feature references b;
+			}
+		}
+		action def Sequence {
+			action firstNode;
+			action secondNode;
+			succession explicit first firstNode then secondNode;
+			first firstNode then secondNode {
+				action nested;
+			}
+			first firstNode;
+			then secondNode;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "connector-related.sysml", source.KindSysML, src) {
+		for path, want := range map[string][]string{
+			"P::Host::byPair":       {"P::Host::a", "P::Host::b"},
+			"P::Host::byFlow":       {"P::A::x", "P::A::y"},
+			"P::Host::byMessage":    {"P::A::x", "P::A::y"},
+			"P::Host::byReferences": {"P::Host::a", "P::Host::b"},
+			"P::Sequence::explicit": {"P::Sequence::firstNode", "P::Sequence::secondNode"},
+		} {
+			connector := nestedSym(t, fixture.root, path)
+			assertReflectiveElements(t, fixture.model, connector, "relatedFeature", want...)
+			assertReflectiveElements(t, fixture.model, connector, "sourceFeature", want[0])
+			assertReflectiveElements(t, fixture.model, connector, "targetFeature", want[1:]...)
+		}
+		sequence := nestedSym(t, fixture.root, "P::Sequence")
+		if sequence.Recorded() {
+			continue
+		}
+		firstNode := nestedSym(t, fixture.root, "P::Sequence::firstNode")
+		secondNode := nestedSym(t, fixture.root, "P::Sequence::secondNode")
+		foundShorthand := false
+		for _, succession := range fixture.model.ActionSuccessions(sequence) {
+			switch succession.Decl.(type) {
+			case *ast.InitialNode, *ast.SuccessionEdge:
+			default:
+				continue
+			}
+			source := succession.Source.Symbol
+			if source == nil && succession.Source.Node != nil {
+				source = memberSymbol(sequence.Scope, succession.Source.Node)
+			}
+			target := succession.Target.Symbol
+			if target == nil && succession.Target.Node != nil {
+				target = memberSymbol(sequence.Scope, succession.Target.Node)
+			}
+			if source == firstNode && target == secondNode {
+				foundShorthand = true
+				if edge := memberSymbol(sequence.Scope, succession.Decl); edge != nil {
+					assertReflectiveElements(t, fixture.model, edge, "relatedFeature",
+						"P::Sequence::firstNode", "P::Sequence::secondNode")
+				}
+			}
+		}
+		if !foundShorthand {
+			t.Fatal("shorthand then succession does not resolve both connector ends")
+		}
+	}
+}
+
+func TestReflectiveKerMLSuccessionRelatedFeatures(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		feature transitionLinkSource[0..1];
+		feature trigger[1..*];
+		feature triggerNum : Natural[1] = 1;
+		succession triggerAfter [triggerNum]
+			first [0..1] transitionLinkSource
+			then [*] trigger;
+	}`
+	for _, fixture := range reflectiveFixtures(t, "succession.kerml", source.KindKerML, src) {
+		assertReflectiveElements(t, fixture.model, nestedSym(t, fixture.root, "P::triggerAfter"),
+			"relatedFeature", "P::transitionLinkSource", "P::trigger")
+	}
+}
+
+func TestReflectiveMessageFlowAbstractWhenRelatedFeaturesAreMissing(t *testing.T) {
+	const src = `package P {
+		private import ScalarValues::*;
+		private import Flows::Message;
+		part def A {
+			attribute x : Integer;
+			attribute y : Integer;
+		}
+		part def Host {
+			part a : A;
+			part b : A;
+			message incoming : Message[*];
+			message connected of Integer from a.x to b.y;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "message-abstract.sysml", source.KindSysML, src) {
+		for path, want := range map[string]bool{
+			"P::Host::incoming":  true,
+			"P::Host::connected": false,
+		} {
+			got, ok := fixture.model.ReflectiveFeatureValue(nestedSym(t, fixture.root, path), "isAbstract")
+			if !ok || got.Kind != symbols.FilterValueBool || got.Bool != want {
+				t.Errorf("%s.isAbstract = %v (present %t), want %t", path, got, ok, want)
+			}
+		}
+		assertReflectiveElements(t, fixture.model, nestedSym(t, fixture.root, "P::Host::connected"),
+			"relatedFeature", "P::A::x", "P::A::y")
+	}
+}
+
+func TestReflectiveReferentialProjectionUsesExpectedFeaturingType(t *testing.T) {
+	const src = `package P {
+		part def Base;
+		port def PD;
+		action sequential;
+		part def Owner {
+			in part directed;
+			end part endpoint;
+			attribute attr;
+			port p : PD;
+			variation part options : Base {
+				variant part option : Base;
+			}
+		}
+		variation part orphan : Base {
+			variant part orphanOption : Base;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "referential.sysml", source.KindSysML, src) {
+		for path, want := range map[string]bool{
+			"P::sequential":             false,
+			"P::Owner::directed":        false,
+			"P::Owner::endpoint":        false,
+			"P::Owner::attr":            false,
+			"P::Owner::p":               false,
+			"P::orphan":                 false,
+			"P::orphan::orphanOption":   false,
+			"P::Owner::options":         true,
+			"P::Owner::options::option": true,
+		} {
+			sym := nestedSym(t, fixture.root, path)
+			for feature, wantValue := range map[string]bool{
+				"isComposite": want,
+				"isReference": !want,
+			} {
+				got, ok := fixture.model.ReflectiveFeatureValue(sym, feature)
+				if !ok || got.Bool != wantValue {
+					t.Errorf("%s.%s = %v (present %t), want %t", path, feature, got, ok, wantValue)
+				}
+			}
+		}
+	}
+}
+
+func TestReflectiveConnectionDefinitionsAreSufficient(t *testing.T) {
+	const src = `package P {
+		connection def C;
+		interface def I;
+		allocation def A;
+		part def Ordinary;
+	}`
+	for _, fixture := range reflectiveFixtures(t, "sufficient.sysml", source.KindSysML, src) {
+		for path, want := range map[string]bool{
+			"P::C":        true,
+			"P::I":        true,
+			"P::A":        true,
+			"P::Ordinary": false,
+		} {
+			sym := nestedSym(t, fixture.root, path)
+			got, ok := fixture.model.ReflectiveFeatureValue(sym, "isSufficient")
+			if !ok || got.Kind != symbols.FilterValueBool || got.Bool != want {
+				t.Errorf("%s.isSufficient = %v (present %t), want %t", path, got, ok, want)
+			}
+		}
+	}
+	const kerml = `package P {
+		class all Sufficient;
+		class Ordinary;
+	}`
+	for _, fixture := range reflectiveFixtures(t, "sufficient.kerml", source.KindKerML, kerml) {
+		for path, want := range map[string]bool{
+			"P::Sufficient": true,
+			"P::Ordinary":   false,
+		} {
+			sym := nestedSym(t, fixture.root, path)
+			got, ok := fixture.model.ReflectiveFeatureValue(sym, "isSufficient")
+			if !ok || got.Kind != symbols.FilterValueBool || got.Bool != want {
+				t.Errorf("%s.isSufficient = %v (present %t), want %t", path, got, ok, want)
+			}
+		}
+	}
+}
+
 func TestReflectiveFeatureFlagsForWrapperDeclarations(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 		part def Owner { part child; ref part borrowed; }
@@ -335,8 +561,8 @@ func TestReflectiveParameterAndRoleFeatures(t *testing.T) {
 			in argument : SubjectType;
 		}
 		case def CaseSubjectSecond {
-			in argument : SubjectType;
 			subject subject : SubjectType;
+			in argument : SubjectType;
 		}
 		analysis def Analysis {
 			objective objective : Requirement;
@@ -358,13 +584,133 @@ func TestReflectiveParameterAndRoleFeatures(t *testing.T) {
 			"P::Case::subject", "P::Case::argument")
 		caseSubjectSecond := nestedSym(t, fixture.root, "P::CaseSubjectSecond")
 		assertReflectiveElements(t, fixture.model, caseSubjectSecond, "input",
-			"P::CaseSubjectSecond::argument", "P::CaseSubjectSecond::subject")
+			"P::CaseSubjectSecond::subject", "P::CaseSubjectSecond::argument")
+		reordered := includeSubjectParameterInOrder(fixture.model, caseSubjectSecond, []*symbols.Symbol{
+			nestedSym(t, fixture.root, "P::CaseSubjectSecond::argument"),
+		})
+		if len(reordered) < 2 ||
+			reordered[0] != nestedSym(t, fixture.root, "P::CaseSubjectSecond::subject") ||
+			reordered[1] != nestedSym(t, fixture.root, "P::CaseSubjectSecond::argument") {
+			t.Errorf("subject insertion order = %s, want subject then argument", strings.Join(fqns(reordered), ", "))
+		}
 		analysis := nestedSym(t, fixture.root, "P::Analysis")
 		assertReflectiveElements(t, fixture.model, analysis, "objectiveRequirement", "P::Analysis::objective")
 		requirement := nestedSym(t, fixture.root, "P::Requirement")
 		assertReflectiveElements(t, fixture.model, requirement, "subjectParameter", "P::Requirement::subject")
 		assertReflectiveElements(t, fixture.model, nestedSym(t, fixture.root, "P::Calculation"),
 			"result", "P::Calculation::result")
+	}
+}
+
+func TestReflectiveInputOrderAndSubjectIdentity(t *testing.T) {
+	const src = `package P {
+		part def Subject;
+		part owner : Subject;
+		concern def MassBudget {
+			subject robot : Subject;
+			in budget : Subject;
+		}
+		viewpoint def Perspective {
+			subject system : Subject;
+			in viewpointInput : Subject;
+			frame concern framed : MassBudget;
+		}
+		requirement def Base {
+			subject s : Subject;
+			in inherited : Subject;
+			in inheritedTail : Subject;
+		}
+		requirement def Derived :> Base {
+			subject replacement : Subject :>> s;
+			in own : Subject :>> inherited;
+		}
+		requirement req : Base {
+			subject = owner;
+			in ownInput : Subject;
+		}
+		verification def Verifier {
+			subject system : Subject;
+			objective { verify req; }
+		}
+		concern concernUse : MassBudget {
+			subject = owner;
+			in ownInput : Subject;
+		}
+		viewpoint viewpointUse : Perspective {
+			subject = owner;
+			in ownInput : Subject;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "subject-input-order.sysml", source.KindSysML, src) {
+		verifier := nestedSym(t, fixture.root, "P::Verifier")
+		var verifiedReq *symbols.Symbol
+		verifier.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
+			if member.Scope == nil {
+				return true
+			}
+			member.Scope.ForEachMember(func(child *symbols.Symbol) bool {
+				if fixture.model.fqnOf(child) == "P::Verifier::req" {
+					verifiedReq = child
+					return false
+				}
+				return true
+			})
+			return verifiedReq == nil
+		})
+		if verifiedReq == nil {
+			t.Fatalf("verification usage not found under P::Verifier")
+		}
+		for path, want := range map[string][]string{
+			"P::MassBudget": {
+				"P::MassBudget::robot", "P::MassBudget::budget",
+			},
+			"P::Perspective": {
+				"P::Perspective::system", "P::Perspective::viewpointInput",
+			},
+			"P::Base": {
+				"P::Base::s", "P::Base::inherited", "P::Base::inheritedTail",
+			},
+			"P::Derived": {
+				"P::Derived::replacement", "P::Derived::own", "P::Base::inheritedTail",
+			},
+		} {
+			assertReflectiveElements(t, fixture.model, nestedSym(t, fixture.root, path), "input", want...)
+		}
+		for _, path := range []string{
+			"P::MassBudget", "P::Perspective", "P::Base", "P::Derived",
+			"P::req", "P::concernUse", "P::viewpointUse",
+			"P::Perspective::framed",
+		} {
+			owner := nestedSym(t, fixture.root, path)
+			input, inputOK := fixture.model.ReflectiveElements(owner, "input")
+			subject, subjectOK := fixture.model.ReflectiveElements(owner, "subjectParameter")
+			if !inputOK || !subjectOK || len(input) == 0 || len(subject) != 1 {
+				t.Errorf("%s input=%v (present %t), subjectParameter=%v (present %t)",
+					path, input, inputOK, subject, subjectOK)
+				continue
+			}
+			foundSubject := false
+			for _, parameter := range input {
+				if parameter == subject[0] {
+					foundSubject = true
+					break
+				}
+			}
+			if !foundSubject {
+				t.Errorf("%s input %v does not contain subjectParameter %s",
+					path, fqns(input), fixture.model.fqnOf(subject[0]))
+			}
+			if input[0] != subject[0] {
+				t.Errorf("%s input[0] %s is not the owned subjectParameter %s",
+					path, fixture.model.fqnOf(input[0]), fixture.model.fqnOf(subject[0]))
+			}
+		}
+		input, inputOK := fixture.model.ReflectiveElements(verifiedReq, "input")
+		subject, subjectOK := fixture.model.ReflectiveElements(verifiedReq, "subjectParameter")
+		if !inputOK || !subjectOK || len(input) == 0 || len(subject) != 1 || input[0] != subject[0] {
+			t.Errorf("%s input=%v (present %t), subjectParameter=%v (present %t)",
+				fixture.model.fqnOf(verifiedReq), input, inputOK, subject, subjectOK)
+		}
 	}
 }
 
@@ -390,6 +736,108 @@ func TestReflectiveDefinitionTypeAndIndividualFeatures(t *testing.T) {
 		marker := nestedSym(t, fixture.root, "P::Annotated::marker")
 		assertReflectiveElements(t, fixture.model, marker, "metadataDefinition", "P::Marker")
 		assertReflectiveElements(t, fixture.model, marker, "metaclass", "P::Marker")
+	}
+}
+
+func TestReflectiveObjectiveIsRequirementUsage(t *testing.T) {
+	const src = `package P {
+		requirement def Requirement;
+		part def Base;
+		part selected : Base;
+		variation part def Choices :> Base {
+			variant selected;
+		}
+		case def Case {
+			objective objective : Requirement;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "objective-usage.sysml", source.KindSysML, src) {
+		objective := nestedSym(t, fixture.root, "P::Case::objective")
+		if objective.Kind != symbols.SymbolRequirementUsage ||
+			!fixture.model.reflectiveMetaclassConforms(objective, "RequirementUsage") {
+			t.Errorf("%s has kind %s; want RequirementUsage", fixture.model.fqnOf(objective), objective.Kind)
+		}
+		if fixture.model.reflectiveMetaclassConforms(objective, "PartUsage") {
+			t.Errorf("%s conforms to PartUsage; objective requirement usages must not", fixture.model.fqnOf(objective))
+		}
+		if _, ok := fixture.model.ReflectiveElements(objective, "partDefinition"); ok {
+			t.Errorf("%s.partDefinition is supported; objective is not a PartUsage", fixture.model.fqnOf(objective))
+		}
+		variant := nestedSym(t, fixture.root, "P::Choices::selected")
+		if !fixture.model.reflectiveMetaclassConforms(variant, "ReferenceUsage") {
+			t.Errorf("%s does not conform to ReferenceUsage", fixture.model.fqnOf(variant))
+		}
+		if fixture.model.reflectiveMetaclassConforms(variant, "PartUsage") {
+			t.Errorf("%s conforms to PartUsage; a variant reference is not a declaration", fixture.model.fqnOf(variant))
+		}
+	}
+}
+
+func TestReflectivePartUsageIncludesImplicitPartDefinition(t *testing.T) {
+	const src = `package P {
+		item def ItemType;
+		part actual : ItemType;
+		case def Case {
+			subject subject : ItemType;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "part-usage-types.sysml", source.KindSysML, src) {
+		for _, path := range []string{"P::actual", "P::Case::subject"} {
+			usage := nestedSym(t, fixture.root, path)
+			assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
+			assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		}
+	}
+}
+
+func TestReflectiveMetadataFeatureHasOneMetaclassType(t *testing.T) {
+	const src = `package P {
+		private import AnalysisRecords::*;
+		part def Run;
+		part run : Run {
+			@AnalysisRecords::RecordedRun {
+				runAt = "2025-01-01T00:00:00Z";
+				tool = "sysml";
+				command = "sysml";
+				kind = "run";
+			}
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "metadata-feature.sysml", source.KindSysML, src) {
+		run := nestedSym(t, fixture.root, "P::run")
+		var metadata *symbols.Symbol
+		for _, member := range run.Scope.AllMembers() {
+			if member.Kind == symbols.SymbolMetadataUsage {
+				metadata = member
+				break
+			}
+		}
+		if metadata == nil {
+			t.Fatalf("%s has no metadata usage", fixture.model.fqnOf(run))
+		}
+		metaclass := fixture.model.Metaclass("Metaclass")
+		metadataDefinition := fixture.model.symbolByFQN("SysML::Systems::MetadataDefinition")
+		recordedType := fixture.model.symbolByFQN("AnalysisRecords::RecordedRun")
+		if metadataDefinition == nil || !fixture.model.Conforms(metadataDefinition, metaclass) {
+			t.Errorf("SysML::Systems::MetadataDefinition does not conform to %s", fixture.model.fqnOf(metaclass))
+		}
+		if recordedType == nil || !symbols.SameElement(fixture.model.MetaclassOf(recordedType), metadataDefinition) {
+			t.Errorf("AnalysisRecords::RecordedRun metaclass = %s, want SysML::Systems::MetadataDefinition", fixture.model.fqnOf(fixture.model.MetaclassOf(recordedType)))
+		} else if !fixture.model.MetaclassConforms(recordedType, fixture.model.fqnOf(metaclass)) {
+			t.Errorf("AnalysisRecords::RecordedRun's metaclass does not conform to %s", fixture.model.fqnOf(metaclass))
+		}
+		types, ok := fixture.model.ReflectiveElements(metadata, "type")
+		if !ok || len(types) != 1 {
+			t.Errorf("%s.type = %v, present %t; want one metaclass type", fixture.model.fqnOf(metadata), fqns(types), ok)
+			continue
+		}
+		if got := fixture.model.fqnOf(types[0]); got != "AnalysisRecords::RecordedRun" {
+			t.Errorf("%s.type = %s, want AnalysisRecords::RecordedRun", fixture.model.fqnOf(metadata), got)
+		}
+		if !fixture.model.MetaclassConforms(types[0], fixture.model.fqnOf(metaclass)) {
+			t.Errorf("%s's metaclass does not conform to %s", fixture.model.fqnOf(types[0]), fixture.model.fqnOf(metaclass))
+		}
+		assertReflectiveElements(t, fixture.model, metadata, "metaclass", "AnalysisRecords::RecordedRun")
 	}
 }
 
@@ -499,6 +947,25 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
+	if related, ok := model.ReflectiveElements(sym, "relatedFeature"); ok {
+		facts.RelatedFeatures = make([]symbols.ElementRef, len(related))
+		for i, feature := range related {
+			if ref, found := idx.RefTo(feature); found {
+				facts.RelatedFeatures[i] = ref
+			} else {
+				facts.RelatedFeatures[i] = symbols.ElementRef{FQN: model.fqnOf(feature)}
+			}
+		}
+	}
+	if _, ok := sym.Decl.(*ast.PrefixMetadata); ok {
+		if types, supported := model.ReflectiveElements(sym, "type"); supported && len(types) == 1 {
+			if ref, found := idx.RefTo(types[0]); found {
+				facts.MetadataType = ref
+			} else {
+				facts.MetadataType = symbols.ElementRef{FQN: model.fqnOf(types[0])}
+			}
+		}
+	}
 	facts.UsageKind, _ = sym.UsageKind()
 	facts.DefKind, _ = sym.DefinitionKind()
 	switch d := sym.Decl.(type) {
@@ -508,6 +975,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		}
 		if d.IsVariation {
 			facts.Modifiers |= symbols.ModVariation
+		}
+		if d.IsAll {
+			facts.Modifiers |= symbols.ModAll
 		}
 		if d.IsConstant {
 			facts.Modifiers |= symbols.ModConstant
@@ -519,6 +989,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			on  bool
 			mod symbols.Modifiers
 		}{
+			{d.IsVariation, symbols.ModVariation},
+			{d.IsVariant, symbols.ModVariant},
+			{d.IsAll, symbols.ModAll},
 			{d.IsEnd, symbols.ModEnd},
 			{d.IsDerived, symbols.ModDerived},
 			{d.IsConstant, symbols.ModConstant},

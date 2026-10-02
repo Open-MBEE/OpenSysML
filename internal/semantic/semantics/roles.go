@@ -430,10 +430,12 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 	}
 	var out []*symbols.Symbol
 	if sym.Recorded() {
-		for _, member := range sym.Scope.Members() {
-			if member == nil {
+		seen := map[*symbols.Symbol]bool{}
+		for _, member := range sym.Scope.AllMembers() {
+			if member == nil || seen[member] {
 				continue
 			}
+			seen[member] = true
 			memberRole := noCaseRole
 			if member.Facts.Node == symbols.NodeSubject {
 				memberRole = subjectRole

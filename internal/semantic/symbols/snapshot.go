@@ -318,6 +318,9 @@ func (e *snapshotEncoder) writeFacts(f *LibraryFacts) {
 		}
 	}
 	e.w.Bool(f.Abstract)
+	e.w.Bool(f.RelatedFeatures != nil)
+	e.refs(f.RelatedFeatures)
+	e.refs([]ElementRef{f.MetadataType})
 }
 
 func (e *snapshotEncoder) filter(f ElementFilter) {
@@ -813,6 +816,17 @@ func (d *sectionReader) readFacts(f *LibraryFacts) {
 		f.Dimension = dim
 	}
 	f.Abstract = d.r.Bool()
+	hasRelatedFeatures := d.r.Bool()
+	f.RelatedFeatures = d.refs()
+	if hasRelatedFeatures && f.RelatedFeatures == nil {
+		f.RelatedFeatures = []ElementRef{}
+	}
+	metadataType := d.refs()
+	if len(metadataType) != 1 {
+		d.r.Fail("metadata type")
+		return
+	}
+	f.MetadataType = metadataType[0]
 }
 
 // stringTable reads a string-keyed table of n entries, each value read by

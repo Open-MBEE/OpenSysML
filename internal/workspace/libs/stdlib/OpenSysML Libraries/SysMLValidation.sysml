@@ -236,8 +236,9 @@ standard library package SysMLValidation {
     constraint def validateOccurrenceUsageIndividualDefinition {
         doc /* occurrenceDefinition->selectByKind(OccurrenceDefinition)->select(isIndividual).size() <= 1 */
         in element : SysML::OccurrenceUsage;
-        size(element.occurrenceDefinition->select { in d : KerML::Class;
-            d istype SysML::OccurrenceDefinition and (d meta SysML::OccurrenceDefinition).isIndividual }) <= 1
+        size(element.occurrenceDefinition
+            ->select { in d : KerML::Class; d istype SysML::OccurrenceDefinition }
+            ->select { in d : SysML::OccurrenceDefinition; d.isIndividual }) <= 1
     }
 
     constraint def validateOccurrenceUsageIndividualUsage {

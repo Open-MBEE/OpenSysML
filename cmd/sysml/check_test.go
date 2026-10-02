@@ -156,9 +156,9 @@ func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
 		connection def C { end part a : T; end part b : T; }
 	}`
 	endsCheck := check(t, binary, connectionEnds, "-self-check")
-	wantReport(t, endsCheck, 2, "validateConnectionDefinitionIsSufficient fails for P::C",
-		", 1 violations,", "type mismatch: right operand of 'and' must be Boolean, got sequence")
-	rejectReport(t, endsCheck, "validateFeatureEndIsConstant")
+	wantReport(t, endsCheck, 0, "Self-model check: ", ", 0 violations,")
+	rejectReport(t, endsCheck, "validateConnectionDefinitionIsSufficient fails for P::C",
+		"validateFeatureEndIsConstant fails")
 
 	const broken = `package P { part def A :> Missing; }`
 	failed := check(t, binary, broken, "-self-check")
