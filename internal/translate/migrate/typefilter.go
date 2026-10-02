@@ -227,17 +227,24 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		}
 	}
 	if e.IsProxy() {
-		if s := m.model.StereotypeRef(e.ID); s.Name != "" && isStandardNamespace(s.Namespace) {
+		s := m.model.StereotypeRef(e.ID)
+		if s.Name != "" && isStandardNamespace(s.Namespace) {
 			if t, ok := stereotypeTypes[s.Name]; ok {
 				return fromTypes("«"+s.Name+"»", t)
 			}
 			return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
 		}
-		if e.Name == "" {
+		customization := isCustomizationHref(e.Href) || isMagicDrawCustomization(s.Namespace)
+		name := e.Name
+		if name == "" && customization {
+			// The tool's stereotype table names what the href alone does not.
+			name = s.Name
+		}
+		if name == "" {
 			return typeFilter{label: e.Href, refused: elementTypeSubject + e.Href + " is in a module the archive does not describe"}
 		}
-		if t, ok := stereotypeTypes[e.Name]; ok && isCustomizationHref(e.Href) {
-			return fromTypes("«"+e.Name+"»", t)
+		if t, ok := stereotypeTypes[name]; ok && customization {
+			return fromTypes("«"+name+"»", t)
 		}
 		if subs := m.specializers(e); len(subs) > 0 {
 			return typeFilter{classifiers: subs, label: qualifiedName(e),
@@ -292,7 +299,7 @@ func (m *migration) specializers(general *sysmlv1.Element) []*sysmlv1.Element {
 // isCustomizationHref reports whether an href points into MagicDraw's SysML
 // customization module, whose stereotypes name property kinds.
 func isCustomizationHref(href string) bool {
-	return fold(hrefDocument(href)) == fold(magicDrawCustomizationModule)
+	return fold(hrefDocument(href)) == fold(hrefDocument(magicDrawCustomizationModule))
 }
 
 // metaclassFilter is the filter of a UML metaclass.

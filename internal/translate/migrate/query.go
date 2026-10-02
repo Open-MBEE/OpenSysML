@@ -86,6 +86,30 @@ func (q qx) lines(prefix string) []string {
 	return out
 }
 
+// text writes the expression on one line, its operations qualified by prefix.
+func (q qx) text(prefix string) string {
+	if !q.isCall() {
+		return q.lit
+	}
+	parts := make([]string, len(q.args))
+	for i, a := range q.args {
+		parts[i] = a.name + " = " + a.text(prefix)
+	}
+	return prefix + q.op + "(" + strings.Join(parts, ", ") + ")"
+}
+
+// text writes an argument's value on one line.
+func (a qarg) text(prefix string) string {
+	if !a.many {
+		return a.val.text(prefix)
+	}
+	parts := make([]string, len(a.list))
+	for i, v := range a.list {
+		parts[i] = v.text(prefix)
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
+}
+
 // flatValue writes an argument whose value holds no operation.
 func (a qarg) flatValue(prefix string) string {
 	if !a.many {
