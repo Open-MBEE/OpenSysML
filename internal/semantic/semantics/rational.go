@@ -188,6 +188,14 @@ func RationalOfReal(r float64) (Value, bool) {
 	if r == math.Trunc(r) && math.Abs(r) < 1<<53 {
 		return Value{Kind: ValRational, Int: int64(r), den: 1}, true
 	}
+	// r is m·2^e with m odd; a denominator 2^-e within uint32 stays inline.
+	frac, exp := math.Frexp(r)
+	m, e := int64(frac*(1<<53)), exp-53
+	tz := bits.TrailingZeros64(uint64(m))
+	m, e = m>>tz, e+tz
+	if e < 0 && e >= -31 {
+		return Value{Kind: ValRational, Int: m, den: 1 << -e}, true
+	}
 	return RatValue(new(big.Rat).SetFloat64(r)), true
 }
 
@@ -468,6 +476,19 @@ func ParseRational(text string, maxBits int64) (Value, error) {
 		mantissa = mantissa[1:]
 	}
 	whole, frac, _ := strings.Cut(mantissa, ".")
+	if exponent == "" && len(whole)+len(frac) <= 18 {
+		n := int64(0)
+		for _, digits := range [2]string{whole, frac} {
+			for i := 0; i < len(digits); i++ {
+				n = n*10 + int64(digits[i]-'0')
+			}
+		}
+		if neg {
+			n = -n
+		}
+		v, _ := FracValue(n, pow10(int64(len(frac))))
+		return v, nil
+	}
 	digits := strings.TrimLeft(whole+frac, "0")
 	if digits == "" {
 		return Value{Kind: ValRational, Int: 0, den: 1}, nil

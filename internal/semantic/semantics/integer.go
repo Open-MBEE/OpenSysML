@@ -222,12 +222,23 @@ func IntegerSizeExceeded(bits, maxBits int64) error {
 	return fmt.Errorf("%w: the result needs at least %d bits, beyond the %d-bit Integer size budget", ErrIntegerSizeLimit, bits, maxBits)
 }
 
-// sizedInt is the Integer b, refused when its magnitude exceeds maxBits.
-func sizedInt(b *big.Int, maxBits int64) (Value, error) {
-	if bits := int64(b.BitLen()); bits > maxBits {
+// intCell is a fresh big.Int an Integer Value holds without a copy: the numerator
+// of a big.Rat over one.
+func intCell() (*big.Rat, *big.Int) {
+	r := new(big.Rat)
+	return r, r.Num()
+}
+
+// sizedInt is the Integer cell r holds, refused when its magnitude exceeds maxBits.
+func sizedInt(r *big.Rat, maxBits int64) (Value, error) {
+	n := r.Num()
+	if bits := int64(n.BitLen()); bits > maxBits {
 		return Value{}, IntegerSizeExceeded(bits, maxBits)
 	}
-	return BigIntValue(b), nil
+	if n.IsInt64() {
+		return IntValue(n.Int64()), nil
+	}
+	return Value{Kind: ValInt, ext: r}, nil
 }
 
 // IntArith is Integer addition, subtraction and multiplication, shared by the
@@ -246,11 +257,14 @@ func IntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) {
 // bigIntArith is IntArith over math/big, for a result or operand beyond int64.
 func bigIntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) {
 	x, y := a.bigView(), b.bigView()
+	r, n := intCell()
 	switch op {
 	case ast.OpAdd:
-		return sizedInt(new(big.Int).Add(x, y), maxBits)
+		n.Add(x, y)
+		return sizedInt(r, maxBits)
 	case ast.OpSub:
-		return sizedInt(new(big.Int).Sub(x, y), maxBits)
+		n.Sub(x, y)
+		return sizedInt(r, maxBits)
 	case ast.OpMul:
 		if x.Sign() == 0 || y.Sign() == 0 {
 			return IntValue(0), nil
@@ -259,7 +273,8 @@ func bigIntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) 
 		if bits := int64(x.BitLen()) + int64(y.BitLen()) - 1; bits > maxBits {
 			return Value{}, IntegerSizeExceeded(bits, maxBits)
 		}
-		return sizedInt(new(big.Int).Mul(x, y), maxBits)
+		n.Mul(x, y)
+		return sizedInt(r, maxBits)
 	}
 	return Value{}, fmt.Errorf("%w: '%s' is no Integer arithmetic operator", ErrArithmeticDomain, op)
 }
@@ -348,5 +363,7 @@ func IntPow(a, n Value, maxBits int64) (Value, error) {
 		}
 		return Value{}, IntegerSizeExceeded(bits, maxBits)
 	}
-	return sizedInt(new(big.Int).Exp(a.bigView(), n.bigView(), nil), maxBits)
+	r, p := intCell()
+	p.Exp(a.bigView(), n.bigView(), nil)
+	return sizedInt(r, maxBits)
 }

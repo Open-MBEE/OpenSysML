@@ -1569,16 +1569,15 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
-		x := kind.element(elem.Const)
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
-			if b, ok := x.Int64(); ok {
+			if b, ok := elem.Const.Int64(); ok {
 				if sum := a + b; (sum^a)&(sum^b) >= 0 {
 					acc = semantics.IntValue(sum)
 					continue
 				}
 			}
 		}
-		next, err := foldNumeric(op, operator, acc, x, ctx.maxIntegerBits)
+		next, err := foldNumeric(op, operator, acc, kind.element(elem.Const), ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
