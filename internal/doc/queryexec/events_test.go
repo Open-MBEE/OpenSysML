@@ -148,9 +148,12 @@ func TestExecuteEventsReadsTheTraceInOrder(t *testing.T) {
 	}
 
 	// The payload of an accept is carried as `name = value`, the do step of a
-	// state and a transition's effect follow the accept that fired it.
+	// state and a transition's effect follow the accept that fired it. The
+	// Report the panel sends lamp1 is taken off its pool and discarded, nothing
+	// of the lamp accepting it: an accept record no transition follows.
 	got = rowTexts(t, fixture.rows(t, "Accepted", fixture.object(fixture.lamp1, "lamp1")))
 	want = []string{
+		"time=0.0 [s] event=Report payload=",
 		"time=0.0 [s] event=Toggle payload=",
 		"time=1.0 [s] event=Dim payload=level = 3",
 		"time=2.5 [s] event=Boost payload=",
@@ -159,8 +162,8 @@ func TestExecuteEventsReadsTheTraceInOrder(t *testing.T) {
 		t.Fatalf("lamp1 accepts:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
 	}
 	// A type selects the population; an object with no machine has no records.
-	if got := rowTexts(t, fixture.rows(t, "Accepted", Bindings{"root": {ElementValue(fixture.symbol(t, "Lamp"))}})); len(got) != 5 {
-		t.Fatalf("Lamp accepts = %d rows, want 5:\n%s", len(got), joinLines(got))
+	if got := rowTexts(t, fixture.rows(t, "Accepted", Bindings{"root": {ElementValue(fixture.symbol(t, "Lamp"))}})); len(got) != 6 {
+		t.Fatalf("Lamp accepts = %d rows, want 6:\n%s", len(got), joinLines(got))
 	}
 	if got := rowTexts(t, fixture.rows(t, "Happenings", fixture.object(fixture.rock, "rock"))); len(got) != 0 {
 		t.Fatalf("rock events:\n%s", joinLines(got))
@@ -173,6 +176,7 @@ func TestExecuteEventsByKind(t *testing.T) {
 	fixture := eventFixture(t)
 	got := rowTexts(t, fixture.rows(t, "Accepts", nil))
 	want := []string{
+		"time=0.0 [s] path=lamp1 event=Report",
 		"time=0.0 [s] path=lamp1 event=Toggle",
 		"time=1.0 [s] path=lamp1 event=Dim",
 		"time=2.0 [s] path=lamp2 event=Toggle",
@@ -184,6 +188,7 @@ func TestExecuteEventsByKind(t *testing.T) {
 	}
 	got = rowTexts(t, fixture.rows(t, "Moves", nil))
 	want = []string{
+		"kind=accept path=lamp1 name=Report",
 		"kind=accept path=lamp1 name=Toggle",
 		"kind=transition path=lamp1 name=on",
 		"kind=accept path=lamp1 name=Dim",
@@ -296,7 +301,7 @@ func TestExecuteEventsIntervalIsClosedOpen(t *testing.T) {
 		}
 	}
 	got := rowTexts(t, fixture.rows(t, "Accepted", bounds(fixture.quantity(t, "0 [min]"), fixture.quantity(t, "1 [min]"))))
-	if len(got) != 3 {
+	if len(got) != 4 {
 		t.Fatalf("accepts in [0 min, 1 min):\n%s", joinLines(got))
 	}
 	got = rowTexts(t, fixture.rows(t, "Between", Bindings{"since": {second("1")}, "before": {second("2.5")}}))
@@ -313,7 +318,7 @@ func TestExecuteEventsIntervalIsClosedOpen(t *testing.T) {
 		t.Fatalf("accepts since 2 s:\n%s", joinLines(got))
 	}
 	got = rowTexts(t, fixture.rows(t, "Accepted", Bindings{"root": lamp1["root"], "before": {second("1")}}))
-	if joinLines(got) != "time=0.0 [s] event=Toggle payload=" {
+	if joinLines(got) != joinLines([]string{"time=0.0 [s] event=Report payload=", "time=0.0 [s] event=Toggle payload="}) {
 		t.Fatalf("lamp1 accepts before 1 s:\n%s", joinLines(got))
 	}
 }
