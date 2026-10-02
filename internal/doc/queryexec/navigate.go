@@ -150,19 +150,19 @@ func (e *executor) navigateValue(expression queryplan.Expression, value Value, f
 // (Element::documentation as the prose of its bodies, as the row property
 // reads it), else the elements; ok is false where the model derives neither.
 func (e *executor) reflectiveValues(expression queryplan.Expression, sym *symbols.Symbol, feature string) ([]Value, bool, error) {
+	elements, ok := e.context.Model.ReflectiveElements(sym, feature)
+	if ok {
+		values := make([]Value, 0, len(elements))
+		for _, element := range elements {
+			values = append(values, valueAt(ElementValue(element), ElementValue(sym).Origin()))
+		}
+		return values, true, nil
+	}
 	if _, ok := e.context.Model.ReflectiveFeatureValues(sym, feature); ok {
 		values, err := e.reflectiveFeatureValues(expression, feature, sym)
 		return values, true, err
 	}
-	elements, ok := e.context.Model.ReflectiveElements(sym, feature)
-	if !ok {
-		return nil, false, nil
-	}
-	values := make([]Value, 0, len(elements))
-	for _, element := range elements {
-		values = append(values, valueAt(ElementValue(element), ElementValue(sym).Origin()))
-	}
-	return values, true, nil
+	return nil, false, nil
 }
 
 // connectorEnds is Connector::connectorEnd of a connector usage: one value per

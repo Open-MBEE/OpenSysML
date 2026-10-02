@@ -990,9 +990,6 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if isVariantReferenceSymbol(sym) {
 		return "ReferenceUsage"
 	}
-	if kind, ok := sym.UsageKind(); ok && kind == ast.UsageObjective {
-		return "RequirementUsage"
-	}
 	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
 		return "EventOccurrenceUsage"
 	}
