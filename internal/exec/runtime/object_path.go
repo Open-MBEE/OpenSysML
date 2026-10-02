@@ -48,6 +48,9 @@ func (ctx *Context) rankedRootPath(inst *Instance) string {
 // collection does not hold it.
 func (ctx *Context) memberIndex(collection Value, id int64) int {
 	holds := func(v Value) bool { return v.Kind == ValInstance && v.Instance == id }
+	if seq := requiredTail(collection); seq != nil {
+		return memberPosition(seq, id)
+	}
 	if collection.Kind != ValSet {
 		return slices.IndexFunc(elementsOf(collection), holds)
 	}

@@ -98,14 +98,23 @@ var builtinSignatures = map[string][]declaredParam{
 	"RealFunctions::product":       {optionalParam("collection")},
 }
 
+// readsSizeOrPosition are the built-ins reading only the size of their first argument, one
+// position of it or whether it holds a value, which leave the required members it ends in unmade.
+var readsSizeOrPosition = map[string]bool{
+	"SequenceFunctions::size": true, "SequenceFunctions::isEmpty": true, "SequenceFunctions::notEmpty": true,
+	"SequenceFunctions::#": true, "BaseFunctions::#": true,
+	"SequenceFunctions::includes": true, "SequenceFunctions::excludes": true,
+}
+
 // invokeBuiltin binds the arguments of a call to the built-in name to its
 // declared parameters and applies fn to them.
 func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error) (Value, error) {
 	return ec.invokeBuiltinWith(name, fn, exprs, named, names, unbound, func(params []declaredParam, param, at int) (Value, error) {
+		keep := param == 0 && readsSizeOrPosition[name]
 		if at < len(exprs) {
-			return ec.evalArgument(params, param, exprs[at])
+			return ec.evalArgument(params, param, exprs[at], keep)
 		}
-		return ec.evalArgument(params, param, named[at-len(exprs)].Value)
+		return ec.evalArgument(params, param, named[at-len(exprs)].Value, keep)
 	})
 }
 
@@ -260,11 +269,11 @@ func fillUnbound(written string, params []declaredParam, args []Value, bound []b
 // evalArgument evaluates the argument bound to parameter i, or keeps it as
 // written for an `expr` parameter. A body literal is a function already, so it
 // is evaluated (to itself) like any other argument, which the trace records.
-func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg ast.Node) (Value, error) {
+func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg ast.Node, keep bool) (Value, error) {
 	if _, body := arg.(*ast.BodyExpr); !body && i < len(params) && params[i].deferred {
 		return NewExprValue(arg, ec.closure()), nil
 	}
-	return ec.Eval(arg)
+	return ec.evaluate(arg, keep)
 }
 
 // builtinParameterList renders the declared parameter names for an error.

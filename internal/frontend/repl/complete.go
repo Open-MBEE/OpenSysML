@@ -418,11 +418,13 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 		if fv := heldFeatureValue(shape.inst, seg.Name); fv != nil {
 			val := fv.Value
 			if seg.Index > 0 {
-				elements := objref.CollectionElements(fv.Values)
-				if seg.Index > len(elements) {
+				if int64(seg.Index) > runtime.ElementCount(fv.Values) || fv.Values.Kind == runtime.ValNull {
 					return objectShape{}, false
 				}
-				val = elements[seg.Index-1]
+				var err error
+				if val, err = s.rtCtx.ElementAt(fv.Values, seg.Index-1); err != nil {
+					return objectShape{}, false
+				}
 			}
 			id, isObject := val.Object()
 			if !isObject {
@@ -456,12 +458,10 @@ func (s *Session) holdsObjects(shape objectShape, feat *runtime.EffectiveFeature
 		_, isObject := fv.Value.Object()
 		return isObject
 	}
-	for _, el := range objref.CollectionElements(fv.Values) {
-		if _, isObject := el.Object(); isObject {
-			return true
-		}
+	if runtime.ElementCount(fv.Values) == 0 || fv.Values.Kind == runtime.ValNull {
+		return false
 	}
-	return false
+	return s.rtCtx.HoldsObject(fv.Values)
 }
 
 // objectTypeOf is the type of the object a feature holds once read, as the
@@ -567,7 +567,10 @@ func (s *Session) elementsToHold(shape objectShape, feat *runtime.EffectiveFeatu
 			}
 			return 0
 		}
-		return len(objref.CollectionElements(fv.Values))
+		if fv.Values.Kind == runtime.ValNull || fv.Values.Kind == runtime.ValInvalid {
+			return 0
+		}
+		return int(runtime.ElementCount(fv.Values))
 	}
 	if reading[feat.Name] || s.objectTypeOf(feat) == nil {
 		return 0

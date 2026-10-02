@@ -77,7 +77,11 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
 			reach(of.Name, segment, false, fv.Value)
 			continue
 		}
-		for i, element := range elementsOf(fv.Values) {
+		values, err := ctx.heldInFull(fv.Values)
+		if err != nil {
+			return nil, &HeldObjectsError{Feature: of.Name, Err: err}
+		}
+		for i, element := range elementsOf(values) {
 			reach(of.Name, fmt.Sprintf("%s[%d]", segment, i+1), true, element)
 		}
 	}

@@ -321,7 +321,7 @@ func elementAtOrEmpty(elements []Value, index int64) Value {
 // AST node with the quantity expression `5 [m]`, which the bracket form marks
 // and evalIndexExpr handles.
 func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
-	operand, err := ec.Eval(n.Operand)
+	operand, err := ec.evalHeld(n.Operand)
 	if err != nil {
 		return Value{}, err
 	}
@@ -340,7 +340,20 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return elementAt(op, elementsOf(operand), index)
+	return ec.ctx.positionOf(op, operand, index)
+}
+
+// positionOf is the element of seq at a 1-based index, a required member made only
+// when it is the one at that index.
+func (ctx *Context) positionOf(op string, seq Value, index int64) (Value, error) {
+	tail := requiredTail(seq)
+	if tail == nil {
+		return elementAt(op, elementsOf(seq), index)
+	}
+	if index < 1 || index > int64(tail.Size()) {
+		return Value{}, fmt.Errorf("%w: %s %d is outside 1..%d", ErrIndexOutOfRange, op, index, tail.Size())
+	}
+	return ctx.requiredAt(tail, int(index-1))
 }
 
 // indexOperand names op's index operand in a diagnostic.
@@ -570,7 +583,7 @@ func (ctx *Context) sequenceIndex(op string, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return elementAt(indexOperand(op), elementsOf(args[0]), index)
+	return ctx.positionOf(indexOperand(op), args[0], index)
 }
 
 // builtinBaseIndex is BaseFunctions::'#': over an Array (a vector included) it is
@@ -687,9 +700,18 @@ func builtinSequenceIncludes(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if _, open := undeterminedIn(args...); open {
-		return ec.includesUndetermined(args[0], args[1])
+		seq1, err := ec.ctx.heldInFull(args[0])
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.includesUndetermined(seq1, args[1])
 	}
-	return boolValue(ec.ctx.includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
+	for _, elem := range elementsOf(args[1]) {
+		if !ec.ctx.holdsValue(args[0], elem) {
+			return boolValue(false), nil
+		}
+	}
+	return boolValue(true), nil
 }
 
 // includesUndetermined decides `includes` over an undetermined operand from the
@@ -718,11 +740,14 @@ func builtinSequenceExcludes(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if _, open := undeterminedIn(args...); open {
-		return ec.excludesUndetermined(args[0], args[1])
+		seq1, err := ec.ctx.heldInFull(args[0])
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.excludesUndetermined(seq1, args[1])
 	}
-	seq1, seq2 := elementsOf(args[0]), elementsOf(args[1])
-	for _, elem := range seq2 {
-		if ec.ctx.containsValue(seq1, elem) {
+	for _, elem := range elementsOf(args[1]) {
+		if ec.ctx.holdsValue(args[0], elem) {
 			return boolValue(false), nil
 		}
 	}
@@ -1615,6 +1640,16 @@ func (ctx *Context) includesAll(have, want []Value) bool {
 		}
 	}
 	return true
+}
+
+// holdsValue reports whether collection holds a value equal to val; a required member is
+// equal only to itself, so it is found by its identity without being made.
+func (ctx *Context) holdsValue(collection, val Value) bool {
+	seq := requiredTail(collection)
+	if seq == nil {
+		return ctx.containsValue(elementsOf(collection), val)
+	}
+	return ctx.containsValue(seq.elements, val) || val.Kind == ValInstance && seq.required.holds(val.Instance)
 }
 
 // containsValue reports whether elements holds a value equal to val.
