@@ -331,9 +331,11 @@ Advance to 800 000 s and the machine reaches `recovered`, takes the transition
 to `done`, and the run reports `State machine completed`.
 
 `LunarMissionUnordered` lists the same three phases as sub-actions and says
-nothing about their order. That is a legal action definition — a definition may
-leave sequencing to what refines it — and validation passes it. Asked to
-perform it, the runtime has nowhere to begin:
+nothing about their order. That is a legal action definition, and its meaning
+is the library's: each composite sub-action is one of the action's
+`subactions`, performed during it (`Actions::subactions :> subperformances`),
+and with no succession between them nothing orders them. The runtime starts all
+three with the action and completes it once all three have:
 
 ```bash
 ./bin/sysml -quiet -action MissionSequence::LunarMissionUnordered \
@@ -341,12 +343,17 @@ perform it, the runtime has nowhere to begin:
 ```
 
 ```
-sysml: failed to create executor: initialize action: invalid action flow: no initial node found in action LunarMissionUnordered: no succession leads to "outbound" or to "lunarOps"; 'first' names the step the flow starts at
-  standing: not covered (…)
+✓ Started action executor for "MissionSequence::LunarMissionUnordered"
+  State: Running
+  Tokens: 3
+✓ Action completed
+  Final state: Completed
+  1 choice point; %trace on to see them
+  standing: value (observed: 1 run under reverse)
 ```
 
-Two nodes with nothing before them is ambiguous, and the message names both and
-the keyword that would resolve it.
+The order the three ran in was the scheduler's choice, reported as a choice
+point; `-schedule explore` enumerates the others.
 
 ## How long the downlink takes
 
@@ -636,7 +643,9 @@ sysml: calc invocation failed: calc CalculationsPackage::calculateTliDeltaV: res
 And the mission itself. `apollo11MissionIndividual` performs `PerformLunarMission`,
 which lists `outbound`, `lunarOps` and `returnJourney` with no succession
 between them — `LunarMissionUnordered`, at full scale. Instantiating the
-individual starts the performance, and the performance cannot start:
+individual starts that performance, its phases unordered, and then the state
+machine the mission exhibits, which cannot start: `apollo11Phases` declares a
+state named `initial` but no `entry; then …;` naming where the machine begins:
 
 ```bash
 ./bin/sysml -quiet \
@@ -645,7 +654,7 @@ individual starts the performance, and the performance cannot start:
 ```
 
 ```
-sysml: instantiation failed: performed action performLunarMission of apollo11MissionIndividual: initialize action: invalid action flow: no initial node found in action PerformLunarMission: no succession leads to "outbound" or to "lunarOps"; 'first' names the step the flow starts at
+sysml: instantiation failed: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
 ```
 
 None of these is a validation error, and none should be: each construct is

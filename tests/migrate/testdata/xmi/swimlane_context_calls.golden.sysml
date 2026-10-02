@@ -1,7 +1,7 @@
 part def Engine {
     attribute rpm : ScalarValues::Real;
     action tune {
-        action 'set rpm' {
+        ref action 'set rpm' {
             in value[1];
             assign rpm := value;
         }
@@ -11,7 +11,7 @@ part def Host {
     attribute hits : ScalarValues::Real default = 0.0;
     part engine : Engine;
     action hit {
-        action 'mark hit' {
+        ref action 'mark hit' {
             in value[1];
             assign hits := value;
         }

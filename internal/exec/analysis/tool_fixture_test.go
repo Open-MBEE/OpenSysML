@@ -34,7 +34,7 @@ const (
 // pilotDriver performs the fixture's action with fixed inputs and adopts its outputs; Twice
 // performs it twice with equal inputs, so a tool answering differently is seen in one run;
 // Alike asks the same of it through two actions naming their parameters differently; Bodied
-// states a body no token flow can run, which its tool never sees; Swept takes the drag
+// states a body its tool performs in place of, so the body never runs; Swept takes the drag
 // coefficient as its input, the parameter a sweep ranges over.
 const pilotDriver = `package Drive {
 	private import AnalysisAnnotation::ComputeDynamics;
@@ -580,13 +580,17 @@ func TestPilotFixtureComparesRepliesNotBindings(t *testing.T) {
 	}
 }
 
-// An annotated action's body is never run, so one no token flow can be lowered from does
-// not keep the tool from performing the action; the tool's answer is what it outputs.
-func TestPilotFixturePerformsAnUnlowerableBodyByTool(t *testing.T) {
+// An annotated action's body is never run: the tool performs the action in its place, so
+// what it outputs is the tool's answer, not what the body would write (speed := speed0, 10 m/s).
+func TestPilotFixturePerformsABodiedActionByTool(t *testing.T) {
 	p := parsePilot(t)
 	bodied := p.action(t, "Bodied")
-	if _, err := lower.ToActionGraph(bodied.Decl, bodied.Scope); !errors.Is(err, lower.ErrStatementOutsideFlow) {
-		t.Fatalf("Bodied lowers to a flow (%v); its body should not", err)
+	graph, err := lower.ToActionGraph(bodied.Decl, bodied.Scope)
+	if err != nil {
+		t.Fatalf("Bodied lowers to %v; want its assignment as a flow", err)
+	}
+	if lower.StartFlow(graph); len(graph.Starts()) != 1 {
+		t.Fatalf("Bodied starts %d steps, want its assignment as the flow's one start", len(graph.Starts()))
 	}
 	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
 	out, plan, err := p.perform(t, r, p.context(), "Embodied")

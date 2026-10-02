@@ -1,17 +1,12 @@
 package lower
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
-
-// ErrStatementOutsideFlow reports a statement written among an action's own
-// members that no succession binds, so it holds no position in the token flow.
-var ErrStatementOutsideFlow = errors.New("has no position in the token flow")
 
 // ActionNodes returns the nodes accepted by action lowering and whether the
 // action has an initial node after interpreting `first <node>`.
@@ -80,9 +75,6 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
 
-	// A succession can bind a member with no name of its own by position, which is
-	// what puts a statement member (`then send …;`) in the token flow.
-	sequenced := sequencedMembers(members)
 	// First pass: collect nodes.
 	for _, member := range members {
 		actualMember := unwrapMembership(member)
@@ -116,12 +108,9 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 			}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
-			// A statement written among the action's own members with no succession
-			// binding it has no position in the token flow.
-			if !sequenced[actualMember] {
-				return nil, fmt.Errorf("%s written directly in an action body %w: declare it inside an action node",
-					statementKeyword(n), ErrStatementOutsideFlow)
-			}
+			// A statement written among the action's own members is a subaction of
+			// it, ordered by the successions that bind it and started with the
+			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
 			graph.Bodies[n] = []Statement{lowerStatement(n, scope)}
 		}

@@ -343,7 +343,7 @@ since `%advance` and the waits move it.
 
 **What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
 and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
-(`first start; then …` or, with one node no succession leads to, the flow starts there),
+(`first start; then …`; every node no succession leads to starts with the behavior, unordered),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
 body stating no flow still runs its statements in declaration order. A braced block without the

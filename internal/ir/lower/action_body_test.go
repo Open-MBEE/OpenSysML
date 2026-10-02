@@ -1,7 +1,6 @@
 package lower
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -426,8 +425,9 @@ func TestActionInterfaceLowering_IgnoresTheBody(t *testing.T) {
 			assign y := x;
 		}
 	`)
-	if _, err := ToActionGraph(usage, nil); !errors.Is(err, ErrStatementOutsideFlow) {
-		t.Fatalf("ToActionGraph error = %v, want %v", err, ErrStatementOutsideFlow)
+	flow, err := ToActionGraph(usage, nil)
+	if err != nil || len(flow.Nodes) != 1 {
+		t.Fatalf("ToActionGraph = %v, %v; want the assignment as the flow's one node", flow, err)
 	}
 	graph, err := ToActionInterface(usage, nil)
 	if err != nil {

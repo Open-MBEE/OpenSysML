@@ -439,9 +439,9 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if resumingAt[*subflowFrame](h.exec.ctx) {
 		return flowNext, h.flow.runSubflow(h.flow.root)
 	}
-	if block.Graph.Initial == nil {
-		return flowNext, fmt.Errorf("%w: %s: no node starts the flow%s",
-			ErrInvalidActionFlow, h.describe(), noFlowStart(block.Graph))
+	if err := lower.FlowStartError(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%w: %s: no node starts the flow: %w",
+			ErrInvalidActionFlow, h.describe(), err)
 	}
 	if err := h.flow.validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -454,7 +454,6 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	h.flow.features = h.flow.performanceFeatures()
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
-	root.live = 1
 	if block.Graph.Scope != nil {
 		root.scope = block.Graph.Scope
 	}

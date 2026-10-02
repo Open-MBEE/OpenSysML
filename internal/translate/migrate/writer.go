@@ -89,6 +89,29 @@ func (w *writer) buf() *buffer {
 	return w.bufs[len(w.bufs)-1]
 }
 
+// prefixed writes what body writes, with prefix before the first line of it
+// that opens with head at the current indent.
+func (w *writer) prefixed(prefix, head string, body func()) {
+	b := w.buf()
+	from := b.Len()
+	body()
+	if b != w.buf() {
+		return
+	}
+	text := b.String()
+	lead := indentOf(w.indent) + head
+	i := strings.Index(text[from:], lead)
+	if i < 0 || (from+i > 0 && text[from+i-1] != '\n') {
+		return
+	}
+	at := from + i + len(indentOf(w.indent))
+	b.Reset()
+	b.Grow(len(text) + len(prefix))
+	_, _ = b.WriteString(text[:at])
+	_, _ = b.WriteString(prefix)
+	_, _ = b.WriteString(text[at:])
+}
+
 // madeUp records that the block being written declared name for an element
 // its source left anonymous; the block is marked as it closes.
 func (w *writer) madeUp(name string) {

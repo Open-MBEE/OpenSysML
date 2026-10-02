@@ -1,0 +1,7 @@
+{
+	"type": "state",
+	"finalState": "active",
+	"outputs": {
+		"n": {"type": "Integer", "value": 111}
+	}
+}

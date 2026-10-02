@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"c": {"type": "Integer", "value": 1}}},
+		{"outputs": {"c": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "Subactions no succession orders: each is performed during the owner, in which order is open"
+}
