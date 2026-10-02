@@ -59,6 +59,8 @@ const (
 	SysMLServiceExecuteStateProcedure = "/sysml.SysMLService/ExecuteState"
 	// SysMLServiceConvertProcedure is the fully-qualified name of the SysMLService's Convert RPC.
 	SysMLServiceConvertProcedure = "/sysml.SysMLService/Convert"
+	// SysMLServiceMigrateProcedure is the fully-qualified name of the SysMLService's Migrate RPC.
+	SysMLServiceMigrateProcedure = "/sysml.SysMLService/Migrate"
 	// SysMLServiceApplyEditsProcedure is the fully-qualified name of the SysMLService's ApplyEdits RPC.
 	SysMLServiceApplyEditsProcedure = "/sysml.SysMLService/ApplyEdits"
 	// SysMLServiceVerifyConstraintProcedure is the fully-qualified name of the SysMLService's
@@ -117,8 +119,16 @@ type SysMLServiceClient interface {
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(context.Context, *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -240,6 +250,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("Convert")),
 			connect.WithClientOptions(opts...),
 		),
+		migrate: connect.NewClient[proto.MigrateRequest, proto.MigrateResponse](
+			httpClient,
+			baseURL+SysMLServiceMigrateProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("Migrate")),
+			connect.WithClientOptions(opts...),
+		),
 		applyEdits: connect.NewClient[proto.ApplyEditsRequest, proto.ApplyEditsResponse](
 			httpClient,
 			baseURL+SysMLServiceApplyEditsProcedure,
@@ -327,6 +343,7 @@ type sysMLServiceClient struct {
 	executeAction      *connect.Client[proto.ExecuteActionRequest, proto.ExecuteActionResponse]
 	executeState       *connect.Client[proto.ExecuteStateRequest, proto.ExecuteStateResponse]
 	convert            *connect.Client[proto.ConvertRequest, proto.ConvertResponse]
+	migrate            *connect.Client[proto.MigrateRequest, proto.MigrateResponse]
 	applyEdits         *connect.Client[proto.ApplyEditsRequest, proto.ApplyEditsResponse]
 	verifyConstraint   *connect.Client[proto.VerifyConstraintRequest, proto.VerifyConstraintResponse]
 	verifyRequirement  *connect.Client[proto.VerifyRequirementRequest, proto.VerifyRequirementResponse]
@@ -389,6 +406,11 @@ func (c *sysMLServiceClient) ExecuteState(ctx context.Context, req *connect.Requ
 // Convert calls sysml.SysMLService.Convert.
 func (c *sysMLServiceClient) Convert(ctx context.Context, req *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error) {
 	return c.convert.CallUnary(ctx, req)
+}
+
+// Migrate calls sysml.SysMLService.Migrate.
+func (c *sysMLServiceClient) Migrate(ctx context.Context, req *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error) {
+	return c.migrate.CallUnary(ctx, req)
 }
 
 // ApplyEdits calls sysml.SysMLService.ApplyEdits.
@@ -474,8 +496,16 @@ type SysMLServiceHandler interface {
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(context.Context, *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -593,6 +623,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("Convert")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceMigrateHandler := connect.NewUnaryHandler(
+		SysMLServiceMigrateProcedure,
+		svc.Migrate,
+		connect.WithSchema(sysMLServiceMethods.ByName("Migrate")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceApplyEditsHandler := connect.NewUnaryHandler(
 		SysMLServiceApplyEditsProcedure,
 		svc.ApplyEdits,
@@ -687,6 +723,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceExecuteStateHandler.ServeHTTP(w, r)
 		case SysMLServiceConvertProcedure:
 			sysMLServiceConvertHandler.ServeHTTP(w, r)
+		case SysMLServiceMigrateProcedure:
+			sysMLServiceMigrateHandler.ServeHTTP(w, r)
 		case SysMLServiceApplyEditsProcedure:
 			sysMLServiceApplyEditsHandler.ServeHTTP(w, r)
 		case SysMLServiceVerifyConstraintProcedure:
@@ -758,6 +796,10 @@ func (UnimplementedSysMLServiceHandler) ExecuteState(context.Context, *connect.R
 
 func (UnimplementedSysMLServiceHandler) Convert(context.Context, *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Convert is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Migrate is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ApplyEdits(context.Context, *connect.Request[proto.ApplyEditsRequest]) (*connect.Response[proto.ApplyEditsResponse], error) {

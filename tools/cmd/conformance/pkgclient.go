@@ -97,6 +97,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.renderDocument(ctx, request)
 	case "Convert":
 		return c.convert(ctx, request)
+	case "Migrate":
+		return c.migrate(ctx, request)
 	case "ApplyEdits":
 		return c.applyEdits(ctx, request)
 	default:
@@ -641,6 +643,83 @@ func (c *pkgClient) renderDocument(ctx context.Context, request protoreflect.Mes
 		return nil, apiError(err)
 	}
 	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+}
+
+func (c *pkgClient) migrate(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.MigrateRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	var opts []opensysml.MigrateOption
+	if req.FromFormat != "" {
+		opts = append(opts, opensysml.WithV1Format(opensysml.Format(req.FromFormat)))
+	}
+	if req.Report {
+		opts = append(opts, opensysml.WithMigrationReport())
+	}
+	if req.Results {
+		opts = append(opts, opensysml.WithMigrationResults())
+	}
+	switch layout := req.Layout.(type) {
+	case *pb.MigrateRequest_LayoutPath:
+		opts = append(opts, opensysml.WithLayoutFile(layout.LayoutPath))
+	case *pb.MigrateRequest_LayoutContent:
+		opts = append(opts, opensysml.WithLayout(layout.LayoutContent))
+	}
+	if req.ImageBaseUrl != "" {
+		opts = append(opts, opensysml.WithImageBaseURL(req.ImageBaseUrl))
+	}
+	if req.Strict {
+		opts = append(opts, opensysml.WithStrict())
+	}
+	var migration *opensysml.Migration
+	var err error
+	switch source := req.Source.(type) {
+	case *pb.MigrateRequest_FilePath:
+		migration, err = c.api.MigrateFile(ctx, source.FilePath, opensysml.Format(req.ToFormat), opts...)
+	case *pb.MigrateRequest_Content:
+		migration, err = c.api.MigrateSource(ctx, source.Content, opensysml.Format(req.ToFormat), opts...)
+	default:
+		return nil, &uncoveredError{reason: "the public Go API cannot send a migration naming no source"}
+	}
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.MigrateResponse{Error: failure.Message}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.MigrateResponse{
+		Content:            migration.Content,
+		FromFormat:         string(migration.From),
+		ToFormat:           string(migration.To),
+		Experimental:       true,
+		ExperimentalNotice: migration.ExperimentalNotice,
+		Results:            migration.Results,
+	}
+	if report := migration.Report; report != nil {
+		// #nosec G115 -- the counts came off the wire as int32.
+		response.Report = &pb.MigrationReport{
+			Source:       report.Source,
+			Exporter:     report.Exporter,
+			Summary:      report.Summary,
+			Mapped:       int32(report.Mapped),
+			Approximated: int32(report.Approximated),
+			Unmapped:     int32(report.Unmapped),
+			Skipped:      int32(report.Skipped),
+			Text:         report.Text,
+		}
+		for _, entry := range report.Entries {
+			response.Report.Entries = append(response.Report.Entries, &pb.MigrationEntry{
+				Id: entry.ID, Kind: entry.Kind, Name: entry.Name,
+				Target: entry.Target, Verdict: entry.Verdict, Note: entry.Note,
+			})
+		}
+	}
+	for _, path := range slices.Sorted(maps.Keys(migration.Files)) {
+		response.Files = append(response.Files, &pb.MigrationFile{Path: path, Content: migration.Files[path]})
+	}
+	return response, nil
 }
 
 func (c *pkgClient) convert(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

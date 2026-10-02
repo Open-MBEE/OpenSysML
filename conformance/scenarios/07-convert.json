@@ -111,6 +111,23 @@
           "diagnostics": 1
         }
       }
+    },
+    {
+      "id": "convert/a_sysml_v1_model_is_migrated_not_converted",
+      "description": "A v1 model is refused by Convert with the help pointing at Migrate: migration is ledgered element by element, not a lossless conversion.",
+      "rpc": "Convert",
+      "requires_capabilities": [
+        "convert"
+      ],
+      "request": {
+        "content": "${fixture:vehicle.xmi}",
+        "from_format": "xmi",
+        "to_format": "sysml"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "is a SysML v1 model, which is migrated, not converted"
+      }
     }
   ]
 }

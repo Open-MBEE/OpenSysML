@@ -880,6 +880,82 @@ class PublicTypesTest {
   }
 
   @Test
+  void migrationOptionsCarryTheCompanionFlags() {
+    MigrationOptions defaults = MigrationOptions.defaults();
+    assertTrue(defaults.fromFormat().isEmpty());
+    assertFalse(defaults.report());
+    assertFalse(defaults.results());
+    assertTrue(defaults.layoutFile().isEmpty());
+    assertTrue(defaults.layoutContent().isEmpty());
+    assertEquals("", defaults.imageBaseUrl());
+    assertFalse(defaults.strict());
+
+    MigrationOptions asked =
+        defaults
+            .withFromFormat("mdzip")
+            .withReport(true)
+            .withResults(true)
+            .withLayoutFile(java.nio.file.Path.of("Model_mtip.xml"))
+            .withImageBaseUrl("https://img/")
+            .withStrict(true);
+    assertEquals(java.util.Optional.of("mdzip"), asked.fromFormat());
+    assertTrue(asked.report() && asked.results() && asked.strict());
+    assertEquals(java.util.Optional.of(java.nio.file.Path.of("Model_mtip.xml")), asked.layoutFile());
+    assertEquals("https://img/", asked.imageBaseUrl());
+    // A layout is a file or inline content; naming one drops the other.
+    MigrationOptions inline = asked.withLayoutContent("<mtip/>");
+    assertTrue(inline.layoutFile().isEmpty());
+    assertEquals(java.util.Optional.of("<mtip/>"), inline.layoutContent());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new MigrationOptions(
+                java.util.Optional.empty(),
+                false,
+                false,
+                java.util.Optional.of(java.nio.file.Path.of("l.xml")),
+                java.util.Optional.of("<mtip/>"),
+                "",
+                false));
+  }
+
+  @Test
+  void aMigrationReportAccountsByVerdict() {
+    MigrationEntry mapped = new MigrationEntry("_a", "Class", "P::A", "A", "mapped", "");
+    MigrationEntry unmapped =
+        new MigrationEntry("_u", "«Unit» InstanceSpecification", "P::kg", "", "unmapped", "units");
+    MigrationReport report =
+        new MigrationReport(
+            "Model.xmi",
+            "MagicDraw",
+            "migrated 2 element(s): 1 mapped, 0 approximated, 1 unmapped",
+            1,
+            0,
+            1,
+            0,
+            new java.util.ArrayList<>(List.of(mapped, unmapped)),
+            "");
+    assertEquals(List.of(mapped), report.byVerdict("mapped"));
+    assertEquals(List.of(unmapped), report.byVerdict("unmapped"));
+    assertEquals(List.of(), report.byVerdict("skipped"));
+    assertThrows(UnsupportedOperationException.class, () -> report.entries().add(mapped));
+
+    byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
+    java.util.Map<String, byte[]> files = new java.util.LinkedHashMap<>();
+    files.put("images/a.png", png);
+    Migration migration =
+        new Migration("part def A;", "xmi", "sysml", "experimental", report, "", files);
+    png[0] = 0;
+    assertEquals((byte) 0x89, migration.files().get("images/a.png")[0], "files are copied");
+    migration.files().get("images/a.png")[0] = 0;
+    assertEquals(
+        (byte) 0x89, migration.files().get("images/a.png")[0], "files are copied on the way out");
+    assertThrows(
+        UnsupportedOperationException.class, () -> migration.files().put("other", new byte[0]));
+    assertEquals(report, migration.report());
+  }
+
+  @Test
   void capabilitiesNegotiateOnNames() {
     Capabilities capabilities =
         new Capabilities("dev", java.util.Set.of(Capabilities.QUERY, Capabilities.TYPE_FACTS));

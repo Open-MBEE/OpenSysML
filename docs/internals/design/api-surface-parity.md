@@ -86,7 +86,7 @@ can perform today.
 | Replay a recorded schedule: `%replay`, `-schedule replay:` | REPL and CLI | `schedule` is a string field, so `replay:<path>` would name a server-side path. The wire needs the witness *inline* | 2 |
 | View rendering (diagrams): `%view`, `%render`, `-render`, `-render-all`, `-render-form`, `-render-palette` | `internal/ir/view`; the editor's `opensysml/render`, `opensysml/views`, `opensysml/renderChanged` | No RPC. `RenderDocument` renders documents, not views. The editor's diagram protocol is the most complete client of `view` and is reachable only from an LSP client | 2 |
 | Library search: `%search`, `%builtins` | `internal/semantic/suggest`, `libs` | No RPC. `GetSymbol` needs a name; there is no way to ask "what declares something like this" | 2 |
-| XMI migration report: `-convert -from xmi -migration-report` | `cmd/sysml` over `export` | `Convert` from XMI answers with the model; the element-by-element report of what the conversion kept, renamed and dropped is written only to a local file | 3 |
+| XMI migration report: `-migrate -migration-report` | `cmd/sysml` over `migrate`; `Migrate` | `Migrate` answers with the model and the report's summary and counts, and with every element's verdict and the report text when `report` is set; `Convert` refuses a v1 model, which is migrated, not converted | 1 |
 | Code generation: `-compile`, `-target` | `internal/translate/codegen` | No RPC, no package method. The output is a file tree, which fits `Convert`'s shape (a format, bytes out) once the format list is open | 3 |
 | Conformance runs: `internal/frontend/repl/conformance.go` | REPL | Not an API; the REPL exposes it for the harness | — |
 

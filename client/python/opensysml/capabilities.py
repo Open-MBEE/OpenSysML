@@ -27,6 +27,12 @@ CAPABILITY_TYPE_FACTS = "type_facts"
 #: Turtle. Without it the service refuses conversion with ``UNIMPLEMENTED``.
 CAPABILITY_CONVERT = "convert"
 
+#: The ``Migrate`` RPC, which migrates a SysML v1 model — UML XMI, an Eclipse
+#: UML2 ``.uml`` file or a Cameo ``.mdzip`` archive — to SysML v2 and accounts
+#: for every element on the way. Without it the service refuses migration with
+#: ``UNIMPLEMENTED``.
+CAPABILITY_MIGRATE = "migrate"
+
 #: The verification RPCs — ``VerifyConstraint``, ``VerifyRequirement``,
 #: ``VerifySatisfaction`` and ``EvaluateCalc`` — which answer the questions the
 #: REPL's ``%constraint``, ``%requirement``, ``%satisfy`` and ``%calc`` answer.

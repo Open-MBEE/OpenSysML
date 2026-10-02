@@ -171,13 +171,29 @@ type Client interface {
 
 	// ConvertFile writes the model file at path in another representation,
 	// inferring its notation from the extension unless WithFromFormat says
-	// otherwise. Requires the convert capability.
+	// otherwise. A SysML v1 file (.xmi, .uml, .mdzip, or FormatXMI named) is
+	// refused with CodeInvalidArgument: it is migrated by MigrateFile, not
+	// converted. Requires the convert capability.
 	ConvertFile(ctx context.Context, path string, to Format, opts ...ConvertOption) (*Conversion, error)
 
 	// ConvertSource writes inline content in another representation. Name the
 	// notation it is written in with WithFromFormat: there is no file extension
-	// to read it from. Requires the convert capability.
+	// to read it from. A v1 format is refused as ConvertFile refuses it.
+	// Requires the convert capability.
 	ConvertSource(ctx context.Context, content string, to Format, opts ...ConvertOption) (*Conversion, error)
+
+	// MigrateFile migrates the SysML v1 model at path — UML XMI, an Eclipse
+	// UML2 .uml file or a .mdzip archive, inferred from the extension unless
+	// WithV1Format says — to v2, written in the format to. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated, left
+	// unmapped or skipped, and the Migration's Report says which. Requires the
+	// migrate capability.
+	MigrateFile(ctx context.Context, path string, to Format, opts ...MigrateOption) (*Migration, error)
+
+	// MigrateSource migrates a SysML v1 model carried inline, bytes since a
+	// .mdzip archive is binary. Name its form with WithV1Format: there is no
+	// file extension to read it from. Requires the migrate capability.
+	MigrateSource(ctx context.Context, content []byte, to Format, opts ...MigrateOption) (*Migration, error)
 
 	// ApplyEdits answers the model's source with every edit applied, or refuses
 	// them all with an EditError. The edits target the model's first document —
@@ -294,6 +310,7 @@ type caller interface {
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
+	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)
 	close() error
 }

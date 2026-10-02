@@ -30,8 +30,8 @@ func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
 // otherwise; the model itself is a positional argument, as it is for every other
 // mode of the command, and a lone "-" names standard input.
 //
-// A SysML v1 model (-from xmi, or a .xmi/.uml/.mdzip file) is migrated to v2 on the
-// way in; see writeMigrationReport for where its report goes.
+// A SysML v1 model (-from xmi, or a .xmi/.uml/.mdzip file) is refused: it is
+// migrated, not converted, and -migrate is the verb for that (runMigrate).
 //
 // Either side may name a Flexo branch URL instead of a file: read as its RDF
 // graph, or the place a Turtle conversion is pushed.
@@ -44,7 +44,7 @@ func runConvertExit(files []string) int {
 }
 
 func runConvert(files []string) (int, error) {
-	to, err := parseTargetFormat(convertFormat)
+	to, err := parseTargetFormat(convertFormat, "-convert")
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +76,9 @@ func runConvert(files []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
+	if err := refuseV1(from, input, to); err != nil {
+		return 0, err
+	}
 	name, data, err := project.ReadFile(input)
 	if err != nil {
 		return 0, err
@@ -86,74 +88,97 @@ func runConvert(files []string) (int, error) {
 	for _, notice := range convert.Notices(from, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
-	if err := convertFlagsMisuse(from, input); err != nil {
-		return 0, err
+	// A v2 model may be rewritten in place; an FMU's archive, read in place,
+	// would be lost.
+	if from == convert.FormatFMU && outputPath != "" && input != "-" && samePath(outputPath, input) {
+		return 0, fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
 	}
-	out, imageFiles, err := convertInput(name, data, from, to)
+	made, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
-	if err := writeConverted(input, to, out, imageFiles); err != nil {
+	if err := writeConverted(input, to, made); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
 }
 
-// convertFlagsMisuse refuses the flag combinations that would lose a model or
-// a report: a migration report of no migration or named as the model, a
-// converted v1 model or FMU archive written over itself.
-func convertFlagsMisuse(from convert.Format, input string) error {
-	if migrationReport != "" && from != convert.FormatXMI {
-		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+// requireV1 is why -migrate refuses input that is not a SysML v1 model: a v2
+// model, an RDF graph or an FMU is converted, and -convert is the verb for that.
+func requireV1(from convert.Format, input string, to convert.Format) error {
+	if from == convert.FormatXMI {
+		return nil
 	}
-	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
-		return fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
+	remedy := fmt.Sprintf("write `sysml %s -convert %s`", input, to)
+	if fromFormat != "" {
+		remedy = fmt.Sprintf("write `sysml %s -from %s -convert %s`", input, fromFormat, to)
 	}
-	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
-		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	return &convert.NotV1Error{Name: inputLabel(input), Format: from, Remedy: remedy}
+}
+
+// refuseV1 is why -convert refuses a SysML v1 model: it is migrated, not
+// converted, and the remedy names the -migrate run that does it, its report
+// beside the model. A build made without the migration has no such run to name.
+func refuseV1(from convert.Format, input string, to convert.Format) error {
+	if from != convert.FormatXMI {
+		return nil
 	}
-	if err := migrationResultsMisuse(from, input); err != nil {
-		return err
+	if !v1Feature.linked {
+		return fmt.Errorf("%s is a SysML v1 model, which this build cannot migrate (built without v1)", inputLabel(input))
 	}
-	if err := imageBaseURLMisuse(from); err != nil {
-		return err
+	stem := "model"
+	source := input
+	named := ""
+	if fromFormat != "" {
+		named = " -from " + fromFormat
 	}
-	if err := layoutMisuse(from, input); err != nil {
-		return err
+	if !project.IsStdin(input) {
+		stem = strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
+		if stem == "" {
+			stem = "model"
+		}
 	}
-	inPlace := outputPath != "" && input != "-" && samePath(outputPath, input)
-	// A v2 model may be rewritten in place; a v1 model or an FMU's archive,
-	// read in place, would be lost.
-	if inPlace && from == convert.FormatXMI {
-		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
+	remedy := fmt.Sprintf("write `sysml %s%s -migrate %s -o %s.%s -migration-report %s.report.txt`", source, named, to, stem, to, stem)
+	return &convert.NotMigratedError{Name: inputLabel(input), Remedy: remedy}
+}
+
+// inputLabel names the input in a diagnostic: its path, or standard input.
+func inputLabel(input string) string {
+	if project.IsStdin(input) {
+		return "standard input"
 	}
-	if inPlace && from == convert.FormatFMU {
-		return fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
-	}
-	return nil
+	return input
 }
 
 // writeConverted writes the converted model to stdout or -o, the images a
-// migration wrote beside the file, none allowed to replace an input.
-func writeConverted(input string, to convert.Format, out []byte, imageFiles map[string][]byte) error {
+// migration wrote beside the file, none allowed to replace an input. The
+// migration's sidecars are written once the destination is known to take the
+// model, so a refused run leaves no report or results behind.
+func writeConverted(input string, to convert.Format, made produced) error {
 	if outputPath == "" {
-		if len(imageFiles) > 0 {
-			return fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(imageFiles))
+		if len(made.files) > 0 {
+			return fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(made.files))
 		}
-		_, err := os.Stdout.Write(out)
+		if err := made.writeSidecars(); err != nil {
+			return err
+		}
+		_, err := os.Stdout.Write(made.out)
 		return err
 	}
 	target, info, err := export.Destination(outputPath)
 	if err != nil {
 		return err
 	}
-	if len(imageFiles) == 0 {
-		return writeConversion(outputPath, out, to)
+	if len(made.files) == 0 {
+		if err := made.writeSidecars(); err != nil {
+			return err
+		}
+		return writeConversion(outputPath, made.out, to)
 	}
 	if info != nil && !info.Mode().IsRegular() {
 		return fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
 	}
-	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
+	for _, name := range slices.Sorted(maps.Keys(made.files)) {
 		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
 		for _, protected := range []string{target, input, migrationReport, migrationResults} {
 			if protected != "" && protected != "-" && samePath(dest, protected) {
@@ -161,23 +186,48 @@ func writeConverted(input string, to convert.Format, out []byte, imageFiles map[
 			}
 		}
 	}
-	return writeMigrationFiles(outputPath, out, to, info != nil, filepath.Dir(target), imageFiles)
+	if err := made.writeSidecars(); err != nil {
+		return err
+	}
+	return writeMigrationFiles(outputPath, made.out, to, info != nil, filepath.Dir(target), made.files)
 }
 
-// convertInput runs the conversion the input format asks for: a SysML v1 model
-// is migrated and its report written, anything else converted. files are the
-// attached image files a migration wrote for its document Image blocks, nil
-// for any other input.
-func convertInput(name string, data []byte, from, to convert.Format) ([]byte, map[string][]byte, error) {
+// produced is what a producer made of its input: the model in the to format,
+// the attached image files a migration wrote for its document Image blocks
+// (nil for a conversion), and sidecars, which writes the migration's report
+// and results where -migration-report and -migration-results name (nil for a
+// conversion). The caller runs sidecars only once the destination has
+// accepted the model and its files.
+type produced struct {
+	out      []byte
+	files    map[string][]byte
+	sidecars func() error
+}
+
+// writeSidecars writes the migration's report and results, nothing for a conversion.
+func (p produced) writeSidecars() error {
+	if p.sidecars == nil {
+		return nil
+	}
+	return p.sidecars()
+}
+
+// producer writes the input read as from in the to format: convertInput for
+// -convert, migrateInput for -migrate.
+type producer func(name string, data []byte, from, to convert.Format) (produced, error)
+
+// convertInput runs the conversion -convert asks for. A SysML v1 model was
+// refused before anything was read.
+func convertInput(name string, data []byte, from, to convert.Format) (produced, error) {
 	opts, err := convertOptions(from, to)
 	if err != nil {
-		return nil, nil, err
+		return produced{}, err
 	}
-	if from != convert.FormatXMI {
-		out, err := convert.ConvertWith(name, data, from, to, opts)
-		return out, nil, err
+	out, err := convert.ConvertWith(name, data, from, to, opts)
+	if err != nil {
+		return produced{}, err
 	}
-	return migrateInput(name, data, to)
+	return produced{out: out}, nil
 }
 
 // writeMigrationFiles writes a migration's model and its image files as one
@@ -231,8 +281,8 @@ func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bo
 }
 
 // recordedConvertMisuse is why a flag cannot share the run -record-run
-// converts: what is converted is the session the records join, not a file
-// migrated or a branch read or pushed.
+// converts: what is converted is the session the records join, not a branch
+// read or pushed.
 func recordedConvertMisuse(input string) error {
 	inRef, inputIsURL, err := branchURL(input)
 	if err != nil {
@@ -250,17 +300,8 @@ func recordedConvertMisuse(input string) error {
 			return fmt.Errorf("-record-run converts the recorded session model; -o cannot push it to a repository branch (%s)", outRef)
 		}
 	}
-	switch {
-	case syncState != "":
+	if syncState != "" {
 		return errors.New("-record-run converts the recorded session model; -sync-state does not apply")
-	case migrationReport != "":
-		return errors.New("-record-run converts the recorded session model; -migration-report does not apply")
-	case migrationResults != "":
-		return errors.New("-record-run converts the recorded session model; -migration-results does not apply")
-	case layoutPath != "":
-		return errors.New("-record-run converts the recorded session model; -layout does not apply")
-	case imageBaseURL != "":
-		return errors.New("-record-run converts the recorded session model; -image-base-url does not apply")
 	}
 	return nil
 }
@@ -355,22 +396,12 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 	return nil
 }
 
-// imageBaseURLMisuse reports -image-base-url passed for input no migration reads.
-func imageBaseURLMisuse(from convert.Format) error {
-	if imageBaseURL != "" && from != convert.FormatXMI {
-		return fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
-	}
-	return nil
-}
-
-// layoutMisuse reports why -layout augments nothing: a v2 input has no
-// migration to lay out, and the export must not name a file the run rewrites.
-func layoutMisuse(from convert.Format, input string) error {
+// layoutMisuse reports why -layout would be lost: the export must not name a
+// file the run rewrites.
+func layoutMisuse(input string) error {
 	switch {
 	case layoutPath == "":
 		return nil
-	case from != convert.FormatXMI:
-		return fmt.Errorf("-layout augments a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	case outputPath != "" && samePath(layoutPath, outputPath):
 		return fmt.Errorf("-layout and -o both name %s; the model would replace the layout export", outputPath)
 	case migrationReport != "" && samePath(layoutPath, migrationReport):
@@ -383,14 +414,12 @@ func layoutMisuse(from convert.Format, input string) error {
 	return nil
 }
 
-// migrationResultsMisuse reports why -migration-results writes nothing: a v2 input
-// has no tool results to index, and the sidecar must not replace the model or report.
-func migrationResultsMisuse(from convert.Format, input string) error {
+// migrationResultsMisuse reports why -migration-results would be lost: the
+// sidecar must not replace the model or the report.
+func migrationResultsMisuse(input string) error {
 	switch {
 	case migrationResults == "":
 		return nil
-	case from != convert.FormatXMI:
-		return fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	case outputPath != "" && samePath(migrationResults, outputPath):
 		return fmt.Errorf("-migration-results and -o both name %s; the results would be replaced by the model", outputPath)
 	case migrationReport != "" && samePath(migrationResults, migrationReport):
@@ -442,15 +471,16 @@ func resolvePath(path string) (string, error) {
 	return "", fmt.Errorf("%s: too many levels of symbolic links", path)
 }
 
-// parseTargetFormat resolves the -convert value, explaining the flag when a file
-// name was passed where a format belongs — the spelling this flag used to take.
-func parseTargetFormat(value string) (convert.Format, error) {
+// parseTargetFormat resolves the value of flag (-convert or -migrate),
+// explaining the flag when a file name was passed where a format belongs — the
+// spelling -convert used to take.
+func parseTargetFormat(value, flag string) (convert.Format, error) {
 	f, err := convert.ParseFormat(value)
 	if err != nil && namesAFile(value) {
-		return 0, fmt.Errorf("%w; -convert names the format to convert to, so write `sysml %s -convert ttl`", err, value)
+		return 0, fmt.Errorf("%w; %s names the format to write, so write `sysml %s %s ttl`", err, flag, value, flag)
 	}
 	if err == nil && !f.Writable() {
-		return 0, &convert.NotWritableError{Format: f}
+		return 0, &convert.NotWritableError{Format: f, Migrating: flag == "-migrate"}
 	}
 	return f, err
 }

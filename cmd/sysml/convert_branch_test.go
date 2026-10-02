@@ -227,7 +227,7 @@ func TestConvertRefusesSyncStateWithoutABranch(t *testing.T) {
 	}
 }
 
-func TestConvertPushRefusesAMigrationReportOverTheInput(t *testing.T) {
+func TestMigratePushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -237,7 +237,7 @@ func TestConvertPushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	}
 	xmi := writeModel(t, dir, "v1.xmi", string(source))
 
-	out, code := exitCode(t, branchCommand(stack, binary, xmi, "-convert", "ttl", "-o", "flexo://proj-1/main", "-migration-report", xmi))
+	out, code := exitCode(t, branchCommand(stack, binary, xmi, "-migrate", "ttl", "-o", "flexo://proj-1/main", "-migration-report", xmi))
 	if code != 2 || !strings.Contains(out, "names the model being migrated") || len(stack.puts) != 0 {
 		t.Fatalf("-migration-report over the pushed model: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
 	}

@@ -27,6 +27,14 @@ func convertBranch(input string, _ convert.Format) (int, bool, error) {
 	return 0, false, nil
 }
 
+// migrateBranch refuses a migration either side of which names a repository.
+func migrateBranch(input string, _ convert.Format, _ producer) (int, bool, error) {
+	if namesRepository(input) || namesRepository(outputPath) {
+		return 0, true, errSyncNotLinked
+	}
+	return 0, false, nil
+}
+
 // branchURL refuses a path naming a repository; any other is a file.
 func branchURL(path string) (string, bool, error) {
 	if namesRepository(path) {

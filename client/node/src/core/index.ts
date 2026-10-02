@@ -25,9 +25,17 @@ export {
   FORMAT_API_JSON,
   FORMAT_SYSML,
   FORMAT_TURTLE,
+  MIGRATED_NOT_CONVERTED,
+  MIGRATION_NOTICE,
+  Migration,
+  MigrationReport,
   formatOfPath,
   isExperimental,
+  isV1,
+  migrationReportOf,
+  pathIsV1,
 } from "./conversion.js";
+export type { MigrateOptions, MigrationEntry } from "./conversion.js";
 export {
   QueryElement,
   TYPE_COMPOSITE_CONSTRAINT,
@@ -119,6 +127,7 @@ export {
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_CONVERT,
+  CAPABILITY_MIGRATE,
   CAPABILITY_DIAGNOSTIC_CODES,
   CAPABILITY_EDIT_DOCUMENTS,
   CAPABILITY_ENGINES,
@@ -192,6 +201,7 @@ export {
   InvalidEditError,
   InvalidRequestError,
   MemberNameTakenError,
+  MigrationError,
   MoveReferencedError,
   NoEditsError,
   OverlappingEditsError,

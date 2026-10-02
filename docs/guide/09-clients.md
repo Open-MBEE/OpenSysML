@@ -1142,20 +1142,32 @@ text, and `write(path)` saves it. Formats are named `sysml`, `kerml`, `text`, `t
 `rdf`. A file path's format is inferred from its extension; inline `content` has no extension, so
 it needs `from_format`.
 
-`convert` also reads a **SysML v1** model and migrates it, when the source is UML XMI, an Eclipse
-UML2 `.uml` file or a `.mdzip` archive: `from_format` is `xmi`, `uml` or `mdzip`, inferred from
-those extensions, and is an input only — asking to write it raises `InvalidRequestError`, since a
-v2 model has no v1 form. Migration is
+A **SysML v1** model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is
+**migrated, not converted**: a conversion is lossless, and a migration accounts for every v1
+element as mapped, approximated, unmapped or skipped. `convert` refuses it with an
+`InvalidRequestError` that says so and names `migrate`, whether `from_format` is `xmi`, `uml` or
+`mdzip` or the path's extension is; `migrate(to_format, file_path=… | content=…)` is the verb.
+`from_format` is inferred from the extension and required for inline `content`, which is
+`bytes` since an archive is binary, and is an input only — asking to write it raises
+`InvalidRequestError`, since a v2 model has no v1 form. Migration is
 [experimental](../reference/sysml-v1-migration.md#status-experimental) and warns as the RDF
-direction does. The service does not return the migration report; run
-`sysml Model.xmi -convert sysml -migration-report Model.report.txt` for the element-by-element
-account, as [chapter 11](11-migrating-from-sysml-v1.md) walks through.
+direction does. The `Migration` carries the notation (or Turtle) and a `MigrationReport` whose
+`summary` and `mapped`, `approximated`, `unmapped` and `skipped` counts always come back;
+`report=True` adds every element's `MigrationEntry` (`by_verdict("unmapped")` selects them) and
+the `text` the command's `-migration-report` writes, `results=True` the `-migration-results`
+sidecar, `layout_path`/`layout_content` an MTIP export, `image_base_url` and `strict` the
+other companion flags, and `files` the image files the migration extracts, which `write(path)`
+saves beside the notation. A model the service cannot read at all raises `MigrationError`.
+[Chapter 11](11-migrating-from-sysml-v1.md) walks through reading the report.
 
 ```python
-migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")  # ExperimentalFeatureWarning
+migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)  # ExperimentalFeatureWarning
 migrated.from_format, migrated.to_format                          # ('xmi', 'sysml')
+migrated.report.summary                                           # 'migrated 93 element(s): 77 mapped, …'
+[e.name for e in migrated.report.by_verdict("unmapped")]
 migrated.write("Vehicle.sysml")
-opensysml.convert("ttl", content=xmi_text, from_format="xmi")    # straight to RDF
+opensysml.migrate("ttl", content=xmi_bytes, from_format="xmi")    # straight to RDF
+opensysml.convert("sysml", file_path="Vehicle.mdzip")             # InvalidRequestError: … migrated, not converted
 ```
 
 A `Model` writes out the source the service parsed, identified by `model.hash`, so editing the file
@@ -1182,7 +1194,7 @@ Conversion is capability-negotiated: against a service that does not report the 
 capability, these calls raise `MissingCapabilityError` naming the required upgrade rather than
 failing on an unimplemented method. For a service that does not report the RDF mapping's status,
 the status is worked out from the formats it reports, so an RDF conversion or a v1 migration
-warns either way.
+warns either way. `migrate` needs the `migrate` capability the same way.
 Suppress the warning with `warnings.simplefilter("ignore",
 opensysml.ExperimentalFeatureWarning)`; no stable feature uses that warning class.
 

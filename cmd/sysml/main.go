@@ -105,6 +105,7 @@ var (
 	engine           engineSelection
 	jobsFlag         jobsSetting
 	convertFormat    string
+	migrateFormat    string
 	queryText        string
 	outputPath       string
 	fromFormat       string
@@ -404,7 +405,7 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet, which no model shapes; ask for it without model files")
 			return 2
 		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
-			convertFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
+			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
 			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
@@ -444,12 +445,16 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -target and -source apply to -compile; name the calc def to compile")
 		return 2
 	}
-	if migrationReport != "" && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -migration-report accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-report report.txt`")
+	if convertFormat != "" && migrateFormat != "" {
+		fmt.Fprintln(os.Stderr, "sysml: -convert and -migrate are mutually exclusive: a SysML v1 model is migrated, a v2 model or an RDF graph converted; ask for one per run")
 		return 2
 	}
-	if migrationResults != "" && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -migration-results accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-results results.json`")
+	if migrationReport != "" && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-report accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -migration-report Model.report.txt`")
+		return 2
+	}
+	if migrationResults != "" && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-results accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -migration-results Model.results.json`")
 		return 2
 	}
 	if flagGiven("migration-results") && migrationResults == "" {
@@ -460,8 +465,12 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")
 		return 2
 	}
-	if layoutPath != "" && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -layout model_mtip.xml`")
+	if layoutPath != "" && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -layout Model_mtip.xml`")
+		return 2
+	}
+	if imageBaseURL != "" && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
 		return 2
 	}
 	if flagGiven("record-into") && len(modelChecks.records) == 0 {
@@ -480,15 +489,15 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -compare-results is empty; name the JSON file -migration-results wrote")
 		return 2
 	}
-	if modelChecks.compare != "" && (convertFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
-		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
+	if modelChecks.compare != "" && (convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
 		return 2
 	}
 
 	if compileCalc != "" {
 		switch {
-		case convertFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || fromFormat != "" || syncDiffWith != "" || syncApplyTo != "":
-			fmt.Fprintln(os.Stderr, "sysml: -compile builds an executable; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query, -eval, -from, -sync-diff or -sync-apply")
+		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || fromFormat != "" || syncDiffWith != "" || syncApplyTo != "":
+			fmt.Fprintln(os.Stderr, "sysml: -compile builds an executable; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -eval, -from, -sync-diff or -sync-apply")
 			return 2
 		case syncBase != "" || syncState != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "":
 			fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-state, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply, not to -compile")
@@ -519,8 +528,8 @@ func runCLI() int {
 			mode = "-sync-apply"
 		}
 		switch {
-		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
-			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
+		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
+			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
 		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
@@ -538,8 +547,8 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
 		return 2
 	}
-	if syncState != "" && convertFormat == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -sync-state applies to -sync-diff, -sync-apply, or a -convert that reads or pushes a repository branch")
+	if syncState != "" && convertFormat == "" && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-state applies to -sync-diff, -sync-apply, a -convert that reads or pushes a repository branch, or a -migrate that pushes one")
 		return 2
 	}
 
@@ -551,8 +560,8 @@ func runCLI() int {
 		case renderDoc != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents renders every document; -render-document renders one; ask for one per run")
 			return 2
-		case renderView != "" || renderAllDir != "" || convertFormat != "":
-			fmt.Fprintln(os.Stderr, "sysml: -render-documents, -render, -render-all and -convert each write documents out; ask for one per run")
+		case renderView != "" || renderAllDir != "" || convertFormat != "" || migrateFormat != "":
+			fmt.Fprintln(os.Stderr, "sysml: -render-documents, -render, -render-all, -convert and -migrate each write documents out; ask for one per run")
 			return 2
 		case outputPath != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents writes into its directory and cannot be combined with -output")
@@ -582,8 +591,8 @@ func runCLI() int {
 		case outputPath != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-all writes into its directory and cannot be combined with -output")
 			return 2
-		case convertFormat != "":
-			fmt.Fprintln(os.Stderr, "sysml: -render-all and -convert each write documents out; ask for one per run")
+		case convertFormat != "" || migrateFormat != "":
+			fmt.Fprintln(os.Stderr, "sysml: -render-all, -convert and -migrate each write documents out; ask for one per run")
 			return 2
 		case queryText != "" || len(evalExprs) > 0 || fromFormat != "" || renderDoc != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-all cannot be combined with -query, -eval, -from or -render-document")
@@ -599,6 +608,22 @@ func runCLI() int {
 			return fail(err)
 		}
 		return exitHolds
+	}
+
+	if migrateFormat != "" {
+		if queryText != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -migrate and -query are mutually exclusive")
+			return 2
+		}
+		if modelChecks.requested() {
+			return refuse(modelChecks,
+				"-migrate writes the migrated model out and decides nothing about it; check the migrated model in its own run")
+		}
+		if renderView != "" || renderDoc != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -migrate, -render and -render-document each write a document out; ask for one per run")
+			return 2
+		}
+		return runMigrateExit(args)
 	}
 
 	if convertFormat != "" {
@@ -632,7 +657,7 @@ func runCLI() int {
 				fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model, which this build cannot migrate (built without v1)\n", path)
 				return 2
 			}
-			fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model; migrate it first with `sysml %s -convert sysml -output model.sysml`, then load model.sysml\n", path, path)
+			fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model; migrate it first with `sysml %s -migrate sysml -output model.sysml`, then load model.sysml\n", path, path)
 			return 2
 		}
 	}

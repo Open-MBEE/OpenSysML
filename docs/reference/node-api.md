@@ -152,6 +152,7 @@ knowing its members.
 | `WrongKindError` | a verification or analysis named a symbol of another kind |
 | `AnalysisRunError` | an analysis run failed before it could report |
 | `ConversionError` | the service could not write the notation asked for |
+| `MigrationError` | the service could not read the SysML v1 model, so nothing of it was migrated |
 | `UnsupportedValueError` | the service sent a value this version of the client cannot decode |
 | `QueryError` / `DocumentQueryError` | a `Query` or `runDocumentQuery` failed in-band |
 | `EditError` | an edit was refused; subclasses (`NoEditsError`, `EditTargetError`, `InvalidEditError`, `IllegalMemberKindError`, `RenameReferencedError`, `OverlappingEditsError`, `EditResultError`, `OwnerNotFoundError`, `OwnerNotNamespaceError`, `MemberNameTakenError`, `DeleteReferencedError`, `OwnerInsideTargetError`, `MoveReferencedError`, `ReferencedElsewhereError`) catch one kind of refusal |
@@ -230,7 +231,17 @@ Beside the model reads above, the client covers every RPC the service offers:
 - **`connection.parseSources`** parses several documents as one model
   (`SourceDocument.file`/`inline` per document; `model.documents`, `model.roots`);
 - **`connection.convert`** and Node's **`save(target, path)`** write a model,
-  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`;
+  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a SysML v1
+  model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is refused with an
+  `InvalidRequestError` naming `migrate`, since it is migrated, not converted;
+- **`connection.migrate`** migrates a SysML v1 model from a `path` or inline
+  `content` bytes to `sysml` or `ttl`, with `fromFormat`, `report`, `results`,
+  `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` as the command's
+  companion flags; the `Migration` carries the content, a `MigrationReport`
+  (`summary`, `mapped`/`approximated`/`unmapped`/`skipped`, `entries` and `text`
+  when asked, `byVerdict(verdict)`), `results` and the image `files`, which
+  `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
+  with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
 - **`model.executeAction`/`executeState`** for runs and
@@ -261,10 +272,11 @@ Beside the model reads above, the client covers every RPC the service offers:
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`tools/cmd/conformance` emits. 151 scenarios per protocol over `grpc`, `connect` and
-`connect-json`: 148 pass and 3 are skipped, being the requests the public API
+`tools/cmd/conformance` emits. 158 scenarios per protocol over `grpc`, `connect` and
+`connect-json`: 155 pass and 3 are skipped, being the requests the public API
 refuses eagerly (a `ParseFile` naming no source, a `ParseSources` naming no
-document or two alike).
+document or two alike); a refusal the client makes in the service's own words and
+status (a v1 model offered to `convert`, a v2 one to `migrate`) runs as that status.
 `--mutate <name>` corrupts a response on its way through the client and each
 mutation must make a scenario fail, which is what keeps the run from being
 vacuous.

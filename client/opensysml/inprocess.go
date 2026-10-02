@@ -195,6 +195,10 @@ func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Co
 	return answer(ctx, req, p.svc.Convert)
 }
 
+func (p *inprocess) migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error) {
+	return answer(ctx, req, p.svc.Migrate)
+}
+
 func (p *inprocess) applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error) {
 	return answer(ctx, req, p.svc.ApplyEdits)
 }

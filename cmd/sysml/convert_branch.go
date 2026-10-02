@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
@@ -32,13 +33,39 @@ func convertBranch(input string, to convert.Format) (status int, handled bool, e
 	case inputIsURL && outputIsURL:
 		return 0, true, errors.New("a repository branch can be read or pushed in one run, not both; write the branch to a file, or convert a file to the branch")
 	case outputIsURL:
-		status, err := pushBranch(input, to, outputRef)
+		status, err := pushBranch(input, to, outputRef, "-convert", convertInput)
 		return status, true, err
 	case inputIsURL:
 		status, err := readBranch(inputRef, to)
 		return status, true, err
 	}
 	return 0, false, nil
+}
+
+// migrateBranch carries out a migration whose -o names a repository branch,
+// the place the migration is pushed by produce; a branch as input is refused,
+// since it holds a v2 graph, which is converted. handled is false when
+// neither side names a branch.
+func migrateBranch(input string, to convert.Format, produce producer) (status int, handled bool, err error) {
+	inputRef, inputIsURL, err := flexo.ParseBranchURL(input)
+	if err != nil {
+		return 0, true, err
+	}
+	if inputIsURL {
+		return 0, true, fmt.Errorf("a repository branch holds a SysML v2 graph, which is converted, not migrated; write `sysml %s -convert %s`", inputRef, to)
+	}
+	if outputPath == "" {
+		return 0, false, nil
+	}
+	outputRef, outputIsURL, err := flexo.ParseBranchURL(outputPath)
+	if err != nil {
+		return 0, true, err
+	}
+	if !outputIsURL {
+		return 0, false, nil
+	}
+	status, err = pushBranch(input, to, outputRef, "-migrate", produce)
+	return status, true, err
 }
 
 // branchURL reports whether path names a repository branch, and the branch as
@@ -77,18 +104,6 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	}
 	for _, notice := range convert.Notices(convert.FormatTurtle, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
-	}
-	if migrationReport != "" {
-		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
-	}
-	if migrationResults != "" {
-		return 0, fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
-	}
-	if layoutPath != "" {
-		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
-	}
-	if imageBaseURL != "" {
-		return 0, fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
 	}
 	repo, cfg, err := openBranch(ref)
 	if err != nil {
@@ -136,11 +151,12 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	return recordBranchState(repo.Seen(), state, scope, statePath)
 }
 
-// pushBranch replaces a branch's model graph with the model converted to
-// Turtle; a sync state the head moved past refuses the write.
-func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, error) {
+// pushBranch replaces a branch's model graph with the input written as Turtle
+// by produce — converted under -convert, migrated under -migrate, which verb
+// names; a sync state the head moved past refuses the write.
+func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb string, produce producer) (int, error) {
 	if to != convert.FormatTurtle {
-		return 0, fmt.Errorf("a repository branch holds a graph; convert to ttl to push, not %s", to)
+		return 0, fmt.Errorf("a repository branch holds a graph; %s ttl to push, not %s", strings.TrimPrefix(verb, "-"), to)
 	}
 	statePath := syncState
 	if statePath == "" {
@@ -177,6 +193,14 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if err != nil {
 		return 0, err
 	}
+	if verb == "-migrate" {
+		err = requireV1(from, input, to)
+	} else {
+		err = refuseV1(from, input, to)
+	}
+	if err != nil {
+		return 0, err
+	}
 	name, data, err := project.ReadFile(input)
 	if err != nil {
 		return 0, err
@@ -184,26 +208,24 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	for _, notice := range convert.Notices(from, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
-	if migrationReport != "" && from != convert.FormatXMI {
-		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
-	}
-	if err := imageBaseURLMisuse(from); err != nil {
+	if err := migrationResultsMisuse(input); err != nil {
 		return 0, err
 	}
-	if err := migrationResultsMisuse(from, input); err != nil {
+	if err := layoutMisuse(input); err != nil {
 		return 0, err
 	}
-	if err := layoutMisuse(from, input); err != nil {
-		return 0, err
-	}
-	out, imageFiles, err := convertInput(name, data, from, to)
+	made, err := produce(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
-	if len(imageFiles) > 0 {
-		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(imageFiles))
+	if len(made.files) > 0 {
+		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(made.files))
 	}
-	head, err := repo.Push(context.Background(), out, "sysml -convert ttl")
+	if err := made.writeSidecars(); err != nil {
+		return 0, err
+	}
+	out := made.out
+	head, err := repo.Push(context.Background(), out, "sysml "+verb+" ttl")
 	if err != nil {
 		var stale *flexo.StaleBranchError
 		var unrecorded *flexo.UnrecordedPushError
