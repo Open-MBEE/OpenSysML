@@ -3,6 +3,7 @@
 
 module ConformanceRunner
 
+using Base64
 using OpenSysML
 using HTTP
 using JSON
@@ -98,6 +99,9 @@ function resolve_placeholders!(value, model_hash, fixtures)
         elseif startswith(value, "\${fixture:") && endswith(value, "}")
             name = value[length("\${fixture:")+1:end-1]
             return read(fixture_path(fixtures, name), String)
+        elseif startswith(value, "\${fixture_base64:") && endswith(value, "}")
+            name = value[length("\${fixture_base64:")+1:end-1]
+            return base64encode(read(fixture_path(fixtures, name)))
         end
     end
     return value

@@ -141,6 +141,120 @@ end
     @test_throws MissingCapabilityError require_capability(info, "convert")
 end
 
+@testset "migration is told from conversion before anything is sent" begin
+    @test is_v1("xmi") && is_v1("UML") && is_v1(" mdzip ")
+    @test !is_v1("sysml") && !is_v1("") && !is_v1("xmi2")
+    @test path_is_v1("Model.mdzip") && path_is_v1("dir/Model.XMI") && path_is_v1("Model.uml")
+    @test !path_is_v1("Model.sysml") && !path_is_v1("xmi")
+    server, requests, address = recording_service(["convert", "migrate"])
+    conn = external(address)
+    try
+        for refused in (() -> convert_file(conn, "Model.mdzip", "sysml"),
+                        () -> convert_source(conn, "<xmi/>", "sysml"; from_format="XMI"),
+                        () -> migrate_file(conn, "Model.sysml", "sysml"; from_format="sysml"),
+                        () -> migrate_source(conn, "package P;", "sysml"; from_format="sysml"),
+                        () -> migrate_source(conn, "<xmi/>", "sysml"; from_format=""),
+                        () -> migrate_file(conn, "Model.mdzip", "sysml"; layout_path="a.xml",
+                                           layout_content="<mtip/>"))
+            @test_throws ArgumentError refused()
+        end
+        err = try
+            convert_file(conn, "Model.mdzip", "sysml")
+        catch exception
+            exception
+        end
+        @test occursin(MIGRATED_NOT_CONVERTED, err.msg)
+        @test occursin("migrate_file", err.msg)
+        @test isempty(requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "migrate sends the Migrate request and reads the answer" begin
+    answer = Dict{String,Any}("content" => "package Vehicle;", "fromFormat" => "xmi",
+        "toFormat" => "sysml", "experimental" => true,
+        "report" => Dict("source" => "Vehicle.xmi", "exporter" => "Cameo", "summary" => "s",
+            "mapped" => 2, "approximated" => 1, "unmapped" => 0, "skipped" => 1,
+            "entries" => [Dict("id" => "a", "kind" => "Class", "name" => "A", "target" => "part def A",
+                               "verdict" => "mapped", "note" => ""),
+                          Dict("id" => "d", "kind" => "Diagram", "name" => "D", "target" => "",
+                               "verdict" => "skipped", "note" => "diagram")],
+            "text" => "report"),
+        "results" => "{}",
+        "files" => [Dict("path" => "images/a.png", "content" => base64encode(UInt8[0x89, 0x50]))])
+    server, requests, address = recording_service(["migrate"]; handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        migrated = @test_logs (:warn, MIGRATION_NOTICE) migrate_source(conn, UInt8[0x3c, 0x78],
+            "sysml"; from_format="xmi", report=true, results=true, layout_content="<mtip/>",
+            image_base_url="https://img.example/", strict=true)
+        request = requests[end]
+        @test request.method == "Migrate"
+        @test request.body["content"] == base64encode(UInt8[0x3c, 0x78])
+        @test request.body["fromFormat"] == "xmi" && request.body["toFormat"] == "sysml"
+        @test request.body["report"] && request.body["results"] && request.body["strict"]
+        @test request.body["layoutContent"] == "<mtip/>" && !haskey(request.body, "layoutPath")
+        @test request.body["imageBaseUrl"] == "https://img.example/"
+        @test migrated.content == "package Vehicle;"
+        @test migrated.experimental && migrated.experimental_notice == MIGRATION_NOTICE
+        @test migrated.source_path === nothing
+        @test migrated.report.mapped == 2 && migrated.report.skipped == 1
+        @test length(migrated.report.entries) == 2
+        @test [e.id for e in by_verdict(migrated.report, VERDICT_SKIPPED)] == ["d"]
+        @test migrated.results == "{}"
+        @test migrated.files["images/a.png"] == UInt8[0x89, 0x50]
+        @test occursin("2 mapped", sprint(show, migrated))
+
+        answer["error"] = "cannot read the archive"
+        @test_throws MigrationError migrate_file(conn, "Model.mdzip", "sysml")
+        @test requests[end].body["filePath"] == "Model.mdzip"
+        delete!(answer, "error")
+
+        mktempdir() do directory
+            path = joinpath(directory, "Vehicle.sysml")
+            @test save(migrated, path) === migrated
+            @test read(path, String) == "package Vehicle;"
+            @test read(joinpath(directory, "images", "a.png")) == UInt8[0x89, 0x50]
+            for escaping in ("../escaped.png", "images/../../escaped.png", "/tmp/escaped.png",
+                             "images//x.png", "images\\x.png", "Other.sysml")
+                bad = Migration(migrated.content, "xmi", "sysml", migrated.report, "",
+                    Dict(escaping => UInt8[1]), nothing, true, MIGRATION_NOTICE)
+                other = joinpath(directory, "Other.sysml")
+                @test_throws ArgumentError save(bad, other)
+                @test !isfile(other)
+            end
+            @test !isfile(joinpath(dirname(directory), "escaped.png"))
+            source = joinpath(directory, "Vehicle.xmi")
+            write(source, "<xmi/>")
+            from_source = Migration(migrated.content, "xmi", "sysml", migrated.report, "",
+                Dict{String,Vector{UInt8}}(), source, true, MIGRATION_NOTICE)
+            @test_throws ArgumentError save(from_source, source)
+            @test read(source, String) == "<xmi/>"
+            if Sys.isunix()
+                outside = mktempdir()
+                symlink(outside, joinpath(directory, "linked"))
+                linked = Migration(migrated.content, "xmi", "sysml", migrated.report, "",
+                    Dict("linked/escaped.png" => UInt8[1]), nothing, true, MIGRATION_NOTICE)
+                @test_throws ArgumentError save(linked, joinpath(directory, "Linked.sysml"))
+                @test isempty(readdir(outside))
+                mkdir(joinpath(directory, "alias"))
+                symlink(joinpath(directory, "alias", "real.png"),
+                        joinpath(directory, "alias", "alias.png"))
+                aliased = Migration(migrated.content, "xmi", "sysml", migrated.report, "",
+                    Dict("alias/alias.png" => UInt8[1]), nothing, true, MIGRATION_NOTICE)
+                @test_throws ArgumentError save(aliased, joinpath(directory, "Aliased.sysml"))
+                @test !isfile(joinpath(directory, "alias", "real.png"))
+                @test !isfile(joinpath(directory, "Aliased.sysml"))
+            end
+        end
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "empty service version requests" begin
     withenv("OPENSYSML_GRPC_VERSION" => "") do
         @test OpenSysML._version_request(nothing) === nothing
@@ -528,6 +642,24 @@ end
                 @test !isempty(convert_file(conn, joinpath(FIXTURES, "simple_part.sysml"), "sysml").content)
                 @test !isempty(convert_source(conn, "package Inline {}", "sysml";
                     from_format="sysml").content)
+                vehicle = joinpath(FIXTURES, "vehicle.xmi")
+                @test_throws ArgumentError convert_file(conn, vehicle, "sysml")
+                migrated = migrate_file(conn, vehicle, "sysml"; report=true)
+                @test occursin("part def Vehicle", migrated.content)
+                @test migrated.from_format == "xmi"
+                @test (migrated.report.mapped, migrated.report.approximated,
+                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
+                @test length(migrated.report.entries) == 95
+                @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
+                @test migrated.source_path == abspath(vehicle)
+                inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
+                @test inline.to_format == "ttl" && inline.report.mapped == 77
+                @test isempty(inline.report.entries) && inline.source_path === nothing
+                mktempdir() do directory
+                    output = joinpath(directory, "Vehicle.sysml")
+                    save(migrated, output)
+                    @test read(output, String) == migrated.content
+                end
                 mktempdir() do directory
                     output = joinpath(directory, "roundtrip.sysml")
                     @test !isempty(save(document_model, output).content)

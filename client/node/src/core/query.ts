@@ -14,6 +14,7 @@ import {
   PrimitiveOperator,
   QuerySchema,
 } from "../generated/sysml_pb.js";
+import { byCodeUnit } from "./capabilities.js";
 import { QueryError } from "./errors.js";
 
 const TYPE_KEY = "@type";
@@ -110,7 +111,7 @@ export function buildQuery(options: { payload?: QueryPayload } & QueryForm = {})
     );
     if (unknown.length > 0) {
       throw new QueryError(
-        `a query has no ${unknown.sort().join(", ")}; the standard's query is scope, select and where`,
+        `a query has no ${unknown.sort(byCodeUnit).join(", ")}; the standard's query is scope, select and where`,
       );
     }
     scope = payload.scope as QueryForm["scope"];
@@ -187,7 +188,7 @@ function constraint(payload: unknown): Constraint {
 function rejectUnknown(payload: Record<string, unknown>, known: string[], what: string): void {
   const unknown = Object.keys(payload).filter((key) => !known.includes(key));
   if (unknown.length > 0) {
-    throw new QueryError(`a ${what} has no ${unknown.sort().join(", ")}`);
+    throw new QueryError(`a ${what} has no ${unknown.sort(byCodeUnit).join(", ")}`);
   }
 }
 
@@ -198,7 +199,7 @@ function primitive(payload: Record<string, unknown>) {
   if (mapped === undefined) {
     throw new QueryError(
       `unknown primitive operator ${JSON.stringify(operator)}; expected one of ` +
-        [...PRIMITIVE_OPERATORS.keys()].sort().join(", "),
+        [...PRIMITIVE_OPERATORS.keys()].sort(byCodeUnit).join(", "),
     );
   }
   const name = payload.property;
@@ -220,7 +221,7 @@ function composite(payload: Record<string, unknown>) {
   if (mapped === undefined) {
     throw new QueryError(
       `unknown composite operator ${JSON.stringify(operator)}; expected one of ` +
-        [...COMPOSITE_OPERATORS.keys()].sort().join(", "),
+        [...COMPOSITE_OPERATORS.keys()].sort(byCodeUnit).join(", "),
     );
   }
   const nested = payload.constraint;

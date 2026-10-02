@@ -23,6 +23,7 @@ func TestProdBuild(t *testing.T) {
 			args []string
 			want string
 		}{
+			{[]string{"-migrate", "sysml"}, "sysml: -migrate is not available in this build (built without v1)"},
 			{[]string{"-compile", "P::A"}, "sysml: -compile is not available in this build (built without codegen)"},
 			{[]string{"-sync-diff", "repo.ttl"}, "sysml: -sync-diff is not available in this build (built without sync)"},
 			{[]string{"-cpuprofile", "cpu.out"}, "sysml: -cpuprofile is not available in this build (built without profile)"},
@@ -39,7 +40,7 @@ func TestProdBuild(t *testing.T) {
 		if got.status != 0 {
 			t.Fatalf("-help: status %d, stderr %q", got.status, got.stderr)
 		}
-		for _, flag := range []string{"-compile", "-sync-diff", "-cpuprofile"} {
+		for _, flag := range []string{"-migrate", "-compile", "-sync-diff", "-cpuprofile"} {
 			if strings.Contains(got.stdout, "\n  "+flag+" ") {
 				t.Errorf("-help lists %s, which the build leaves out", flag)
 			}

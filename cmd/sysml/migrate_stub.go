@@ -4,6 +4,6 @@ package main
 
 import "github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 
-func migrateInput(string, []byte, convert.Format) ([]byte, map[string][]byte, error) {
-	return nil, nil, convert.ErrMigrationNotLinked
-}
+// runMigrateExit answers -migrate in a build made without the migration; the
+// flag itself is refused before this is reached (omittedUse).
+func runMigrateExit([]string) int { return fail(convert.ErrMigrationNotLinked) }

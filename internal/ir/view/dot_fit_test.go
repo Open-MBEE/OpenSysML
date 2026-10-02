@@ -27,15 +27,15 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		want string
 	}{
 		{"room for everything", stated(&Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking"}, 200, 80),
-			`label=<<b>call : doTracking</b><br/><font point-size="10"><i>«action»</i></font>>, margin=0, pos="100,-40!", pin=true, width=2.7777777777777777, height=1.1111111111111112, fixedsize=true];`},
+			`label=<<font point-size="10"><i>«action»</i></font><br/><b>call : doTracking</b>>, margin=0, pos="100,-40!", pin=true, width=2.7777777777777777, height=1.1111111111111112, fixedsize=true];`},
 		{"head wraps at the width", stated(&Node{ID: "n", Kind: "action", Name: "Execute Find and Identify Algorithm"}, 100, 100),
-			`label=<<b>Execute<br/>Find and<br/>Identify<br/>Algorithm</b><br/><font point-size="10"><i>«action»</i></font>>`},
+			`label=<<font point-size="10"><i>«action»</i></font><br/><b>Execute<br/>Find and<br/>Identify<br/>Algorithm</b>>`},
 		{"keyword dropped for want of height", stated(&Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking"}, 200, 24),
 			`label=<<b>call : doTracking</b>>`},
 		{"detail only while height remains", stated(&Node{ID: "n", Kind: "state", Name: "idle", Detail: "entry, do"}, 200, 40),
-			`label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font>>`},
+			`label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b>>`},
 		{"detail when it fits", stated(&Node{ID: "n", Kind: "state", Name: "idle", Detail: "entry, do"}, 200, 60),
-			`label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>entry, do>`},
+			`label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b><br/>entry, do>`},
 		{"a compartment row shrinks to one line", stated(&Node{ID: "n", Kind: "attribute", Name: "errorReq", Type: "Real"}, 449, 14),
 			`label=<<font point-size="11"><b>errorReq : Real</b></font>>, margin=0, pos="224.5,-7!", pin=true, width=6.236111111111111, height=0.19444444444444445, fixedsize=true];`},
 		{"a name too long for the floor is ellipsized", stated(&Node{ID: "n", Kind: "attribute", Name: "'a name that runs on well past the width of the row it is drawn in'"}, 120, 14),
@@ -43,7 +43,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		{"a word wider than the box is broken across lines", stated(&Node{ID: "n", Kind: "action", Name: "Reconfiguration"}, 60, 60),
 			`label=<<b>Reconfi<br/>guratio<br/>n</b>>`},
 		{"shrinking to keep a word whole comes before breaking it", stated(&Node{ID: "n", Kind: "part", Name: "EventStream"}, 77, 32),
-			`label=<<font point-size="10"><b>EventStream</b></font><br/><font point-size="7"><i>«part»</i></font>>`},
+			`label=<<font point-size="7"><i>«part»</i></font><br/><font point-size="10"><b>EventStream</b></font>>`},
 		{"wrapping comes before shrinking", stated(&Node{ID: "n", Kind: "part", Name: "pump", Type: "Pump"}, 60, 40),
 			`label=<<b>pump<br/>: Pump</b>>`},
 		// Twenty bold 14pt glyphs measure 196pt: the whole width is the label's, no margin off it.
@@ -74,7 +74,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `label=<<b>Execute Find and Identify Algorithm</b><br/><font point-size="10"><i>«action»</i></font>>, pos="`; !strings.Contains(dot, want) || strings.Contains(dot, "fixedsize") {
+	if want := `label=<<font point-size="10"><i>«action»</i></font><br/><b>Execute Find and Identify Algorithm</b>>, pos="`; !strings.Contains(dot, want) || strings.Contains(dot, "fixedsize") {
 		t.Errorf("unsized node's DOT lacks %q or fixes its size:\n%s", want, dot)
 	}
 }
@@ -198,13 +198,13 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		want string
 	}{
 		{"port def", stated(&Node{ID: "n", Kind: "port def", Name: "CmdPort"}, 120, 40),
-			`label=<<b>CmdPort</b><br/><font point-size="10"><i>«port def»</i></font>>`},
+			`label=<<font point-size="10"><i>«port def»</i></font><br/><b>CmdPort</b>>`},
 		{"unsized decision", &Node{ID: "n", Kind: "decision", Name: "decide", Geometry: &Geometry{X: 5, Y: 5}},
-			`"n" [label=<<b>decide</b><br/><font point-size="10"><i>«decision»</i></font>>, pos=`},
+			`"n" [label=<<font point-size="10"><i>«decision»</i></font><br/><b>decide</b>>, pos=`},
 		{"unsized terminate action", &Node{ID: "n", Kind: terminateKind, Name: "final"},
-			`"n" [style="rounded,filled", label=<<b>final</b><br/><font point-size="10"><i>«terminate action»</i></font>>];`},
+			`"n" [style="rounded,filled", label=<<font point-size="10"><i>«terminate action»</i></font><br/><b>final</b>>];`},
 		{"unsized named initial", &Node{ID: "n", Kind: "initial", Name: "begin"},
-			`"n" [shape=circle, label=<<b>begin</b><br/><font point-size="10"><i>«initial»</i></font>>];`},
+			`"n" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>begin</b>>];`},
 		{"unsized initial with a synthesized name", &Node{ID: "n", Kind: "initial", Name: "start", NameSynthesized: true},
 			`"n" [shape=circle, fillcolor=black, label="", width=0.2];`},
 	} {
@@ -227,7 +227,7 @@ func TestDOTSynthesizedNameOnAPlainNode(t *testing.T) {
 		want string
 	}{
 		{"typed", &Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking", NameSynthesized: true},
-			`label=<<b>: doTracking</b><br/><font point-size="10"><i>«action»</i></font>>`},
+			`label=<<font point-size="10"><i>«action»</i></font><br/><b>: doTracking</b>>`},
 		{"untyped", &Node{ID: "n", Kind: "action", Name: "send2", NameSynthesized: true}, `label=<<b>action</b>>`},
 	} {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{stated(tc.node, 140, 40)}}).DOT()
@@ -291,8 +291,8 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 		// The 40px strip holds the head wrapped to two 14pt lines (33.6px), not the keyword line too; the label sits at the top.
 		`"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>, margin=0, labelloc=t, pos="150,-100!", pin=true, width=4.166666666666667, height=2.7777777777777777, fixedsize=true];`,
 		// A box holding nothing is fitted to the whole of it and centred; the members keep their stated boxes.
-		`"beside" [style="rounded,filled", label=<<b>rack</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="550,-100!"`,
-		`"computer" [style="rounded,filled", label=<<b>computer</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-75!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];`,
+		`"beside" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>rack</b>>, margin=0, pos="550,-100!"`,
+		`"computer" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>computer</b>>, margin=0, pos="60,-75!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -304,7 +304,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="150,-100!"`; !strings.Contains(dot, want) {
+	if want := `"outer" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>, margin=0, pos="150,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	// A member 10px below the top leaves the title one 8pt line, cut to the width and ellipsized.

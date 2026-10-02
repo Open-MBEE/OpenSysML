@@ -1,7 +1,13 @@
 // A connection: one Connect client against one service, plus the handshake that
 // tells the client what that service can do.
 
-import { Code, ConnectError, createClient, type Client, type Transport } from "@connectrpc/connect";
+import {
+  Code,
+  ConnectError,
+  createClient,
+  type Client,
+  type Transport,
+} from "@connectrpc/connect";
 import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
@@ -11,6 +17,7 @@ import {
   CAPABILITY_ENGINES,
   CAPABILITY_FEATURE_VALUES,
   CAPABILITY_INLINE_LANGUAGE,
+  CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PERFORMER,
   CAPABILITY_QUERY,
@@ -32,6 +39,7 @@ import {
   ConversionError,
   ExecutionError,
   InvalidRequestError,
+  MigrationError,
   ParseError,
   StaleServiceError,
   UnsupportedValueError,
@@ -42,6 +50,7 @@ import {
   ExecuteStateRequestSchema,
   ConvertRequestSchema,
   ListEnginesRequestSchema,
+  MigrateRequestSchema,
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
@@ -72,11 +81,24 @@ import type { ModelDiagnostic } from "./errors.js";
 import type { ParseOptions } from "./model.js";
 import { sourceDocuments, type Source } from "./sources.js";
 import {
-  EXPERIMENTAL_NOTICE,
   Conversion,
+  EXPERIMENTAL_NOTICE,
   isExperimental,
+  isV1,
+  MIGRATED_NOT_CONVERTED,
+  Migration,
+  MIGRATION_NOTICE,
+  migrationReportOf,
+  pathIsV1,
 } from "./conversion.js";
-import { buildQuery, elementsOf, type QueryElement, type QueryForm, type QueryPayload } from "./query.js";
+import type { MigrateOptions } from "./conversion.js";
+import {
+  buildQuery,
+  elementsOf,
+  type QueryElement,
+  type QueryForm,
+  type QueryPayload,
+} from "./query.js";
 import {
   bindingHoldsBigInt,
   buildBindings,
@@ -84,7 +106,12 @@ import {
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
-import { engineInfoOf, standingOf, ENGINE_AUTO, type EngineInfo } from "./engines.js";
+import {
+  engineInfoOf,
+  standingOf,
+  ENGINE_AUTO,
+  type EngineInfo,
+} from "./engines.js";
 import { Exploration, Outcome } from "./exploration.js";
 import {
   analysisResultOf,
@@ -103,11 +130,7 @@ import {
   type Validation,
   type Verdict,
 } from "./verdict.js";
-import {
-  toValue,
-  type SysMLValue,
-  type ValueInput,
-} from "./values.js";
+import { toValue, type SysMLValue, type ValueInput } from "./values.js";
 import {
   editErrorOf,
   editResultOf,
@@ -122,7 +145,10 @@ import type { EditOperation } from "../generated/sysml_pb.js";
 export type Encoding = "protobuf" | "json";
 
 /** Observability hook: called with every response the service returns. */
-export type ResponseTap = (event: { method: string; response: unknown }) => void;
+export type ResponseTap = (event: {
+  method: string;
+  response: unknown;
+}) => void;
 
 /** Options shared by every way of opening a connection. */
 export interface TransportOptions {
@@ -149,6 +175,12 @@ export interface ConnectionBackend {
   release(): Promise<void>;
   /** Reports a warning the runtime raises: Node emits it, the browser logs it. */
   warn?(message: string, type: string): void;
+  /**
+   * Makes a path the caller handed this client absolute, so that what a
+   * `Migration` remembers as its source outlives a later change of working
+   * directory. Absent where paths have no working directory, as in a browser.
+   */
+  resolvePath?(path: string): string;
 }
 
 /** A connection to a sysml-grpc service. Close it, or use `await using`. */
@@ -201,13 +233,16 @@ export class Connection {
     try {
       info = await handshake(rpc, init.backend.origin, init.timeoutMs);
       const reason = mismatchReason(info, {
-        ...(init.requiredVersion === undefined ? {} : { version: init.requiredVersion }),
+        ...(init.requiredVersion === undefined
+          ? {}
+          : { version: init.requiredVersion }),
       });
       if (reason !== undefined) {
         throw new StaleServiceError(
           init.stale?.address ?? init.backend.origin,
           reason,
-          init.stale?.remedy ?? "pass a release the service can report, or none",
+          init.stale?.remedy ??
+            "pass a release the service can report, or none",
           { info },
         );
       }
@@ -250,7 +285,11 @@ export class Connection {
 
   /** Parses inline source text, and returns the model it loaded. */
   loads(source: string, options: ParseOptions = {}): Promise<Model> {
-    return Model.parse(this, { source: { case: "content", value: source } }, options);
+    return Model.parse(
+      this,
+      { source: { case: "content", value: source } },
+      options,
+    );
   }
 
   /**
@@ -264,7 +303,11 @@ export class Connection {
   /** Parses several documents together as one model, one root per document. */
   async parseSources(documents: readonly Source[], options: ParseOptions = {}): Promise<Model> {
     const sources = sourceDocuments(documents);
-    requireCapability(this.info, CAPABILITY_PARSE_SOURCES, upgradeRemedy(CAPABILITY_PARSE_SOURCES));
+    requireCapability(
+      this.info,
+      CAPABILITY_PARSE_SOURCES,
+      upgradeRemedy(CAPABILITY_PARSE_SOURCES),
+    );
     const capabilities = [CAPABILITY_PARSE_SOURCES];
     if (sources.some((source) => source.language !== undefined)) {
       requireCapability(
@@ -317,7 +360,24 @@ export class Connection {
           (given.length > 0 ? given.join(", ") : "none"),
       );
     }
-    requireCapability(this.info, CAPABILITY_CONVERT, upgradeRemedy(CAPABILITY_CONVERT));
+    const fromFormat = options.fromFormat ?? "";
+    if (
+      isV1(fromFormat) ||
+      (fromFormat === "" && "path" in source && pathIsV1(source.path))
+    ) {
+      const name = "path" in source ? source.path : "the source";
+      throw new InvalidRequestError(
+        `${name} ${MIGRATED_NOT_CONVERTED}; call migrate() with the same source`,
+        {
+          code: "INVALID_ARGUMENT",
+        },
+      );
+    }
+    requireCapability(
+      this.info,
+      CAPABILITY_CONVERT,
+      upgradeRemedy(CAPABILITY_CONVERT),
+    );
     const request = create(ConvertRequestSchema, {
       toFormat,
       fromFormat: options.fromFormat ?? "",
@@ -337,7 +397,9 @@ export class Connection {
     );
     // Judged from the response, so an inferred format counts and a service too
     // old to mark the conversion is still read as experimental.
-    const experimental = response.experimental || isExperimental(response.fromFormat, response.toFormat);
+    const experimental =
+      response.experimental ||
+      isExperimental(response.fromFormat, response.toFormat);
     const notice =
       response.experimentalNotice !== ""
         ? response.experimentalNotice
@@ -363,12 +425,111 @@ export class Connection {
     });
   }
 
+  /**
+   * Migrates a SysML v1 model — a Cameo/MagicDraw `.mdzip`, a UML XMI `.xmi` or
+   * an Eclipse UML2 `.uml` export — to one of the formats OpenSysML writes. A
+   * migration is ledgered, not lossless: every v1 element lands in the
+   * `Migration.report` as mapped, approximated, unmapped or skipped. Exactly one
+   * of `source.path` and `source.content` names the source; inline content is
+   * the file's bytes and needs `fromFormat` to say which form they are.
+   */
+  async migrate(
+    toFormat: string,
+    source: { path: string } | { content: Uint8Array },
+    options: MigrateOptions = {},
+  ): Promise<Migration> {
+    const given = ["path", "content"].filter(
+      (name) => (source as Record<string, unknown>)[name] !== undefined,
+    );
+    if (given.length !== 1) {
+      throw new RangeError(
+        "provide exactly one of path or content; got " +
+          (given.length > 0 ? given.join(", ") : "none"),
+      );
+    }
+    if (
+      options.layoutPath !== undefined &&
+      options.layoutContent !== undefined
+    ) {
+      throw new RangeError(
+        "provide at most one of layoutPath and layoutContent",
+      );
+    }
+    const fromFormat = options.fromFormat ?? "";
+    if (fromFormat !== "" && !isV1(fromFormat)) {
+      const name = "path" in source ? source.path : "the source";
+      throw new InvalidRequestError(
+        `${name} is ${fromFormat} input, which is converted, not migrated: only a SysML v1 model ` +
+          "(xmi, uml or mdzip) is migrated; call convert() with the same source",
+        { code: "INVALID_ARGUMENT" },
+      );
+    }
+    requireCapability(
+      this.info,
+      CAPABILITY_MIGRATE,
+      upgradeRemedy(CAPABILITY_MIGRATE),
+    );
+    // Remembered absolute before the call, against the working directory of
+    // the moment the source was named rather than of the moment it answers.
+    const sourcePath =
+      "path" in source
+        ? (this.backend.resolvePath?.(source.path) ?? source.path)
+        : "";
+    const request = create(MigrateRequestSchema, {
+      toFormat,
+      fromFormat,
+      report: options.report === true,
+      results: options.results === true,
+      imageBaseUrl: options.imageBaseUrl ?? "",
+      strict: options.strict === true,
+    });
+    if ("path" in source) {
+      request.source = { case: "filePath", value: source.path };
+    } else {
+      request.source = { case: "content", value: source.content };
+    }
+    if (options.layoutPath !== undefined) {
+      request.layout = { case: "layoutPath", value: options.layoutPath };
+    } else if (options.layoutContent !== undefined) {
+      request.layout = { case: "layoutContent", value: options.layoutContent };
+    }
+    const response = await callRpc(
+      this.rpc.migrate(request, this.callOptions()),
+      "path" in source ? "file" : "model",
+      capabilityRefusal(this.info, [CAPABILITY_MIGRATE]),
+    );
+    const notice =
+      response.experimentalNotice !== ""
+        ? response.experimentalNotice
+        : MIGRATION_NOTICE;
+    // Warned before the error is raised: a refusal is the mapping's
+    // experimental behavior, not a reason to say nothing about it.
+    this.warn(notice, "ExperimentalFeatureWarning");
+    if (response.error !== "") {
+      throw new MigrationError(response.error);
+    }
+    return new Migration({
+      content: response.content,
+      fromFormat: response.fromFormat,
+      toFormat: response.toFormat,
+      report: migrationReportOf(response.report),
+      results: response.results,
+      files: new Map(response.files.map((file) => [file.path, file.content])),
+      sourcePath,
+      experimentalNotice: notice,
+    });
+  }
+
   /** Runs a SysML v2 API & Services Query over a loaded model. */
   async query(
     modelHash: string,
     options: { payload?: QueryPayload } & QueryForm = {},
   ): Promise<QueryElement[]> {
-    requireCapability(this.info, CAPABILITY_QUERY, upgradeRemedy(CAPABILITY_QUERY));
+    requireCapability(
+      this.info,
+      CAPABILITY_QUERY,
+      upgradeRemedy(CAPABILITY_QUERY),
+    );
     const response = await callRpc(
       this.rpc.query(
         create(QueryRequestSchema, {
@@ -435,7 +596,9 @@ export class Connection {
       CAPABILITY_APPLY_EDITS,
       upgradeRemedy(CAPABILITY_APPLY_EDITS),
     );
-    const { operations: built, capabilities } = new EditRequestBuilder(this.info).build(operations);
+    const { operations: built, capabilities } = new EditRequestBuilder(
+      this.info,
+    ).build(operations);
     const response = await callRpc(
       this.rpc.applyEdits(
         create(ApplyEditsRequestSchema, {
@@ -458,7 +621,9 @@ export class Connection {
 
   /** Starts an edit of a loaded model, applied with {@link Editor.apply}. */
   edit(modelHash: string): Editor {
-    return new Editor(modelHash, (hash, operations) => this.applyEdits(hash, operations));
+    return new Editor(modelHash, (hash, operations) =>
+      this.applyEdits(hash, operations),
+    );
   }
 
   /** Renders a named document to Markdown or HTML. */
@@ -502,9 +667,17 @@ export class Connection {
       schedule?: string;
       performer?: string;
     } = {},
-  ): Promise<{ outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; finalTime: number }> {
+  ): Promise<{
+    outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    performer: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    finalTime: number;
+  }> {
     refuseExploring(options.schedule, "exploreAction");
-    const response = await this.sendExecuteAction(modelHash, actionSymbolId, options);
+    const response = await this.sendExecuteAction(
+      modelHash,
+      actionSymbolId,
+      options,
+    );
     if (response.error !== "") {
       throw new ExecutionError(
         response.error,
@@ -540,13 +713,20 @@ export class Connection {
   private async sendExecuteAction(
     modelHash: string,
     actionSymbolId: string,
-    options: { inputs?: Readonly<Record<string, ValueInput>>; schedule?: string; performer?: string },
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    },
   ): Promise<ExecuteActionResponse> {
     const inputs: Record<string, ReturnType<typeof toValue>> = {};
     for (const [name, value] of Object.entries(options.inputs ?? {})) {
       inputs[name] = toValue(value, this.info);
     }
-    const capabilities = this.runCapabilities(options.schedule, options.performer);
+    const capabilities = this.runCapabilities(
+      options.schedule,
+      options.performer,
+    );
     const response = await callRpc(
       this.rpc.executeAction(
         create(ExecuteActionRequestSchema, {
@@ -568,10 +748,22 @@ export class Connection {
   async executeState(
     modelHash: string,
     stateMachineSymbolId: string,
-    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
-  ): Promise<{ statesVisited: string[]; finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>; finalTime: number }> {
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ): Promise<{
+    statesVisited: string[];
+    finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    finalTime: number;
+  }> {
     refuseExploring(options.schedule, "exploreState");
-    const response = await this.sendExecuteState(modelHash, stateMachineSymbolId, options);
+    const response = await this.sendExecuteState(
+      modelHash,
+      stateMachineSymbolId,
+      options,
+    );
     if (response.error !== "") {
       throw new ExecutionError(
         response.error,
@@ -590,22 +782,37 @@ export class Connection {
   async exploreState(
     modelHash: string,
     stateMachineSymbolId: string,
-    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+    } = {},
   ): Promise<Exploration> {
     requireExploring(options.schedule ?? "explore");
-    const response = await this.sendExecuteState(modelHash, stateMachineSymbolId, {
-      ...options,
-      schedule: options.schedule ?? "explore",
-    });
+    const response = await this.sendExecuteState(
+      modelHash,
+      stateMachineSymbolId,
+      {
+        ...options,
+        schedule: options.schedule ?? "explore",
+      },
+    );
     return this.explorationOf(response);
   }
 
   private async sendExecuteState(
     modelHash: string,
     stateMachineSymbolId: string,
-    options: { events?: readonly string[]; schedule?: string; performer?: string },
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+    },
   ): Promise<ExecuteStateResponse> {
-    const capabilities = this.runCapabilities(options.schedule, options.performer);
+    const capabilities = this.runCapabilities(
+      options.schedule,
+      options.performer,
+    );
     const response = await callRpc(
       this.rpc.executeState(
         create(ExecuteStateRequestSchema, {
@@ -624,12 +831,19 @@ export class Connection {
   }
 
   private explorationOf(
-    response: ExecuteActionResponse | ExecuteStateResponse | RunAnalysisResponse,
+    response:
+      ExecuteActionResponse | ExecuteStateResponse | RunAnalysisResponse,
   ): Exploration {
     if (response.error !== "") {
       const reason =
-        "failureReason" in response ? response.failureReason : FailureReason.UNSPECIFIED;
-      raiseFailure(response.error, reason, response.diagnostics.map(decodeDiagnostic));
+        "failureReason" in response
+          ? response.failureReason
+          : FailureReason.UNSPECIFIED;
+      raiseFailure(
+        response.error,
+        reason,
+        response.diagnostics.map(decodeDiagnostic),
+      );
     }
     const status = response.exploration;
     return new Exploration({
@@ -647,7 +861,10 @@ export class Connection {
   async listEngines(): Promise<EngineInfo[]> {
     this.requireEngines();
     const response = await callRpc(
-      this.rpc.listEngines(create(ListEnginesRequestSchema, {}), this.callOptions()),
+      this.rpc.listEngines(
+        create(ListEnginesRequestSchema, {}),
+        this.callOptions(),
+      ),
       "model",
       capabilityRefusal(this.info, [CAPABILITY_ENGINES]),
     );
@@ -747,7 +964,9 @@ export class Connection {
       raiseWrongKind(pbVerdict, diagnostics);
     }
     const instances = this.instancesOf(response.instances);
-    const verifications = response.verificationVerdicts.map(decodeVerificationVerdict);
+    const verifications = response.verificationVerdicts.map(
+      decodeVerificationVerdict,
+    );
     return response.verdicts.map((pbVerdict) =>
       verdictOf(pbVerdict, instances, diagnostics, verifications),
     );
@@ -780,7 +999,11 @@ export class Connection {
     if (response.error !== "") {
       raiseFailure(response.error, response.failureReason, diagnostics);
     }
-    return validationOf(response, this.instancesOf(response.instances), diagnostics);
+    return validationOf(
+      response,
+      this.instancesOf(response.instances),
+      diagnostics,
+    );
   }
 
   /** Invokes a calculation. */
@@ -796,7 +1019,9 @@ export class Connection {
         create(EvaluateCalcRequestSchema, {
           modelHash,
           symbolId,
-          arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+          arguments: (options.arguments ?? []).map((arg) =>
+            toValue(arg, this.info),
+          ),
           engine: engineField(options.engine),
         }),
         this.callOptions(),
@@ -858,7 +1083,11 @@ export class Connection {
     ) {
       raiseFailure(response.error, response.failureReason, diagnostics);
     }
-    return analysisResultOf(response, this.instancesOf(response.instances), diagnostics);
+    return analysisResultOf(
+      response,
+      this.instancesOf(response.instances),
+      diagnostics,
+    );
   }
 
   /** Runs an analysis case once per valid order of its choice points. */
@@ -904,7 +1133,9 @@ export class Connection {
           modelHash,
           symbolId,
           subjectSymbolId: options.subject ?? "",
-          arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+          arguments: (options.arguments ?? []).map((arg) =>
+            toValue(arg, this.info),
+          ),
           namedArguments,
           schedule: options.schedule ?? "",
           engine: engineField(options.engine),
@@ -925,7 +1156,13 @@ export class Connection {
   async runSweep(
     modelHash: string,
     symbolId: string,
-    ranges: Readonly<Record<string, readonly [ValueInput, ValueInput] | readonly [ValueInput, ValueInput, ValueInput]>>,
+    ranges: Readonly<
+      Record<
+        string,
+        | readonly [ValueInput, ValueInput]
+        | readonly [ValueInput, ValueInput, ValueInput]
+      >
+    >,
     options: {
       subject?: string;
       arguments?: readonly ValueInput[];
@@ -945,7 +1182,9 @@ export class Connection {
       modelHash,
       symbolId,
       subjectSymbolId: options.subject ?? "",
-      arguments: (options.arguments ?? []).map((arg) => toValue(arg, this.info)),
+      arguments: (options.arguments ?? []).map((arg) =>
+        toValue(arg, this.info),
+      ),
       namedArguments,
       samples: BigInt(options.samples ?? 0),
       seed: BigInt(options.seed ?? 0),
@@ -966,7 +1205,11 @@ export class Connection {
     if (response.error !== "") {
       raiseFailure(response.error, response.failureReason, diagnostics);
     }
-    return sweepTableOf(response, this.instancesOf(response.instances), diagnostics);
+    return sweepTableOf(
+      response,
+      this.instancesOf(response.instances),
+      diagnostics,
+    );
   }
 
   private sweepRange(
@@ -993,13 +1236,16 @@ export class Connection {
     error: string;
     verificationVerdicts?: PbVerificationVerdict[] | undefined;
   }): Verdict {
-    const diagnostics: readonly ModelDiagnostic[] = response.diagnostics.map(decodeDiagnostic);
+    const diagnostics: readonly ModelDiagnostic[] =
+      response.diagnostics.map(decodeDiagnostic);
     if (response.error !== "") {
       throw new ExecutionError(response.error, "unspecified", diagnostics);
     }
     const pbVerdict = response.verdict;
     if (pbVerdict === undefined) {
-      throw new ExecutionError("the service answered the verification without a verdict");
+      throw new ExecutionError(
+        "the service answered the verification without a verdict",
+      );
     }
     raiseWrongKind(pbVerdict, diagnostics);
     return verdictOf(
@@ -1013,17 +1259,29 @@ export class Connection {
 
   private instancesOf(pbInstances: readonly PbInstance[]): Instance[] {
     if (pbInstances.length > 0) {
-      requireCapability(this.info, CAPABILITY_FEATURE_VALUES, upgradeRemedy(CAPABILITY_FEATURE_VALUES));
+      requireCapability(
+        this.info,
+        CAPABILITY_FEATURE_VALUES,
+        upgradeRemedy(CAPABILITY_FEATURE_VALUES),
+      );
     }
     return pbInstances.map((pb) => new Instance(pb));
   }
 
   private requireVerification(): void {
-    requireCapability(this.info, CAPABILITY_VERIFICATION, upgradeRemedy(CAPABILITY_VERIFICATION));
+    requireCapability(
+      this.info,
+      CAPABILITY_VERIFICATION,
+      upgradeRemedy(CAPABILITY_VERIFICATION),
+    );
   }
 
   private requireEngines(): void {
-    requireCapability(this.info, CAPABILITY_ENGINES, upgradeRemedy(CAPABILITY_ENGINES));
+    requireCapability(
+      this.info,
+      CAPABILITY_ENGINES,
+      upgradeRemedy(CAPABILITY_ENGINES),
+    );
   }
 
   private requireEngine(engine: string | undefined): void {
@@ -1052,7 +1310,10 @@ export class Connection {
     );
   }
 
-  private runCapabilities(schedule: string | undefined, performer: string | undefined): string[] {
+  private runCapabilities(
+    schedule: string | undefined,
+    performer: string | undefined,
+  ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
@@ -1123,7 +1384,12 @@ async function handshake(
     const connectError = ConnectError.from(error);
     // A service too old to answer the handshake is still usable; anything else is not.
     if (connectError.code === Code.Unimplemented) {
-      return new ServerInfo({ version: "", capabilities: [], answered: false, origin });
+      return new ServerInfo({
+        version: "",
+        capabilities: [],
+        answered: false,
+        origin,
+      });
     }
     throw fromHandshakeError(connectError, origin);
   }
@@ -1131,17 +1397,27 @@ async function handshake(
 
 // Whether a schedule spelling names the exploring policy, options or not.
 function explores(schedule: string | undefined): boolean {
-  return schedule !== undefined && schedule !== "" && (schedule === "explore" || schedule.startsWith("explore:"));
+  return (
+    schedule !== undefined &&
+    schedule !== "" &&
+    (schedule === "explore" || schedule.startsWith("explore:"))
+  );
 }
 
 // The engine field as sent: empty for auto, which every service reads as such.
 function engineField(engine: string | undefined): string {
-  return engine === undefined || engine === "" || engine === ENGINE_AUTO ? "" : engine;
+  return engine === undefined || engine === "" || engine === ENGINE_AUTO
+    ? ""
+    : engine;
 }
 
 // The question field as sent: empty for evaluate, which every service reads as such.
 function questionField(question: string | undefined): string {
-  return question === undefined || question === "" || question === QUESTION_EVALUATE ? "" : question;
+  return question === undefined ||
+    question === "" ||
+    question === QUESTION_EVALUATE
+    ? ""
+    : question;
 }
 
 // The capabilities a schedule spelling needs of the service: none for the default.
@@ -1170,7 +1446,9 @@ function engineCapabilities(engine: string | undefined): string[] {
 
 // The capabilities a question needs of the service: none for evaluate.
 function questionCapabilities(question: string | undefined): string[] {
-  return questionField(question) !== "" ? [CAPABILITY_VERIFICATION_QUESTIONS] : [];
+  return questionField(question) !== ""
+    ? [CAPABILITY_VERIFICATION_QUESTIONS]
+    : [];
 }
 
 // Refuse an exploring schedule on a method answering one run's result.

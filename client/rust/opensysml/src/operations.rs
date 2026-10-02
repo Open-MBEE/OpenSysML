@@ -11,6 +11,10 @@ use crate::document::{
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
 use crate::error::Error;
+use crate::migration::{
+    is_v1, migration_of, path_is_v1, MigrateOptions, MigrateSource, Migration,
+    MIGRATED_NOT_CONVERTED,
+};
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
     analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
@@ -241,13 +245,28 @@ impl Connection {
     /// Convert a file, inline content or a cached model to `to_format`: `sysml`, `kerml`, `ttl`,
     /// `turtle`, `rdf`, `api-json` or `json`.
     ///
-    /// An experimental conversion says so in [`Conversion::experimental_notice`].
+    /// An experimental conversion says so in [`Conversion::experimental_notice`]. A SysML v1
+    /// model — `from_format` `xmi`, `uml` or `mdzip`, or a file with that extension — is refused
+    /// with [`Error::InvalidRequest`]: it is migrated, not converted, by [`Connection::migrate`].
     pub fn convert(
         &self,
         to_format: &str,
         source: &ConvertSource,
         options: &ConvertOptions,
     ) -> Result<Conversion, Error> {
+        let v1_file = match source {
+            ConvertSource::File(path) => options.from_format.is_empty() && path_is_v1(path),
+            _ => false,
+        };
+        if is_v1(&options.from_format) || v1_file {
+            let name = match source {
+                ConvertSource::File(path) => path.display().to_string(),
+                _ => "the source".to_owned(),
+            };
+            return Err(Error::InvalidRequest(format!(
+                "{name} {MIGRATED_NOT_CONVERTED}; call migrate with the same source"
+            )));
+        }
         self.require_all(&[CAPABILITY_CONVERT])?;
         let response = self.gated_rpc(
             "Convert",
@@ -255,6 +274,48 @@ impl Connection {
             &[CAPABILITY_CONVERT],
         )?;
         conversion_of(response)
+    }
+
+    /// Migrate a SysML v1 model — a Cameo/MagicDraw `.mdzip`, a UML XMI `.xmi` or an Eclipse
+    /// UML2 `.uml` export — to `to_format`: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`.
+    ///
+    /// A migration is ledgered, not lossless: every v1 element lands in the
+    /// [`Migration::report`] as mapped, approximated, unmapped or skipped, and the migration is
+    /// experimental, as [`Migration::experimental_notice`] says. Inline content is the file's
+    /// bytes and needs `from_format` to say which form they are; a `from_format` that is not a
+    /// v1 form is refused with [`Error::InvalidRequest`], as a v2 model is converted, not migrated.
+    pub fn migrate(
+        &self,
+        to_format: &str,
+        source: &MigrateSource,
+        options: &MigrateOptions,
+    ) -> Result<Migration, Error> {
+        let name = match source {
+            MigrateSource::File(path) => path.display().to_string(),
+            MigrateSource::Content(_) => "the source".to_owned(),
+        };
+        if !options.from_format.is_empty() && !is_v1(&options.from_format) {
+            return Err(Error::InvalidRequest(format!(
+                "{name} is {} input, which is converted, not migrated: only a SysML v1 model                  (xmi, uml or mdzip) is migrated; call convert with the same source",
+                options.from_format
+            )));
+        }
+        if matches!(source, MigrateSource::Content(_)) && options.from_format.is_empty() {
+            return Err(Error::InvalidRequest(
+                "from_format is required for inline content: xmi, uml or mdzip".to_owned(),
+            ));
+        }
+        let source_path = match source {
+            MigrateSource::File(path) => Some(std::path::absolute(path)?),
+            MigrateSource::Content(_) => None,
+        };
+        self.require_all(&[CAPABILITY_MIGRATE])?;
+        let response = self.gated_rpc(
+            "Migrate",
+            crate::migration::request_of(to_format, source, options),
+            &[CAPABILITY_MIGRATE],
+        )?;
+        migration_of(response, source_path)
     }
 
     /// Run a SysML v2 API & Services query over a loaded model.

@@ -4,7 +4,7 @@
 **Status:** Discovery and design, then built — `editors/mdk/` is the plugin (first proposed as
 `editors/cameo/`, renamed when it took the OpenSysML MDK name; §1.2)
 **Scope:** the `editors/mdk/` plugin; the Java client (`client/java/opensysml-client`);
-`Convert` from XMI (`internal/translate/xmi`, `internal/translate/migrate`); the results a
+`Migrate` (`internal/translate/xmi`, `internal/translate/migrate`); the results a
 Cameo user sees on their own elements
 
 ---
@@ -240,9 +240,9 @@ per connection:
 `Connection`, and no call takes a deadline of its own
 (`client/java/opensysml-client/src/main/java/org/openmbee/opensysml/ConnectionOptions.java`;
 [`docs/reference/java-api.md`](../../reference/java-api.md)). A single connection therefore
-cannot give `Convert` thirty seconds and a run ten minutes, and a cancelled `Convert` on a
+cannot give `Migrate` thirty seconds and a run ten minutes, and a cancelled `Migrate` on a
 ten-minute connection blocks for ten minutes. The design opens **two connections** in the
-plugin's classloader with different timeouts: a short one for `Convert` and `ParseSources`,
+plugin's classloader with different timeouts: a short one for `Migrate` and `ParseSources`,
 a long one for execution and verification. Both share the one private child, so the model the
 short connection parsed is adopted on the long one by hash (`connection.model(model.hash())`)
 without a second parse. Because the child is reference-counted across connections
@@ -322,10 +322,10 @@ profiles. No in-memory step is needed, and the export the plugin performs is:
 selection (packages)  → ProjectsManager.exportModule(project, packages, "OpenSysML run", tmp.mdzip)
 whole project         → ProjectsManager.saveProject(createLocalProjectDescriptor(project, tmp.mdzip), true)
                         (or, when the project is already saved locally and clean, its own file)
-tmp.mdzip             → Connection.convertFile(tmp.mdzip, "sysml")        (file_path over the wire)
+tmp.mdzip             → Connection.migrateFile(tmp.mdzip, "sysml")        (file_path over the wire)
 ```
 
-`ConvertRequest.file_path` is read by the `sysml-grpc` child, which runs on the same machine as
+`MigrateRequest.file_path` is read by the `sysml-grpc` child, which runs on the same machine as
 Cameo, so a temporary file is enough. Inline `content` with `from_format: "xmi"` is also
 accepted by the service (a conformance case parses `vehicle.xmi` inline), and is the route for
 an XMI text a future exporter API produces — but a `.mdzip` is a zip and `content` is a string,
@@ -333,8 +333,8 @@ so the archive goes by path.
 
 Two limitations carry over from the migration reference: elements of **used projects**
 (modules) are not loaded, so references into them stay unmapped — the plugin should export the
-*used* modules too and pass every file to `Convert` once the service accepts several sources
-for one conversion (§11, phase 3); and Teamwork Cloud projects have no local `.mdzip`, so `saveProject`
+*used* modules too and pass every file to `Migrate` once the service accepts several sources
+for one migration (§11, phase 3); and Teamwork Cloud projects have no local `.mdzip`, so `saveProject`
 to a local descriptor (or `exportModule`) is the only route for them.
 
 ## 5. Element identity: from a Cameo element to a v2 qualified name
@@ -367,16 +367,14 @@ renamed (duplicate member names, reserved words — the migration reference list
 *approximated*) are still found this way, which is why the plugin must never reconstruct the
 name itself.
 
-**What the service returns today.** The report is written only by the CLI
-(`-migration-report <file>`); `ConvertResponse` carries `content`, `diagnostics`, `experimental`
-and its notice, and nothing per element
-([`docs/reference/sysml-v1-migration.md`](../../reference/sysml-v1-migration.md), §Status;
-`api/proto/sysml.proto`, `ConvertResponse`). The surface-parity note already lists "the XMI
-migration report through `Convert`" as a stateless operation the wire lacks
-([`api-surface-parity.md`](api-surface-parity.md)). Until it lands, the plugin has two interim
-options, neither good enough for a release: run `bin/sysml … -migration-report` as a second
-child (it is the same binary family the plugin ships), or match by name and accept that renamed
-elements are lost. §11 makes the report-over-service change a prerequisite of the results UI.
+**What the service returns today.** `MigrateResponse` carries the report: its summary and
+counts always, and every entry (`id`, `kind`, `name`, `target`, `verdict`, `note`) when
+`MigrateRequest.report` is set
+([`docs/reference/sysml-v1-migration.md`](../../reference/sysml-v1-migration.md);
+`api/proto/sysml.proto`, `MigrationReport`). The Java client hands it over as
+`Migration.report()`. The plugin surfaces the summary as a diagnostic of the run but does not yet
+read the entries, so it still matches by name and loses renamed elements; §11 makes reading them
+the prerequisite of the results UI's identity map.
 
 ## 6. Reporting results on the elements
 
@@ -500,7 +498,7 @@ SysML v1 and v2 are chosen **per project**, in one installation (same page). Con
 
 | Project kind | How the model reaches OpenSysML | Identity map |
 |---|---|---|
-| SysML **v1** | `.mdzip` → `Convert(xmi→sysml)` → `ParseSources` (§4) | migration report `id → target` (§5) |
+| SysML **v1** | `.mdzip` → `Migrate(xmi→sysml)` → `ParseSources` (§4) | migration report `id → target` (§5) |
 | SysML **v2** (SysML v2 Plugin installed) | `SysMLTextualNotationService.exportTextual(root)` → `ParseSources` — **no migration** | v2 qualified names are the same on both sides; OpenSysML's `Symbol` answers carry them |
 
 For v2 projects the vendor's parser is the one the user authored against and OpenSysML is a
@@ -531,7 +529,7 @@ its `isSupported()` checks for the SysML v2 Plugin.
 
 ## 9. Migration benchmark
 
-**Question.** Is `Convert` from v1 XMI/`.mdzip` good enough to be the plugin's primary path
+**Question.** Is `Migrate` from v1 XMI/`.mdzip` good enough to be the plugin's primary path
 for v1 projects?
 
 **Method.** OpenSysML built with `make build`. Twenty models were gathered: the ten fixtures
@@ -543,7 +541,7 @@ SysML 1.6 profile itself (`https://www.omg.org/spec/SysML/20181001/SysML.xmi`; a
 user model, included as the only OMG XMI artifact that resolved). For each:
 
 ```bash
-bin/sysml <model> -convert sysml -o <out>.sysml -migration-report <out>.report.json
+bin/sysml <model> -migrate sysml -o <out>.sysml -migration-report <out>.report.json
 bin/sysml <out>.sysml -validate
 ```
 
@@ -555,8 +553,8 @@ the `no errors` summary. Attempts that did **not** resolve, so the set is what i
 the API, raw download 404), `https://www.omg.org/spec/SysML/1.6/SysML.xmi` (404). No vendor
 sample `.mdzip` is downloadable without an installation.
 
-**Results.** Every conversion and every validation exited 0; no panics, no `error:`
-diagnostics on any converted model.
+**Results.** Every migration and every validation exited 0; no panics, no `error:`
+diagnostics on any migrated model.
 
 | file | source | entries | mapped | approx. | unmapped | skipped | check errors | check warnings | top unmapped kinds |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
@@ -609,14 +607,14 @@ diagnostics on any converted model.
   as the migration reference states; a v1 model whose constraints depend on unit conversion
   evaluates differently until they are.
 
-**Verdict.** For a v1 *system* model saved by Cameo, `Convert` is good enough to be the primary
+**Verdict.** For a v1 *system* model saved by Cameo, `Migrate` is good enough to be the primary
 path: it never fails, every element is accounted for with a verdict and a note, and what is lost
 (interactions, viewpoints, units, expression-tree constraints) is nameable and shown to the user
 per element rather than silently dropped. The plugin must present *approximated* and *unmapped*
 counts before the first run (the pre-flight in §10.4) so the user knows what the engine did not
 see; that is the report-over-service prerequisite of §11, phase 3. The benchmark's weakness is
 its sample — two Cameo projects, neither a behavioral system model; the plugin's first
-integration test against a licensed Cameo (§10.3) should convert the vendor's bundled samples
+integration test against a licensed Cameo (§10.3) should migrate the vendor's bundled samples
 (`samples/SysML/*.mdzip` in an installation) and re-run this table.
 
 ## 10. Architecture of `editors/mdk/`
@@ -691,7 +689,7 @@ them from a local installation). Two ways to keep CI honest:
    stub lied, and then runs the plugin headless. Cameo supports headless execution of a plugin
    through `com.nomagic.magicdraw.commandline.CommandLine`/`ProjectCommandLine`
    ([Javadoc](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/commandline/ProjectCommandLine.html)),
-   which is how the integration test opens each sample `.mdzip`, runs export → convert → parse →
+   which is how the integration test opens each sample `.mdzip`, runs export → migrate → parse →
    verify, and asserts the identity map is total over the report's `mapped` entries. This lane
    is optional and non-blocking for outside contributors, and required for release. **Whether
    the vendor's licence terms permit an unattended CI seat is unverified**; a maintainer with
@@ -704,13 +702,13 @@ user: right-click Package P (or a Block, Behavior, Requirement) ▸ OpenSysML �
   1  configurator resolves the selection to packages, or the owning package of a single element
   2  ProgressStatusRunner.runWithProgressStatus(task, "OpenSysML", allowCancel=true, 0)
   3  task, phase "export":   Exporter → tmp/<project>-<hash>.mdzip        (exportModule / saveProject)
-  4  task, phase "convert":  Conversion c = connection.convertFile(tmp, "sysml")
+  4  task, phase "migrate":  Migration c = connection.migrateFile(tmp, "sysml")
                              c.experimentalNotice → GUILog once per session
-                             c.diagnostics → results panel
-     pre-flight:             migration report → counts (mapped/approximated/unmapped) and the
+                             c.report.summary → results panel
+     pre-flight:             c.report → counts (mapped/approximated/unmapped) and the
                              unmapped kinds; shown in the panel header; user may stop here
   5  task, phase "parse":    Model m = connection.parseSources(List.of(SourceDocument.inline("model.sysml", c.content())))
-                             parse diagnostics → results panel (a v1 model that converts but does
+                             parse diagnostics → results panel (a v1 model that migrates but does
                              not parse is a migration bug to report upstream — its .sysml is kept)
   6  task, phase "run":      per the action chosen:
                                Run       → m.instantiate(target); m.runAction / runState (schedule policy from the dialog)
@@ -720,7 +718,7 @@ user: right-click Package P (or a Block, Behavior, Requirement) ▸ OpenSysML �
   7  results:  Annotations on the mapped elements; RuleViolationResults into the validation
                window (when the suite module is loaded); every row into the OpenSysML Results panel
   8  the tmp .mdzip and .sysml are kept under the tool's temp dir until the next run, with a
-     "Reveal converted model" action, because the user will want to read what the engine read
+     "Reveal migrated model" action, because the user will want to read what the engine read
 ```
 
 `isCancel()` is polled between phases and the current connection's deadline bounds the wait
@@ -756,9 +754,9 @@ element link, never dropped.
 
 | Phase | Delivers | Prerequisites in OpenSysML |
 |---|---|---|
-| **1. Migration-based execution** | `editors/mdk/plugin` skeleton; `plugin.xml`; browser/diagram/menu actions; export → `Convert` → `ParseSources` → `instantiate`/run/verify; results in `GUILog` and a plain table; stubs lane in CI; nightly `.zip` | none — everything used is on the wire today |
-| **2. Results UI** | docking `ProjectWindow` table; `Annotation`s on elements; validation-suite module and `RuleViolationResult` bridge; *Reveal converted model*; per-phase deadlines and cancel | none for the UI (two connections give per-phase deadlines, §3; a per-call deadline in the Java client would replace them); **identity requires phase 3's report** — until then names only |
-| **3. Units and report-over-service** | pre-flight counts and per-element migration notes in the panel; unit-bearing constraints evaluated correctly | `Convert` returns the migration report (`ConvertResponse.migration_report`, the `Entry` shape of `report.go`, as [`api-surface-parity.md`](api-surface-parity.md) plans) and accepts several source files for one conversion (used modules); unit migration in `internal/translate/migrate` |
+| **1. Migration-based execution** | `editors/mdk/plugin` skeleton; `plugin.xml`; browser/diagram/menu actions; export → `Migrate` → `ParseSources` → `instantiate`/run/verify; results in `GUILog` and a plain table; stubs lane in CI; nightly `.zip` | none — everything used is on the wire today |
+| **2. Results UI** | docking `ProjectWindow` table; `Annotation`s on elements; validation-suite module and `RuleViolationResult` bridge; *Reveal migrated model*; per-phase deadlines and cancel | none for the UI (two connections give per-phase deadlines, §3; a per-call deadline in the Java client would replace them); **identity requires phase 3's report** — until then names only |
+| **3. Units and report-over-service** | pre-flight counts and per-element migration notes in the panel; unit-bearing constraints evaluated correctly | `Migrate` returns the migration report (`MigrateResponse.report`, the `Entry` shape of `report.go` — on the wire today) and accepts several source files for one migration (used modules); unit migration in `internal/translate/migrate` |
 | **4. Step-debug** | step a behavior from Cameo; highlight current state / fired transition / token on the open diagram through `AnnotationPainter`s; choice-point display and reseed | the debugger session API of [`api-surface-parity.md`](api-surface-parity.md) on the wire and in the Java client |
 | **v2 front end** (in parallel from phase 1; needs the SysML v2 Plugin on the developer machine) | `plugin-v2`: `exportTextual` → `ParseSources`, no migration; parser-disagreement report; opt-in run of a vendor-transformed v2 project | none |
 
@@ -785,7 +783,7 @@ The implementation under `editors/mdk/` follows §10 with these deviations:
   (Instantiate, Execute action, Execute state machine, Verify requirement/constraint, Evaluate
   calc, Run analysis), enabled for exactly one selected element; Verify picks
   `verifyRequirement`, `verifySatisfaction` or `verifyConstraint` from the symbol's kind. Sweep,
-  the schedule dialog and *Reveal converted model* are deferred with phase 2's remaining items.
+  the schedule dialog and *Reveal migrated model* are deferred with phase 2's remaining items.
 - **Whole-project export.** `exportModule` is given the primary model, since a selected element
   alone loses the references the conversion needs; a saved, unmodified `.mdzip` is read in place.
 - **Phase 2's results window and annotations are in phase 1**: a docking `ProjectWindow`
@@ -828,7 +826,7 @@ Each item says what is known, what is not, and what would settle it.
 4. **Migration report not on the wire** (§5). Without it the identity map is by name and
    renamed elements are lost; phase 2's per-element results are only as good as names.
 5. **Used projects / Teamwork Cloud.** Modules are not loaded by the reader; a TWC project has
-   no local file. Both need the multi-source `Convert` of phase 3 and a licensed TWC test.
+   no local file. Both need the multi-source `Migrate` of phase 3 and a licensed TWC test.
 6. **Units.** Not migrated; a model whose constraints depend on unit conversion is wrong, not
    just approximate, until `internal/translate/migrate` handles «Unit»/«QuantityKind».
 7. **Two JDKs, two API surfaces.** The pinned 2026x Refresh1 runs the plugin on JDK 21, the

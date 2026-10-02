@@ -43,6 +43,8 @@ export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 export const CAPABILITY_STRICT_CONFORMANCE = "strict_conformance";
 /** The `Convert` RPC. */
 export const CAPABILITY_CONVERT = "convert";
+/** The `Migrate` RPC, which migrates a SysML v1 model. */
+export const CAPABILITY_MIGRATE = "migrate";
 /** The verification RPCs. */
 export const CAPABILITY_VERIFICATION = "verification";
 /** The `question` field of the verification RPCs. */
@@ -116,7 +118,7 @@ export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
  * Orders capability names by code unit, the order the service reports them in.
  * Locale-aware collation ignores the underscores that separate their words.
  */
-function byCodeUnit(a: string, b: string): number {
+export function byCodeUnit(a: string, b: string): number {
   if (a < b) {
     return -1;
   }

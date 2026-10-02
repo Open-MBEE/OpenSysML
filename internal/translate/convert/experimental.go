@@ -1,6 +1,9 @@
 package convert
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // ExperimentalNotice is the wording every surface reports the RDF mapping's
 // status in, so the CLI, the REPL, the service and the docs agree.
@@ -50,4 +53,35 @@ func Notices(from, to Format) []string {
 // Notice joins the notices of a conversion into one string, one per line.
 func Notice(from, to Format) string {
 	return strings.Join(Notices(from, to), "\n")
+}
+
+// MigratedNotConverted is why a SysML v1 model is refused by a conversion: its
+// elements are mapped, approximated or left unmapped, and a conversion promises
+// none of that. Each surface appends the remedy in its own terms.
+const MigratedNotConverted = "is a SysML v1 model, which is migrated, not converted: every element " +
+	"is mapped, approximated or left unmapped and reported element by element"
+
+// NotMigratedError refuses a SysML v1 model asked to be converted, naming the
+// model and what to do instead.
+type NotMigratedError struct {
+	// Name is the model named: a path, or what stands for inline content.
+	Name string
+	// Remedy says how to migrate it on the surface that refused.
+	Remedy string
+}
+
+func (e *NotMigratedError) Error() string {
+	return fmt.Sprintf("%s %s; %s", e.Name, MigratedNotConverted, e.Remedy)
+}
+
+// NotV1Error refuses a migration of a model that is not SysML v1: a v2 model
+// or an RDF graph is converted, not migrated.
+type NotV1Error struct {
+	Name   string
+	Format Format
+	Remedy string
+}
+
+func (e *NotV1Error) Error() string {
+	return fmt.Sprintf("%s is %s input, which is converted, not migrated: only a SysML v1 model (xmi, uml or mdzip) is migrated; %s", e.Name, e.Format, e.Remedy)
 }

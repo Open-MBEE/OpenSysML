@@ -341,12 +341,9 @@ func TestRecordRunConvertRefusesIrrelevantFlags(t *testing.T) {
 	binary := buildCLI(t)
 	source := writeRecordModel(t)
 	for name, args := range map[string][]string{
-		"branch input":      {"flexo://proj-1/main", "-record-run", "Demo::timed", "-convert", "sysml"},
-		"branch output":     {source, "-record-run", "Demo::timed", "-convert", "ttl", "-o", "flexo://proj-1/main"},
-		"sync-state":        {source, "-record-run", "Demo::timed", "-convert", "ttl", "-sync-state", filepath.Join(t.TempDir(), "s.ttl")},
-		"migration report":  {source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-report", filepath.Join(t.TempDir(), "r.json")},
-		"migration results": {source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-results", filepath.Join(t.TempDir(), "r.txt")},
-		"layout":            {source, "-record-run", "Demo::timed", "-convert", "sysml", "-layout", filepath.Join(t.TempDir(), "l.json")},
+		"branch input":  {"flexo://proj-1/main", "-record-run", "Demo::timed", "-convert", "sysml"},
+		"branch output": {source, "-record-run", "Demo::timed", "-convert", "ttl", "-o", "flexo://proj-1/main"},
+		"sync-state":    {source, "-record-run", "Demo::timed", "-convert", "ttl", "-sync-state", filepath.Join(t.TempDir(), "s.ttl")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, code := exitCode(t, exec.Command(binary, args...))
@@ -414,5 +411,30 @@ func TestRecordRunMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) 
 		if !strings.Contains(string(rendered), want) {
 			t.Errorf("rendered document is missing %q:\n%s", want, rendered)
 		}
+	}
+}
+
+// TestRecordRunRefusesMigration refuses the migration flags on a recorded
+// conversion, which accompany -migrate, and -migrate itself with -record-run:
+// a migration decides nothing about the model it writes.
+func TestRecordRunRefusesMigration(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	for name, tc := range map[string]struct {
+		args []string
+		want string
+	}{
+		"migration report":  {[]string{source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-report", filepath.Join(t.TempDir(), "r.json")}, "-migration-report accompanies -migrate"},
+		"migration results": {[]string{source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-results", filepath.Join(t.TempDir(), "r.txt")}, "-migration-results accompanies -migrate"},
+		"layout":            {[]string{source, "-record-run", "Demo::timed", "-convert", "sysml", "-layout", filepath.Join(t.TempDir(), "l.json")}, "-layout accompanies -migrate"},
+		"image base URL":    {[]string{source, "-record-run", "Demo::timed", "-convert", "sysml", "-image-base-url", "https://ve.example.org"}, "-image-base-url accompanies -migrate"},
+		"migrate":           {[]string{source, "-record-run", "Demo::timed", "-migrate", "sysml"}, "-migrate writes the migrated model out and decides nothing about it"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, code := exitCode(t, exec.Command(binary, tc.args...))
+			if code != 2 || !strings.Contains(out, tc.want) {
+				t.Errorf("%v: code %d, want %q:\n%s", tc.args, code, tc.want, out)
+			}
+		})
 	}
 }

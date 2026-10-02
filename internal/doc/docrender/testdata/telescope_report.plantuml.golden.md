@@ -123,11 +123,15 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
-  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
-  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+rectangle "<size:10>//«part»//</size>\n**imagingChain**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**camera : Camera**" as n1 <<part>> <<usage>> {
+    port "output" as n1.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**recorder : Recorder**" as n2 <<part>> <<usage>> {
+    port "input" as n2.0
+  }
 }
-n1 -[thickness=3]- n2 : link
+n1.0 -[thickness=3]- n2.0 : link
 @enduml
 ```
 
@@ -178,9 +182,9 @@ skinparam wrapWidth 300
 hide stereotype
 left to right direction
 hide empty description
-state "**operatingStates : ObservatoryStates**\n<size:10>//«state»//</size>" as n0 <<state>> <<usage>> {
-  state "**idle**\n<size:10>//«state»//</size>\ninitial" as n1 <<state>> <<usage>>
-  state "**observing**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>>
+state "<size:10>//«state»//</size>\n**operatingStates : ObservatoryStates**" as n0 <<state>> <<usage>> {
+  state "<size:10>//«state»//</size>\n**idle**\ninitial" as n1 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**observing**" as n2 <<state>> <<usage>>
   [*] --> n1
 }
 n1 --> n2

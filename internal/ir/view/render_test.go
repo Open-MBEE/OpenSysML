@@ -110,6 +110,7 @@ func TestGoldenRenderings(t *testing.T) {
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
+		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
@@ -377,8 +378,8 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
 		head := tc.label + " : " + tc.typ
-		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
-			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
+		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "«"+tc.kind+"»<br>"+head) {
+			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, "«"+tc.kind+"»<br>"+head, mermaid)
 		}
 		dot, err := rendering.Write(FormDot)
 		if err != nil {
@@ -419,8 +420,8 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	}
 	mermaid := rendering.Mermaid()
 	for _, want := range []string{
-		"[\"Rig<br>«part def»\"]", "[\"plug : ~Link<br>«port»\"]", "[\"base : Mount, Cart<br>«part»\"]",
-		"[\"root : Mount<br>«part»\"]", "[\"mirrored : ~'Frame *rail*'<br>«port»\"]",
+		"[\"«part def»<br>Rig\"]", "[\"«port»<br>plug : ~Link\"]", "[\"«part»<br>base : Mount, Cart\"]",
+		"[\"«part»<br>root : Mount\"]", "[\"«port»<br>mirrored : ~'Frame *rail*'\"]",
 	} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
@@ -674,7 +675,7 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
-	if got, want := (labeller{}).mermaid(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+	if got, want := (labeller{}).mermaid(node), "«part»<br>a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>x#59; y"; got != want {
 		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }

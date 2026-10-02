@@ -26,7 +26,7 @@ func doc() usage.Doc {
 	return withoutOmitted(usage.Doc{
 		Command:    "sysml",
 		ManSection: 1,
-		Summary:    "run, check, convert and render SysML v2 and KerML models",
+		Summary:    "run, check, convert and render SysML v2 and KerML models, and migrate SysML v1",
 		Synopsis:   []string{"[options] [file...]"},
 		Description: []string{
 			"sysml loads the models it is given — a file, a directory to walk or a " +
@@ -295,15 +295,12 @@ func doc() usage.Doc {
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
 					".ttl, .json, .fmu) unless -from names it: sysml, kerml, ttl, turtle, " +
-					"rdf, api-json, fmu for a Functional Mock-up Unit to import, or " +
-					"xmi, uml or mdzip for a SysML v1 model to " +
-					"migrate, whose " +
-					"element-by-element report -migration-report writes out; -layout " +
-					"names an MTIP export of the same project, whose diagram geometry " +
-					"is written into the migrated views as DiagramLayout metadata. " +
+					"rdf, api-json, or fmu for a Functional Mock-up Unit to import. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
 					"is normalized.",
+				"A SysML v1 model (.xmi, .uml, .mdzip) is refused: it is migrated, " +
+					"not converted; see Migration.",
 				"Either side may name a Flexo MMS project branch instead of a file: " +
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
 					"or flexo://{project}/{branch}, both naming the endpoint " +
@@ -317,9 +314,48 @@ func doc() usage.Doc {
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
-				convert.MigrationNotice,
-				"Every run that converts RDF or migrates a v1 model says so on stderr. " +
+				"Every run that converts RDF says so on stderr. " +
 					"Saving to .sysml or .kerml is stable.",
+			},
+		}, {
+			Title: "Migration",
+			Examples: []usage.Example{
+				usage.Ex("sysml Model.mdzip -migrate sysml -o Model.sysml", "A Cameo project as notation"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -o Model.sysml -migration-report Model.report.txt", ""),
+				usage.Ex("sysml Model.xmi -migrate ttl -o Model.ttl", "A v1 XMI export as RDF Turtle"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -layout Model_mtip.xml", "Views laid out from MTIP"),
+				usage.Ex("sysml Model.mdzip -migrate sysml -migration-results runs.json", "Index the tool's results"),
+				usage.Ex("sysml Model.sysml -compare-results runs.json", "Then compare with the tool's"),
+				usage.Ex("sysml export.xml -from xmi -migrate sysml", "Name the v1 form explicitly"),
+			},
+			Paragraphs: []string{
+				"A SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an " +
+					"Eclipse UML2 .uml file, or a Cameo/MagicDraw .mdzip archive — is " +
+					"migrated to SysML v2, not converted: the migration is ledgered, " +
+					"not lossless. Every v1 element gets one of three verdicts, mapped " +
+					"(written as the v2 construct it corresponds to), approximated " +
+					"(written as the nearest v2 construct, with a note saying what " +
+					"differs) or unmapped (left behind, with the reason); profile, " +
+					"library and notation content nothing refers to is skipped. The " +
+					"one-line summary of the verdicts goes to stderr; -migration-report " +
+					"writes the element-by-element ledger to a file, JSON when it ends " +
+					"in .json, text otherwise. -convert refuses a v1 model for this reason.",
+				"-from names the v1 form (xmi, uml or mdzip) when the extension does " +
+					"not; -migrate writes sysml, kerml, ttl, turtle, rdf or api-json, " +
+					"and refuses an input that is not v1, which -convert handles. " +
+					"-layout names an MTIP export of the same project, whose diagram " +
+					"geometry is written into the migrated views as DiagramLayout " +
+					"metadata; -image-base-url resolves the relative <img src> of a " +
+					"comment to the server serving it; -migration-results writes the " +
+					"simulation tool's run configurations and the result snapshots it " +
+					"stored as a JSON sidecar, which -compare-results on the migrated " +
+					"model runs against; -strict writes only notation a pinned SysML v2 " +
+					"production admits, reporting a construct whose only v2 form is an " +
+					"OpenSysML extension as unmapped. The images a document's Image " +
+					"blocks carry are written beside -o, so a migration that wrote any " +
+					"needs -o a local file path.",
+				convert.MigrationNotice,
+				"Every run that migrates a v1 model says so on stderr.",
 			},
 		}, {
 			Title: "Native compilation",
@@ -369,6 +405,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip", "unpositioned nodes in a strip below"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
+				usage.Ex("sysml model.sysml -render Views::loopView -render-form dot -render-ports full", "every port of every part, typed"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -398,7 +435,10 @@ func doc() usage.Doc {
 					"the Pilot visualizer's, or cameo, the look of Cameo Systems Modeler — a " +
 					"diagram frame with a header tab, Arial text, gradient fills, compartments " +
 					"and the UML pseudo-state symbols — for a diagram migrated from Cameo " +
-					"to keep its look. A DiagramLayout Style on a member colours it over " +
+					"to keep its look. An interconnection draws on each part the ports " +
+					"its connectors end at, each a small square on the part's border " +
+					"named beside it; -render-ports full draws every port a part has, " +
+					"labelled name : Type. A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
 					"members and the edges between them in every graph form, and leaves a " +
@@ -611,11 +651,12 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "o", "", outputUsage())
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
-	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
+	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the mermaid, dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection: minimal (default), the ports its connectors end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
@@ -710,6 +751,7 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("id", nameArg),
 			usage.Opt("output", fileArg, "o"),
@@ -735,6 +777,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-unplaced", "<placement>"),
 			usage.Opt("render-style", "<style>"),
+			usage.Opt("render-ports", "<display>"),
 		},
 	}, {
 		Title: "Rendering documents",

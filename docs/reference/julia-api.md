@@ -54,7 +54,7 @@ version does not match, `StaleServiceError` describes the mismatch.
 
 The error hierarchy includes `OpenSysMLError`, `ConnectError`,
 `TransportError`, `ModelError`, `DiagnosticError`, `ExecutionError`,
-`ConversionError`, `MissingCapabilityError`, `StaleServiceError`,
+`ConversionError`, `MigrationError`, `MissingCapabilityError`, `StaleServiceError`,
 `SymbolNotFoundError`, `TypeMismatchError`, and `FeatureValueError`.
 `ConnectError` is abstract; concrete Connect failures include
 `InvalidRequestError`, `ModelNotFoundError`, `ModelFileNotFoundError`,
@@ -149,7 +149,22 @@ Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_model(conn, model_hash, to_format; ...)`, and
 `convert_model(model, to_format; ...)`. `to_sysml`, `to_turtle`,
 `to_api_json`, and `save` are model helpers. Turtle and API-JSON formats are
-experimental and emit `@warn`.
+experimental and emit `@warn`. A SysML v1 model — `from_format` `xmi`, `uml`
+or `mdzip`, or a path with that extension — is refused by every `convert_*`
+with an `ArgumentError`: it is migrated, not converted.
+
+Migration is `migrate_file(conn, path, to_format; from_format, report,
+results, layout_path, layout_content, image_base_url, strict)` and
+`migrate_source(conn, bytes, to_format; from_format, ...)`, answering a
+`Migration` with `content`, `from_format`, `to_format`, a `MigrationReport`
+(`summary` and the `mapped`, `approximated`, `unmapped` and `skipped` counts
+always; every element's `MigrationEntry` in `entries` and the report `text`
+with `report=true`; `by_verdict(report, verdict)` selects them), `results`,
+the image `files` by relative path, `source_path` and the
+`experimental_notice` it `@warn`s. `save(migration, path)` writes the model
+and its images beside it, refusing to overwrite the v1 model or to write an
+image outside the model's directory. A migration the service cannot read
+raises `MigrationError`.
 
 ## Authoring
 

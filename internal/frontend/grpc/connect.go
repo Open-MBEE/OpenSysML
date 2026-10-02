@@ -101,6 +101,12 @@ func (a *ConnectAdapter) Convert(ctx context.Context, req *connect.Request[pb.Co
 	return connectCall(ctx, req, a.svc.Convert)
 }
 
+// Migrate writes a SysML v1 model out as a v2 one, with the report of what
+// became of every v1 element.
+func (a *ConnectAdapter) Migrate(ctx context.Context, req *connect.Request[pb.MigrateRequest]) (*connect.Response[pb.MigrateResponse], error) {
+	return connectCall(ctx, req, a.svc.Migrate)
+}
+
 // ApplyEdits edits a parsed model's own source.
 func (a *ConnectAdapter) ApplyEdits(ctx context.Context, req *connect.Request[pb.ApplyEditsRequest]) (*connect.Response[pb.ApplyEditsResponse], error) {
 	return connectCall(ctx, req, a.svc.ApplyEdits)

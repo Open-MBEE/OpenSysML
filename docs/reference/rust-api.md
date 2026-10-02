@@ -58,7 +58,8 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
 | `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model |
-| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
+| `migrate(to_format, &MigrateSource, &MigrateOptions)` | migrates a SysML v1 model (`.mdzip`, `.xmi`, `.uml`, as a file or inline bytes) to notation or Turtle, answering a `Migration` whose `report` gives every element's verdict and whose `write(path)` puts the image files beside the model |
 | `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
 | `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
 | `execute_action`, `execute_state`, `explore_action`, `explore_state` | runs a behavior once, or every valid order of its choice points |
@@ -204,6 +205,8 @@ model failure.
 | `SymbolNotFound { name, suggestions }` | a lookup found nothing, naming the closest names |
 | `ModelErrors { message, diagnostics }` | a strict parse found errors |
 | `Conversion { message, diagnostics }` | the service could not write the model in that format |
+| `Migration { message }` | the service could not read the SysML v1 model it was asked to migrate |
+| `Unwritable(String)` | `Migration::write` refused its destination: it names the v1 model, or an image would land outside the model's directory |
 | `Execution { message, reason, diagnostics }` | a run, verification, calculation or analysis could not be answered; `reason` is the `FailureReason` |
 | `WrongKind { message, diagnostics }` | the call named an element of another kind |
 | `AnalysisRun { message, result }` | an analysis failed, keeping what it established |

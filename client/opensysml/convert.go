@@ -485,3 +485,51 @@ func instanceFromProto(inst *pb.Instance) *Instance {
 	}
 	return out
 }
+
+func migrationFromProto(resp *pb.MigrateResponse) *Migration {
+	out := &Migration{
+		Content:            resp.Content,
+		From:               Format(resp.FromFormat),
+		To:                 Format(resp.ToFormat),
+		ExperimentalNotice: resp.ExperimentalNotice,
+		Report:             migrationReportFromProto(resp.Report),
+		Results:            resp.Results,
+	}
+	if len(resp.Files) > 0 {
+		out.Files = make(map[string][]byte, len(resp.Files))
+		for _, file := range resp.Files {
+			out.Files[file.Path] = append([]byte(nil), file.Content...)
+		}
+	}
+	return out
+}
+
+func migrationReportFromProto(report *pb.MigrationReport) *MigrationReport {
+	if report == nil {
+		return nil
+	}
+	out := &MigrationReport{
+		Source:       report.Source,
+		Exporter:     report.Exporter,
+		Summary:      report.Summary,
+		Mapped:       int(report.Mapped),
+		Approximated: int(report.Approximated),
+		Unmapped:     int(report.Unmapped),
+		Skipped:      int(report.Skipped),
+		Text:         report.Text,
+	}
+	if len(report.Entries) > 0 {
+		out.Entries = make([]MigrationEntry, 0, len(report.Entries))
+		for _, entry := range report.Entries {
+			out.Entries = append(out.Entries, MigrationEntry{
+				ID:      entry.Id,
+				Kind:    entry.Kind,
+				Name:    entry.Name,
+				Target:  entry.Target,
+				Verdict: entry.Verdict,
+				Note:    entry.Note,
+			})
+		}
+	}
+	return out
+}

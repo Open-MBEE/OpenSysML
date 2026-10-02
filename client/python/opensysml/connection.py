@@ -36,6 +36,7 @@ from opensysml.capabilities import (
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
+    CAPABILITY_MIGRATE,
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_ENGINES,
     CAPABILITY_EVALUATE_SUBJECT,
@@ -67,7 +68,12 @@ from opensysml.conversion import (
     Conversion,
     EXPERIMENTAL_NOTICE,
     ExperimentalFeatureWarning,
+    MIGRATED_NOT_CONVERTED,
+    Migration,
     is_experimental,
+    is_v1,
+    migration_report_of,
+    path_is_v1,
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.document import binding_holds_big_int, build_bindings, result_of as document_result
@@ -79,6 +85,8 @@ from opensysml.errors import (
     ConnectionError,
     ConversionError,
     ExecutionError,
+    InvalidRequestError,
+    MigrationError,
     ModelError,
     ModelFileNotFoundError,
     ModelNotFoundError,
@@ -183,10 +191,15 @@ _UNRESOLVED = object()
 #: Naming one here is the opt-in for a caller who cannot pass host and port.
 SERVICE_ENV = 'OPENSYSML_SERVICE'
 
-#: Options of every channel this client opens: only identity, so no service
-#: compresses a response, which grpcio can hand to the parser still compressed.
+#: Options of every channel this client opens: only identity compression, so
+#: no service compresses a response, which grpcio can hand to the parser still
+#: compressed; and no bound on a message's size, since a migrated project's
+#: notation, report and images run to tens of megabytes where grpcio's default
+#: stops at four.
 CHANNEL_OPTIONS = (
     ('grpc.compression_enabled_algorithms_bitset', 1 << grpc.Compression.NoCompression),
+    ('grpc.max_receive_message_length', -1),
+    ('grpc.max_send_message_length', -1),
 )
 
 #: Seconds a private child is given to report the address it bound.
@@ -1397,8 +1410,7 @@ class Connection:
             model_hash (str, optional): Hash of a loaded model, whose parsed
                 source is converted
             from_format (str, optional): Format to read the source as, one of
-                the to_format names or 'xmi', 'uml' or 'mdzip' for a SysML v1
-                model to migrate; inferred from file_path's extension when
+                the to_format names; inferred from file_path's extension when
                 omitted, notation for a model_hash, and required for inline
                 content
             tolerate_syntax_errors (bool): Write notation back out even when the
@@ -1407,22 +1419,25 @@ class Connection:
                 direction builds a graph, where unreadable declarations would go
                 missing silently.
 
+        A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
+        file_path with that extension — is refused: it is migrated, not
+        converted, and :meth:`migrate` accounts for every element on the way.
+
         Returns:
             Conversion: The converted model, the formats used and any tolerated
                 syntax errors
 
         Warns:
             ExperimentalFeatureWarning: If either format is RDF, whose mapping is
-                experimental (see ``docs/reference/rdf-mapping.md``), or the
-                source is SysML v1, whose migration is experimental too (see
-                ``docs/reference/sysml-v1-migration.md``)
+                experimental (see ``docs/reference/rdf-mapping.md``)
 
         Raises:
             ValueError: If other than one of file_path, content and model_hash
                 is given
+            InvalidRequestError: If the source is a SysML v1 model, with the
+                help that names :meth:`migrate`; also if a format is unknown
             MissingCapabilityError: If the service cannot convert
             ConversionError: If the model could not be written in that format
-            InvalidRequestError: If a format is unknown
             ModelFileNotFoundError: If the named file cannot be read
             ModelNotFoundError: If the model is no longer cached
         """
@@ -1439,6 +1454,13 @@ class Connection:
             raise ValueError(
                 "Provide exactly one of file_path, content or model_hash; got "
                 + (", ".join(given) if given else "none")
+            )
+        if is_v1(from_format) or (
+            file_path is not None and not from_format and path_is_v1(file_path)
+        ):
+            name = file_path if file_path is not None else "the source"
+            raise InvalidRequestError(
+                f"{name} {MIGRATED_NOT_CONVERTED}; call migrate() with the same source"
             )
         require(
             self.server_info(),
@@ -1487,6 +1509,126 @@ class Connection:
             to_format=response.to_format,
             diagnostics=diagnostics,
             experimental=experimental,
+            experimental_notice=notice,
+        )
+
+    def migrate(self, to_format, file_path=None, content=None, from_format='',
+                report=False, results=False, layout_path=None, layout_content=None,
+                image_base_url='', strict=False):
+        """Migrate a SysML v1 model to SysML v2, accounting for every element.
+
+        The source is UML XMI, an Eclipse UML2 ``.uml`` file or a Cameo/MagicDraw
+        ``.mdzip`` archive, named by a path the service opens or carried inline
+        as bytes. Migration is ledgered, not lossless: every element comes back
+        in the :class:`~opensysml.conversion.MigrationReport` as mapped,
+        approximated, unmapped or skipped, and the summary and counts come with
+        every answer. This is what ``sysml Model.mdzip -migrate sysml`` does.
+
+        Args:
+            to_format (str): Format to write: 'sysml', 'kerml', 'text', 'ttl',
+                'turtle', 'rdf', 'api-json' or 'json'
+            file_path (str, optional): Path the service reads the v1 model from
+            content (bytes, optional): The v1 model carried inline — bytes, since
+                an ``.mdzip`` archive is binary
+            from_format (str, optional): 'xmi', 'uml' or 'mdzip'; inferred from
+                file_path's extension when omitted, and required for inline
+                content
+            report (bool): Ask for every element's verdict and the report text
+                ``-migration-report`` writes, not just the summary and counts
+            results (bool): Ask for the JSON index of the result snapshots the
+                v1 tool stored, as ``-migration-results`` writes it
+            layout_path (str, optional): Path to an MTIP export whose diagram
+                layouts the migrated views are laid out from, as ``-layout``
+            layout_content (str, optional): The MTIP export carried inline
+            image_base_url (str): URL the migrated model refers to its image
+                files under, instead of the relative ``images/`` paths
+            strict (bool): Write only standard notation, leaving an element
+                whose only v2 form is an OpenSysML extension unmapped, as
+                ``-strict``
+
+        Returns:
+            Migration: The migrated model, its report, and the results and image
+                files asked for
+
+        Warns:
+            ExperimentalFeatureWarning: Always: the migration is experimental
+                (see ``docs/reference/sysml-v1-migration.md``)
+
+        Raises:
+            ValueError: If other than one of file_path and content is given, or
+                both layout_path and layout_content
+            InvalidRequestError: If the source is not a SysML v1 model — that is
+                converted, not migrated — or a format is unknown, or the layout
+                is not an MTIP export
+            MissingCapabilityError: If the service cannot migrate
+            MigrationError: If the v1 model could not be read
+            ModelFileNotFoundError: If the named file cannot be read
+        """
+        given = [
+            name
+            for name, value in (('file_path', file_path), ('content', content))
+            if value is not None
+        ]
+        if len(given) != 1:
+            raise ValueError(
+                "Provide exactly one of file_path or content; got "
+                + (", ".join(given) if given else "none")
+            )
+        if layout_path is not None and layout_content is not None:
+            raise ValueError("Provide at most one of layout_path and layout_content")
+        if from_format and not is_v1(from_format):
+            name = file_path if file_path is not None else "the source"
+            raise InvalidRequestError(
+                f"{name} is {from_format} input, which is converted, not migrated: "
+                "only a SysML v1 model (xmi, uml or mdzip) is migrated; call "
+                "convert() with the same source"
+            )
+        if content is not None and not from_format:
+            raise ValueError(
+                "from_format is required for inline content: 'xmi', 'uml' or 'mdzip'"
+            )
+        require(
+            self.server_info(),
+            CAPABILITY_MIGRATE,
+            upgrade_remedy(CAPABILITY_MIGRATE),
+        )
+
+        request = sysml_pb2.MigrateRequest(
+            to_format=to_format,
+            from_format=from_format,
+            report=report,
+            results=results,
+            image_base_url=image_base_url,
+            strict=strict,
+        )
+        if file_path is not None:
+            request.file_path = file_path
+        else:
+            request.content = content
+        if layout_path is not None:
+            request.layout_path = layout_path
+        elif layout_content is not None:
+            request.layout_content = layout_content
+
+        with translate_rpc_errors(
+            not_found=ModelFileNotFoundError,
+            unimplemented=self._capability_refusal((CAPABILITY_MIGRATE,)),
+        ):
+            response = self._stub.Migrate(request)
+        notice = response.experimental_notice or EXPERIMENTAL_NOTICE
+        # Warned before the error is raised: a refusal is the mapping's
+        # experimental behavior, not a reason to say nothing about it.
+        warnings.warn(notice, ExperimentalFeatureWarning, stacklevel=2)
+        if response.error:
+            raise MigrationError(response.error)
+        return Migration(
+            content=response.content,
+            from_format=response.from_format,
+            to_format=response.to_format,
+            report=migration_report_of(response.report),
+            results=response.results,
+            files={f.path: bytes(f.content) for f in response.files},
+            experimental=True,
             experimental_notice=notice,
         )
 

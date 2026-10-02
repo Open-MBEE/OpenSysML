@@ -861,9 +861,15 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 		if meta(owner) == mSubaction || meta(memberMembership[member]) == mTransitionFeatureMembership {
 			continue
 		}
-		// A transition's `then` succession is its head's target, not a body.
-		if meta(owner) == mTransition && meta(rdf.IRI(member)) == mSuccession {
-			continue
+		// A transition's `then` succession is its head's target, and the chain
+		// of `first a.b` and its EmptyParameterMembers belong to its head too:
+		// none is a body.
+		if meta(owner) == mTransition {
+			m, ms := rdf.IRI(member), meta(memberMembership[member])
+			if meta(m) == mSuccession || (meta(m) == mFeature && ms == mOwningMembership) ||
+				(ms == mParameterMembership && !graph.HasProperty(m, rdf.SysML+pDeclaredName)) {
+				continue
+			}
 		}
 		if m := rdf.IRI(member); meta(memberMembership[member]) == mEndFeatureMembership &&
 			!graph.HasProperty(m, rdf.SysML+pDeclaredName) {
@@ -1129,13 +1135,37 @@ func (n *normalizer) markImplicitKinds() {
 // structure SysML v2 1.0 § 8.3.18.9 gives it: the source Membership, the trigger
 // AcceptActionUsage, and the SuccessionAsUsage whose second end names the target.
 func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
+	chains := chainOwnerIndex(graph, meta)
+	// tail is the feature a chain's last link names; any other term is itself.
+	tail := func(term rdf.Term) rdf.Term {
+		if !term.IsIRI() || meta(term) != mFeature {
+			return term
+		}
+		links, err := chainLinksOf(graph, meta, chains, term)
+		if err != nil || len(links) == 0 {
+			links = graph.Objects(term, rdf.SysML+pChainingFeature)
+		}
+		if len(links) == 0 {
+			return term
+		}
+		return links[len(links)-1]
+	}
 	for _, subject := range graph.Subjects() {
 		if meta(subject) != mTransition {
 			continue
 		}
-		for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		for i, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
 			member := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
 			if member.Value == "" {
+				continue
+			}
+			// The first member a transition owns may be its FeatureChainMember
+			// owning the chain of `first a.b`: the source is the chain's last
+			// link, and the chain is no body member.
+			if i == 0 && meta(ms) == mOwningMembership && tail(member) != member {
+				if !graph.HasProperty(subject, rdf.SysML+pSource) && !graph.HasProperty(subject, rdf.SysML+pSourceFeature) {
+					graph.Add(subject, rdf.SysMLTerm(pSource), tail(member))
+				}
 				continue
 			}
 			switch meta(ms) {
@@ -1154,7 +1184,7 @@ func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
 					ends := successionEndReferents(graph, meta, member)
 					if len(ends) == 2 && ends[1].Value != "" &&
 						!graph.HasProperty(subject, rdf.SysML+pTarget) && !graph.HasProperty(subject, rdf.SysML+pTargetFeature) {
-						graph.Add(subject, rdf.SysMLTerm(pTarget), ends[1])
+						graph.Add(subject, rdf.SysMLTerm(pTarget), tail(ends[1]))
 					}
 					continue
 				}
