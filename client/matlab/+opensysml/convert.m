@@ -36,6 +36,15 @@ function conversion = convert(conn, toFormat, varargin)
     toFormat = textOption(toFormat, 'toFormat');
     fromFormat = textOption(options.fromFormat, 'fromFormat');
     tolerate = logicalOption(options.tolerateSyntaxErrors, 'tolerateSyntaxErrors');
+    v1File = strcmp(present{1}, 'filePath') && isempty(fromFormat) && ...
+        opensysml.pathIsV1(sources.filePath);
+    if opensysml.isV1(fromFormat) || v1File
+        if strcmp(present{1}, 'filePath'), name = char(sources.filePath); else, name = 'the source'; end
+        opensysml.internal.raise('opensysml:argument', sprintf(['%s is a SysML v1 model, ' ...
+            'which is migrated, not converted: every element is mapped, approximated or left ' ...
+            'unmapped and reported element by element; call opensysml.migrate with the same ' ...
+            'source'], name));
+    end
     conn.require('convert');
     request = struct('toFormat', toFormat);
     for i = 1:numel(present)

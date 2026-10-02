@@ -11,7 +11,7 @@ result:
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
     "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml"],
-    "openSysmlRenderStyles": ["pilot", "cameo"] } } }
+    "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -21,9 +21,11 @@ that turns model operations into text edits, `openSysmlDebug` the
 [`opensysml/debug/*`](#opensysmldebug-requests) requests that run a drawn
 behavior and report where it stands, and `openSysmlRenderPalette` that a
 `palette` named in an `opensysml/render` request colours the result's nodes
-(`fill`, `border`) as well as its DOT or PlantUML artifact. `openSysmlRenderForms` lists
+(`fill`, `border`) as well as its Mermaid, DOT or PlantUML artifact. `openSysmlRenderForms` lists
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
-draws the DOT form in, the first the default; a server without the latter draws the Pilot look
+draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
+displays its `ports` draws an interconnection's parts with, a server without it drawing every
+port); a server without the former draws the Pilot look
 alone.
 
 A client that does not see that capability must not send these methods. That is
@@ -124,6 +126,7 @@ Renders one view of a document.
 | `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar. |
 | `palette` | Optional. A palette the `dot`, `mermaid` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
+| `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -136,7 +139,8 @@ the form the kind does use. A `form` that is not one of the five is refused, and
 all five. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
-(`unknown drawing style "sketch"; the styles are pilot, cameo`).
+(`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
+display (`unknown port display "all"; the displays are minimal, full`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -164,7 +168,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
   "kind": "tree",
   "stated": "",
   "form": "mermaid",
-  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n  n1[\"cog : Cog<br>«part»\"]\n  n0 --- n1\n  …",
+  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"«part def»<br>Widget\"]\n  n1[\"«part»<br>cog : Cog\"]\n  n0 --- n1\n  …",
   "nodes": [
     {
       "id": "n0",
@@ -765,7 +769,7 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ← { "view": "", "kind": "tree",
     "stated": "no view declared; rendering /tmp/kit.sysml directly",
     "form": "mermaid",
-    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n…",
+    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"«part def»<br>Widget\"]\n…",
     "nodes": [ … ], "edges": [ … ], "notices": [], "version": 1 }
 ```
 

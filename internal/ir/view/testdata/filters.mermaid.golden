@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -23,12 +23,12 @@ config:
 ---
 %% FilteredViews::safetyView — tree rendering
 flowchart TD
-  n0["`**Radio**
-*«part def»*`"]
-  n1["`**Airbag**
-*«part def»*`"]
-  n2["`**Braking::Brake**
-*«part def»*`"]
-    n3("`**pad**
-*«part»*`")
+  n0["`*«part def»*
+**Radio**`"]
+  n1["`*«part def»*
+**Airbag**`"]
+  n2["`*«part def»*
+**Braking::Brake**`"]
+    n3("`*«part»*
+**pad**`")
   n2 --- n3

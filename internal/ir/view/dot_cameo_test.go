@@ -204,7 +204,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		}
 	}
 	if !strings.Contains(pilot, `fontname="Helvetica", fontsize=14,`) ||
-		!strings.Contains(pilot, `<b>Init</b><br/><font point-size="10"><i>«state»</i></font><br/>initial, do / initialize>`) {
+		!strings.Contains(pilot, `<font point-size="10"><i>«state»</i></font><br/><b>Init</b><br/>initial, do / initialize>`) {
 		t.Errorf("pilot DOT lost its type:\n%s", pilot)
 	}
 }

@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -23,24 +23,24 @@ config:
 ---
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD
-  n0["`**Vehicles::Vehicle**
-*«part def»*`"]
-    n1("`**engine : Engine**
-*«part»*`")
-    n2("`**wheels : Wheel**
-*«part»*`")
-    n3("`**connect**`")
+  n0["`*«part def»*
+**Vehicles::Vehicle**`"]
+    n1("`*«part»*
+**engine : Engine**`")
   n0 --- n1
+    n2("`*«part»*
+**wheels : Wheel**`")
   n0 --- n2
+    n3("`**connect**`")
   n0 --- n3
-  n4("`**VehicleViews::vehicleView::engineSubview**
-*«view»*`")
-    n5["`**Vehicles::Engine**
-*«part def»*`"]
-      n6("`**power**
-*«attribute»*`")
-      n7("`**cylinder : Cylinder**
-*«part»*`")
+  n4("`*«view»*
+**VehicleViews::vehicleView::engineSubview**`")
+    n5["`*«part def»*
+**Vehicles::Engine**`"]
+      n6("`*«attribute»*
+**power**`")
   n5 --- n6
+      n7("`*«part»*
+**cylinder : Cylinder**`")
   n5 --- n7
   n4 --- n5

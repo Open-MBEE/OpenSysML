@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -37,7 +36,7 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"junction", "junction", true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"fork", "fork", false, StylePilot, `@{ shape: fork, label: "fork" }`},
 		{"join", "join", true, StylePilot, `@{ shape: fork, label: "" }`},
-		{"decision", "decision", false, StylePilot, "{\"`**decision**"},
+		{"decision", "decision", false, StylePilot, "{\"`*«decision»*\n**decision**`"},
 		{"empty decision", "decision", true, StylePilot, `{" "}`},
 		{"history", shallowHistoryKind, true, StylePilot, `(("H"))`},
 		{"deep history", deepHistoryKind, true, StylePilot, `(("H*"))`},
@@ -243,9 +242,7 @@ func TestMermaidStateStylesSkipStatesThatRejectClasses(t *testing.T) {
 	}
 }
 
-func TestMermaidPaletteParityWithDOT(t *testing.T) {
-	definition := regexp.MustCompile(`^\s*classDef (palette[0-9]+) fill:(#[0-9A-F]{6}),stroke:(#[0-9A-F]{6})$`)
-	assignment := regexp.MustCompile(`^\s*class ([^ ]+) (palette[0-9]+)$`)
+func TestMermaidPaletteFillsMatchDOT(t *testing.T) {
 	for _, tc := range plantumlGoldenCases {
 		if tc.kind == KindSequence {
 			continue
@@ -257,21 +254,14 @@ func TestMermaidPaletteParityWithDOT(t *testing.T) {
 				t.Fatalf("%s %s fills: %v", tc.name, palette, err)
 			}
 			source := rendering.MermaidWith(Options{Palette: palette})
-			classes, ids := map[string]Fill{}, map[string]string{}
-			for _, line := range strings.Split(source, "\n") {
-				if match := definition.FindStringSubmatch(line); match != nil {
-					classes[match[1]] = Fill{Fill: match[2], Border: match[3]}
-				}
-				if match := assignment.FindStringSubmatch(line); match != nil {
-					for _, id := range strings.Split(match[1], ",") {
-						ids[id] = match[2]
-					}
+			gotFills := mermaidPaletteFills(source)
+			for id, want := range fills {
+				if got, ok := gotFills[id]; !ok || got != want.Fill {
+					t.Errorf("%s %s node %s Mermaid fill = %q, present %v, want DOT fill %q\n%s", tc.name, palette, id, got, ok, want.Fill, source)
 				}
 			}
-			for id, want := range fills {
-				if got := classes[ids[id]]; got != want {
-					t.Errorf("%s %s node %s Mermaid fill = %+v, want DOT fill %+v\n%s", tc.name, palette, id, got, want, source)
-				}
+			if len(gotFills) != len(fills) {
+				t.Errorf("%s %s: Mermaid fills %d nodes, DOT fills %d\n%s", tc.name, palette, len(gotFills), len(fills), source)
 			}
 		}
 	}

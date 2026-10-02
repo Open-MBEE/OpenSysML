@@ -798,6 +798,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		rendering: rendering,
 		direction: reference.Direction(),
 		palette:   reference.Palette(),
+		ports:     reference.Ports(),
 		origin:    node.Origin(),
 	}, nil
 }
@@ -877,6 +878,9 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	}
 	if _, label, ok := value.Object(); ok {
 		return label
+	}
+	if _, _, ok := value.ConnectorEnd(); ok {
+		return value.Label()
 	}
 	if verdict, ok := value.Verdict(); ok {
 		return verdict.Summary()

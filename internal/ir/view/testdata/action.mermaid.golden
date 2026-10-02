@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -27,35 +27,35 @@ config:
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 flowchart TD
-  subgraph n0 ["`**Drive**
-*«action def»*`"]
+  subgraph n0 ["`*«action def»*
+**Drive**`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
-    subgraph n2 ["`**provide : Provide**
-*«action»*`"]
+    subgraph n2 ["`*«action»*
+**provide : Provide**`"]
       direction TD
       n2_anchor[" "]
       n2_p1["torque"]
     end
-    subgraph n3 ["`**monitor**
-*«action»*
+    subgraph n3 ["`*«action»*
+**monitor**
 own flow`"]
       direction TD
       n3_anchor[" "]
       n3_p0["reading"]
       n5@{ shape: f-circ, label: "" }
-      n6("`**record**
-*«action»*`")
+      n6("`*«action»*
+**record**`")
     end
-    n7("`**tally**
-*«action»*`")
+    n7("`*«action»*
+**tally**`")
     n8@{ shape: fork, label: "split" }
     n9@{ shape: fork, label: "sync" }
     n10@{ shape: fr-circ, label: "" }
-    n11("`**park**
-*«action»*`")
-    n12{"`**check**
-*«decision»*`"}
+    n11("`*«action»*
+**park**`")
+    n12{"`*«decision»*
+**check**`"}
   end
   n5 --> n6
   n1 --> n8

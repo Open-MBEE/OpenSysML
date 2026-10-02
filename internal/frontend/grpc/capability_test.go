@@ -75,6 +75,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.Convert(ctx, &pb.ConvertRequest{})
 			return err
 		}},
+		{"migrate", CapabilityMigrate, func(s *Service) error {
+			_, err := s.Migrate(ctx, &pb.MigrateRequest{})
+			return err
+		}},
 		{"query", CapabilityQuery, func(s *Service) error {
 			_, err := s.Query(ctx, &pb.QueryRequest{})
 			return err

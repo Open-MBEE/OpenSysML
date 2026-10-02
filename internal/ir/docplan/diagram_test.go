@@ -287,3 +287,57 @@ func TestCompileDiagramAcceptsPaletteOnASequence(t *testing.T) {
 		t.Fatalf("kind = %q, palette = %q", reference.Kind(), reference.Palette())
 	}
 }
+
+func TestCompileDiagramCarriesThePortDisplay(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines ports = "full";
+			ref redefines source = interconnectView;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	if reference.Ports() != view.PortsFull {
+		t.Fatalf("ports = %q", reference.Ports())
+	}
+	if reference.Palette() != "" {
+		t.Fatalf("palette = %q", reference.Palette())
+	}
+}
+
+func TestCompileDiagramRejectsInvalidPorts(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines ports = "all";
+			ref redefines source = interconnectView;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorInvalidPorts || planning.Actual != "all" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging ports must be one of minimal, full, got "all"`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func TestCompileDiagramRejectsPortsOnATree(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines kind = "tree";
+			attribute redefines ports = "full";
+			ref redefines source = imagingChain;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedPorts || planning.Expected != "tree" || planning.Actual != "full" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging states ports "full", but a tree rendering draws no part's ports`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}

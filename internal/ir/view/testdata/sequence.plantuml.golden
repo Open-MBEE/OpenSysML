@@ -40,9 +40,9 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-participant "**producer**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
-participant "**server**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
-participant "**consumer**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**producer**" as n0 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**server**" as n1 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**consumer**" as n2 <<part>> <<usage>>
 n2 -> n1 : subscribe_message
 n0 -> n1 : publish_message
 n1 -> n2 : deliver_message

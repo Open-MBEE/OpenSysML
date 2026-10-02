@@ -209,7 +209,7 @@ what the `StateMachines` library states as metadata — `#choice state pick;` an
 friends — reported as warnings that name the replacement, so a model that uses them
 still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
-applies to `-convert` from XMI too: a strict SysML v1 migration writes no extension notation
+applies to `-migrate` too: a strict SysML v1 migration writes no extension notation
 at all — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
 
 The state machine below uses the `choice` extension so the difference is visible:

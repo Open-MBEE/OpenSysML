@@ -6,26 +6,26 @@ import (
 	"testing"
 )
 
-// A diagram label leads with the name — the declared type after a colon for a
-// typed usage — then the kind in guillemets, then the notes; a node with no
-// name leads with its kind and has no keyword line.
+// A diagram label leads with the kind in guillemets, then the name — the
+// declared type after a colon for a typed usage — then the notes; a node with
+// no name leads with its kind and has no keyword line.
 func TestLabelLines(t *testing.T) {
 	cases := []struct {
 		name string
 		node *Node
 		want []string
 	}{
-		{"typed usage", &Node{Kind: "part", Name: "pump", Type: "Pump"}, []string{"pump : Pump", "«part»"}},
-		{"untyped usage", &Node{Kind: "port", Name: "p"}, []string{"p", "«port»"}},
-		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"}, []string{"Plant::Loop", "«part def»"}},
+		{"typed usage", &Node{Kind: "part", Name: "pump", Type: "Pump"}, []string{"«part»", "pump : Pump"}},
+		{"untyped usage", &Node{Kind: "port", Name: "p"}, []string{"«port»", "p"}},
+		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"}, []string{"«part def»", "Plant::Loop"}},
 		{"name-less", &Node{Kind: "connect"}, []string{"connect"}},
-		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, []string{": Pump", "«part»"}},
-		{"synthesized name", &Node{Kind: "action", Name: "call", Type: "P::doTracking", NameSynthesized: true}, []string{": doTracking", "«action»"}},
+		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, []string{"«part»", ": Pump"}},
+		{"synthesized name", &Node{Kind: "action", Name: "call", Type: "P::doTracking", NameSynthesized: true}, []string{"«action»", ": doTracking"}},
 		{"synthesized name, untyped", &Node{Kind: "action", Name: "stamp2", NameSynthesized: true}, []string{"action"}},
 		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, []string{"connect", "already shown"}},
 		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1"},
-			[]string{"sensor : Pump", "«part»", "already shown as n1"}},
-		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial, entry"}, []string{"off", "«state»", "initial, entry"}},
+			[]string{"«part»", "sensor : Pump", "already shown as n1"}},
+		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial, entry"}, []string{"«state»", "off", "initial, entry"}},
 	}
 	for _, tc := range cases {
 		got := (labeller{}).lines(tc.node)
@@ -240,19 +240,18 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 		want []string
 	}{
 		{KindInterconnection, []string{
-			"subgraph n0 [\"`**Machines::Lamp**\n*«state def»*`\"]",
-			"n1(\"`**off**\n*«state»*\ninitial`\")",
-			"n3(\"`**pump : Pump**\n*«part»*`\")",
+			"subgraph n0 [\"`*«state def»*\n**Machines::Lamp**`\"]",
+			"n3(\"`*«part»*\n**pump : Pump**`\")",
 		}},
 		{KindState, []string{
-			`state "Machines::Lamp<br>«state def»" as n0 {`,
-			`state "off<br>«state»<br>initial" as n1`,
-			`state "pump : Pump<br>«part»" as n3`,
+			`state "«state def»<br>Machines::Lamp" as n0 {`,
+			`state "«state»<br>off<br>initial" as n1`,
+			`state "«part»<br>pump : Pump" as n3`,
 			`n1 --> n2 : switch`,
 		}},
 		{KindSequence, []string{
-			`participant n0 as Machines::Lamp<br>«state def»`,
-			`participant n3 as pump : Pump<br>«part»`,
+			`participant n0 as «state def»<br>Machines::Lamp`,
+			`participant n3 as «part»<br>pump : Pump`,
 			`n1->>n2: switch`,
 		}},
 	}
@@ -300,6 +299,10 @@ func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 		if !strings.HasPrefix(mermaid, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
 			!strings.Contains(mermaid, "%% V — ") {
 			t.Errorf("%s: Mermaid lacks its frontmatter or header:\n%s", tc.name, mermaid)
+		}
+		if tc.kind != KindState && tc.kind != KindSequence &&
+			!strings.Contains(mermaid, fmt.Sprintf("themeCSS: %q\n", ".edgeLabel rect { opacity: 1 !important; } "+mermaidTitleCSS)) {
+			t.Errorf("%s: Mermaid lacks flowchart theme CSS:\n%s", tc.name, mermaid)
 		}
 		if tc.margin > 0 && !strings.Contains(mermaid, fmt.Sprintf("subGraphTitleMargin:\n      bottom: %d\n", tc.margin)) {
 			t.Errorf("%s: Mermaid does not reserve %d px for the cluster title:\n%s", tc.name, tc.margin, mermaid)

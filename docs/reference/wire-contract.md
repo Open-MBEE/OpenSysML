@@ -96,7 +96,7 @@ came from:
 
 ```console
 $ … /ParseSources -d '{"documents":[{"name":"behavior.sysml","content":"…"},{"name":"verification.sysml","content":"…"}]}'
-{"modelHash":"b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
+{"modelHash":"97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
 ```
 
 The response has three fields a client reads:
@@ -767,7 +767,7 @@ codes may appear in a release; a code, once published, keeps its meaning.
 client needs to branch, the service gives a field for it:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
 {"error":"calc invocation failed: not a calc: Demo::sedan is a part usage, not a calc definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}
 ```
 
@@ -780,7 +780,7 @@ present is an unspecified execution failure. The other common in-body failures, 
 ```text
 {"error":"symbol not found: Demo::Nope"}                                    Instantiate
 {"error":"state machine not found: Test::NoMachine"}                        ExecuteState
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 {"error":"evaluation failed: object has no such feature: member nothing not found in instance"}  Evaluate
 {"error":"evaluation failed: unresolved reference: sqrt — did you mean RealFunctions::sqrt or QuantityCalculations::sqrt?"}
 ```
@@ -885,7 +885,7 @@ Every behavior call takes a `modelHash` and a fully qualified `symbolId` (spelle
 `actionSymbolId` / `stateMachineSymbolId` on the two execution calls), builds a fresh runtime,
 runs, and returns the result plus any `error`/`diagnostics`. The examples use
 `conformance/fixtures/behavior.sysml` and `verification.sysml`, parsed together as model
-`b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9`, and the `Rover` model above.
+`97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610`, and the `Rover` model above.
 
 ### `Instantiate` and the `Instance` shape
 
@@ -968,14 +968,14 @@ $ … /Instantiate -d '{"modelHash":"5a85…c15b","symbolId":"Demo::Nope"}'
 input keeps its declared default:
 
 ```console
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
 {"outputs":{"result":{"intValue":"15"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive"}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive"}'
 {"outputs":{"result":{"intValue":"5"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::noStart"}'
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::noStart"}'
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 ```
 
 An action with no outputs answers `{}` (captured for `action nop { first start; done;
@@ -1162,7 +1162,7 @@ when it stopped, as a name → `Value` map. `conformance/fixtures/behavior.sysml
 runs to `done` on its own:
 
 ```console
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::Machine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::Machine"}'
 {"statesVisited":["init","Running","done"]}
 ```
 
@@ -1175,7 +1175,7 @@ do assign cycles := cycles + 1 then on; transition first on accept stop then off
 $ … /ExecuteState -d '{"modelHash":"449e7db990943f08c1918829b0c730cc9d9bf415b236a70debe93592d2477b6b","stateMachineSymbolId":"Pump::Controller","events":["start","stop","start"]}'
 {"statesVisited":["off","on","off","on"],"finalContext":{"cycles":{"intValue":"2"}}}
 
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::NoMachine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::NoMachine"}'
 {"error":"state machine not found: Test::NoMachine"}
 ```
 
@@ -1247,7 +1247,7 @@ spelled as the executed `finalContext` spells them.
 `result` is the calc's value:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
 {"result":{"realValue":5.5}}
 ```
 
@@ -1595,13 +1595,13 @@ one per assertion. All three return the `instances` they built, in the same shap
 `Instantiate`.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massPositive"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massPositive"}'
 {"verdict":{"kind":"constraint","elementId":"Demo::Vehicle::massPositive","element":"Demo::Vehicle::massPositive","holds":true}}
 
-$ … /VerifyRequirement -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::lightEnough"}'
+$ … /VerifyRequirement -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::lightEnough"}'
 {"verdict":{"kind":"requirement","elementId":"Demo::Vehicle::lightEnough","element":"Demo::Vehicle::lightEnough","holds":true}}
 
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 ```
 
 ```json
@@ -1644,7 +1644,7 @@ Reading a `Verdict`:
   when the reason is classified:
 
   ```console
-  $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+  $ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
   {"verdict":{"kind":"constraint","elementId":"Demo::sedan","element":"Demo::sedan","error":"not a constraint: sedan is a part usage, not a constraint definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}}
   ```
 
@@ -1666,7 +1666,7 @@ Reading a `Verdict`:
 (max 10) are satisfied by `sedan`:
 
 ```console
-$ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analysis"}'
+$ … /VerifySatisfaction -d '{"modelHash":"9794…8610","symbolId":"Demo::analysis"}'
 ```
 
 ```json
@@ -1799,7 +1799,7 @@ stopped at the limit, which is what lowers the strength. An answer decided befor
 was asked (a failure classified before the run) carries none of the three.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 {"verdict":{"kind":"constraint", …, "condition":"mass < 100.0","engine":"run","strength":"witnessed",
   "bounds":[{"name":"steps","limit":"10000000"},{"name":"elements","limit":"1000000"}]}, "instances":[…]}
 ```
@@ -1816,13 +1816,17 @@ and lists engines with `Connection.list_engines()`.
 request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
 inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
 `sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
-`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
-`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
-file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
-`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
-`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
-inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
-`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
+`json` (the API's JSON element form). `fromFormat` takes the same names. Omitted, it is inferred
+from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`, `.json`), is notation for a
+`modelHash`, and is `invalid_argument` for inline `content`, which has no extension. A SysML v1
+model — `fromFormat` of `xmi`, `uml` or `mdzip`, or a `filePath` ending in `.xmi`, `.uml` or
+`.mdzip` — is **not converted**: it is refused as `invalid_argument` before anything is read, with
+the message the command prints, because what happens to it is a [migration](#migration-migrate),
+which accounts for every element rather than carrying all of them:
+
+```text
+{"code":"invalid_argument","message":"Vehicle.xmi is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; call Migrate with the same source"}
+```
 
 A `modelHash` from `ParseSources` of several documents converts the whole model to `ttl` or
 `api-json` as one graph: a reference from one document to an element another declares links that
@@ -1835,39 +1839,103 @@ when the documents together declare more than one identity scope. The command li
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
 ```console
-$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+$ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
+{
+  "content": "@prefix sysml: <https://www.omg.org/spec/SysML/20230201#> .\n…",
+  "fromFormat": "sysml",
+  "toFormat": "ttl",
+  "experimental": true,
+  "experimentalNotice": "The RDF mapping is experimental: …"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl` or `api-json` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form; notation to notation leaves both unset. It is set on a refusal too, so read it before
+`error`. The Python client raises `ExperimentalFeatureWarning` from it.
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans.
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: …; convert to sysml or ttl`, since a v2 model has no
+v1 form; an unknown format name and a missing `fromFormat` for inline content are
+`invalid_argument` too; an unreadable `filePath` is `not_found` with `file not found:`, and a
+stale `modelHash` is `not_found` as described under [the model hash](#how-long-a-hash-is-valid).
+
+## Migration: `Migrate`
+
+A SysML v1 model is **migrated, not converted**, and `Migrate` is the RPC for it, needing the
+`migrate` capability. A conversion is lossless; a migration lands every v1 element in a ledger as
+**mapped**, **approximated**, **unmapped** or **skipped**, and the response says so, which is why
+`Convert` refuses the input rather than quietly doing this. The request names its source in a
+`oneof`: a `filePath` the service reads, or `content` carried inline — proto `bytes`, so a
+`.mdzip` archive travels as well as XMI text (base64 in Connect JSON). `fromFormat` is `xmi`,
+`uml` or `mdzip` — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml` file, or a
+`.mdzip` archive, all read as XMI and answered as the canonical `xmi`; inferred from `filePath`'s
+extension when omitted, and required for inline `content`. `toFormat` is notation (`sysml`,
+`kerml`, `text`) or RDF (`ttl`, `turtle`, `rdf`). The companion options are the command's flags:
+`report` asks for every element's verdict and the report text `-migration-report` writes;
+`results` for the run-configuration index `-migration-results` writes; `layoutPath` or inline
+`layoutContent` (a `oneof`) for an MTIP export whose diagram geometry lays out the migrated
+views (`-layout`); `imageBaseUrl` for the server a comment's relative image is resolved against
+(`-image-base-url`); and `strict` for portable output (`-strict`).
+
+```console
+$ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
 {
   "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
   "fromFormat": "xmi",
   "toFormat": "sysml",
   "experimental": true,
-  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status",
+  "report": {
+    "source": "Vehicle.xmi",
+    "exporter": "Example UML Tool",
+    "summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "mapped": 77,
+    "approximated": 13,
+    "unmapped": 3,
+    "skipped": 2
+  }
 }
 ```
 
-`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
-alias was sent — so a client that let the format be inferred learns what it was read as.
-`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
-JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
-too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
-migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
-client that needs the element-by-element account runs the command. What the migration maps,
-approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
-
-A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
-`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
-`error` alone:
+Every migration is `experimental`, with the notice; the Python client raises
+`ExperimentalFeatureWarning` from it and the Go client reports it on the `Migration`. The
+`report` always carries the `summary` line the command prints and the four counts, so a client
+can gate on the verdicts without asking for more. With `report: true` it also carries `entries` —
+one per v1 element, in report order, each with the element's `id`, `kind`, `name`, the v2
+`target` it became when it did, its `verdict` (`mapped`, `approximated`, `unmapped` or `skipped`)
+and a `note` saying how or why not — and `text`, the report the command writes to a file:
 
 ```text
-{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+{"id":"_unit_kg","kind":"«Unit» InstanceSpecification","name":"Vehicle Design::Value Types::kilogram","verdict":"unmapped","note":"units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg)"}
 ```
 
-A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
-is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
-convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
-`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
-`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
-[the model hash](#how-long-a-hash-is-valid).
+With `results: true`, `results` is the JSON sidecar `-migration-results` writes, as a string.
+Image files the migration extracts from the archive — a comment's `<img>` without an
+`imageBaseUrl` — come back as `files`, each a `path` relative to the written document and its
+`content` bytes, in path order, so a client writing the notation to disk writes them beside it.
+What the migration maps, approximates and leaves behind is in
+[sysml-v1-migration.md](sysml-v1-migration.md).
+
+A migration that could not be done is HTTP 200 with `error` set and `content` absent, with the
+formats and the experimental notice still filled; malformed XMI is reported this way:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: not an XMI document: expected an xmi:XMI or uml:Model root element","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead, every one `invalid_argument`:
+v2 input, by `fromFormat` or by extension, is refused with the mirror of `Convert`'s help —
+`Vehicle.sysml is sysml input, which is converted, not migrated: only a SysML v1 model (xmi, uml
+or mdzip) is migrated; call Convert with the same source`; `toFormat` naming a v1 format with
+`cannot write xmi: …`, since a v2 model has no v1 form; inline `content` without `fromFormat` with
+`from_format is required for inline content: expected xmi, uml or mdzip`; and an MTIP layout that
+is not one with what is wrong with it. An unreadable `filePath` or `layoutPath` is `not_found`
+with `file not found:`.
 
 ## Queries
 

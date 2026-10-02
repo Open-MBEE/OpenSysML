@@ -91,18 +91,18 @@
       "refused": [
         {
           "declaration": "StateSpaceRepresentation::StateSpaceEventDef",
-          "error": "ErrInvalidActionFlow",
-          "message": "initialize action: invalid action flow: no initial node found in action run"
+          "error": "ErrUnknownOutput",
+          "message": "unknown output: test::run produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::ZeroCrossingEventDef",
-          "error": "ErrInvalidActionFlow",
-          "message": "initialize action: invalid action flow: no initial node found in action run"
+          "error": "ErrUnknownOutput",
+          "message": "unknown output: test::run produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::StateSpaceDynamics",
-          "error": "ErrInvalidActionFlow",
-          "message": "initialize action: invalid action flow: no initial node found in action Plant"
+          "error": "ErrUnknownOutput",
+          "message": "unknown output: test::plant produced no output \"output\""
         },
         {
           "declaration": "StateSpaceRepresentation::StateSpaceDynamics::getNextState",

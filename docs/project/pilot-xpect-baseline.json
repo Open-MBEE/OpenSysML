@@ -23,16 +23,16 @@
         "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
       }
     ],
-    "recorded": "2026-09-19"
+    "recorded": "2026-10-01"
   },
   "totals": {
     "files": 429,
     "filesUnparsed": 0,
     "assertions": 1264,
     "rows": 1326,
-    "agree": 1296,
+    "agree": 1293,
     "wordingOnly": 248,
-    "disagree": 30,
+    "disagree": 33,
     "unlocated": 0,
     "notAdjudicated": 0,
     "missingResources": 0,
@@ -59,9 +59,9 @@
       "assertions": 276,
       "blockAssertions": 0,
       "rows": 276,
-      "agree": 265,
+      "agree": 262,
       "wordingOnly": 0,
-      "disagree": 11,
+      "disagree": 14,
       "unlocated": 0,
       "notAdjudicated": 0,
       "sameLocation": 0,
@@ -325,7 +325,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'X'.\"",
-              "ours": "line 42 offset 665: unresolved reference: X — did you mean Import_All::A::X or x?"
+              "ours": "line 42 offset 665: unresolved reference: X — did you mean Import_All::A::X or x? To use the bare name, import its package: private import Import_All::A::*;"
             },
             {
               "kind": "errors",
@@ -334,7 +334,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'Y1'.\"",
-              "ours": "line 45 offset 754: unresolved reference: Y1 — did you mean Import_All::B::Y1 or y1?"
+              "ours": "line 45 offset 754: unresolved reference: Y1 — did you mean Import_All::B::Y1 or y1? To use the bare name, import its package: private import Import_All::B::*;"
             }
           ]
         },
@@ -1010,7 +1010,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'A'.\"",
-              "ours": "line 47 offset 1808: unresolved reference: A — did you mean Import_Private::P1::A?"
+              "ours": "line 47 offset 1808: unresolved reference: A — did you mean Import_Private::P1::A? To use the bare name, import its package: private import Import_Private::P1::*;"
             },
             {
               "kind": "errors",
@@ -1137,7 +1137,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'B'.\"",
-              "ours": "line 33 offset 517: unresolved reference: B — did you mean RecursiveImport::P::P2::B?"
+              "ours": "line 33 offset 517: unresolved reference: B — did you mean RecursiveImport::P::P2::B? To use the bare name, import its package: private import RecursiveImport::P::P2::*;"
             }
           ]
         },
@@ -2569,7 +2569,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Classifier 'B'.\"",
-              "ours": "line 27 offset 736: unresolved reference: B — did you mean OuterPackage::B?"
+              "ours": "line 27 offset 736: unresolved reference: B — did you mean OuterPackage::B? To use the bare name, import its package: private import OuterPackage::*;"
             },
             {
               "kind": "errors",
@@ -2852,7 +2852,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'B'.\"",
-              "ours": "line 24 offset 517: unresolved reference: B — did you mean OuterPackage::B or b?"
+              "ours": "line 24 offset 517: unresolved reference: B — did you mean OuterPackage::B or b? To use the bare name, import its package: private import OuterPackage::*;"
             }
           ]
         },
@@ -3268,7 +3268,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Classifier 'c_Private'.\"",
-              "ours": "line 64 offset 3277: unresolved reference: c_Private — did you mean VisibilityPackage::c_Private?"
+              "ours": "line 64 offset 3277: unresolved reference: c_Private — did you mean VisibilityPackage::c_Private? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3304,7 +3304,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Classifier 'c_Private::c_public'.\"",
-              "ours": "line 73 offset 3859: unresolved reference: c_Private::c_public (no namespace \"c_Private\" is loaded; \"c_public\" is declared as VisibilityPackage::c_Private::c_public, VisibilityPackage::c_Private_alias::c_public, VisibilityPackage::c_Public::c_public)"
+              "ours": "line 73 offset 3859: unresolved reference: c_Private::c_public — \"c_Private\" is not visible here; did you mean VisibilityPackage::c_Private::c_public? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3322,7 +3322,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Classifier 'c_Private_alias'.\"",
-              "ours": "line 81 offset 4213: unresolved reference: c_Private_alias — did you mean VisibilityPackage::c_Private_alias?"
+              "ours": "line 81 offset 4213: unresolved reference: c_Private_alias — did you mean VisibilityPackage::c_Private_alias? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3785,7 +3785,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Private'.\"",
-              "ours": "line 20 offset 459: unresolved reference: c_Private — did you mean VisibilityPackage::c_Private?"
+              "ours": "line 20 offset 459: unresolved reference: c_Private — did you mean VisibilityPackage::c_Private? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3803,7 +3803,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Private::c_public'.\"",
-              "ours": "line 24 offset 730: unresolved reference: c_Private::c_public (no namespace \"c_Private\" is loaded; \"c_public\" is declared as VisibilityPackage::c_Private::c_public, VisibilityPackage::c_Private_alias::c_public, VisibilityPackage::c_Public::c_public)"
+              "ours": "line 24 offset 730: unresolved reference: c_Private::c_public — \"c_Private\" is not visible here; did you mean VisibilityPackage::c_Private::c_public? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3848,7 +3848,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Private_alias'.\"",
-              "ours": "line 34 offset 1490: unresolved reference: c_Private_alias — did you mean VisibilityPackage::c_Private_alias?"
+              "ours": "line 34 offset 1490: unresolved reference: c_Private_alias — did you mean VisibilityPackage::c_Private_alias? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3857,7 +3857,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Private_alias::c_public'.\"",
-              "ours": "line 36 offset 1637: unresolved reference: c_Private_alias::c_public (no namespace \"c_Private_alias\" is loaded; \"c_public\" is declared as VisibilityPackage::c_Private::c_public, VisibilityPackage::c_Private_alias::c_public, VisibilityPackage::c_Public::c_public)"
+              "ours": "line 36 offset 1637: unresolved reference: c_Private_alias::c_public — \"c_Private_alias\" is not visible here; did you mean VisibilityPackage::c_Private_alias::c_public? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -3884,7 +3884,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Private_alias::alias_public'.\"",
-              "ours": "line 42 offset 2153: unresolved reference: c_Private_alias::alias_public (no namespace \"c_Private_alias\" is loaded; \"alias_public\" is declared as VisibilityPackage::c_Private_alias::alias_public, VisibilityPackage::c_Public_alias::alias_public)"
+              "ours": "line 42 offset 2153: unresolved reference: c_Private_alias::alias_public — \"c_Private_alias\" is not visible here; did you mean VisibilityPackage::c_Private_alias::alias_public? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -4009,7 +4009,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Public::c_public'.\"",
-              "ours": "line 32 offset 1393: unresolved reference: c_Public::c_public (no namespace \"c_Public\" is loaded; \"c_public\" is declared as Classes::c_public, VisibilityPackage::c_Private::c_public, VisibilityPackage::c_Private_alias::c_public)"
+              "ours": "line 32 offset 1393: unresolved reference: c_Public::c_public — \"c_Public\" is not visible here; did you mean VisibilityPackage::c_Public::c_public? To use the bare name, import its package: private import VisibilityPackage::*;"
             }
           ]
         },
@@ -4079,7 +4079,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Classifier 'c_Public'.\"",
-              "ours": "line 23 offset 554: unresolved reference: c_Public — did you mean VisibilityPackage::c_Public or VisibilityPackage::c_clazz::c_Public?"
+              "ours": "line 23 offset 554: unresolved reference: c_Public — did you mean VisibilityPackage::c_Public or VisibilityPackage::c_clazz::c_Public? To use the bare name, import its package: private import VisibilityPackage::*;"
             },
             {
               "kind": "errors",
@@ -4610,9 +4610,9 @@
         "filesUnparsed": 0,
         "assertions": 310,
         "rows": 358,
-        "agree": 348,
+        "agree": 345,
         "wordingOnly": 5,
-        "disagree": 10,
+        "disagree": 13,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -4639,9 +4639,9 @@
           "assertions": 76,
           "blockAssertions": 0,
           "rows": 76,
-          "agree": 70,
+          "agree": 67,
           "wordingOnly": 0,
-          "disagree": 6,
+          "disagree": 9,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -4900,7 +4900,16 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/IndividualTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 29,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
+            }
+          ]
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/InterfaceTest.sysml.xt",
@@ -4912,7 +4921,16 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/ItemTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 27,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "1 error(s), first: line 38: A part must be typed by at least one part definition."
+            }
+          ]
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/MetadataTest.sysml.xt",
@@ -5500,7 +5518,16 @@
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PartUsage.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.valid.SysMLTests",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 34,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
+            }
+          ]
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PortUsage.sysml.xt",
@@ -5718,9 +5745,9 @@
       "filesUnparsed": 0,
       "assertions": 1264,
       "rows": 1326,
-      "agree": 1296,
+      "agree": 1293,
       "wordingOnly": 248,
-      "disagree": 30,
+      "disagree": 33,
       "unlocated": 0,
       "notAdjudicated": 0,
       "missingResources": 0,
@@ -5747,9 +5774,9 @@
         "assertions": 276,
         "blockAssertions": 0,
         "rows": 276,
-        "agree": 265,
+        "agree": 262,
         "wordingOnly": 0,
-        "disagree": 11,
+        "disagree": 14,
         "unlocated": 0,
         "notAdjudicated": 0,
         "sameLocation": 0,

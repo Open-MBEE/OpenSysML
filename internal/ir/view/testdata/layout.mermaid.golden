@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -30,23 +30,33 @@ config:
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["`**Loop**
-*«part def»*`"]
+  subgraph n0 ["`*«part def»*
+**Loop**`"]
     direction LR
-    n1("`**pump : Pump**
-*«part»*`")
-    n2("`**tank : Tank**
-*«part»*`")
-    note0@{ shape: notch-rect, label: "always" }
-    note1@{ shape: notch-rect, label: "anchored" }
-    note2@{ shape: notch-rect, label: "check pressure" }
+    subgraph n1 ["`*«part»*
+**pump : Pump**`"]
+      direction LR
+      n1_anchor[" "]
+      n1.0["outlet"]
+      note0@{ shape: notch-rect, label: "always" }
+      note2@{ shape: notch-rect, label: "check pressure" }
+    end
+    subgraph n2 ["`*«part»*
+**tank : Tank**`"]
+      direction LR
+      n2_anchor[" "]
+      n2.0["inlet"]
+      note1@{ shape: notch-rect, label: "anchored" }
+    end
   end
   note3@{ shape: notch-rect, label: "free" }
-  n1 ===|"supply"| n2
-  note0 -.- n1
-  note1 -.- n2
-  note2 -.- n1
+  n1.0 ===|"supply"| n2.0
+  note0 -.- n1_anchor
+  note1 -.- n2_anchor
+  note2 -.- n1_anchor
   style n1 fill:#FFE8BD,stroke:#333333,font-family:Arial,font-size:11px,font-weight:bold
+  classDef anchor fill:none,stroke:none
+  class n1_anchor,n2_anchor anchor
   classDef note fill:#FEFFDD,stroke:#181818
   class note0,note1,note2,note3 note
   linkStyle 0 stroke:#0000FF,stroke-width:3px

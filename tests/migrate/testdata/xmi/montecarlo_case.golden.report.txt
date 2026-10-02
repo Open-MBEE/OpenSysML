@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: montecarlo_case.xmi
-# migrated 50 element(s): 39 mapped, 7 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
+# migrated 50 element(s): 38 mapped, 8 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
 
 ## unmapped (4)
 Slot	Results::settling of 5 runs::<Slot>	_sMedian	(the slot holds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for)
@@ -7,16 +7,17 @@ Slot	Results::settling of 5 runs::<Slot>	_sMedian	(the slot holds the simulation
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindN	(the connector binds the simulation tool's MonteCarloAnalysis::N to label, which is of String, and the statistic is of a number; applied stereotypes «BindingConnector»)
 «BindingConnector» Connector	Stranger::<Connector>	_bindStranger	(the connector binds x to the simulation tool's MonteCarloAnalysis::Mean, a statistic of an analysis its owner does not inherit; applied stereotypes «BindingConnector»)
 
-## approximated (7)
+## approximated (8)
 «BindingConnector» Connector	Retried Settling::<Connector>	_bindRetriedN	-> 'Retried Settling Monte Carlo'::N	(the binding to the simulation tool's MonteCarloAnalysis::N is written in the analysis def 'Retried Settling Monte Carlo' as the returned N, bound to runs)
 «BindingConnector» Connector	Retried Settling::<Connector>	_bindRetriedOutOfSpec	-> 'Retried Settling Monte Carlo'::OutOfSpec	(the binding to the simulation tool's MonteCarloAnalysis::OutOfSpec is written in the analysis def 'Retried Settling Monte Carlo' as the returned OutOfSpec, bound to outOfSpec)
 DurationConstraint	Sensor::Settle::settling	_dc	-> Sensor::settle	(written as a wait drawn uniformly over [2.0, 4.0] s before 'settle'; a tool's fixed min or max mode is a run setting, not the model's)
+OpaqueAction	Sensor::Settle::stop timer	_stop	-> 'stop timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock; settleTime holds no initial value and the body reads it before assigning it, so a run reaching the read first stops; the script would read an unset name as null, which its arithmetic takes as 0)
 «Block» Class	Settling Analysis	_analysis	-> 'Settling Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindMean	-> 'Settling Analysis Monte Carlo'::observed	(the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Settling Analysis Monte Carlo' as the observed value, of which Mean is returned)
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindDeviation	-> 'Settling Analysis Monte Carlo'::Deviation	(the binding to the simulation tool's MonteCarloAnalysis::Deviation is written in the analysis def 'Settling Analysis Monte Carlo' as the returned Deviation, bound to deviation)
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindOutOfSpec	-> 'Settling Analysis Monte Carlo'::OutOfSpec	(the binding to the simulation tool's MonteCarloAnalysis::OutOfSpec is written in the analysis def 'Settling Analysis Monte Carlo' as the returned OutOfSpec, bound to outOfSpec)
 
-## mapped (39)
+## mapped (38)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Results	_results	-> Results
 InstanceSpecification	Results::settling of 5 runs	_summary	-> Results::'settling of 5 runs'
@@ -44,7 +45,6 @@ ControlFlow	Sensor::Settle::<ControlFlow>	_e4
 InitialNode	Sensor::Settle::<InitialNode>	_init	-> start
 CallBehaviorAction	Sensor::Settle::settle	_wait	-> settle	(a step with a duration and no further behavior)
 OpaqueAction	Sensor::Settle::start timer	_start	-> 'start timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
-OpaqueAction	Sensor::Settle::stop timer	_stop	-> 'stop timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
 Property	Sensor::gain	_gain	-> Sensor::gain
 Property	Sensor::label	_label	-> Sensor::label
 Property	Sensor::misses	_misses	-> Sensor::misses

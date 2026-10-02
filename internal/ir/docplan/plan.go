@@ -272,6 +272,7 @@ type DiagramRef struct {
 	stated    string
 	direction view.Direction
 	palette   view.Palette
+	ports     view.Ports
 	origin    symbols.Origin
 }
 
@@ -292,6 +293,9 @@ func (d *DiagramRef) Direction() view.Direction { return d.direction }
 
 // Palette returns the stated palette, empty for black and white.
 func (d *DiagramRef) Palette() view.Palette { return d.palette }
+
+// Ports returns the stated port display, empty for the default, minimal.
+func (d *DiagramRef) Ports() view.Ports { return d.ports }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() symbols.Origin { return d.origin }

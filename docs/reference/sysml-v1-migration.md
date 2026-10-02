@@ -6,30 +6,45 @@ The migration is **experimental**. It covers the structural, requirement, constr
 allocation and behavioral content listed under [Mapping](#mapping), reports every element
 it approximates or leaves behind, and refuses input it cannot read; units are not migrated
 yet, and what a v1 element is written as may change between releases
-without a compatibility path. Every run says so: `sysml -convert` prints `note:` to stderr,
-`ConvertResponse` carries `experimental` and `experimental_notice` (the Python client raises
+without a compatibility path. Every run says so: `sysml -migrate` prints `note:` to stderr,
+`MigrateResponse` carries `experimental` and `experimental_notice` (the Python client raises
 an `ExperimentalFeatureWarning`), and the wording lives once, in `export.MigrationNotice`.
 
-`sysml Model.xmi -convert sysml` reads a SysML v1 model as UML XMI — the open OMG interchange
-format every v1 tool exports — and writes it as SysML v2 textual notation. `-convert ttl` writes the same model as
-RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces a **migration report**
-that accounts for every v1 element: what it became, or why it did not.
+A SysML v1 model is **migrated, not converted**. A conversion is lossless — notation written
+back is the same model — and a migration is not: every v1 element lands in the report as
+**mapped** (a faithful v2 form), **approximated** (the nearest v2 form, with the difference
+noted), **unmapped** (no v2 form; left out and reported) or **skipped** (profile, library and
+notation-only content, and elements nothing refers to). So the verb is its own: `sysml
+Model.xmi -migrate sysml` reads a SysML v1 model as UML XMI — the open OMG interchange format
+every v1 tool exports — and writes it as SysML v2 textual notation. `-migrate ttl` writes the
+same model as RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces the
+**migration report** that accounts for every v1 element: what it became, or why it did not.
 
 ```bash
-sysml Model.xmi   -convert sysml -o Model.sysml -migration-report Model.report.txt
-sysml Model.uml   -convert ttl   -o Model.ttl   -migration-report Model.report.json
-sysml Model.mdzip -convert sysml -o Model.sysml
-sysml export.xml  -convert sysml -from xmi
+sysml Model.xmi   -migrate sysml -o Model.sysml -migration-report Model.report.txt
+sysml Model.uml   -migrate ttl   -o Model.ttl   -migration-report Model.report.json
+sysml Model.mdzip -migrate sysml -o Model.sysml
+sysml export.xml  -migrate sysml -from xmi
 ```
 
 The input format is inferred from the `.xmi`, `.uml` and `.mdzip` extensions; any other name
-needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-convert xmi` is refused,
+needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-migrate xmi` is refused,
 since v2 has no v1 form — and it is never loaded into the REPL, an `-eval` or a check directly:
-migrate first, then work with the notation.
+migrate first, then work with the notation. `-convert` refuses a v1 model, whether `-from` or the
+extension names it, with the help that says so:
 
-The same conversion is available over gRPC (`Convert` with `from_format: "xmi"`, or a
-`file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library; the report is not
-returned over the service yet.
+```text
+sysml: Model.mdzip is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; write `sysml Model.mdzip -migrate sysml -o Model.sysml -migration-report Model.report.txt`
+```
+
+and `-migrate` refuses v2 input the same way, pointing at `-convert`. The companion flags —
+`-migration-report`, `-migration-results`, `-layout`, `-image-base-url` and `-strict` — accompany
+`-migrate`.
+
+The same migration is available over gRPC (`Migrate`, with `from_format: "xmi"`, `"uml"` or
+`"mdzip"`, or a `file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library,
+the report, the results index, an MTIP layout and the image files with it; `Convert` refuses a v1
+model with the same help. See [wire-contract.md](wire-contract.md#migration-migrate).
 
 ## Input
 
@@ -223,9 +238,10 @@ returned over the service yet.
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
-| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; a `ReadStructuralFeatureAction`'s `result` keeps its pin's multiplicity (`out result[0..*] = object.entries;`), so a feature holding none or several is read as it is declared; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after context.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `context.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
@@ -254,6 +270,7 @@ returned over the service yet.
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity with no nodes | an empty action: `entry action x;` in a state, `do action x { }` on a transition, whose target follows on the next line | mapped (the note says the action is empty) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
+| `entry` or `exit` behavior or transition `effect` that waits for the clock — an Activity with a duration constraint on itself or on one of its nodes that is written as a wait, an accept of a time event whose time is written, or a call it writes invoking an activity, or an operation whose method is an activity, that has one | the action as written; the note names the wait, since a v2 entry or exit action or transition effect is performed whole at the instant it is triggered and a run stops at the wait with a typed error (the `doActivity` may wait, and is not noted; a constraint or time event left as a placeholder is no wait, and is not noted either, nor is one in a behavior named by a call written as a placeholder or never firing, which invokes nothing) | approximated |
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
@@ -270,6 +287,7 @@ returned over the service yet.
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
 | Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
 | SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]` | mapped / approximated |
+| SignalEvent whose signal no written send action of the document sends (neither it nor a signal specializing it, which the accept takes too; a send left as a placeholder performs nothing and is no sender), and a button of the tool's UI prototype posts (a «SimulationProfile» `SignalInstance` on a «Button» class naming the signal, or a signal specializing it, as its `element`) | the accept as written, on the transition or accept action; the trigger's note says that only the prototype posts the signal, which the migration does not write, so the accept waits for a message nothing in the model posts and a run stops there as a deadlock. A signal nothing at all posts is an ordinary accept, of a message from outside the model in the tool and here alike | approximated |
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
@@ -673,21 +691,21 @@ section, in the activity's order:
 |---|---|
 | `CollectOwnedElements(depth)`, `CollectOwners(depth)` | `Descendants` / `Ancestors(source, maxDepth = depth)`; `depth` 0 or absent is unbounded |
 | `CollectByDirectedRelationshipStereotypes(stereotypes, directionOut, depth)` | one `RelatedElements(relationshipKind, direction, maxDepth)` per stereotype the kinds above cover, `Union`ed |
-| `CollectByAssociation(associationType, depth)` | the types of the collected classifiers' attributes of that aggregation kind (`composite` when none is named), followed on to `depth`, are known from the source model and named, `Named(qualifiedName = (…))`; a type that is not written is left out with the note, and a chain whose elements are known only when the query runs is refused, since no query operation tells a composite feature from a shared one |
+| `CollectByAssociation(associationType, depth)` | the types of the collected classifiers' attributes of that aggregation kind (`composite` when none is named), followed on to `depth`, are known from the source model and named, `Named(qualifiedName = (…))`; a type that is not written is left out with the note, and a chain whose elements are known only when the query runs — one run from each row of a table by a column — is refused, since no query operation tells a composite feature from a shared one |
 | `CollectThingsOnDiagram` | the elements the collected diagrams show, `Named(qualifiedName = (…))`; a shown element the archive does not describe, that is not written, or that is written inside its owner with no v2 element of its own (a connector end) is left out with the note; a diagram whose content the archive does not record — no stream and no list, or a stream it names but does not hold or holds unreadable, whatever the list names — leaves the whole collection unknown, so the step is refused rather than named from the list and the other diagrams as if complete; a diagram that lists elements and names no stream is read as listed, with the note that the list need not be all it shows |
 | `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations; a stereotype with neither a v2 metaclass nor a `metadata def` is refused |
 | `FilterByDiagramType(diagramTypes)` | keeps, among the collected diagrams, those whose diagram type (the tool's presentation type, `SysML Block Definition Diagram`, `SysML Internal Block Diagram`, …) is named, or the others when `include = false`; a diagram whose type the archive does not record leaves the result approximated, since the filter may keep or drop it |
 | `FilterByNames(names)` | one `WhereName(operator = "matches", value = "^(?:<pattern>)$\|^(?:<pattern>)$\|…")` keeping the elements in their order; every pattern must compile as an RE2 regular expression. The filter reads the v1 name, as DocGen does, so where a collected element's v1 and v2 names fall on different sides of the pattern — an anonymous block the write names `unnamed` — the elements it keeps are named, `Named(qualifiedName = (…))`, with the note, since `WhereName` would read the v2 name |
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
 | a fork whose branches rejoin at `Union` | `Union` of the branches' queries; the doubt a step before the fork leaves (a diagram type or content the archive does not record) is carried on by the branches that keep its result and ended by those that name their own targets, so the rejoined step knows what it draws when every branch does; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
-| `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
-| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
+| `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined; a `StructuredQuery` with `loop = true` runs its body once per element it holds (as DocGen does, each pass seeing that element alone): the body's tables, lists and figures are written once per element in the elements' order, `calc rows` naming the element, with `createSections` putting each pass in a `Section` titled by its `titles` entry, else the element's name; a loop over no element writes nothing of its body, as DocGen prints nothing, and is ledgered mapped with the step that left it nothing. A collect-and-filter group loops to the same result as its one query, so its loop is inlined as is. A loop whose elements are known only when the queries run (a `CollectThingsOnDiagram` of a diagram the archive does not record, a collect over a used project) is written as the one query over all of them, with the note |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property or written in the OCL subset below | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. A column whose own chain collects before it reads — a `TableAttributeColumn` behind `CollectOwnedElements`, `CollectTypes`, `CollectOwners`, a `FilterByMetaclasses`/`FilterByStereotypes`/`FilterByNames` — is `Column(name = …, cell = { in row : Element; <the chain lowered from row>.<attribute> })`, the same operations the chain would lower to as a query (`Descendants(source = row, …)`, `WhereType`, `RelatedElements(…)`) applied to the row when the query runs, reading `name` or `documentation` of every element they collect; the cell holds every value, comma-joined in a rendered table. A step of the chain with no query spelling, or one that spells its result from the elements known at migration rather than from the row (`CollectByAssociation`, a `FilterByNames` over elements the write renames), refuses the column with the step quoted. A table's `loop = true` changes nothing, as in DocGen, which keeps a table's loop and runs none — a loop runs on a `StructuredQuery` or a `Dynamic View` — so the table lists the elements its chain holds together. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
 | `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; one whose HTML cross-references an element the export contains is written as runs instead, `part span : Span { attribute redefines text = "…"; } part 'ref' : Ref { ref redefines target = …; }` ([below](#cross-references-in-documentation)); a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
 | a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
 | an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
 | `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram that is a Cameo [table, matrix or relation map](#tables-matrices-and-relation-maps) is shown as DocGen shows it, as the table: `part table : Table { attribute redefines caption = "<title>"; calc rows : <its '… Rows' query>; }` over the query its definition already lowered, written once beside the view, never as a `Diagram` of the view rendered `asElementTable` (which a document would draw as a listing of the view's members); the step's row says the diagram is written as a Table over that query, and `-doc-number-figures` counts it among the tables. A table whose definition is refused (no query form) is refused in its place, the reason given, rather than drawn as that listing. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
-| `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
+| `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; with `loop = true`, one such `Section` per element the chain collected, titled by its `titles` entry, else the element's name, each lowered over that element alone; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 The diagrams among the collected elements are no query's rows — a migrated diagram is a view —
 but each step transforms them beside the query so an `Image` shows what the chain kept, as
@@ -713,9 +731,40 @@ collaborator's presentation constraint) spells nothing, and is skipped as notati
 than refused; this is the expression translator's rule for such a tree wherever it stands (see
 [Mapping](#mapping)), not a document rule.
 
-A step with no query spelling — `CollectTypes`, `SortByAttribute(Value)`, `SortByProperty`,
-a `*ByExpression` or
-`TableExpressionColumn` beyond a bare query property (`owner.name`, `allInstances()`, OCL), a
+#### Expression columns
+
+A `TableExpressionColumn` is written as a `Column` computed over the row when its `expression`
+is a bare query property (`name`, `documentation`, `qualifiedName`, `owner`, `id`) or falls in
+the OCL subset the migrator reads: a navigation chain `a.b.c`, `->size()`, `->isEmpty()`,
+`->notEmpty()`, `->select(x | …)`, `->reject(x | …)`, `->collect(x | …)`, `->exists(x | …)`,
+`->forAll(x | …)`, `->asSet()`, `oclAsType(T)` (a cast, written as the kind the
+navigation reaches), `=`, `<>`, `and`, `or`, `not`, string, integer and Boolean literals. Each
+UML metaproperty the chain names is written as the v2 navigation that carries the same relation
+over the migrated model, so the cell is computed when the query runs, never pinned at migration
+time:
+
+| OCL over the row | written |
+| --- | --- |
+| `_typedElementOfType` | `RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)` — the features typed by the row |
+| `end` (a connector's) | `row.connectorEnd` |
+| `end.role`, `end.appliedStereotypeInstance.slot->select(… 'propertyPath' …).value…element` | the end's `chainingFeature`s — the connect expression's feature chain — its last the role and the others the nested path |
+| `end.role.type`, `type` of a part or port | `.type` |
+| `end.role.type` member `direction` (a flow property's) | `.type.member->select {in f; f.direction->notEmpty()}.direction` |
+| `name`, `documentation`, `owner`, `qualifiedName` | the same query property |
+| `->size()`, `->select`, `->exists`, … | `->SequenceFunctions::size()`, `->ControlFunctions::select {in x : <kind>; …}`, `->ControlFunctions::exists {…}`, …; `->asSet()` is `->DocumentQueries::Distinct()` |
+
+A `->select(…).name` over the parts a connector end passes through is written as the names
+collected: a cell holds every value, comma-joined where a table renders it, as DocGen prints a
+collection one value per line. The row's kind is written as the `in row : …` parameter from the
+chain's result kind (a `KerML::Kernel::Connector` for connectors, `KerML::Core::Type` for types,
+`KerML::Root::Element` when the kind is open), and a navigation the kind cannot carry refuses the
+column with the expression quoted. An expression outside the subset — `->iterate`, `->sortedBy`,
+`allInstances()`, arithmetic, a `let`, a metaproperty the migration does not write — is refused
+with the expression quoted, as before.
+
+A step with no query spelling — `SortByAttribute(Value)`, `SortByProperty`,
+a `*ByExpression`, a
+`TableExpressionColumn` beyond the subset above, a
 `CollectFilterUserScript`, a user script — is refused with the offending construct quoted,
 and so is every presentation step downstream of it, while the section and its independent
 siblings are still written. A malformed document — a view whose `Conform` names no viewpoint,
@@ -1203,6 +1252,26 @@ signal fits are bound to that name. Entry, do and exit behaviors owned by the st
 action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
 references.
 
+A region's entry is its initial pseudostate's transition, `entry; then s;`. The initial a
+region takes as its own is the one whose transition enters a vertex of the region; a further
+one entering the region is refused, as a region has one initial pseudostate. An initial
+whose transition enters an *orthogonal* region — a sibling region of the same state, or a
+region nested in one, which some tools draw an arrow into from the next region over — is
+written as the entry of the region that owns its target, in whatever body that region is
+written as: the sub-state of the `parallel` state, or the body of a nested composite state.
+Its effect follows the initial-effect rules there and its triggers and guards are dropped as
+an initial transition's are; the pseudostate and transition are approximated, the report
+naming the region written. When the target's region has an initial of its own entering the
+same vertex, the stray one coincides with it and nothing is written twice; when its own
+initial enters another vertex the two conflict, the region's own entry is kept and the stray
+one is refused with both targets named (`-strict` reports its triggers, guard and effect as
+refused with it). An initial pseudostate no transition leaves is no entry, so a donated one
+may enter its region; an initial whose transition enters a region of another state — one that
+is not orthogonal to its own — is refused, since an initial transition enters its own region.
+The owner's default entry into its `parallel` state is written once every region has an
+entry, its own or a donated one; a region none of whose initials enters it is listed in the
+owner's `no default entry` note.
+
 A state whose entry or do behavior takes parameters is entered by transitions that carry no
 arguments, so the parameters are valued from the signal those transitions accept when every
 transition into the state accepts the same signal and its attributes match the parameters in
@@ -1568,6 +1637,9 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
+| `x = e;` in a JavaScript body, `x` a name nothing declares — no pin, parameter, property, local or member of any scope the body sees | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`, as the tool's script engine creates a variable on assignment to an undeclared name; reported as an approximation naming `x`. A name some scope does declare but the body may not read — a private property, a feature reached through a swimlane whose object is plural — stays refused, as does a name read before its assignment, and every such name in a Java body, which declares its variables |
+| a read, in a script body, of a property declaring no default, before the body assigns it | the read as written; reported as an approximation naming the property: in v2 the property holds no value until assigned, so a run reaching the read first stops, where the tool's script engine reads null and its arithmetic takes 0. A body that assigns the property first, a property declaring a default, and one declared admitting no value (read under a guard, see above) are not reported |
+| a read, in a script body, of a property declaring no default, after the body assigns it only under guards — from names admitting no value, so each assignment is made only when the name it reads holds one | the read as written; reported as an approximation naming the property and every guard made before the read: a run in which none of those names holds one reaches the read unset and stops, where the tool's script engine reads null. An unguarded assignment before the read settles the property on every path, and the read is not reported | approximated |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
@@ -1595,7 +1667,7 @@ that is not expression syntax, a construct outside the subset (`for`, `while`, `
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
 translated function table`), a name that resolves to nothing readable (`context.` where the activity carries no such parameter
-no object, a property of no v2 type, a name no scope defines), or types that disagree (an
+no object, a property of no v2 type, a name no scope defines and no JavaScript assignment creates), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
 of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
@@ -1673,6 +1745,9 @@ action def 'Group 0' {
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
   `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
   consumed, and set to false they are kept in the comment and reported as having no v2 form.
+  `UI` names the tool's UI prototype frames (a «UI_Prototyping_Profile» `Frame`), through which
+  a user of the tool's run posts signals and reads values: it is kept in the comment by its
+  frames' titles and reported as an approximation, since a run here takes no input from it.
 - The tool's own results — the snapshots it stored of the configuration's runs under its
   `resultLocation` packages, one instance per run whose slots hold the observed values, most
   naming no classifier — are migrated as individuals of the most special block their slots'
@@ -1681,7 +1756,7 @@ action def 'Group 0' {
   unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
   classified by the target's classifier, a general or a special of it, not one classified by a
   sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
-  `-convert sysml … -migration-results results.json` writes beside the notation:
+  `-migrate sysml … -migration-results results.json` writes beside the notation:
 
   ```json
   {"source": "model.xmi", "configurations": [

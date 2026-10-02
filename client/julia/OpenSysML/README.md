@@ -93,7 +93,12 @@ Query helpers include `build_query`, `query`, `build_document_bindings`,
 `run_document_query`, and `render_document`. Conversion is available through
 `convert_file`, `convert_source`, `convert_model`, `to_sysml`, `to_turtle`,
 `to_api_json`, and `save`. RDF/Turtle and API-JSON conversions emit an
-experimental-feature warning.
+experimental-feature warning. A SysML v1 model (`.mdzip`, `.xmi`, `.uml`) is
+migrated, not converted: `convert_file` refuses it, and `migrate_file(conn,
+path, to_format; report=true)` or `migrate_source(conn, bytes, to_format;
+from_format="mdzip")` answer a `Migration` whose `report` gives every
+element's verdict (`by_verdict(migration.report, "unmapped")`) and which
+`save(migration, path)` writes with its image files beside the model.
 
 ## Authoring
 

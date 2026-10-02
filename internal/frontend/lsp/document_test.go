@@ -503,7 +503,7 @@ const diagramDocumentModel = `package Imaging {
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
-	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n"
+	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
 		"mermaid":  {"```mermaid\n", mermaidHeader},
@@ -524,7 +524,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if strings.Count(res.Markdown, "```") != 2 {
 			t.Errorf("diagramForm %q: want exactly one fenced block:\n%s", form, res.Markdown)
 		}
-		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1 -[thickness=3]- n2 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
+		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1.0 -[thickness=3]- n2.0 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
 			t.Errorf("diagramForm %q: not a PlantUML interconnection:\n%s", form, res.Markdown)
 		}
 	}

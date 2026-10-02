@@ -236,15 +236,17 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
-| `--from <format>` | | Input format for `--convert`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
-| `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
-| `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
-| `--image-base-url <url>` | | With `--convert` from `xmi`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
+| `--migrate <format>` | | Migrate a SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a MagicDraw/Cameo `.mdzip` archive — to SysML v2 instead of running it, writing `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. A migration is ledgered, not lossless: every v1 element is **mapped**, **approximated**, **unmapped** or **skipped**, and the run says so in a one-line summary, or element by element with `-migration-report`. The input is named by its `.xmi`, `.uml` or `.mdzip` extension or by `--from`; v2 input is refused with a pointer at `--convert`, and `--convert` on a v1 model is refused with a pointer here, since a migration is not a conversion (experimental; see [SysML v1 migration](sysml-v1-migration.md)) |
+| `--from <format>` | | Input format for `--convert` or `--migrate`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to `--migrate`, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
+| `--migration-report <file>` | | With `--migrate`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
+| `--migration-results <file>` | | With `--migrate`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
+| `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
@@ -298,7 +300,7 @@ written in, so the verdicts are about that object:
 | `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`); `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
 | `-clock-step <seconds>` | The step the clock of every run the invocation makes ticks by, as a simulation tool's fixed-step clock does: a wait (`accept after`, `accept at`, a state's timer, a case's timed step) comes due at the first multiple of the step not before the instant it ends, so under `-clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the default) is a continuous clock, on which a wait comes due exactly when it ends. A step that is no finite, non-negative number is refused before anything runs. Every witness of a stepped run records it as `clock steps by <seconds>`, and `-schedule replay:<file>` follows it. With `-compare-results`, replaces every configuration's recorded `stepSize`. See [Running an action many times](#running-an-action-many-times) |
 | `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
-| `-compare-results <file>` | Reads the JSON sidecar `-migration-results` wrote and, for each run configuration it indexes — every one, or those `-action` names — runs the migrated configuration with its recorded `numberOfRuns` and `durationSimulationMode` (or the `-runs` and `-draws` given), seeded from `-seed`, and tables the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. A check of its own: refused with `-convert`, `-render*`, a query flag, `-eval`, `-compile` or `-sync`. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
+| `-compare-results <file>` | Reads the JSON sidecar `-migration-results` wrote and, for each run configuration it indexes — every one, or those `-action` names — runs the migrated configuration with its recorded `numberOfRuns` and `durationSimulationMode` (or the `-runs` and `-draws` given), seeded from `-seed`, and tables the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. A check of its own: refused with `-convert`, `-migrate`, `-render*`, a query flag, `-eval`, `-compile` or `-sync`. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse`'s picks one token a step — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of the invocation's behaviors, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action or a state machine](#checking-every-schedule-of-an-action-or-a-state-machine) |
 | `-check-diverge <feature>` | With `-engine check`, `-engine smt` or `-engine all`: a feature whose final value is compared across schedules, so the question put to the engine is whether it is *sensitive* to the schedule — `x` for the action's attribute, `step.out` for an output of a node it performs, `this.level` for the performing object's, `finalState` for a machine's resting state, `<behavior>.<feature>` and `<behavior> finalState` for one of several behaviors checked together; repeatable; a name nothing holds is refused. Under `check` a feature a schedule leaves unset ends as `<unset>`, and absent the flag every attribute of the behaviors and of the performing object and a machine's `finalState` are compared (an action run without an object has its own attributes only); under `smt` the feature is an action's alone, decided by a two-copy query, and the performing object's features are *not covered* until they are encoded |
@@ -464,8 +466,18 @@ diagram, a state machine, an action flow, a sequence diagram and a table. A geom
 recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
 every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
 `#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
-render the named element directly. Only the kinds this build produces are offered; newly supported
-kinds become pseudo-views automatically.
+render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
+Only the kinds this build produces are offered; newly supported kinds become pseudo-views
+automatically.
+
+An interconnection draws the exposed parts, the ports on their borders, and the connectors between
+them. A part's ports are those its definition declares as well as any it declares itself — `part
+heating : HeatingSystem` shows the `durationIn : ~DurationPort` HeatingSystem declares, `~` marking a
+conjugated port — and a connection, interface, flow or binding whose end names a port
+(`connect control.durationOut to heating.durationIn`) is drawn to that port, not to the part. The
+text form writes each port as a `port` line under its part and an edge's ends as `part.port`; the
+library's own `ownedPorts`, `subports` and `interfacingPorts` are not drawn. A part whose definition
+declares no port is a plain node.
 
 ```bash
 # The ASCII text form a person reads, written to fit the terminal
@@ -561,18 +573,18 @@ The forms a kind can be written in:
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
-A node's label follows the graphical notation's header: the element's name leads, with ` : Type`
-after it for a typed usage, the kind follows on its own line in guillemets, and any note (`initial`,
-`already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
+A node's label follows the graphical notation's header: the kind leads on its own line in
+guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
+(`initial`, `already shown`, `own flow`) comes after that. An anonymous element leads with its kind and has no
 keyword line. The text form keeps the notation's keyword-leading declaration order instead. One node
 in each form:
 
 | Form | `part pump : Pump` |
 | --- | --- |
 | `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
-| `mermaid` | Flowchart node labels use Markdown with bold heads and an italic keyword separated by real newlines when safe, otherwise the escaped `<br>` label; state and sequence labels retain `<br>` |
-| `dot` | `"n1" [label=<<b>pump : Pump</b><br/><font point-size="10">«part»</font>>];` — an HTML-like label, the name in bold and the keyword line at 10pt |
-| `plantuml` | `rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>` — a creole label, the name in bold and the keyword line italic at 10pt; the stereotypes drive the style and are hidden |
+| `mermaid` | Flowchart labels use Markdown when every line is safe: an italic keyword line, then bold head lines and plain details separated by real newlines; unsafe labels fall back to an escaped `<br>` label. State and sequence labels use `<br>` with the same keyword-first order |
+| `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
+| `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
@@ -586,13 +598,14 @@ extra line:
 ```
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["«part def»<br>Loop"]
     direction LR
   …
 ```
@@ -609,7 +622,10 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). The drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
+HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. The
+drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
@@ -624,8 +640,9 @@ visualizer draws with PlantUML — with the same header as `'` comments (`' <vie
 one `' not represented:` line per notice), the Pilot's B&W style inline as a `<style>` block plus
 `skinparam wrapWidth 300`, and one grammar per kind: a tree is a class diagram (`hide circle`,
 `hide empty members`, containment as `parent -- child` edges as the other forms draw it), an
-interconnection nested `rectangle` blocks with the Pilot's heavy `-[thickness=3]-` connectors and
-dashed `-[dashed]->` flows, a state rendering the `state` grammar with composite states, `[*] -->`
+interconnection nested `rectangle` blocks with a `port "name : Type"` element on the border of each
+part that has one, the Pilot's heavy `-[thickness=3]-` connectors and dashed `-[dashed]->` flows
+drawn between the ports they name (`n2.0 -[thickness=3]- n1.0`), a state rendering the `state` grammar with composite states, `[*] -->`
 starts and PlantUML's pseudostate stereotypes, an action rendering the state grammar too (PlantUML's
 activity syntax is procedural and cannot hold an arbitrary graph of successions and flows), and a
 sequence `participant`s and `->` messages one for one with the Mermaid form. Each node's keyword is
@@ -640,8 +657,8 @@ edges between them, with the unplaced accounted for in a `' not represented:` no
 node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
-`-render-palette <name>` fills the DOT, Mermaid and PlantUML nodes with a colourblind-safe palette by **keyword
-family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
+`-render-palette <name>` fills the Mermaid, DOT and PlantUML nodes with a colourblind-safe palette by
+**keyword family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
 item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
 case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
 the family colour, a usage with a lighter tint of it, both bordered in the colour; every fill is
@@ -679,6 +696,22 @@ render is refused likewise.
 ```bash
 sysml Project.sysml -render-document Project::DesignDescription \
     -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
+```
+
+`-render-ports <display>` is how much of a part's ports an interconnection draws. `minimal`,
+the default, draws on each part the ports a connector, interface, flow or binding of the view
+ends at and no other — each a small square on the part's border with its name beside it, the
+connector ending at the square — so a crowded diagram shows what it connects and nothing more;
+a part none of whose ports is connected draws as a part without ports does. `full` draws every
+port a part has, its own and those from its definition, labelled `name : Type` with `~` for a
+conjugated one. The display applies to the DOT, PlantUML, Mermaid and text forms alike, and to
+no kind but the interconnection; a `Diagram` block of a document states its own
+([`ports`](../manual/authoring.md#diagrams)). A name that is neither display is refused with
+status 2 and the two there are; `-render-ports` without `-render` or `-render-all` is refused
+likewise.
+
+```bash
+sysml model.sysml -render Views::loopView -render-form dot -render-ports full -o loop.dot
 ```
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The
@@ -1287,7 +1320,7 @@ A SysML v1 model migrated from a simulation tool (see
 configurations — each an `action def` performing the configured behavior on a `part target` of
 the configured classifier, with the tool's `numberOfRuns` and `durationSimulationMode` as
 `@Simulation::Configuration` metadata — and, in its result packages, the snapshots the tool
-stored of each run. `-convert sysml -migration-results <file>` writes both as a JSON sidecar:
+stored of each run. `-migrate sysml -migration-results <file>` writes both as a JSON sidecar:
 one entry per configuration with its `name` (the qualified name of the generated `action def`,
 which `-action` names), `runs`, `draws`, `clockStep` (the tool's internal clock's step in seconds, once its `startTime` set it going), `target`, `behavior`, `resultLocation`, the
 `observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot

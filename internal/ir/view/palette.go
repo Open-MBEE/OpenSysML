@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT, Mermaid and PlantUML forms colour nodes
-// with, one per keyword family (part, item, port, …, see paletteFamilies). The empty
-// Palette is the black-and-white default; every named one is colourblind-safe.
+// Palette names the set of fill colours the DOT, Mermaid and PlantUML forms
+// colour nodes with, one per keyword family (part, item, port, …, see
+// paletteFamilies). Mermaid sequence diagrams report that they cannot fill
+// individual participants. The empty Palette is the black-and-white default;
+// every named one is colourblind-safe.
 type Palette string
 
 const (
@@ -90,8 +92,8 @@ func (p Palette) check() error {
 	return nil
 }
 
-// paletteNotice is the notice a form that draws no palette writes for one asked
-// for, so the request is not dropped silently.
+// paletteNotice is the notice a form that does not fill nodes writes for a
+// palette asked for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {
 	return fmt.Sprintf("palette %s; only the DOT, Mermaid and PlantUML forms fill nodes by keyword family", palette)
 }

@@ -18,7 +18,12 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 // what the rendering could not represent. It is what the REPL prints. A table's
 // columns are written to fit width, wrapping their cells; WidthUnbounded writes
 // each column as wide as its widest cell.
-func (r *Rendering) TextWidth(width int) string {
+func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
+
+// textWith is the text form written to options' width, listing under each part
+// of an interconnection the ports options' Ports display draws.
+func (r *Rendering) textWith(options Options) string {
+	width := options.Width
 	var b strings.Builder
 	if r.View == "" {
 		fmt.Fprintf(&b, "%s rendering", r.Kind)
@@ -46,13 +51,14 @@ func (r *Rendering) TextWidth(width int) string {
 		b.WriteString(canvasText(c) + "\n\n")
 	}
 	labels := map[string]string{}
+	ports := r.portView(options.Ports)
 	for _, root := range r.Roots {
-		writeNodeText(&b, root, 0, labels)
+		writeNodeText(&b, root, 0, labels, ports)
 	}
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", labels[edge.From], edgeArrow(edge.Kind), labels[edge.To])
+			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(edge.Kind), endLabel(labels, edge.To, edge.ToPort))
 			if edge.Label != "" {
 				line += ": " + edge.Label
 			}
@@ -137,9 +143,21 @@ func (r *Rendering) blankReason(form Form) string {
 	return fmt.Sprintf("the view shows %d picture(s), which the %s form does not draw", len(r.Pictures), form)
 }
 
+// endLabel is the label an edge names its end by: the node's, and the port's
+// under it — `part.port` — where the edge ends at a port the text writes.
+func endLabel(labels map[string]string, node, port string) string {
+	if label, ok := labels[port]; ok && port != "" {
+		return label
+	}
+	return labels[node]
+}
+
 // writeNodeText writes one node and its children, and records the label an edge
-// names the node by. A body's start is named by the body it starts.
-func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string) {
+// names the node by. A body's start is named by the body it starts. In an
+// interconnection, the node's ports the display draws are written under it,
+// each a line of its own, and recorded as `node.port`; elsewhere they are left
+// to the edges' labels, which an action's flows name their pins in.
+func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
 	labels[node.ID] = nodeLabel(node)
 	line := strings.Repeat("  ", depth) + node.Kind
 	if node.Name != "" {
@@ -161,8 +179,14 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	b.WriteString(line + "\n")
+	if ports.interconnection {
+		for _, port := range ports.of(node) {
+			labels[port.ID] = labels[node.ID] + "." + port.Name
+			b.WriteString(strings.Repeat("  ", depth+1) + "port " + ports.pinLabel(port) + "\n")
+		}
+	}
 	for _, child := range node.Children {
-		writeNodeText(b, child, depth+1, labels)
+		writeNodeText(b, child, depth+1, labels, ports)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
 		}

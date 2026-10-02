@@ -33,7 +33,7 @@ config:
 %% OrderingViews::deadlockView — sequence rendering (view def SequenceView)
 %% not represented: successions form a cycle (answering, heard to sent); the messages are shown in declaration order
 sequenceDiagram
-  participant n0 as near<br>«part»
-  participant n1 as far<br>«part»
+  participant n0 as «part»<br>near
+  participant n1 as «part»<br>far
   n0->>n1: ask
   n1->>n0: reply

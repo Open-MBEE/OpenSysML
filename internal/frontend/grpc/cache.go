@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -47,7 +48,7 @@ type CachedModel struct {
 	Mode diag.ConformanceMode
 
 	symCtxOnce     sync.Once
-	symCtx         *SymbolContext
+	symCtx         *symbolfacts.Context
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
 	byPositional   map[string]*symbols.Symbol
@@ -166,7 +167,7 @@ func (m *CachedModel) SoleDocument() (*CachedDocument, error) {
 // SymbolContext returns the conversion context for this model, building it on
 // first use. Name resolution and the semantic relations derived from it are
 // memoized in it, so every symbol converted from one cached model shares one.
-func (m *CachedModel) SymbolContext() *SymbolContext {
+func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 	m.symCtxOnce.Do(func() {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))

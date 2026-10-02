@@ -1,0 +1,117 @@
+# SysML v1 to v2 migration report: instant_waits.xmi
+# migrated 105 element(s): 88 mapped, 13 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
+
+## unmapped (4)
+TimeEvent	<TimeEvent>	_someday	(the time event's time is not written: the instant "someday" is neither a number with a time unit nor an expression: names someday, which nothing visible from Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold is called)
+DurationConstraint	Stimulus::Hold::dtHold	_dtHold	(the interval has no max, so the interval is open above and no one wait of at least 1.0 s stands for it)
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<ControlFlow>	_sapE1	(the edge leads to (_sapCall), which never fires: no value reaches its input pin 'target')
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<ControlFlow>	_sapE2	(the edge leaves (_sapCall), which never fires, so no token travels it)
+
+## approximated (13)
+Activity	Stimulus::Blink	_blink	-> Stimulus::Blink	(also run as the do action of 'On')
+Activity	Stimulus::Cool Down	_cool	-> Stimulus::'Cool Down'	(also run as the exit action of 'On')
+DurationConstraint	Stimulus::Cool Down::dtCool	_dtCool	-> Stimulus::'Cool Down'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Cool Down'; a tool's fixed min or max mode is a run setting, not the model's)
+DurationConstraint	Stimulus::Send Ack On::dtOn	_dtOn	-> Stimulus::'Send Ack On'	(written as a wait drawn uniformly over [1.0, 3.0] s before 'Turn On'; a tool's fixed min or max mode is a run setting, not the model's)
+StateMachine	Stimulus::Stimulus Behavior	_sm	-> Stimulus::'Stimulus Behavior'	(acts on its owner Stimulus, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Stimulus as its usage stimulus Behavior)
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack	_sendAck	-> Stimulus::'Stimulus Behavior'::unnamed::'Send Ack'	(written as the do action of (_tOn); it waits for the clock (the duration constraint 'dtOn' on 'Turn On' in 'Send Ack On'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
+AcceptEventAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::someday	_sahWait	-> someday	(the time event's time is not written: the instant "someday" is neither a number with a time unit nor an expression: names someday, which nothing visible from Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold is called)
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off	_sendAckOff	-> Stimulus::'Stimulus Behavior'::unnamed5::'Send Ack Off'	(written as the do action of (_tOff); it waits for the clock (the accept of a time event 'delayed' in 'Delaying'), which a v2 transition effect, performed whole at the instant it is triggered, may not: a run stops at the wait)
+CallOperationAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<CallOperationAction>	_sapCall	-> call	(the call runs in the caller's context: no flow feeds its target pin; the action never fires: its input pin 'target' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+InputPin	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<CallOperationAction>::target	_sapTarget	(the target pin is not written; the call runs in the caller's context)
+CallBehaviorAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Settle::<CallBehaviorAction>	_sasCall	-> call	(the behavior acts on a Relay through its parameter context, which is left unbound: the caller is a Stimulus, which is no Relay and has no part that is one; v1 runs Relay::Settle on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing)
+State	Stimulus::Stimulus Behavior::<Region>::On	_on	-> On	(its entry action Stimulus::Warm Up: it waits for the clock (the accept of a time event 'warmed' in 'Warm Up'), which a v2 entry action, performed whole at the instant it is triggered, may not: a run stops at the wait; its exit action Stimulus::Cool Down: it waits for the clock (the duration constraint 'dtCool' on 'Cool Down'), which a v2 exit action, performed whole at the instant it is triggered, may not: a run stops at the wait)
+Activity	Stimulus::Warm Up	_warm	-> Stimulus::'Warm Up'	(also run as the entry action of 'On')
+
+## mapped (88)
+SignalEvent	<SignalEvent>	_cmdOnEv	(written where a trigger refers to it, as accept 'Cmd On')
+SignalEvent	<SignalEvent>	_cmdHoldEv	(written where a trigger refers to it, as accept 'Cmd Hold')
+SignalEvent	<SignalEvent>	_cmdSettleEv	(written where a trigger refers to it, as accept 'Cmd Settle')
+SignalEvent	<SignalEvent>	_cmdPauseEv	(written where a trigger refers to it, as accept 'Cmd Pause')
+SignalEvent	<SignalEvent>	_cmdOffEv	(written where a trigger refers to it, as accept 'Cmd Off')
+TimeEvent	<TimeEvent>	_settled	(written where a trigger refers to it, as accept after 1.0 [SI::s])
+TimeEvent	<TimeEvent>	_warmed	(written where a trigger refers to it, as accept after 2.0 [SI::s])
+TimeEvent	<TimeEvent>	_blinked	(written where a trigger refers to it, as accept after 1.0 [SI::s])
+Signal	Cmd Hold	_cmdHold	-> 'Cmd Hold'
+Signal	Cmd Off	_cmdOff	-> 'Cmd Off'
+Signal	Cmd On	_cmdOn	-> 'Cmd On'
+Signal	Cmd Pause	_cmdPause	-> 'Cmd Pause'
+Signal	Cmd Settle	_cmdSettle	-> 'Cmd Settle'
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Relay	_relay	-> Relay
+Activity	Relay::Settle	_settle	-> Relay::Settle	(acts on its owner Relay, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Relay::Settle::<ActivityFinalNode>	_settleFinal	-> final
+ControlFlow	Relay::Settle::<ControlFlow>	_settleE2
+ControlFlow	Relay::Settle::<ControlFlow>	_settleE3
+InitialNode	Relay::Settle::<InitialNode>	_settleInit	-> start
+ReadStructuralFeatureAction	Relay::Settle::read gain	_readGain	-> 'read gain'
+OutputPin	Relay::Settle::read gain::result	_readGainR	-> Relay::Settle::'read gain'.result
+AcceptEventAction	Relay::Settle::settled	_settleWait	-> settled
+Trigger	Relay::Settle::settled::<Trigger>	_settleTr
+Property	Relay::gain	_gain	-> Relay::gain
+«Block» Class	Stimulus	_stim	-> Stimulus
+ActivityFinalNode	Stimulus::Blink::<ActivityFinalNode>	_blinkFinal	-> final
+ControlFlow	Stimulus::Blink::<ControlFlow>	_blinkE2
+InitialNode	Stimulus::Blink::<InitialNode>	_blinkInit	-> start
+AcceptEventAction	Stimulus::Blink::blinked	_blinkWait	-> blinked
+Trigger	Stimulus::Blink::blinked::<Trigger>	_blinkTr
+ActivityFinalNode	Stimulus::Cool Down::<ActivityFinalNode>	_coolFinal	-> final
+InitialNode	Stimulus::Cool Down::<InitialNode>	_coolInit	-> start
+Operation	Stimulus::Delay	_delayOp	-> Stimulus::Delay	(its owner's usage delay performs it, as a call on an object does)
+Activity	Stimulus::Delaying	_delaying	-> Stimulus::Delay	(written as the body of the operation Stimulus::Delay, whose method it is)
+ActivityFinalNode	Stimulus::Delaying::<ActivityFinalNode>	_delayFinal	-> final
+ControlFlow	Stimulus::Delaying::<ControlFlow>	_delayE2
+InitialNode	Stimulus::Delaying::<InitialNode>	_delayInit	-> start
+AcceptEventAction	Stimulus::Delaying::delayed	_delayWait	-> delayed
+Trigger	Stimulus::Delaying::delayed::<Trigger>	_delayTr
+Activity	Stimulus::Hold	_hold	-> Stimulus::Hold
+ActivityFinalNode	Stimulus::Hold::<ActivityFinalNode>	_holdFinal	-> final
+InitialNode	Stimulus::Hold::<InitialNode>	_holdInit	-> start
+Activity	Stimulus::Send Ack On	_ackOn	-> Stimulus::'Send Ack On'
+ActivityFinalNode	Stimulus::Send Ack On::<ActivityFinalNode>	_ackFinal	-> final
+ControlFlow	Stimulus::Send Ack On::<ControlFlow>	_ackE2
+InitialNode	Stimulus::Send Ack On::<InitialNode>	_ackInit	-> start
+CallBehaviorAction	Stimulus::Send Ack On::Turn On	_turnOn	-> 'Turn On'	(a step with a duration and no further behavior)
+Region	Stimulus::Stimulus Behavior::<Region>	_r	(the one region is written as the body of its owner)
+Pseudostate	Stimulus::Stimulus Behavior::<Region>::<Pseudostate>	_init	(written as the entry of the region)
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tStart
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tOn
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tHold
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tSettle
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tPause
+Transition	Stimulus::Stimulus Behavior::<Region>::<Transition>	_tOff
+Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trOn
+Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trHold
+Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trSettle
+Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trPause
+Trigger	Stimulus::Stimulus Behavior::<Region>::<Transition>::<Trigger>	_trOff
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold	_sendAckHold	-> Stimulus::'Stimulus Behavior'::unnamed2::'Send Ack Hold'	(written as the do action of (_tHold))
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::<ActivityFinalNode>	_sahFinal	-> final
+CallBehaviorAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::<CallBehaviorAction>	_sahCall	-> call
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::<ControlFlow>	_sahE2
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::<ControlFlow>	_sahE3
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Hold::<InitialNode>	_sahInit	-> start
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<ActivityFinalNode>	_saoFinal	-> final
+CallOperationAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<CallOperationAction>	_saoCall	-> call
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<ControlFlow>	_saoE2
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Off::<InitialNode>	_saoInit	-> start
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause	_sendAckPause	-> Stimulus::'Stimulus Behavior'::unnamed4::'Send Ack Pause'	(written as the do action of (_tPause))
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<ActivityFinalNode>	_sapFinal	-> final
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Pause::<InitialNode>	_sapInit	-> start
+Activity	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Settle	_sendAckSettle	-> Stimulus::'Stimulus Behavior'::unnamed3::'Send Ack Settle'	(written as the do action of (_tSettle))
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Settle::<ActivityFinalNode>	_sasFinal	-> final
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Settle::<ControlFlow>	_sasE2
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack Settle::<InitialNode>	_sasInit	-> start
+ActivityFinalNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<ActivityFinalNode>	_saFinal	-> final
+CallBehaviorAction	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<CallBehaviorAction>	_saCall	-> call
+ControlFlow	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<ControlFlow>	_saE2
+InitialNode	Stimulus::Stimulus Behavior::<Region>::<Transition>::Send Ack::<InitialNode>	_saInit	-> start
+State	Stimulus::Stimulus Behavior::<Region>::Standby	_standby	-> Standby
+ActivityFinalNode	Stimulus::Warm Up::<ActivityFinalNode>	_warmFinal	-> final
+ControlFlow	Stimulus::Warm Up::<ControlFlow>	_warmE2
+InitialNode	Stimulus::Warm Up::<InitialNode>	_warmInit	-> start
+AcceptEventAction	Stimulus::Warm Up::warmed	_warmWait	-> warmed
+Trigger	Stimulus::Warm Up::warmed::<Trigger>	_warmTr
+
+## skipped (2)
+TimeEvent	<TimeEvent>	_lo	(not referenced by any behavior: no trigger refers to the event, so nothing would accept it)
+TimeEvent	<TimeEvent>	_hi	(not referenced by any behavior: no trigger refers to the event, so nothing would accept it)

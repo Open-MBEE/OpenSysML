@@ -101,14 +101,18 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palette and style values %render accepts after a form.
+// renderPalettes are the palette, style and port display values %render accepts
+// after a form.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
 	}
 	for _, style := range view.DrawingStyles() {
 		out = append(out, string(style))
+	}
+	for _, ports := range view.PortsChoices() {
+		out = append(out, string(ports))
 	}
 	return out
 }

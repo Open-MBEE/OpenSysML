@@ -61,7 +61,7 @@ Subsystems at or above 10 kg:
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -85,15 +85,21 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`**imagingChain**
-*«part»*`"]
+  subgraph n0 ["`*«part»*
+**imagingChain**`"]
     direction LR
-    n1("`**camera : Camera**
-*«part»*`")
-    n2("`**recorder : Recorder**
-*«part»*`")
+    subgraph n1 ["`*«part»*
+**camera : Camera**`"]
+      direction LR
+      n1.0["output"]
+    end
+    subgraph n2 ["`*«part»*
+**recorder : Recorder**`"]
+      direction LR
+      n2.0["input"]
+    end
   end
-  n1 ===|"link"| n2
+  n1.0 ===|"link"| n2.0
   linkStyle 0 stroke-width:3px
 ```
 
@@ -104,7 +110,7 @@ flowchart LR
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -125,33 +131,33 @@ config:
 ---
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0("`**telescope**
-*«part»*`")
-    n1("`**optics : Subsystem**
-*«part»*`")
-      n2("`**mass**
-*«attribute»*`")
-      n3("`**zone**
-*«attribute»*`")
+  n0("`*«part»*
+**telescope**`")
+    n1("`*«part»*
+**optics : Subsystem**`")
+      n2("`*«attribute»*
+**mass**`")
   n1 --- n2
+      n3("`*«attribute»*
+**zone**`")
   n1 --- n3
-    n4("`**segmentControl : Subsystem**
-*«part»*`")
-      n5("`**mass**
-*«attribute»*`")
-      n6("`**zone**
-*«attribute»*`")
-  n4 --- n5
-  n4 --- n6
-    n7("`**mount : Subsystem**
-*«part»*`")
-      n8("`**mass**
-*«attribute»*`")
-      n9("`**zone**
-*«attribute»*`")
-  n7 --- n8
-  n7 --- n9
   n0 --- n1
+    n4("`*«part»*
+**segmentControl : Subsystem**`")
+      n5("`*«attribute»*
+**mass**`")
+  n4 --- n5
+      n6("`*«attribute»*
+**zone**`")
+  n4 --- n6
   n0 --- n4
+    n7("`*«part»*
+**mount : Subsystem**`")
+      n8("`*«attribute»*
+**mass**`")
+  n7 --- n8
+      n9("`*«attribute»*
+**zone**`")
+  n7 --- n9
   n0 --- n7
 ```

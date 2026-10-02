@@ -33,7 +33,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", "**Vehicle**\n*«part def»*"} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -102,7 +102,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [arrowhead=none];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -152,7 +152,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -204,8 +204,8 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 }
 
-// -render-palette fills DOT and Mermaid nodes from a named palette and is refused with the palettes there
-// are when it names none of them.
+// -render-palette fills the DOT and Mermaid forms' nodes from a named palette,
+// and is refused with the palettes there are when it names none of them.
 func TestRenderPalette(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -213,7 +213,7 @@ func TestRenderPalette(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b>`} {
+	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -276,7 +276,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", "**Vehicle**\n*«part def»*", "wheel"} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**", "wheel"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -880,5 +880,61 @@ func TestRenderAllOOSEMViews(t *testing.T) {
 		if strings.Contains(string(tree), unwanted) {
 			t.Errorf("logical tree leaks %q past the view's filter:\n%s", unwanted, tree)
 		}
+	}
+}
+
+// portedModel connects two parts at the ports their definitions declare and
+// leaves a third's port unconnected.
+const portedModel = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; port spare : Signal; }
+    part def Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+
+// -render-ports chooses how much of a part's ports an interconnection draws:
+// minimal, the default, the ports a connector ends at, named alone; full, every
+// port, typed. A name that is neither is refused with the two there are, and
+// the flag without something to render likewise.
+func TestRenderPorts(t *testing.T) {
+	binary := buildCLI(t)
+
+	minimal := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
+	if minimal.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
+	}
+	for _, want := range []string{`<font point-size="8">out1</font>`, `<font point-size="8">in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
+		if !strings.Contains(minimal.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, minimal.stdout)
+		}
+	}
+	if strings.Contains(minimal.stdout, "spare") || strings.Contains(minimal.stdout, "Signal") {
+		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal.stdout)
+	}
+
+	full := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "plantuml", "-render-ports", "full")
+	if full.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
+	}
+	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+		if !strings.Contains(full.stdout, want) {
+			t.Errorf("-render-ports full is missing %q:\n%s", want, full.stdout)
+		}
+	}
+
+	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-ports", "all")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-ports: unknown port display "all"; the displays are minimal, full`) || unknown.stdout != "" {
+		t.Errorf("an unknown port display = %d\n%s", unknown.status, unknown.output())
+	}
+
+	alone := runStreams(t, binary, portedModel, "-render-ports", "full")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-ports is how much of a part's ports -render or -render-all draws") {
+		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
 	}
 }

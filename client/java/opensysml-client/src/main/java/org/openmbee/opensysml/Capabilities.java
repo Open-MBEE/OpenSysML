@@ -18,6 +18,9 @@ public final class Capabilities {
   /** The {@code Convert} RPC writes a model back out. */
   public static final String CONVERT = "convert";
 
+  /** The {@code Migrate} RPC migrates a SysML v1 model to v2, accounting for every element. */
+  public static final String MIGRATE = "migrate";
+
   /** The verification RPCs answer whether constraints and requirements hold. */
   public static final String VERIFICATION = "verification";
 

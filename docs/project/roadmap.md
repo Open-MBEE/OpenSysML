@@ -983,7 +983,7 @@ reader compares our library ids to its own.
 
 ## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice
 
-`-convert` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
+`-migrate` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
 `.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle with an
 element-by-element report; see [the migration reference](../reference/sysml-v1-migration.md) and
 [guide chapter 11](../guide/11-migrating-from-sysml-v1.md). The mapping covers structure, ports
@@ -1350,13 +1350,11 @@ terminate pseudostate to the same spelling, which retired its `terminate-gap` bu
 **What it leaves.** A fork branch of a state machine cannot target a terminate action: the
 lowering's fork rule takes states as branch targets (`lower/fork_plan.go`), and the spelling
 reported rather than routed. The training corpus's `19. Terminate Actions/Terminate Actions
-Example-1.sysml` (`MonitoredActivity`) parses and every `terminate` it uses runs, but the model
-still stops at initialize: its nested node `performCriticalActivity` is two `perform`s with no
-`first` and no succession between them, so the flow-start rule (`lower/case_body.go`
-`CaseFlowStart`, `runtime/action_subflow.go` `noFlowStart`) reports two possible starts — `no
-succession leads to "monitorCriticalActivity" or to "criticalActivity"` — where §7.17.2 lets
-unsequenced nested actions start concurrently when their container does. That is a flow-start
-item, not a terminate one, and it is what the example waits on.
+Example-1.sysml` (`MonitoredActivity`) parses, every `terminate` it uses runs, and the model runs
+to completion: subactions no succession orders now start with their owner's performance
+(`lower/action_starts.go`), but the nested node `performCriticalActivity` holds only two
+`perform`s, which are referential event occurrence usages rather than composite subactions, so
+neither is performed and the `terminate` after `criticalActivity` is not reached.
 
 ## E2 — interrupting an ongoing performance ("interruptible regions") (landed)
 
@@ -2676,7 +2674,7 @@ production/development split of its build tags would leave out. Independent of e
 above; the design's own sequence orders it.
 
 **An MTIP export as an optional layout augment to a SysML v1 migration (landed).** A
-Cameo/MagicDraw export migrates through `sysml <model>.mdzip -convert sysml`
+Cameo/MagicDraw export migrates through `sysml <model>.mdzip -migrate sysml`
 ([the mapping](../reference/sysml-v1-migration.md)), and #524 writes each of its diagrams as a
 `view` usage exposing the elements the diagram shows and rendered by the diagram's kind. What
 the XMI does not carry is where the diagram draws them: the tool keeps its diagram geometry
@@ -2685,7 +2683,7 @@ engineer settled on is lost. Open-MBEE's MTIP plugin (`Open-MBEE/mtip-cameo`) re
 through the tool's own API and writes it into its HUDS XML — per diagram, the shown elements
 with their bounds, connector breakpoints, colors, fonts and images, each keyed by the element's
 identifier — so an MTIP export of the same project holds exactly the layer the migration lacks.
-`sysml <model>.mdzip -convert sysml -layout <mtip-export.xml>` now reads it as an **augment,
+`sysml <model>.mdzip -migrate sysml -layout <mtip-export.xml>` now reads it as an **augment,
 not a second input format**: `internal/translate/mtip` keeps the diagram/presentation layer of
 the HUDS file and nothing else, and the migration joins each record to the migrated view and the
 exposed element or connector by the element identifier MTIP records — confirmed on a real

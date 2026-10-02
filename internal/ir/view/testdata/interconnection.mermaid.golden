@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -26,16 +26,26 @@ config:
 ---
 %% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`**Loop**
-*«part def»*`"]
+  subgraph n0 ["`*«part def»*
+**Loop**`"]
     direction LR
-    n1("`**pump : Pump**
-*«part»*`")
-    n2("`**tank : Tank**
-*«part»*`")
-    n3("`**sensor : Pump**
-*«part»*`")
+    subgraph n1 ["`*«part»*
+**pump : Pump**`"]
+      direction LR
+      n1_anchor[" "]
+      n1.0["outlet"]
+    end
+    subgraph n2 ["`*«part»*
+**tank : Tank**`"]
+      direction LR
+      n2_anchor[" "]
+      n2.0["inlet"]
+    end
+    n3("`*«part»*
+**sensor : Pump**`")
   end
-  n1 ===|"supply"| n2
-  n1 -.->|"of Water"| n2
+  n1.0 ===|"supply"| n2.0
+  n1_anchor -.->|"of Water"| n2_anchor
+  classDef anchor fill:none,stroke:none
+  class n1_anchor,n2_anchor anchor
   linkStyle 0 stroke-width:3px

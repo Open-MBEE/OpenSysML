@@ -70,21 +70,21 @@ config:
 %% route: n16->n4 860,90 660,90 660,120
 %% route: n17->n5 930,100 930,140 780,140 780,200
 stateDiagram-v2
-  state "Alignment<br>«state def»" as n0 {
-    state "Initializing<br>«state»<br>initial, do / Initialize" as n1
-    state "Aligning<br>«state»<br>entry / prime, do / align, exit / Settle" as n2
+  state "«state def»<br>Alignment" as n0 {
+    state "«state»<br>Initializing<br>initial, do / Initialize" as n1
+    state "«state»<br>Aligning<br>entry / prime, do / align, exit / Settle" as n2
       note right of n2
         guide on the current star
       end note
-    state "Phasing<br>«state»<br>entry / Initialize" as n3 {
-      state "Coarse<br>«state»<br>initial, do / Align" as n4
-      state "Fine<br>«state»<br>do / Align" as n5
-      state "Tracking<br>«state»" as n6 {
-        state "Guiding<br>«region»" as n7 {
-          state "guide<br>«state»" as n9
+    state "«state»<br>Phasing<br>entry / Initialize" as n3 {
+      state "«state»<br>Coarse<br>initial, do / Align" as n4
+      state "«state»<br>Fine<br>do / Align" as n5
+      state "«state»<br>Tracking" as n6 {
+        state "«region»<br>Guiding" as n7 {
+          state "«state»<br>guide" as n9
         }
-        state "Focusing<br>«region»" as n8 {
-          state "focus<br>«state»" as n10
+        state "«region»<br>Focusing" as n8 {
+          state "«state»<br>focus" as n10
         }
       }
       state n12 <<choice>>

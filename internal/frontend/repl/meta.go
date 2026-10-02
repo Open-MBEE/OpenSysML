@@ -28,8 +28,8 @@ import (
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
-// when none is named, then the palette and style options the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]"
+// when none is named, then a palette, style and port display the form draws.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -213,7 +213,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -485,11 +485,11 @@ func (s *Session) doTrace(args []string) []string {
 	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
 }
 
-// metaRender reads the %render arguments — the name, an optional form and, for
-// a form that fills nodes, an optional palette and drawing style — and renders
-// the view they name.
+// metaRender reads the %render arguments — the name, an optional form, an
+// optional port display and, for a form that fills nodes, an optional palette
+// and drawing style — and renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 4 {
+	if len(args) < 1 || len(args) > 5 {
 		return []string{renderUsage}, false, nil
 	}
 	form := view.FormText
@@ -508,8 +508,15 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			opts.Style = style
 			continue
 		}
+		if ports, ok := view.ParsePorts(word); ok {
+			if opts.Ports != "" {
+				return []string{renderUsage}, false, nil
+			}
+			opts.Ports = ports
+			continue
+		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the dot, mermaid and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
+			return []string{fmt.Sprintf("a palette fills the mermaid, dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {

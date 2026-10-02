@@ -75,7 +75,7 @@ func TestBindingIsAnInterconnectionEdge(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	want := `"n1" -> "n2" [label="'pump.level = tank.level'", arrowhead=none, pos="10,-20 10,-20 30,-40 30,-40", lp="75.5,25.5"];`
+	want := `"n1.0" -> "n2.0" [label="'pump.level = tank.level'", arrowhead=none, pos="10,-20 10,-20 30,-40 30,-40", lp="75.5,25.5"];`
 	if !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
@@ -146,7 +146,7 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 			[]string{"start -> a: 'start to a'", "a -> b: [true]", "b -> c: 'b to c'", "a => b: o to i"},
 			[]string{"'a to b'", "'a.o to b.i'"}},
 		{"Labels::loopView",
-			[]string{"pump -- tank: supply", "pump == tank: 'pump.level = tank.level'", "pump => tank: of Water"},
+			[]string{"pump.outlet -- tank.inlet: supply", "pump.level == tank.level: 'pump.level = tank.level'", "pump.outlet => tank.inlet: of Water"},
 			[]string{"'pump.outlet to tank.inlet'"}},
 	}
 	for _, tc := range cases {

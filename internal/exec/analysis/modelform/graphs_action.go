@@ -25,8 +25,10 @@ type ActionForm struct {
 	Attributes []AttributeForm `json:"attributes,omitempty"`
 	Nodes      []NodeForm      `json:"nodes"`
 	// Initial is the vertex the flow starts at, absent for a graph without one.
-	Initial *int  `json:"initial,omitempty"`
-	Finals  []int `json:"finals,omitempty"`
+	Initial *int `json:"initial,omitempty"`
+	// Concurrent are the subactions no succession reaches, started with the flow.
+	Concurrent []int `json:"concurrent,omitempty"`
+	Finals     []int `json:"finals,omitempty"`
 	// Edges are the control flows, by source vertex then declaration order.
 	Edges []EdgeForm `json:"edges,omitempty"`
 	// Flows are the object flows between pins, by source vertex then declaration order.
@@ -321,6 +323,9 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		ids.add(node)
 	}
 	ids.add(graph.Initial)
+	for _, node := range graph.Concurrent {
+		ids.add(node)
+	}
 	for _, node := range graph.Finals {
 		ids.add(node)
 	}
@@ -378,6 +383,9 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		form.Attributes = append(form.Attributes, x.attribute(graph.Scope, attr))
 	}
 	form.Initial = ids.ref(graph.Initial)
+	for _, node := range graph.Concurrent {
+		form.Concurrent = append(form.Concurrent, ids.add(node))
+	}
 	for _, node := range graph.Finals {
 		form.Finals = append(form.Finals, ids.add(node))
 	}

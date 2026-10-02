@@ -708,6 +708,49 @@ func (m *Model) ConnectorObjectEnds(sym *symbols.Symbol) []ConnectorEndAttachmen
 	return m.connectorEndAttachments(sym, ends)
 }
 
+// ConnectorEndPath is where one end of a connector usage attaches: the end's
+// effective name, and the features its attachment names in order — the parts
+// a chain `a.b.p` walks and the feature it ends on. Features is empty where
+// the attachment resolves to nothing.
+type ConnectorEndPath struct {
+	Name     string
+	Features []*symbols.Symbol
+}
+
+// ConnectorEndPaths resolves each end of a connector object usage (a connect,
+// binding or flow) prefix by prefix, in end order.
+func (m *Model) ConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
+	ends := m.ConnectorObjectEnds(sym)
+	paths := make([]ConnectorEndPath, len(ends))
+	for i, end := range ends {
+		paths[i] = ConnectorEndPath{Name: end.Name, Features: m.attachmentPath(sym.OwnerScope, end.Attachment)}
+	}
+	return paths
+}
+
+// attachmentPath resolves an end attachment and each of its chain prefixes,
+// outermost first; nil where any prefix resolves to nothing.
+func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	var prefixes []ast.Node
+	for n := node; n != nil; {
+		prefixes = append(prefixes, n)
+		chain, ok := n.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		n = chain.Operand
+	}
+	path := make([]*symbols.Symbol, 0, len(prefixes))
+	for i := len(prefixes) - 1; i >= 0; i-- {
+		target, ok := m.resolver.ResolveTarget(scope, prefixes[i])
+		if !ok || target == nil {
+			return nil
+		}
+		path = append(path, target)
+	}
+	return path
+}
+
 type connectorEndInput struct {
 	attachment ast.Node
 	end        *ast.ConnectorEnd

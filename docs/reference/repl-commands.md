@@ -68,7 +68,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%search <substring>` | List the declared and library symbols whose qualified name contains the substring, with the kind of each |
 | `%builtins` | List the library functions the runtime implements directly (`sqrt`, `abs`, `max`, `floor`, `x->isEmpty()`, `x->sum()` …), each with the package an `import` must name for its bare name to resolve; the qualified name (`RealFunctions::sqrt(2.0)`) resolves anywhere |
 | `%view <name>` | Show what a view exposes: its own `expose` relationships plus the protected ones of the views it specializes, the views nested in it (each with its own exposed set), and its conformance to every viewpoint it satisfies. Conformance is a verdict of `conforms`, `violated` or `unevaluable` per viewpoint and per framed concern, with the reason, the exposed element a concern's condition failed for, and `(from <view>)` where the `satisfy` is inherited. Asking about an element that is not a view says so |
-| `%render <name> [form [palette] [style]]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`; `dot` writes a graph-shaped kind as Graphviz DOT, `plantuml` writes it — a sequence included — as PlantUML, and each supports the Pilot visualizer's Standard B&W style. `dot <palette>`, `mermaid <palette>` or `plantuml <palette>` fills nodes by keyword family from `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; sequence palettes are accepted but Mermaid cannot fill individual participants. An unknown palette is refused with the names there are. `dot [palette] pilot|cameo` or `mermaid [palette] pilot|cameo` names the Pilot look (the default) or Cameo Systems Modeler's; Mermaid reports unsupported Cameo details, and an unknown style is refused with the two there are. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
+| `%render <name> [form [palette] [style] [ports]]` | Render a view's exposed set in the kind its `render` member states: a containment tree with nested views as subtrees, an interconnection diagram of the exposed parts and the connections between them, a state machine's states and transitions, an action's nodes and successions, or a table of the exposed elements and what they declare. A view with no `render` member renders as a tree. Output is indented text by default, or the machine-readable form of the kind: a [Mermaid](#rendering-a-view) diagram with `mermaid`, a Markdown table with `markdown`; `dot` writes a graph-shaped kind as Graphviz DOT instead of Mermaid, in the Pilot visualizer's Standard B&W style, `plantuml` writes it — a sequence included — as PlantUML in the same style, and `dot <palette>` or `plantuml <palette>` fills the nodes by keyword family from `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; an unknown palette is refused with the names there are; `dot [palette] pilot` or `dot [palette] cameo` names the drawing style, the Pilot look (the default) or Cameo Systems Modeler's, and an unknown style is refused with the two there are. Asking for a form the kind cannot be written in tells you which form it uses. Read-only: it creates no object and leaves a `%action`/`%state` debugging session running. A view that exposes nothing renders empty and says so; a rendering kind this build does not produce is reported by kind and view rather than rendered as something else; an element the rendering cannot represent is reported, not dropped |
 | **Instantiation & Inspection** | |
 | `%instantiate <name>` | Create an object of a part definition and start the behaviors its type exhibits or performs. Each object runs its own machine, initialized after its feature values are built and run until it is quiescent. A second `%instantiate` of the same name creates a new object, and the name then refers to that one. A later submission keeps the object's identity but restarts its behaviors from their initial states, and says so |
 | `%features <object> [all\|depth <n>] [json]` | Show what an object holds for each feature of its type. The object is named, addressed by id, or reached by a path: `%features car`, `%features #3`, `%features car.fl.hub`, `%features car.wheels[2]`. A feature with no value reads `<unset>`. States and actions hold no value, so they are listed after the values under a `Behaviors:` heading with what the object is doing with each: the current active state of a machine it exhibits (the state `%current` reports), the execution state of an action it performs, `not running` for a state or action it neither exhibits nor performs, or, for a named transition, the step it declares (`toggle: transition, modes.closed → modes.opened`). A behavior a redefinition renamed (`exhibit state fancyModes :>> modes`) is one execution under two names, and both rows report it. The values a running behavior owns — the attributes of the machine's own occurrence, an action's parameters and outputs — are listed under its row (`modes: exhibited state machine, current state running` followed by `count = 1`), apart from the performer's own values, and are bounded like any nested object. Reading a feature value builds the objects it holds, so the listing is bounded by default — 200 lines, nesting 8 deep — and a listing cut short says which form shows the rest. `all` lifts both bounds and reads the whole tree out; `depth <n>` bounds nesting at `n` levels and lifts the size bound, naming what it did not expand (`machine : Machine (not expanded: depth 1)`). `json` writes the object and everything reachable from it as one document in the shape the API's `Instantiate` returns (`instance`, `instances`, `diagnostics`), bounded by default at 1000 objects, with a graph cut short reported as a `warning` diagnostic. `all`/`depth` and `json` combine (`%features ctx all json`); `all` and `depth` together, a missing or negative depth, and an unknown word are errors naming the usage |
@@ -113,6 +113,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | **Control** | |
 | `%quit` | Exit the REPL |
 | `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, and file paths after `%load` and `%save` |
+| `Ctrl-C` | Discard the line being typed, and any continuation buffered before it; at an empty `sysml>` prompt, exit REPL |
 | `Ctrl-D` | Exit REPL |
 
 The five solving commands (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) follow the
@@ -410,20 +411,20 @@ view Demo::summary::detail
 sysml> %render Demo::summary mermaid
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["Vehicle<br>«part def»"]
-  n1["mass : Real<br>«attribute»"]
+  n0["«part def»<br>Vehicle"]
+  n1["«attribute»<br>mass : Real"]
   n0 --- n1
-  n2["wheel : Wheel<br>«part»"]
+  n2["«part»<br>wheel : Wheel"]
   n0 --- n2
-  n3["summary::detail<br>«view»"]
-  n4["Wheel<br>«part def»"]
-  n5["diameter : Real<br>«attribute»"]
+  n3["«view»<br>summary::detail"]
+  n4["«part def»<br>Wheel"]
+  n5["«attribute»<br>diameter : Real"]
   n4 --- n5
   n3 --- n4
 ```
 
-A diagram node's label leads with the element's name, ` : Type` after it for a typed usage, and
-puts the kind on the next line in guillemets; the text form keeps the keyword first, as the
+A diagram node's label leads with the kind in guillemets and puts the element's name on the next
+line, ` : Type` after it for a typed usage; the text form keeps the keyword first, as the
 notation declares it.
 
 A view that states `render asElementTable;`, or is typed by `StandardViewDefinitions::GridView`,
@@ -469,21 +470,21 @@ digraph "Demo::summary" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [style="rounded,filled", label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [style="rounded,filled", label=<<b>wheel : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel : Wheel</b>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [style="rounded,filled", label=<<b>summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
-  "n4" [label=<<b>Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n5" [style="rounded,filled", label=<<b>diameter : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>summary::detail</b>>];
+  "n4" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter : Real</b>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
 }
 ```
 
 The drawing is the Standard B&W style of the SysML v2 Pilot visualizer — white fills, thin
-`#181818` lines, square definitions and rounded usages, a bold name over an italic keyword line
+`#181818` lines, square definitions and rounded usages, a bold name under an italic keyword line
 ([the translation](../project/view-rendering-forms.md#style)). A palette name after `dot` fills
 the nodes by keyword family, a `part def` and its `part` usages sharing a hue, with black text
 kept legible on every fill:
@@ -491,8 +492,8 @@ kept legible on every fill:
 ```text
 sysml> %render Demo::summary dot okabe-ito
 …
-  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
+  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
+  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
 …
 ```
 
@@ -501,6 +502,11 @@ The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-se
 any other name is refused with that list. DOT, Mermaid and PlantUML accept palettes;
 Mermaid sequence diagrams report that they cannot fill individual participants. A `Diagram` block
 of a document states its own ([`palette`](../manual/authoring.md#diagrams)).
+A word `minimal` or `full` after the form names how much of a part's ports an interconnection
+draws: `minimal`, the default, the ports a connector of the view ends at, each a small square on
+the part's border named beside it; `full`, every port a part has, labelled `name : Type`
+(`%render Plant::loopView dot full`). It is accepted in any order with the palette and the
+style, once, and completes beside them.
 
 A word after `dot` or `mermaid` names the drawing style: `pilot`, the look above and the default, or
 `cameo`, the look of Cameo Systems Modeler — a diagram frame with a `stm [State Machine] … [ … ]`
@@ -536,16 +542,17 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
-class "**mass : Real**\n<size:10>//«attribute»//</size>" as n1 <<attribute>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
+class "<size:10>//«attribute»//</size>\n**mass : Real**" as n1 <<attribute>> <<usage>>
 n0 -- n1
 …
 @enduml
 ```
 
 A palette name after `plantuml` fills the same nodes with the same colours DOT would
-(`%render Demo::summary plantuml okabe-ito`), a sequence's participants included. A `table`
-view has no PlantUML form. PlantUML pins no positions, so a view's `DiagramLayout` geometry
+(`%render Demo::summary plantuml okabe-ito`), a sequence's participants included; after `mermaid`
+it fills them likewise, as a `style` statement per flowchart node or a `classDef` per state, a
+sequence diagram alone noting it as not represented. A `table` view has no PlantUML form. PlantUML pins no positions, so a view's `DiagramLayout` geometry
 rides along as `'` comments; `dot` is the form that honours it
 ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 

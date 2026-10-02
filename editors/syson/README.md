@@ -37,8 +37,10 @@ npm run build
 
 ## Build against real SysON artifacts
 
-Real Sirius Web and SysON artifacts are hosted on GitHub Packages. Set `GITHUB_ACTOR` and
-`GITHUB_TOKEN` to a token with `read:packages`, then use the supplied Maven settings:
+Real Sirius Web and SysON artifacts are hosted on GitHub Packages. The
+`syson-artifacts.yml` workflow reads the repository secret `GITHUB_PACKAGES_READ_TOKEN`; for a
+local build, set `GITHUB_ACTOR` and `GITHUB_TOKEN` to a token with `read:packages`, then use the
+supplied Maven settings:
 
 ```text
 mvn -B -s editors/syson/settings.xml -f editors/syson/pom.xml \
@@ -57,6 +59,9 @@ npm run build:syson
 ```
 
 The opt-in `.github/workflows/syson-artifacts.yml` workflow runs both real-artifact builds.
+The real-artifact backend tests use a `src/test/real-java` fake element because the published
+`Element` interface is too large to implement directly; the default stub build uses its own
+`src/test/stubs-java` fake element.
 
 ## Add the integration to SysON
 

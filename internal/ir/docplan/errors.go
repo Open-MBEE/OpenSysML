@@ -41,6 +41,8 @@ const (
 	ErrorUnsupportedDirection    ErrorKind = "unsupported-direction"
 	ErrorInvalidPalette          ErrorKind = "invalid-palette"
 	ErrorUnsupportedPalette      ErrorKind = "unsupported-palette"
+	ErrorInvalidPorts            ErrorKind = "invalid-ports"
+	ErrorUnsupportedPorts        ErrorKind = "unsupported-ports"
 	ErrorConflictingRuns         ErrorKind = "conflicting-runs"
 	ErrorAmbiguousRun            ErrorKind = "ambiguous-run"
 	ErrorMissingRunText          ErrorKind = "missing-run-text"
@@ -170,6 +172,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s diagram %s palette must be one of %s, got %q", e.Document, e.Content, view.PaletteNames(), e.Actual)
 	case ErrorUnsupportedPalette:
 		return fmt.Sprintf("document %s diagram %s states palette %q, but a %s rendering has no DOT, Mermaid or PlantUML form to fill", e.Document, e.Content, e.Actual, e.Expected)
+	case ErrorInvalidPorts:
+		return fmt.Sprintf("document %s diagram %s ports must be one of %s, got %q", e.Document, e.Content, view.PortsNames(), e.Actual)
+	case ErrorUnsupportedPorts:
+		return fmt.Sprintf("document %s diagram %s states ports %q, but a %s rendering draws no part's ports", e.Document, e.Content, e.Actual, e.Expected)
 	case ErrorConflictingRuns:
 		return fmt.Sprintf("document %s paragraph %s declares inline runs alongside text or a query", e.Document, e.Content)
 	case ErrorAmbiguousRun:

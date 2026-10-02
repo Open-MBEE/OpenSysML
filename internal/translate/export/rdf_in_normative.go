@@ -731,6 +731,18 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			Note: "it owns no element, so the expression it relates cannot be told",
 		}
 	}
+	// A transition's FeatureChainMember names its source state, the member
+	// sysml:source restates.
+	if d.metaclass(owner) == mTransition {
+		source, ok := d.graph.Object(owner, rdf.SysML+pSource)
+		if !ok || source == member || !source.IsIRI() {
+			return nil
+		}
+		return &UnsupportedError{
+			What: fmt.Sprintf("the membership <%s>", subject.Value),
+			Note: fmt.Sprintf("its member is <%s>, and the transition <%s> it names the source of states sysml:source <%s>; the notation writes the source once, so writing one would drop the other", member.Value, owner.Value, source.Value),
+		}
+	}
 	stated := false
 	for _, property := range []string{pReferent, pTargetFeature, pFunction} {
 		objects := d.graph.Objects(owner, rdf.SysML+property)
@@ -808,6 +820,42 @@ func (d *decoder) rangeOwner(subject rdf.Term) (rdf.Term, bool) {
 	return rdf.IRI(m.owner), true
 }
 
+// sameEndpoint reports whether a transition's collapsed endpoint and the one
+// its structure states agree. A head that is itself a chain names that chain,
+// so the structure must state the same links; a head that is a feature is what
+// a structural chain (`first a.b`, `then b.c`) reaches, its last link.
+func (d *decoder) sameEndpoint(head, structural rdf.Term) (bool, error) {
+	headLinks, err := d.chainLinksOrSelf(head)
+	if err != nil {
+		return false, err
+	}
+	links, err := d.chainLinksOrSelf(structural)
+	if err != nil {
+		return false, err
+	}
+	if len(headLinks) > 1 {
+		return slices.Equal(headLinks, links), nil
+	}
+	return headLinks[0] == links[len(links)-1], nil
+}
+
+// chainLinksOrSelf is the ordered links of a chain feature, or term alone
+// when it is no chain.
+func (d *decoder) chainLinksOrSelf(term rdf.Term) ([]rdf.Term, error) {
+	if !term.IsIRI() {
+		return []rdf.Term{term}, nil
+	}
+	isChain, err := d.chainFeatureTerm(term)
+	if err != nil || !isChain {
+		return []rdf.Term{term}, err
+	}
+	links, err := d.chainSegments(term)
+	if err != nil || len(links) == 0 {
+		return []rdf.Term{term}, err
+	}
+	return links, nil
+}
+
 // headEnd reports whether el is an unnamed end a connector owns through an
 // EndFeatureMembership: the head writes it (`connect a to b`, `first a then b`).
 func (d *decoder) headEnd(el, parent *element) bool {
@@ -837,7 +885,11 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if err != nil || !hasHead {
 			return false, err
 		}
-		if stated != head {
+		same, err := d.sameEndpoint(head, stated)
+		if err != nil {
+			return false, err
+		}
+		if !same {
 			return false, &UnsupportedError{
 				What: what,
 				Note: fmt.Sprintf("its head states <%s> as its %s while its owned %s refers to <%s>, and writing one would drop the other", head.Value, role, el.metaclass, stated.Value),
@@ -852,9 +904,17 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, nil
 		}
 		return agree(pSource, source, "source")
+	case el.metaclass == mFeature && owning == mOwningMembership:
+		// `first a.b`: the FeatureChainMember owns the chain it names.
+		if isChain, err := d.chainFeatureTerm(subject); err != nil || !isChain {
+			return false, err
+		}
+		return agree(pSource, subject, "source")
 	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
-		direction, _ := d.stringOf(el, rdf.SysML+pDirection)
-		return direction == "in" && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+		// A parameter's direction defaults to `in`, which the element form
+		// may leave unstated.
+		direction, stated := d.stringOf(el, rdf.SysML+pDirection)
+		return (direction == "in" || !stated) && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 			len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0, nil
 	case el.metaclass == mAcceptAction && owning == mTransitionFeatureMembership:
 		kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)

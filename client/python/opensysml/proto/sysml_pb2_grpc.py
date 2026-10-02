@@ -85,6 +85,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.ConvertRequest.SerializeToString,
                 response_deserializer=sysml__pb2.ConvertResponse.FromString,
                 _registered_method=True)
+        self.Migrate = channel.unary_unary(
+                '/sysml.SysMLService/Migrate',
+                request_serializer=sysml__pb2.MigrateRequest.SerializeToString,
+                response_deserializer=sysml__pb2.MigrateResponse.FromString,
+                _registered_method=True)
         self.ApplyEdits = channel.unary_unary(
                 '/sysml.SysMLService/ApplyEdits',
                 request_serializer=sysml__pb2.ApplyEditsRequest.SerializeToString,
@@ -218,7 +223,20 @@ class SysMLServiceServicer:
     def Convert(self, request, context):
         """Convert a model between the representations OpenSysML writes — SysML
         textual notation and RDF Turtle — so a client can write a model back out
-        rather than only read it. Reported as the "convert" capability.
+        rather than only read it. A SysML v1 model is refused: it is migrated, not
+        converted (Migrate). Reported as the "convert" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Migrate(self, request, context):
+        """Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+        Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+        written in one of the representations Convert writes. Migration is not a
+        lossless conversion: every v1 element is mapped, approximated or left
+        unmapped, and the response's report says which, element by element.
+        Reported as the "migrate" capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -384,6 +402,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.Convert,
                     request_deserializer=sysml__pb2.ConvertRequest.FromString,
                     response_serializer=sysml__pb2.ConvertResponse.SerializeToString,
+            ),
+            'Migrate': grpc.unary_unary_rpc_method_handler(
+                    servicer.Migrate,
+                    request_deserializer=sysml__pb2.MigrateRequest.FromString,
+                    response_serializer=sysml__pb2.MigrateResponse.SerializeToString,
             ),
             'ApplyEdits': grpc.unary_unary_rpc_method_handler(
                     servicer.ApplyEdits,
@@ -717,6 +740,33 @@ class SysMLService:
             '/sysml.SysMLService/Convert',
             sysml__pb2.ConvertRequest.SerializeToString,
             sysml__pb2.ConvertResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Migrate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/Migrate',
+            sysml__pb2.MigrateRequest.SerializeToString,
+            sysml__pb2.MigrateResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -5,9 +5,9 @@ digraph "FilteredViews::safetyView" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<b>Radio</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n1" [label=<<b>Airbag</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n2" [label=<<b>Braking::Brake</b><br/><font point-size="10"><i>«part def»</i></font>>];
-  "n3" [style="rounded,filled", label=<<b>pad</b><br/><font point-size="10"><i>«part»</i></font>>];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Radio</b>>];
+  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Airbag</b>>];
+  "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Braking::Brake</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pad</b>>];
   "n2" -> "n3" [arrowhead=none];
 }

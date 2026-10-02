@@ -41,11 +41,11 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "**VehicleStates**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
-  state "**off**\n<size:10>//«state»//</size>\ninitial" as n1 <<state>> <<usage>>
-  state "**operating**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>> {
-    state "**idle**\n<size:10>//«state»//</size>\ninitial" as n3 <<state>> <<usage>>
-    state "**moving**\n<size:10>//«state»//</size>" as n4 <<state>> <<usage>>
+state "<size:10>//«state def»//</size>\n**VehicleStates**" as n0 <<state def>> {
+  state "<size:10>//«state»//</size>\n**off**\ninitial" as n1 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**operating**" as n2 <<state>> <<usage>> {
+    state "<size:10>//«state»//</size>\n**idle**\ninitial" as n3 <<state>> <<usage>>
+    state "<size:10>//«state»//</size>\n**moving**" as n4 <<state>> <<usage>>
     [*] --> n3
   }
   [*] --> n1

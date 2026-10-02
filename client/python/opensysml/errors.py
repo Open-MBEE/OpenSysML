@@ -183,6 +183,22 @@ class ConversionError(OpenSysMLError):
         self.diagnostics = diagnostics or []
 
 
+class MigrationError(OpenSysMLError):
+    """Raised when the service could not migrate a SysML v1 model at all.
+
+    An element the migration has no v2 form for is not an error — it is left
+    unmapped and reported in the :class:`~opensysml.conversion.MigrationReport`;
+    this is raised when the source is not a v1 model the migrator can read.
+
+    Attributes:
+        message (str): Error description reported by the service
+    """
+
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+
 class ExecutionError(OpenSysMLError, builtins.RuntimeError):
     """Raised when a runtime operation (eval/instantiate/execute/verify) fails.
 

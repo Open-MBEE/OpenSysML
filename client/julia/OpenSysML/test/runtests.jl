@@ -1,4 +1,5 @@
 using Test
+using Base64
 using JSON
 using Sockets
 using HTTP

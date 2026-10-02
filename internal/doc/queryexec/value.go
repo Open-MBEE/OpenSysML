@@ -31,6 +31,9 @@ const (
 	ValueInfinity ValueKind = "infinity"
 	// ValueQuantity is a magnitude in a measurement unit, `2290000 [kg]`.
 	ValueQuantity ValueKind = "quantity"
+	// ValueConnectorEnd is one end of a connector usage, reached by navigating
+	// its Connector::connectorEnd: it names the features its attachment walks.
+	ValueConnectorEnd ValueKind = "connectorEnd"
 )
 
 // Value is one immutable scalar carried through query execution.
@@ -62,6 +65,12 @@ func ObjectValue(inst *runtime.Instance, label string) Value {
 		value.origin = objectDeclaration(inst).Origin()
 	}
 	return value
+}
+
+// ConnectorEndValue constructs the value of end position of connector, labelled
+// by the attachment it names (`bench.ccd.usb`), with the connector as provenance.
+func ConnectorEndValue(connector *symbols.Symbol, position int, label string) Value {
+	return Value{kind: ValueConnectorEnd, element: connector, integer: semantics.IntValue(int64(position)), text: label, origin: connector.Origin()}
 }
 
 // StringValue constructs a string value.
@@ -125,6 +134,22 @@ func (v Value) Kind() ValueKind { return v.kind }
 // Element returns the value's element and whether it is an element value.
 func (v Value) Element() (*symbols.Symbol, bool) {
 	return v.element, v.kind == ValueElement && v.element != nil
+}
+
+// ConnectorEnd returns the connector and end position a connector-end value
+// stands for, and whether it is one.
+func (v Value) ConnectorEnd() (*symbols.Symbol, int, bool) {
+	position, _ := v.integer.Int64()
+	return v.element, int(position), v.kind == ValueConnectorEnd && v.element != nil
+}
+
+// Label is the text a connector-end value is labelled by: the attachment it
+// names, as written on the connector.
+func (v Value) Label() string {
+	if v.kind != ValueConnectorEnd {
+		return ""
+	}
+	return v.text
 }
 
 // Declaration returns the element a value is declared by: an element itself, the

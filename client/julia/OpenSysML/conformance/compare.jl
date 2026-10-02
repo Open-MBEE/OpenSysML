@@ -147,7 +147,10 @@ function _label_ids!(value, labels)
 end
 
 function _is_absolute_path(s::AbstractString)
-    startswith(s, '/') || (length(s) > 2 && s[2] == ':' && s[3] == '\\')
+    startswith(s, '/') && return true
+    head = collect(Iterators.take(s, 3))
+    length(head) == 3 && isascii(head[1]) && isletter(head[1]) &&
+        head[2] == ':' && head[3] == '\\'
 end
 
 function _zero_self_id(v)

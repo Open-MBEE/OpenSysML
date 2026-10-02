@@ -228,6 +228,7 @@ dependencies = [
 name = "opensysml-conformance"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "opensysml",
  "prost",
  "prost-reflect",

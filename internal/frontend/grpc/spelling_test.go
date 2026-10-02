@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 )
 
 // quotedNamesModel declares a package whose name needs quoting, as the OMG
@@ -157,9 +158,9 @@ func TestUnquotedName(t *testing.T) {
 		{"Demo::", "", false},
 		{"1 + 1", "", false},
 	} {
-		got, ok := unquotedName(tc.id)
+		got, ok := symbolfacts.UnquotedName(tc.id)
 		if ok != tc.ok || (ok && got != tc.want) {
-			t.Errorf("unquotedName(%q) = %q, %v; want %q, %v", tc.id, got, ok, tc.want, tc.ok)
+			t.Errorf("UnquotedName(%q) = %q, %v; want %q, %v", tc.id, got, ok, tc.want, tc.ok)
 		}
 	}
 }

@@ -2,7 +2,7 @@
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -31,13 +31,13 @@ config:
 %% layout: picture0 x=0 y=0 w=823 h=577
 %% layout: picture1 x=700 y=20 w=80 h=40 above
 flowchart LR
-  subgraph n0 ["`**Table**
-*«part def»*`"]
+  subgraph n0 ["`*«part def»*
+**Table**`"]
     direction LR
-    n1("`**bench : Bench**
-*«part»*`")
-    n2("`**camera : Camera**
-*«part»*`")
+    n1("`*«part»*
+**bench : Bench**`")
+    n2("`*«part»*
+**camera : Camera**`")
   end
   picture0@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "the bench, from above", w: 823, h: 577 }
   picture1@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "", w: 80, h: 40 }

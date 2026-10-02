@@ -146,3 +146,24 @@ func TestEvaluateDiagramCarriesThePalette(t *testing.T) {
 		t.Fatalf("cloned options = %+v", clone.Options())
 	}
 }
+
+func TestEvaluateDiagramCarriesThePortDisplay(t *testing.T) {
+	fixture := loadEvaluationFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines ports = "full";
+			ref redefines source = interconnectView;
+		}
+	`))
+	document := fixture.mustEvaluate(t, "Report")
+	diagram := document.Content()[0]
+	if diagram.Ports() != view.PortsFull {
+		t.Fatalf("ports = %q", diagram.Ports())
+	}
+	want := view.Options{Ports: view.PortsFull}
+	if diagram.Options() != want {
+		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
+	}
+	if clone := cloneContent([]Content{diagram})[0]; clone.Options() != want {
+		t.Fatalf("clone options = %+v, want %+v", clone.Options(), want)
+	}
+}

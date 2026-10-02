@@ -85,7 +85,7 @@ mount segmentControl
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  themeCSS: ".edgeLabel rect { opacity: 1 !important; }"
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"
@@ -109,15 +109,21 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`**imagingChain**
-*«part»*`"]
+  subgraph n0 ["`*«part»*
+**imagingChain**`"]
     direction LR
-    n1("`**camera : Camera**
-*«part»*`")
-    n2("`**recorder : Recorder**
-*«part»*`")
+    subgraph n1 ["`*«part»*
+**camera : Camera**`"]
+      direction LR
+      n1.0["output"]
+    end
+    subgraph n2 ["`*«part»*
+**recorder : Recorder**`"]
+      direction LR
+      n2.0["input"]
+    end
   end
-  n1 ===|"link"| n2
+  n1.0 ===|"link"| n2.0
   linkStyle 0 stroke-width:3px
 ```
 
@@ -157,9 +163,9 @@ config:
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "operatingStates : ObservatoryStates<br>«state»" as n0 {
-    state "idle<br>«state»<br>initial" as n1
-    state "observing<br>«state»" as n2
+  state "«state»<br>operatingStates : ObservatoryStates" as n0 {
+    state "«state»<br>idle<br>initial" as n1
+    state "«state»<br>observing" as n2
     [*] --> n1
   }
   n1 --> n2
