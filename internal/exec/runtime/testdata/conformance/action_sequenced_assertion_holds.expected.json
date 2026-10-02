@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"level": {"type": "Integer", "value": 1}
+	}
+}
