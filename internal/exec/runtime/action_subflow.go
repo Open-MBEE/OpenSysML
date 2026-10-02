@@ -207,7 +207,7 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			case e.ctx.stepsTokens():
 				// A run one move at a time pauses before its next, its machine going on meanwhile.
 				if e.canAct(perf) {
-					if err := e.ctx.tokenStepBody(); err != nil {
+					if err := e.ctx.tokenStepBody(perf.graph); err != nil {
 						return err
 					}
 				}

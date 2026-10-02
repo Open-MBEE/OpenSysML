@@ -141,13 +141,28 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   file, a snapshot and a held image name a body boundary as they name any token move, and the
   body frame is resumed where it paused.
 - **Where a body divides.** `lower.BodyDivides` lists a body's moves (its start shot, then each
-  statement, a conditional's test by itself and a loop counted twice) with their footprints
+  statement, a conditional's guard by itself and a loop counted twice) with their footprints
   (`Footprint`, the reduction's), and the footprints of every node of the outermost flow and its
   nested flows; the node's own, with its per-performance pins removed, when it may run beside
   itself. When the flow can hold two tokens at once and two or more of the body's moves are
   dependent on one of those footprints, the body divides. With at most one, every interleaving
   inside the body only reorders independent moves, so the body stays one move and the state
   space does not grow.
+- **Guards.** An `if`'s guard is evaluated before its branch (`IfThenPerformance`), so a dividing
+  body yields between them (`Context.guardPerformed`); the branch taken is kept in its
+  `branchFrame` across the pause. A state's do body yields there only under one-move schedules,
+  so `reverse`, `declared` and seeded runs keep their state traces.
+- **Callees in executors of their own.** An action a step is typed by, or a body performs, runs
+  in its own `ActionExecutor`, outside the graph `BodyDivides` reads. When the body or flow
+  driving it goes one move at a time, the callee's start shot is a boundary
+  (`Context.startShotMove`), its own bodies divide where two of their moves may touch what they
+  do not hold (`lower.BodySharesMoves`), and its flow pauses after each move when two of its
+  moves may (`lower.FlowSharesMoves`, `Context.tokenStepBody`). A pause inside a body-driven
+  token propagates to the body driving it.
+- **Executors on one clock.** Separate executors — object behaviors, state machines, actions
+  started together — still interleave by whole turns: the executor the due order draws runs
+  until it has no move at the instant (`Context.runDue`, `invocationRun.turn`). Their moves
+  within one instant are not interleaved, which spec compliance records as approximate.
 - **Ordered and unordered statements.** A succession inside a nested flow orders its steps, so
   no boundary reorders them; a boundary lets only another performance in. The direct statements
   of one leaf body, which no succession orders, still run in declaration order: the library

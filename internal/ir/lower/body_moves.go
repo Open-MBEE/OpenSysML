@@ -53,6 +53,64 @@ func BodyDivides(graph *ActionGraph, node ast.Node) bool {
 	return false
 }
 
+// BodySharesMoves reports whether two or more of node's moves may touch what another
+// performance does: alongside moves outside its flow, such a body may be divided by one.
+func BodySharesMoves(graph *ActionGraph, node ast.Node) bool {
+	shared := 0
+	for _, move := range bodyMoves(graph, node) {
+		if touchesShared(move.footprint) {
+			shared += move.times
+		}
+		if shared > 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// FlowSharesMoves reports whether two or more moves of a performance of graph's flow,
+// its start shot and its subflows' moves included, may touch what another performance does.
+func FlowSharesMoves(graph *ActionGraph) bool {
+	shared := 0
+	b := &footprintBuilder{graph: graph, scope: graph.Scope, declared: declaredFeatures(graph)}
+	for _, attr := range graph.Attributes {
+		scope := attr.Scope
+		if scope == nil {
+			scope = graph.Scope
+		}
+		b.reads(scope, attr.Value)
+	}
+	if touchesShared(b.footprint) {
+		shared++
+	}
+	var walk func(g *ActionGraph) bool
+	walk = func(g *ActionGraph) bool {
+		for _, n := range g.Nodes {
+			if touchesShared(g.Footprints()[n]) {
+				shared++
+				if g.Multiplicities[n] != nil {
+					shared++
+				}
+			}
+			if shared > 1 {
+				return true
+			}
+			if sub := g.Subflows[n]; sub != nil && sub.Graph != nil && walk(sub.Graph) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(graph)
+}
+
+// touchesShared reports whether a move may touch what another performance does: a
+// feature it holds no pin of, the bus, or a target unresolved.
+func touchesShared(f Footprint) bool {
+	s := sharedOnly(f)
+	return f.Dynamic || f.messages() || len(s.Reads)+len(s.Writes) > 0
+}
+
 type bodyMove struct {
 	footprint Footprint
 	// times is how many moves it stands for: two for a loop, which may iterate.

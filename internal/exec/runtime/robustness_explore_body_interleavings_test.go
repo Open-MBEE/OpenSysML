@@ -18,6 +18,7 @@ func TestRuntimeRobustnessExploreBodyInterleavings(t *testing.T) {
 	t.Run("seeded_runs_are_reproducible_and_reach_the_lost_update", testBodyInterleavingsSeeded)
 	t.Run("declared_and_reverse_keep_their_results", testBodyInterleavingsFixedPolicies)
 	t.Run("checker_finds_every_outcome", testBodyInterleavingsChecked)
+	t.Run("callee_executors_interleave", testBodyInterleavingsCallees)
 }
 
 // caseRun runs the case's one action under ctx and reports its outcome.
@@ -65,6 +66,7 @@ func testBodyInterleavingsExplored(t *testing.T) {
 		{"action_explore_body_fork_lost_update", "ForkPlain", "c", []string{"1", "2"}},
 		{"action_explore_body_ordered_substeps", "Ordered", "log", []string{`"12b"`, `"1b2"`, `"b12"`}},
 		{"action_step_multiplicity_single_assignment", "Single", "c", []string{"3"}},
+		{"action_explore_body_guard_branch", "GuardBranch", "c", []string{"1", "2"}},
 	} {
 		t.Run(c.action, func(t *testing.T) {
 			x := conformanceModel(t, c.fixture).exploreAction(t, "explore", c.action)
@@ -188,5 +190,50 @@ func testBodyInterleavingsChecked(t *testing.T) {
 		if got := divergentValues(report, "c"); !slices.Equal(got, []string{"1", "2"}) {
 			t.Errorf("reduce=%v: c diverges over %v, want [1 2]", opts.Reduce, got)
 		}
+	}
+}
+
+// testBodyInterleavingsCallees checks that the performances a flow invokes, each
+// in an executor of its own, interleave inside their bodies under explore and check,
+// and that a fixed policy still runs each whole.
+func testBodyInterleavingsCallees(t *testing.T) {
+	for _, c := range []struct{ fixture, action string }{
+		{"action_explore_body_typed_callees", "TypedCallees"},
+		{"action_explore_body_performed_callees", "PerformedCallees"},
+	} {
+		t.Run(c.action, func(t *testing.T) {
+			m := conformanceModel(t, c.fixture)
+			x := m.exploreAction(t, "explore", c.action)
+			if !x.Complete() {
+				t.Fatalf("exploration %s, want complete", x.Status())
+			}
+			got := featureValues(t, x, "seen")
+			slices.Sort(got)
+			if got = slices.Compact(got); !slices.Equal(got, []string{"1", "2"}) {
+				t.Fatalf("seen over every schedule = %v, want [1 2]", got)
+			}
+			report, err := Check(context.Background(), m.fresh, starterOf(m.action(t, c.action)), CheckBudget{}, reduced(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := divergentValues(report, "seen"); !slices.Equal(got, []string{"1", "2"}) {
+				t.Errorf("check: seen diverges over %v, want [1 2]", got)
+			}
+			run := caseRun(t, m, c.action)
+			for _, spelling := range []string{"reverse", "declared"} {
+				ctx, err := m.fresh()
+				if err != nil {
+					t.Fatal(err)
+				}
+				mustSchedule(t, ctx, mustPolicy(t, spelling))
+				outcome, err := run(ctx)
+				if err != nil {
+					t.Fatalf("%s: %v", spelling, err)
+				}
+				if got := outcomeValue(t, outcome, "seen"); got != "2" {
+					t.Errorf("%s gave seen = %s, want 2, each callee run whole", spelling, got)
+				}
+			}
+		})
 	}
 }

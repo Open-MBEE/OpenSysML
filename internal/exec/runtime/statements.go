@@ -500,6 +500,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
+		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
 	if f.elseBranch {

@@ -1594,6 +1594,9 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 		if callee, err = e.beginInvocation(perf, inv); err != nil {
 			return err
 		}
+		if err := e.ctx.startShotMove(callee); err != nil {
+			return err
+		}
 	}
 	if resumed {
 		callee.exec.listen(perf, e.streamCalleeOutput(perf, callee.out))

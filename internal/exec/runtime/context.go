@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -27,7 +28,9 @@ type Context struct {
 	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
-	created   []int64
+	// flowShares caches, by graph, whether two moves of its flow may touch what another does.
+	flowShares map[*lower.ActionGraph]bool
+	created    []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
 	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.

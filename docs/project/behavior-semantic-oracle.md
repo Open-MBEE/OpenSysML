@@ -478,8 +478,10 @@ still run between two of those statements, as the next section derives.
 ### A leaf body's start shot and its assignments: another performance may run between them
 
 Fixtures: `action_explore_body_lost_update`, `action_explore_body_three_way`,
-`action_explore_body_fork_lost_update` and `action_explore_body_ordered_substeps` (golden,
-explored), with `action_step_multiplicity_single_assignment` (one outcome).
+`action_explore_body_fork_lost_update`, `action_explore_body_ordered_substeps`,
+`action_explore_body_guard_branch`, `action_explore_body_typed_callees` and
+`action_explore_body_performed_callees` (golden, explored), with
+`action_step_multiplicity_single_assignment` (one outcome).
 
 ```
 Race      c := 0; start → a[2] { t := c; assign c := t + 1 } → done
@@ -515,6 +517,17 @@ Derived constraints:
   `"b"`. `b` may run before `a1`, between `a1` and `a2`, or after `a2`, but `a2` never runs
   before `a1`.
 
+- An `if` is an `IfThenPerformance` (`ControlPerformances.kerml`): `succession [1] ifTest then
+  [0..1] thenClause`, so its guard is evaluated before, not with, its branch. In
+  `action_explore_body_guard_branch`, `a[2] { if c < 1 { assign c := c + 1; } }`, both
+  performances may read the guard before either assigns: `{c = 1, c = 2}`.
+- A step typed by an action definition (`action a : Inc`) and an action a body performs
+  (`perform action pa : Inc`) are performances of `Inc` like any other, whatever executor runs
+  them: `Inc`'s start shot and its assignment are two times, and nothing orders the other
+  branch's performance between them. With `Inc` reading `counter.c` into `t` and writing
+  `t + 1`, both branches admit `{seen = 1, seen = 2}` (`action_explore_body_typed_callees`,
+  `action_explore_body_performed_callees`).
+
 Open: where the other performance runs relative to this performance's start shot and its
 assignments.
 
@@ -530,7 +543,15 @@ where another performance's move could change the outcome there: when two or mor
 moves are dependent on a move of a performance that may run concurrently (`lower.BodyDivides`,
 over the footprints the checker's reduction uses). A body with at most one such move runs as one
 move, because every interleaving inside it only reorders independent moves. The statements of
-one leaf body keep declaration order, as the previous section records. `-engine smt` encodes a
+one leaf body keep declaration order, as the previous section records. A performance invoked in an
+executor of its own, under a body or a flow driven one move at a time, is analysed by its own
+flow: its start shot and each move that may touch what it does not hold (`lower.BodySharesMoves`,
+`lower.FlowSharesMoves`) are boundaries too.
+
+Not covered: object behaviors, state machines and actions run by separate executors on one
+clock interleave by whole turns. The executor drawn to run at an instant runs until it has no
+move left there, so their moves at one instant are not interleaved. `spec-compliance.md` records
+this as approximate. `-engine smt` encodes a
 body as one move, so it reports a flow with a dividing body as not covered (`body interleaving`)
 instead of encoding one order.
 
