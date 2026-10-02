@@ -110,7 +110,7 @@ part def Stimulus {
         transition first Standby accept 'Cmd Pause'
             do action 'Send Ack Pause' {
                 /* not migrated: ControlFlow (_sapE1) — the edge leads to (_sapCall), which never fires: no value reaches its input pin 'target' */
-                action call : Delay;
+                ref action call : Delay;
                 action final terminate;
                 metadata MigrationMetadata::SynthesizedName about call, final;
             }
