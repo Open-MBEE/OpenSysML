@@ -43,7 +43,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); `double` / `bool` |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -58,34 +58,39 @@ A calc compiles when everything it reaches is in this subset:
 | `calc c : D;`, `calc def E :> D;` adding no member of its own | compiles as `D` |
 | `in calc f { in v : Real; return : Real; }` and `in calc f : Sq` parameters; a calc def, a calc usage with an unsupplied input, or a compiled scalar library function (`RealFunctions::sqrt`, `RealFunctions::floor`, …) passed for one; `f(a)` and `f(v = a)` in the body | one function per calc *and* per tuple of function values its `in calc` parameters are bound to ([Function values](#function-values)); `f(a)` is a direct call; a typed parameter takes only a calc conforming to its type, as the interpreter's binding does |
 | `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is (at each read of `s` when a body expression declares it); `Domain`/`Range` read them; a literal `null` domain is the empty sequence of `f`'s parameter type (the type a library function declares for its parameter, Real when that is any `NumericalValue`) |
+| String literals, `+`, `<` `<=` `>` `>=`, `==` `!=` `===` `!==`; `StringFunctions::Length`, `Substring`, `ToString`; `ToString` of `IntegerFunctions`, `NaturalFunctions`, `RealFunctions`, `BooleanFunctions` and `BaseFunctions` | the interpreter's String operations: concatenation, ordering by code point, `Length` and one-based `Substring` counted in characters, each number formatted as the interpreter formats it |
+| Enumeration literals (`Color::red`), `==` `!=` `===` `!==` between them, `BaseFunctions::ToString` of one | the literal's identity; equal only to itself, never to a literal of another enumeration, a number or a String |
+| A function value — a calc def, a calc usage with an unsupplied input, a compiled library function, or a calc declared in the body being compiled — read where a value is expected: returned, bound to an attribute, assigned, compared with `==`/`===`, chosen by `if`, held in a sequence, passed to an `in calc` parameter from any of these, and invoked (`Apply(g, a)`, `f(a)`) | a function value of the program ([Function values](#function-values)): the calc it denotes and, for a closure, the run that read it and what it captured; invoked by dispatch over the calcs it may denote |
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
-Everything else refuses: String, record (`attribute def`) and enum parameters, results or
-attributes, a `Collections::Set` (or any collection object) and a `TensorQuantityValue` wherever
-they appear (`type Collections::Set is not Integer, Real, Boolean, String or an enumeration`; a set has no native layout
-and a tensor's components are quantities), parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and* declares members
-(redefining inherited parameters or body is not compiled), sequences whose elements mix Integer
-and Real (`==`, `same`, `union` between an `Integer[0..*]` and a `Real[0..*]`, `Integer[0..*] ?? 5.5`),
-a `collect` body that yields null, a `select` body that is not Boolean, `===` between a Real and an
-Integer, library functions over strings, quantities and units, and `Integer ** <non-literal Integer>` (whether the
-result is an Integer depends on the exponent's sign at run time, which a static type cannot
-express; write the exponent as a literal or make the base Real), and every use of a function
-value other than the two above — a function value returned, bound to an attribute, assigned,
-compared or handed to a value parameter (`the function value f escaping as the result`, `… where a
-value is expected`), an `in calc` parameter of the calc being compiled itself (`which a program
-cannot take on its command line`), a function value chosen at run time (`if b ? Sq else Half`) or
-produced by an invocation, a calc declared in a behavior's body or owned by a part (its function
-value closes over that run or object), a control operation such as `ControlFunctions::collect`
-(which binds its arguments unevaluated), a function value bound to an `in calc f : Sq` parameter
-whose calc does not specialize `Sq` (`cannot bind the function value … to a parameter typed by
-…`, the interpreter's `type mismatch` at the same binding), a `SampledFunction` used as anything
-but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))` where an
-`Integer[0..*]` is declared (the compiler fixes a null domain's element type from the sampled
-function alone, and a function declared over any `NumericalValue` gives Real; the interpreter,
-which types nothing, computes `[]`), and a `meta` cast (`x meta KerML::Feature`), whose result
-reflects a model element as a metaobject that a native program has no representation of (refused
-as *a meta cast, whose metaobject reflects a model element and has no native representation*;
-metaobjects stay interpreter-only). The refusal names the calc and the construct
+Everything else refuses: a record (an `attribute def` or `item def` with features) as a
+parameter, result or attribute (`type Refused::Point is not Integer, Real, Boolean, String or an
+enumeration`; see [Records](#records)), a `Collections::Set` (or any collection object) and a
+`TensorQuantityValue` wherever they appear (a set has no native layout and a tensor's components
+are quantities), an enumeration that specializes another type, has an unnamed literal, inherits a
+literal or gives one a value, parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and*
+declares members (redefining inherited parameters or body is not compiled), a `collect` body that
+yields null, a `select` body that is not Boolean, library functions over quantities and units, and
+`Integer ** <non-literal Integer>` (whether the result is an Integer depends on the exponent's sign
+at run time, which a static type cannot express; write the exponent as a literal or make the base
+Real). Of function values: an `in calc` parameter of the calc being compiled itself (`which a
+program cannot take on its command line`), a calc owned by a part or read off an object through a
+feature chain (`whose function value closes over that object`, see [Records](#records)), a
+function value invoked with a receiver (`x->f()`), a calc declared in the body of a calc that
+specializes another, a calc declared in one body read from another (`a calc declared in the body
+of …, read from the body of …`), a control operation such as `ControlFunctions::collect` read as a
+value (it binds its arguments unevaluated), a function value bound to an `in calc f : Sq`
+parameter whose calc does not specialize `Sq` (`cannot bind the function value … to a parameter
+typed by …`, the interpreter's `type mismatch` at the same binding), a `SampledFunction` used as
+anything but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))`
+where an `Integer[0..*]` is declared (the compiler fixes a null domain's element type from the
+sampled function alone, and a function declared over any `NumericalValue` gives Real; the
+interpreter, which types nothing, computes `[]`). The C target alone also refuses a closure that
+captures a String, a sequence or another function value (`… for the C target: a C closure holds
+its captures inline …`); the Go target computes it. A `meta` cast (`x meta KerML::Feature`), whose
+result reflects a model element as a metaobject that a native program has no representation of,
+is refused as *a meta cast, whose metaobject reflects a model element and has no native
+representation*; metaobjects stay interpreter-only. The refusal names the calc and the construct
 (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Integers
@@ -115,6 +120,88 @@ contract differently:
   argument beyond `int64` on a C program's command line exits with status 2
   (`… is beyond int64, the Integers a compiled C program holds`), as any argument the program
   cannot represent does.
+
+## Numbers
+
+The interpreter keeps an Integer an Integer when it is written to a Real-typed feature: with
+`in a : Real; return : Real = a`, the argument `3` prints `3`, `r === 3` holds for `r : Real = 3`,
+and `(1, 2.5)->collect {in v; v * 2}` is `[2, 5.0]`. KerML's `ScalarValues` library makes this the
+faithful reading — `datatype Integer specializes Rational; datatype Rational specializes Real;`
+(KerML 1.0 §9.3.2) — so an Integer *is* a Real and nothing converts it on a write. A compiled
+Real-typed value is therefore a *number*: an Integer or a binary64, decided at run time, and every
+operator splits on what its operands hold, as the interpreter's dispatch does (`compile_num.go`).
+Integer operands stay exact (`r * 2 + 1` over `r = 3` is `7`), any Real operand gives a Real,
+`/` is the interpreter's `IntQuotient`, `**` by a negative exponent is Real, `===` distinguishes an
+Integer from an equal Real while `==` compares them exactly (`CompareIntReal`), and a sequence of
+numbers prints each element in its own notation. Mixed Integer/Real sequences — literals, `==`,
+`same`, `union`, `includes`, `sum`, `minimize`, `??` between an `Integer[0..*]` and a
+`Real[0..*]` — follow the same rules element by element; an Integer collection bound to a Real
+slot keeps its Integers.
+
+The Go target reads any Integer for a Real parameter and computes it exactly. The C target holds
+an Integer in `int64` and refuses arithmetic that may leave it ([Integers](#integers)), so a C
+program reads a Real parameter only in Real notation and exits with status 2 on an Integer
+argument (`argument a: 3 is an Integer, which a compiled C program reads for a Real parameter only
+in Real notation (as 3.0)`), as it does for an Integer beyond `int64`.
+
+KerML's `Rational` is the exact rationals (§9.3.2.2.8); this tree, like the interpreter, still
+computes a `Rational`-typed value as a Real ([exact-rational-evaluation.md](exact-rational-evaluation.md)),
+and the compiler does the same, no more and no less.
+
+## Strings and enumerations
+
+`ScalarValues::String` is a scalar data value (KerML 1.0 §9.3.2) whose operations the Kernel
+Function Library declares in `StringFunctions` (§9.4; `StringFunctions.kerml`: `'+'`, `Length`,
+`Substring`, the four orderings, `'=='`, `ToString`). The compiler implements exactly the ones the
+interpreter does (`runtime/library_functions.go`), with the interpreter's semantics: `+`
+concatenates, the orderings compare by code point, `Length` counts characters, `Substring(s, l,
+u)` takes the one-based inclusive characters `l..u` and fails with the interpreter's `index out
+of range` reason outside `1..Length(s)`, and the `ToString` of each numeric library and of
+`BooleanFunctions` formats as the interpreter prints. A String compared with `==` to a value of
+another kind is false, as `DataFunctions::'=='` over different data types is in the interpreter.
+A String argument is written in String notation (`"héllo"`, with the interpreter's escapes) and a
+String result prints in it, so output and input round-trip.
+
+An enumeration (SysML v2 §8.3.7 EnumerationDefinition: "an AttributeDefinition all of whose
+instances are given by an explicit list of enumerated values") compiles when its literals are
+named, its own and valueless. A literal is identified by itself: `==` and `===` hold only between
+a literal and itself — never against a literal of another enumeration of the same name
+(`Color::red` and `Shade::red`), a number, or a String — and arithmetic and ordering over literals
+are the interpreter's `type mismatch` at the same operator. `BaseFunctions::ToString` of a literal
+is its qualified name, the result prints it, and an argument names one by qualified name
+(`Compiled::E::Color::red`); any other text exits with status 2 (`… is not a literal of …`).
+
+## Records
+
+KerML does not settle how two separately constructed data values with equal features compare, nor
+how one prints. KerML 1.0 §7.4.2 says data types "classify things that do not exist in time or
+space", which suggests a value distinguished only by its features; but `DataFunctions::'=='` is
+`abstract` for a user `attribute def` (only the scalar libraries define it), and
+`DataFunctions::'==='` is defined as `x == y`, so the library leaves record equality to whatever
+`'=='` is. `BaseFunctions::ToString` is likewise `abstract`. SysML v2 adds nothing here.
+
+The interpreter builds a record (`new Point(a, 2.0)`, an attribute with nested features) as an
+instance with a session-wide identity: two `new Point(1.0, 2.0)` are not `==`, and a record prints
+as `Instance(ID: N)`, where `N` depends on what the session made before. A program cannot reproduce
+`N`, and equality by identity versus by features is a choice the specification leaves open, so
+records stay refused natively until that choice is made; the same holds for a calc read off an
+object (`twice.scale`), whose function value is identified by that object.
+
+## Step budget
+
+The interpreter bounds every evaluation by a step budget (`runtime.DefaultMaxSteps`, 10,000,000,
+raised by `OPENSYSML_MAX_STEPS`), charging one step per expression node it evaluates and per loop
+pass and flow node it reaches, and stops with `ErrStepLimitExceeded`: `evaluation step limit exceeded (N steps;
+raise OPENSYSML_MAX_STEPS to allow more)`. KerML and SysML are silent on any such bound; it is a
+resource limit of the implementation, so the interpreter's accounting is the contract. A compiled
+program carries the same counter, reads `OPENSYSML_MAX_STEPS` at start-up, charges each compiled
+node the steps the interpreter spends on its source node (a constant the interpreter folds spends
+one, a function value read by name one, a call its frame and argument reads), at the point the
+interpreter spends them relative to anything that can fail, and fails with the interpreter's
+message and status 1 at the same count. Each `--repeat` run starts from zero.
+`TestCompiledStepBudgetMatchesInterpreter` finds, for every differential case, the least budget
+the interpreter needs and requires the compiled program to succeed with exactly that budget and
+fail with the interpreter's error one step below it.
 
 ## Semantics the generated code preserves
 
@@ -155,8 +242,8 @@ arithmetic rather than the host language's:
   it, as its result may leave `int64`), `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
   report negative Naturals at run time, `ln`/`log`/`sqrt`/`arcsin` report the interpreter's domain
   errors. Named and positional arguments bind and evaluate as for model calcs.
-- **Function values** exist only at compile time. `Apply(Sq, a)` calls a specialization of
-  `Apply` in which `f(a)` is the direct call `Sq(a)`, so `f`'s arguments bind, evaluate and fail
+- **Function values** known at compile time are specialized: `Apply(Sq, a)` calls a specialization
+  of `Apply` in which `f(a)` is the direct call `Sq(a)`, so `f`'s arguments bind, evaluate and fail
   exactly as a direct invocation of `Sq` does — by `Sq`'s own parameter names, with `Sq`'s own
   arity, at the same depth against the recursion budget. The parameter is `f` or its qualified
   name through the calc declaring it, `Apply::f` and `Pkg::Apply::f`, as the interpreter reads
@@ -169,6 +256,12 @@ arithmetic rather than the host language's:
   library's `new SamplePair` in a `collect` holds (its domain value, its range value and its
   place among the samples), charged as it is taken, and each `Domain` or `Range` read collects a
   fresh sequence charged to the element budget.
+- **Function values chosen at run time** dispatch over the calcs they may denote, each arm the
+  callee's specialized direct call, so binding, arity and depth are the callee's own; `==` and
+  `===` are the interpreter's identity (calc, and the run a closure was read in), and a function
+  value that is not a valid operand (`Plus`, `Neg`, `Not`, `MulR`, `CondF`, `StmtIf` in the `Closure` package) is the
+  interpreter's `type mismatch` at the same operator, after its operands are evaluated
+  ([Function values](#function-values)).
 - **Output** uses the interpreter's `FormatReal` convention: positional notation with a `.0` on
   whole values, exponent notation below `1e-4` and from `1e21`, `-0.0` preserved. A sequence
   prints as `[1, 2]`, an empty one as `[]`, an unbound value as `null`.
@@ -201,11 +294,6 @@ pins the refusals.
 
 ### Known differences
 
-- **No step budget.** The interpreter counts evaluation steps (`OPENSYSML_MAX_STEPS`, default
-  10,000,000) and stops a runaway loop with `ErrStepLimitExceeded`. Compiled code counts nothing:
-  a `while` that never terminates runs forever, and a long loop the interpreter would cut short
-  runs to completion. The differential test lifts the interpreter's budget for this reason. This
-  is the one bound the interpreter has that compiled code lacks; a compiled program is a program.
 - **Widened copies are charged.** An Integer collection bound to a Real slot is copied into
   Reals and the copy is charged to the element budget; the interpreter keeps the Integers and
   holds no copy. At the limit the program can therefore fail where the interpreter runs, never
@@ -249,37 +337,56 @@ lower.CalcBody (statements) ──┘
 ### Function values
 
 The interpreter's function value (`runtime/function_value.go`) is a closure: the calc's shape
-together with the lexical frames and the object it was read in. The compiler represents it by
-**monomorphization** instead (`compile_fn.go`): every argument to an `in calc` parameter must
-name a calc the compiler can fix statically — a calc def, a calc usage with an unsupplied
-input, an `in calc` parameter of the enclosing calc, or a library function the prelude
-implements — and the callee is compiled once per distinct tuple of such values
-(`Apply_fn_Sq`, `Apply_fn_Half`; `codegen.Compiler.funcs` is keyed by calc and tuple). Inside
-the specialization the parameter is bound to the value, so `f(a)` compiles as the direct call
-the interpreter would make after looking `f` up, and `Sample(f, xs)` as a `collect` of that call.
-No function pointer, closure record or dispatch exists in the generated program. The type an
-`in calc f : Sq` parameter declares travels with the parameter (`paramDecl.typ`, inherited by a
-member-less specialization along with the parameter), and the value bound to it is checked
-against that type where the interpreter checks a written value: the calc the function value
-names — a model calc or the library function's own declaration — must conform to `Sq`, so a
-usage typed by `Sq` or a `calc def :> Sq` passes and an unrelated calc of the same signature, or
-a library function, is refused. A literal `null` domain in `Sample(f, null)` is typed by `f`'s
-one value parameter (a model calc's declared type; a library function's declared type, so
-`IntegerFunctions::abs` gives Integer and `NumericalFunctions::abs`, over any `NumericalValue`,
-Real) and compiles as an empty sequence, so `Domain`/`Range` print `[]`.
+together with the lexical frames and the object it was read in (KerML 1.1 §7.4.4: a Function is a
+Behavior with a `result`, and a feature reference to one denotes it; SysML v2 §7.17: a calc def
+is a Function, a calc usage an Expression). Its `==` and `===` compare the calc, the object and
+the run it closes over (`eval.go`, the `ValFunction` case of value equality): a static calc is equal to itself
+wherever it is read, a calc declared in a body is equal only to a value read in the same run of
+that body, so two reads of one closure are equal and two calls of a maker returning it give two
+unequal values. KerML says nothing more: `BaseFunctions::'=='` and `'==='` are `abstract` over
+`Anything`, and no clause defines when two function values are the same, so the interpreter's
+identity is the contract. `BaseFunctions::ToString` is likewise `abstract`, and the interpreter
+gives a function value no String notation (`type mismatch: function BaseFunctions::ToString
+parameter "x" has no String notation for the function P::sqU`); a result or sequence holding one
+prints its qualified name.
 
-The trade-off is deliberate. A function pointer would have needed one calling convention for
-every arity and type signature in both C and Go, an environment record for captured bindings,
-and a run-time arity and name check at each `f(…)` — every one of them a second place where the
-interpreter's error behavior (which parameter names bind, when a mismatch is reported, how deep
-the call counts) could diverge. Specialization reuses the existing direct-call path, so a call
-through `f` is checked and fails exactly where a call of `Sq` is, and the generated program stays
-as fast as hand-written calls; the cost is one function body per distinct binding, and the limit
-that the value must be known at compile time. Consequently a function value cannot be returned,
-stored, assigned, compared or chosen by a run-time condition, and a calc whose function value
-would close over a body's bindings or a part's attributes — the cases a closure record would
-have carried — is refused by name; they remain interpreter-only. Both backends compile function
-values, since the specialization happens before either emitter runs.
+The compiler keeps two representations (`compile_fn.go`, `compile_fnval.go`):
+
+- **Specialization**, when the value is fixed at compile time — a calc def, a calc usage with an
+  unsupplied input, a compiled library function, or an `in calc` parameter bound to one. The
+  callee is compiled once per distinct tuple of such values (`Apply_fn_Sq`, `Apply_fn_Half`;
+  `codegen.Compiler.funcs` is keyed by calc and tuple), and inside the specialization `f(a)` is the
+  direct call the interpreter would make after looking `f` up, so a call through `f` binds,
+  evaluates, counts against the depth budget and fails exactly where a call of `Sq` does. The type
+  an `in calc f : Sq` parameter declares travels with it and is checked where the interpreter
+  checks a written value.
+- **A run-time function value**, when the value is chosen at run time, stored, returned, compared,
+  held in a sequence, or is a closure. Its compiled type is the *set* of calcs it may denote
+  (`FnSet`, found by a fixpoint over the program, `Compiler.widenFn`); the value is the index of
+  one of them, the run identity that read it (`0` for a static calc, a fresh identity per run of a
+  body declaring closures), and for a closure its captured bindings. Invoking one dispatches over
+  the set (`FnDispatch`), each arm the specialized direct call above, so argument binding, arity,
+  names and depth are again the callee's own; the arms' results unify as an `if`'s branches do.
+  `==` and `===` compare index and run, which is the interpreter's identity. A closure captures
+  the enclosing bindings it reads when it is read (`capture`), as the interpreter's frames hold
+  them; one calling itself, or a sibling declared in the same body, recompiles with its captures
+  bound from the start, so recursion and mutual reference see the run that read them. In Go the
+  captures are an environment slice the value points to, kept alive by the collector after the
+  declaring body returns. C keeps captures inline in the value, which suffices for Integer, Real,
+  Boolean and enumeration captures; a String, sequence or function capture would outlive the arena
+  that holds it, so the C target refuses it by name and the Go target computes it.
+
+`TestCompiledCalcsAgreeWithInterpreter` covers each shape in the `Closure` package of
+`compile_calcs.sysml`: a function chosen by `if` and returned (`Pick`, `PickId`), stored and
+reassigned (`Stored`, `Reassigned`), compared by `==`, `!=`, `===` (`Eq`, `Ident`, `Neq`,
+`SameSq`), held in sequences with `includes`, `select`, indexing and uniqueness (`Pair`,
+`PairUntyped`, `Includes`, `Selected`, `Indexed`, `Unique`, `SeqFmt`, `ClosureSeq`, `ClosureUnique`), mixed with a library function (`MixedKind`), refused
+by `ToString` with the interpreter's error (`ToStr`), and closures over parameters and locals —
+returned (`Mk`, `MkApply`), compared within and across runs (`MkSame`, `MkTwice`), recursive
+(`Rec`), sibling (`Sib`, `SibEq`), nested (`Inner`), chosen against a static calc
+(`ChooseClosure`), over unbounded Integers (`IntClosure`), and capturing Strings, sequences,
+functions, Booleans and enumeration literals (`StrClosure`, `SeqClosure`, `FnClosure`,
+`BoolClosure`, `EnumClosure`).
 
 ## Benchmark methodology
 
@@ -324,7 +431,6 @@ Reading the table:
 
 - Compile actions, state machines, constraints, requirements, parts, or instance graphs; the
   subset is scalar calcs. The [roadmap](#roadmap-compiling-the-whole-model) below extends it.
-- Enforce the step budget (see [Known differences](#known-differences)).
 - Link the compiled calc into the REPL or gRPC service; the output is a standalone executable.
 - Offer a stable C ABI. The generated `sysml_run` signature is an implementation detail.
 
@@ -403,9 +509,11 @@ with a documented reason; `OPENSYSML_CALC_COMPILE`'s closure tier and the native
 eligibility rule.
 Status: the collection half is done — homogeneous sequences of the scalar types with any
 multiplicity, the shape rules, `for`, the sequence and control libraries and the element budget, in
-both backends, under the differential test described above. Records, enums and record field access
-are still refused (`type X is not Integer, Real, Boolean, String or an enumeration`), as are sequences mixing Integer and
-Real elements; they are the remainder of this phase.
+both backends, under the differential test described above, with Strings, enumerations, Real-typed
+values holding Integers and mixed Integer/Real sequences. Records and record field access are
+still refused (`type X is not Integer, Real, Boolean, String or an enumeration`) pending the
+equality and formatting choice described under [Records](#records); they are the remainder of
+this phase.
 
 **Phase 2 — Instances: parts, attributes, ports, connections.**
 IR: `Program` gains `Struct` layouts derived from the flattened shape (redefinitions, subsetting,
