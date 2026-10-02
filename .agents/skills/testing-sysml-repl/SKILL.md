@@ -6179,3 +6179,40 @@ is `6 [one]`, and `800 [W] * 120 [s] * 0.7 [one]` in a calc returning `EnergyVal
 ### Devin Secrets Needed
 
 None for these local REPL/gRPC checks.
+
+## Prod builds and default-build parity
+
+- If other agents own branches or worktrees, create detached testing worktrees at the PR and
+  `origin/develop` revisions and record both hashes; do not switch a shared checkout.
+- Build the PR twice, `go build -tags sysml_prod -o <external-dir>/sysml-prod ./cmd/sysml` and
+  without the tag to a separate binary, and build `origin/develop` untagged to a third. Raw builds
+  avoid unrelated version-string differences when comparing behavior.
+- Keep fixtures, output files, transcripts and comparison scripts outside source checkouts.
+
+### Load-bearing fixture and output assertions
+
+- A compact fixture is `package P { part def A { attribute n : ScalarValues::Integer = 7; } part a : A; }`.
+- `%instantiate P::a` then `%features P::a depth 0` shows a concrete `n = 7` without pages of
+  inherited nested features.
+- `%features P::a json` returns a graph with `instance.featureValues.n.value.intValue == "7"`:
+  `featureValues` is a map, not a features array.
+- In a build that omits instancegraph, `%features P::a json` says `unknown option "json"` and shows
+  usage without JSON; plain `%features` still shows `n = 7`.
+- `-query 'sysml:name="A"' model.sysml` can print `✓ package P` before `P::A  PartDefinition`,
+  because model loading writes declaration reports to stdout. Require the exact match line and exit
+  0; do not assume stdout holds only match lines.
+
+### Comparing the default build against develop
+
+- Use the same relative input and output names in separate working directories, with fresh files,
+  so `(replaced the existing file)` notes do not differ.
+- Capture complete stdout, stderr and status for identical REPL command streams and standalone
+  queries.
+- Parse the JSON graph before comparing (protojson whitespace can differ); compare the remaining
+  text and the saved SysML/Turtle byte for byte.
+- Validate saved Turtle independently with rdflib; check real triples and declarations rather than
+  trusting the save confirmation.
+
+### Devin Secrets Needed
+
+None for native local CLI/REPL tests.
