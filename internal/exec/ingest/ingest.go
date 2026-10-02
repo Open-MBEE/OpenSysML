@@ -214,8 +214,8 @@ func readDelimited(name string, data []byte, comma rune, m *Map) ([]Row, error) 
 		}
 		row := Row{Element: m.Element.Prefix + element, Where: where}
 		for _, f := range fields {
-			text := strings.TrimSpace(record[f.column.index])
-			if text == "" {
+			text := record[f.column.index]
+			if strings.TrimSpace(text) == "" {
 				continue
 			}
 			unit := f.unit
@@ -272,8 +272,8 @@ func readLongForm(name string, r *csv.Reader, columns map[string]column, m *Map)
 		where := fmt.Sprintf("%s line %d", name, line)
 		element := strings.TrimSpace(record[columns["element"].index])
 		feature := strings.TrimSpace(record[columns["feature"].index])
-		value := strings.TrimSpace(record[columns["value"].index])
-		if element == "" && feature == "" && value == "" {
+		value := record[columns["value"].index]
+		if element == "" && feature == "" && strings.TrimSpace(value) == "" {
 			continue
 		}
 		if element == "" || feature == "" {
@@ -285,7 +285,7 @@ func readLongForm(name string, r *csv.Reader, columns map[string]column, m *Map)
 			unit = strings.TrimSpace(record[c.index])
 		}
 		row := Row{Element: m.Element.Prefix + element, Where: where}
-		if value != "" {
+		if strings.TrimSpace(value) != "" {
 			row.Cells = []Cell{{Feature: feature, Text: value, Kind: KindText, Unit: unit, Where: where + ", column value"}}
 		}
 		rows = append(rows, row)

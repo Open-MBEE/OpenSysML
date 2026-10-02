@@ -33,8 +33,9 @@ func importMisuse() string {
 		return "-import-dry-run reports what -import would set and writes nothing; drop -convert, or -import-dry-run to write the imported model"
 	case !importDryRun && convertFormat == "":
 		return "-import writes the imported model with -convert sysml -o <file>; preview it with -import-dry-run"
-	case importDryRun && (modelChecks.requested() || renderView != "" || renderDoc != "" || queryText != "" || len(evalExprs) > 0):
-		return "-import-dry-run reports what -import would set; check or render the imported model in its own run"
+	case importDryRun && (modelChecks.requested() || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" ||
+		queryText != "" || len(evalExprs) > 0 || migrateFormat != "" || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "" || outputPath != ""):
+		return "-import-dry-run reports what -import would set and does nothing else; check, render, migrate, compile, sync or write -o output in its own run"
 	}
 	return ""
 }
@@ -68,13 +69,21 @@ func runImportDryRun(files []string) int {
 	if report.Errors {
 		return fail(fmt.Errorf("the model did not analyse cleanly; nothing was imported"))
 	}
-	status := exitHolds
-	for _, path := range dataImports {
+	for i, path := range dataImports {
 		verdict := sess.ImportData(path, importOptions())
 		writeLines(os.Stdout, verdict.Lines)
 		if verdict.Status != repl.VerdictHolds {
-			status = exitFailed
+			return exitFailed
+		}
+		if i < len(dataImports)-1 {
+			// Stage the file so the next preview reads the model a real import would.
+			staged := importOptions()
+			staged.DryRun = false
+			if verdict := sess.ImportData(path, staged); verdict.Status != repl.VerdictHolds {
+				writeLines(os.Stdout, verdict.Lines)
+				return exitFailed
+			}
 		}
 	}
-	return status
+	return exitHolds
 }

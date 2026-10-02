@@ -22,7 +22,7 @@ func TestReadDelimitedHeaders(t *testing.T) {
 		"P::a::supplier=Acme, Inc.[]@d line 2, column supplier",
 		"P::b::supplier=Volt[]@d line 3, column supplier",
 	}
-	csv := "element,mass [kg],supplier\nP::a,180,\"Acme, Inc.\"\nP::b,, Volt \n\n"
+	csv := "element,mass [kg],supplier\nP::a,180,\"Acme, Inc.\"\nP::b, ,Volt\n\n"
 	rows, err := Read("d", []byte(csv), FormatCSV, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -37,6 +37,21 @@ func TestReadDelimitedHeaders(t *testing.T) {
 	}
 	if got := cells(rows); !reflect.DeepEqual(got, want) {
 		t.Errorf("tsv:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestReadKeepsStringWhitespace(t *testing.T) {
+	rows, err := Read("d", []byte("element,label,n\nP::a,\"  Acme  \", 7 \n"), FormatCSV, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	label, err := Literal(rows[0].Cells[0], ClassString, "")
+	if err != nil || label != `"  Acme  "` {
+		t.Errorf("label %q, %v; want the quoted field's spaces kept", label, err)
+	}
+	n, err := Literal(rows[0].Cells[1], ClassInteger, "")
+	if err != nil || n != "7" {
+		t.Errorf("n %q, %v; want 7", n, err)
 	}
 }
 
@@ -140,8 +155,14 @@ func TestReadErrors(t *testing.T) {
 			}
 		})
 	}
-	if _, err := ParseMap([]byte(`{"colum": "x"}`)); err == nil || !strings.Contains(err.Error(), "unknown field") {
-		t.Errorf("a misspelled mapping key was read: %v", err)
+	for data, want := range map[string]string{
+		`{"colum": "x"}`: "unknown field",
+		`{"element": {"column": "id"}} {"features": {"n": {"column": "m"}}}`:       "text follows the mapping object",
+		`{"features": {"m": {"path": "/m", "unitPath": "/u", "unitColumn": "u"}}}`: "name its unit once",
+	} {
+		if _, err := ParseMap([]byte(data)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("ParseMap(%s): %v, want %q", data, err, want)
+		}
 	}
 }
 

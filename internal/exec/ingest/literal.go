@@ -33,6 +33,8 @@ var (
 // Literal writes a cell as the notation of the value it assigns a feature of
 // class; enum qualifies the literal an enumeration cell names.
 func Literal(c Cell, class Class, enum string) (string, error) {
+	raw := c.Text
+	c.Text = strings.TrimSpace(c.Text)
 	switch c.Type {
 	case "string":
 		class = ClassString
@@ -52,7 +54,7 @@ func Literal(c Cell, class Class, enum string) (string, error) {
 	var text string
 	switch class {
 	case ClassString:
-		text = source.StringText(c.Text)
+		text = source.StringText(raw)
 	case ClassBoolean:
 		if c.Kind != KindText && c.Kind != KindBoolean {
 			return "", fmt.Errorf("%s is not a boolean", c.Text)

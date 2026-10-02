@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +52,9 @@ func ParseMap(data []byte) (*Map, error) {
 	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("mapping: %w", err)
 	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, errors.New("mapping: text follows the mapping object")
+	}
 	if err := m.check(); err != nil {
 		return nil, err
 	}
@@ -74,7 +78,7 @@ func (m *Map) check() error {
 		default:
 			return fmt.Errorf("mapping: feature %s: type %q is not string, boolean, integer, real or number", name, f.Type)
 		}
-		if f.Unit != "" && (f.UnitColumn != "" || f.UnitPath != "") {
+		if nonEmpty(f.Unit, f.UnitColumn, f.UnitPath) > 1 {
 			return fmt.Errorf("mapping: feature %s: name its unit once, as unit, unitColumn or unitPath", name)
 		}
 		if f.Column != "" && f.Path != "" {
@@ -85,6 +89,16 @@ func (m *Map) check() error {
 		return errors.New("mapping: element: name it once, as column or path")
 	}
 	return nil
+}
+
+func nonEmpty(values ...string) int {
+	n := 0
+	for _, v := range values {
+		if v != "" {
+			n++
+		}
+	}
+	return n
 }
 
 func (f Field) columnOr(name string) string {

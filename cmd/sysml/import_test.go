@@ -67,6 +67,24 @@ func TestImportDryRun(t *testing.T) {
 	}
 }
 
+// TestImportDryRunStagesFiles previews each later file against the model the
+// earlier ones would leave, as the real import applies them.
+func TestImportDryRunStagesFiles(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := write(t, filepath.Join(dir, "m.sysml"), importModel)
+	first := write(t, filepath.Join(dir, "a.csv"), "element,mass [kg]\nV::vehicle::engine,180\n")
+	second := write(t, filepath.Join(dir, "b.csv"), "element,mass [kg]\nV::vehicle::engine,190\n")
+	got := runFiles(t, binary, []string{model}, "-import", first, "-import", second, "-import-dry-run")
+	if got.status != 0 || strings.Count(got.stdout, "(redefines V::Engine::mass)") != 1 ||
+		!strings.Contains(got.stdout, "V::vehicle::engine::mass = 190 [kg]") {
+		t.Errorf("status %d, stdout:\n%s\nstderr:\n%s", got.status, got.stdout, got.stderr)
+	}
+	if src, _ := os.ReadFile(model); string(src) != importModel {
+		t.Errorf("-import-dry-run changed the model:\n%s", src)
+	}
+}
+
 // TestImportRefusesBadData writes nothing when a row does not fit the model.
 func TestImportRefusesBadData(t *testing.T) {
 	binary := buildCLI(t)
@@ -106,6 +124,8 @@ func TestImportFlagMisuse(t *testing.T) {
 		"map alone":       {[]string{"-import-map", data, "-validate"}, "accompany -import"},
 		"dry run convert": {[]string{"-import", data, "-import-dry-run", "-convert", "sysml"}, "writes nothing"},
 		"other shape":     {[]string{"-import", data, "-import-as", "elements", "-convert", "sysml"}, `-import-as "elements" is not supported`},
+		"dry run render":  {[]string{"-import", data, "-import-dry-run", "-render-all", filepath.Join(dir, "views")}, "does nothing else"},
+		"dry run output":  {[]string{"-import", data, "-import-dry-run", "-o", filepath.Join(dir, "x.sysml")}, "does nothing else"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := runFiles(t, binary, []string{model}, tc.args...)
