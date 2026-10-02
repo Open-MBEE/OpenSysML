@@ -71,7 +71,7 @@ $ echo $?
 | A direction other than `TB`/`LR`/`RL`/`BT` | `invalid-direction` |
 | A direction on a kind that is not a directed graph (e.g. sequence) | `unsupported-direction` |
 | A palette other than `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` | `invalid-palette` |
-| A palette on a kind with no DOT or PlantUML form (table) | `unsupported-palette` |
+| A palette on a kind with no graphical form (table) | `unsupported-palette` |
 
 ### Query execution
 
@@ -137,10 +137,11 @@ position; they are tracked in the project's compliance record.
   one pinned converter toolchain; different converter versions or fonts
   produce different bytes. Prince is recognized but not provisioned by the
   toolchain download script (it is commercial).
-- **Only HTML presentation is configurable.** `-html-css` and its companions
-  restyle an HTML document, but there is no Mermaid theme option and the PDF
+- **HTML presentation is configurable independently of diagram style.**
+  `-html-css` and its companions restyle an HTML document, while a Mermaid
+  diagram's Pilot/Cameo style and palette are encoded in its source. The PDF
   path's stylesheet is fixed, so for PDF a diagram's caption and direction plus
-  the deliverable flags are the whole presentation surface.
+  the deliverable flags are the whole document presentation surface.
 - **`-json` does not combine with `-render-document`** — the document IR is
   not reported as JSON.
 - **Editor rendering is on demand.** The Render Document command re-renders

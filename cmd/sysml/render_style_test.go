@@ -76,7 +76,7 @@ func TestRenderStyle(t *testing.T) {
 	}
 
 	mermaid := runFiles(t, binary, []string{fixture}, "-render", "Placed::placedView", "-render-form", "mermaid", "-render-style", "cameo")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "style cameo; only the DOT form draws a diagram in a style") {
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% style cameo") {
 		t.Errorf("Mermaid under -render-style = %d\n%s", mermaid.status, mermaid.output())
 	}
 
@@ -93,7 +93,7 @@ func TestRenderStyle(t *testing.T) {
 	}
 
 	alone := runFiles(t, binary, []string{fixture}, "-render-style", "cameo")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-style is the drawing style of a DOT drawing") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-style is the drawing style of a DOT or Mermaid diagram") {
 		t.Errorf("a style without a view = %d\n%s", alone.status, alone.output())
 	}
 }

@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT and PlantUML forms colour nodes
-// with, one per keyword family (part, item, port, …, see paletteFamilies). The empty
-// Palette is the black-and-white default; every named one is colourblind-safe.
+// Palette names the set of fill colours the DOT, Mermaid and PlantUML forms
+// colour nodes with, one per keyword family (part, item, port, …, see
+// paletteFamilies). Mermaid sequence diagrams report that they cannot fill
+// individual participants. The empty Palette is the black-and-white default;
+// every named one is colourblind-safe.
 type Palette string
 
 const (
@@ -90,15 +92,14 @@ func (p Palette) check() error {
 	return nil
 }
 
-// paletteNotice is the notice a Mermaid diagram that fills no node writes for a palette asked
-// for, so the request is not dropped silently.
-func paletteNotice(palette Palette, kind Kind) string {
-	return fmt.Sprintf("palette %s; Mermaid fills no node of a %s diagram", palette, kind)
+// paletteNotice is the notice a form that does not fill nodes writes for a
+// palette asked for, so the request is not dropped silently.
+func paletteNotice(palette Palette) string {
+	return fmt.Sprintf("palette %s; only the DOT, Mermaid and PlantUML forms fill nodes by keyword family", palette)
 }
 
-// paletteForms are the forms that fill nodes from a palette in every kind they
-// draw; Mermaid fills the nodes of the kinds these draw and notes the others.
-var paletteForms = []Form{FormDot, FormPlantUML}
+// paletteForms are the forms that fill nodes from a palette.
+var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML}
 
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
@@ -107,7 +108,7 @@ func (k Kind) SupportsPalette() bool {
 }
 
 // TakesPalette reports whether the form fills nodes from a palette.
-func (f Form) TakesPalette() bool { return f == FormMermaid || slices.Contains(paletteForms, f) }
+func (f Form) TakesPalette() bool { return slices.Contains(paletteForms, f) }
 
 // paletteBorders reports whether a filled node's border takes the family colour
 // in a rendering of the kind; PlantUML accepts no border colour on a participant.
@@ -129,7 +130,11 @@ type familyFills struct {
 // filled reports whether a node takes a family colour under a palette: a
 // plain node (a container keeps its black border) that is no control node.
 func (f *familyFills) filled(node *Node) bool {
-	return f.palette != "" && !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
+	return f.palette != "" && f.classable(node)
+}
+
+func (f *familyFills) classable(node *Node) bool {
+	return !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
 }
 
 // collect records the keyword families of the nodes under node that a palette
@@ -184,7 +189,7 @@ type Fill struct {
 	Border string
 }
 
-// Fills is the fill each node takes under the palette, by node ID, as the DOT and PlantUML
+// Fills is the fill each node takes under the palette, by node ID, as the DOT, Mermaid and PlantUML
 // forms fill it; a node left black and white, and every node under no palette, is absent.
 func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 	if err := palette.check(); err != nil {

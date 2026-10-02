@@ -42,8 +42,8 @@ type DiagramOptions struct {
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
-	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
-	// when empty; the other forms draw one look.
+	// Style is the drawing style every DOT or Mermaid diagram is drawn in, the
+	// Pilot look when empty; the other forms draw one look.
 	Style view.DrawingStyle
 }
 

@@ -829,9 +829,8 @@ func fontAmong(fonts, names []string) bool {
 
 // TestRenderTallFigureFitsThePageWithInstalledEngines renders a forty-step
 // action flow through each installed converter with mermaid-cli and reads back
-// that the figure is scaled onto one page, its first node (the language's
-// `start`, headed as `initial`) and last step and its caption together, rather
-// than cut at the page's foot.
+// that the figure is scaled onto one page, its first and last actions and its
+// caption together, rather than cut at the page's foot.
 func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {
 		skipWithout(t, "mmdc", err)
@@ -846,7 +845,8 @@ func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 				}
 			}
 			for _, page := range strings.Split(text, "\f") {
-				if strings.Contains(page, "initial") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
+				pageWords := strings.Fields(page)
+				if slices.Contains(pageWords, "step1") && slices.Contains(pageWords, "step40") && strings.Contains(page, "Forty steps in a column") {
 					return
 				}
 			}

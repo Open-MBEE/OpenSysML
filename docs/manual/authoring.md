@@ -517,17 +517,15 @@ part structure : Diagram {
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  only by kinds that have a DOT or PlantUML form (tree, interconnection,
-  state, action, sequence). When the document is rendered, the diagram's
-  nodes are filled by keyword family from that colourblind-safe palette, a
-  `part def` and its `part` usages sharing a hue, with black text kept
-  legible on every fill
-  ([the palettes](../project/view-rendering-forms.md#palettes)), in Mermaid,
-  DOT and PlantUML alike; a Mermaid sequence diagram, which fills no
-  participant, notes the palette as not represented, and the HTML figure
-  carries it as `data-palette` either way. Any other name, or a palette on a
-  table diagram, is a typed error.
-- `ports` — `"minimal"` or `"full"` — is accepted by an interconnection
+  for graph-shaped kinds (tree, interconnection, state, action, sequence).
+  Mermaid, DOT and PlantUML fill applicable nodes by keyword family from that
+  colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
+  with black text kept legible on every fill
+  ([the palettes](../project/view-rendering-forms.md#palettes)). Mermaid
+  sequence diagrams note that individual participants cannot be filled; HTML
+  figures carry the palette as `data-palette`. Any other name, or a palette on
+  a table diagram, is a typed error.
+  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection
   diagram alone. `"minimal"`, the default, draws on each part the ports a
   connector of the view ends at and no other, each a small square on the
   part's border named beside it; `"full"` draws every port a part has,

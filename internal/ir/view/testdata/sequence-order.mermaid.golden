@@ -1,3 +1,35 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    actorLineColor: "#181818"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+---
 %% OrderingViews::relayView — sequence rendering (view def SequenceView)
 sequenceDiagram
   participant n0 as «part»<br>left
