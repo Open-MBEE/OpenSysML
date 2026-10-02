@@ -3043,14 +3043,16 @@ elmt:IrregularLayout__Ops___404
     sysml:owningRelationship elmt:IrregularLayout__Ops___404_om ;
     sysml:owningMembership elmt:IrregularLayout__Ops___404_om ;
     sysx:transitionSyntax "first" ;
+    sysml:ownedRelationship expr:IrregularLayout__Ops___404_psourcemember, elmt:IrregularLayout__Ops___404_linkparam_om, expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
+    sysml:ownedMembership expr:IrregularLayout__Ops___404_psourcemember, elmt:IrregularLayout__Ops___404_linkparam_om, expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
+    sysml:ownedFeatureMembership elmt:IrregularLayout__Ops___404_linkparam_om ;
+    sysml:ownedFeature elmt:IrregularLayout__Ops___404_linkparam ;
     sysml:succession elmt:IrregularLayout__Ops___404_succession ;
     sysx:guard expr:IrregularLayout__Ops___404_pguard ;
-    sysml:ownedRelationship expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
-    sysml:ownedMembership expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
     sysml:source elmt:IrregularLayout__Ops__off ;
     sysml:target elmt:IrregularLayout__Ops__on ;
-    json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_psourcemember\"},{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_psourcemember\"},{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" .
 
 elmt:IrregularLayout__Ops___404_om
     a sysml:FeatureMembership ;
@@ -3063,6 +3065,34 @@ elmt:IrregularLayout__Ops___404_om
     sysml:membershipOwningNamespace elmt:IrregularLayout__Ops ;
     sysml:ownedMemberFeature elmt:IrregularLayout__Ops___404 ;
     sysml:owningType elmt:IrregularLayout__Ops .
+
+expr:IrregularLayout__Ops___404_psourcemember
+    a sysml:Membership ;
+    sysml:elementId "IrregularLayout__Ops___404_psourcemember" ;
+    sysml:owner elmt:IrregularLayout__Ops___404 ;
+    sysml:memberElement elmt:IrregularLayout__Ops__off ;
+    sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 .
+
+elmt:IrregularLayout__Ops___404_linkparam
+    a sysml:ReferenceUsage ;
+    sysml:elementId "IrregularLayout__Ops___404_linkparam" ;
+    sysml:direction "in" ;
+    sysml:owner elmt:IrregularLayout__Ops___404 ;
+    sysml:owningRelationship elmt:IrregularLayout__Ops___404_linkparam_om ;
+    sysml:owningMembership elmt:IrregularLayout__Ops___404_linkparam_om .
+
+elmt:IrregularLayout__Ops___404_linkparam_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "IrregularLayout__Ops___404_linkparam_om" ;
+    sysml:owner elmt:IrregularLayout__Ops___404 ;
+    sysml:memberElement elmt:IrregularLayout__Ops___404_linkparam ;
+    sysml:ownedMemberElement elmt:IrregularLayout__Ops___404_linkparam ;
+    sysml:ownedRelatedElement elmt:IrregularLayout__Ops___404_linkparam ;
+    sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 ;
+    sysml:ownedMemberFeature elmt:IrregularLayout__Ops___404_linkparam ;
+    sysml:ownedMemberParameter elmt:IrregularLayout__Ops___404_linkparam .
 
 elmt:IrregularLayout__Ops___404_succession
     a sysml:SuccessionAsUsage ;
