@@ -146,7 +146,9 @@ in Real notation (as 3.0)`), as it does for an Integer beyond `int64`.
 
 KerML's `Rational` is the exact rationals (§9.3.2.2.8); this tree, like the interpreter, still
 computes a `Rational`-typed value as a Real ([exact-rational-evaluation.md](exact-rational-evaluation.md)),
-and the compiler does the same, no more and no less.
+and the compiler does the same, no more and no less. When the interpreter computes Rationals
+exactly, the compiler refuses that arithmetic with an `UnsupportedError` until it computes it
+exactly too; it never rounds an exact Rational to binary64.
 
 ## Strings and enumerations
 
