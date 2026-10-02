@@ -629,6 +629,7 @@ runtime in its default dependency tree ([Rust API](docs/reference/rust-api.md),
 - **[Internals](docs/internals/architecture.md)** — the pipeline, the tiers, testing and performance
 - **[Project status](docs/project/spec-compliance.md)** — spec compliance, roadmap and releasing
 - **[Examples](examples/)** — runtime demonstrations and behavioral model examples
+- **[Agent skills](packaging/agent-skills/)** — skills an LLM coding agent can load to write, check and run models with OpenSysML
 
 A complete index is available in [docs/README.md](docs/README.md).
 
