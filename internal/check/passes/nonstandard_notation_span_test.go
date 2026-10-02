@@ -29,3 +29,29 @@ func TestDeclarationKeywordSpanKeepsKeywordBeforeItsPrefixMetadata(t *testing.T)
 		t.Errorf("without source text: span = %+v, want %+v", got, want)
 	}
 }
+
+// A comment ahead of the kind keyword may spell it; the span is the keyword
+// token, in either direction.
+func TestDeclarationKeywordSpanSkipsComments(t *testing.T) {
+	for _, tc := range []struct {
+		file, src, word string
+	}{
+		{"a.sysml", "package P { metadata def M; #M /* class */ class C; }", "class"},
+		{"a.sysml", "package P { abstract /* class */ class C; }", "class"},
+		{"a.sysml", "package P { metadata def M; #M // class\nclass C; }", "class"},
+		{"a.sysml", "package P { metadata def M; metadata def N; #M /* class */ #N class C; }", "class"},
+		{"a.kerml", "package P { abstract /* part */ part def D; }", "part"},
+	} {
+		_, _, all := notationDiagnostics(t, tc.file, tc.src)
+		var got []source.Span
+		for _, d := range all {
+			if d.Code == CodeKerMLNotation || d.Code == CodeSysMLNotation {
+				got = append(got, d.Span)
+			}
+		}
+		want := source.Span{Offset: strings.LastIndex(tc.src, tc.word), Len: len(tc.word)}
+		if len(got) != 1 || got[0] != want {
+			t.Errorf("%q: spans = %+v, want [%+v]", tc.src, got, want)
+		}
+	}
+}

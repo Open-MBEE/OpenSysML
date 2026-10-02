@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -776,64 +777,29 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 	})
 }
 
-// declarationKeywordSpan spans the kind keyword of a declaration. Modifiers
-// (`abstract`, `in`) may precede it, and so may prefix metadata whose name
-// spells the keyword (`#'class' class C;`); some keywords instead take their
-// prefix metadata after themselves (`subject #M s;`). An occurrence inside a
-// prefix is therefore never the keyword. Without the source text the span
-// falls back to the word after the prefixes the declaration opens with.
+// declarationKeywordSpan spans the kind keyword of a declaration: the first
+// keyword token spelling it, past modifiers (`abstract`, `in`), prefix
+// metadata whose quoted name repeats it (`#'class' class C;`) and comments.
+// Without the source text the span falls back to the word after the prefixes
+// the declaration opens with.
 func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
 	sp := n.Span()
-	prefixes, _, _ := ast.DeclaredMetadata(n)
+	word, _, _ := strings.Cut(keyword, " ")
 	if w.lookup != nil {
-		text := w.lookup(w.doc, sp)
-		for from := 0; from < len(text); {
-			at := indexWord(text[from:], keyword)
-			if at < 0 {
-				break
+		lx := lexer.New(source.New(w.doc, []byte(w.lookup(w.doc, sp))))
+		for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+			if tok.Kind == lexer.Keyword && tok.KeywordID == word {
+				return source.Span{Offset: sp.Offset + tok.Span.Offset, Len: tok.Span.Len}
 			}
-			at += from
-			word := source.Span{Offset: sp.Offset + at, Len: len(keyword)}
-			if !insidePrefixMetadata(prefixes, word) {
-				return word
-			}
-			from = at + len(keyword)
 		}
 	}
-	if len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
+	if prefixes, _, _ := ast.DeclaredMetadata(n); len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
 		if end := prefixes[len(prefixes)-1].Span().End(); end < sp.End() {
 			sp.Len = sp.End() - end
 			sp.Offset = end
 		}
 	}
 	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
-}
-
-func insidePrefixMetadata(prefixes []*ast.PrefixMetadata, word source.Span) bool {
-	for _, pm := range prefixes {
-		if pm.Span().Contains(word) {
-			return true
-		}
-	}
-	return false
-}
-
-// indexWord is the offset of the first occurrence of word in text that no
-// identifier character adjoins, or -1.
-func indexWord(text, word string) int {
-	for from := 0; from < len(text); {
-		at := strings.Index(text[from:], word)
-		if at < 0 {
-			return -1
-		}
-		at += from
-		end := at + len(word)
-		if (at == 0 || !source.IsIdentCont(text[at-1])) && (end == len(text) || !source.IsIdentCont(text[end])) {
-			return at
-		}
-		from = at + 1
-	}
-	return -1
 }
 
 // keywordSpan spans the notation that opens a node, so the diagnostic points at
