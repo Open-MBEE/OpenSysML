@@ -14,7 +14,7 @@ const msgMultiplicityBoundNatural = "Must have a Natural value"
 
 // MultiplicityBoundsPass checks that every multiplicity bound has a Natural
 // value (KerML 8.3.3.1.9, validateMultiplicityRangeBoundResultTypes): an evaluable
-// bound must fold to a non-negative integer or `*` and must not read a valueless
+// bound must fold to a non-negative integer or `*` and must not reach a valueless
 // feature; any other bound must have an Integer-conforming result type.
 type MultiplicityBoundsPass struct{}
 
@@ -63,7 +63,7 @@ func (c *multiplicityBoundsChecker) checkBound(scope *symbols.Scope, bound ast.N
 			}
 			return
 		}
-		if c.readsValuelessFeature(scope, bound) {
+		if c.model.ReadsValuelessFeature(scope, bound) {
 			c.report(bound)
 			return
 		}
@@ -71,26 +71,6 @@ func (c *multiplicityBoundsChecker) checkBound(scope *symbols.Scope, bound ast.N
 	if !c.boundIsInteger(scope, bound) {
 		c.report(bound)
 	}
-}
-
-// readsValuelessFeature reports whether bound names a feature with no value, which
-// model-level evaluation yields as the feature itself rather than a number.
-func (c *multiplicityBoundsChecker) readsValuelessFeature(scope *symbols.Scope, bound ast.Node) bool {
-	if !kit.IsReference(bound) {
-		return false
-	}
-	sym, ok := c.resolver.ResolveTarget(scope, bound)
-	if !ok || sym == nil {
-		return false
-	}
-	if target, aliasOK := c.resolver.ResolveAliasTarget(sym); aliasOK {
-		sym = target
-	}
-	if !sym.Kind.IsFeature() {
-		return false
-	}
-	usage, isUsage := sym.Decl.(*ast.Usage)
-	return isUsage && usage.Value == nil
 }
 
 // boundIsInteger reports whether a bound's result may be an Integer: a known

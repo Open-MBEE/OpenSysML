@@ -2858,8 +2858,11 @@ adjudicated toward the specification:
   without a value is model-level evaluable and evaluates to itself, so `[k]` is rejected by both
   validators. A type member is not model-level evaluable and is judged by its result type. An
   evaluable bound the evaluator does not fold (for example, a cast) is also judged by its result
-  type; only a folded value other than a non-negative integer or `*`, or a read of a feature with
-  no value, is rejected. The constraint's OCL (`value <> null implies value >= 0` over
+  type; only a folded value other than a non-negative integer or `*`, or an evaluation that
+  reaches a feature with no value, directly or through another feature's value, is rejected. The
+  pilot also rejects `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does
+  not yield a literal there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's
+  OCL (`value <> null implies value >= 0` over
   `valueOf`, §8.3.3.1.9) cannot
   distinguish a non-literal result from a negative value because `valueOf` returns null for
   both. OpenSysML follows the prose;

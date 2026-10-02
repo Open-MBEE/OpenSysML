@@ -45,6 +45,58 @@ func TestW8CMultiplicityBoundEvaluableMustHaveValue(t *testing.T) {
 			want: 0,
 		},
 		{
+			name: "indirect package feature without value",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	feature k : Natural = u;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "indirect operator reads feature without value",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	feature k : Natural = u + 1;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "indirect operator reads valued feature",
+			src: `package P {
+	private import ScalarValues::*;
+	feature j : Natural = 2;
+	feature k : Natural = j + 1;
+	feature d [k];
+}`,
+			want: 0,
+		},
+		{
+			name: "class member indirectly reads package feature",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	class T {
+		feature k : Natural = u;
+		feature d [k];
+	}
+}`,
+			want: 0,
+		},
+		{
+			name: "cyclic feature values",
+			src: `package P {
+	private import ScalarValues::*;
+	feature a : Natural = b;
+	feature b : Natural = a;
+	feature d [a];
+}`,
+			want: 0,
+		},
+		{
 			name: "package feature valued by cast",
 			src: `package P {
 	feature k : ScalarValues::Natural = 2 as ScalarValues::Natural;
