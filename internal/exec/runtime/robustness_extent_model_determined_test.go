@@ -361,6 +361,55 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 	})
 
+	t.Run("an optional attribute bound to a value reads that value", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			attribute a : Integer[0..1];
+			attribute b : Integer = 5;
+			bind a = b;
+			attribute u : Integer[0..1];
+		}`
+		for _, first := range []string{"a", "b"} {
+			ctx, idx := contextForSource(t, src)
+			pkg := lookupOne(t, idx, "test")
+			if _, err := evalIn(t, ctx, pkg.Scope, first); err != nil {
+				t.Fatalf("%s first: %v", first, err)
+			}
+			got, err := evalIn(t, ctx, pkg.Scope, "a")
+			if err != nil {
+				t.Fatalf("a after %s first: %v", first, err)
+			}
+			if FormatValue(got) != "5" {
+				t.Fatalf("a after %s first = %s, want 5: the binding's value, not an empty read", first, FormatValue(got))
+			}
+		}
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+		got, err := evalIn(t, ctx, pkg.Scope, "u")
+		if err != nil {
+			t.Fatalf("u: %v", err)
+		}
+		if FormatValue(got) == "5" {
+			t.Fatalf("u = %s, want undetermined: an unbound optional attribute still reads as before", FormatValue(got))
+		}
+	})
+
+	t.Run("an optional part bound to a valued part reads its object", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part p : Car[0..1];
+			part q : Car = new Car();
+			bind p = q;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		same, err := evalIn(t, ctx, pkg.Scope, "p === q")
+		if err != nil || FormatValue(same) != "true" {
+			t.Fatalf("p === q = %v (%v), want true", FormatValue(same), err)
+		}
+	})
+
 	t.Run("a member's classifier behavior reads the class's one object", func(t *testing.T) {
 		src := `package test {
 			private import ScalarValues::*;

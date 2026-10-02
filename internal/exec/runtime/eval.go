@@ -1178,6 +1178,9 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 		if err != nil || !bound {
 			return Value{}, bound, err
 		}
+		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+			return val, true, nil
+		}
 		elements := make([]Value, 0, len(objs))
 		for _, inst := range objs {
 			obj, err := ec.ctx.objectValue(inst)
