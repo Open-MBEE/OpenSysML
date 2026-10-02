@@ -563,7 +563,7 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 	}
 	e.emptyParameterMember(subject, "linkparam")
 	if e.triggerPayload(n) != nil {
-		e.emptyParameterMember(subject, "payloadparam")
+		e.emptyParameterMember(subject, "triggerparam")
 	}
 }
 
@@ -572,6 +572,7 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 // OwningMembership owning the chain Feature (FeatureChainMember, :1111-1116).
 func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.QualifiedName) {
 	if qualifiedNameHasChain(source) {
+		// A chain is a node, as an end's chain is.
 		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "sourcechain"), subject, "sourcechain")
 		membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
@@ -598,9 +599,10 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 // emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
 // owning an EmptyUsage, a ReferenceUsage that declares nothing.
 func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
-	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	// Minted as an element, as the transition's succession is: an
+	// expression-part id would read back from the element form as a node.
+	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
-	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.typed(feature, mReferenceUsage)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	// A parameter with no direction of its own is an `in` parameter.

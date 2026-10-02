@@ -3,6 +3,7 @@ package export_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -97,7 +98,7 @@ func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
 	graph := string(turtle)
 	if !strings.Contains(graph,
-		"sysml:ownedRelationship expr:T__S__t_psourcemember, expr:T__S__t_plinkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
+		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
 		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body:\n%s", graph)
 	}
 	notation := string(back)
@@ -262,5 +263,84 @@ func TestTransitionOwnsItsSourceParameterAndChainedEnds(t *testing.T) {
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "source") {
 		t.Errorf("expected the disagreeing source member to be refused, got %v", err)
+	}
+}
+
+// A graph in the API element form reads back as written with only the
+// structure stating each transition's head: without the collapsed source and
+// target, the source member, source chain and chained succession end state
+// them; and a chain stated only by its derived chainingFeature list, with no
+// FeatureChaining elements, reaches the same features. (A transition with a
+// trigger does not yet read from the element form.)
+func TestTransitionStructureAloneReadsBack(t *testing.T) {
+	src := "package P {\n    state def S {\n        state a;\n        state b {\n            state c;\n        }\n" +
+		"        transition t first a then b.c;\n        transition v first b.c then a;\n        transition w first a then b;\n    }\n}\n"
+	doc, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(doc, &elements); err != nil {
+		t.Fatal(err)
+	}
+	chainings := map[string]bool{}
+	for _, e := range elements {
+		if e["@type"] == "FeatureChaining" {
+			chainings[fmt.Sprint(e["@id"])] = true
+		}
+	}
+	if len(chainings) == 0 {
+		t.Fatal("the graph states no FeatureChaining")
+	}
+	// elementForm is the document in the element form, every element stating
+	// its defaults, the transitions with no collapsed source or target, and
+	// without FeatureChaining elements when dropChainings says so.
+	elementForm := func(dropChainings bool) []byte {
+		var out []map[string]any
+		for _, original := range elements {
+			if dropChainings && chainings[fmt.Sprint(original["@id"])] {
+				continue
+			}
+			e := map[string]any{"isImpliedIncluded": false}
+			for key, value := range original {
+				if list, ok := value.([]any); ok && dropChainings {
+					var keep []any
+					for _, item := range list {
+						if ref, ok := item.(map[string]any); !ok || !chainings[fmt.Sprint(ref["@id"])] {
+							keep = append(keep, item)
+						}
+					}
+					value = keep
+				}
+				e[key] = value
+			}
+			if e["@type"] == "TransitionUsage" {
+				delete(e, "source")
+				delete(e, "target")
+			}
+			out = append(out, e)
+		}
+		document, err := json.Marshal(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return document
+	}
+	for _, tc := range []struct {
+		name          string
+		dropChainings bool
+	}{
+		{"no collapsed source or target", false},
+		{"chains by their chainingFeature lists", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			back, err := convert.Convert("m.json", elementForm(tc.dropChainings), convert.FormatAPIJSON, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if string(back) != src {
+				t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+			}
+		})
 	}
 }

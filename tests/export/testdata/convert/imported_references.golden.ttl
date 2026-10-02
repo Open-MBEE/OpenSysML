@@ -1276,15 +1276,15 @@ elmt:R90__Run___403
     sysml:owningRelationship elmt:R90__Run___403_om ;
     sysml:owningMembership elmt:R90__Run___403_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:R90__Run___403_psourcemember, expr:R90__Run___403_plinkparam_om, elmt:R90__Run___403_succession_om ;
-    sysml:ownedMembership expr:R90__Run___403_psourcemember, expr:R90__Run___403_plinkparam_om, elmt:R90__Run___403_succession_om ;
-    sysml:ownedFeatureMembership expr:R90__Run___403_plinkparam_om ;
-    sysml:ownedFeature expr:R90__Run___403_plinkparam ;
+    sysml:ownedRelationship expr:R90__Run___403_psourcemember, elmt:R90__Run___403_linkparam_om, elmt:R90__Run___403_succession_om ;
+    sysml:ownedMembership expr:R90__Run___403_psourcemember, elmt:R90__Run___403_linkparam_om, elmt:R90__Run___403_succession_om ;
+    sysml:ownedFeatureMembership elmt:R90__Run___403_linkparam_om ;
+    sysml:ownedFeature elmt:R90__Run___403_linkparam ;
     sysml:succession elmt:R90__Run___403_succession ;
     sysml:source elmt:R90__Run__idle ;
     sysml:target elmt:R90__Done__done ;
-    json:ownedRelationship "[{\"@id\":\"R90__Run___403_psourcemember\"},{\"@id\":\"R90__Run___403_plinkparam_om\"},{\"@id\":\"R90__Run___403_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"R90__Run___403_psourcemember\"},{\"@id\":\"R90__Run___403_plinkparam_om\"},{\"@id\":\"R90__Run___403_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__Run___403_psourcemember\"},{\"@id\":\"R90__Run___403_linkparam_om\"},{\"@id\":\"R90__Run___403_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__Run___403_psourcemember\"},{\"@id\":\"R90__Run___403_linkparam_om\"},{\"@id\":\"R90__Run___403_succession_om\"}]" .
 
 elmt:R90__Run___403_om
     a sysml:FeatureMembership ;
@@ -1306,25 +1306,25 @@ expr:R90__Run___403_psourcemember
     sysml:owningRelatedElement elmt:R90__Run___403 ;
     sysml:membershipOwningNamespace elmt:R90__Run___403 .
 
-expr:R90__Run___403_plinkparam
+elmt:R90__Run___403_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "R90__Run___403_plinkparam" ;
+    sysml:elementId "R90__Run___403_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:R90__Run___403 ;
-    sysml:owningRelationship expr:R90__Run___403_plinkparam_om ;
-    sysml:owningMembership expr:R90__Run___403_plinkparam_om .
+    sysml:owningRelationship elmt:R90__Run___403_linkparam_om ;
+    sysml:owningMembership elmt:R90__Run___403_linkparam_om .
 
-expr:R90__Run___403_plinkparam_om
+elmt:R90__Run___403_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "R90__Run___403_plinkparam_om" ;
+    sysml:elementId "R90__Run___403_linkparam_om" ;
     sysml:owner elmt:R90__Run___403 ;
-    sysml:memberElement expr:R90__Run___403_plinkparam ;
-    sysml:ownedMemberElement expr:R90__Run___403_plinkparam ;
-    sysml:ownedRelatedElement expr:R90__Run___403_plinkparam ;
+    sysml:memberElement elmt:R90__Run___403_linkparam ;
+    sysml:ownedMemberElement elmt:R90__Run___403_linkparam ;
+    sysml:ownedRelatedElement elmt:R90__Run___403_linkparam ;
     sysml:owningRelatedElement elmt:R90__Run___403 ;
     sysml:membershipOwningNamespace elmt:R90__Run___403 ;
-    sysml:ownedMemberFeature expr:R90__Run___403_plinkparam ;
-    sysml:ownedMemberParameter expr:R90__Run___403_plinkparam .
+    sysml:ownedMemberFeature elmt:R90__Run___403_linkparam ;
+    sysml:ownedMemberParameter elmt:R90__Run___403_linkparam .
 
 elmt:R90__Run___403_succession
     a sysml:SuccessionAsUsage ;

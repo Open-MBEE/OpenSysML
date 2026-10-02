@@ -325,15 +325,15 @@ elmt:Machines__Lamp__on__heat___404
     sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__heat___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp__on__heat___404_psourcemember, expr:Machines__Lamp__on__heat___404_plinkparam_om, elmt:Machines__Lamp__on__heat___404_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp__on__heat___404_psourcemember, expr:Machines__Lamp__on__heat___404_plinkparam_om, elmt:Machines__Lamp__on__heat___404_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp__on__heat___404_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp__on__heat___404_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp__on__heat___404_psourcemember, elmt:Machines__Lamp__on__heat___404_linkparam_om, elmt:Machines__Lamp__on__heat___404_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp__on__heat___404_psourcemember, elmt:Machines__Lamp__on__heat___404_linkparam_om, elmt:Machines__Lamp__on__heat___404_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__heat___404_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__heat___404_linkparam ;
     sysml:succession elmt:Machines__Lamp__on__heat___404_succession ;
     sysml:source elmt:Machines__Lamp__on__heat__warm ;
     sysml:target elmt:Machines__Lamp__on__heat__hot ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__heat___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__heat___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__heat___404_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__heat___404_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_succession_om\"}]" .
 
 elmt:Machines__Lamp__on__heat___404_om
     a sysml:FeatureMembership ;
@@ -355,25 +355,25 @@ expr:Machines__Lamp__on__heat___404_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp__on__heat___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat___404 .
 
-expr:Machines__Lamp__on__heat___404_plinkparam
+elmt:Machines__Lamp__on__heat___404_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp__on__heat___404_plinkparam" ;
+    sysml:elementId "Machines__Lamp__on__heat___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__heat___404 ;
-    sysml:owningRelationship expr:Machines__Lamp__on__heat___404_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__heat___404_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat___404_linkparam_om .
 
-expr:Machines__Lamp__on__heat___404_plinkparam_om
+elmt:Machines__Lamp__on__heat___404_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp__on__heat___404_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp__on__heat___404_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp__on__heat___404 ;
-    sysml:memberElement expr:Machines__Lamp__on__heat___404_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp__on__heat___404_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp__on__heat___404_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat___404_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat___404_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat___404_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp__on__heat___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat___404 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp__on__heat___404_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp__on__heat___404_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat___404_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp__on__heat___404_linkparam .
 
 elmt:Machines__Lamp__on__heat___404_succession
     a sysml:SuccessionAsUsage ;
@@ -615,15 +615,15 @@ elmt:Machines__Lamp__on__light___404
     sysml:owningRelationship elmt:Machines__Lamp__on__light___404_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp__on__light___404_psourcemember, expr:Machines__Lamp__on__light___404_plinkparam_om, elmt:Machines__Lamp__on__light___404_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp__on__light___404_psourcemember, expr:Machines__Lamp__on__light___404_plinkparam_om, elmt:Machines__Lamp__on__light___404_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___404_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp__on__light___404_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp__on__light___404_psourcemember, elmt:Machines__Lamp__on__light___404_linkparam_om, elmt:Machines__Lamp__on__light___404_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp__on__light___404_psourcemember, elmt:Machines__Lamp__on__light___404_linkparam_om, elmt:Machines__Lamp__on__light___404_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__light___404_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__light___404_linkparam ;
     sysml:succession elmt:Machines__Lamp__on__light___404_succession ;
     sysml:source elmt:Machines__Lamp__on__light__dim ;
     sysml:target elmt:Machines__Lamp__on__light__bright ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___404_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___404_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___404_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___404_succession_om\"}]" .
 
 elmt:Machines__Lamp__on__light___404_om
     a sysml:FeatureMembership ;
@@ -645,25 +645,25 @@ expr:Machines__Lamp__on__light___404_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp__on__light___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___404 .
 
-expr:Machines__Lamp__on__light___404_plinkparam
+elmt:Machines__Lamp__on__light___404_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp__on__light___404_plinkparam" ;
+    sysml:elementId "Machines__Lamp__on__light___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__light___404 ;
-    sysml:owningRelationship expr:Machines__Lamp__on__light___404_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__light___404_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___404_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___404_linkparam_om .
 
-expr:Machines__Lamp__on__light___404_plinkparam_om
+elmt:Machines__Lamp__on__light___404_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp__on__light___404_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp__on__light___404_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp__on__light___404 ;
-    sysml:memberElement expr:Machines__Lamp__on__light___404_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp__on__light___404_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp__on__light___404_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___404_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___404_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___404_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp__on__light___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___404 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp__on__light___404_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp__on__light___404_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light___404_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp__on__light___404_linkparam .
 
 elmt:Machines__Lamp__on__light___404_succession
     a sysml:SuccessionAsUsage ;
@@ -766,15 +766,15 @@ elmt:Machines__Lamp__on__light___405
     sysml:owningRelationship elmt:Machines__Lamp__on__light___405_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp__on__light___405_psourcemember, expr:Machines__Lamp__on__light___405_plinkparam_om, elmt:Machines__Lamp__on__light___405_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp__on__light___405_psourcemember, expr:Machines__Lamp__on__light___405_plinkparam_om, elmt:Machines__Lamp__on__light___405_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp__on__light___405_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp__on__light___405_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp__on__light___405_psourcemember, elmt:Machines__Lamp__on__light___405_linkparam_om, elmt:Machines__Lamp__on__light___405_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp__on__light___405_psourcemember, elmt:Machines__Lamp__on__light___405_linkparam_om, elmt:Machines__Lamp__on__light___405_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__light___405_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__light___405_linkparam ;
     sysml:succession elmt:Machines__Lamp__on__light___405_succession ;
     sysml:source elmt:Machines__Lamp__on__light__bright ;
     sysml:target elmt:Machines__Lamp__on__heat__hot ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___405_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___405_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___405_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___405_plinkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___405_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___405_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___405_psourcemember\"},{\"@id\":\"Machines__Lamp__on__light___405_linkparam_om\"},{\"@id\":\"Machines__Lamp__on__light___405_succession_om\"}]" .
 
 elmt:Machines__Lamp__on__light___405_om
     a sysml:FeatureMembership ;
@@ -796,25 +796,25 @@ expr:Machines__Lamp__on__light___405_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp__on__light___405 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___405 .
 
-expr:Machines__Lamp__on__light___405_plinkparam
+elmt:Machines__Lamp__on__light___405_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp__on__light___405_plinkparam" ;
+    sysml:elementId "Machines__Lamp__on__light___405_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp__on__light___405 ;
-    sysml:owningRelationship expr:Machines__Lamp__on__light___405_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__light___405_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___405_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___405_linkparam_om .
 
-expr:Machines__Lamp__on__light___405_plinkparam_om
+elmt:Machines__Lamp__on__light___405_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp__on__light___405_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp__on__light___405_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp__on__light___405 ;
-    sysml:memberElement expr:Machines__Lamp__on__light___405_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp__on__light___405_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp__on__light___405_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___405_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___405_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___405_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp__on__light___405 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light___405 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp__on__light___405_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp__on__light___405_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light___405_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp__on__light___405_linkparam .
 
 elmt:Machines__Lamp__on__light___405_succession
     a sysml:SuccessionAsUsage ;
@@ -917,15 +917,15 @@ elmt:Machines__Lamp___404
     sysml:owningRelationship elmt:Machines__Lamp___404_om ;
     sysml:owningMembership elmt:Machines__Lamp___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp___404_psourcemember, expr:Machines__Lamp___404_plinkparam_om, elmt:Machines__Lamp___404_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp___404_psourcemember, expr:Machines__Lamp___404_plinkparam_om, elmt:Machines__Lamp___404_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp___404_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp___404_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp___404_psourcemember, elmt:Machines__Lamp___404_linkparam_om, elmt:Machines__Lamp___404_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp___404_psourcemember, elmt:Machines__Lamp___404_linkparam_om, elmt:Machines__Lamp___404_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp___404_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp___404_linkparam ;
     sysml:succession elmt:Machines__Lamp___404_succession ;
     sysml:source elmt:Machines__Lamp__off ;
     sysml:target elmt:Machines__Lamp__on ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___404_psourcemember\"},{\"@id\":\"Machines__Lamp___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp___404_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp___404_psourcemember\"},{\"@id\":\"Machines__Lamp___404_plinkparam_om\"},{\"@id\":\"Machines__Lamp___404_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___404_psourcemember\"},{\"@id\":\"Machines__Lamp___404_linkparam_om\"},{\"@id\":\"Machines__Lamp___404_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp___404_psourcemember\"},{\"@id\":\"Machines__Lamp___404_linkparam_om\"},{\"@id\":\"Machines__Lamp___404_succession_om\"}]" .
 
 elmt:Machines__Lamp___404_om
     a sysml:FeatureMembership ;
@@ -947,25 +947,25 @@ expr:Machines__Lamp___404_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___404 .
 
-expr:Machines__Lamp___404_plinkparam
+elmt:Machines__Lamp___404_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp___404_plinkparam" ;
+    sysml:elementId "Machines__Lamp___404_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___404 ;
-    sysml:owningRelationship expr:Machines__Lamp___404_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp___404_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp___404_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp___404_linkparam_om .
 
-expr:Machines__Lamp___404_plinkparam_om
+elmt:Machines__Lamp___404_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp___404_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp___404_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp___404 ;
-    sysml:memberElement expr:Machines__Lamp___404_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp___404_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp___404_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp___404_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___404_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___404_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp___404 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___404 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp___404_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp___404_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp___404_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp___404_linkparam .
 
 elmt:Machines__Lamp___404_succession
     a sysml:SuccessionAsUsage ;
@@ -1068,15 +1068,15 @@ elmt:Machines__Lamp___405
     sysml:owningRelationship elmt:Machines__Lamp___405_om ;
     sysml:owningMembership elmt:Machines__Lamp___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp___405_psourcemember, expr:Machines__Lamp___405_plinkparam_om, elmt:Machines__Lamp___405_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp___405_psourcemember, expr:Machines__Lamp___405_plinkparam_om, elmt:Machines__Lamp___405_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp___405_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp___405_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp___405_psourcemember, elmt:Machines__Lamp___405_linkparam_om, elmt:Machines__Lamp___405_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp___405_psourcemember, elmt:Machines__Lamp___405_linkparam_om, elmt:Machines__Lamp___405_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp___405_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp___405_linkparam ;
     sysml:succession elmt:Machines__Lamp___405_succession ;
     sysml:source elmt:Machines__Lamp__on ;
     sysml:target elmt:Machines__Lamp__on__light__bright ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___405_psourcemember\"},{\"@id\":\"Machines__Lamp___405_plinkparam_om\"},{\"@id\":\"Machines__Lamp___405_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp___405_psourcemember\"},{\"@id\":\"Machines__Lamp___405_plinkparam_om\"},{\"@id\":\"Machines__Lamp___405_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___405_psourcemember\"},{\"@id\":\"Machines__Lamp___405_linkparam_om\"},{\"@id\":\"Machines__Lamp___405_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp___405_psourcemember\"},{\"@id\":\"Machines__Lamp___405_linkparam_om\"},{\"@id\":\"Machines__Lamp___405_succession_om\"}]" .
 
 elmt:Machines__Lamp___405_om
     a sysml:FeatureMembership ;
@@ -1098,25 +1098,25 @@ expr:Machines__Lamp___405_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp___405 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___405 .
 
-expr:Machines__Lamp___405_plinkparam
+elmt:Machines__Lamp___405_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp___405_plinkparam" ;
+    sysml:elementId "Machines__Lamp___405_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___405 ;
-    sysml:owningRelationship expr:Machines__Lamp___405_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp___405_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp___405_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp___405_linkparam_om .
 
-expr:Machines__Lamp___405_plinkparam_om
+elmt:Machines__Lamp___405_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp___405_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp___405_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp___405 ;
-    sysml:memberElement expr:Machines__Lamp___405_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp___405_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp___405_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp___405_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___405_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___405_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp___405 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___405 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp___405_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp___405_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp___405_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp___405_linkparam .
 
 elmt:Machines__Lamp___405_succession
     a sysml:SuccessionAsUsage ;
@@ -1219,15 +1219,15 @@ elmt:Machines__Lamp___406
     sysml:owningRelationship elmt:Machines__Lamp___406_om ;
     sysml:owningMembership elmt:Machines__Lamp___406_om ;
     sysx:transitionSyntax "source" ;
-    sysml:ownedRelationship expr:Machines__Lamp___406_psourcemember, expr:Machines__Lamp___406_plinkparam_om, elmt:Machines__Lamp___406_succession_om ;
-    sysml:ownedMembership expr:Machines__Lamp___406_psourcemember, expr:Machines__Lamp___406_plinkparam_om, elmt:Machines__Lamp___406_succession_om ;
-    sysml:ownedFeatureMembership expr:Machines__Lamp___406_plinkparam_om ;
-    sysml:ownedFeature expr:Machines__Lamp___406_plinkparam ;
+    sysml:ownedRelationship expr:Machines__Lamp___406_psourcemember, elmt:Machines__Lamp___406_linkparam_om, elmt:Machines__Lamp___406_succession_om ;
+    sysml:ownedMembership expr:Machines__Lamp___406_psourcemember, elmt:Machines__Lamp___406_linkparam_om, elmt:Machines__Lamp___406_succession_om ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp___406_linkparam_om ;
+    sysml:ownedFeature elmt:Machines__Lamp___406_linkparam ;
     sysml:succession elmt:Machines__Lamp___406_succession ;
     sysml:source elmt:Machines__Lamp__on__heat__hot ;
     sysml:target elmt:Machines__Lamp__off ;
-    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___406_psourcemember\"},{\"@id\":\"Machines__Lamp___406_plinkparam_om\"},{\"@id\":\"Machines__Lamp___406_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Machines__Lamp___406_psourcemember\"},{\"@id\":\"Machines__Lamp___406_plinkparam_om\"},{\"@id\":\"Machines__Lamp___406_succession_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___406_psourcemember\"},{\"@id\":\"Machines__Lamp___406_linkparam_om\"},{\"@id\":\"Machines__Lamp___406_succession_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp___406_psourcemember\"},{\"@id\":\"Machines__Lamp___406_linkparam_om\"},{\"@id\":\"Machines__Lamp___406_succession_om\"}]" .
 
 elmt:Machines__Lamp___406_om
     a sysml:FeatureMembership ;
@@ -1249,25 +1249,25 @@ expr:Machines__Lamp___406_psourcemember
     sysml:owningRelatedElement elmt:Machines__Lamp___406 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___406 .
 
-expr:Machines__Lamp___406_plinkparam
+elmt:Machines__Lamp___406_linkparam
     a sysml:ReferenceUsage ;
-    sysml:elementId "Machines__Lamp___406_plinkparam" ;
+    sysml:elementId "Machines__Lamp___406_linkparam" ;
     sysml:direction "in" ;
     sysml:owner elmt:Machines__Lamp___406 ;
-    sysml:owningRelationship expr:Machines__Lamp___406_plinkparam_om ;
-    sysml:owningMembership expr:Machines__Lamp___406_plinkparam_om .
+    sysml:owningRelationship elmt:Machines__Lamp___406_linkparam_om ;
+    sysml:owningMembership elmt:Machines__Lamp___406_linkparam_om .
 
-expr:Machines__Lamp___406_plinkparam_om
+elmt:Machines__Lamp___406_linkparam_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Machines__Lamp___406_plinkparam_om" ;
+    sysml:elementId "Machines__Lamp___406_linkparam_om" ;
     sysml:owner elmt:Machines__Lamp___406 ;
-    sysml:memberElement expr:Machines__Lamp___406_plinkparam ;
-    sysml:ownedMemberElement expr:Machines__Lamp___406_plinkparam ;
-    sysml:ownedRelatedElement expr:Machines__Lamp___406_plinkparam ;
+    sysml:memberElement elmt:Machines__Lamp___406_linkparam ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___406_linkparam ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___406_linkparam ;
     sysml:owningRelatedElement elmt:Machines__Lamp___406 ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp___406 ;
-    sysml:ownedMemberFeature expr:Machines__Lamp___406_plinkparam ;
-    sysml:ownedMemberParameter expr:Machines__Lamp___406_plinkparam .
+    sysml:ownedMemberFeature elmt:Machines__Lamp___406_linkparam ;
+    sysml:ownedMemberParameter elmt:Machines__Lamp___406_linkparam .
 
 elmt:Machines__Lamp___406_succession
     a sysml:SuccessionAsUsage ;

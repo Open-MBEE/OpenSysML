@@ -830,7 +830,8 @@ func (d *decoder) chainTail(term rdf.Term) (rdf.Term, error) {
 	if err != nil || !isChain {
 		return term, err
 	}
-	links, err := d.chainLinks(term)
+	// The FeatureChaining links, or the derived chainingFeature list alone.
+	links, err := d.chainSegments(term)
 	if err != nil || len(links) == 0 {
 		return term, err
 	}
@@ -866,9 +867,12 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if err != nil || !hasHead {
 			return false, err
 		}
-		// A chain (`first a.b`, `then b.c`) reaches the feature its last link names.
-		stated, err = d.chainTail(stated)
-		if err != nil {
+		// A chain (`first a.b`, `then b.c`) reaches the feature its last link
+		// names, on either side: a head derived from the structure may be one.
+		if stated, err = d.chainTail(stated); err != nil {
+			return false, err
+		}
+		if head, err = d.chainTail(head); err != nil {
 			return false, err
 		}
 		if stated != head {
@@ -893,8 +897,10 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		}
 		return agree(pSource, subject, "source")
 	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
-		direction, _ := d.stringOf(el, rdf.SysML+pDirection)
-		return direction == "in" && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+		// A parameter's direction defaults to `in`, which the element form
+		// may leave unstated.
+		direction, stated := d.stringOf(el, rdf.SysML+pDirection)
+		return (direction == "in" || !stated) && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 			len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0, nil
 	case el.metaclass == mAcceptAction && owning == mTransitionFeatureMembership:
 		kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
