@@ -32,6 +32,9 @@ package test {
 		// Declaration order decides: (1 * 10) + 2 == 12, not 1 * 10 + 2's reverse.
 		constraint ordered { attribute y : Integer = 1; assign y := y * 10; assign y := y + 2; y == 12 }
 		constraint deep : Deeper { in xs = (5, 0); }
+		// A nested body's steps read the outer body's locals but cannot write them.
+		constraint outerRead { attribute x : Integer = 0; assign x := 5; assert constraint { if x == 5 { } x == 5 } }
+		constraint outerLeaf { attribute x : Integer = 0; assign x := 5; assert constraint { x == 5 } }
 		assert not constraint { attribute w : Real = 0; assign w := 5; w > 100 }
 		requirement safing : Safing;
 		requirement fitted {

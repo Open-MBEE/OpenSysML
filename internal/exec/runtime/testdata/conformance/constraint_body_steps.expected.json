@@ -10,7 +10,9 @@
 		"summed": true,
 		"shadowed": true,
 		"ordered": true,
-		"deep": true
+		"deep": true,
+		"outerRead": true,
+		"outerLeaf": true
 	},
 	"validation": {
 		"verdicts": [

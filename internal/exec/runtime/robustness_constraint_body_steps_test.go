@@ -203,4 +203,54 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 			t.Error("the negated assertion holds while the condition its steps made true does")
 		}
 	})
+
+	t.Run("a nested body's steps read the outer locals", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			part def Rig {
+				constraint outerRead {
+					attribute x : Integer = 0;
+					assign x := 5;
+					assert constraint { if x == 5 { } x == 5 }
+				}
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		rig := lookupOne(t, idx, "test::Rig")
+		feat := featureNamed(ctx, rig, "outerRead")
+		if feat == nil || feat.Symbol == nil {
+			t.Fatal("constraint outerRead not found")
+		}
+		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+		if err != nil {
+			t.Fatalf("err = %v", err)
+		}
+		if !satisfied {
+			t.Error("the nested body's steps must read the outer body's local x, and the condition holds")
+		}
+	})
+
+	t.Run("a nested body's write of an outer local is refused", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			part def Rig {
+				attribute z : Real = 1;
+				constraint outerWrite {
+					attribute x : Integer = 0;
+					assign x := 5;
+					assert constraint { assign x := 9; x == 9 }
+				}
+			}
+		}`
+		ctx, idx := contextForSource(t, src)
+		rig := lookupOne(t, idx, "test::Rig")
+		feat := featureNamed(ctx, rig, "outerWrite")
+		if feat == nil || feat.Symbol == nil {
+			t.Fatal("constraint outerWrite not found")
+		}
+		_, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+		if !errors.Is(err, ErrConstraintExternalAssignment) {
+			t.Fatalf("err = %v, want ErrConstraintExternalAssignment: a nested constraint is its own performance", err)
+		}
+	})
 }

@@ -5,6 +5,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // TestRuntimeRobustnessExtentModelDetermined covers the failure and determinism modes of
@@ -113,6 +117,188 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 		if len(extents[0]) != 1 {
 			t.Fatalf("extent = %v, want the class's one object", extents[0])
+		}
+	})
+
+	t.Run("an optional subsetter contributes its object once", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part vs : Car[1];
+			part opt : Car[0..1] :> vs;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		allCold, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+		if err != nil {
+			t.Fatalf("all test::Car: %v", err)
+		}
+		if ids := heldObjects(allCold); len(ids) != 1 {
+			t.Fatalf("cold all test::Car = %v, want the one object the optional subsetter fills", ids)
+		}
+		var firstIDs []int64
+		for i := 0; i < 2; i++ {
+			got, err := evalIn(t, ctx, pkg.Scope, "vs")
+			if err != nil {
+				t.Fatalf("vs read %d: %v", i, err)
+			}
+			ids := heldObjects(got)
+			if len(ids) != 1 {
+				t.Fatalf("vs read %d = %v, want the one member the optional subsetter contributes", i, ids)
+			}
+			if i == 0 {
+				firstIDs = ids
+			} else if !slices.Equal(ids, firstIDs) {
+				t.Fatalf("vs read warm = %v, cold = %v, want the same object", ids, firstIDs)
+			}
+		}
+		allWarm, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+		if err != nil {
+			t.Fatalf("all test::Car warm: %v", err)
+		}
+		if !slices.Equal(heldObjects(allWarm), heldObjects(allCold)) {
+			t.Fatalf("warm extent = %v, cold = %v", heldObjects(allWarm), heldObjects(allCold))
+		}
+	})
+
+	t.Run("a class's materialized members honor every member's multiplicity", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car[2];
+			part b : Car[2];
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		aVal, err := evalIn(t, ctx, pkg.Scope, "a")
+		if err != nil {
+			t.Fatalf("a: %v", err)
+		}
+		if ids := heldObjects(aVal); len(ids) != 2 {
+			t.Fatalf("a = %v, want its two lower-bound occurrences", ids)
+		}
+		bVal, err := evalIn(t, ctx, pkg.Scope, "b")
+		if err != nil {
+			t.Fatalf("b: %v", err)
+		}
+		if !slices.Equal(heldObjects(bVal), heldObjects(aVal)) {
+			t.Fatalf("b = %v, a = %v, want the same identities in the same order", heldObjects(bVal), heldObjects(aVal))
+		}
+		all, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+		if err != nil {
+			t.Fatalf("all test::Car: %v", err)
+		}
+		if ids := heldObjects(all); len(ids) != 2 {
+			t.Fatalf("all test::Car = %v, want the class's two occurrences", ids)
+		}
+	})
+
+	t.Run("a class whose members' multiplicities disagree is refused and leaves nothing", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car[2];
+			part b : Car[3];
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "a")
+		if !errors.Is(err, ErrBindingConflict) {
+			t.Fatalf("a = %v, want binding conflict: two occurrences cannot be b's [3]", err)
+		}
+		for _, name := range []string{"test::a", "test::b"} {
+			sym := lookupOne(t, idx, name)
+			if ids := ctx.occurrences[sym]; len(ids) != 0 {
+				t.Fatalf("occurrences[%s] = %v, want none: the refused class records no occurrences", name, ids)
+			}
+			if _, ok := ctx.namespaceBindings[sym]; ok {
+				t.Fatalf("%s is bound, want nothing bound after the refused class", name)
+			}
+		}
+		if len(ctx.instances) != 0 {
+			t.Fatalf("%d objects materialized, want none after the refused class", len(ctx.instances))
+		}
+	})
+
+	t.Run("a member's existing occurrence joins its class's sources", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car;
+			part b : Car = new Car();
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+		aSym := lookupOne(t, idx, "test::a")
+
+		inst, err := ctx.materialize(aSym, 0, nil, "")
+		if err != nil {
+			t.Fatalf("materialize a: %v", err)
+		}
+		ctx.occurrences[aSym] = []int64{inst.ID}
+		if _, err := evalIn(t, ctx, pkg.Scope, "a"); !errors.Is(err, ErrBindingConflict) {
+			t.Fatalf("a = %v, want binding conflict: a's recorded occurrence differs from b's value", err)
+		}
+	})
+
+	t.Run("a member's existing occurrence matching its class's value is no conflict", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car;
+			part b : Car = new Car();
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+		aSym := lookupOne(t, idx, "test::a")
+		bSym := lookupOne(t, idx, "test::b")
+
+		ec := NewEvalContext(ctx, bSym.OwnerScope)
+		bVal, err := ec.declaredValue(bSym, bSym.Decl.(*ast.Usage).Value)
+		if err != nil {
+			t.Fatalf("b's declared value: %v", err)
+		}
+		ctx.occurrences[aSym] = heldObjects(bVal)
+		got, err := evalIn(t, ctx, pkg.Scope, "a")
+		if err != nil {
+			t.Fatalf("a = %v: a's recorded occurrence is b's value, so there is no conflict", err)
+		}
+		if !slices.Equal(heldObjects(got), heldObjects(bVal)) {
+			t.Fatalf("a = %v, want b's occurrence %v", heldObjects(got), heldObjects(bVal))
+		}
+	})
+
+	t.Run("a scope registered after the index builds still resolves its bindings", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car;
+			part b : Car;
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+		if _, err := evalIn(t, ctx, pkg.Scope, "a"); err != nil {
+			t.Fatalf("a: %v", err)
+		}
+
+		file := parser.New(source.New("<test2>", []byte(`package other {
+			part def Car;
+			part c : Car;
+			part d : Car;
+			bind c = d;
+		}`))).ParseFile()
+		idx.AddDocument("<test2>", file)
+		scope := idx.DocumentRoot("<test2>")
+		ctx.Model().RegisterScope(scope)
+
+		same, err := evalIn(t, ctx, scope, "other::c === other::d")
+		if err != nil {
+			t.Fatalf("other::c === other::d: %v", err)
+		}
+		if FormatValue(same) != "true" {
+			t.Fatalf("other::c === other::d = %s, want true: the registered tree's binding must resolve", FormatValue(same))
 		}
 	})
 

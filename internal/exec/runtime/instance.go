@@ -397,9 +397,6 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
-	if live, ok := ctx.liveOccurrences(sym); ok && len(live) == 1 {
-		return live[0], nil
-	}
 	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
 		return nil, err
 	} else if bound && len(objs) == 1 {
@@ -432,9 +429,6 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 // occurrencesOf returns the objects a namespace-level usage of several occurrences denotes,
 // materializing its lower bound once, in declaration order, as a nested collection's is.
 func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
-	if live, ok := ctx.liveOccurrences(sym); ok {
-		return live, nil
-	}
 	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
 		return nil, err
 	} else if bound {

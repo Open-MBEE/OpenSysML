@@ -177,11 +177,11 @@ func (ctx *Context) namespaceBoundObjects(sym *symbols.Symbol) (objs []*Instance
 	if val, ok := ctx.namespaceBindings[sym]; ok {
 		return ctx.liveInstances(heldObjects(val)), true, nil
 	}
-	if live, ok := ctx.liveOccurrences(sym); ok {
-		return live, true, nil
-	}
 	class := ctx.namespaceModelIndex().classes[sym]
 	if class == nil {
+		if live, ok := ctx.liveOccurrences(sym); ok {
+			return live, true, nil
+		}
 		return nil, false, nil
 	}
 	return ctx.resolveNamespaceClass(class, sym)
@@ -287,27 +287,76 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		}
 	}
 	if len(vals) == 0 {
+		// The class has no source, so its one value is what the earliest
+		// member's own denotation would materialize: its lower bound of
+		// occurrences, made the way occurrencesOf makes them.
 		earliest := class.members[0]
-		inst, err := ctx.occurrenceOf(earliest)
+		count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(earliest, ctx.findOwnerType(earliest)), 0, symbolText(earliest))
 		if err != nil {
 			return nil, true, fmt.Errorf("usage %s: %w", symbolText(earliest), err)
 		}
-		val, err := ctx.objectValue(inst)
-		if err != nil {
+		release := ctx.elementScope()
+		if err := ctx.chargeElements(int64(count)); err != nil {
+			release()
 			return nil, true, err
 		}
-		for _, member := range class.members {
-			if member == earliest {
-				continue
-			}
-			if err := ctx.classifyHeld(member, val); err != nil {
+		mark := len(ctx.created)
+		members, err := ctx.materializeMembers(earliest, count, nil, "")
+		if err != nil {
+			ctx.abandonInstancesSince(mark)
+			release()
+			return nil, true, fmt.Errorf("usage %s: %w", symbolText(earliest), err)
+		}
+		elements := make([]Value, 0, len(members))
+		for _, inst := range members {
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				ctx.abandonInstancesSince(mark)
+				release()
 				return nil, true, err
 			}
+			elements = append(elements, obj)
+		}
+		val := sequenceOf(elements)
+		if len(elements) == 1 {
+			val = elements[0]
+		}
+		text := symbolText(earliest)
+		if len(class.bindings) > 0 {
+			text = ctx.bindingText(class.bindings[0])
+		}
+		count64 := int64(len(members))
+		conformed := make(map[*symbols.Symbol]Value, len(class.members))
+		for _, member := range class.members {
+			if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(count64); msg != "" {
+				ctx.abandonInstancesSince(mark)
+				release()
+				return nil, true, fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg)
+			}
+			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
+			if err != nil {
+				ctx.abandonInstancesSince(mark)
+				release()
+				return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err)
+			}
+			conformed[member] = v
 		}
 		for _, member := range class.members {
-			ctx.occurrences[member] = heldObjects(val)
-			ctx.bindNamespace(member, val)
+			if member != earliest {
+				if err := ctx.classifyHeld(member, val); err != nil {
+					ctx.abandonInstancesSince(mark)
+					release()
+					return nil, true, err
+				}
+			}
+			ctx.occurrences[member] = heldObjects(conformed[member])
+			ctx.bindNamespace(member, conformed[member])
 		}
+		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+			release()
+			return nil, true, err
+		}
+		release()
 	} else {
 		val := vals[0].val
 		text := symbolText(class.members[0])
@@ -327,8 +376,13 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			ctx.bindNamespace(member, v)
 		}
 	}
-	objs, _, err := ctx.namespaceBoundObjects(want)
-	return objs, true, err
+	if val, ok := ctx.namespaceBindings[want]; ok {
+		return ctx.liveInstances(heldObjects(val)), true, nil
+	}
+	if live, ok := ctx.liveOccurrences(want); ok {
+		return live, true, nil
+	}
+	return nil, true, nil
 }
 
 // namespaceBindingCounts refuses an end or connector multiplicity other than the one
@@ -440,7 +494,6 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				}
 				filled = append(filled, inst.ID)
 				newObjs = append(newObjs, inst)
-				ids = append(ids, inst.ID)
 				count--
 			}
 			if len(filled) > 0 {

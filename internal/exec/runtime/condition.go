@@ -1033,6 +1033,12 @@ func (ctx *Context) conditionHolds(activation int64, cond Condition, features ma
 // the body's statements ran — innermost of the frames read. A condition stating
 // steps runs them first, replacing stepFrame for the group that follows them.
 func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	if stepFrame != nil && (len(cond.Constraints) > 0 || cond.Steps != nil) {
+		// A nested body is its own performance: the outer body's step frame
+		// encloses it read-only, shadowed by its bindings and its own steps.
+		frames = append(append([]frame{}, frames...), *stepFrame)
+		stepFrame = nil
+	}
 	for _, constraint := range cond.Constraints {
 		features, bindings = ctx.constraintScope(features, bindings, constraint)
 	}
