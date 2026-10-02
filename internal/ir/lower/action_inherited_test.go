@@ -415,6 +415,44 @@ func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
 	}
 }
 
+func TestToActionGraphTypedUsageOverridesMatchingInheritedSuccession(t *testing.T) {
+	src := `package test {
+		action def Base {
+			action a;
+			first start then a;
+		}
+		action use : Base {
+			first start then a;
+		}
+	}`
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc("test.sysml", root)
+	usageSymbols := idx.LookupQualified("test::use")
+	if len(usageSymbols) != 1 {
+		t.Fatalf("test::use matched %d symbols, want one", len(usageSymbols))
+	}
+	usage, ok := usageSymbols[0].Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("test::use declaration is %T, want *ast.Usage", usageSymbols[0].Decl)
+	}
+	scope := usageSymbols[0].Scope
+	graph, err := ToActionGraphWith(usage, scope, resolve.New(idx))
+	if err != nil {
+		t.Fatalf("lower typed usage: %v", err)
+	}
+	var edges int
+	for _, outgoing := range graph.Edges {
+		edges += len(outgoing)
+	}
+	if edges != 1 {
+		t.Fatalf("typed usage graph has %d edges, want one own edge overriding the inherited succession", edges)
+	}
+}
+
 func TestToActionGraphInheritedActionNodeFeaturesKeepDeclarationScope(t *testing.T) {
 	src := `package test {
 		action def Foo {

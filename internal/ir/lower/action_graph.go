@@ -884,7 +884,7 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 	if err != nil {
 		return err
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source:             sourceNode,
 		Target:             targetNode,
 		Decl:               n,
@@ -910,7 +910,7 @@ func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
 	if targetNode == nil {
 		return fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source: sourceNode,
 		Target: targetNode,
 		Guard:  n.Guard,
@@ -938,7 +938,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 	if err != nil {
 		return err
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source:      sourceNode,
 		Target:      targetNode,
 		Guard:       n.Guard,
@@ -947,6 +947,17 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		Name:        n.Name,
 	})
 	return nil
+}
+
+func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
+	if l.nodes != nil {
+		for _, existing := range l.graph.Edges[edge.Source] {
+			if existing.Target == edge.Target && l.graph.declaredIn[existing.Decl] == nil {
+				return
+			}
+		}
+	}
+	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
 func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
@@ -1043,7 +1054,7 @@ func (l *actionEdgeLowerer) succession(sourceRef, targetRef, guard, decl ast.Nod
 	if targetNode == nil {
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source: sourceNode, Target: targetNode, Guard: guard, Decl: decl,
 		Probability: weight, Name: name,
 		SourceMultiplicity: sourceMultiplicity, TargetMultiplicity: targetMultiplicity,

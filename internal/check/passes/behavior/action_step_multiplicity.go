@@ -1,6 +1,8 @@
 package behavior
 
 import (
+	"errors"
+
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -158,6 +160,12 @@ func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbol
 	}
 	graph, err := lower.ToActionGraphWith(decl, scope, c.ctx.Resolver())
 	if err != nil {
+		if !errors.Is(err, lower.ErrCyclicSpecialization) &&
+			!errors.Is(err, lower.ErrRedefinedStepMissing) &&
+			!errors.Is(err, lower.ErrIncompatibleRedefinedStep) &&
+			!errors.Is(err, lower.ErrAmbiguousInheritedStep) {
+			return
+		}
 		if c.reported[decl] == nil {
 			c.reported[decl] = make(map[string]bool)
 		}
