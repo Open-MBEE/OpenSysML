@@ -3,10 +3,10 @@
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_ENUM_VALUES,
     CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_MEASUREMENT_REFS,
-    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_SET_VALUES, CAPABILITY_STRUCTURED_VALUES,
-    CAPABILITY_TENSOR_VALUES,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_RATIONAL_VALUES, CAPABILITY_SET_VALUES,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
 };
-use crate::domain::{Capabilities, Magnitude, Quantity, UnitTerm, Value};
+use crate::domain::{rational_to_wire, Capabilities, Magnitude, Quantity, UnitTerm, Value};
 use crate::error::Error;
 use crate::wire;
 
@@ -29,13 +29,17 @@ fn require(capabilities: &Capabilities, capability: &str) -> Result<(), Error> {
     capabilities.require(capability, upgrade_remedy(capability))
 }
 
-/// Refuse an Integer beyond int64 to a service that would read its arm as null.
+/// Refuse an Integer beyond int64 or an exact Rational to a service that would read its arm as null.
 fn require_magnitudes<'a>(
     capabilities: &Capabilities,
-    mut magnitudes: impl Iterator<Item = &'a Magnitude>,
+    magnitudes: impl Iterator<Item = &'a Magnitude>,
 ) -> Result<(), Error> {
-    if magnitudes.any(|magnitude| matches!(magnitude, Magnitude::BigInteger(_))) {
-        require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
+    for magnitude in magnitudes {
+        match magnitude {
+            Magnitude::BigInteger(_) => require(capabilities, CAPABILITY_BIG_INT_VALUES)?,
+            Magnitude::Rational(_) => require(capabilities, CAPABILITY_RATIONAL_VALUES)?,
+            Magnitude::Integer(_) | Magnitude::Real(_) => {}
+        }
     }
     Ok(())
 }
@@ -53,6 +57,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         Value::BigInteger(v) => {
             require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
             kind(Kind::BigIntValue(v.as_str().to_owned()))
+        }
+        Value::Rational(v) => {
+            require(capabilities, CAPABILITY_RATIONAL_VALUES)?;
+            kind(Kind::RationalValue(rational_to_wire(v)))
         }
         Value::Real(v) => kind(Kind::RealValue(*v)),
         Value::Boolean(v) => kind(Kind::BoolValue(*v)),
@@ -112,6 +120,7 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                         kind(match component {
                             Magnitude::Integer(v) => Kind::IntValue(*v),
                             Magnitude::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
+                            Magnitude::Rational(v) => Kind::RationalValue(rational_to_wire(v)),
                             Magnitude::Real(v) => Kind::RealValue(*v),
                         })
                     })
@@ -263,6 +272,9 @@ pub(crate) fn quantity_to_wire(q: &Quantity) -> Result<wire::Quantity, Error> {
             Magnitude::BigInteger(v) => {
                 wire::quantity::Magnitude::BigIntMagnitude(v.as_str().to_owned())
             }
+            Magnitude::Rational(v) => {
+                wire::quantity::Magnitude::RationalMagnitude(rational_to_wire(v))
+            }
             Magnitude::Real(v) => wire::quantity::Magnitude::RealMagnitude(*v),
         }),
     })
@@ -304,6 +316,7 @@ mod tests {
         CAPABILITY_METAOBJECT_VALUES,
         CAPABILITY_INFINITY_VALUE,
         CAPABILITY_BIG_INT_VALUES,
+        CAPABILITY_RATIONAL_VALUES,
     ];
 
     fn capabilities(names: &[&str]) -> Capabilities {
@@ -591,6 +604,52 @@ mod tests {
                 other => panic!("{value:?}: expected {expected}, got {other:?}"),
             }
         }
+    }
+
+    #[test]
+    fn an_exact_rational_needs_rational_values_bare_or_nested() {
+        let third = crate::Rational::parse("1", "3").unwrap();
+        let quantity = metres(Magnitude::Rational(third.clone()));
+        let without: Vec<&str> = ALL
+            .iter()
+            .copied()
+            .filter(|name| *name != CAPABILITY_RATIONAL_VALUES)
+            .collect();
+        for value in [
+            Value::Rational(third.clone()),
+            Value::Sequence(vec![Value::Sequence(vec![Value::Rational(third.clone())])]),
+            Value::Quantity(quantity.clone()),
+            Value::Vector(Vector {
+                components: vec![Magnitude::Integer(1), Magnitude::Rational(third.clone())],
+            }),
+            Value::VectorQuantity(VectorQuantity::new(vec![quantity.clone()]).unwrap()),
+        ] {
+            match value_to_wire(&value, &capabilities(&without)) {
+                Err(Error::MissingCapability { capability, .. }) => {
+                    assert_eq!(capability, CAPABILITY_RATIONAL_VALUES, "{value:?}")
+                }
+                other => panic!("{value:?}: expected rational_values, got {other:?}"),
+            }
+            let sent = value_to_wire(&value, &capabilities(ALL)).unwrap();
+            assert!(
+                Value::try_from(sent).unwrap().same_value(&value),
+                "{value:?}"
+            );
+        }
+        assert!(!Value::Rational(third.clone()).same_value(&Value::Real(third.to_f64())));
+        let kilometres = Quantity {
+            magnitude: Magnitude::Rational(third),
+            unit: "km".to_owned(),
+            unit_term: Some(UnitTerm {
+                scale_num: 1000.0,
+                scale_den: 1.0,
+                factors: quantity.unit_term.clone().unwrap().factors,
+            }),
+        };
+        let metres_value = metres(Magnitude::Rational(
+            crate::Rational::parse("1000", "3").unwrap(),
+        ));
+        assert!(Value::Quantity(kilometres).same_value(&Value::Quantity(metres_value)));
     }
 
     #[test]

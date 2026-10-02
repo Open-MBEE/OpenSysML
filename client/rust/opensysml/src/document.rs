@@ -2,9 +2,12 @@
 
 use std::fmt;
 
-use crate::domain::{quantity_from_wire, BigInteger, Quantity};
+use crate::domain::{
+    quantity_from_wire, rational_from_wire, rational_to_wire, BigInteger, Quantity,
+};
 use crate::encode::quantity_to_wire;
 use crate::error::Error;
+use crate::rational::Rational;
 use crate::wire;
 
 /// A model element a document query names: its qualified name and the standard's type.
@@ -173,6 +176,8 @@ pub enum DocumentValue {
     Integer(i64),
     /// An Integer beyond `i64`.
     BigInteger(BigInteger),
+    /// An exact Rational no `f64` holds.
+    Rational(Rational),
     /// A real number.
     Real(f64),
     /// A boolean.
@@ -197,6 +202,7 @@ impl fmt::Display for DocumentValue {
             Self::Text(v) => f.write_str(v),
             Self::Integer(v) => v.fmt(f),
             Self::BigInteger(v) => v.fmt(f),
+            Self::Rational(v) => v.fmt(f),
             Self::Real(v) => v.fmt(f),
             Self::Boolean(v) => v.fmt(f),
             Self::Quantity(v) => v.fmt(f),
@@ -270,6 +276,19 @@ pub(crate) fn bindings_to_wire<K: AsRef<str>>(
         .collect()
 }
 
+/// Whether a wire binding sends an exact Rational, which needs `rational_values`.
+pub(crate) fn binding_holds_rational(binding: &wire::DocumentQueryBinding) -> bool {
+    use wire::document_value::Kind;
+    binding.values.iter().any(|value| match &value.kind {
+        Some(Kind::RationalValue(_)) => true,
+        Some(Kind::Quantity(quantity)) => matches!(
+            quantity.magnitude,
+            Some(wire::quantity::Magnitude::RationalMagnitude(_))
+        ),
+        _ => false,
+    })
+}
+
 /// Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`.
 pub(crate) fn binding_holds_big_int(binding: &wire::DocumentQueryBinding) -> bool {
     use wire::document_value::Kind;
@@ -305,6 +324,7 @@ fn bound_value(parameter: &str, value: &DocumentValue) -> Result<wire::DocumentV
         DocumentValue::Text(text) => Kind::StringValue(text.clone()),
         DocumentValue::Integer(v) => Kind::IntValue(*v),
         DocumentValue::BigInteger(v) => Kind::BigIntValue(v.as_str().to_owned()),
+        DocumentValue::Rational(v) => Kind::RationalValue(rational_to_wire(v)),
         DocumentValue::Real(v) => Kind::RealValue(*v),
         DocumentValue::Boolean(v) => Kind::BoolValue(*v),
         DocumentValue::Quantity(quantity) => {
@@ -442,6 +462,7 @@ fn value_of(value: wire::DocumentValue) -> Result<DocumentValue, Error> {
         Some(Kind::StringValue(v)) => DocumentValue::Text(v),
         Some(Kind::IntValue(v)) => DocumentValue::Integer(v),
         Some(Kind::BigIntValue(v)) => DocumentValue::BigInteger(BigInteger::parse(&v)?),
+        Some(Kind::RationalValue(v)) => DocumentValue::Rational(rational_from_wire(&v)?),
         Some(Kind::RealValue(v)) => DocumentValue::Real(v),
         Some(Kind::BoolValue(v)) => DocumentValue::Boolean(v),
         Some(Kind::Infinity(true)) => DocumentValue::Infinity,
@@ -559,6 +580,35 @@ mod tests {
         assert!(binding_holds_big_int(&magnitude[0]));
         let narrow = bindings_to_wire(&[("n", vec![DocumentValue::Integer(i64::MAX)])]).unwrap();
         assert!(!binding_holds_big_int(&narrow[0]));
+    }
+
+    #[test]
+    fn an_exact_rational_crosses_as_rational_value() {
+        use wire::document_value::Kind;
+        let third = Rational::parse("1", "3").unwrap();
+        let bound =
+            bindings_to_wire(&[("q", vec![DocumentValue::Rational(third.clone())])]).unwrap();
+        assert!(matches!(
+            &bound[0].values[0].kind,
+            Some(Kind::RationalValue(r)) if r.numerator == "1" && r.denominator == "3"
+        ));
+        assert!(binding_holds_rational(&bound[0]));
+        assert!(!binding_holds_big_int(&bound[0]));
+        let read = DocumentValue::try_from(bound[0].values[0].clone()).unwrap();
+        assert_eq!(read, DocumentValue::Rational(third.clone()));
+        assert_eq!(read.to_string(), "1/3");
+        let magnitude = bindings_to_wire(&[(
+            "m",
+            vec![DocumentValue::Quantity(Quantity {
+                magnitude: Magnitude::Rational(third),
+                unit: String::new(),
+                unit_term: None,
+            })],
+        )])
+        .unwrap();
+        assert!(binding_holds_rational(&magnitude[0]));
+        let real = bindings_to_wire(&[("x", vec![DocumentValue::Real(0.5)])]).unwrap();
+        assert!(!binding_holds_rational(&real[0]));
     }
 
     #[test]
