@@ -205,7 +205,7 @@ func newState(sorts Sorts, f *Flow, i int) *State {
 	for l := range s.Loop {
 		s.Loop[l] = boolVar(fmt.Sprintf("loop[%d]@%d", l, i))
 	}
-	if f.Cyclic || f.Delivers {
+	if f.Cyclic || f.Delivers || f.Repeated {
 		s.Overflow = boolVar(fmt.Sprintf("overflow@%d", i))
 	}
 	if f.Timed {

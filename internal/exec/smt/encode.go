@@ -984,12 +984,16 @@ type tokenStep struct {
 	// actorID is the acting token's identifier, fresh after a synchronization;
 	// base is the next identifier to give out after it.
 	actorID, base *solve.Term
-	consumed      []*solve.Term
-	free          []*solve.Term
-	placed        []*solve.Term
-	terms         []*solve.Term
-	nextID        *solve.Term
-	fails, full   *solve.Term
+	// gate is the condition under which the acting token may take a succession:
+	// false while sibling performances of a repeated step are still at it, so
+	// every token but the last retires behind the barrier.
+	gate        *solve.Term
+	consumed    []*solve.Term
+	free        []*solve.Term
+	placed      []*solve.Term
+	terms       []*solve.Term
+	nextID      *solve.Term
+	fails, full *solve.Term
 }
 
 // tokens moves the token in slot t at node n (synchronization, then succession); the
@@ -1000,6 +1004,7 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 		travel: solve.VarTerm(m.Travel),
 		noEdge: solve.ValueTerm(e.Sorts.Edge, NoEdge),
 		absent: solve.ValueTerm(e.Sorts.Node, Absent),
+		gate:   solve.BoolTerm(true),
 	}
 	s.synchronize()
 	s.nextID = s.base
@@ -1011,6 +1016,18 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	case *ast.DecisionNode:
 		s.decide()
 	default:
+		if count := e.Flow.Repeats[node]; count > 1 && !e.Flow.Crosses[node] {
+			// A barrier: the token performs, then retires while sibling
+			// performances are still at the step; the last succeeds.
+			var siblings []*solve.Term
+			for u, other := range prev.Slots {
+				if u == t {
+					continue
+				}
+				siblings = append(siblings, eq(solve.VarTerm(other.At), nodeValue(e.Sorts, e.Flow, n)))
+			}
+			s.gate = not(or(siblings...))
+		}
 		s.succeed()
 	}
 	s.others()
@@ -1095,16 +1112,22 @@ func (s *tokenStep) stay() *solve.Term {
 		eq(s.travel, s.noEdge))
 }
 
-// fork gives each enabled succession a fresh token, in order: the first in the
-// actor's slot, the rest in the free slots in order.
+// fork gives each enabled succession fresh tokens, in order: as many as the
+// target performs, the first in the actor's slot, the rest in the free slots.
 func (s *tokenStep) fork() {
-	e, f, out, prev, next := s.e, s.e.Flow, s.out, s.prev, s.next
+	e, f, out, next := s.e, s.e.Flow, s.out, s.next
 	guards := s.guards.holds
+	mult := func(p int) int64 {
+		if m := f.Repeats[f.Edges[out[p]].Target]; m > 1 {
+			return m
+		}
+		return 1
+	}
 	rank := make([]*solve.Term, len(out))
 	count := solve.IntTerm(0)
 	for p := range out {
 		rank[p] = count
-		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
+		count = add(count, ite(guards[p], solve.IntTerm(mult(p)), solve.IntTerm(0)))
 	}
 	none := eq(count, solve.IntTerm(0))
 	var actor []*solve.Term
@@ -1118,34 +1141,31 @@ func (s *tokenStep) fork() {
 			eq(s.travel, edgeValue(e.Sorts, f, out[p])))))
 	}
 	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
-	freeRank := make([]*solve.Term, len(prev.Slots))
-	running := solve.IntTerm(0)
-	for u := range prev.Slots {
-		freeRank[u] = running
-		if u != s.t {
-			running = add(running, ite(s.free[u], solve.IntTerm(1), solve.IntTerm(0)))
-		}
-	}
-	for u := range prev.Slots {
+	ranks, running := s.freeRanks()
+	for u := range s.prev.Slots {
 		if u == s.t {
 			continue
 		}
+		after := next.Slots[u]
 		var here []*solve.Term
 		for p := range out {
 			edge := f.Edges[out[p]]
-			takes := and(guards[p], ge(rank[p], solve.IntTerm(1)),
-				eq(freeRank[u], sub(rank[p], solve.IntTerm(1))))
-			here = append(here, takes)
-			s.terms = append(s.terms, implies(and(s.free[u], takes), and(
-				eq(solve.VarTerm(next.Slots[u].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-				eq(solve.VarTerm(next.Slots[u].Via), edgeValue(e.Sorts, f, out[p])),
-				eq(solve.VarTerm(next.Slots[u].ID), add(s.base, rank[p])))))
+			for c := int64(0); c < mult(p); c++ {
+				tok := add(rank[p], solve.IntTerm(c))
+				takes := and(guards[p], ge(tok, solve.IntTerm(1)),
+					eq(ranks[u], sub(tok, solve.IntTerm(1))))
+				here = append(here, takes)
+				s.terms = append(s.terms, implies(and(s.free[u], takes), and(
+					eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
+					eq(solve.VarTerm(after.Via), edgeValue(e.Sorts, f, out[p])),
+					eq(solve.VarTerm(after.ID), add(s.base, tok)))))
+			}
 		}
 		s.placed[u] = and(s.free[u], or(here...))
 	}
 	s.nextID = add(s.base, count)
 	s.fails = or(undefinedGuards(s.guards.defined)...)
-	if f.Cyclic {
+	if f.Cyclic || f.Repeated {
 		s.full = gt(count, add(running, solve.IntTerm(1)))
 	}
 }
@@ -1175,15 +1195,16 @@ func (s *tokenStep) decide() {
 		if f.Edges[out[p]].Guard == nil {
 			continue
 		}
+		picked := and(anyHolds, eq(s.travel, edgeValue(e.Sorts, f, out[p])))
 		branches = append(branches, and(eq(s.travel, edgeValue(e.Sorts, f, out[p])), holds[q]))
-		s.terms = append(s.terms, implies(and(anyHolds, eq(s.travel, edgeValue(e.Sorts, f, out[p]))), s.take(p)))
+		s.terms = append(s.terms, implies(picked, s.arrive(p, picked)))
 		q++
 	}
 	if len(branches) > 0 {
 		s.terms = append(s.terms, implies(anyHolds, or(branches...)))
 	}
 	if unguarded >= 0 {
-		s.terms = append(s.terms, implies(not(anyHolds), s.take(unguarded)))
+		s.terms = append(s.terms, implies(not(anyHolds), s.arrive(unguarded, not(anyHolds))))
 	} else {
 		s.terms = append(s.terms, implies(not(anyHolds), s.stay()))
 		undefined = append(undefined, not(anyHolds))
@@ -1192,16 +1213,18 @@ func (s *tokenStep) decide() {
 }
 
 // succeed takes the one enabled succession; none retires the token; several
-// out of a node other than the initial one is an error.
+// out of a node other than the initial one is an error. A false guard on a
+// succession into a repeated step fails, as the interpreter reports it.
 func (s *tokenStep) succeed() {
+	f := s.e.Flow
 	guards := s.guards.holds
 	_, initial := s.node.(*ast.InitialNode)
 	count := solve.IntTerm(0)
 	taken := solve.BoolTerm(false)
 	for p := range s.out {
-		isFirst := and(guards[p], not(taken))
-		s.terms = append(s.terms, implies(isFirst, s.take(p)))
-		taken = or(taken, guards[p])
+		isFirst := and(s.gate, guards[p], not(taken))
+		s.terms = append(s.terms, implies(isFirst, s.arrive(p, isFirst)))
+		taken = or(taken, isFirst)
 		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
 	s.terms = append(s.terms, implies(not(taken), s.retire()))
@@ -1209,9 +1232,68 @@ func (s *tokenStep) succeed() {
 	if !initial && len(s.out) > 1 {
 		failures = append(failures, gt(count, solve.IntTerm(1)))
 	}
+	for p := range s.out {
+		edge := f.Edges[s.out[p]]
+		if edge.Guard != nil && edge.TargetMultiplicity != nil && f.Repeats[edge.Target] > 1 {
+			failures = append(failures, and(s.guards.defined[p], not(guards[p])))
+		}
+	}
 	if len(failures) > 0 {
 		s.fails = or(failures...)
 	}
+}
+
+// freeRanks numbers the slots free after the acting token's consumption: rank 0
+// is the first free slot, and total how many there are.
+func (s *tokenStep) freeRanks() (ranks []*solve.Term, total *solve.Term) {
+	ranks = make([]*solve.Term, len(s.prev.Slots))
+	total = solve.IntTerm(0)
+	for u := range s.prev.Slots {
+		ranks[u] = total
+		if u != s.t {
+			total = add(total, ite(s.free[u], solve.IntTerm(1), solve.IntTerm(0)))
+		}
+	}
+	return ranks, total
+}
+
+// arrive takes the acting token's p-th succession into its target, and when the
+// target performs n times places the n-1 sibling tokens in the free slots, as a
+// fork places its tokens; taken is the condition under which the edge is taken.
+func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
+	e, f := s.e, s.e.Flow
+	edge := f.Edges[s.out[p]]
+	extra := f.Repeats[edge.Target] - 1
+	if extra <= 0 {
+		return s.take(p)
+	}
+	target := nodeValue(e.Sorts, f, f.Index[edge.Target])
+	via := edgeValue(e.Sorts, f, s.out[p])
+	ranks, total := s.freeRanks()
+	for u := range s.prev.Slots {
+		if u == s.t {
+			continue
+		}
+		after := s.next.Slots[u]
+		var hits []*solve.Term
+		for r := int64(0); r < extra; r++ {
+			hit := and(taken, s.free[u], eq(ranks[u], solve.IntTerm(r)))
+			hits = append(hits, hit)
+			s.terms = append(s.terms, implies(hit, and(
+				eq(solve.VarTerm(after.At), target),
+				eq(solve.VarTerm(after.Via), via),
+				eq(solve.VarTerm(after.ID), add(s.base, solve.IntTerm(r))))))
+		}
+		s.placed[u] = or(s.placed[u], or(hits...))
+	}
+	s.nextID = add(s.nextID, ite(taken, solve.IntTerm(extra), solve.IntTerm(0)))
+	overflow := and(taken, gt(solve.IntTerm(extra), total))
+	if s.full == nil {
+		s.full = overflow
+	} else {
+		s.full = or(s.full, overflow)
+	}
+	return s.take(p)
 }
 
 // others ties the other slots: consumed ones are freed, the rest are as they
@@ -1250,6 +1332,11 @@ func undefinedGuards(defined []*solve.Term) []*solve.Term {
 func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, error) {
 	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term), staged: make(map[string]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
+	if count, repeated := e.Flow.Repeats[node]; repeated && count == 0 {
+		// A step performed zero times passes its token on; nothing performs.
+		effect.guards = effect.env.clone()
+		return effect, nil
+	}
 	if err := e.begin(effect, node, where); err != nil {
 		return nil, err
 	}
