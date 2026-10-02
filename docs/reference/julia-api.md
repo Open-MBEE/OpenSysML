@@ -102,7 +102,9 @@ returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
 
 `decode_value` decodes the service's value oneof and `encode_value` creates
 request values. The mapping retains exact `Int64` values and `BigInt` ones
-beyond `Int64`, decodes sequences and sets recursively, and exposes
+beyond `Int64`, decodes an exact Rational no `Float64` holds (`rationalValue`, a quantity's
+`rationalMagnitude`) as `Rational{BigInt}` and sends one back the same way, which needs the
+service's `rational_values` capability, decodes sequences and sets recursively, and exposes
 structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
 `VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
 `FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.

@@ -186,9 +186,9 @@ No compliance row's status flag is changed on the strength of this work.
 
 - **Reals are compared to two decimal places**, a tolerance of the harness itself (both sides
   are rounded in `tools/referee/exec`, `roundedReal`). A divergence below 2dp is invisible to
-  this harness. It is no longer a display limit — we now print `1.0 / 3.0` as
-  `0.3333333333333333`, the same digits the pilot reports as `LiteralRational`, so the
-  tolerance can be tightened on its own once the buckets it moves are adjudicated.
+  this harness. Our Rationals are exact (`1.0 / 3.0` prints `1/3`) and the pilot's are binary64,
+  so the harness rounds both to compare them; the tolerance can be tightened on its own once
+  the buckets it moves are adjudicated.
 - **A disagreement the specification decides is reported in its own bucket.** A `by-design:`
   line in a `.cases` file names the clause the cases after it follow; a case so marked that would
   bucket `disagree` buckets `differs-by-design` instead, and the report carries the clause beside

@@ -153,12 +153,13 @@ the elements that still refer to it.
 match value {
     Value::Integer(v) => (),
     Value::Real(v) => (),
+    Value::Rational(r) => (),          // exact, no double holds it: r.numerator(), r.denominator() as decimal text; r.to_f64() rounds once
     Value::Complex(z) => (),           // z.real, z.imaginary; one value, Display as `1.5 - 2.0i`
     Value::Boolean(v) => (),
     Value::Text(v) => (),
     Value::InstanceRef(id) => (),
     Value::Sequence(values) => (),
-    Value::Quantity(q) => (),          // Magnitude::Integer | ::Real, unit, unit_term
+    Value::Quantity(q) => (),          // Magnitude::Integer | ::BigInteger | ::Rational | ::Real, unit, unit_term
     Value::Array(a) => (),             // a.dimensions(), a.elements() row-major, a.get(&[i, j])
     Value::Vector(v) => (),            // v.components: Vec<Magnitude>, Integer and Real apart
     Value::VectorQuantity(q) => (),    // q.components(): one Quantity per component; q.unit() when shared

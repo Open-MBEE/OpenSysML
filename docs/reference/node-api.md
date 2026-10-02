@@ -98,6 +98,7 @@ than a message with optional fields:
 switch (value.kind) {
   case "int":      value.value;                  // bigint, never lossy, beyond int64 too
   case "real":     value.value;                  // number
+  case "rational": value.numerator; value.denominator;  // bigint terms: an exact Rational no double holds
   case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":
   case "string":   value.value;

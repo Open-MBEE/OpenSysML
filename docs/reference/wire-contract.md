@@ -192,10 +192,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: twenty-two arms, exactly one present
+## `Value`: twenty-three arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-two
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-three
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -204,13 +204,14 @@ arms, each captured from `Evaluate` against the model at the end of this section
 |---|---|---|---|
 | `intValue` | string | `{"result":{"intValue":"4"}}` | Integer within 64 bits; string because `int64` |
 | `bigIntValue` | string | `{"result":{"bigIntValue":"1180591620717411303424"}}` | Integer beyond 64 bits, in decimal; KerML Integers are unbounded |
-| `realValue` | number | `{"result":{"realValue":0.3333333333333333}}` | Real (IEEE-754 double) |
+| `realValue` | number | `{"result":{"realValue":1.4142135623730951}}` | Real (IEEE-754 double), or a Rational a double holds exactly |
+| `rationalValue` | object | `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` | Rational no double holds, in lowest terms; KerML Rationals are exact |
 | `boolValue` | boolean | `{"result":{"boolValue":true}}` | Boolean |
 | `stringValue` | string | `{"result":{"stringValue":"abc"}}` | String |
 | `instanceId` | string | `{"result":{"instanceId":"2"}}` | A reference to a runtime instance, by id |
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
-| `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
+| `quantity` | object | `{"result":{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
 | `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
@@ -232,7 +233,7 @@ The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
 `conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
-`1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
+`RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
 
 ```sysml
@@ -276,6 +277,8 @@ decode(v):
   bigIntValue  → parse the decimal string as an arbitrary-precision integer (it is always
                  outside int64); never as a double
   realValue    → the number, as a double
+  rationalValue → numerator / denominator, each a decimal string, as an exact rational;
+                 never as a double
   boolValue    → the boolean
   stringValue  → the string
   instanceId   → an opaque reference; parse as 64-bit integer, keep it a reference
@@ -289,7 +292,7 @@ decode(v):
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
   vector       → map over v.vector.components: intValue or bigIntValue → integer,
-                 realValue → double,
+                 rationalValue → exact rational, realValue → double,
                  anything else → an error
   vectorQuantity → map the quantity rule over v.vectorQuantity.components; empty → an error
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
@@ -342,6 +345,22 @@ sends a wide Integer (bare, nested, or as a `bigIntMagnitude`) as an unsupported
 with `UNIMPLEMENTED` naming the capability, since a document value has no unsupported arm, and,
 since such a service would read an unknown arm as `null`, the bundled clients refuse to send one
 to it, document-query bindings included, before the call.
+
+**`rationalValue`.** A KerML `Rational` is a rational number (KerML 1.0 §9.3.2.2.8), held
+exactly: `1 / 3` answers `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` and
+`0.1 + 0.2` answers `{"numerator":"3","denominator":"10"}`. `numerator` and `denominator` are
+canonical decimal strings (no `+`, no leading zero), the fraction is in lowest terms and the
+denominator is positive. A Rational a double holds exactly (`0.5`, `2.0 ** 70`) is sent as
+`realValue`, so the two arms never spell the same number; an Integer is never sent here, though a
+whole Rational no double holds is (denominator `1`). A decoder rejects a `rationalValue` that is
+not in lowest terms or that a double holds. The service accepts `rationalValue` on input under the
+same rule, and reads a `realValue` sent to it as a binary64 Real. A value declared `Real` is IEEE 754 binary64 and always
+answers `realValue` (`rover.mass` is `{"realValue":20}`). The arm is negotiated by the
+`rational_values` capability exactly as `big_int_values` negotiates `bigIntValue`: a service
+that does not advertise it sends such a Rational (bare, nested, or as a `rationalMagnitude`) as
+an unsupported `null` naming it, refuses a document query bound to or answering one with
+`UNIMPLEMENTED` naming the capability, and the bundled clients refuse to send one to it before
+the call.
 
 MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs
@@ -440,12 +459,13 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
 **`quantity`.** A magnitude with a unit:
 
 ```json
-{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
+{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
 ```
 
 - The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`),
-  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`) or **`realMagnitude`** (a
-  number). Exactly one is present.
+  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`), **`rationalMagnitude`** (same
+  rule as `rationalValue`) or **`realMagnitude`** (a number). Exactly one is present. The
+  literal `5.4` is the exact Rational 27/5, which no double holds, so it is a `rationalMagnitude`.
 - `unit` is the unit expression as written, by fully qualified name of each unit; it is the
   display form and the identity of the unit *as declared*.
 - `unitTerm` is the same unit reduced to base units: `factors` are `(unitId, exponent)` pairs
@@ -489,7 +509,7 @@ $ … /Evaluate -d '{"modelHash":"42cc…54b0","expression":"S::grid"}'
   the same rule to an array sent to it.
 
 **`vector`.** `components` is a list of `Value`s each of which is an `intValue`, a
-`bigIntValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
+`bigIntValue`, a `rationalValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
 a `sequence`. A `vector` is not a `sequence`: `VectorOf((3.0, 4.0))` is one value with a
 dimension, and the engine's vector functions accept it where a sequence of numbers would be
 read element by element. A component of any other arm is an error, on both sides.
@@ -681,8 +701,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
-- **Do not read `intValue` or `bigIntValue` (or `intMagnitude`, `bigIntMagnitude`, `id`,
-  `instanceId`) as a double.** Above 2^53 the
+- **Do not read `intValue`, `bigIntValue` or `rationalValue` (or `intMagnitude`,
+  `bigIntMagnitude`, `rationalMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
   different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
@@ -2023,8 +2043,8 @@ a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **pos
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
 `DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
-the answer-only `verdict` below and `bigIntValue` for an Integer beyond `int64` (same rule as on
-`Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+the answer-only `verdict` below, `bigIntValue` for an Integer beyond `int64` and `rationalValue`
+for a Rational no double holds (same rules as on `Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console

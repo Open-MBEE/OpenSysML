@@ -383,6 +383,7 @@ which JDK 17 offers only as a preview:
 String rendered;
 if (value instanceof Value.IntegerValue v)              rendered = Long.toString(v.value());
 else if (value instanceof Value.RealValue v)            rendered = Double.toString(v.value());
+else if (value instanceof Value.RationalValue v)        rendered = v.value().toString();      // exact; numerator()/denominator() as BigInteger
 else if (value instanceof Value.ComplexValue v)         rendered = v.real() + " + " + v.imaginary() + "i";  // one value
 else if (value instanceof Value.BooleanValue v)         rendered = Boolean.toString(v.value());
 else if (value instanceof Value.StringValue v)          rendered = v.value();

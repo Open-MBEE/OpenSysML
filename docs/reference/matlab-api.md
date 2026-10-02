@@ -89,11 +89,13 @@ scenario requests exactly as written.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-two Connect-JSON `Value` arms and `opensysml.encodeValue`
+`opensysml.decodeValue` reads all twenty-three Connect-JSON `Value` arms and `opensysml.encodeValue`
 writes supported request values. `intValue` uses decimal JSON strings and exact `int64`
 accumulation, including `-9223372036854775808`; an Integer beyond `int64`
 arrives as `bigIntValue` and decodes to `struct('bigInteger', digits)`, its decimal digits kept as
-`char` because no MATLAB number holds it, and is sent back as written; `realValue` supports `"NaN"`, `"Infinity"`, and
+`char` because no MATLAB number holds it, and is sent back as written; an exact Rational no double holds arrives as `rationalValue` and
+decodes to `struct('numerator', digits, 'denominator', digits)`, sent back as written to a service
+with the `rational_values` capability; `realValue` supports `"NaN"`, `"Infinity"`, and
 `"-Infinity"`. Other primitive mappings include `boolValue` to `logical`, `stringValue` to
 `char`, `complex` to a complex scalar, and `sequence` to a cell array. `null` becomes `[]`.
 

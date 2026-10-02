@@ -1,166 +1,224 @@
-# Exact-rational evaluation: adjudicated and declined
+# Exact-rational evaluation
 
-The solver work left one asymmetry standing: the evaluator computes `Real`/`Rational`
-arithmetic in IEEE 754 binary64 while the SMT translation reasons over the exact `Real`
-(rational) sort, so the two can disagree wherever a value is not float64-representable.
-The [solver soundness record](spec-compliance.md#exact-reals-against-a-rounding-evaluator--what-agreement-is-claimed) made the
-*verdict* sound rather than exact — sat witnesses are replayed through the evaluator's
-own arithmetic, and a query the evaluator rounds does not report an exact-real `unsat`
-as an evaluator verdict — at the cost of completeness: rounded queries answer undecided
-where a float64-aware solver might have decided them.
+A KerML `Rational` is a rational number, and OpenSysML evaluates it as one: `0.1 + 0.2 == 0.3`
+is `true`, `1 / 3` is the Rational `1/3`, `RationalFunctions::numer(RationalFunctions::rat(1, 3))`
+is `1`. `Real` stays IEEE 754 binary64. This record derives that behavior from the
+specification, states the choices the specification leaves to an implementation and how each was
+made, and keeps the probes of the pinned pilot, which evaluates a `Rational` as a Java `double` and
+so differs from this implementation by design.
 
-The remaining way to close that gap would be to make the evaluator itself exact — a
-`big.Rat`-backed value representation, so there is nothing for the solver to disagree
-with. This record adjudicates that change: what the reference implementation actually
-computes, what the specification actually requires, what the change would touch, what
-it would cost, and why it is **declined**.
+An earlier version of this record adjudicated the change and declined it, on the grounds that the
+specification is silent on precision and the pilot computes in binary64. That decision is
+superseded: the specification is not silent on what a `Rational` *is*, and the pilot's binary64 is
+an implementation artifact, not a reading of the text. The pilot's answers are kept below as the
+documented divergence.
 
-## What the reference computes: binary64, observably and structurally
+## What the specification requires
 
-The pinned pilot (`jupyter-sysml-kernel` 0.60.1, provisioned by
-`scripts/download-pilot-validator.sh` + `scripts/download-pilot-evaluator.sh`, driven
-by `build/pilot-evaluator/eval-sysml --cases`) was probed with cases chosen to
-distinguish exact-rational from binary64 evaluation. Its answers, verbatim:
+KerML 1.0 (formal/2025-02-01) and the Kernel libraries vendored under `internal/workspace/libs`:
 
-| Case | Pilot answer | Exact-rational answer would be |
-|------|--------------|--------------------------------|
+- **A Rational is a rational number.** §9.3.2.2.8: "Rational is the type of rational numbers,
+  extended with values for positive and negative infinity." §9.3.2.2.9: "Real is the type of
+  mathematical (extended) real numbers. This includes both rational and irrational numbers".
+  `ScalarValues.kerml` orders them `Natural :> Integer :> Rational :> Real :> Complex`.
+- **A decimal literal is a Rational.** §8.3.4.8.13 `LiteralRational`: `value : Real`, "the value
+  whose rational approximation is the result of evaluating this LiteralRational"; §8.4.4.9.2: "only
+  the rational-number subset of the real numbers can be represented using a finite literal. So the
+  result of a LiteralRational is actually always classified in the KerML DataType Rational." A
+  finite decimal — `0.1`, `1.5e3`, `25E-3` — names a rational exactly (1/10, 1500, 1/40), so the
+  rational approximation of the value it spells is that value: the literal evaluates to it, not to
+  a binary64 near it.
+- **The library declares which operations stay Rational.** `RationalFunctions.kerml` (§9.4.10):
+  `rat(numer: Integer, denum: Integer): Rational`, `numer`/`denom(rat: Rational): Integer`, `abs`,
+  `'+'`, `'-'`, `'*'`, `'/'`, `max`, `min`, `sum`, `product` over Rationals returning `Rational`;
+  `'<'`, `'>'`, `'<='`, `'>='`, `'=='` returning `Boolean`; `gcd`, `floor`, `round`, `ToInteger`
+  returning `Integer`; `ToString` returning `String`; `ToRational(x: String): Rational`.
+  `IntegerFunctions.kerml` (§9.4.11): `'/'(x: Integer, y: Integer): Rational` — an Integer
+  quotient is a Rational — while `'+'`, `'-'`, `'*'`, `'%'`, `'**'`, `'^'` (Natural exponent)
+  return `Integer`.
+- **Classification follows the declared result, not the number held.** A function's result is
+  classified by its declared return type (§8.4.4.9.2's rule for `LiteralRational`, applied to the
+  library signatures above). So a whole-valued result of Rational arithmetic is still a
+  `Rational` — `6 / 3` is the Rational `2`, `6 / 3 istype Integer` is `false` — and only an
+  operation declared to return `Integer` (`floor`, `round`, `numer`, `denom`, `gcd`, Integer
+  `+ - * % **`) yields one.
+- **Real operations have no Rational result.** `sqrt`, the trigonometric functions, `exp`, `ln`
+  and every function `RealFunctions` alone declares return `Real`; their results are in general
+  irrational, so no Rational value is available to return. `RationalFunctions::'**'` declares
+  `y: Rational` and `return : Rational`, but `(2 / 3) ** 0.5` is irrational: the declaration can
+  hold only for an Integer exponent, which is what is evaluated exactly; any other exponent is the
+  `RealFunctions::'**'` the declaration specializes.
+- **Infinity.** §9.3.2.2.8 extends Rational with the two infinities. KerML's only notation for an
+  infinite value is `LiteralInfinity` (`*`, §8.4.4.6, typed `Positive`); its existing rules apply
+  unchanged to Rationals — `*` exceeds every finite Rational (`1 / 3 < *`), equals itself, and any
+  arithmetic over it is a typed error. No finite Rational operation produces an infinity: a zero
+  divisor is a division-by-zero error.
+
+**What the specification is silent on**, and so is decided here rather than derived: the internal
+representation, any bound on a Rational's size, the precision of `Real` (the text describes the
+mathematical reals; it has no conformance clause on precision), how a Rational meets a `Real` that
+an implementation holds approximately, and the text a Rational prints as. UML, fUML and PSSM say
+nothing about KerML Rationals and were not consulted.
+
+## What is implemented
+
+- **Representation** (`internal/semantic/semantics/rational.go`). `ValRational` is held exactly, in
+  lowest terms with a positive denominator. A Rational whose terms fit `int64` (denominator within
+  32 bits) lives inline in `Value`; any other in an immutable `big.Rat`, so each Rational has one
+  representation and `Value` stays within its 64-byte bound. Integer stays `ValInt` (`IntValue`/
+  `BigIntValue`).
+- **Literals.** `0.1`, `.5`, `1.5e3`, `25E-3`, `1.0e400` parse exactly (`semantics.ParseRational`);
+  an integer literal stays an Integer. A literal declared `Real` — the value of an attribute typed
+  `Real` — is held as the binary64 nearest it, which is that declaration's boundary (below).
+- **Arithmetic** (`semantics.RatArith`, `RatPow`, `RatNeg`, `RatAbs`). `+ - * /` over Integer and
+  Rational operands are exact; Integer `/` is the exact Rational quotient (`1 / 3` is `1/3`, which
+  replaces the once-rounded `IntQuotient`); `**` and `^` with an Integer exponent are exact, a
+  negative exponent inverting (`(2 / 3) ** -2` is `2.25`); `0 ** -1` is a domain error.
+- **Comparison and equality** (`semantics.CompareRat`, `CompareExactReal`) are exact between exact
+  values. Between a Rational and a binary64 Real they are currently exact, as the Integer precedent
+  `CompareIntReal` is; see [the open choice](#comparing-a-rational-with-a-binary64-real) below.
+- **Library functions** (`internal/exec/runtime/library_conversions.go`,
+  `library_functions.go`). `rat`, `numer`, `denom`, `gcd`, `abs`, `floor`, `round`, `max`, `min`,
+  `sum`, `product`, `ToString`, `ToRational`, `ToInteger` compute exactly over exact operands;
+  `RationalFunctions::sum((0.1, 0.2))` is `0.3`. The `RealFunctions` versions take `Real`
+  operands, so `RealFunctions::sum((0.1, 0.2))` is binary64 `0.30000000000000004`. A finite
+  binary64 Real passed to a Rational function is the rational number that double is — every finite
+  binary64 is one — so for `x : Real = 0.1`, `numer(x)` is `3602879701896397`: the declaration,
+  not the function, rounded.
+- **Size budget.** A Rational result whose numerator and denominator together need more bits than
+  the numeric size budget (`DefaultMaxIntegerBits`, shared with Integers, settable per run) is
+  `semantics.ErrRationalSizeLimit`, never rounded. A power is refused from a lower bound before it
+  is computed. A long accumulation of distinct fractions — a harmonic sum — therefore stops with a
+  typed error instead of growing without bound (`TestRuntimeRobustnessExactRational`).
+- **Printing** (`Value.FormatRational`). A Rational whose denominator has no prime factor other
+  than 2 and 5 is a terminating decimal and prints as one, in the layout a Real prints in (`0.3`,
+  `2.0`, `1.5e-05`, `1e+400`); any other prints as `numer/denom` (`1/3`, `25/12`). So every value
+  that was already a binary fraction (`0.5`, `1.5`, `2.0`) prints as before, and REPL, JSON and
+  trace output change only where the old output was a rounding.
+- **Quantities and units** (`semantics/units.go`, `quantity_eval.go`). A quantity's magnitude is
+  whatever number it holds, exact or binary64. Unit scale factors are ratios, composed exactly
+  (`Scale.Times`, `DividedBy`, `Pow`) while their terms are whole and within 2^53, so `0.1 [m] + 1
+  [mm]` is exactly `0.101 [m]` and `1 [km] / 3` is `1/3 [km]`; a scale beyond that, or a conversion
+  through a binary64 magnitude, is binary64 as before.
+- **The Real boundary** (`semantics.RealOf`). A value written to a feature typed `Real`, the
+  operands of `RealFunctions`, and a Rational meeting a binary64 Real in arithmetic are converted to
+  the nearest binary64 once. A nonzero Rational below the least positive binary64 is an overflow
+  error rather than a silent zero.
+
+### Every boundary
+
+- **gRPC** (`api/proto/sysml.proto`, `internal/frontend/protoconv`, `internal/frontend/grpc`). A
+  Rational binary64 holds exactly crosses as the existing `real_value`/`real_magnitude`, so old
+  clients see what they saw. Any other crosses as the additive `Rational` message (numerator and
+  denominator as decimal text) in `Value`, `Quantity` and `DocumentValue`, negotiated by the
+  `rational_values` capability exactly as `big_int_values` negotiates `big_int_value`: a service
+  that does not advertise it answers such a Rational as an unsupported value naming the
+  capability, refuses a request or document query carrying or answering one with `UNIMPLEMENTED`,
+  and never sends a nearest double; the bundled clients refuse to send one to it. A wire Rational
+  must be canonical (positive denominator, lowest terms, not a binary64), so no Rational has two
+  encodings, and an inbound `real_value` is a binary64 Real (see
+  [the open choice](#a-rational-a-double-holds-on-input)).
+- **JSON** (`internal/frontend/engine`, `internal/frontend/core`): `"rationalValue": {"numerator":
+  "1", "denominator": "3"}` and `"rationalMagnitude"`, with the same canonical rule
+  ([wire contract](../reference/wire-contract.md)).
+- **Clients.** Go: `opensysml.Rational` over `*big.Rat`. Python: `fractions.Fraction`, a
+  binary64-exact Rational arriving as `float`; generated typed classes declare a `Rational`
+  feature `Fraction` and decode it exactly (`as_rational`). Node: `{kind: "rational", numerator:
+  bigint, denominator: bigint}` with `rational()`, `formatRational()`, `rationalToNumber()` and
+  `rationalOfDouble()`; generated classes declare `RationalValue` (`asRational`). Java and Rust
+  carry an exact numerator/denominator pair, Julia `Rational{BigInt}`, MATLAB a struct of decimal
+  strings. Each declares `rational_values` and refuses a noncanonical encoding.
+- **RDF** (`internal/translate/export/rdf_expr.go`). A literal is written as the exact Rational it
+  denotes: a decimal token as `xsd:decimal`, an exponent token binary64 holds exactly as
+  `xsd:double`, any other exponent token as its exact `xsd:decimal` (`1E-1` → `"0.1"^^xsd:decimal`).
+  An imported `xsd:double`/`xsd:float` is the binary value it names. The round trip is exact.
+- **SMT** (`internal/exec/solve`). The encoding was always exact; now the evaluator is too for
+  Integer and Rational arithmetic, so replay (`solve/replay.go`) replays it exactly and only
+  arithmetic a binary64 Real takes part in is replayed, and marked rounded (`Query.Rounded`,
+  `RoundingSound`), as binary64. A declared `Real` variable is binary64 (`Var.Binary64`).
+- **Compiled calcs** (`internal/translate/codegen/rational.go`, `sysml -compile`). Compiled code
+  holds numbers as `int64` and binary64, so it compiles exact Rational arithmetic only where one
+  binary64 rounding gives the exact answer: constants are folded exactly, a single operation over
+  values binary64 holds exactly is compiled with guards, an Integer quotient compared with a whole
+  number is compared exactly. Anything else — a `Rational` parameter, `a * 0.1` over a variable `a`,
+  `(a * 0.5) ** 2`, `a / 3 < 0.1`, collection operations over exact Rationals — is refused at
+  compile time with a typed error naming the construct, never compiled to a rounding.
+
+## Comparing a Rational with a binary64 Real
+
+With exact Rationals and binary64 Reals, `attribute x : Real = 0.1; x == 0.1` compares the double
+nearest 1/10 with 1/10 itself. KerML has Rational ⊂ Real and so asks for the mathematical
+comparison; but the binary64 Real is this implementation's approximation, not the text's, and
+the text does not say how an approximate Real meets an exact Rational. Two readings:
+
+- **Exact comparison** (implemented): `x == 0.1` is `false` and `x > 0.1` is `true`, as the
+  Integer precedent `CompareIntReal` compares a large Integer with a Real exactly.
+- **Round the Rational once**, as mixed arithmetic does: `x == 0.1` is `true`.
+
+The choice is recorded as open; the implementation follows the Integer precedent until it is made.
+
+## A Rational a double holds, on input
+
+A Rational binary64 holds exactly (`1/4`) crosses the wire as `real_value`, so a client cannot
+tell the service that a `0.25` it sends is the Rational rather than the Real, and the service
+reads it as a Real: `in x : Rational; x + 1 / 3` with `x` sent as `0.25` is binary64
+`0.5833333333333333`, while `x` sent as the `rational_value` `1/3` gives the exact `2/3`. KerML
+says nothing about a wire. Three readings:
+
+- **An inbound `real_value` is always a Real** (implemented): the encoding decides.
+- **The declaration decides**: a binary64 value held by a feature or parameter declared
+  `Rational` is the exact Rational equal to it, as a `Real` declaration already rounds. This
+  changes in-model semantics too.
+- **Wire only**: clients send every exact Rational as `rational_value` to a service with
+  `rational_values`, which then accepts a binary64-exact `rational_value` on input while
+  answering canonically.
+
+The choice is recorded as open; the implementation reads the encoding until it is made.
+
+## The pilot differs by design
+
+The pinned pilot (`jupyter-sysml-kernel`, provisioned by `scripts/download-pilot-validator.sh` +
+`scripts/download-pilot-evaluator.sh`) holds a `LiteralRational` as a Java `double`
+(`LiteralRationalImpl.value`: `protected double value`). Its answers, verbatim, beside ours:
+
+| Case | Pilot answer | OpenSysML |
+|------|--------------|-----------|
 | `0.1 + 0.2` | `LiteralRational 0.30000000000000004` | `0.3` |
 | `0.1 + 0.2 == 0.3` | `LiteralBoolean false` | `true` |
 | `0.1 + 0.2 <= 0.3` | `LiteralBoolean false` | `true` |
 | `0.3 < 0.1 + 0.2` | `LiteralBoolean true` | `false` |
-| `0.1 + 0.2 - 0.3` | `LiteralRational 5.551115123125783E-17` | `0` |
+| `0.1 + 0.2 - 0.3` | `LiteralRational 5.551115123125783E-17` | `0.0` |
 | `(1.0 / 49.0) * 49.0 == 1.0` | `LiteralBoolean false` | `true` |
 | `(1.0 / 3.0) * 3.0 == 1.0` | `LiteralBoolean true` (double rounding happens to land on 1.0) | `true` |
 | `0.1` ten-fold sum `== 1.0` | `LiteralBoolean false` | `true` |
-| `1.0 / 3.0`, `1 / 3` | `LiteralRational 0.3333333333333333` | an exact third |
+| `1.0 / 3.0`, `1 / 3` | `LiteralRational 0.3333333333333333` | `1/3` |
 
-`5.551115123125783E-17` is exactly the binary64 value of `0.1 + 0.2 - 0.3`; every row is
-the IEEE 754 double answer, none is the exact-rational one. The evidence is structural
-too: in the pinned jar, `LiteralRationalImpl.value` is a Java `double`
-(`javap`: `protected double value; public double getValue(); public void setValue(double)`),
-so a rational literal is rounded to binary64 at parse time, before any arithmetic runs.
-(Its integer literals are narrower still: `9007199254740993` answers
-`ERROR:For input string: "9007199254740993"` — a Java 32-bit `parseInt`, the limit the
-division work had already recorded.)
+Every pilot row is the binary64 answer, `5.551115123125783E-17` being exactly the double `0.1 +
+0.2 - 0.3`; every OpenSysML row is the rational one §9.3.2.2.8 and §8.4.4.9.2 define. (The pilot's
+integer literals are narrower still: `9007199254740993` answers `ERROR:For input string:
+"9007199254740993"`, a 32-bit `parseInt`.) The probes are committed as
+`tools/referee/exec/testdata/cases/exact_rationals.cases`, marked `by-design` with those clauses:
+the five whose answers differ land in the [execution referee's](pilot-execution-referee.md)
+`differs-by-design` bucket, the clause recorded beside both raw outputs, and the other five agree
+(the referee compares reals to two decimal places). None is hidden or normalized away.
 
-OpenSysML today answers **identically on every one of these probes** (`0.30000000000000004`,
-`false`, `false`, `true`, `5.551115123125783e-17`, `false`, `true`, `false`,
-`0.3333333333333333`). An exact-rational evaluator would therefore not close a gap with
-the reference — it would **open one**, flipping the observable answer of every probe row
-above against the pilot, and `tools/referee/exec` would report each as a disagreement.
-This inverts the premise of the change: the evaluator's binary64 arithmetic *is* the
-reference behavior.
+## RationalFunctions::rat, numer and denom
 
-## What the specification requires: nothing about precision
-
-KerML 1.0 (formal/2025-02-01; the 1.1 RTF has not published changes to these clauses)
-describes the data types mathematically:
-
-- §9.3.2.2.8 Rational: "Rational is the type of rational numbers, extended with values
-  for positive and negative infinity."
-- §9.3.2.2.9 Real: "Real is the type of mathematical (extended) real numbers. This
-  includes both rational and irrational numbers, and values for positive and negative
-  infinity."
-- §8.3.4.8.13 LiteralRational: the abstract-syntax `value` attribute is typed `Real`
-  ("The value whose rational approximation is the result of evaluating this
-  LiteralRational"), and §8.4.4.9.2 notes that "only the rational-number subset of the
-  real numbers can be represented using a finite literal. So the result of a
-  LiteralRational is actually always classified in the KerML DataType Rational."
-
-That is a statement about what the *values are*, not about what arithmetic an
-implementation must perform. The Kernel Function Library (§9.4; `RealFunctions.kerml`,
-`RationalFunctions.kerml`) declares only signatures — `function '+' … in x: Real[1]; in
-y: Real[0..1]; return : Real[1];` — with no precision, rounding, or exactness clause,
-and no conformance clause elsewhere in the specification constrains numeric precision.
-The spec is **silent on precision**; the reference implementation chose binary64. There
-is no clause an exact-rational evaluator could point to as mandating it, and the only
-executable oracle contradicts it.
-
-## What the change would touch
-
-For completeness of the adjudication, the blast radius of a `big.Rat`-backed (or
-exact-until-formatted) `Real`/`Rational` value, mapped concretely:
-
-- `internal/semantic/semantics`: `Value` carries `Real float64` (`eval.go`); the constant
-  folder's `evalRealArith`/`RealArith`, `IntQuotient`, `Pow`, comparisons and equality,
-  and the numeric-widening lattice all move to a rational representation.
-- `internal/exec/runtime`: the evaluator (`eval.go`, `toReal`), `value.go`
-  (`FormatReal` and all printing), `library_functions.go` (34 `math.*` call sites —
-  `sqrt`, trig, `floor`/`round`, `exp`/`ln` — which have no exact form), quantities and
-  unit scaling, collections, overflow handling; 69 `float64` sites in the package.
-- Wire and clients: `api/proto/sysml.proto` carries `double real_value`,
-  `double real_magnitude`, unit `scale_num`/`scale_den`, `double exponent`; an exact
-  value needs a new wire form and migrations in the Go service and the Python client
-  (`Real, Rational → float` is a documented mapping in the Python API reference).
-- Fixtures: conformance `.expected.json` files and golden traces that print reals, the
-  REPL output contract, and the pilot execution referee's normalization (which today
-  matches the pilot digit-for-digit because both sides are binary64).
-- The solver seam: `solve/replay.go` — the witness replay and `Query.Rounded` marking —
-  encodes the evaluator's rounding; an exact evaluator rewrites that contract and its
-  tests (`TestSolvedWitnessRejectedByEvaluatorIsUndecided`,
-  `TestRoundedMarksFloatComputingQueries`, …), the very behavior the soundness work
-  just pinned down.
-- The irrational remainder: `sqrt`, trig, `**` with a fractional exponent and the
-  transcendentals cannot be exact, so the result is necessarily a **hybrid** — exact
-  for the field operations, rounded for irrational functions — and any query touching
-  an irrational operation re-enters exactly the rounded-query incompleteness this
-  change was meant to remove. Exactness only ever covers the rational-closed fragment.
-
-## What it would cost, measured
-
-Microbenchmarks on this machine (Go 1.23, `math/big`; float64 loop vs the equivalent
-`big.Rat` loop, reusing allocated `Rat`s):
-
-| Workload | float64 | big.Rat | Ratio |
-|----------|---------|---------|-------|
-| mul + quo + add per iteration | 0.33 ns/op | 731 ns/op | ~2,200× |
-| accumulating sums of distinct small fractions | 0.30 ns/op | 10,380 ns/op | ~35,000× |
-
-The second row is the structural problem, not just a constant factor: exact rational
-accumulation grows denominators without bound (the running sum's denominator tends
-toward the lcm of everything added), so operand size — and per-operation cost and
-memory — grows with the computation. A simulation loop accumulating quantities is the
-runtime's hot path.
-
-## The options, compared
-
-| Option | Solver agreement bought | Pilot agreement | Cost |
-|--------|------------------------|-----------------|------|
-| (a) Full exact-rational values | Closes the gap on the rational-closed fragment only; irrational ops re-open it | **Diverges** on every probe row above | Every package listed above, a wire-format migration, fixture rewrites, 3–4 orders of magnitude on numeric hot paths |
-| (b) Exact-rational only where it closes the solver gap, binary64 elsewhere | Same fragment as (a) | Diverges wherever the exact path is used | The same expression yields different values depending on whether a solver looks at it — a worse contract than either uniform choice |
-| (c) Keep binary64 + sound-but-incomplete verdicts (status quo) | Sound verdicts; rounded queries stay undecided | **Agrees** (verified digit-for-digit on the probes) | Zero; already landed and tested |
-| (d) Narrow `Query.Rounded` by proving exactness per term | Recovers decided verdicts for provably-exact float64 computations (dyadic constants, small-magnitude sums) without touching the value representation | Agrees (no evaluator change) | Contained in `solve/replay.go` `roundedTerm`; subtle — a term over free Real variables can round on some witness values and not others, so unmarking is only sound for terms whose *whole value set* is exact |
-
-## Decision
-
-**Declined — the evaluator stays binary64; option (c) stands.** The reference
-implementation computes in binary64 (behaviorally and structurally verified above), the
-specification is silent on precision, and this project's conformance posture is
-agreement with the pinned pilot wherever it can speak. An exact-rational evaluator
-would diverge from the reference on observable answers, cost measured orders of
-magnitude on hot paths, force a hybrid contract that re-admits the same solver gap at
-every irrational operation, and rewrite the wire format and the just-landed soundness
-seam. The incompleteness it would remove is narrow (rounded queries answer undecided
-rather than wrong) and already documented as the deliberate trade.
-
-Option (d) is recorded as the one refinement worth holding open: it narrows the
-undecided surface without moving the value contract or the pilot agreement, and it is
-contained in one function — but it is subtle enough (exactness must hold for a term's
-whole value set, not one witness) that it should wait until the undecided verdicts are
-observed to bite in practice.
-
-## RationalFunctions::rat, numer and denom over a binary64 Rational
-
-The Kernel Function Library declares three functions that presuppose an exact ratio:
 `rat(numer: Integer, denum: Integer): Rational`, `numer(rat: Rational): Integer` and
-`denom(rat: Rational): Integer`. They were registered as unevaluable, citing this record,
-and that verdict was re-adjudicated: not whether to make the evaluator exact — the
-decision above stands — but what the three should compute *given* a binary64 Rational.
+`denom(rat: Rational): Integer` presuppose an exact ratio, and now have one:
 
-The pinned pilot (`jupyter-sysml-kernel` 0.60.1) was probed first, each call written both
-qualified at the prompt and as the value of a model attribute. Its answers, verbatim
-(UUIDs elided), are all the unevaluated invocation — it has no implementation of any of
-the three:
+- `rat(n, d)` is the Rational `n/d` in lowest terms, the value `n / d` computes: `rat(1, 3)` is
+  `1/3`, `rat(6, 4)` is `1.5`, `rat(1, 0)` is the typed division-by-zero error `1 / 0` reports,
+  never an infinity. The library's `RationalFunctions::sum`/`product` bodies start from
+  `rat(0, 1)`/`rat(1, 1)`.
+- `numer(x)` and `denom(x)` are the numerator and positive denominator of `x` in lowest terms; an
+  Integer is itself over `1`. `numer(0.1)` is `1` and `denom(0.1)` `10`, `numer(rat(1, 3))` is
+  `1` and `denom(1.0 / 3.0)` `3`, `denom(0.0001)` is `10000`, and `rat(numer(x), denom(x)) == x`
+  holds for every finite `x`. A binary64 Real argument is the Rational it is exactly
+  (`big.Rat.SetFloat64`); an infinity or NaN has no ratio and is `semantics.ErrArithmeticDomain`.
+
+The pilot implements none of the three. Each call, qualified at the prompt and as an attribute's
+value, answers the unevaluated invocation (UUIDs elided):
 
 | Case | Pilot answer |
 |------|--------------|
@@ -183,91 +241,44 @@ and finds them unequal, so `rat(1, 3)` is "not equal" even to itself. That is th
 unevaluated-operand artifact `w6d:complex-is-zero-qualified` records in the
 [execution referee](pilot-execution-referee.md). `RationalFunctions::abs`, `floor` and
 `'/'` called by name are unevaluated too; only operator syntax folds. So the pilot cannot
-referee any of the three, the standing decision is not contradicted (nothing here shows an
-exact numerator/denominator pair for `1/3`), and the semantics are self-assessed. The
+referee any of the three, and the semantics are self-assessed. The
 probes are committed as `tools/referee/exec/testdata/cases/rational_terms.cases`, where
 every call lands in `pilot-unevaluated` and the operator quotient agrees.
 
-**Adjudicated: implement all three over the binary64 the runtime already holds.**
 
-- `rat(numer, denum)` is the binary64 quotient — the value `RationalFunctions::'/'` and
-  the `/` operator compute, the exact Integer ratio rounded once (`semantics.IntQuotient`).
-  `rat(1, 0)` is the typed division-by-zero error `1 / 0` reports, never an infinity. The
-  library's own `RationalFunctions::sum`/`product` bodies start from `rat(0, 1)`/`rat(1, 1)`,
-  which is one more reason the constructor must have a value.
-- `numer(rat)` and `denom(rat)` are the exact numerator and positive denominator, in
-  lowest terms, of the rational the binary64 *is* (`math/big.Rat.SetFloat64`, which is
-  exact for every finite double); an Integer is itself over `1`. So `numer(0.75) = 3`,
-  `denom(0.75) = 4`, `numer(-0.75) = -3`, a whole value reads as `n/1` (`numer(2) = 2`,
-  `denom(2.0) = 1`, `denom(0.0) = 1`), and `rat(numer(x), denom(x)) == x` holds exactly
-  for every finite `x` whose terms are Integers. A term beyond `int64` is the exact Integer it
-  is, KerML Integers being unbounded — `denom(0.0001)` is `2^66 = 73786976294838206464`,
-  `numer(1.0e19)` is `10000000000000000000`; an infinity or NaN has no finite ratio and is
-  `semantics.ErrArithmeticDomain`.
+## Cost
 
-**The binary64 consequence, stated plainly.** A Rational here holds the double nearest
-the value written, so `numer`/`denom` answer the terms of that double, not of the
-rational the model meant: `numer(rat(1, 3))` is `6004799503160661` and `denom(rat(1, 3))`
-is `2^54 = 18014398509481984`; `numer(0.1)` is `3602879701896397` and `denom(0.1)` is
-`2^55 = 36028797018963968`. The pure-spec answers — `1` and `3`, `1` and `10` — need an
-exact Rational value kind, which this record declines. The 16-digit numerator is the same
-class of artifact as `0.1 + 0.2 != 0.3` in the probe table at the top: a faithful
-reading of the binary64 the reference implementation also stores (`LiteralRationalImpl.value`
-is a Java `double`), accepted as pilot parity rather than hidden behind a decimal-derived
-pair that `rat` could not reproduce. The alternatives were weighed and set aside: the
-reduced pair of the shortest decimal rendering (`numer(0.1) = 1`, `denom(0.1) = 10`) would
-make `rat(numer(x), denom(x))` a different double from `x` for most `x`, breaking the one
-identity the three functions owe each other; keeping them unevaluable would leave the
-library's `sum`/`product` bodies without a starting value and report a typed error where
-the runtime can honestly compute one.
+COST_PLACEHOLDER
 
-## Option (d) measured: the rounded-query census
+## The rounded-query census
 
-Whether the narrowing is worth building is an empirical question — how many queries
-does the conservative `Query.Rounded` marker sweep in that are in fact provably exact?
-`TestRoundedCensus` (`internal/exec/solve/rounded_census_test.go`) answers it
-reproducibly: it enumerates every constraint, requirement and analysis case in the
-repository's solver-facing corpora, translates each through the same
-`Condition`/`Analysis` path the REPL's `%check`/`%solve`/`%configure all`/`%optimize`
-commands use, and classifies every translated query.
+The solver reasons over SMT-LIB's exact `Real` sort, so a query is marked rounded
+(`Query.Rounded`) where the evaluator rounds: an exact-real `unsat` about it is reported
+undecided, and `%configure all` and `%optimize` decline the completeness claim (see
+[spec-compliance](spec-compliance.md#exact-reals-against-a-rounding-evaluator--what-agreement-is-claimed)).
+With exact Rationals only arithmetic a binary64 `Real` takes part in still rounds.
+`TestRoundedCensus` (`internal/exec/solve/rounded_census_test.go`) translates every constraint,
+requirement, satisfaction assertion and analysis case in the repository's solver-facing corpora
+through the path `%check`/`%solve`/`%configure all`/`%optimize` use, and counts the marked ones:
 
 ```
 OPENSYSML_SMT=/usr/bin/z3        go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
 OPENSYSML_SMT=/usr/local/bin/cvc5 go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
 ```
 
-A marked query is *recoverable* only if every asserted or optimized term is exact over
-its **whole value set**: exact-float64 real literals, and real-valued arithmetic only
-when it folds to a constant whose every intermediate is exactly representable.
-Anything over free variables — real arithmetic, division, integer→real widening —
-stays conservative, because a witness-dependent value set cannot be proven exact
-statically.
+| Corpus | Files | Translated queries | Rounded, binary64 Rationals | Rounded, exact Rationals |
+|--------|-------|--------------------|-----------------------------|--------------------------|
+| Training corpus | 100 | 18 | 3 | 0 |
+| Pilot corpora | 213 | 95 | 9 | 2 |
+| Conformance fixtures | 1,361 | 17 | 0 | 0 |
+| Examples + manual | 53 | 177 | 17 | 3 |
+| Solver fixtures | 10 | 65 | 7 | 1 |
+| Standard library | 107 | 203 | 0 | 0 |
+| **Total** | **1,844** | **575** | **36** | **6** |
 
-Counted (both solvers give identical numbers): the training corpus, the three pilot
-corpora, the runtime conformance fixtures, the repository examples and manual
-examples, the solver test fixtures, and the bundled standard library — 890 files,
-2,170 candidate elements, 415 translated queries. Excluded: elements the translator
-refuses (unsupported operations, unresolved names), which never reach the solver and
-so never see the marker.
-
-| Corpus | Files | Translated queries | Marked rounded | Provably exact |
-|--------|-------|--------------------|----------------|----------------|
-| Training corpus | 100 | 13 | 2 | 0 |
-| Pilot corpora | 212 | 82 | 8 | 0 |
-| Conformance fixtures | 444 | 17 | 0 | 0 |
-| Examples + manual | 27 | 56 | 4 | 0 |
-| Solver fixtures | 10 | 54 | 7 | 0 |
-| Standard library | 97 | 193 | 0 | 0 |
-| **Total** | **890** | **415** | **21** | **0** |
-
-Every one of the 21 marked queries is genuinely inexact: 4 contain a real literal with
-no exact float64 (e.g. a `0.4` efficiency, a degree-unit scale factor), and 17 perform
-real arithmetic, division, or integer widening over free variables — value sets no static
-analysis can prove exact. The false-undecided rate over the real corpus is **zero**.
-
-**Adjudication: option (d) stays unbuilt.** The narrowing would recover no verdict in
-any realistic model in the repository; the recoverable class (constant-folded dyadic
-arithmetic asserted directly) does not occur in practice, because models constrain
-free attributes, not constants. The census harness remains as the reproducible
-instrument: re-run it if future corpora accumulate undecided verdicts, and revisit
-only if it reports a material provably-exact population.
+Both solvers give the same counts. Thirty of the 36 queries a binary64 Rational marked were
+rounded only by a decimal literal or an Integer quotient, which is now exact, so their `unsat`
+verdicts are reported as verdicts. The six left are genuinely binary64 — arithmetic over a
+feature declared `Real` (`powerMargin` in `examples/verdicts-demo/rover.sysml`, `pwr` and `acc` in
+the pilot's `HSUVDynamics.sysml`) or a quotient of one (`MassPerCrate` in the solver fixtures) —
+and none of them is provably exact.

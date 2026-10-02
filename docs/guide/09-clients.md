@@ -615,7 +615,9 @@ inst.features             # {'mass': 1500.0, 'engine': Instance(...)}
 inst.get("missing", 0)    # 0
 ```
 
-Integers, reals, booleans, strings and sequences map to `int`, `float`, `bool`, `str` and `list`.
+Integers, reals, booleans, strings and sequences map to `int`, `float`, `bool`, `str` and `list`;
+an exact Rational a double holds (`0.5`) maps to `float` and any other (`1/3`, `0.1`) to
+`fractions.Fraction`.
 Unknown names raise `AttributeError` for attribute access or `KeyError` for item access, so
 `hasattr`, `copy` and `pickle` behave as expected.
 
@@ -688,8 +690,8 @@ A `Metaobject` is what `x meta T` and the last element of `x.metadata` evaluate 
 identity and its reflective metaclass, whose features (`.name`, `.qualifiedName`) evaluate
 through it. Each kind is capability-negotiated (`complex_values`, `structured_values`,
 `measurement_refs`, `function_values`, `set_values`, `tensor_values`, `metaobject_values`,
-`infinity_value`, `undetermined_value`, `enum_values`, and `big_int_values` for an Integer
-beyond `int64`): a value a service predating one
+`infinity_value`, `undetermined_value`, `enum_values`, `big_int_values` for an Integer
+beyond `int64`, and `rational_values` for an exact Rational no double holds): a value a service predating one
 cannot send arrives as `UnsupportedValueError` (in place, for a feature value or an output;
 raised, from `eval`), and sending such a value as an argument to that service is refused
 before anything goes over the wire, so a script can check
@@ -1456,7 +1458,7 @@ html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
 A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`, an `int`, a
-`float`, a `bool`, or a list of these; anything else raises `DocumentQueryError` before anything
+`float`, a `fractions.Fraction`, a `bool`, or a list of these; anything else raises `DocumentQueryError` before anything
 is sent. Cell values come back with those Python types, an element as `ElementRef` and an
 unbounded multiplicity as `opensysml.INFINITY`. `render_document` takes no bindings, because a
 document binds its queries' parameters in the model; it returns the Markdown text, identical to

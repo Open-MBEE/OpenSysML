@@ -43,7 +43,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); `double` / `bool` |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`, `Boolean`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); `double` / `bool` |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -124,13 +124,23 @@ arithmetic rather than the host language's:
 - **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): Go computes it
   exactly, C refuses at compile time a calc whose Integer result may leave `int64`. `/` and `%`
   by zero are errors.
-- **Integer `/`** is the exact rational quotient rounded once to binary64, as the interpreter's
-  `IntQuotient` does — `7 / 2` is `3.5`, `1 / 3` is `0.3333333333333333`, and
-  `9007199254740993 / 1` rounds the way the interpreter rounds. C does this with `__int128`
-  remainder refinement; Go uses `math/big.Rat`.
+- **Rational** is exact in the interpreter (`exact-rational-evaluation.md`) and binary64 in
+  generated code, so a calc compiles only where binary64 gives the interpreter's answer. A
+  `Rational` parameter, result or attribute is refused (`type ScalarValues::Rational is not
+  Integer, Real or Boolean`). Exact arithmetic between Rational literals is folded at compile
+  time when the result is a double (`0.1 + 0.2` compiles as `0.3`); one operation over values
+  binary64 holds exactly is one correct rounding, guarded at run time where an Integer operand
+  might not be held; and an Integer `/` whose quotient reaches a `Real` declaration is the
+  exact quotient rounded once there, as the interpreter's Real declaration rounds it (`7 / 2` is
+  `3.5`, `1 / 3` is `0.3333333333333333`; C refines with `__int128`, Go uses `math/big.Rat`).
+  A comparison between a Real and a Rational literal compares exactly, through the literal's
+  nearest double and the side the Rational lies on, and an Integer quotient against a whole
+  number compares exactly (`a / 3 >= 2`). Anything else is refused, naming the
+  construct: `exact Rational arithmetic '*' over a value binary64 does not hold exactly`,
+  `'**' of an exact Rational by an Integer exponent`, `'<' of an exact Rational binary64 does
+  not hold exactly`.
 - **Real** is binary64 and every result is checked finite; `1.0 / 0.0` and `1e308 * 10.0` are
-  errors, not `inf`. `0.1 + 0.2` prints `0.30000000000000004`, exactly as the interpreter
-  (see `exact-rational-evaluation.md`; no exact arithmetic is introduced here).
+  errors, not `inf`.
 - **Mixed** Integer/Real operands widen the Integer in arithmetic. A comparison between them is
   exact, as the interpreter's `CompareIntReal`: `9007199254740993 > 9007199254740992.0` holds
   although the Integer rounds to that Real.
