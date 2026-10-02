@@ -546,7 +546,11 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 		if err != nil {
 			return err
 		}
-		values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+		held, err := ctx.HeldElements(sub.HeldValue())
+		if err != nil {
+			return err
+		}
+		values, seen = appendUniqueInstances(values, held, seen)
 		return nil
 	})
 	if err != nil {
@@ -568,7 +572,11 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 			return err
 		}
 		if !open.Stopped {
-			values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+			held, err := ctx.HeldElements(sub.HeldValue())
+			if err != nil {
+				return err
+			}
+			values, seen = appendUniqueInstances(values, held, seen)
 			return nil
 		}
 		values = append(values, open.Contributed...)
@@ -722,15 +730,18 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 			continue
 		}
 		fv := inst.FeatureValues[feat.Name]
-		held := elementsOf(fv.HeldValue())
 		spare := n
 		if upper := feat.Multiplicity.Upper; upper.Known && !upper.Infinite {
-			if spare = int(upper.Value) - len(held); spare > n {
+			if spare = int(upper.Value - ElementCount(fv.HeldValue())); spare > n {
 				spare = n
 			}
 		}
 		if spare <= 0 {
 			continue
+		}
+		held, err := ctx.HeldElements(fv.HeldValue())
+		if err != nil {
+			return made, undo, err
 		}
 		composite := ctx.CompositeTypeOf(&feat)
 		for i := 0; i < spare; i++ {

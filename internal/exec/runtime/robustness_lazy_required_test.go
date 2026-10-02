@@ -29,6 +29,7 @@ func TestRuntimeRobustnessLazyRequired(t *testing.T) {
 	t.Run("subsetter_is_among_the_values", testLazyRequiredSubsetter)
 	t.Run("quantifier_reaches_every_value", testLazyRequiredQuantified)
 	t.Run("state_key_spells_the_population", testLazyRequiredStateKey)
+	t.Run("every_feature_of_the_holder_is_read", testLazyRequiredEveryFeature)
 }
 
 const lazyHolderSrc = `
@@ -438,5 +439,38 @@ func testLazyRequiredStateKey(t *testing.T) {
 	}
 	if again := spell("p#(3000)"); again != made {
 		t.Errorf("two runs making p#(3000) spell %s and %s", made, again)
+	}
+}
+
+// testLazyRequiredEveryFeature reads every feature of a holder as an export does, the
+// inherited unions of its parts included: a union reaching a billion values is refused
+// with the element budget rather than listed, and the rest are read whole.
+func testLazyRequiredEveryFeature(t *testing.T) {
+	inst, ctx := lazyHolder(t, strings.Replace(lazyHolderSrc, "part p : C[5000];", "part p : C[5000]; part big : C[1000000000];", 1))
+	refused := 0
+	for name := range inst.FeatureValues {
+		fv, err := inst.GetFeatureValue(ctx, name)
+		if err == nil {
+			_, err = ctx.HeldElements(fv.HeldValue())
+		}
+		switch {
+		case errors.Is(err, ErrElementLimitExceeded):
+			refused++
+		case err != nil:
+			t.Errorf("feature %s: %v", name, err)
+		}
+	}
+	if refused == 0 {
+		t.Error("no feature reaching the billion values was refused")
+	}
+	fv, err := inst.GetFeatureValue(ctx, "p")
+	if err != nil {
+		t.Fatalf("p: %v", err)
+	}
+	if held, err := ctx.HeldElements(fv.HeldValue()); err != nil || len(held) != 5000 {
+		t.Errorf("p lists %d values (%v), want 5000", len(held), err)
+	}
+	if n := len(ctx.instances); n > 1100 {
+		t.Errorf("reading every feature made %d objects", n)
 	}
 }

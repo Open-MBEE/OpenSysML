@@ -123,6 +123,20 @@ func (ctx *Context) requiredMember(r *requiredMembers, id int64) (*Instance, err
 	return inst, nil
 }
 
+// reachedObject is the object id names, a required member made now; ok is false for an
+// identity the run holds no object under.
+func (ctx *Context) reachedObject(id int64) (inst *Instance, ok bool, err error) {
+	if inst, ok := ctx.instances[id]; ok {
+		return inst, true, nil
+	}
+	r, ok := ctx.requiredOf(id)
+	if !ok {
+		return nil, false, nil
+	}
+	inst, err = ctx.requiredMember(r, id)
+	return inst, err == nil, err
+}
+
 // heldInFull is val with every required member it ends in made, the work of reaching
 // every value: each is charged to the element budget, past which it is refused.
 func (ctx *Context) heldInFull(val Value) (Value, error) {
