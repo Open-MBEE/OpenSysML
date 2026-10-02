@@ -1,7 +1,5 @@
 # The stack and the ecosystem
 
-<div class="osml-eco">
-
 Open source finally speaks SysML v2: three independently built implementations of the
 OMG standard — a Go runtime, a Rust toolchain, and OMG's own reference build — reading
 and writing the same models, with an open, version-controlled store underneath to hold
@@ -143,5 +141,3 @@ growing library ecosystem around it.
 - The one exception is the OMG reference implementation, which is licensed
   **EPL-2.0** rather than Apache-2.0.
 - See the stack above for the specific license per project.
-
-</div>
