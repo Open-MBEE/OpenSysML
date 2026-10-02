@@ -339,7 +339,8 @@ package P { alias D for C; }
 the classifier is reached through an alias or reference membership (observation, shape recorded
 in [validation-constraints.md](validation-constraints.md) and
 [omg-issues.md](omg-issues.md#a-multiplicity-is-found-through-aliases-and-references-pilot-2026-07);
-filed as Systems-Modeling/SysML-v2-Pilot-Implementation#802).
+filed as Systems-Modeling/SysML-v2-Pilot-Implementation#802 and fixed upstream
+on ST6RI-975 (commit `1563e068`, 2026-10-02; not yet included in a release).
 
 **OpenSysML:** does not report it; the multiplicity is owned by `C`, which has no featuring type.
 
