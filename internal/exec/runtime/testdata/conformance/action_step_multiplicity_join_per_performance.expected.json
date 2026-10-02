@@ -1,6 +1,7 @@
 {
 	"type": "action",
 	"libraries": true,
+	"exploreBudget": {"runs": 2048},
 	"schedule": "declared",
 	"trace": true,
 	"outputs": {
