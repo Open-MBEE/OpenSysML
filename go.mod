@@ -2,6 +2,8 @@ module github.com/Open-MBEE/OpenSysML
 
 go 1.25.0
 
+toolchain go1.25.11
+
 require (
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/grpcreflect v1.3.0
