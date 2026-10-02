@@ -232,14 +232,14 @@ nor double-counted as two independent disagreements.
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
+| `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 91 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
 | `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **381** | **345** | **81** | **1669** | **38** | **2** | **41** | **1629** |
+| **Total** | **381** | **343** | **83** | **1669** | **38** | **2** | **43** | **1629** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -251,7 +251,15 @@ dimension — takes it to **7**; the [unbound-parameter advisory](#the-unbound-p
 then takes `kerml-examples` to **4**, and the
 [collection-body element typing round](#collection-body-element-typing-round) to **6**, and the
 [bare feature-reference typing round](#bare-feature-reference-typing-round) to **10**. Our
-diagnostics on those roots therefore fall 20 → **17**. The
+diagnostics on those roots therefore fall 20 → **17** before the action-step multiplicity
+warning described below. The
+action-step multiplicity rule adds one intentional `multiplicity` warning on
+`18. Action Performance/Action Performance Example.sysml:10` (`takePhoto[*]`) in the training
+corpus and one on `Camera Example/Camera.sysml:4` (`takePicture[*]`) in `pilot-examples`; both
+report `action-step-multiplicity-not-fixed` because the executor refuses non-fixed counts. The
+training corpus gate still asserts zero semantic errors. This brings the current reference-corpus
+total to 21 only-ours diagnostics, of which 20 remain candidate conformance mismatches and the
+Camera warning is an intentional execution-scope warning. The
 `examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
 warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
 the [runtime showcase round](#runtime-showcase-round)): the non-standard-notation warning on the
@@ -268,6 +276,13 @@ reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) — 
 `Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
+`unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
+`testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
+6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 `syntax`, 7
+`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 888
+`unresolved-reference`.
 
 ### Legend of the Red Dragon departure round
 
@@ -939,7 +954,7 @@ Its only-ours counts remain `training` 0, `pilot-examples` 8, `pilot-validation`
 populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two semantic recoveries are
 Xpect assertions not present in these seven differential roots.
 
-Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
+At the Step 3 historical snapshot, the per-category only-ours totals were: `pilot-examples` 4 `unmapped`, 2
 `units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 8
@@ -1036,13 +1051,13 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 41 / 81** |
+| overall: fully agreeing / only ours / our diagnostics | **343 / 43 / 83** |
 | only pilot | **1629** |
 | pilot diagnostics | **1669** |
 | severity-only | **2** |
 | unmapped, our side | **35** |
 | kerml-examples: only ours | **9** |
-| pilot-examples: only ours | **11** |
+| pilot-examples: only ours | **12** |
 | examples: only pilot | **1596** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6

@@ -57,6 +57,39 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 	}
 }
 
+// UnaddressableBoundIn returns the first bound of mult that evaluates to an Integer beyond int64.
+func (m *Model) UnaddressableBoundIn(scope *symbols.Scope, mult *ast.Multiplicity) (Value, bool) {
+	if m == nil || mult == nil {
+		return Value{}, false
+	}
+	unaddressable := func(n ast.Node) (Value, bool) {
+		if n == nil {
+			return Value{}, false
+		}
+		var v Value
+		var ok bool
+		if scope != nil {
+			v, ok = m.EvalIn(scope, n)
+		} else {
+			v, ok = m.Eval(n)
+		}
+		if !ok || v.Kind != ValInt {
+			return Value{}, false
+		}
+		if _, fits := v.Int64(); fits {
+			return Value{}, false
+		}
+		return v, true
+	}
+	if v, ok := unaddressable(mult.Lower); ok {
+		return v, true
+	}
+	if mult.IsRange {
+		return unaddressable(mult.Upper)
+	}
+	return Value{}, false
+}
+
 // multiplicityRange extracts a Range from a parsed *ast.Multiplicity. ok is
 // false when the multiplicity is nil.
 func (m *Model) multiplicityRange(mult *ast.Multiplicity) (Range, bool) {

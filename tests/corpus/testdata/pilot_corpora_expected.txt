@@ -10,6 +10,7 @@
 6	kerml-examples/Simple Tests/Expressions.kerml
 1	sysml-examples/Analysis Examples/Dynamics.sysml
 1	sysml-examples/Analysis Examples/Turbojet Stage Analysis.sysml
+1	sysml-examples/Camera Example/Camera.sysml
 2	sysml-examples/Geometry Examples/SimpleQuadcopter.sysml
 1	sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml
 1	sysml-examples/Simple Tests/IndividualTest.sysml

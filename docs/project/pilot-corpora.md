@@ -41,11 +41,13 @@ partial copy — before it is a behaviour question; see [pilot-differential.md](
 
 The two *policies* over that mechanism deliberately differ:
 
-- **Training asserts.** The reference validates all 100 files of `sysml/src/training` clean and so
-  do we, so `TestTrainingExamplesSemanticErrors` asserts that: `training_examples_expected.txt`
-  records the corpus size and nothing else, and a reporting file fails the gate instead of being
-  recorded. `-update-training` refuses to write a per-file count, so the assertion cannot be
-  ratcheted into a baseline by a future PR with a plausible-sounding justification.
+- **Training asserts.** The reference validates all 100 files of `sysml/src/training` clean; our
+  `TestTrainingExamplesSemanticErrors` gate asserts that none reports a semantic error.
+  `action-step-multiplicity` separately warns on `takePhoto[*]` because its count is not fixed; the
+  warning is intentionally outside this error-only gate. `training_examples_expected.txt` records
+  the corpus size and nothing else, and a reporting file fails the gate instead of being recorded.
+  `-update-training` refuses to write a per-file count, so the assertion cannot be ratcheted into a
+  baseline by a future PR with a plausible-sounding justification.
 - **The other three ratchet.** They are not clean under our implementation (109, 10 and 72 files'
   worth of diagnostics the reference does not report, per `tools/referee/diff`), so there is nothing to
   assert yet; the per-file counts are pinned instead, and every movement in either direction has to
@@ -53,9 +55,9 @@ The two *policies* over that mechanism deliberately differ:
 
 Do not "simplify" the training gate into the ratchet: an absolute gate that can be re-baselined is
 not an absolute gate. The scopes also differ on purpose — training counts `SeverityError` over
-`.sysml` only, the corpora count every severity over `.sysml` and `.kerml`. (Measured, not assumed:
-the training corpus is clean on *every* severity too, so its narrower scope costs nothing today; it
-is kept because a future warning there is a warning, not a broken gate.)
+`.sysml` only, the corpora count every severity over `.sysml` and `.kerml`. The narrower training
+scope is deliberate: an execution-scope warning is not a semantic error or a reason to weaken the
+assertion.
 
 The two require-env vars stay separate (`OPENSYSML_REQUIRE_TRAINING_CORPUS`,
 `OPENSYSML_REQUIRE_PILOT_CORPORA`), because the two corpora are fetched, cached and run

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -11,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -61,7 +63,7 @@ func conformanceAction(t *testing.T, file, fqn string) *lower.ActionGraph {
 // token slots for the two branches in flight.
 func TestAnalyzeNumbersForkJoinFlow(t *testing.T) {
 	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
-	f, err := Analyze(graph, 10)
+	f, err := Analyze(graph, nil, 10)
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
@@ -100,7 +102,7 @@ func TestAnalyzeNumbersForkJoinFlow(t *testing.T) {
 // before any encoding at the first such node in graph order, as ErrNotEncoded.
 func TestAnalyzeRefusesMessages(t *testing.T) {
 	graph := conformanceAction(t, "action_accept_message.sysml", "test::communicator")
-	_, err := Analyze(graph, 10)
+	_, err := Analyze(graph, nil, 10)
 	var unsupported *UnsupportedError
 	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
@@ -109,9 +111,110 @@ func TestAnalyzeRefusesMessages(t *testing.T) {
 		t.Errorf("refusal names %q/%q, want node sender, construct send", unsupported.Node, unsupported.Construct)
 	}
 	delete(graph.Bodies, graph.Nodes[1])
-	_, err = Analyze(graph, 10)
+	_, err = Analyze(graph, nil, 10)
 	if !errors.As(err, &unsupported) || unsupported.Node != "receiver" || unsupported.Construct != "accept" {
 		t.Errorf("with the send gone: got %v, want node receiver, construct accept", err)
+	}
+}
+
+func TestAnalyzeRefusesRepeatedActionSteps(t *testing.T) {
+	graph := conformanceAction(t, "action_step_multiplicity_exact.sysml", "test::Rep")
+	_, err := Analyze(graph, nil, 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+	}
+	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
+		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	}
+}
+
+func TestAnalyzeRefusesUnaddressableStepMultiplicityWithCause(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			action def Huge {
+				first start then a;
+				action a[2**70];
+				then done;
+			}
+		}`)
+	matches := idx.LookupQualified("test::Huge")
+	if len(matches) != 1 {
+		t.Fatalf("test::Huge matched %d symbols, want one", len(matches))
+	}
+	graph, err := lower.ToActionGraph(matches[0].Decl, matches[0].Scope)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	lower.StartFlow(graph)
+	_, err = Analyze(graph, ctx.Semantics(), 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) ||
+		!errors.Is(err, semantics.ErrIntegerUnaddressable) {
+		t.Fatalf("Analyze error = %v, want typed ErrNotEncoded and ErrIntegerUnaddressable", err)
+	}
+	if unsupported.Node != "a" || !strings.Contains(unsupported.Construct, "a") {
+		t.Errorf("refusal = %+v, want the action step a", unsupported)
+	}
+}
+
+func TestAnalyzeResolvesNamedStepMultiplicity(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			private import ScalarValues::*;
+			attribute one : Integer = 1;
+			attribute two : Integer = 2;
+			action def Single {
+				first start then a;
+				action a[one];
+				then done;
+			}
+			action def Double {
+				first start then a;
+				action a[two];
+				then done;
+			}
+			action def Unresolved {
+				first start then a;
+				action a[missing];
+				then done;
+			}
+		}`)
+	for _, tc := range []struct {
+		name        string
+		wantEncoded bool
+		wantText    string
+	}{
+		{name: "Single", wantEncoded: true},
+		{name: "Double", wantText: "[two]"},
+		{name: "Unresolved", wantText: "[missing]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			matches := idx.LookupQualified("test::" + tc.name)
+			if len(matches) != 1 {
+				t.Fatalf("test::%s matched %d symbols", tc.name, len(matches))
+			}
+			graph, err := lower.ToActionGraph(matches[0].Decl, matches[0].Scope)
+			if err != nil {
+				t.Fatalf("lower: %v", err)
+			}
+			lower.StartFlow(graph)
+			_, err = Analyze(graph, ctx.Semantics(), 10)
+			if tc.wantEncoded {
+				if err != nil {
+					t.Fatalf("Analyze: %v, want named single-count bound encoded", err)
+				}
+				return
+			}
+			var unsupported *UnsupportedError
+			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+				t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+			}
+			if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity "+tc.wantText {
+				t.Errorf("refusal names %q/%q, want node a and multiplicity %q",
+					unsupported.Node, unsupported.Construct, tc.wantText)
+			}
+		})
 	}
 }
 
@@ -138,7 +241,7 @@ func TestAnalyzeRecordsBodyLoops(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lower: %v", err)
 	}
-	f, err := Analyze(graph, 5)
+	f, err := Analyze(graph, nil, 5)
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
@@ -220,7 +323,7 @@ func TestAnalyzeSizesSlotsPerArrival(t *testing.T) {
 			t.Fatalf("lower %s: %v", c.action, err)
 		}
 		lower.StartFlow(graph)
-		f, err := Analyze(graph, c.k)
+		f, err := Analyze(graph, nil, c.k)
 		if err != nil {
 			t.Fatalf("Analyze %s: %v", c.action, err)
 		}
@@ -233,10 +336,10 @@ func TestAnalyzeSizesSlotsPerArrival(t *testing.T) {
 // TestAnalyzeRefusesNoInitial: a flow with no initial node is what the
 // interpreter refuses at initialize, and the encoding refuses it as malformed.
 func TestAnalyzeRefusesNoInitial(t *testing.T) {
-	if _, err := Analyze(&lower.ActionGraph{}, 3); !errors.Is(err, ErrMalformedFlow) {
+	if _, err := Analyze(&lower.ActionGraph{}, nil, 3); !errors.Is(err, ErrMalformedFlow) {
 		t.Fatalf("Analyze: got %v, want ErrMalformedFlow", err)
 	}
-	if _, err := Analyze(nil, 3); !errors.Is(err, ErrMalformedFlow) {
+	if _, err := Analyze(nil, nil, 3); !errors.Is(err, ErrMalformedFlow) {
 		t.Fatalf("Analyze(nil): got %v, want ErrMalformedFlow", err)
 	}
 }
@@ -247,7 +350,7 @@ func TestAnalyzeRefusesNoInitial(t *testing.T) {
 func TestAnalyzeRefusesUnorderedSubactions(t *testing.T) {
 	graph := conformanceAction(t, "action_unordered_beside_first.sysml", "test::host")
 	lower.StartFlow(graph)
-	_, err := Analyze(graph, 10)
+	_, err := Analyze(graph, nil, 10)
 	var unsupported *UnsupportedError
 	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
@@ -266,7 +369,7 @@ func TestAnalyzeRefusesConcurrentOnlyFlows(t *testing.T) {
 		{"action_unordered_nested_subactions.sysml", "test::host", "a"},
 	} {
 		t.Run(c.fqn, func(t *testing.T) {
-			_, err := Analyze(conformanceAction(t, c.file, c.fqn), 10)
+			_, err := Analyze(conformanceAction(t, c.file, c.fqn), nil, 10)
 			var unsupported *UnsupportedError
 			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) || errors.Is(err, ErrMalformedFlow) {
 				t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
@@ -282,7 +385,7 @@ func TestAnalyzeRefusesConcurrentOnlyFlows(t *testing.T) {
 // node plus Absent, per succession plus none, per slot plus stutter.
 func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
-	f, err := Analyze(graph, 10)
+	f, err := Analyze(graph, nil, 10)
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
@@ -316,7 +419,7 @@ func TestSortsNameEveryNodeEdgeAndSlot(t *testing.T) {
 // the flag of a feature that may hold no value included.
 func TestStateVectorNamesEveryVariableAcrossMoves(t *testing.T) {
 	graph := conformanceAction(t, "action_fork_branches_write_one_feature.sysml", "test::clash")
-	f, err := Analyze(graph, 10)
+	f, err := Analyze(graph, nil, 10)
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
@@ -378,7 +481,7 @@ func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
 			if tc.noGraph {
 				graph.Subflows[graph.Nodes[1]] = &lower.Subflow{}
 			}
-			_, err = Analyze(graph, 10)
+			_, err = Analyze(graph, nil, 10)
 			var unsupported *UnsupportedError
 			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 				t.Fatalf("Analyze: got %v, want an UnsupportedError", err)

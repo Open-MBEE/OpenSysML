@@ -115,13 +115,14 @@ type blockStepLowering func(graph *ActionGraph, nodes []ast.Node, member ast.Nod
 // members between action nodes with step.
 func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStepLowering) *ActionGraph {
 	graph := &ActionGraph{
-		Scope:     scope,
-		Nodes:     make([]ast.Node, 0, len(members)),
-		Edges:     make(map[ast.Node][]ActionEdge),
-		DataFlows: make(map[ast.Node][]ObjectFlow),
-		Bodies:    make(map[ast.Node][]Statement),
-		Accepts:   make(map[ast.Node]Accept),
-		Finals:    make([]ast.Node, 0),
+		Scope:          scope,
+		Nodes:          make([]ast.Node, 0, len(members)),
+		Edges:          make(map[ast.Node][]ActionEdge),
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		DataFlows:      make(map[ast.Node][]ObjectFlow),
+		Bodies:         make(map[ast.Node][]Statement),
+		Accepts:        make(map[ast.Node]Accept),
+		Finals:         make([]ast.Node, 0),
 
 		StatementRuns: make(map[ast.Node]bool),
 	}
@@ -141,6 +142,7 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStep
 		if isFlowNode(actual) {
 			run = nil
 			graph.Nodes = append(graph.Nodes, actual)
+			recordNodeMultiplicity(graph, actual)
 			lowerFlowNode(graph, actual, scope)
 			continue
 		}
@@ -164,6 +166,12 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStep
 	}
 	recordBlockNodes(graph)
 	return graph
+}
+
+func recordNodeMultiplicity(graph *ActionGraph, node ast.Node) {
+	if usage, ok := node.(*ast.Usage); ok && usage.Multiplicity != nil {
+		graph.Multiplicities[node] = usage.Multiplicity
+	}
 }
 
 // recordBlockNodes fills graph.BlockNodes from the bodies of its nodes.

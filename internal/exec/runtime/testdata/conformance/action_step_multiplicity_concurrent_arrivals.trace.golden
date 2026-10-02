@@ -1,0 +1,31 @@
+step 1: token 1@split
+step 2: token 2@left, token 3@right
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
+step 3: token 2@joined, token 3@joined
+choice step 4: tokens 2@joined, 3@joined (unordered; took 3@joined first)
+step 4: token 2@p, token 3@p
+choice step 5: tokens 2@p, 3@p (unordered; took 3@p first)
+step 5: token 2@a, token 3@a
+choice step 6: tokens 2@a, 3@a (unordered; took 3@a first)
+step 6: token 2@a, token 3@a, token 4@a, token 5@a
+stmt assign c
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign c
+    eval feature c -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign c
+    eval feature c -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign c
+    eval feature c -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+choice step 7: writes c := 4 by token 2, c := 3 by token 3, c := 2 by token 4, c := 1 by token 5 (unordered; c := 4 by token 2 stood)
+choice step 7: tokens 2@a, 3@a, 4@a, 5@a (unordered; took 5@a first)
+step 7: token 2@done, token 3@done
+choice step 8: tokens 2@done, 3@done (unordered; took 3@done first)
+step 8: no active tokens

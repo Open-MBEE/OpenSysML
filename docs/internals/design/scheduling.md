@@ -97,6 +97,30 @@ ended, its nil-trigger transitions are queued as completion events at the curren
 as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
 (`completeIfDone` → `scheduleCompletedComposites`).
 
+## Repeated action-step performances
+
+When a node declares an exact count greater than one, the arriving action token is split into
+sibling tokens, one per performance. They use the existing `ChoiceTokenOrder` choice point: no
+new scheduling policy is introduced, and declared, reverse, seeded, replayed and explored runs
+continue to select among the same steppable tokens. Each token begins a fresh frame for the node,
+so its local features are independent, while writes to features of the owning action remain
+shared. Data flows, bindings and connections involving a repeated node's pins are refused.
+
+The owner frame holds a per-node completion barrier. A repeated performance that finishes retires
+its token without taking the node's outgoing successions or delivering its data flows. The last
+one to finish releases the barrier and advances the node once, so every target follows every
+source performance and the owner continues once. A nested flow runs separately inside each
+performance's frame. Repetition identity and the live barrier are part of snapshots, held images
+and the execution state key; otherwise replay and exploration could merge states with different
+remaining performances.
+
+A count of zero passes through without beginning a performance, trace events or data flows. It is
+only order-safe at a flow boundary: a zero-count step between two real steps leaves their order
+open and is refused. Any step count that is not fixed, or succession, guard, control-node or pin
+interaction the multiplicity checker cannot support, is refused before the node runs. The
+two-reading treatment of unwritten succession ends is documented in the
+[semantic oracle](../../project/behavior-semantic-oracle.md#repeated-action-steps-and-shared-writes).
+
 ## Policies (`scheduler.go`)
 
 A `SchedulePolicy` is parsed from one spelling and printed back to it:
@@ -197,7 +221,8 @@ model behavior runs, is a `SetupError`: it fails the exploration and produces no
 from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later model
 behavior are runtime error outcomes, even when they occur during initialization;
 `FailedLinearizations` counts the runs represented by error outcomes. A complete exploration
-containing any such failure is observed, not proved.
+containing any such failure is observed, not proved. Action-step-multiplicity refusals occur when
+the step is reached, so they are runtime error outcomes, never a `SetupError`.
 
 Outcome probabilities describe only the model's weighted draws. A run records a trie of choice
 prefixes; weighted nodes sum their children with normalized model weights, while scheduling

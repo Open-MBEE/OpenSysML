@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:c5b573db17c7c8f47b9f0c9fd7574b1118b501141cc10832ee4cc55e2926e0d3"
+        "digest": "sha256:999be0333b060c78d68706344d333382d6cca945b7ba66ca965f6a4c930ca70b"
       },
       {
         "name": "probes",
@@ -75,12 +75,12 @@
   },
   "totals": {
     "files": 381,
-    "filesFullyAgreeing": 345,
+    "filesFullyAgreeing": 343,
     "agreement": 38,
     "severityMismatch": 2,
-    "openSysMLOnly": 41,
+    "openSysMLOnly": 43,
     "pilotOnly": 1629,
-    "openSysMLDiagnostics": 81,
+    "openSysMLDiagnostics": 83,
     "pilotDiagnostics": 1669
   },
   "roots": [
@@ -89,27 +89,42 @@
       "dir": "examples/sysml-v2-training",
       "totals": {
         "files": 100,
-        "filesFullyAgreeing": 100,
+        "filesFullyAgreeing": 99,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 0,
+        "openSysMLOnly": 1,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 0,
+        "openSysMLDiagnostics": 1,
         "pilotDiagnostics": 0
       },
-      "files": []
+      "files": [
+        {
+          "path": "18. Action Performance/Action Performance Example.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 10,
+              "severity": "warning",
+              "category": "multiplicity",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
+        }
+      ]
     },
     {
       "name": "pilot-examples",
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 92,
+        "filesFullyAgreeing": 91,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 11,
+        "openSysMLOnly": 12,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 11,
+        "openSysMLDiagnostics": 12,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -136,6 +151,20 @@
               "line": 25,
               "severity": "warning",
               "category": "units",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
+        },
+        {
+          "path": "Camera Example/Camera.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 4,
+              "severity": "warning",
+              "category": "multiplicity",
               "count": 1
             }
           ],
@@ -238,12 +267,12 @@
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 93,
+        "filesFullyAgreeing": 92,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 10,
+        "openSysMLOnly": 11,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 10,
+        "openSysMLDiagnostics": 11,
         "pilotDiagnostics": 0
       }
     },
@@ -8417,12 +8446,12 @@
     ],
     "totals": {
       "files": 381,
-      "filesFullyAgreeing": 346,
+      "filesFullyAgreeing": 344,
       "agreement": 38,
       "severityMismatch": 2,
-      "openSysMLOnly": 40,
+      "openSysMLOnly": 42,
       "pilotOnly": 1629,
-      "openSysMLDiagnostics": 80,
+      "openSysMLDiagnostics": 82,
       "pilotDiagnostics": 1669
     },
     "findings": [

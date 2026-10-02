@@ -188,6 +188,14 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 		}
 	}
 	add(parent.subactions[node], math.MaxInt64)
+	for _, state := range parent.repeats {
+		if state.node != node {
+			continue
+		}
+		for i, perf := range state.live {
+			add(perf, int64(i))
+		}
+	}
 	for _, token := range e.tokens {
 		for f := token.frame; f != nil; f = f.parent {
 			add(f, token.ID)
@@ -223,6 +231,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 			return nil, err
 		}
 		perf.heldAt = id
+		e.trackRepeated(id, perf)
 		begun = append(begun, perf)
 	}
 	return begun, nil
@@ -397,6 +406,8 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	token.Location = perf.node
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
+	token.repetition = perf.repetition
+	token.repetitionGroup = perf.repetitionGroup
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(ActionNodeName(perf.node))
 	}

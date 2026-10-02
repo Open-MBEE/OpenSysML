@@ -4,10 +4,11 @@ A design for answering the safety-case question — *does any admissible executi
 requirement?* — with an SMT solver rather than by enumerating executions: the token-flow
 semantics of an action are unrolled to a bounded number of moves and written as a satisfiability
 query over the schedule, the feature values and the unbound inputs at once, so one solver call
-searches every interleaving and every input value the model leaves open. Nothing here is
-implemented. The note fixes what is encoded, what a verdict may claim, how a solver's answer is
-turned into a witness the interpreter replays, and where the encoding stops and says so, so the
-work can be reviewed before code is written.
+searches every interleaving and every input value the model leaves open. The complete bounded
+behavior encoding remains a design; the existing `Analyze` entry point explicitly refuses action
+graphs with a node count other than one. The note fixes what the full encoding would cover, what a
+verdict may claim, how a solver's answer would become a witness the interpreter replays, and where
+the encoding stops and says so.
 
 It is the next stage of the model-checking track. The
 [explicit-state design](bounded-model-checking.md) explores the executor itself, and the
@@ -95,6 +96,17 @@ interleaved with another token's, so both engines describe the same state space 
 from one is a schedule of the other. The explicit note's argument for this granularity
 (one performance, `HappensBefore` between whole occurrences, the coarse reading being the
 executor's) applies unchanged.
+
+### Action-step multiplicity refusal
+
+The executor and the SMT engine have different support boundaries. Before analyzing an action,
+`Analyze` checks each lowered action node's own multiplicity. A count other than one — including
+zero — returns typed `ErrNotEncoded` as an `UnsupportedError`, naming the step and the declared
+multiplicity. An unevaluable or non-fixed count is refused the same way, with a reason that the
+SMT engine requires a fixed single-performance step. The solver therefore never encodes repeated
+performance as a single token move or makes a claim about its interleavings.
+`Analyze` also refuses graphs with unordered starts through `unorderedStart`; that separate
+restriction remains in force alongside multiplicity refusal, and is checked first when both apply.
 
 The query is over **`k` moves**. State `s_0` is the initial state (the token at `Initial`, the
 attribute defaults from `ActionGraph.Attributes`, the pinned and free inputs); `s_i` is the
