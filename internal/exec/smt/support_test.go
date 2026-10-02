@@ -350,7 +350,7 @@ func TestAnalyzeRefusesNoInitial(t *testing.T) {
 func TestAnalyzeRefusesUnorderedSubactions(t *testing.T) {
 	graph := conformanceAction(t, "action_unordered_beside_first.sysml", "test::host")
 	lower.StartFlow(graph)
-	_, err := Analyze(graph, 10)
+	_, err := Analyze(graph, nil, 10)
 	var unsupported *UnsupportedError
 	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
 		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
@@ -369,7 +369,7 @@ func TestAnalyzeRefusesConcurrentOnlyFlows(t *testing.T) {
 		{"action_unordered_nested_subactions.sysml", "test::host", "a"},
 	} {
 		t.Run(c.fqn, func(t *testing.T) {
-			_, err := Analyze(conformanceAction(t, c.file, c.fqn), 10)
+			_, err := Analyze(conformanceAction(t, c.file, c.fqn), nil, 10)
 			var unsupported *UnsupportedError
 			if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) || errors.Is(err, ErrMalformedFlow) {
 				t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
