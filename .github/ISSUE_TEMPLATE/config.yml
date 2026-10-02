@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/Open-MBEE/OpenSysML/discussions
     about: Anything that is not a defect, a conformance gap, or an objection to a ruling starts as a discussion.
   - name: Documentation
-    url: https://implementation.opensysml.org/
+    url: https://opensysml.org/
     about: The handbook, CLI/REPL reference, internals, and the measured compliance status.

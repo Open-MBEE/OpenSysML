@@ -4,7 +4,7 @@
 # menu, which links the sites GitHub's own header cannot.
 site_name: OpenSysML
 site_description: A SysML v2 and KerML implementation in Go — language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
-site_url: https://implementation.opensysml.org/
+site_url: https://opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML
 edit_uri: edit/main/docs/
@@ -51,6 +51,7 @@ theme:
 extra_css:
   - stylesheets/nav-menu.css
   - stylesheets/footer.css
+  - stylesheets/ecosystem.css
 
 plugins:
   - search
@@ -162,6 +163,8 @@ exclude_docs: |
 
 nav:
   - Documentation: README.md
+  - Downloads: downloads.md
+  - Ecosystem: ecosystem.md
   - Guide:
       - guide/README.md
       - guide/01-install.md
