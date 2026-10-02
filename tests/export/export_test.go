@@ -2247,6 +2247,29 @@ func TestActionSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testin
 	)
 }
 
+// A guarded succession's `then [m] b` writes the same target end: on the
+// succession a `succession first a if g then [m] b` transition owns, and on the
+// `first a if g then [m] b` shorthand's own ends.
+func TestGuardedSuccessionTargetMultiplicityRoundTripsWithoutSourceText(t *testing.T) {
+	const src = `package P {
+    action def A {
+        action a;
+        action b;
+        action c;
+        succession first a if ready then [*] b;
+        first a if ready then [0..1] c;
+        in ready : Boolean;
+        private import ScalarValues::Boolean;
+    }
+}
+`
+	back := notationFromTheGraphAlone(t, "guarded_target_multiplicity.sysml", src)
+	wantFragments(t, back,
+		"succession first a if ready then [*] b;",
+		"first a if ready then [0..1] c;",
+	)
+}
+
 // A succession is its two ends, so a graph from elsewhere that names only one of
 // them declares no order: that is reported rather than written back as notation
 // (`succession;`) that says nothing.
