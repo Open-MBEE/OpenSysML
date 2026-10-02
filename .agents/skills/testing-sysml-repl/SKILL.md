@@ -6181,6 +6181,28 @@ is `6 [one]`, and `800 [W] * 120 [s] * 0.7 [one]` in a calc returning `EnergyVal
 
 None for these local REPL/gRPC checks.
 
+## Inherited action results and rejected action returns
+
+- For inherited-result checks, use the runtime conformance fixtures
+  `action_result_inherited_from_calc_def`, `action_result_inherited_from_use_case_def`,
+  `action_result_inherited_from_use_case_library_result` and `action_result_read_by_performer`
+  under `internal/exec/runtime/testdata/conformance/`. The first, second and fourth do not import
+  `ScalarValues::*`, so validating CLI/REPL loads need a scratch copy that adds it. Keep the
+  originals unchanged, and compare the scratch text with them ignoring whitespace and that import.
+- `%action test::Compute`, two `%step`s, then `%tokens` shows `r = 42` with the token at `done`; the
+  third `%step` completes and prints Results. The use-case counterpart `test::ByUC` gives `n = 7`.
+- Keep validation separate from execution: a `return` owned directly by an action is diagnosed by
+  `%load`, while `%action` still reaches the runtime's guarded refusal. Python `Connection.load`
+  defaults to `strict=False`, so inspect its diagnostics, then call ExecuteAction to verify the
+  runtime refusal; `strict=True` alone tests only loading, not the runtime guard.
+- Check both the decoded Python `type(value) is int` and the raw
+  `Value.WhichOneof("kind") == "int_value"` for small Integer results. After a refused action, run a
+  valid one on the same Connection to show the service did not panic.
+- A REPL session with a diagnostic does not exit nonzero after a later successful `%eval` and
+  `%quit`; check the refusal in the output and liveness separately from CLI `-action`'s exit status.
+- Compare an unwritten inherited result against an unwritten `out` in the same model. A completed
+  action's output map leaves both out rather than inventing a zero.
+
 ## Prod builds and default-build parity
 
 - If other agents own branches or worktrees, create detached testing worktrees at the PR and
