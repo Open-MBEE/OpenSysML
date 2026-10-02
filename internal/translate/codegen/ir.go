@@ -150,7 +150,11 @@ type IntLit struct {
 	Value int64
 	Big   *big.Int
 }
-type RealLit struct{ Value float64 }
+type RealLit struct {
+	Value float64
+	// Rat is the exact Rational a decimal literal denotes; nil for a Real.
+	Rat *big.Rat
+}
 type BoolLit struct{ Value bool }
 
 // Var reads a parameter or a body-local variable.
@@ -165,6 +169,14 @@ type Binary struct {
 	Op   ast.OperatorKind
 	L, R Expr
 	T    Type
+	// Exact is a Rational operation over operands binary64 holds exactly,
+	// computed as one correctly rounded binary64 operation; an Integer
+	// quotient is then compared exactly against a whole number.
+	Exact bool
+	// Whole is an Exact sum, difference or product of whole numbers.
+	Whole bool
+	// Guard requires a Whole result below 2^53, where binary64 holds it exactly.
+	Guard bool
 }
 
 // Unary applies `-`, `+` or `not`.
@@ -172,6 +184,8 @@ type Unary struct {
 	Op ast.OperatorKind
 	X  Expr
 	T  Type
+	// Exact negates an exact Rational, whose zero is unsigned.
+	Exact bool
 }
 
 // Cond is `if c ? a else b`, both branches of type T.
@@ -202,7 +216,11 @@ type LibCall struct {
 }
 
 // ToReal widens an Integer to a Real; over a collection, every element.
-type ToReal struct{ X Expr }
+type ToReal struct {
+	X Expr
+	// Exact requires the Integer to be one binary64 holds exactly.
+	Exact bool
+}
 
 // NullLit is `null`, the empty value of collection type T (or TypeNull).
 type NullLit struct{ T Type }

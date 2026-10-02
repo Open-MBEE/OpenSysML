@@ -815,6 +815,9 @@ func (e *executor) filterValue(value symbols.FilterValue, sym *symbols.Symbol) (
 		result = BooleanValue(value.Bool)
 	case symbols.FilterValueInt:
 		result = IntegerOf(semantics.FilterInteger(value))
+	case symbols.FilterValueRational:
+		number, _ := semantics.FilterNumber(value)
+		result = RationalOf(number)
 	case symbols.FilterValueReal:
 		result = RealValue(value.Real)
 	case symbols.FilterValueString:
@@ -924,7 +927,7 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 		default:
 			return false, errComparison
 		}
-	case ValueInteger, ValueReal, ValueInfinity:
+	case ValueInteger, ValueRational, ValueReal, ValueInfinity:
 		want, err := parseNumericValue(expected)
 		if err != nil {
 			return false, err
@@ -949,6 +952,9 @@ func parseNumericValue(text string) (Value, error) {
 	text = strings.ReplaceAll(text, "_", "")
 	if integer, ok := semantics.ParseInteger(text); ok {
 		return IntegerOf(integer), nil
+	}
+	if rational, err := semantics.ParseRational(text, semantics.DefaultMaxIntegerBits); err == nil {
+		return numberOf(rational), nil
 	}
 	realVal, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(realVal) || math.IsInf(realVal, 0) {
@@ -1021,21 +1027,18 @@ func compareNumeric(left, right Value) int {
 	if right.Kind() == ValueInfinity {
 		return -1
 	}
-	if left.Kind() == ValueInteger && right.Kind() == ValueReal {
-		l, _ := left.IntegerConst()
-		r, _ := right.Real()
-		return semantics.CompareIntReal(l, r)
+	if exactKind(left.Kind()) && exactKind(right.Kind()) {
+		return semantics.CompareRat(exactOperand(left), exactOperand(right))
 	}
-	if left.Kind() == ValueReal && right.Kind() == ValueInteger {
+	if exactKind(left.Kind()) && right.Kind() == ValueReal {
+		r, _ := right.Real()
+		return semantics.CompareExactReal(exactOperand(left), r)
+	}
+	if left.Kind() == ValueReal && exactKind(right.Kind()) {
 		l, _ := left.Real()
-		r, _ := right.IntegerConst()
-		return -semantics.CompareIntReal(r, l)
+		return -semantics.CompareExactReal(exactOperand(right), l)
 	}
 	switch left.Kind() {
-	case ValueInteger:
-		l, _ := left.IntegerConst()
-		r, _ := right.IntegerConst()
-		return semantics.CompareInt(l, r)
 	case ValueReal:
 		l, _ := left.Real()
 		r, _ := right.Real()
@@ -1070,7 +1073,7 @@ func (e *executor) orderedKeysCompatible(left, right Value) bool {
 }
 
 func numericKind(kind ValueKind) bool {
-	return kind == ValueInteger || kind == ValueReal || kind == ValueInfinity
+	return kind == ValueInteger || kind == ValueRational || kind == ValueReal || kind == ValueInfinity
 }
 
 // resolveType resolves a type a filter names: a qualified name as the element

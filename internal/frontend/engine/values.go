@@ -62,6 +62,11 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *J
 				return &JValue{IntValue: i64(n)}
 			}
 			return &JValue{BigIntValue: text(val.Const.FormatInt())}
+		case semantics.ValRational:
+			if f, exact := val.Const.BinaryExact(); exact {
+				return &JValue{RealValue: f64(f)}
+			}
+			return &JValue{RationalValue: rationalToProto(val.Const)}
 		case semantics.ValReal:
 			return &JValue{RealValue: f64(val.Const.Real)}
 		case semantics.ValBool:
@@ -345,6 +350,12 @@ func quantityToProto(q *runtime.Quantity) *JQuantity {
 		} else {
 			pq.BigIntMagnitude = text(q.Num.FormatInt())
 		}
+	case semantics.ValRational:
+		if f, exact := q.Num.BinaryExact(); exact {
+			pq.RealMagnitude = f64(f)
+		} else {
+			pq.RationalMagnitude = rationalToProto(q.Num)
+		}
 	case semantics.ValReal:
 		pq.RealMagnitude = f64(q.Num.Real)
 	default:
@@ -399,6 +410,8 @@ var (
 	errVectorComponentNotNumeric = errors.New("vector component is not a number")
 
 	errBigIntegerNotDecimal = errors.New("big Integer is not decimal")
+
+	errRationalNotCanonical = errors.New("rational is not canonical: not in lowest terms, or exactly a double")
 
 	errVectorQuantityEmpty = errors.New("vector quantity has no components")
 
@@ -487,9 +500,30 @@ func protoToRuntimeValue(rt *runtime.Context, pv *JValue, idx *symbols.Index, se
 			return runtime.Value{}, err
 		}
 		return runtime.Value{Kind: runtime.ValConst, Const: num}, nil
+	case pv.RationalValue != nil:
+		num, err := protoToRational(pv.RationalValue)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}, nil
 	default:
 		return protoToScalar(pv), nil
 	}
+}
+
+// rationalToProto marshals an exact Rational that is no Integer.
+func rationalToProto(v semantics.Value) *JRational {
+	return &JRational{Numerator: v.RatNumer().FormatInt(), Denominator: v.RatDenom().FormatInt()}
+}
+
+// protoToRational reads a rationalValue or rationalMagnitude, refusing one not
+// in lowest terms or one a double holds exactly, which crosses as realValue.
+func protoToRational(pr *JRational) (semantics.Value, error) {
+	v, ok := semantics.CanonicalRational(pr.Numerator, pr.Denominator)
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %q/%q", errRationalNotCanonical, pr.Numerator, pr.Denominator)
+	}
+	return v, nil
 }
 
 // protoToBigInteger reads the decimal a bigIntValue or bigIntMagnitude
@@ -688,6 +722,8 @@ func protoToNumber(pv *JValue) (semantics.Value, error) {
 		return semantics.IntValue(int64(*pv.IntValue)), nil
 	case pv.BigIntValue != nil:
 		return protoToBigInteger(*pv.BigIntValue)
+	case pv.RationalValue != nil:
+		return protoToRational(pv.RationalValue)
 	case pv.RealValue != nil:
 		return semantics.Value{Kind: semantics.ValReal, Real: float64(*pv.RealValue)}, nil
 	}
@@ -742,6 +778,11 @@ func protoToQuantity(pq *JQuantity, idx *symbols.Index, sem *semantics.Model) (r
 		num = semantics.IntValue(int64(*pq.IntMagnitude))
 	case pq.BigIntMagnitude != nil:
 		num, err = protoToBigInteger(*pq.BigIntMagnitude)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.Unit, err)
+		}
+	case pq.RationalMagnitude != nil:
+		num, err = protoToRational(pq.RationalMagnitude)
 		if err != nil {
 			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.Unit, err)
 		}
@@ -1244,6 +1285,12 @@ func protoToScalar(pv *JValue) runtime.Value {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.IntValue(int64(*pv.IntValue))}
 	case pv.BigIntValue != nil:
 		num, err := protoToBigInteger(*pv.BigIntValue)
+		if err != nil {
+			return runtime.Value{Kind: runtime.ValNull}
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}
+	case pv.RationalValue != nil:
+		num, err := protoToRational(pv.RationalValue)
 		if err != nil {
 			return runtime.Value{Kind: runtime.ValNull}
 		}

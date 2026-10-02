@@ -242,6 +242,10 @@ func wholeBeyondInt64(v semantics.Value) (semantics.Value, bool) {
 	switch v.Kind {
 	case semantics.ValInt:
 		return v, v.IsBigInt()
+	case semantics.ValRational:
+		if n := v.RatNumer(); v.RatIsWhole() && n.IsBigInt() {
+			return n, true
+		}
 	case semantics.ValReal:
 		if n, ok := semantics.IntegerOfReal(v.Real); ok && n.IsBigInt() {
 			return n, true
@@ -280,6 +284,8 @@ func describeValue(val Value) string {
 	switch val.Const.Kind {
 	case semantics.ValInt:
 		return "an Integer"
+	case semantics.ValRational:
+		return "a Rational"
 	case semantics.ValReal:
 		return "a Real"
 	case semantics.ValBool:
@@ -1323,8 +1329,7 @@ func (ec *EvalContext) extremum(op string, args []Value, least bool) (Value, err
 			best = val
 			continue
 		}
-		if (toReal(val.Const) < toReal(best.Const)) == least &&
-			toReal(val.Const) != toReal(best.Const) {
+		if order := compareNumbers(val.Const, best.Const); (order < 0) == least && order != 0 {
 			best = val
 		}
 	}
@@ -1456,47 +1461,99 @@ func truthOf(op string, args []Value, universal bool) (Value, error) {
 // kind: Integer elements sum to an Integer (IntegerFunctions::sum returns
 // `Integer[1]`), a Real anywhere makes the sum a Real.
 func builtinNumericalSum(ec *EvalContext, args []Value) (Value, error) {
-	return ec.ctx.aggregate("NumericalFunctions::sum", args, ast.OpAdd, false)
+	return ec.ctx.aggregate("NumericalFunctions::sum", args, ast.OpAdd, aggregateNumber)
 }
 
 // builtinNumericalProduct is NumericalFunctions::product, with the
 // multiplicative identity for an empty collection (`product1(collection, 1)`).
 func builtinNumericalProduct(ec *EvalContext, args []Value) (Value, error) {
-	return ec.ctx.aggregate("NumericalFunctions::product", args, ast.OpMul, false)
+	return ec.ctx.aggregate("NumericalFunctions::product", args, ast.OpMul, aggregateNumber)
 }
 
-// builtinRealSum is RealFunctions::sum and RationalFunctions::sum, whose
-// identity the library declares Real (`sum0(collection, 0.0)`): an empty
-// collection sums to 0.0, not 0.
+// builtinRationalSum is RationalFunctions::sum, whose identity the library
+// writes `0.0` (`sum0(collection, 0.0)`), the Rational 0: an empty collection
+// sums to 0.0, not the Integer 0, and the sum is exact.
+func builtinRationalSum(ec *EvalContext, args []Value) (Value, error) {
+	return ec.ctx.aggregate("RationalFunctions::sum", args, ast.OpAdd, aggregateRational)
+}
+
+// builtinRationalProduct is RationalFunctions::product (`product1(collection, 1.0)`).
+func builtinRationalProduct(ec *EvalContext, args []Value) (Value, error) {
+	return ec.ctx.aggregate("RationalFunctions::product", args, ast.OpMul, aggregateRational)
+}
+
+// builtinRealSum is RealFunctions::sum, from the library's identity `0.0`
+// (`sum0(collection, 0.0)`): RealFunctions declares its operands and result
+// Real, so an exact element is rounded once to binary64.
 func builtinRealSum(ec *EvalContext, args []Value) (Value, error) {
-	return ec.ctx.aggregate("RealFunctions::sum", args, ast.OpAdd, true)
+	return ec.ctx.aggregate("RealFunctions::sum", args, ast.OpAdd, aggregateReal)
 }
 
-// builtinRealProduct is RealFunctions::product and RationalFunctions::product
-// (`product1(collection, 1.0)`).
+// builtinRealProduct is RealFunctions::product (`product1(collection, 1.0)`).
 func builtinRealProduct(ec *EvalContext, args []Value) (Value, error) {
-	return ec.ctx.aggregate("RealFunctions::product", args, ast.OpMul, true)
+	return ec.ctx.aggregate("RealFunctions::product", args, ast.OpMul, aggregateReal)
+}
+
+// aggregateKind is the number kind an aggregation's library declares its
+// collection over.
+type aggregateKind int
+
+const (
+	// aggregateNumber keeps the elements' kinds, as NumericalFunctions does.
+	aggregateNumber aggregateKind = iota
+	// aggregateRational folds from a Rational identity, reading a finite
+	// binary64 Real as the Rational it equals.
+	aggregateRational
+	// aggregateReal folds binary64 Reals from a Real identity, as RealFunctions
+	// declares its operands and result Real.
+	aggregateReal
+)
+
+// identity is the aggregation's identity element of kind k.
+func (k aggregateKind) identity(n int64) semantics.Value {
+	switch k {
+	case aggregateRational:
+		return semantics.RatOf(semantics.IntValue(n))
+	case aggregateReal:
+		return semantics.Value{Kind: semantics.ValReal, Real: float64(n)}
+	}
+	return semantics.IntValue(n)
+}
+
+// element is a numeric element as the declared collection holds it: a finite
+// binary64 Real is read exactly for RationalFunctions, and an exact number is
+// rounded once to binary64 for RealFunctions.
+func (k aggregateKind) element(v semantics.Value) semantics.Value {
+	switch {
+	case k == aggregateRational && v.Kind == semantics.ValReal:
+		if r, ok := semantics.RationalOfReal(v.Real); ok {
+			return r
+		}
+	case k == aggregateReal && v.IsExact():
+		return semantics.Value{Kind: semantics.ValReal, Real: v.AsReal()}
+	}
+	return v
 }
 
 // aggregate folds the collection's numeric elements with op, starting from its
-// identity element: 0 for a sum, 1 for a product, a Real where asReal says so.
-// A non-numeric element is reported rather than skipped or coerced. The sum of
-// no elements read from a quantity-typed declaration is that quantity's zero.
-func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind, asReal bool) (Value, error) {
+// identity element of kind: 0 for a sum, 1 for a product. A non-numeric element
+// is reported rather than skipped or coerced. The sum of no elements read from
+// a quantity-typed declaration is that quantity's zero.
+func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind, kind aggregateKind) (Value, error) {
 	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
 	elements := elementsOf(args[0])
 	if operator == ast.OpAdd && len(elements) == 0 {
 		if unit, ok := args[0].Sequence().ElementUnit(); ok {
-			return typedZero(unit, asReal), nil
+			return typedZero(unit, kind), nil
 		}
 	}
 	// A quantity carries its unit through an aggregation as through the folded
 	// operator, so a collection of measured values aggregates to one.
 	for _, elem := range elements {
 		if elem.Kind == ValQuantity {
-			return ctx.aggregateQuantities(op, elements, operator)
+			return ctx.aggregateQuantities(op, elements, operator, kind)
 		}
 	}
 	// A Complex is a Number, so a collection holding one folds as ComplexFunctions'.
@@ -1507,23 +1564,21 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	if operator == ast.OpMul {
 		identity = 1
 	}
-	acc := semantics.Value{Kind: semantics.ValInt, Int: identity}
-	if asReal {
-		acc = semantics.Value{Kind: semantics.ValReal, Real: float64(identity)}
-	}
+	acc := kind.identity(identity)
 	for _, elem := range elements {
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
+		x := kind.element(elem.Const)
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
-			if b, ok := elem.Const.Int64(); ok {
+			if b, ok := x.Int64(); ok {
 				if sum := a + b; (sum^a)&(sum^b) >= 0 {
 					acc = semantics.IntValue(sum)
 					continue
 				}
 			}
 		}
-		next, err := foldNumeric(op, operator, acc, elem.Const, ctx.maxIntegerBits)
+		next, err := foldNumeric(op, operator, acc, x, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -1532,26 +1587,28 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	return Value{Kind: ValConst, Const: acc}, nil
 }
 
-// typedZero is the additive identity of the quantities measured in unit: an
-// Integer 0 in that unit, or a Real one where asReal says so.
-func typedZero(unit Unit, asReal bool) Value {
-	num := semantics.Value{Kind: semantics.ValInt, Int: 0}
-	if asReal {
-		num = semantics.Value{Kind: semantics.ValReal, Real: 0}
-	}
-	return NewQuantityValue(&Quantity{Num: num, Unit: unit})
+// typedZero is the additive identity of the quantities measured in unit: the
+// zero of kind in that unit.
+func typedZero(unit Unit, kind aggregateKind) Value {
+	return NewQuantityValue(&Quantity{Num: kind.identity(0), Unit: unit})
 }
 
 // aggregateQuantities folds a collection holding a quantity in the unit of its
 // first element, as the binary operator does. A bare number is a magnitude of
 // dimension one, so mixing one in reports incommensurable units. Points on a
 // measurement scale have no sum or product, so a fold over them is refused.
-func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind) (Value, error) {
+func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind, kind aggregateKind) (Value, error) {
 	var acc Value
 	for i, elem := range elements {
 		q, ok := asQuantity(elem)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+		}
+		// An Integer magnitude keeps its kind, as the quantity operators keep it.
+		if num := kind.element(q.Num); q.Num.Kind != semantics.ValInt && num != q.Num {
+			held := *q
+			held.Num = num
+			q = &held
 		}
 		if err := ctx.refusePoints(op, "points have no sum or product to fold; fold their differences from one point instead", q); err != nil {
 			return Value{}, fmt.Errorf("%s: %w", op, err)
@@ -1578,8 +1635,8 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 	return acc, nil
 }
 
-// foldNumeric applies one step of an aggregation, keeping Integer arithmetic
-// exact where both operands are Integers, refused only beyond maxBits.
+// foldNumeric applies one step of an aggregation, keeping Integer and Rational
+// arithmetic exact, refused only beyond maxBits.
 func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value, maxBits int64) (semantics.Value, error) {
 	if acc.Kind == semantics.ValInt && elem.Kind == semantics.ValInt {
 		res, err := semantics.IntArith(operator, acc, elem, maxBits)
@@ -1592,6 +1649,13 @@ func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value
 	// aggregation would answer an infinity for every element that follows.
 	if acc.Kind == semantics.ValInfinity || elem.Kind == semantics.ValInfinity {
 		return semantics.Value{}, fmt.Errorf("%w: %s requires finite elements", ErrTypeMismatch, op)
+	}
+	if acc.IsExact() && elem.IsExact() {
+		res, err := semantics.RatArith(operator, acc, elem, maxBits)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("%s: %w", op, integerSizeHint(err))
+		}
+		return res, nil
 	}
 	var result float64
 	switch operator {

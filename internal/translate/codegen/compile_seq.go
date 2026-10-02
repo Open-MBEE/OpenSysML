@@ -94,6 +94,9 @@ func (fc *funcCompiler) pairOperand(v, other Expr, left bool, fail string, bare 
 	desc := fixed
 	if desc == "" {
 		desc = article(other.Type().Elem())
+		if other.Type().Elem() == TypeReal && fc.exactness(other) != binary64 {
+			desc = "a Rational"
+		}
 	}
 	if left && other.Type().Many() {
 		return ToOne{X: v, Fail: fail, Bare: bare, Other: other, OtherOne: desc}
@@ -247,7 +250,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 			l, _ = fc.coerce(l, t, "")
 			r, _ = fc.coerce(r, t, "")
 		}
-		return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
+		return fc.rationalComparison(Binary{Op: op, L: l, R: r, T: TypeBool})
 	}
 	fc.c.collections = true
 	le, re := lt.Elem(), rt.Elem()
@@ -270,6 +273,11 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	}
 	if r, err = fc.toMany(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
+	}
+	if fc.exactness(l) == exactRational || fc.exactness(r) == exactRational {
+		if err := fc.exactOperands(fmt.Sprintf("'%s'", n.Operator), l, r); err != nil {
+			return nil, err
+		}
 	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
 }
@@ -360,6 +368,11 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			a = widen(a)
 		}
 		if args[i], err = fc.toMany(a, elem.Seq(), what); err != nil {
+			return nil, err
+		}
+	}
+	if !realAgg {
+		if err := fc.exactOperands(op.Name(), args...); err != nil {
 			return nil, err
 		}
 	}
@@ -459,6 +472,9 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 		t = rt
 	default:
 		return nil, fc.unsupported(op.Name() + " with a body")
+	}
+	if err := fc.exactOperands(op.Name(), seq); err != nil {
+		return nil, err
 	}
 	return Fold{Op: op, Seq: seq, Body: lambda, T: t}, nil
 }

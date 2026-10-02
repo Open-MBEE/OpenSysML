@@ -266,6 +266,33 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * An exact Rational no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   * @return Whether the rationalValue field is set.
+   */
+  boolean hasRationalValue();
+  /**
+   * <pre>
+   * An exact Rational no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   * @return The rationalValue.
+   */
+  org.openmbee.opensysml.proto.Rational getRationalValue();
+  /**
+   * <pre>
+   * An exact Rational no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   */
+  org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

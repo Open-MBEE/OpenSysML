@@ -514,5 +514,35 @@ public interface ValueOrBuilder extends
   com.google.protobuf.ByteString
       getBigIntValueBytes();
 
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
+   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return Whether the rationalValue field is set.
+   */
+  boolean hasRationalValue();
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
+   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return The rationalValue.
+   */
+  org.openmbee.opensysml.proto.Rational getRationalValue();
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
+   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   */
+  org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

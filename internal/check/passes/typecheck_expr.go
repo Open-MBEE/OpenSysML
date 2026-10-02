@@ -170,7 +170,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// Uniqueness is judged last, as the run time judges it: a value refused for
 	// its type, dimension or count is not also refused for repeating an element.
 	if !ec.errorsSince(reported) {
-		ec.checkValueUniqueness(valueScope, declScope, d, value)
+		ec.checkValueUniqueness(valueScope, declScope, d, value, want)
 	}
 }
 

@@ -1525,7 +1525,18 @@ message Value {
     // An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
     // zeros). An Integer that fits int64 is always int_value, never this.
     string big_int_value = 22;
+    // An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
+    // or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+    Rational rational_value = 23;
   }
+}
+
+// Rational is an exact rational number in lowest terms: numerator over a
+// positive denominator, each written as big_int_value is. A decoder rejects one
+// not in lowest terms or one a double holds exactly, so no number has two spellings.
+message Rational {
+  string numerator = 1;
+  string denominator = 2;
 }
 
 // Metaobject is an element of the model held as an instance of its reflective
@@ -1662,6 +1673,8 @@ message Quantity {
     double real_magnitude = 2;
     // An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
     string big_int_magnitude = 5;
+    // An exact Rational magnitude no double holds exactly, as Value.rational_value.
+    Rational rational_magnitude = 6;
   }
   // Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
   // one never written down, described by unit_term alone.
@@ -2081,6 +2094,8 @@ message DocumentValue {
     DocumentEvent event = 12;     // a row Events answered; answered, never bound
     // An Integer beyond int64, in decimal, as Value.big_int_value.
     string big_int_value = 13;
+    // An exact Rational no double holds exactly, as Value.rational_value.
+    Rational rational_value = 14;
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;

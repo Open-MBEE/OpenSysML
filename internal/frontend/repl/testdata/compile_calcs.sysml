@@ -63,6 +63,14 @@ package Compiled {
 		return : Boolean = (p and 10 / n > 1) or (q implies 10 % n == 0) or not p;
 	}
 
+	// Exact Rationals compile where binary64 gives the interpreter's exact answer.
+	calc def ExactRational {
+		in a : Integer;
+		in x : Real;
+		return : Boolean = 0.1 + 0.2 == 0.3 and 1 / 3 * 3 == 1 and a / 3 >= 2 and a * 1.0 + a == 2 * a and x < 0.1;
+	}
+	calc def ExactWide { in a : Integer; return : Real = a * 2.0 + 0.5; }
+
 	calc def Compare {
 		in a : Real;
 		in b : Integer;
@@ -143,7 +151,8 @@ package Compiled {
 
 	calc def Big {
 		in a : Integer;
-		return : Real = a * 1.0e300 * 1.0e10;
+		attribute big : Real = 1.0e300;
+		return : Real = a * big * 1.0e10;
 	}
 
 	// Both operands can fail; the left one must be reported, as the interpreter does.
@@ -541,6 +550,11 @@ package Refused {
 	enum def Color { red; green; }
 	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
+	// Compiled code holds Rationals as binary64, so exact Rationals it cannot round once are refused.
+	calc def RationalParam { in x : Rational; return : Real = x; }
+	calc def ExactProduct { in a : Integer; return : Real = a * 0.1; }
+	calc def ExactPower { in a : Integer; return : Real = (a * 0.5) ** 2; }
+	calc def ExactCompare { in a : Integer; return : Boolean = a / 3 < 0.1; }
 	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
 	calc def RealIntIdentity { in x : Real; in y : Integer; return : Boolean = x === y; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }

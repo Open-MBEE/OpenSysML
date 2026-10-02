@@ -168,7 +168,9 @@ const (
 	BindingString  BindingKind = "string"
 	BindingInteger BindingKind = "integer"
 	BindingReal    BindingKind = "real"
-	BindingBoolean BindingKind = "boolean"
+	// BindingRational is an exact decimal literal, `0.1`.
+	BindingRational BindingKind = "rational"
+	BindingBoolean  BindingKind = "boolean"
 )
 
 // BindingValue is one statically planned value for a query parameter.
@@ -206,6 +208,11 @@ func (v BindingValue) Integer() (int64, bool) {
 // integer.
 func (v BindingValue) IntegerConst() (semantics.Value, bool) {
 	return v.integer, v.kind == BindingInteger
+}
+
+// Rational returns the bound exact Rational when the value is a rational.
+func (v BindingValue) Rational() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingRational
 }
 
 // Real returns the bound real when the value is a real.

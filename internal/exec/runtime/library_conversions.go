@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrInvalidNotation reports a String a conversion function cannot read as a
@@ -16,7 +17,7 @@ var ErrInvalidNotation = errors.New("string is not a valid notation")
 
 // registerConversionFunctions registers the Kernel Function Library's
 // conversions between String, Boolean and the numeric scalar types, plus the
-// Rational functions the float64 representation can answer.
+// RationalFunctions over the exact Rational.
 func registerConversionFunctions() {
 	registerValueFunction("BaseFunctions::ToString", []string{"x"}, 0, anythingToString)
 	registerValueFunction("BooleanFunctions::ToString", []string{"x"}, 1, booleanToString)
@@ -34,7 +35,7 @@ func registerConversionFunctions() {
 	registerValueFunction("IntegerFunctions::ToNatural", []string{"x"}, 1, integerToNatural)
 	registerValueFunction("RationalFunctions::ToInteger", []string{"x"}, 1, numberToInteger)
 	registerValueFunction("RealFunctions::ToInteger", []string{"x"}, 1, numberToInteger)
-	registerValueFunction("RealFunctions::ToRational", []string{"x"}, 1, realItself)
+	registerValueFunction("RealFunctions::ToRational", []string{"x"}, 1, realToRational)
 
 	// A Real is a Complex with a zero imaginary part, so the Complex functions
 	// answer `re` and `im`; the library gives `arg` the body `0.0`.
@@ -45,7 +46,7 @@ func registerConversionFunctions() {
 	registerLibraryFunction("RationalFunctions::floor", []string{"x"}, floorToInteger)
 	registerLibraryFunction("RationalFunctions::round", []string{"x"}, roundToInteger)
 	registerLibraryFunction("RationalFunctions::gcd", []string{"x", "y"}, rationalGCD, wholeDomain, wholeDomain)
-	registerLibraryFunction("RationalFunctions::rat", []string{"numer", "denum"}, integersToRational, integerDomain, denominatorDomain)
+	registerContextFunction("RationalFunctions::rat", []string{"numer", "denum"}, integersToRational, integerDomain, denominatorDomain)
 	registerLibraryFunction("RationalFunctions::numer", []string{"rat"}, rationalNumerator)
 	registerLibraryFunction("RationalFunctions::denom", []string{"rat"}, rationalDenominator)
 }
@@ -115,7 +116,9 @@ func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 
 // numberToString is RealFunctions::ToString and RationalFunctions::ToString:
 // the shortest decimal that reads back as the same value, as the REPL prints
-// it, so ToReal(ToString(x)) == x. An Integer argument keeps its digits.
+// it, so ToReal(ToString(x)) == x for a Real and ToRational(ToString(x)) == x
+// for a Rational, a non-terminating one written `numer/denom`. An Integer
+// argument keeps its digits.
 func numberToString(name string, _ *Context, args []Value) (Value, error) {
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
@@ -177,14 +180,23 @@ func stringToReal(name string, _ *Context, args []Value) (Value, error) {
 	return parseReal(name, s, "Real")
 }
 
-// stringToRational is RationalFunctions::ToRational, which reads the same
-// decimal notation as ToReal since a Rational is a float64 here.
-func stringToRational(name string, _ *Context, args []Value) (Value, error) {
+// stringToRational is RationalFunctions::ToRational: the exact Rational a
+// decimal notation, or the `numer/denom` form ToString writes, denotes.
+func stringToRational(name string, ctx *Context, args []Value) (Value, error) {
 	s, err := stringArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
 	}
-	return parseReal(name, s, "Rational")
+	x, err := semantics.ParseRationalText(s, ctx.maxIntegerBits)
+	switch {
+	case errors.Is(err, semantics.ErrRealNotation):
+		return Value{}, invalidNotation(name, s, "Rational")
+	case errors.Is(err, semantics.ErrDivisionByZero):
+		return Value{}, fmt.Errorf("%w: function %s: %s", ErrDivisionByZero, name, strconv.Quote(s))
+	case err != nil:
+		return Value{}, fmt.Errorf("function %s: %w", name, integerSizeHint(err))
+	}
+	return Value{Kind: ValConst, Const: x}, nil
 }
 
 // integerToNatural is IntegerFunctions::ToNatural; a negative Integer is no
@@ -205,8 +217,8 @@ func numberToInteger(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	if x.Kind == semantics.ValInt {
-		return Value{Kind: ValConst, Const: x}, nil
+	if x.IsExact() {
+		return Value{Kind: ValConst, Const: semantics.RatTrunc(x)}, nil
 	}
 	result, err := integerResult(math.Trunc(x.Real))
 	if err != nil {
@@ -215,15 +227,31 @@ func numberToInteger(name string, _ *Context, args []Value) (Value, error) {
 	return Value{Kind: ValConst, Const: result}, nil
 }
 
-// realItself answers the Real x is bound as, an Integer argument widened: it is
-// RealFunctions::ToRational (a Rational is held as a float64) and RealFunctions::re
-// (a Real is its own real part).
+// realItself answers the Real x is bound as, an exact argument widened: it is
+// RealFunctions::re (a Real is its own real part).
 func realItself(name string, _ *Context, args []Value) (Value, error) {
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
 	}
 	return checkedReal(asReal(x))
+}
+
+// realToRational is RealFunctions::ToRational: the Rational a finite binary64
+// Real exactly is, an exact argument itself.
+func realToRational(name string, _ *Context, args []Value) (Value, error) {
+	x, err := numericArg(name, "x", args[0])
+	if err != nil {
+		return Value{}, err
+	}
+	if x.IsExact() {
+		return Value{Kind: ValConst, Const: semantics.RatOf(x)}, nil
+	}
+	r, ok := semantics.RationalOfReal(x.Real)
+	if !ok {
+		return Value{}, fmt.Errorf("%w: function %s: %s has no Rational", semantics.ErrArithmeticDomain, name, semantics.FormatConst(x))
+	}
+	return Value{Kind: ValConst, Const: r}, nil
 }
 
 // realZero answers 0.0 for every Real: RealFunctions::im and RealFunctions::arg,
@@ -265,11 +293,11 @@ func denominatorDomain(v semantics.Value) error {
 	return nil
 }
 
-// integersToRational is RationalFunctions::rat: numer/denum rounded once to the
-// float64 a Rational is here, exactly as `/` computes it.
-func integersToRational(args []semantics.Value) (semantics.Value, error) {
-	q, _ := semantics.IntQuotient(args[0], args[1])
-	return semantics.RealResult(q)
+// integersToRational is RationalFunctions::rat: the exact Rational numer/denum,
+// as `/` computes it.
+func integersToRational(ctx *Context, _ string, args []semantics.Value) (semantics.Value, error) {
+	q, err := semantics.RatArith(ast.OpDiv, args[0], args[1], ctx.maxIntegerBits)
+	return q, integerSizeHint(err)
 }
 
 // rationalNumerator is RationalFunctions::numer, the numerator of the ratio in
@@ -285,11 +313,12 @@ func rationalDenominator(args []semantics.Value) (semantics.Value, error) {
 }
 
 // exactRationalTerm reads one term of the exact ratio x holds: an Integer is
-// itself over 1, a float64 the dyadic ratio its bits denote.
+// itself over 1, a Rational its lowest terms, a binary64 Real the dyadic ratio
+// its bits denote.
 func exactRationalTerm(fn string, x semantics.Value, term func(*big.Rat) *big.Int) (semantics.Value, error) {
 	var ratio *big.Rat
-	if x.Kind == semantics.ValInt {
-		ratio = new(big.Rat).SetInt(x.BigInt())
+	if x.IsExact() {
+		ratio = x.Rat()
 	} else if ratio = new(big.Rat).SetFloat64(x.Real); ratio == nil {
 		return semantics.Value{}, fmt.Errorf("%w: %s(%s) has no finite ratio", semantics.ErrArithmeticDomain, fn, semantics.FormatConst(x))
 	}
@@ -302,6 +331,11 @@ func wholeInteger(v semantics.Value) (*big.Int, bool) {
 	switch v.Kind {
 	case semantics.ValInt:
 		return v.BigInt(), true
+	case semantics.ValRational:
+		if !v.RatIsWhole() {
+			return nil, false
+		}
+		return v.RatNumer().BigInt(), true
 	case semantics.ValReal:
 		if math.IsInf(v.Real, 0) || math.IsNaN(v.Real) || v.Real != math.Trunc(v.Real) {
 			return nil, false

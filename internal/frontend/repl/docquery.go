@@ -428,6 +428,9 @@ func formatQueryValue(value queryexec.Value) string {
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
 	}
+	if rational, ok := value.Rational(); ok {
+		return semantics.FormatConst(rational)
+	}
 	if realVal, ok := value.Real(); ok {
 		return semantics.FormatReal(realVal)
 	}

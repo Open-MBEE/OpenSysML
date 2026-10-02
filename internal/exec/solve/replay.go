@@ -1,6 +1,7 @@
 package solve
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -10,8 +11,8 @@ import (
 )
 
 // Rounded reports whether the query asserts or optimizes a value the evaluator
-// computes in float64 — a real operation, a widened integer, or a real literal
-// with no exact float64 — whose rounding the exact-real encoding does not model.
+// computes in binary64 — arithmetic a Real takes part in — whose rounding the
+// exact-real encoding does not model. Integer and Rational arithmetic is exact.
 func (q *Query) Rounded() bool {
 	for _, a := range q.Assertions {
 		if roundedTerm(a.Term) {
@@ -40,22 +41,14 @@ func (c *Core) Rounded() bool {
 	return false
 }
 
-// roundedTerm reports whether the term computes a value float64 may round: real
-// arithmetic, a widened integer (rounded beyond 2^53), or a real literal whose
-// decimal has no exact float64.
+// roundedTerm reports whether the term computes a value binary64 may round:
+// arithmetic a Real takes part in, which also rounds its exact operands once.
 func roundedTerm(t *Term) bool {
 	switch t.Op {
-	case OpReal:
-		_, exact := t.Real.Float64()
-		if !exact {
+	case OpAdd, OpSub, OpMul, OpDiv:
+		if t.Sort.Kind == SortReal && t.Binary64() {
 			return true
 		}
-	case OpAdd, OpSub, OpMul, OpDiv, OpNeg:
-		if t.Sort.Kind == SortReal {
-			return true
-		}
-	case OpToReal:
-		return true
 	}
 	for _, arg := range t.Args {
 		if roundedTerm(arg) {
@@ -66,14 +59,21 @@ func roundedTerm(t *Term) bool {
 }
 
 // replayValue is one value a replayed term yields, in the evaluator's own
-// representations: int64, float64, bool, or a string naming a literal or a
-// datatype value.
+// representations: an exact Integer or Rational, a binary64 Real, a bool, or a
+// string naming a literal or a datatype value.
 type replayValue struct {
 	kind SortKind
 	b    bool
-	i    semantics.Value
-	f    float64
-	s    string
+	// i is an Integer, or with exact a Rational of the Real sort.
+	i     semantics.Value
+	exact bool
+	f     float64
+	s     string
+}
+
+// exactReal is a Real-sorted value the evaluator holds exactly, as a Rational.
+func exactReal(v semantics.Value) replayValue {
+	return replayValue{kind: SortReal, i: v, exact: true}
 }
 
 // replayWitness re-runs the query's assertions through the evaluator's own
@@ -108,7 +108,7 @@ func (q *Query) Confirm(values map[string]ModelValue) (bool, string) {
 		if value.Kind == SortDatatype && !contains(v.Sort.Values, value.Text) {
 			return false, fmt.Sprintf("the witness gives %s %s, not a value of %s", v.Name, value.Text, v.Sort.Name)
 		}
-		val, err := evaluatorValue(value)
+		val, err := evaluatorValue(value, v.Binary64)
 		if err != nil {
 			return false, fmt.Sprintf("the evaluator cannot hold the value the solver chose for %s: %v", v.Name, err)
 		}
@@ -133,9 +133,9 @@ func (q *Query) Confirm(values map[string]ModelValue) (bool, string) {
 }
 
 // evaluatorValue holds one model value in the evaluator's representation,
-// reporting a value the evaluator cannot hold — a Real with no finite float64 —
-// as an error.
-func evaluatorValue(value ModelValue) (replayValue, error) {
+// exactly unless binary64, reporting a value the evaluator cannot hold — a
+// Real with no finite float64 — as an error.
+func evaluatorValue(value ModelValue, binary64 bool) (replayValue, error) {
 	switch value.Kind {
 	case SortBool:
 		return replayValue{kind: SortBool, b: value.Bool}, nil
@@ -147,6 +147,9 @@ func evaluatorValue(value ModelValue) (replayValue, error) {
 		}
 		return replayValue{kind: SortInt, i: semantics.BigIntValue(new(big.Int).Set(value.Number.Num()))}, nil
 	case SortReal:
+		if !binary64 {
+			return exactReal(semantics.RatValue(value.Number)), nil
+		}
 		// The evaluator holds the nearest float64, which is where a witness
 		// only the exact encoding can hold is caught by the replay.
 		f, _ := value.Number.Float64()
@@ -159,8 +162,8 @@ func evaluatorValue(value ModelValue) (replayValue, error) {
 }
 
 // replayTerm evaluates a term as the runtime evaluator computes it: exact
-// Integer and float64 arithmetic, integers rounded to float64 where a real
-// meets them. An evaluation the evaluator would report — a zero divisor, an
+// Integer and Rational arithmetic, and binary64 arithmetic where a Real takes
+// part, its exact operands rounded once to float64. An evaluation the evaluator would report — a zero divisor, an
 // Integer past the size budget — is an error, never a verdict.
 func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 	switch t.Op {
@@ -169,10 +172,8 @@ func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 	case OpInt:
 		return replayValue{kind: SortInt, i: semantics.BigIntValue(t.IntBig())}, nil
 	case OpReal:
-		// The evaluator parses a real literal to the nearest float64, which
-		// Float64 on the exact rational also is.
-		f, _ := t.Real.Float64()
-		return replayValue{kind: SortReal, f: f}, nil
+		// A decimal literal is an exact Rational.
+		return exactReal(semantics.RatValue(t.Real)), nil
 	case OpString:
 		return replayValue{kind: SortString, s: t.Str}, nil
 	case OpValue:
@@ -223,6 +224,9 @@ func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 		if val.kind == SortInt {
 			return replayValue{kind: SortInt, i: semantics.IntNeg(val.i)}, nil
 		}
+		if val.exact {
+			return exactReal(semantics.RatNeg(val.i)), nil
+		}
 		if val.kind == SortReal {
 			return replayValue{kind: SortReal, f: -val.f}, nil
 		}
@@ -243,9 +247,9 @@ func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 		if val.kind != SortInt {
 			return replayValue{}, fmt.Errorf("widening a non-integer")
 		}
-		// The nearest float64 is the widening the evaluator applies where a
-		// real meets an integer, which rounds beyond 2^53.
-		return replayValue{kind: SortReal, f: val.i.AsReal()}, nil
+		// An Integer is a Rational exactly; arithmetic a Real takes part in
+		// rounds it then.
+		return exactReal(val.i), nil
 	}
 	return replayValue{}, fmt.Errorf("the replay does not define this term")
 }
@@ -279,8 +283,9 @@ func replayJunction(t *Term, env map[string]replayValue) (replayValue, error) {
 	return replayValue{kind: SortBool, b: !deciding}, nil
 }
 
-// replayEquality compares as the evaluator compares: numbers through float64,
-// which is what `valueEqual` delegates to, and everything else by identity.
+// replayEquality compares as the evaluator compares: numbers by their exact
+// values, a binary64 Real by the exact value it holds, and everything else by
+// identity.
 func replayEquality(t *Term, env map[string]replayValue) (replayValue, error) {
 	left, err := replayTerm(t.Args[0], env)
 	if err != nil {
@@ -293,7 +298,7 @@ func replayEquality(t *Term, env map[string]replayValue) (replayValue, error) {
 	var eq bool
 	switch {
 	case left.numeric() && right.numeric():
-		eq = left.asReal() == right.asReal()
+		eq = compareNumbers(left, right) == 0
 	case left.kind == SortBool && right.kind == SortBool:
 		eq = left.b == right.b
 	case left.kind == right.kind:
@@ -307,8 +312,8 @@ func replayEquality(t *Term, env map[string]replayValue) (replayValue, error) {
 	return replayValue{kind: SortBool, b: eq}, nil
 }
 
-// replayComparison orders as the evaluator orders: two integers exactly, a
-// mixed pair through float64.
+// replayComparison orders as the evaluator orders: by exact value, a binary64
+// Real by the exact value it holds.
 func replayComparison(t *Term, env map[string]replayValue) (replayValue, error) {
 	left, err := replayTerm(t.Args[0], env)
 	if err != nil {
@@ -335,44 +340,14 @@ func replayComparison(t *Term, env map[string]replayValue) (replayValue, error) 
 	if !left.numeric() || !right.numeric() {
 		return replayValue{}, fmt.Errorf("ordering non-numbers")
 	}
-	var res bool
-	if left.kind == SortInt && right.kind == SortInt {
-		order := semantics.CompareInt(left.i, right.i)
-		switch t.Op {
-		case OpLt:
-			res = order < 0
-		case OpLe:
-			res = order <= 0
-		case OpGt:
-			res = order > 0
-		case OpGe:
-			res = order >= 0
-		}
-		return replayValue{kind: SortBool, b: res}, nil
-	}
-	lf, rf := left.asReal(), right.asReal()
-	switch t.Op {
-	case OpLt:
-		res = lf < rf
-	case OpLe:
-		res = lf <= rf
-	case OpGt:
-		res = lf > rf
-	case OpGe:
-		res = lf >= rf
-	}
+	res, _ := semantics.OrderSatisfies(map[Op]ast.OperatorKind{OpLt: ast.OpLt, OpLe: ast.OpLe, OpGt: ast.OpGt, OpGe: ast.OpGe}[t.Op], compareNumbers(left, right))
 	return replayValue{kind: SortBool, b: res}, nil
 }
 
-// replayArithmetic computes as the evaluator computes: int64 with a reported
-// overflow, an integer quotient as the exact ratio rounded once, and float64
-// everywhere a real takes part, with a non-finite result reported.
+// replayArithmetic computes as the evaluator computes: Integers and Rationals
+// exactly within the size budget, an Integer quotient as the exact Rational, and
+// binary64 where a Real takes part, with a non-finite result reported.
 func replayArithmetic(t *Term, env map[string]replayValue) (replayValue, error) {
-	// A whole-number quotient is the exact ratio rounded once to float64, not
-	// float64 division of widened operands.
-	if t.Op == OpDiv && t.IntRatio {
-		return replayRatio(t, env)
-	}
 	left, err := replayTerm(t.Args[0], env)
 	if err != nil {
 		return replayValue{}, err
@@ -385,14 +360,17 @@ func replayArithmetic(t *Term, env map[string]replayValue) (replayValue, error) 
 		return replayValue{}, fmt.Errorf("arithmetic on non-numbers")
 	}
 	astOp := map[Op]ast.OperatorKind{OpAdd: ast.OpAdd, OpSub: ast.OpSub, OpMul: ast.OpMul, OpDiv: ast.OpDiv}[t.Op]
-	if left.kind == SortInt && right.kind == SortInt {
-		if t.Op == OpDiv {
-			q, ok := semantics.IntQuotient(left.i, right.i)
-			if !ok {
-				return replayValue{}, fmt.Errorf("division by zero")
-			}
-			return replayValue{kind: SortReal, f: q}, nil
+	if left.isExact() && right.isExact() && (t.Op == OpDiv || left.kind != SortInt || right.kind != SortInt) {
+		res, err := semantics.RatArith(astOp, left.i, right.i, semantics.DefaultMaxIntegerBits)
+		if errors.Is(err, semantics.ErrDivisionByZero) {
+			return replayValue{}, fmt.Errorf("division by zero")
 		}
+		if err != nil {
+			return replayValue{}, err
+		}
+		return exactReal(res), nil
+	}
+	if left.kind == SortInt && right.kind == SortInt {
 		res, err := semantics.IntArith(astOp, left.i, right.i, semantics.DefaultMaxIntegerBits)
 		if err != nil {
 			return replayValue{}, err
@@ -431,56 +409,34 @@ func replayIntDiv(t *Term, env map[string]replayValue) (replayValue, error) {
 	return replayValue{kind: SortInt, i: semantics.BigIntValue(q)}, nil
 }
 
-// replayRatio computes a whole-number quotient as the evaluator does: the exact
-// ratio of its integer operands, rounded once to the nearest float64.
-func replayRatio(t *Term, env map[string]replayValue) (replayValue, error) {
-	left, err := exactRat(t.Args[0], env)
-	if err != nil {
-		return replayValue{}, err
-	}
-	right, err := exactRat(t.Args[1], env)
-	if err != nil {
-		return replayValue{}, err
-	}
-	if right.Sign() == 0 {
-		return replayValue{}, fmt.Errorf("division by zero")
-	}
-	f, _ := new(big.Rat).Quo(left, right).Float64()
-	if math.IsInf(f, 0) || math.IsNaN(f) {
-		return replayValue{}, fmt.Errorf("the quotient is not a finite Real")
-	}
-	return replayValue{kind: SortReal, f: f}, nil
-}
-
-// exactRat reads a ratio operand exactly, stripping the encoding's Int-to-Real
-// widening so no float64 rounding precedes the quotient's own.
-func exactRat(t *Term, env map[string]replayValue) (*big.Rat, error) {
-	if t.Op == OpToReal {
-		t = t.Args[0]
-	}
-	if t.Op == OpReal {
-		return t.Real, nil
-	}
-	val, err := replayTerm(t, env)
-	if err != nil {
-		return nil, err
-	}
-	if val.kind == SortInt {
-		return new(big.Rat).SetInt(val.i.BigInt()), nil
-	}
-	if val.kind == SortReal {
-		return new(big.Rat).SetFloat64(val.f), nil
-	}
-	return nil, fmt.Errorf("a quotient operand yielded no number")
-}
-
 // numeric reports whether the value is an integer or a real.
 func (v replayValue) numeric() bool { return v.kind == SortInt || v.kind == SortReal }
 
-// asReal is the value as the evaluator widens it where a real meets it.
+// isExact reports whether the value is an Integer or a Rational.
+func (v replayValue) isExact() bool { return v.kind == SortInt || v.exact }
+
+// asReal is the value as the evaluator rounds it where a Real meets it.
 func (v replayValue) asReal() float64 {
-	if v.kind == SortInt {
+	if v.isExact() {
 		return v.i.AsReal()
 	}
 	return v.f
+}
+
+// compareNumbers orders two numbers by exact value, a binary64 by the exact
+// value it holds, as the evaluator's mixed comparison does.
+func compareNumbers(a, b replayValue) int {
+	switch {
+	case a.isExact() && b.isExact():
+		return semantics.CompareRat(a.i, b.i)
+	case a.isExact():
+		return semantics.CompareExactReal(a.i, b.f)
+	case b.isExact():
+		return -semantics.CompareExactReal(b.i, a.f)
+	case a.f < b.f:
+		return -1
+	case a.f > b.f:
+		return 1
+	}
+	return 0
 }

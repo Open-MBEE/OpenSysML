@@ -63,6 +63,33 @@ public interface QuantityOrBuilder extends
 
   /**
    * <pre>
+   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   * @return Whether the rationalMagnitude field is set.
+   */
+  boolean hasRationalMagnitude();
+  /**
+   * <pre>
+   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   * @return The rationalMagnitude.
+   */
+  org.openmbee.opensysml.proto.Rational getRationalMagnitude();
+  /**
+   * <pre>
+   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   */
+  org.openmbee.opensysml.proto.RationalOrBuilder getRationalMagnitudeOrBuilder();
+
+  /**
+   * <pre>
    * Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
    * one never written down, described by unit_term alone.
    * </pre>

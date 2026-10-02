@@ -2,8 +2,8 @@
 	"type": "action",
 	"outputs": {
 		"total": {
-			"type": "Real",
-			"value": 6.5
+			"type": "Rational",
+			"value": "6.5"
 		},
 		"visited": {
 			"type": "Integer",

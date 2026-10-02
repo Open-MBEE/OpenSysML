@@ -36,14 +36,14 @@ func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
 }
 
 // TestRealOutsideItsRangeIsAFailure: a Real no float64 holds is reported, not
-// read as an infinity.
+// read as an infinity. The literal 1e400 is an exact Rational; ToReal is Real.
 func TestRealOutsideItsRangeIsAFailure(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	value, err := client.Evaluate(context.Background(), model, "1e400")
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1e400")`)
 	if !errors.Is(err, opensysml.ErrFailure) {
-		t.Errorf("Evaluate(1e400) = %#v, %v; want a failure", value, err)
+		t.Errorf("Evaluate(ToReal(1e400)) = %#v, %v; want a failure", value, err)
 	}
 }
 
@@ -53,7 +53,7 @@ func TestRealsInRangeStillEvaluate(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	value, err := client.Evaluate(context.Background(), model, "1.5e308 / 2.0")
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1.5e308") / 2.0`)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}

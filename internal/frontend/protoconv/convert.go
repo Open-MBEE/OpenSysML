@@ -59,6 +59,11 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 				return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n}}
 			}
 			return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: val.Const.FormatInt()}}
+		case semantics.ValRational:
+			if f, exact := val.Const.BinaryExact(); exact {
+				return &pb.Value{Kind: &pb.Value_RealValue{RealValue: f}}
+			}
+			return &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: RationalToProto(val.Const)}}
 		case semantics.ValReal:
 			return &pb.Value{Kind: &pb.Value_RealValue{RealValue: val.Const.Real}}
 		case semantics.ValBool:
@@ -337,12 +342,33 @@ func QuantityToProto(q *runtime.Quantity) *pb.Quantity {
 		} else {
 			pq.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: q.Num.FormatInt()}
 		}
+	case semantics.ValRational:
+		if f, exact := q.Num.BinaryExact(); exact {
+			pq.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: f}
+		} else {
+			pq.Magnitude = &pb.Quantity_RationalMagnitude{RationalMagnitude: RationalToProto(q.Num)}
+		}
 	case semantics.ValReal:
 		pq.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: q.Num.Real}
 	default:
 		return nil
 	}
 	return pq
+}
+
+// RationalToProto marshals an exact Rational no binary64 holds exactly.
+func RationalToProto(v semantics.Value) *pb.Rational {
+	return &pb.Rational{Numerator: v.RatNumer().FormatInt(), Denominator: v.RatDenom().FormatInt()}
+}
+
+// ProtoToRational reads a Rational, refusing one not in lowest terms or one a
+// double holds exactly, which crosses as real_value.
+func ProtoToRational(pr *pb.Rational) (semantics.Value, error) {
+	v, ok := semantics.CanonicalRational(pr.GetNumerator(), pr.GetDenominator())
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %q/%q", ErrRationalNotCanonical, pr.GetNumerator(), pr.GetDenominator())
+	}
+	return v, nil
 }
 
 // UnitTermToProto marshals a unit's reduction to base units, naming each base
@@ -416,6 +442,10 @@ var (
 	// ErrBigIntegerNotDecimal reports a big_int_value or big_int_magnitude
 	// that is not an optionally signed run of decimal digits.
 	ErrBigIntegerNotDecimal = errors.New("big Integer is not decimal")
+
+	// ErrRationalNotCanonical reports a rational_value or rational_magnitude
+	// that is not in lowest terms, or that a double holds exactly.
+	ErrRationalNotCanonical = errors.New("rational is not canonical: not in lowest terms, or exactly a double")
 
 	// ErrVectorQuantityEmpty reports a vector quantity of no components, whose
 	// num is Number[1..*].
@@ -580,6 +610,57 @@ func quantityHoldsBigInt(q *pb.Quantity) bool {
 	return ok
 }
 
+// ValueCarriesRational reports whether a value, or any value nested in it, holds
+// an exact Rational: the arms the rational_values capability governs.
+func ValueCarriesRational(pv *pb.Value) bool {
+	return valueCarries(pv, ValueHoldsRational)
+}
+
+// ValueHoldsRational reports whether a value is itself an exact Rational or
+// carries one as a vector component or a quantity magnitude, its own or a
+// component's; a collection's elements are left to the caller.
+func ValueHoldsRational(pv *pb.Value) bool {
+	switch k := pv.GetKind().(type) {
+	case *pb.Value_RationalValue:
+		return true
+	case *pb.Value_Vector:
+		return slices.ContainsFunc(k.Vector.GetComponents(), isRationalValue)
+	case *pb.Value_Quantity:
+		return quantityHoldsRational(k.Quantity)
+	case *pb.Value_VectorQuantity:
+		return slices.ContainsFunc(k.VectorQuantity.GetComponents(), quantityHoldsRational)
+	case *pb.Value_TensorQuantity:
+		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsRational)
+	case *pb.Value_EnumLiteral:
+		return k.EnumLiteral.GetValue() != nil && ValueCarriesRational(k.EnumLiteral.GetValue())
+	}
+	return false
+}
+
+// DocumentValueHoldsRational reports whether a document value is an exact
+// Rational, a quantity whose magnitude is one, or an event row whose time is.
+func DocumentValueHoldsRational(dv *pb.DocumentValue) bool {
+	switch k := dv.GetKind().(type) {
+	case *pb.DocumentValue_RationalValue:
+		return true
+	case *pb.DocumentValue_Quantity:
+		return quantityHoldsRational(k.Quantity)
+	case *pb.DocumentValue_Event:
+		return DocumentValueHoldsRational(k.Event.GetTime())
+	}
+	return false
+}
+
+func isRationalValue(pv *pb.Value) bool {
+	_, ok := pv.GetKind().(*pb.Value_RationalValue)
+	return ok
+}
+
+func quantityHoldsRational(q *pb.Quantity) bool {
+	_, ok := q.GetMagnitude().(*pb.Quantity_RationalMagnitude)
+	return ok
+}
+
 // ValueCarriesComplex reports whether a value, or any value nested in it, is a
 // Complex: the kind the complex_values capability governs.
 func ValueCarriesComplex(pv *pb.Value) bool {
@@ -689,6 +770,12 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 		return ProtoToScalar(pv), nil
 	case *pb.Value_BigIntValue:
 		num, err := ProtoToBigInteger(k.BigIntValue)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}, nil
+	case *pb.Value_RationalValue:
+		num, err := ProtoToRational(k.RationalValue)
 		if err != nil {
 			return runtime.Value{}, err
 		}
@@ -869,6 +956,8 @@ func protoToNumber(pv *pb.Value) (semantics.Value, error) {
 		return semantics.IntValue(k.IntValue), nil
 	case *pb.Value_BigIntValue:
 		return ProtoToBigInteger(k.BigIntValue)
+	case *pb.Value_RationalValue:
+		return ProtoToRational(k.RationalValue)
 	case *pb.Value_RealValue:
 		return semantics.Value{Kind: semantics.ValReal, Real: k.RealValue}, nil
 	}
@@ -923,6 +1012,11 @@ func ProtoToQuantity(pq *pb.Quantity, idx *symbols.Index, sem *semantics.Model) 
 		num = semantics.IntValue(m.IntMagnitude)
 	case *pb.Quantity_BigIntMagnitude:
 		num, err = ProtoToBigInteger(m.BigIntMagnitude)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.GetUnit(), err)
+		}
+	case *pb.Quantity_RationalMagnitude:
+		num, err = ProtoToRational(m.RationalMagnitude)
 		if err != nil {
 			return runtime.Value{}, fmt.Errorf("quantity in %q: %w", pq.GetUnit(), err)
 		}
@@ -1432,6 +1526,12 @@ func ProtoToScalar(pv *pb.Value) runtime.Value {
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.IntValue(k.IntValue)}
 	case *pb.Value_BigIntValue:
 		num, err := ProtoToBigInteger(k.BigIntValue)
+		if err != nil {
+			return runtime.Value{Kind: runtime.ValNull}
+		}
+		return runtime.Value{Kind: runtime.ValConst, Const: num}
+	case *pb.Value_RationalValue:
+		num, err := ProtoToRational(k.RationalValue)
 		if err != nil {
 			return runtime.Value{Kind: runtime.ValNull}
 		}

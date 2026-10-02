@@ -417,6 +417,14 @@ func attributeValue(value *symbolfacts.Value) *JValue {
 	switch value.Const.Kind {
 	case semantics.ValInt:
 		return &JValue{IntValue: ptr(I64(value.Const.Int))}
+	case semantics.ValRational:
+		if f, exact := value.Const.BinaryExact(); exact {
+			return &JValue{RealValue: ptr(F64(f))}
+		}
+		return &JValue{RationalValue: &JRational{
+			Numerator:   value.Const.RatNumer().FormatInt(),
+			Denominator: value.Const.RatDenom().FormatInt(),
+		}}
 	case semantics.ValReal:
 		return &JValue{RealValue: ptr(F64(value.Const.Real))}
 	case semantics.ValBool:

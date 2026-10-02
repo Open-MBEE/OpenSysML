@@ -209,6 +209,12 @@ const CapabilityInfinityValue = "infinity_value"
 // without it reads the arm sent to it as null, so a client must not send one.
 const CapabilityBigIntValues = "big_int_values"
 
+// CapabilityRationalValues names the capability of carrying an exact Rational
+// that is no Integer as Value.rational_value, Quantity.rational_magnitude and
+// DocumentValue.rational_value, rather than as an unsupported null. A service
+// without it reads the arm sent to it as null, so a client must not send one.
+const CapabilityRationalValues = "rational_values"
+
 // CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
@@ -285,6 +291,7 @@ var capabilities = []string{
 	CapabilityActionBodyStatementAuthoring,
 	CapabilityMigrate,
 	CapabilityBigIntValues,
+	CapabilityRationalValues,
 }
 
 type capabilityAvailability struct {
@@ -526,7 +533,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if protoconv.ValueCarriesBigInt(pv) {
-		return s.requireCapability(CapabilityBigIntValues)
+		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
+			return err
+		}
+	}
+	if protoconv.ValueCarriesRational(pv) {
+		return s.requireCapability(CapabilityRationalValues)
 	}
 	return nil
 }

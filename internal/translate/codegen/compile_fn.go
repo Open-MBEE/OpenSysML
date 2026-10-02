@@ -453,6 +453,9 @@ func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
 	if dom, err = fc.toMany(dom, dom.Type().Seq(), "argument for parameter \"domainValues\""); err != nil {
 		return Sample{}, err
 	}
+	if err := fc.exactOperands("Sample", dom); err != nil {
+		return Sample{}, err
+	}
 	x := fc.temp(dom.Type().Elem())
 	at, err := fc.applyToOne(fargs[0], Var{Name: x.Name, T: x.Type})
 	if err != nil {

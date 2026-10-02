@@ -44,6 +44,20 @@ func widenedInt(x Expr) (Expr, bool) {
 	return nil, false
 }
 
+// exactQuotient is x as an Integer quotient compared exactly, if it is one.
+func exactQuotient(x Expr) (Binary, bool) {
+	q, ok := x.(Binary)
+	return q, ok && q.Exact && q.Op == ast.OpDiv && q.L.Type() == TypeInt
+}
+
+// wholeOperand is the whole number x as an Integer where it widens one.
+func wholeOperand(x Expr) Expr {
+	if i, ok := widenedInt(x); ok {
+		return i
+	}
+	return x
+}
+
 func isWidenedInt(x Expr) bool {
 	_, ok := widenedInt(x)
 	return ok

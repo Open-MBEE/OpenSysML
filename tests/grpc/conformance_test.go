@@ -16,6 +16,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
@@ -843,6 +844,10 @@ func describeQuantity(q *pb.Quantity) string {
 		magnitude = strconv.FormatInt(m.IntMagnitude, 10)
 	case *pb.Quantity_RealMagnitude:
 		magnitude = strconv.FormatFloat(m.RealMagnitude, 'g', -1, 64)
+	case *pb.Quantity_RationalMagnitude:
+		if r, ok := semantics.CanonicalRational(m.RationalMagnitude.GetNumerator(), m.RationalMagnitude.GetDenominator()); ok {
+			magnitude = r.FormatRational()
+		}
 	}
 	return fmt.Sprintf("%s [%s] = %s", magnitude, q.GetUnit(), unitTermText(q.GetUnitTerm()))
 }

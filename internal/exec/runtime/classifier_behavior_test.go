@@ -2682,7 +2682,7 @@ func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run Run on Plant: %v", err)
 	}
-	if got := results["result"]; got.Const.Real != 3.0 {
+	if got := results["result"]; got.Const.AsReal() != 3.0 {
 		t.Errorf("result = %v, want 3.0: the tank instance bound context, 2.0 bound factor", got)
 	}
 }

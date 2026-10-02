@@ -43,13 +43,18 @@ func (ctx *Context) valueKey(v Value) valueKey {
 	switch v.Kind {
 	case ValConst:
 		switch v.Const.Kind {
-		case semantics.ValInt, semantics.ValReal:
+		case semantics.ValInt, semantics.ValRational, semantics.ValReal:
 			if n, ok := v.Const.WholeNumber(); ok {
 				key.intVal = n
 			} else if n, ok := wholeBeyondInt64(v.Const); ok {
 				key.bigVal = n.FormatInt()
-			} else {
+			} else if v.Const.Kind != semantics.ValRational {
 				key.realVal = v.Const.Real
+			} else if f := v.Const.AsReal(); semantics.CompareExactReal(v.Const, f) == 0 {
+				// A Rational a binary64 holds exactly equals that Real and shares its key.
+				key.realVal = f
+			} else {
+				key.bigVal = v.Const.FormatRational()
 			}
 		case semantics.ValBool:
 			key.boolVal = v.Const.Bool

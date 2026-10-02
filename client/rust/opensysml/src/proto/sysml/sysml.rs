@@ -1847,7 +1847,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1919,7 +1919,21 @@ pub mod value {
         /// zeros). An Integer that fits int64 is always int_value, never this.
         #[prost(string, tag="22")]
         BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
+        /// or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+        #[prost(message, tag="23")]
+        RationalValue(super::Rational),
     }
+}
+/// Rational is an exact rational number in lowest terms: numerator over a
+/// positive denominator, each written as big_int_value is. A decoder rejects one
+/// not in lowest terms or one a double holds exactly, so no number has two spellings.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Rational {
+    #[prost(string, tag="1")]
+    pub numerator: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub denominator: ::prost::alloc::string::String,
 }
 /// Metaobject is an element of the model held as an instance of its reflective
 /// metaclass: what `x meta KerML::Feature`, or the last element of
@@ -2080,7 +2094,7 @@ pub struct Quantity {
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5")]
+    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
 }
 /// Nested message and enum types in `Quantity`.
@@ -2095,6 +2109,9 @@ pub mod quantity {
         /// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="5")]
         BigIntMagnitude(::prost::alloc::string::String),
+        /// An exact Rational magnitude no double holds exactly, as Value.rational_value.
+        #[prost(message, tag="6")]
+        RationalMagnitude(super::Rational),
     }
 }
 /// MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
@@ -2566,7 +2583,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -2604,6 +2621,9 @@ pub mod document_value {
         /// An Integer beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="13")]
         BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational no double holds exactly, as Value.rational_value.
+        #[prost(message, tag="14")]
+        RationalValue(super::Rational),
     }
 }
 /// DocumentObject is an object the service holds for the model, created by
