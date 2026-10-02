@@ -43,6 +43,12 @@ function _convert(conn::Connection, to_format::AbstractString; file_path=nothing
     source_name, source_value = only(given)
     source_name == "content" && isempty(String(from_format)) &&
         throw(ArgumentError("from_format is required for inline content"))
+    if is_v1(from_format) || (source_name == "file_path" && isempty(String(from_format)) &&
+                              path_is_v1(source_value))
+        name = source_name == "file_path" ? String(source_value) : "the source"
+        throw(ArgumentError("$name $MIGRATED_NOT_CONVERTED; call migrate_file or " *
+                            "migrate_source with the same source"))
+    end
     require_capability(conn, CAPABILITY_CONVERT)
     request = Dict{String,Any}("toFormat" => String(to_format),
         "fromFormat" => String(from_format), "tolerateSyntaxErrors" => Bool(tolerate_syntax_errors))

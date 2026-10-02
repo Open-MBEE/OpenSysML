@@ -26,7 +26,8 @@ to `/sysml.SysMLService/<Method>` with `application/proto` or `application/json`
 ## Layout
 
 - `scenarios/*.json` — the scenarios, grouped by RPC and run in file then declaration order.
-- `fixtures/*.sysml` — the models scenarios parse. A scenario names a fixture, never a path.
+- `fixtures/*.sysml` — the models scenarios parse, and `fixtures/*.xmi` the SysML v1 models
+  they migrate. A scenario names a fixture, never a path.
 
 ## A scenario
 
@@ -52,8 +53,10 @@ to `/sysml.SysMLService/<Method>` with `application/proto` or `application/json`
 | `request` | The request as protobuf-JSON. |
 | `expect` | What the answer must be, by the rules below. |
 
-Two placeholders may appear in a request: `${model_hash}` is the hash the service gave `model`,
-and `${fixture:<name>}` is a fixture's source, for the RPCs that take content inline.
+Three placeholders may appear in a request: `${model_hash}` is the hash the service gave `model`,
+`${fixture:<name>}` is a fixture's source, for the RPCs that take content inline, and
+`${fixture_base64:<name>}` is a fixture's bytes encoded as protobuf-JSON carries a `bytes` field,
+for `Migrate`, whose inline content may be a binary `.mdzip` archive.
 
 ## Expectations
 
@@ -134,6 +137,7 @@ What a request asks for is fixed per capability:
 | Capability | Request-side contract when unavailable |
 | --- | --- |
 | `convert` | Refuse `Convert`. |
+| `migrate` | Refuse `Migrate`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |

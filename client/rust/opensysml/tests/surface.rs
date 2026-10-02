@@ -7,8 +7,9 @@ use std::env;
 
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
-    DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, Model, Query,
-    RunOptions, SourceDocument, SourcesOptions, SweepOptions, SweepRange, Value, VerifyOptions,
+    DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
+    MigrateSource, Model, Query, RunOptions, SourceDocument, SourcesOptions, SweepOptions,
+    SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -214,6 +215,95 @@ fn a_model_converts_to_notation_and_turtle() {
         .unwrap();
     assert_eq!(turtle.to_format, "ttl");
     assert!(!turtle.content.is_empty());
+}
+
+#[test]
+fn a_v1_model_is_migrated_and_refused_by_convert() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let vehicle = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../conformance/fixtures/vehicle.xmi");
+    let migrated = connection
+        .migrate(
+            "sysml",
+            &MigrateSource::File(vehicle.clone()),
+            &MigrateOptions {
+                report: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(
+        migrated.content.contains("part def Vehicle"),
+        "{}",
+        migrated.content
+    );
+    assert_eq!(migrated.from_format, "xmi");
+    assert!(migrated.experimental);
+    assert!(!migrated.experimental_notice.is_empty());
+    assert_eq!(
+        (
+            migrated.report.mapped,
+            migrated.report.approximated,
+            migrated.report.unmapped,
+            migrated.report.skipped
+        ),
+        (77, 13, 3, 2)
+    );
+    assert_eq!(migrated.report.entries.len(), 95);
+    assert_eq!(migrated.report.by_verdict("unmapped").len(), 3);
+    assert!(migrated.report.text.contains("unmapped"));
+    assert!(migrated
+        .source_path
+        .as_deref()
+        .is_some_and(|path| path.is_absolute()));
+
+    let inline = connection
+        .migrate(
+            "ttl",
+            &MigrateSource::Content(std::fs::read(&vehicle).unwrap()),
+            &MigrateOptions {
+                from_format: " XMI ".to_owned(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(inline.to_format, "ttl");
+    assert!(inline.source_path.is_none());
+    assert!(inline.report.entries.is_empty());
+    assert_eq!(inline.report.mapped, 77);
+
+    let refused = connection.convert(
+        "sysml",
+        &ConvertSource::File(vehicle.clone()),
+        &Default::default(),
+    );
+    assert!(
+        matches!(&refused, Err(Error::InvalidRequest(message)) if message.contains("migrated, not converted")),
+        "{refused:?}"
+    );
+    let refused = connection.migrate(
+        "sysml",
+        &MigrateSource::Content(b"package P;".to_vec()),
+        &MigrateOptions {
+            from_format: "sysml".to_owned(),
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(&refused, Err(Error::InvalidRequest(message)) if message.contains("converted, not migrated")),
+        "{refused:?}"
+    );
+    let refused = connection.migrate(
+        "sysml",
+        &MigrateSource::Content(b"<xmi/>".to_vec()),
+        &Default::default(),
+    );
+    assert!(
+        matches!(&refused, Err(Error::InvalidRequest(message)) if message.contains("from_format")),
+        "{refused:?}"
+    );
 }
 
 #[test]

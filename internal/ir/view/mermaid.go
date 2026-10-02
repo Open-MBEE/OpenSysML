@@ -1,6 +1,7 @@
 package view
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -24,16 +25,19 @@ func (r *Rendering) Mermaid() string {
 // MermaidWith is the Mermaid form written with options. It is drawn in the
 // stated direction: a flowchart flows that way, and a state diagram states it
 // as a `direction` statement. The empty direction keeps each kind's default,
-// and a kind no direction applies to ignores it. A palette is not drawn,
-// Mermaid having no fill per node kind, and is noted as not represented. A
-// rendering some Layout positions draws the nodes the DOT form draws: the placed
-// ones, and the unplaced ones too under UnplacedStrip.
+// and a kind no direction applies to ignores it. A palette fills the nodes of a
+// flowchart (`style`) and of a state diagram (`classDef`) with the hex the DOT
+// form gives them; a sequence diagram has no fill per participant and notes it,
+// as does a kind no form fills.
+// A rendering some Layout positions draws the nodes the DOT form draws: the
+// placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil)
-	r.writeFlowchartFrontmatter(&b, labels)
+	ports := r.portView(options.Ports)
+	r.writeFlowchartFrontmatter(&b, labels, ports)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -46,8 +50,15 @@ func (r *Rendering) MermaidWith(options Options) string {
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
+	fills := map[string]Fill{}
 	if options.Palette != "" {
-		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
+		if filled, err := r.Fills(options.Palette); err != nil {
+			fmt.Fprintf(&b, "%%%% not represented: %v\n", err)
+		} else if r.Kind == KindSequence || !r.Kind.SupportsPalette() {
+			fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette, r.Kind))
+		} else {
+			fills = filled
+		}
 	}
 	if options.Style != "" && options.Style != StylePilot {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", styleNotice(options.Style))
@@ -58,13 +69,13 @@ func (r *Rendering) MermaidWith(options Options) string {
 	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
-		r.writeStateDiagram(&b, direction, labels)
+		r.writeStateDiagram(&b, direction, labels, fills)
 		return b.String()
 	case KindSequence:
 		r.writeSequenceDiagram(&b, labels)
 		return b.String()
 	}
-	r.writeFlowchart(&b, direction, labels)
+	r.writeFlowchart(&b, direction, labels, fills, ports)
 	return b.String()
 }
 
@@ -121,38 +132,51 @@ const mermaidTitleLine = 24
 
 // writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
 // height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
-func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller) {
+func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller, ports portView) {
 	switch r.Kind {
 	case KindTree, KindState, KindSequence:
 		return
 	}
 	extra := 0
 	for _, root := range r.Roots {
-		extra = max(extra, clusterTitleExtraLines(root, labels))
+		extra = max(extra, clusterTitleExtraLines(root, ports, labels))
 	}
 	if extra == 0 {
 		return
 	}
-	fmt.Fprintf(b, "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", extra*mermaidTitleLine)
+	fmt.Fprintf(b, "---\nconfig:\n  themeCSS: %q\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n", mermaidTitleCSS, extra*mermaidTitleLine)
 }
 
-// clusterTitleExtraLines is the most lines beyond the first spanned by the
-// title of node or of a cluster under it.
-func clusterTitleExtraLines(node *Node, labels labeller) int {
-	if len(node.Children) == 0 {
+// mermaidTitleCSS centres the lines of a subgraph's title under one another:
+// Mermaid centres the title's block but sets its lines flush left.
+const mermaidTitleCSS = ".cluster-label .nodeLabel { text-align: center; }"
+
+// clusterTitleExtraLines is the most lines beyond the first spanned by the title
+// of node or of a cluster under it, a part with drawn ports being a cluster.
+func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
+	if !flowchartCluster(node, ports) {
 		return 0
 	}
 	extra := len(labels.lines(node)) - 1
 	for _, child := range node.Children {
-		extra = max(extra, clusterTitleExtraLines(child, labels))
+		extra = max(extra, clusterTitleExtraLines(child, ports, labels))
 	}
 	return extra
 }
 
+// flowchartCluster reports whether node is written as a subgraph: one holding
+// nodes, or an interconnection's part with ports the display draws, since a
+// flowchart has no port element and a pin is a node inside its part.
+func flowchartCluster(node *Node, ports portView) bool {
+	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
+}
+
 // writeFlowchart writes the tree, interconnection and action renderings as a
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
-// is an edge, and every other edge is the one the rendering holds.
-func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
+// is an edge, and every other edge is the one the rendering holds. A flowchart
+// has no port, so an interconnection's ports are nodes inside their part's
+// subgraph and its connectors end at them; an action's pins are its flows' labels.
+func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller, fills map[string]Fill, ports portView) {
 	flow := "TD"
 	if r.Kind == KindInterconnection {
 		flow = "LR"
@@ -166,25 +190,27 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		return
 	}
 	for _, root := range r.Roots {
-		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow, labels)
+		writeFlowchartNode(b, root, 1, r.Kind == KindTree, ports, flow, labels)
 	}
 	for _, edge := range r.Edges {
+		from, to := flowchartEnd(edge.From, edge.FromPort, ports), flowchartEnd(edge.To, edge.ToPort, ports)
 		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s %s %s\n", edge.From, mermaidArrow(edge.Kind), edge.To)
+			fmt.Fprintf(b, "  %s %s %s\n", from, mermaidArrow(edge.Kind), to)
 			continue
 		}
-		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", edge.From, mermaidArrow(edge.Kind), mermaidText(edge.Label), edge.To)
+		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", from, mermaidArrow(edge.Kind), mermaidText(edge.Label), to)
 	}
 	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, false)
+		writeMermaidStyles(b, root, false, fills)
 	}
 }
 
-// writeMermaidStyles writes the colours a Style gives node and the nodes under
-// it: a flowchart's `style` statement, a state diagram's `classDef` and
-// `class` pair. A Style's font, and an edge's Style, Mermaid has no statement for.
-func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
-	if css := mermaidStyleCSS(node.Style); css != "" {
+// writeMermaidStyles writes the colours a Style and the palette fills give
+// node and the nodes under it: a flowchart's `style` statement, a state
+// diagram's `classDef` and `class` pair. A Style's font, and an edge's Style,
+// Mermaid has no statement for.
+func writeMermaidStyles(b *strings.Builder, node *Node, state bool, fills map[string]Fill) {
+	if css := mermaidStyleCSS(node.Style, fills[node.ID]); css != "" {
 		if state {
 			fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, css, node.ID, node.ID)
 		} else {
@@ -192,22 +218,23 @@ func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
 		}
 	}
 	for _, child := range node.Children {
-		writeMermaidStyles(b, child, state)
+		writeMermaidStyles(b, child, state, fills)
 	}
 }
 
-// mermaidStyleCSS is a Style's colours as Mermaid's comma-separated CSS:
-// the fill, the stroke and the text colour; empty when the Style sets none.
-func mermaidStyleCSS(style *Style) string {
+// mermaidStyleCSS is a node's colours as Mermaid's comma-separated CSS: the
+// fill and the stroke, the Style's over the palette's, and the Style's text
+// colour; empty when neither sets any.
+func mermaidStyleCSS(style *Style, fill Fill) string {
 	if style == nil {
-		return ""
+		style = &Style{}
 	}
 	var props []string
-	if style.Fill != "" {
-		props = append(props, "fill:"+style.Fill)
+	if color := cmp.Or(style.Fill, fill.Fill); color != "" {
+		props = append(props, "fill:"+color)
 	}
-	if style.Line != "" {
-		props = append(props, "stroke:"+style.Line)
+	if color := cmp.Or(style.Line, fill.Border); color != "" {
+		props = append(props, "stroke:"+color)
 	}
 	if style.Text != "" {
 		props = append(props, "color:"+style.Text)
@@ -215,35 +242,62 @@ func mermaidStyleCSS(style *Style) string {
 	return strings.Join(props, ",")
 }
 
-// writeFlowchartNode writes one node: a subgraph when it holds others, a plain
-// node otherwise. containment adds an edge from a node to each of its children,
-// which is how a tree rendering shows what contains what. A subgraph restates the
-// flowchart's direction, which Mermaid does not apply inside one that states none.
-func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string, labels labeller) {
+// flowchartEnd is the node an edge ends at: the pin when the end names one and
+// the kind draws pins, else the node itself.
+func flowchartEnd(node, port string, ports portView) string {
+	if ports.interconnection && port != "" {
+		return port
+	}
+	return node
+}
+
+// writeFlowchartNode writes one node: a subgraph when it holds others or, in
+// an interconnection, has ports the display draws — each a node of its own
+// inside it, labelled as a port is under the full display and by its name
+// alone under the minimal — a plain node otherwise. containment adds an edge
+// from a node to each of its children, which is how a tree rendering shows
+// what contains what. A subgraph restates the flowchart's direction, which
+// Mermaid does not apply inside one that states none.
+func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, ports portView, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
-	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+	label := labels.mermaid(node)
+	if !flowchartCluster(node, ports) {
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		return
 	}
 	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, label)
 		for _, child := range node.Children {
-			writeFlowchartNode(b, child, depth, containment, flow, labels)
+			writeFlowchartNode(b, child, depth, containment, ports, flow, labels)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, labels.mermaid(node))
+	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, label)
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
+	if ports.interconnection {
+		for _, port := range ports.of(node) {
+			fmt.Fprintf(b, "%s  %s[\"%s\"]\n", indent, port.ID, mermaidPinLabel(ports, port))
+		}
+	}
 	for _, child := range node.Children {
-		writeFlowchartNode(b, child, depth+1, containment, flow, labels)
+		writeFlowchartNode(b, child, depth+1, containment, ports, flow, labels)
 	}
 	fmt.Fprintf(b, "%send\n", indent)
 }
 
+// mermaidPinLabel is a pin node's label: the port's stereotype over `name : Type`
+// under the full display, the name alone under the minimal.
+func mermaidPinLabel(ports portView, port Port) string {
+	if !ports.minimal {
+		return "«port»<br>" + mermaidText(port.label())
+	}
+	return mermaidText(port.Name)
+}
+
 // writeStateDiagram writes a state rendering as a Mermaid state diagram: bodies
 // are composite states, entry transitions leave the `[*]` marker of their body.
-func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller) {
+func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller, fills map[string]Fill) {
 	b.WriteString("stateDiagram-v2\n")
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
@@ -273,7 +327,7 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
 	}
 	for _, root := range r.Roots {
-		writeMermaidStyles(b, root, true)
+		writeMermaidStyles(b, root, true, fills)
 	}
 }
 

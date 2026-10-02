@@ -16,8 +16,8 @@ type rlReader struct{ rl *readline.Instance }
 func (r *rlReader) ReadLine(prompt string) (string, error) {
 	r.rl.SetPrompt(prompt)
 	line, err := r.rl.Readline()
-	if err == readline.ErrInterrupt { // Ctrl-C clears line (continue REPL)
-		return "", nil
+	if err == readline.ErrInterrupt {
+		return line, repl.ErrInterrupt
 	}
 	if err == io.EOF { // Ctrl-D exits REPL
 		return "", io.EOF
@@ -26,8 +26,7 @@ func (r *rlReader) ReadLine(prompt string) (string, error) {
 }
 
 // newLineInput opens the prompt's line reader: readline, with the session's history
-// file and completion, an interrupted line clearing rather than ending the session,
-// and end of input closing it. The returned function closes the reader.
+// file and completion. The returned function closes the reader.
 func newLineInput(sess *repl.Session) (repl.LineReader, func() error, error) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          "sysml> ",

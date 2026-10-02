@@ -6,7 +6,7 @@
 `./scripts/download-pssm-suite.sh` at the pin in `scripts/pssm-pin.sh` (document `ptc/18-11-06`,
 checksum-verified) into `build/pssm/PSSM_TestSuite.xmi` — the same file the
 [PSSM referee](pssm-referee.md) translates by rule. This gate runs the SysML v1 migrator over it
-instead (`sysml build/pssm/PSSM_TestSuite.xmi -convert sysml`), the largest v1 model the migrator
+instead (`sysml build/pssm/PSSM_TestSuite.xmi -migrate sysml`), the largest v1 model the migrator
 is exercised on.
 
 **Gate:** `TestPSSMSuiteMigration` in `tests/corpus/pssm_migration_test.go`. Two policies in one
@@ -60,7 +60,7 @@ property of the migrator's notes rather than of the model.
 
 ## How the figures are measured
 
-- The suite is migrated through `convert.Migrate`, the path `sysml -convert sysml` takes, so the
+- The suite is migrated through `convert.Migrate`, the path `sysml -migrate sysml` takes, so the
   syntax assertion is the converter's own refusal and not a second parse.
 - The written notation is opened into one workspace and its `SeverityError` diagnostics counted;
   each is logged, so the log names the errors behind the figure.

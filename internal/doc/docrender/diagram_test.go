@@ -117,7 +117,7 @@ func TestDiagramPlantUMLForm(t *testing.T) {
 		}
 	}
 	sequence := renderedDiagramForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML)
-	if !strings.Contains(sequence, `participant "**a**\n<size:10>//«part»//</size>" as n0`) || !strings.Contains(sequence, "n0 -> n1\n") {
+	if !strings.Contains(sequence, `participant "<size:10>//«part»//</size>\n**a**" as n0`) || !strings.Contains(sequence, "n0 -> n1\n") {
 		t.Errorf("sequence as plantuml:\n%s", sequence)
 	}
 	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormPlantUML)

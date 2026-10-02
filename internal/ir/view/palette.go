@@ -90,13 +90,14 @@ func (p Palette) check() error {
 	return nil
 }
 
-// paletteNotice is the notice a form that draws no palette writes for one asked
+// paletteNotice is the notice a Mermaid diagram that fills no node writes for a palette asked
 // for, so the request is not dropped silently.
-func paletteNotice(palette Palette) string {
-	return fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", palette)
+func paletteNotice(palette Palette, kind Kind) string {
+	return fmt.Sprintf("palette %s; Mermaid fills no node of a %s diagram", palette, kind)
 }
 
-// paletteForms are the forms that fill nodes from a palette.
+// paletteForms are the forms that fill nodes from a palette in every kind they
+// draw; Mermaid fills the nodes of the kinds these draw and notes the others.
 var paletteForms = []Form{FormDot, FormPlantUML}
 
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
@@ -106,7 +107,7 @@ func (k Kind) SupportsPalette() bool {
 }
 
 // TakesPalette reports whether the form fills nodes from a palette.
-func (f Form) TakesPalette() bool { return slices.Contains(paletteForms, f) }
+func (f Form) TakesPalette() bool { return f == FormMermaid || slices.Contains(paletteForms, f) }
 
 // paletteBorders reports whether a filled node's border takes the family colour
 // in a rendering of the kind; PlantUML accepts no border colour on a participant.

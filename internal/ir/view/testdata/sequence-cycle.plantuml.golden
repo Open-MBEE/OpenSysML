@@ -41,8 +41,8 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-participant "**near**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>>
-participant "**far**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**near**" as n0 <<part>> <<usage>>
+participant "<size:10>//«part»//</size>\n**far**" as n1 <<part>> <<usage>>
 n0 -> n1 : ask
 n1 -> n0 : reply
 @enduml

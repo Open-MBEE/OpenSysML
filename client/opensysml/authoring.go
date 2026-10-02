@@ -3,18 +3,23 @@ package opensysml
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
+	"strings"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are three canonical ones that are
-// written, FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by
-// those names whichever alias was asked for. RDF and the API's JSON element form,
-// in any spelling, are one experimental mapping, which a Conversion reports; so
-// is migration from FormatXMI, which is only ever read.
+// The formats conversion and migration accept. There are three canonical ones
+// that are written, FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion
+// or a Migration answers by those names whichever alias was asked for. RDF and
+// the API's JSON element form, in any spelling, are one experimental mapping,
+// which a Conversion reports; so is migration from FormatXMI, which is only
+// ever read, and only by MigrateFile and MigrateSource.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -30,10 +35,29 @@ const (
 	// FormatJSON is an alias of FormatAPIJSON, the OMG API's JSON element
 	// form of the same graph FormatTTL writes.
 	FormatJSON Format = "json"
-	// FormatXMI is SysML v1 as UML XMI, an Eclipse UML2 .uml file or a .mdzip
-	// archive, migrated to v2 on the way in. Asking to write it is refused.
+	// FormatXMI is SysML v1 as UML XMI 2.5.1 with the SysML profile applied,
+	// an Eclipse UML2 .uml file or a .mdzip archive: an input to MigrateFile and
+	// MigrateSource only, which answer every v1 form by this name. Asking to
+	// write it, or to convert from it, is refused.
 	FormatXMI Format = "xmi"
+	// FormatUML and FormatMDZip name the Eclipse UML2 and the Cameo/MagicDraw
+	// archive forms of FormatXMI, for a v1 file whose extension does not say.
+	FormatUML   Format = "uml"
+	FormatMDZip Format = "mdzip"
 )
+
+// isV1 reports whether a format names SysML v1 in any of its forms.
+func (f Format) isV1() bool {
+	return f == FormatXMI || f == FormatUML || f == FormatMDZip
+}
+
+// v1Extensions are the file extensions a SysML v1 model is inferred from.
+var v1Extensions = []string{".xmi", ".uml", ".mdzip"}
+
+// pathIsV1 reports whether a file's extension names a SysML v1 model.
+func pathIsV1(path string) bool {
+	return slices.Contains(v1Extensions, strings.ToLower(filepath.Ext(path)))
+}
 
 // ConvertOption configures Convert and ConvertFile.
 type ConvertOption func(*convertOptions)
@@ -97,8 +121,18 @@ func (c *client) ConvertFile(ctx context.Context, path string, to Format, opts .
 		return nil, err
 	}
 	req := convertRequest(to, opts)
+	if Format(req.FromFormat).isV1() || (req.FromFormat == "" && pathIsV1(path)) {
+		return nil, notMigrated(path, "call MigrateFile with the same path")
+	}
 	req.Source = &pb.ConvertRequest_FilePath{FilePath: path}
 	return c.convert(ctx, req)
+}
+
+// notMigrated is the refusal of a SysML v1 model offered for conversion, in the
+// wording every surface refuses it in.
+func notMigrated(name, remedy string) error {
+	refused := &convert.NotMigratedError{Name: name, Remedy: remedy}
+	return &StatusError{Code: CodeInvalidArgument, Message: refused.Error()}
 }
 
 func (c *client) ConvertSource(
@@ -111,6 +145,9 @@ func (c *client) ConvertSource(
 		return nil, err
 	}
 	req := convertRequest(to, opts)
+	if Format(req.FromFormat).isV1() {
+		return nil, notMigrated("inline content", "call MigrateSource with the same content")
+	}
 	req.Source = &pb.ConvertRequest_Content{Content: content}
 	return c.convert(ctx, req)
 }
@@ -144,6 +181,187 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 		ExperimentalNotice: resp.ExperimentalNotice,
 		Diagnostics:        diagnostics,
 	}, nil
+}
+
+// MigrateOption configures MigrateFile and MigrateSource.
+type MigrateOption func(*migrateOptions)
+
+type migrateOptions struct {
+	from          Format
+	report        bool
+	results       bool
+	layoutPath    string
+	layoutContent string
+	imageBaseURL  string
+	strict        bool
+}
+
+// WithV1Format names the v1 form to read — FormatXMI, FormatUML or
+// FormatMDZip — for a file whose extension does not say and for inline
+// content, which has no extension.
+func WithV1Format(from Format) MigrateOption {
+	return func(o *migrateOptions) { o.from = from }
+}
+
+// WithMigrationReport asks for every element's verdict in the Migration's
+// Report, with the report's text as `sysml -migration-report` writes it. The
+// summary and the counts come back whether or not it is given.
+func WithMigrationReport() MigrateOption {
+	return func(o *migrateOptions) { o.report = true }
+}
+
+// WithMigrationResults asks for the result snapshots the v1 tool stored with
+// the model, indexed as `sysml -migration-results` writes them, in the
+// Migration's Results.
+func WithMigrationResults() MigrateOption {
+	return func(o *migrateOptions) { o.results = true }
+}
+
+// WithLayoutFile lays the migrated views out from an MTIP export of the
+// model's diagrams (Model_mtip.xml) at path, which the service reads.
+func WithLayoutFile(path string) MigrateOption {
+	return func(o *migrateOptions) { o.layoutPath, o.layoutContent = path, "" }
+}
+
+// WithLayout lays the migrated views out from an MTIP export carried inline.
+func WithLayout(content string) MigrateOption {
+	return func(o *migrateOptions) { o.layoutContent, o.layoutPath = content, "" }
+}
+
+// WithImageBaseURL resolves a server-relative image reference in a v1 comment
+// (<img src="/projects/…">) against an absolute http(s) URL.
+func WithImageBaseURL(url string) MigrateOption {
+	return func(o *migrateOptions) { o.imageBaseURL = url }
+}
+
+// WithStrict writes only notation a pinned SysML v2 production admits: a
+// construct whose only v2 form is an OpenSysML extension (a deferred event, a
+// choice, junction or history pseudostate) is reported unmapped instead of
+// written.
+func WithStrict() MigrateOption {
+	return func(o *migrateOptions) { o.strict = true }
+}
+
+// Migration is a SysML v1 model written as a v2 one, with the account of what
+// the migration did with every v1 element. Migration is not a lossless
+// conversion: the Report says which elements were mapped, approximated, left
+// unmapped or skipped.
+type Migration struct {
+	// Content is the migrated model.
+	Content string
+	// From is FormatXMI whichever v1 form was read; To is the format written,
+	// canonical whichever alias was asked for.
+	From Format
+	To   Format
+	// ExperimentalNotice says what is experimental about the migration — every
+	// migration is — in the wording every surface reports it in.
+	ExperimentalNotice string
+	// Report accounts for the migration: its Summary and counts always, its
+	// Entries and Text when WithMigrationReport asked for them.
+	Report *MigrationReport
+	// Results is the JSON index of the result snapshots the v1 tool stored,
+	// what `sysml -compare-results` reads, when WithMigrationResults asked for
+	// it; empty otherwise.
+	Results string
+	// Files are the image files the migrated model refers to by relative path,
+	// to be written beside it; empty when it refers to none.
+	Files map[string][]byte
+}
+
+// MigrationReport accounts for every element of a SysML v1 model.
+type MigrationReport struct {
+	// Source names the v1 document migrated; Exporter the tool that wrote it,
+	// when the document says.
+	Source   string
+	Exporter string
+	// Summary is the one-line account `sysml -migrate` prints.
+	Summary string
+	// The verdict counts: mapped to a v2 counterpart that states the same
+	// thing, approximated by a v2 form that loses or restates part of what v1
+	// said, left unmapped and recorded as a comment where the element stood,
+	// or skipped as a profile, library or notation-only element nothing in the
+	// model refers to.
+	Mapped       int
+	Approximated int
+	Unmapped     int
+	Skipped      int
+	// Entries are every element's verdict, when WithMigrationReport asked for
+	// them; Text is then the report as `sysml -migration-report` writes it.
+	Entries []MigrationEntry
+	Text    string
+}
+
+// MigrationEntry is the verdict on one SysML v1 element.
+type MigrationEntry struct {
+	// ID is the element's xmi:id, the handle a v1 tool addresses it by.
+	ID string
+	// Kind is the element as modeled — its stereotype when one classifies it,
+	// else its UML metaclass — and Name its qualified name in v1.
+	Kind string
+	Name string
+	// Target is the v2 declaration written for it, a qualified name with its
+	// keyword, or empty when nothing was.
+	Target string
+	// Verdict is "mapped", "approximated", "unmapped" or "skipped", and Note
+	// says why for every verdict but mapped.
+	Verdict string
+	Note    string
+}
+
+func (c *client) MigrateFile(ctx context.Context, path string, to Format, opts ...MigrateOption) (*Migration, error) {
+	if err := c.live(); err != nil {
+		return nil, err
+	}
+	req := migrateRequest(to, opts)
+	req.Source = &pb.MigrateRequest_FilePath{FilePath: path}
+	return c.migrate(ctx, req)
+}
+
+func (c *client) MigrateSource(
+	ctx context.Context,
+	content []byte,
+	to Format,
+	opts ...MigrateOption,
+) (*Migration, error) {
+	if err := c.live(); err != nil {
+		return nil, err
+	}
+	req := migrateRequest(to, opts)
+	req.Source = &pb.MigrateRequest_Content{Content: content}
+	return c.migrate(ctx, req)
+}
+
+func migrateRequest(to Format, opts []MigrateOption) *pb.MigrateRequest {
+	var options migrateOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	req := &pb.MigrateRequest{
+		FromFormat:   string(options.from),
+		ToFormat:     string(to),
+		Report:       options.report,
+		Results:      options.results,
+		ImageBaseUrl: options.imageBaseURL,
+		Strict:       options.strict,
+	}
+	switch {
+	case options.layoutPath != "":
+		req.Layout = &pb.MigrateRequest_LayoutPath{LayoutPath: options.layoutPath}
+	case options.layoutContent != "":
+		req.Layout = &pb.MigrateRequest_LayoutContent{LayoutContent: options.layoutContent}
+	}
+	return req
+}
+
+func (c *client) migrate(ctx context.Context, req *pb.MigrateRequest) (*Migration, error) {
+	resp, err := c.caller.migrate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, &FailureError{Op: "Migrate", Message: resp.Error}
+	}
+	return migrationFromProto(resp), nil
 }
 
 // Edit is one source-preserving change to a model's notation. A type switch

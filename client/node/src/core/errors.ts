@@ -213,6 +213,9 @@ export class ConversionError extends OpenSysMLError {
   }
 }
 
+/** A SysML v1 model could not be read, so nothing of it was migrated. */
+export class MigrationError extends OpenSysMLError {}
+
 /** The service sent a value the wire format cannot represent, or a caller sent one it cannot carry. */
 export class UnsupportedValueError extends OpenSysMLError {}
 

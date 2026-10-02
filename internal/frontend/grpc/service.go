@@ -35,6 +35,12 @@ const CapabilityTypeFacts = "type_facts"
 // experimental, which the response says per conversion.
 const CapabilityConvert = "convert"
 
+// CapabilityMigrate names the capability of the Migrate RPC, which migrates a
+// SysML v1 model to v2 and accounts for every element — mapped, approximated,
+// unmapped or skipped — in its report. Migration is experimental, which the
+// response says.
+const CapabilityMigrate = "migrate"
+
 // CapabilityVerification names the capability of the verification RPCs, which
 // answer the questions the REPL's %constraint, %requirement, %satisfy and %calc
 // answer.
@@ -277,6 +283,7 @@ var capabilities = []string{
 	CapabilityDocumentationAuthoring,
 	CapabilityCommentAuthoring,
 	CapabilityActionBodyStatementAuthoring,
+	CapabilityMigrate,
 	CapabilityBigIntValues,
 }
 

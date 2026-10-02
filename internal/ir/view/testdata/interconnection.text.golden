@@ -2,9 +2,11 @@ PlantViews::loopView - interconnection rendering (render asInterconnectionDiagra
 
 part def Plant::Loop
   part pump : Pump
+    port outlet
   part tank : Tank
+    port inlet
   part sensor : Pump
 
 connections:
-  pump -- tank: supply
+  pump.outlet -- tank.inlet: supply
   pump => tank: of Water

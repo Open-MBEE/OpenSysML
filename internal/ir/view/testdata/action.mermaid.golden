@@ -1,26 +1,27 @@
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 48
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["Drive<br>«action def»"]
+  subgraph n0 ["«action def»<br>Drive"]
     direction TD
     n1["initial"]
-    n2["provide : Provide<br>«action»"]
-    subgraph n3 ["monitor<br>«action»<br>own flow"]
+    n2["«action»<br>provide : Provide"]
+    subgraph n3 ["«action»<br>monitor<br>own flow"]
       direction TD
       n5["initial"]
-      n6["record<br>«action»"]
+      n6["«action»<br>record"]
     end
-    n7["tally<br>«action»"]
-    n8["split<br>«fork»"]
-    n9["sync<br>«join»"]
+    n7["«action»<br>tally"]
+    n8["«fork»<br>split"]
+    n9["«join»<br>sync"]
     n10["final"]
-    n11["park<br>«action»"]
-    n12["check<br>«decision»"]
+    n11["«action»<br>park"]
+    n12["«decision»<br>check"]
   end
   n5 --> n6
   n1 --> n8

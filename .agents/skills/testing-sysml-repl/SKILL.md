@@ -5043,8 +5043,9 @@ for reservation. Two consequences worth knowing before writing assertions:
 
 Incomplete input (`part def U { ref redefines x[4;`) puts the REPL into a `...>` continuation
 prompt, and *anything* typed there — including `%eval 1+1` — is swallowed as more model text.
-Press **Ctrl-C** to abandon the continuation: the buffered text is then parsed, its diagnostics
-print, and the `sysml>` prompt returns usable. Always follow a malformed submission with
+Press **Ctrl-C** to abandon the continuation: the buffered text is discarded unparsed and the
+`sysml>` prompt returns usable (a second Ctrl-C there exits the REPL). A blank line instead
+submits the buffer, so its diagnostics print. Always follow a malformed submission with
 `%eval 1 + 1` (expect `= 2`) to prove the session survived. Never type shell words like `clear`
 at the prompt; it parses as a model line and produces `expected a namespace member`.
 

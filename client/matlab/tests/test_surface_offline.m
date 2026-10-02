@@ -400,6 +400,128 @@ function test_surface_offline()
     assert_error(@() opensysml.convert(conn, 'sysml', ...
         'content', 'package A;', 'modelHash', 'also-a-source'), ...
         'opensysml:argument', 'convert with multiple sources');
+    assert_equal(opensysml.isV1(' MDZIP '), true, 'isV1 folds case and padding');
+    assert_equal(opensysml.isV1('sysml'), false, 'isV1 of notation');
+    assert_equal(opensysml.pathIsV1('dir/Model.XMI'), true, 'pathIsV1 by extension');
+    assert_equal(opensysml.pathIsV1('Model.sysml'), false, 'pathIsV1 of notation');
+    assert_error(@() opensysml.convert(conn, 'sysml', 'filePath', 'Model.mdzip'), ...
+        'opensysml:argument', 'convert refuses a v1 file');
+    assert_error(@() opensysml.convert(conn, 'sysml', 'content', '<xmi/>', 'fromFormat', 'XMI'), ...
+        'opensysml:argument', 'convert refuses v1 content');
+    last = opensysml.lastError();
+    assert_equal(~isempty(strfind(last.message, 'migrated, not converted')), true, ...
+        'convert refusal names migration');
+    assert_equal(~isempty(strfind(last.message, 'opensysml.migrate')), true, ...
+        'convert refusal points at migrate');
+    assert_error(@() opensysml.migrate(conn, 'sysml'), ...
+        'opensysml:argument', 'migrate without a source');
+    assert_error(@() opensysml.migrate(conn, 'sysml', 'filePath', 'a.xmi', 'content', '<xmi/>'), ...
+        'opensysml:argument', 'migrate with two sources');
+    assert_error(@() opensysml.migrate(conn, 'sysml', 'filePath', 'Model.sysml', ...
+        'fromFormat', 'sysml'), 'opensysml:argument', 'migrate refuses a v2 model');
+    last = opensysml.lastError();
+    assert_equal(~isempty(strfind(last.message, 'converted, not migrated')), true, ...
+        'migrate refusal names conversion');
+    assert_error(@() opensysml.migrate(conn, 'sysml', 'content', '<xmi/>'), ...
+        'opensysml:argument', 'migrate content without fromFormat');
+    assert_error(@() opensysml.migrate(conn, 'sysml', 'filePath', 'Model.mdzip', ...
+        'layoutPath', 'a.xml', 'layoutContent', '<mtip/>'), ...
+        'opensysml:argument', 'migrate with two layouts');
+    assert_error(@() opensysml.migrate(conn, 'sysml', 'filePath', 'Model.mdzip', 'strict', 'yes'), ...
+        'opensysml:argument', 'migrate strict must be logical');
+
+    assert_equal(opensysml.internal.base64Decode(opensysml.internal.base64Encode(uint8([137 80 78 71]))), ...
+        uint8([137 80 78 71]), 'base64 round trip');
+    assert_equal(opensysml.internal.base64Decode('AA=='), uint8(0), 'base64 of one byte');
+    warningState = warning;
+    warning('off', 'opensysml:experimental');
+    warningCleanup = onCleanup(@() warning(warningState));
+    answer = struct('content', 'package Vehicle;', 'fromFormat', 'xmi', 'toFormat', 'sysml', ...
+        'experimental', true, 'results', '{}', ...
+        'report', struct('source', 'Vehicle.xmi', 'exporter', 'Cameo', 'summary', 's', ...
+            'mapped', 2, 'approximated', 1, 'unmapped', 0, 'skipped', 1, 'text', 'report', ...
+            'entries', {{struct('id', 'a', 'kind', 'Class', 'name', 'A', 'target', 'part def A', ...
+                                'verdict', 'mapped', 'note', ''), ...
+                         struct('id', 'd', 'kind', 'Diagram', 'name', 'D', 'target', '', ...
+                                'verdict', 'skipped', 'note', 'diagram')}}), ...
+        'files', {{struct('path', 'images/a.png', 'content', 'iVA=')}});
+    migration = opensysml.Migration(answer, 'xmi', 'sysml', '');
+    assert_equal(migration.content, 'package Vehicle;', 'migration content');
+    assert_equal(migration.report.mapped, 2, 'migration mapped count');
+    assert_equal(numel(migration.report.entries), 2, 'migration entries');
+    skipped = migration.byVerdict('skipped');
+    assert_equal(numel(skipped), 1, 'migration byVerdict');
+    assert_equal(skipped{1}.id, 'd', 'migration skipped entry');
+    assert_equal(migration.files('images/a.png'), uint8([137 80]), 'migration image bytes');
+    assert_equal(migration.experimental, true, 'migration is experimental');
+    assert_equal(~isempty(strfind(migration.experimentalNotice, 'experimental')), true, ...
+        'migration notice filled in');
+    directory = tempname;
+    mkdir(directory);
+    directoryCleanup = onCleanup(@() rmdir(directory, 's'));
+    written = migration.write(fullfile(directory, 'Vehicle.sysml'));
+    assert_equal(fileread(written), 'package Vehicle;', 'migration model written');
+    assert_equal(exist(fullfile(directory, 'images', 'a.png'), 'file') == 2, true, ...
+        'migration image written beside the model');
+    escaping = {'../escaped.png', 'images/../../escaped.png', '/tmp/escaped.png', ...
+        'images//x.png', 'images\x.png', 'Other.sysml'};
+    for i = 1:numel(escaping)
+        answer.files = {struct('path', escaping{i}, 'content', 'AA==')};
+        bad = opensysml.Migration(answer, 'xmi', 'sysml', '');
+        assert_error(@() bad.write(fullfile(directory, 'Other.sysml')), ...
+            'opensysml:argument', ['escaping image ' escaping{i}]);
+        assert_equal(exist(fullfile(directory, 'Other.sysml'), 'file'), 0, ...
+            ['no model written for ' escaping{i}]);
+    end
+    source = fullfile(directory, 'Vehicle.xmi');
+    fid = fopen(source, 'w'); fprintf(fid, '<xmi/>'); fclose(fid);
+    answer.files = {};
+    fromSource = opensysml.Migration(answer, 'xmi', 'sysml', source);
+    assert_error(@() fromSource.write(source), 'opensysml:argument', 'overwriting the source');
+    assert_equal(fileread(source), '<xmi/>', 'source left intact');
+    delete(source);
+    fromSource.write(source);
+    assert_equal(fileread(source), 'package Vehicle;', 'a vacated source path protects nothing');
+    if ~ispc
+        fid = fopen(source, 'w'); fprintf(fid, '<xmi/>'); fclose(fid);
+        alias = fullfile(directory, 'Alias.sysml');
+        system(sprintf('ln -s "%s" "%s"', source, alias));
+        assert_error(@() fromSource.write(alias), 'opensysml:argument', ...
+            'overwriting the source through a link to it');
+        assert_equal(fileread(source), '<xmi/>', 'source left intact behind its link');
+        answer.files = {struct('path', 'Alias.sysml', 'content', 'AA==')};
+        aliasing = opensysml.Migration(answer, 'xmi', 'sysml', source);
+        assert_error(@() aliasing.write(fullfile(directory, 'Linked.sysml')), ...
+            'opensysml:argument', 'an image aliasing the source through a link');
+        assert_equal(fileread(source), '<xmi/>', 'source left intact behind an image link');
+        outside = tempname;
+        mkdir(outside);
+        outsideCleanup = onCleanup(@() rmdir(outside, 's'));
+        system(sprintf('ln -s "%s" "%s"', outside, fullfile(directory, 'linked')));
+        mkdir(fullfile(directory, 'dangling'));
+        system(sprintf('ln -s "%s" "%s"', fullfile(outside, 'missing'), ...
+            fullfile(directory, 'dangling', 'dir')));
+        system(sprintf('ln -s "%s" "%s"', fullfile(outside, 'file.png'), ...
+            fullfile(directory, 'dangling', 'file.png')));
+        mkdir(fullfile(directory, 'alias'));
+        system(sprintf('ln -s "%s" "%s"', fullfile(directory, 'alias', 'real.png'), ...
+            fullfile(directory, 'alias', 'alias.png')));
+        linked = {'linked/escaped.png', 'dangling/dir/escaped.png', 'dangling/file.png', ...
+            'alias/alias.png'};
+        for i = 1:numel(linked)
+            answer.files = {struct('path', linked{i}, 'content', 'AA==')};
+            bad = opensysml.Migration(answer, 'xmi', 'sysml', '');
+            assert_error(@() bad.write(fullfile(directory, 'Linked.sysml')), ...
+                'opensysml:argument', ['linked image ' linked{i}]);
+            assert_equal(exist(fullfile(directory, 'Linked.sysml'), 'file'), 0, ...
+                ['no model written for ' linked{i}]);
+        end
+        assert_equal(numel(dir(outside)), 2, 'nothing written outside through a link');
+        assert_equal(exist(fullfile(directory, 'alias', 'real.png'), 'file'), 0, ...
+            'nothing written through a link at the image''s path');
+        clear outsideCleanup;
+    end
+    clear directoryCleanup warningCleanup;
     assert_error(@() opensysml.runSweep(model, 'Demo::calc', struct('x', {{1}})), ...
         'opensysml:argument', 'invalid sweep range');
 
