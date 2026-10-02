@@ -153,10 +153,7 @@ export async function save(
   if (target instanceof Migration) {
     const files = await migrationFiles(target, path);
     await writeFile(path, target.content, "utf8");
-    for (const [file, data] of files) {
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, data, { flag: IMAGE_FLAGS });
-    }
+    await Promise.all(files.map(([file, data]) => writeImage(file, data)));
     return target;
   }
   const conversion =
@@ -192,40 +189,61 @@ async function migrationFiles(
   }
   const base = resolve(dirname(path));
   const landedBase = await landing(base);
-  const files: [string, Uint8Array][] = [];
-  for (const [name, data] of migration.files) {
-    const segments = name.split("/");
-    const file = resolve(base, ...segments);
-    if (
-      segments.some(
-        (segment) =>
-          segment === "" ||
-          segment === "." ||
-          segment === ".." ||
-          segment.includes("\\"),
-      ) ||
-      !within(base, file) ||
-      !within(landedBase, await landing(file))
-    ) {
-      throw new RangeError(
-        `the migration's image ${name} would land outside ${base}`,
-      );
-    }
-    for (const guarded of [path, source]) {
-      if (guarded !== "" && (await samePath(file, guarded))) {
-        throw new RangeError(
-          `the migration's image ${name} would replace ${guarded}`,
-        );
-      }
-    }
-    if (await isSymbolicLink(file)) {
-      throw new RangeError(
-        `the migration's image ${name} would be written through a symbolic link at ${file}`,
-      );
-    }
-    files.push([file, data]);
+  const guarded = [path, source].filter((candidate) => candidate !== "");
+  return Promise.all(
+    [...migration.files].map(async ([name, data]): Promise<[string, Uint8Array]> => {
+      const file = await imageFile(name, base, landedBase, guarded);
+      return [file, data];
+    }),
+  );
+}
+
+/**
+ * Where the image `name` lands under `base`, refusing one that would escape
+ * `base`, replace a guarded path, or be written through a symbolic link.
+ */
+async function imageFile(
+  name: string,
+  base: string,
+  landedBase: string,
+  guarded: readonly string[],
+): Promise<string> {
+  const segments = name.split("/");
+  const file = resolve(base, ...segments);
+  if (
+    segments.some(
+      (segment) =>
+        segment === "" ||
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\\"),
+    ) ||
+    !within(base, file) ||
+    !within(landedBase, await landing(file))
+  ) {
+    throw new RangeError(
+      `the migration's image ${name} would land outside ${base}`,
+    );
   }
-  return files;
+  const replaced = await Promise.all(guarded.map((candidate) => samePath(file, candidate)));
+  const replacing = guarded.find((_, index) => replaced[index]);
+  if (replacing !== undefined) {
+    throw new RangeError(
+      `the migration's image ${name} would replace ${replacing}`,
+    );
+  }
+  if (await isSymbolicLink(file)) {
+    throw new RangeError(
+      `the migration's image ${name} would be written through a symbolic link at ${file}`,
+    );
+  }
+  return file;
+}
+
+/** Writes one image, creating its directory. */
+async function writeImage(file: string, data: Uint8Array): Promise<void> {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, data, { flag: IMAGE_FLAGS });
 }
 
 /**
@@ -239,7 +257,7 @@ const IMAGE_FLAGS =
   constants.O_NOFOLLOW;
 
 /** Whether `path` is itself a symbolic link, wherever it points. */
-async function isSymbolicLink(path: string): Promise<boolean> {
+function isSymbolicLink(path: string): Promise<boolean> {
   return lstat(path).then(
     (status) => status.isSymbolicLink(),
     () => false,
