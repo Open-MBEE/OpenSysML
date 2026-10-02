@@ -341,6 +341,11 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			conformed[member] = v
 		}
+		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+			ctx.abandonInstancesSince(mark)
+			release()
+			return nil, true, err
+		}
 		for _, member := range class.members {
 			if member != earliest {
 				if err := ctx.classifyHeld(member, val); err != nil {
@@ -351,10 +356,6 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			ctx.occurrences[member] = heldObjects(conformed[member])
 			ctx.bindNamespace(member, conformed[member])
-		}
-		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
-			release()
-			return nil, true, err
 		}
 		release()
 	} else {
