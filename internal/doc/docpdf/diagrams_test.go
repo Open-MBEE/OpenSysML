@@ -1,10 +1,13 @@
 package docpdf
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,6 +73,52 @@ func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
 		t.Fatalf("telescope report has %d diagrams, want 2", len(diagrams))
 	}
 	return diagrams
+}
+
+func TestMermaidDrawInlinesLocalPicturesBeforeSizing(t *testing.T) {
+	dir := t.TempDir()
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	imagePath := filepath.Join(dir, "picture.png")
+	if err := os.WriteFile(imagePath, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeSVGTool(t, dir, "mmdc", MermaidEnv)
+	rendering := &view.Rendering{
+		Kind:  view.KindTree,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{{
+			Location: imagePath,
+			Width:    20,
+			Height:   20,
+		}},
+	}
+	source := rendering.Mermaid()
+	rasterizer := &mermaidRasterizer{mmdc: filepath.Join(dir, "mmdc")}
+	if err := rasterizer.draw(dir, source, "diagram.svg"); err != nil {
+		t.Fatalf("draw: %v", err)
+	}
+	inlined, err := os.ReadFile(filepath.Join(dir, "diagram.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(inlined, []byte("data:image/png;base64,")) ||
+		bytes.Contains(inlined, []byte(imagePath)) {
+		t.Errorf("local picture was not inlined:\n%s", inlined)
+	}
+	configData, err := os.ReadFile(filepath.Join(dir, "diagram.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got mermaidConfig
+	if err := json.Unmarshal(configData, &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := configFor(strings.TrimSuffix(string(inlined), "\n")); got != want {
+		t.Errorf("configuration sized the pre-inlined source: got %+v, want %+v", got, want)
+	}
 }
 
 // TestSourceNoticesNameTheVariables checks the notice over a diagram kept as

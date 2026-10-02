@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -70,9 +70,10 @@ TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
-# sysml-engine, sysml-syntax and sysml-core are WebAssembly-only: they serve the
-# execution, syntactic and validation RPCs over JSON so a browser client needs no
-# protobuf, and stay out of the native build, release and manual pages.
+# sysml-engine, sysml-syntax and sysml-core serve the execution, syntactic and
+# validation RPCs over JSON so a client needs no protobuf. Natively they are
+# built only on request (`build-engine`, `build-core`, `build-syntax`) and stay
+# out of `build`, `install`, the release and the manual pages.
 WASM_COMMANDS := $(COMMANDS) sysml-engine sysml-syntax sysml-core
 MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
@@ -120,6 +121,26 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+# The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
+# nothing builds, installs or releases them.
+build-engine: ## Build bin/sysml-engine natively (opt-in; not released)
+	@echo "Building sysml-engine..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-engine ./cmd/sysml-engine
+	@echo "✓ Built $(BIN_DIR)/sysml-engine ($(VERSION))"
+
+build-core: ## Build bin/sysml-core natively (opt-in; not released)
+	@echo "Building sysml-core..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-core ./cmd/sysml-core
+	@echo "✓ Built $(BIN_DIR)/sysml-core ($(VERSION))"
+
+build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
+	@echo "Building sysml-syntax..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-syntax ./cmd/sysml-syntax
+	@echo "✓ Built $(BIN_DIR)/sysml-syntax ($(VERSION))"
 
 # WebAssembly: GOOS=wasip1 runs under a WASI preview 1 runtime (wasmtime, a Node WASI
 # host), GOOS=js under Node or a browser through the toolchain's wasm_exec.js. The

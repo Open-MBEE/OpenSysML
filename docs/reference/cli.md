@@ -244,8 +244,8 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
-| `--render-palette <name>` | | Palette the `mermaid`, `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. A Mermaid sequence diagram notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-style <style>` | | Drawing style the `dot` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid and PlantUML note it as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
@@ -582,7 +582,7 @@ in each form:
 | Form | `part pump : Pump` |
 | --- | --- |
 | `text` | `part pump : Pump` (a note in parentheses after it: `part sensor : Pump (already shown)`) |
-| `mermaid` | `n1["«part»<br>pump : Pump"]` — a flowchart node, a `state "…" as n1` and a `participant n1 as …` all break at `<br>` |
+| `mermaid` | Flowchart labels use Markdown when every line is safe: an italic keyword line, then bold head lines and plain details separated by real newlines; unsafe labels fall back to an escaped `<br>` label. State and sequence labels use `<br>` with the same keyword-first order |
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 
@@ -667,26 +667,27 @@ nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Ok
 `tol-bright`, `tol-muted` and `tol-light` (Paul Tol), `brewer-set2` and `brewer-dark2`
 (ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
 across the families the view draws, darkest first
-([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The `mermaid`,
-`dot` and `plantuml` forms fill each node with the same hex (a flowchart `style` or state diagram
-`classDef` statement; `#hex;line:hex` on a PlantUML element; a PlantUML sequence participant takes
-the fill by keyword family, where `-render-form mermaid` writes a `%% not represented:` comment
-naming the palette, Mermaid filling no participant), and the text and Markdown forms ignore it. A name that is no palette is refused with
+([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
+applies to the `dot`, `mermaid` and `plantuml` forms: DOT and Mermaid draw the same fill and border
+hex per graph node, while PlantUML draws the same fill (`#hex;line:hex` on an element). PlantUML
+sequence participants take their family fill; Mermaid accepts a sequence palette but notes that it
+cannot fill individual participants. Text and Markdown ignore palettes. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
-`-render-style <style>` names the look the DOT form draws in. `pilot`, the default, is the Pilot
+`-render-style <style>` names the look the DOT and Mermaid forms draw in. `pilot`, the default, is the Pilot
 visualizer's Standard B&W above; `cameo` is the look of Cameo Systems Modeler, for a diagram
 migrated from a `.mdzip` to keep the look its authors saw: a diagram frame with the
 `stm [State Machine] Owner [ Name ]` header tab, 11 pt Arial, Cameo's gradient fills — pale
 yellow states, green actions, orange blocks — with thin dark borders, a state's `do / Activity`
 compartment under a rule, the initial dot, final bull's-eye, decision diamond and fork bars, and
 notes with a folded corner and dashed anchor, each colour measured from Cameo's own output
-([the measurements](../project/view-rendering-forms.md#the-cameo-style)). A palette may be named
+([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported
+Cameo details but flattens gradients and omits the frame and header tab. A palette may be named
 with it and recolours the plain nodes. The style applies to `-render`, `-render-all` and the
-`dot` diagrams of `-render-document` and `-render-documents` in every `-doc-form`; the Mermaid
-and PlantUML forms write a `not represented: style cameo` notice, the text and Markdown forms
-ignore it. A member's own `DiagramLayout::Style` — fill, line and text colour, font, size,
+`dot` and `mermaid` diagrams of `-render-document` and `-render-documents` in every `-doc-form`;
+PlantUML writes a `not represented: style cameo` notice, and text and Markdown ignore it. A
+member's own `DiagramLayout::Style` — fill, line and text colour, font, size,
 weight, slant — is drawn over either look, and a `DiagramLayout::Note` beside the member it is
 about ([the annotations](../project/diagram-layout-annotations.md)). A name that is neither
 style is refused with status 2 and the two there are; `-render-style` without something to

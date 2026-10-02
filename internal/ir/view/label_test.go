@@ -224,9 +224,8 @@ func TestTextLabelShape(t *testing.T) {
 	}
 }
 
-// Every Mermaid form carries the same label: the lines joined with `<br>`,
-// which a flowchart node, a state and a sequence participant all break at,
-// whether or not the renderer draws HTML labels.
+// Flowchart labels use Markdown when safe; state and sequence labels keep the
+// lines joined with `<br>`, whether or not the renderer draws HTML labels.
 func TestMermaidLabelShapePerForm(t *testing.T) {
 	roots := []*Node{
 		{ID: "n0", Kind: "state def", Name: "Machines::Lamp", Children: []*Node{
@@ -241,9 +240,8 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 		want []string
 	}{
 		{KindInterconnection, []string{
-			`subgraph n0 ["«state def»<br>Machines::Lamp"]`,
-			`n1["«state»<br>off<br>initial"]`,
-			`n3["«part»<br>pump : Pump"]`,
+			"subgraph n0 [\"`*«state def»*\n**Machines::Lamp**`\"]",
+			"n3(\"`*«part»*\n**pump : Pump**`\")",
 		}},
 		{KindState, []string{
 			`state "«state def»<br>Machines::Lamp" as n0 {`,
@@ -273,36 +271,44 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 	}
 }
 
-// A flowchart whose cluster title spans several lines leads with the Mermaid
-// frontmatter reserving the extra height, sized by its tallest title; a flowchart
-// without such a cluster, a tree, a state or a sequence diagram carries none.
+// Every grammar carries Mermaid theme frontmatter; only a flowchart with a
+// multi-line cluster title reserves the extra height.
 func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 	cluster := func(children ...*Node) []*Node {
 		return []*Node{{ID: "n0", Kind: "part def", Name: "Plant::Loop", Children: children}}
 	}
 	leaf := &Node{ID: "n1", Kind: "part", Name: "pump", Type: "Pump"}
 	noted := &Node{ID: "n2", Kind: "action", Name: "monitor", Detail: "own flow", Children: []*Node{{ID: "n3", Kind: "initial", Name: "begin"}}}
-	frontmatter := func(bottom int) string {
-		return fmt.Sprintf("---\nconfig:\n  themeCSS: %q\n  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n---\n%%%% V — ", mermaidTitleCSS, bottom)
-	}
 	cases := []struct {
-		name  string
-		kind  Kind
-		roots []*Node
-		want  string
+		name   string
+		kind   Kind
+		roots  []*Node
+		margin int
 	}{
-		{"two-line cluster title", KindInterconnection, cluster(leaf), frontmatter(24)},
-		{"nested three-line title", KindAction, cluster(leaf, noted), frontmatter(48)},
-		{"anonymous cluster", KindInterconnection, []*Node{{ID: "n0", Kind: "connect", Children: []*Node{leaf}}}, "%% V — "},
-		{"no cluster", KindInterconnection, []*Node{leaf}, "%% V — "},
-		{"tree", KindTree, cluster(leaf), "%% V — "},
-		{"state", KindState, cluster(leaf), "%% V — "},
-		{"sequence", KindSequence, cluster(leaf), "%% V — "},
+		{"two-line cluster title", KindInterconnection, cluster(leaf), 24},
+		{"nested three-line title", KindAction, cluster(leaf, noted), 48},
+		{"anonymous cluster", KindInterconnection, []*Node{{ID: "n0", Kind: "connect", Children: []*Node{leaf}}}, 0},
+		{"no cluster", KindInterconnection, []*Node{leaf}, 0},
+		{"tree without subgraphs", KindTree, cluster(leaf), 0},
+		{"state", KindState, cluster(leaf), 0},
+		{"sequence", KindSequence, cluster(leaf), 0},
 	}
 	for _, tc := range cases {
 		rendering := &Rendering{View: "V", Kind: tc.kind, Roots: tc.roots}
-		if mermaid := rendering.Mermaid(); !strings.HasPrefix(mermaid, tc.want) {
-			t.Errorf("%s: Mermaid starts with %q, want %q", tc.name, mermaid[:min(len(mermaid), len(tc.want))], tc.want)
+		mermaid := rendering.Mermaid()
+		if !strings.HasPrefix(mermaid, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
+			!strings.Contains(mermaid, "%% V — ") {
+			t.Errorf("%s: Mermaid lacks its frontmatter or header:\n%s", tc.name, mermaid)
+		}
+		if tc.kind != KindState && tc.kind != KindSequence &&
+			!strings.Contains(mermaid, fmt.Sprintf("themeCSS: %q\n", ".edgeLabel rect { opacity: 1 !important; } "+mermaidTitleCSS)) {
+			t.Errorf("%s: Mermaid lacks flowchart theme CSS:\n%s", tc.name, mermaid)
+		}
+		if tc.margin > 0 && !strings.Contains(mermaid, fmt.Sprintf("subGraphTitleMargin:\n      bottom: %d\n", tc.margin)) {
+			t.Errorf("%s: Mermaid does not reserve %d px for the cluster title:\n%s", tc.name, tc.margin, mermaid)
+		}
+		if tc.margin == 0 && strings.Contains(mermaid, "subGraphTitleMargin") {
+			t.Errorf("%s: Mermaid reserves unneeded cluster-title height:\n%s", tc.name, mermaid)
 		}
 	}
 }

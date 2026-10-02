@@ -35,14 +35,13 @@ func partlyPlaced() *Rendering {
 }
 
 // drawnNodes are the node IDs a written diagram declares, in order: the
-// identifiers before `[` in Mermaid, after `as` in PlantUML, before `[` at the
-// head of a statement in DOT.
+// identifiers before a Mermaid shape, after `as` in PlantUML, before `[` in DOT.
 func drawnNodes(t *testing.T, form Form, artifact string) []string {
 	t.Helper()
 	var pattern *regexp.Regexp
 	switch form {
 	case FormMermaid:
-		pattern = regexp.MustCompile(`(?m)^\s*(?:subgraph )?(\w+) ?\["`)
+		pattern = regexp.MustCompile(`(?m)^\s*(?:subgraph )?(\w+)(?:\s*\["|\s*\("|@\{)`)
 	case FormPlantUML:
 		pattern = regexp.MustCompile(`(?m)^\s*(?:class|rectangle|state|participant) ".*" as (\w+)`)
 	case FormDot:
@@ -111,7 +110,7 @@ func TestGraphFormsDrawOnePlacement(t *testing.T) {
 		comment string
 		edge    string
 	}{
-		{FormMermaid, "%% ", "  placed --- low\n"},
+		{FormMermaid, "%% ", "  placed === low\n"},
 		{FormPlantUML, "' ", "placed -[thickness=3]- low\n"},
 	}
 	for _, tc := range cases {
@@ -139,7 +138,7 @@ func TestGraphFormsDrawOnePlacement(t *testing.T) {
 		if !strings.Contains(stripped, tc.comment+"not represented: 5 node(s) without a position, drawn among the placed ones; the "+string(tc.form)+" form lays every node out itself\n") {
 			t.Errorf("%s under strip does not account for the unplaced nodes:\n%s", tc.form, stripped)
 		}
-		if strings.Count(stripped, " --- ")+strings.Count(stripped, "-[thickness=3]-")+strings.Count(stripped, " -.-> ")+strings.Count(stripped, "-[dashed]->") != 3 {
+		if strings.Count(stripped, " --- ")+strings.Count(stripped, " === ")+strings.Count(stripped, "-[thickness=3]-")+strings.Count(stripped, " -.-> ")+strings.Count(stripped, "-[dashed]->") != 3 {
 			t.Errorf("%s under strip does not draw every edge:\n%s", tc.form, stripped)
 		}
 	}

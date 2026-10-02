@@ -31,6 +31,11 @@ beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
 
+`make build-engine`, `make build-core` and `make build-syntax` build `sysml-engine`,
+`sysml-core` and `sysml-syntax` natively into `bin/`, where each serves its JSON-RPC
+over standard input and output as its WASI build does. They are opt-in as well:
+`make build` and `make install` leave them out, and no release ships them.
+
 `make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
 (`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
 `-compile`, the HTML and PDF document forms, FMU import, profiling and the REPL's `%features …

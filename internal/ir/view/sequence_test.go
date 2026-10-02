@@ -154,6 +154,13 @@ func TestEmptySequenceRenderingSaysWhy(t *testing.T) {
 // first message, which is what the grammar asks for.
 func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
 	mermaid := render(t, "sequence.sysml", "SequenceViews::pubSubView").Mermaid()
+	if strings.HasPrefix(mermaid, "---\n") {
+		end := strings.Index(mermaid[4:], "\n---\n")
+		if end < 0 {
+			t.Fatal("Mermaid frontmatter is not closed")
+		}
+		mermaid = mermaid[4+end+len("\n---\n"):]
+	}
 	lines := strings.Split(strings.TrimSpace(mermaid), "\n")
 	if lines[0] != "%% SequenceViews::pubSubView — sequence rendering (view def SequenceView)" {
 		t.Errorf("first line = %q, want the header comment", lines[0])

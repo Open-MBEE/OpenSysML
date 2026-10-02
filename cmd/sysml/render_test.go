@@ -33,7 +33,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"«part def»<br>Vehicle"`} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -220,8 +220,11 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "\n  style n0 fill:#") || strings.Contains(mermaid.stdout, "not represented: palette") {
-		t.Errorf("Mermaid with a palette = %d, want its nodes filled\n%s", mermaid.status, mermaid.output())
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "classDef palette0 fill:#") {
+		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
+	}
+	if strings.Contains(mermaid.stdout, "not represented: palette") {
+		t.Errorf("Mermaid did not apply the palette:\n%s", mermaid.stdout)
 	}
 
 	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")
@@ -233,7 +236,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT or PlantUML with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 
@@ -273,7 +276,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"«part def»<br>Vehicle"`, "wheel"} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**", "wheel"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}

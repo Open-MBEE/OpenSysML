@@ -168,7 +168,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		t.Errorf("the default style frames the diagram as Cameo does:\n%s", dot)
 	}
 	wants(t, run(t, s, "%render-document Imaging::ChainReport dot cameo"), "```dot\n", `subgraph "cluster_frame"`, `fontname="Arial"`)
-	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid cameo"), "```mermaid\n", "style cameo; only the DOT form draws a diagram in a style")
+	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid cameo"), "```mermaid\n", "%% style cameo")
 	markdown, err := s.RenderDocumentMarkdown("Imaging::ChainReport", docrender.MarkdownOptions{DiagramForm: view.FormDot})
 	if err != nil {
 		t.Fatalf("render: %v", err)

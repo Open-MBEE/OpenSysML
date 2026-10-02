@@ -101,9 +101,8 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palettes %render fills the dot form from, the styles
-// it draws in and the port displays it draws an interconnection's parts with,
-// as the arguments after the form spell them.
+// renderPalettes are the palette, style and port display values %render accepts
+// after a form.
 func renderPalettes() []string {
 	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices()))
 	for _, palette := range view.Palettes() {

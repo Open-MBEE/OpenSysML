@@ -436,7 +436,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"*Parts Method Flow*", "```mermaid", "action rendering (render Views::asInterconnectionDiagram, view def ActionFlowView)",
-		"«action»<br>'Collect Owned Elements'", "«action»<br>'Filter By Metaclasses'", "«action»<br>'Sort By Name'",
+		"*«action»*\n**'Collect Owned Elements'**", "*«action»*\n**'Filter By Metaclasses'**", "*«action»*\n**'Sort By Name'**",
 		"*Truck Internals*", "```mermaid", "axles",
 		"*Fleet Overview*", "```mermaid", "Requirements",
 		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles",
@@ -453,7 +453,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	if body := markdownSection(brief, "## Truck Figures"); strings.Contains(body, "*Fleet Overview*") {
 		t.Errorf("Truck Figures draws a diagram the name filter drops:\n%s", body)
 	}
-	if body := markdownSection(brief, "## Other Figures"); strings.Contains(body, "*Truck") {
+	if body := markdownSection(brief, "## Other Figures"); strings.Contains(body, "\n*Truck ") {
 		t.Errorf("Other Figures draws a diagram the name filter excludes:\n%s", body)
 	}
 	if body := markdownSection(brief, "## No Figures"); strings.Contains(body, "```mermaid") {

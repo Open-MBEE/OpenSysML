@@ -1,38 +1,76 @@
 ---
 config:
-  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
   flowchart:
     subGraphTitleMargin:
       bottom: 48
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 flowchart TD
-  subgraph n0 ["«action def»<br>Drive"]
+  subgraph n0 ["`*«action def»*
+**Drive**`"]
     direction TD
-    n1["initial"]
-    n2["«action»<br>provide : Provide"]
-    subgraph n3 ["«action»<br>monitor<br>own flow"]
+    n1@{ shape: f-circ, label: "" }
+    subgraph n2 ["`*«action»*
+**provide : Provide**`"]
       direction TD
-      n5["initial"]
-      n6["«action»<br>record"]
+      n2_anchor[" "]
+      n2_p1["torque"]
     end
-    n7["«action»<br>tally"]
-    n8["«fork»<br>split"]
-    n9["«join»<br>sync"]
-    n10["final"]
-    n11["«action»<br>park"]
-    n12["«decision»<br>check"]
+    subgraph n3 ["`*«action»*
+**monitor**
+own flow`"]
+      direction TD
+      n3_anchor[" "]
+      n3_p0["reading"]
+      n5@{ shape: f-circ, label: "" }
+      n6("`*«action»*
+**record**`")
+    end
+    n7("`*«action»*
+**tally**`")
+    n8@{ shape: fork, label: "split" }
+    n9@{ shape: fork, label: "sync" }
+    n10@{ shape: fr-circ, label: "" }
+    n11("`*«action»*
+**park**`")
+    n12{"`*«decision»*
+**check**`"}
   end
   n5 --> n6
   n1 --> n8
-  n2 --> n9
-  n2 -.->|"torque to reading"| n3
-  n3 --> n9
+  n2_anchor --> n9
+  n2_p1 -.->|"torque to reading"| n3_p0
+  n3_anchor --> n9
   n7 --> n9
-  n8 --> n2
-  n8 --> n3
+  n8 --> n2_anchor
+  n8 --> n3_anchor
   n8 --> n7
   n9 --> n12
   n11 --> n10
   n12 -->|"[speed #gt; 0]"| n10
   n12 --> n11
+  classDef control fill:#181818,stroke:#181818
+  class n8,n9 control
+  classDef anchor fill:none,stroke:none
+  class n2_anchor,n3_anchor anchor

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// DrawingStyle names the look the DOT form draws a diagram in: the Pilot
+// DrawingStyle names the look the DOT and Mermaid forms draw a diagram in: the Pilot
 // "Standard B&W" default, or the look of a diagram drawn by Cameo Systems
 // Modeler, for a document migrated from one. A style is independent of the
 // palette: a palette recolours the nodes of whichever style is drawn.
@@ -23,7 +23,7 @@ const (
 	StyleCameo DrawingStyle = "cameo"
 )
 
-// DrawingStyles are the styles the DOT form can be asked for, in the order
+// DrawingStyles are the styles the DOT and Mermaid forms can be asked for, in the order
 // they are offered.
 func DrawingStyles() []DrawingStyle { return []DrawingStyle{StylePilot, StyleCameo} }
 
@@ -78,11 +78,11 @@ func (s DrawingStyle) check() error {
 // styleNotice is the notice a form that draws no style writes for one asked
 // for, so the request is not dropped silently.
 func styleNotice(style DrawingStyle) string {
-	return fmt.Sprintf("style %s; only the DOT form draws a diagram in a style", style)
+	return fmt.Sprintf("style %s; only the DOT and Mermaid forms draw a diagram in a style", style)
 }
 
 // TakesStyle reports whether the form draws a diagram in a DrawingStyle.
-func (f Form) TakesStyle() bool { return f == FormDot }
+func (f Form) TakesStyle() bool { return f == FormDot || f == FormMermaid }
 
 // countStyled is how many nodes and edges of the rendering carry a Style.
 func (r *Rendering) countStyled() (nodes, edges int) {

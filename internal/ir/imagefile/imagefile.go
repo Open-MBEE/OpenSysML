@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"path"
 	"slices"
 	"strings"
@@ -21,13 +20,30 @@ const svgNamespace = "http://www.w3.org/2000/svg"
 // written (PNG, JPEG, GIF, BMP, WebP), image/svg+xml for one well-formed SVG
 // document, or "" when data is no such image.
 func ContentType(data []byte) string {
-	if ct := http.DetectContentType(data); len(extensions[ct]) > 0 {
+	if ct := signedContentType(data); ct != "" {
 		return ct
 	}
 	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) && CheckSVG(t) == nil {
 		return "image/svg+xml"
 	}
 	return ""
+}
+
+func signedContentType(data []byte) string {
+	switch {
+	case bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")):
+		return "image/png"
+	case bytes.HasPrefix(data, []byte{0xff, 0xd8, 0xff}):
+		return "image/jpeg"
+	case bytes.HasPrefix(data, []byte("GIF87a")), bytes.HasPrefix(data, []byte("GIF89a")):
+		return "image/gif"
+	case bytes.HasPrefix(data, []byte("BM")):
+		return "image/bmp"
+	case len(data) >= 14 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:14], []byte("WEBPVP")):
+		return "image/webp"
+	default:
+		return ""
+	}
 }
 
 // CheckSVG is nil when data is one well-formed SVG document — a single root
@@ -67,18 +83,6 @@ func CheckSVG(data []byte) error {
 			}
 		}
 	}
-}
-
-// Described is what DetectContentType says of bytes that are no image, for
-// telling a reader what was found instead; a markup text says why it is no SVG.
-func Described(data []byte) string {
-	ct := http.DetectContentType(data)
-	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) {
-		if err := CheckSVG(t); err != nil {
-			return ct + "; no SVG document: " + err.Error()
-		}
-	}
-	return ct
 }
 
 // extensions are the file suffixes each image content type is written
