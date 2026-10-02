@@ -653,3 +653,36 @@ func TestAddMemberIndentationAndRootEOF(t *testing.T) {
 		})
 	}
 }
+
+// A member kind only KerML.xtext spells is refused in a .sysml document before
+// anything is written, as an illegal kind naming the language, whether the
+// kind is offered for KerML or not a member kind at all; the offered ones stay
+// offered for a .kerml document.
+func TestKerMLOnlyMemberKindsAreRefusedInSysML(t *testing.T) {
+	offered := map[string]bool{}
+	for _, kind := range MemberKinds(source.KindKerML) {
+		offered[kind] = true
+	}
+	for _, kind := range []string{
+		"class", "struct", "datatype", "classifier", "feature", "step", "expr", "bool",
+		"behavior", "function", "predicate", "metaclass",
+		"assoc", "interaction", "inv", "multiplicity", "subclassifier", "connector",
+	} {
+		m := loadContent(t, "kinds.sysml", "package P {\n}\n")
+		for _, k := range MemberKinds(m.Source.Kind()) {
+			if k == kind {
+				t.Fatalf("kinds.sysml offers %q", kind)
+			}
+		}
+		e := addFailure(t, m, AddMember("P", kind, "added"), FailureIllegalKind)
+		if offered[kind] && !strings.Contains(e.Message, "sysml") {
+			t.Errorf("%q: message %q does not name the sysml source", kind, e.Message)
+		}
+	}
+	for _, kind := range []string{"class", "struct", "datatype", "classifier", "feature", "step", "expr", "bool",
+		"behavior", "function", "predicate", "metaclass"} {
+		if !offered[kind] {
+			t.Errorf("kinds.kerml does not offer %q", kind)
+		}
+	}
+}
