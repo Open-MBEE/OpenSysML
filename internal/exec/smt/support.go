@@ -170,6 +170,21 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 				}
 				return nil, unsupported
 			}
+			// CheckStep's refusals (a plain `then`, a contradicting control end,
+			// a guarded edge it does not admit) are the engine's refusals too.
+			if stepErr := frame.Graph.CheckStep(node, model); stepErr != nil {
+				unsupported := &UnsupportedError{
+					Node:      nodeLabel(node),
+					Construct: "action step multiplicity " + frame.Graph.MultiplicityText(node, model),
+					Reason:    stepErr.Error(),
+				}
+				var multErr *lower.StepMultiplicityError
+				if errors.As(stepErr, &multErr) {
+					unsupported.Construct = "action step multiplicity " + multErr.Multiplicity
+					unsupported.Reason = multErr.Reason
+				}
+				return nil, fmt.Errorf("%w: %w", unsupported, stepErr)
+			}
 			if count != 1 {
 				if f.Repeats == nil {
 					f.Repeats = make(map[ast.Node]int64)

@@ -94,10 +94,12 @@ func TestEncodeRepeatedStepSharedWriters(t *testing.T) {
 		attribute c : Integer = 0;
 		first start then f;
 		fork f;
-		then a;
+		then p;
 		then b;
+		action p;
 		action a[2] { assign c := 1; }
 		action b { assign c := 2; }
+		succession first [1] p then [*] a;
 		succession first [*] a then [1] r;
 		action r;
 		merge m;
@@ -129,7 +131,9 @@ func TestEncodeRepeatedStepSharedWriters(t *testing.T) {
 
 // TestAnalyzeRefusesLiveRepeatedStep: a step a token may reach again while its
 // performances are live — a cycle, or several successions' arrivals — is
-// refused, as is a step whose count is not fixed.
+// refused, as is a step whose count is not fixed, and every refusal CheckStep
+// declares for the shape: a plain `then`, a control node's contradicting end,
+// a guarded succession it does not admit.
 func TestAnalyzeRefusesLiveRepeatedStep(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -137,9 +141,9 @@ func TestAnalyzeRefusesLiveRepeatedStep(t *testing.T) {
 			action def Cyclic {
 				first start then a;
 				action a[2];
-				then b;
+				succession first [*] a then [1] b;
 				action b;
-				succession first b then a;
+				succession first [1] b then [*] a;
 			}
 			action def ManyWays {
 				first start then f;
@@ -148,10 +152,10 @@ func TestAnalyzeRefusesLiveRepeatedStep(t *testing.T) {
 				then q;
 				action p;
 				action q;
-				succession first p then a;
-				succession first q then a;
+				succession first [1] p then [*] a;
+				succession first [1] q then [*] a;
 				action a[2];
-				then done;
+				succession first [*] a then [1] done;
 			}
 			action def Ranged {
 				first start then a;
@@ -183,6 +187,69 @@ func TestAnalyzeRefusesLiveRepeatedStep(t *testing.T) {
 			}
 			if unsupported.Construct != tc.construct || unsupported.Reason != tc.reason {
 				t.Fatalf("refusal %q/%q, want %q/%q", unsupported.Construct, unsupported.Reason, tc.construct, tc.reason)
+			}
+		})
+	}
+}
+
+// TestAnalyzeRefusesWhatCheckStepRefuses: the shapes run and explore refuse —
+// a plain `then` around a repeated step, a control node's succession it
+// forbids, a guarded one it does not admit — are the engine's refusals too,
+// each wrapped so the StepMultiplicityError is still found.
+func TestAnalyzeRefusesWhatCheckStepRefuses(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			private import ScalarValues::*;
+			action def PlainThen {
+				first start then a;
+				action a[2];
+				then b;
+				action b;
+			}
+			action def ForkOut {
+				first start then f;
+				fork f;
+				then a;
+				then q;
+				action a[2];
+				action q;
+			}
+			action def GuardFrom {
+				first start then a;
+				action a[2];
+				action q;
+				succession first a if true then q;
+			}
+		}`)
+	for _, tc := range []struct {
+		name string
+		code string
+	}{
+		{"PlainThen", lower.StepOrderUnsatisfiableCode},
+		{"ForkOut", lower.StepOrderUnsatisfiableCode},
+		{"GuardFrom", lower.StepMultiplicityUnsupportedCode},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			matches := idx.LookupQualified("test::" + tc.name)
+			if len(matches) != 1 {
+				t.Fatalf("test::%s matched %d symbols, want one", tc.name, len(matches))
+			}
+			graph, err := lower.ToActionGraph(matches[0].Decl, matches[0].Scope)
+			if err != nil {
+				t.Fatalf("lower: %v", err)
+			}
+			lower.StartFlow(graph)
+			_, err = Analyze(graph, ctx.Semantics(), 10)
+			var unsupported *UnsupportedError
+			var stepErr *lower.StepMultiplicityError
+			if !errors.As(err, &unsupported) || !errors.As(err, &stepErr) {
+				t.Fatalf("Analyze: got %v, want an UnsupportedError wrapping a StepMultiplicityError", err)
+			}
+			if stepErr.Code != tc.code {
+				t.Errorf("code: got %s, want %s", stepErr.Code, tc.code)
+			}
+			if unsupported.Construct != "action step multiplicity [2]" {
+				t.Errorf("construct: got %q, want the multiplicity of a", unsupported.Construct)
 			}
 		})
 	}
