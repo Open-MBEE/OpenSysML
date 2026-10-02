@@ -447,16 +447,6 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 	return SeqCall{Op: op, Args: args, T: t}, nil
 }
 
-// predicateOp reports whether an operation only compares its operands'
-// elements, so Integers and Reals may be compared as numbers.
-func predicateOp(op SeqOp) bool {
-	switch op {
-	case SeqIncludes, SeqIncludesOnly, SeqExcludes, SeqEquals:
-		return true
-	}
-	return false
-}
-
 // seqResult is the type of a value operation over collections of elem.
 func (fc *funcCompiler) seqResult(op SeqOp, elem Type) (Type, error) {
 	switch op {
