@@ -306,8 +306,9 @@ func (o *stepOrder) eligible(t Token) bool {
 	return true
 }
 
-// tokenActed reports whether the step of the token snapshotted as before moved, consumed, retired, resumed, forked or joined it,
-// took its awaited message, began work of its own that paused after one move, or paused its work for a message.
+// tokenActed reports whether the step of the token snapshotted as before moved,
+// consumed, retired, resumed, forked or joined it, took its awaited message, began
+// work of its own that paused after one move, or paused its work for a message.
 func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 	if before.body != nil || len(e.tokens) != count {
 		return true

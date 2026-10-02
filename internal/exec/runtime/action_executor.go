@@ -2759,7 +2759,9 @@ func (e *ActionExecutor) tokenWaits() []ClockWait {
 	return waits
 }
 
-// dueWork reports whether a token can move now, not counting waits for clock or messages.
+// dueWork reports a token that can move at this instant (not parked, nor paused on
+// the clock or for a message, not held at a join, due, or with a message in flight)
+// in the flow awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
