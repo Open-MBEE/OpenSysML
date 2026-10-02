@@ -378,7 +378,7 @@ func (s *scheduler) bodyYields(contended bool) (yields, draws bool) {
 // drawYield draws whether a seeded body run for token yields at its boundary-th
 // boundary: a function of the seed and both, so the run's other draws keep their stream.
 func (s *scheduler) drawYield(token int64, boundary uint64) bool {
-	z := s.policy.seed ^ uint64(token)*0x9e3779b97f4a7c15 ^ boundary*0xbf58476d1ce4e5b9
+	z := s.policy.seed ^ uint64(token)*0x9e3779b97f4a7c15 ^ boundary*0xbf58476d1ce4e5b9 // #nosec G115 -- the bits are hashed, not used as a count
 	z = (z ^ z>>30) * 0xbf58476d1ce4e5b9
 	z = (z ^ z>>27) * 0x94d049bb133111eb
 	return (z^z>>31)&1 == 0
