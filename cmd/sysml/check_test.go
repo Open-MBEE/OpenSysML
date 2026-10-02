@@ -147,6 +147,10 @@ func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
 			jsonReport.status, jsonReport.output())
 	}
 
+	const constantAttribute = `package P { part def T { constant attribute a; } }`
+	constantCheck := check(t, binary, constantAttribute, "-self-check")
+	wantReport(t, constantCheck, 0, "Self-model check: ", ", 0 violations,")
+
 	const broken = `package P { part def A :> Missing; }`
 	failed := check(t, binary, broken, "-self-check")
 	if failed.status == 0 || !strings.Contains(failed.output(), "did not analyse cleanly; no check was made") {

@@ -276,12 +276,29 @@ func TestKerMLConstantFeatureIsVariableButSysMLConstantIsNot(t *testing.T) {
 		}
 	}
 
-	sysml, root := buildModelWithStdlib(t, `package N { attribute def A { constant attribute c; } }`)
-	attribute := nestedSym(t, root, "N::A::c")
-	for name, want := range map[string]bool{"isConstant": true, "isVariable": false} {
-		got, ok := sysml.ReflectiveFeatureValue(attribute, name)
-		if !ok || got.Bool != want {
-			t.Errorf("SysML A::c.%s = %v (present %t), want %t", name, got, ok, want)
+	sysml, root := buildModelWithStdlib(t, `package N {
+		part def T {
+			constant attribute a;
+			ref part borrowed;
+		}
+		attribute def A { constant attribute c; }
+		constant attribute p;
+	}`)
+	for path, want := range map[string]struct {
+		constant bool
+		variable bool
+	}{
+		"N::T::a":        {constant: true, variable: true},
+		"N::T::borrowed": {variable: true},
+		"N::A::c":        {constant: true},
+		"N::p":           {constant: true},
+	} {
+		attribute := nestedSym(t, root, path)
+		for name, expected := range map[string]bool{"isConstant": want.constant, "isVariable": want.variable} {
+			got, ok := sysml.ReflectiveFeatureValue(attribute, name)
+			if !ok || got.Bool != expected {
+				t.Errorf("%s.%s = %v (present %t), want %t", path, name, got, ok, expected)
+			}
 		}
 	}
 }

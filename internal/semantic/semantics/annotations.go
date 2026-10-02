@@ -1596,6 +1596,11 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	if !m.isReflectiveFeature(sym) {
 		return symbols.FilterValue{}, false
 	}
+	if feature == "isVariable" && sym.Recorded() && !m.isKerMLDoc(sym) &&
+		m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
+		// Records omit the Usage::portion prefix, so mayTimeVary is not decidable without the AST.
+		return symbols.FilterValue{}, false
+	}
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
@@ -1649,12 +1654,12 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isComposite = mods.Has(symbols.ModComposite)
 		}
 	} else {
+		flags.isVariable = m.FeatureIsVariable(sym)
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			flags.isEnd = d.IsEnd
 			flags.isPortion = d.IsPortion || d.Portion != ast.PortionNone
 			flags.isConstant = d.IsConstant
-			flags.isVariable = d.IsVariable || (m.isKerMLDoc(sym) && d.IsConstant)
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
 			flags.isOrdered = d.IsOrdered
@@ -1668,7 +1673,6 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isEnd = true
 			flags.isPortion = d.IsPortion
 			flags.isConstant = d.IsConstant
-			flags.isVariable = d.IsVariable || (m.isKerMLDoc(sym) && d.IsConstant)
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
 			flags.isOrdered = d.IsOrdered
