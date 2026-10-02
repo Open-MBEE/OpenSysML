@@ -268,6 +268,126 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		if !slices.Equal(heldObjects(got), heldObjects(bVal)) {
 			t.Fatalf("a = %v, want b's occurrence %v", heldObjects(got), heldObjects(bVal))
 		}
+		same, err := evalIn(t, ctx, pkg.Scope, "a === b")
+		if err != nil || FormatValue(same) != "true" {
+			t.Fatalf("a === b = %v (%v), want true: one recorded object is the member's scalar value", FormatValue(same), err)
+		}
+	})
+
+	t.Run("a member's recorded occurrences match a multi-valued source", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car[2];
+			part b : Car[2] = (new Car(), new Car());
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+		aSym := lookupOne(t, idx, "test::a")
+		bSym := lookupOne(t, idx, "test::b")
+
+		ec := NewEvalContext(ctx, bSym.OwnerScope)
+		bVal, err := ec.declaredValue(bSym, bSym.Decl.(*ast.Usage).Value)
+		if err != nil {
+			t.Fatalf("b's declared value: %v", err)
+		}
+		if ids := heldObjects(bVal); len(ids) != 2 {
+			t.Fatalf("b's declared value = %v, want two occurrences", ids)
+		}
+		ctx.occurrences[aSym] = heldObjects(bVal)
+		got, err := evalIn(t, ctx, pkg.Scope, "a")
+		if err != nil {
+			t.Fatalf("a = %v: a's recorded occurrences are b's value, so there is no conflict", err)
+		}
+		if !slices.Equal(heldObjects(got), heldObjects(bVal)) {
+			t.Fatalf("a = %v, want b's occurrences %v", heldObjects(got), heldObjects(bVal))
+		}
+	})
+
+	t.Run("a class materializes the largest member lower bound", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car[0..1];
+			part b : Car;
+			bind a = b;
+		}`
+		extents := make([][]int64, 2)
+		for i, first := range []string{"a", "b"} {
+			ctx, idx := contextForSource(t, src)
+			pkg := lookupOne(t, idx, "test")
+			got, err := evalIn(t, ctx, pkg.Scope, first)
+			if err != nil {
+				t.Fatalf("%s first: %v", first, err)
+			}
+			if ids := heldObjects(got); len(ids) != 1 {
+				t.Fatalf("%s first = %v, want the one occurrence the class materializes", first, ids)
+			}
+			all, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+			if err != nil {
+				t.Fatalf("all test::Car after %s first: %v", first, err)
+			}
+			extents[i] = heldObjects(all)
+		}
+		if !slices.Equal(extents[0], extents[1]) || len(extents[0]) != 1 {
+			t.Fatalf("extent read from a first = %v, from b first = %v, want the same one object", extents[0], extents[1])
+		}
+	})
+
+	t.Run("a class whose largest lower bound a member cannot hold is refused", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car[0..1];
+			part b : Car[2];
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "b")
+		if !errors.Is(err, ErrBindingConflict) {
+			t.Fatalf("b = %v, want binding conflict: two occurrences cannot be a's [0..1]", err)
+		}
+		for _, name := range []string{"test::a", "test::b"} {
+			sym := lookupOne(t, idx, name)
+			if ids := ctx.occurrences[sym]; len(ids) != 0 {
+				t.Fatalf("occurrences[%s] = %v, want none: the refused class records no occurrences", name, ids)
+			}
+			if _, ok := ctx.namespaceBindings[sym]; ok {
+				t.Fatalf("%s is bound, want nothing bound after the refused class", name)
+			}
+		}
+		if len(ctx.instances) != 0 {
+			t.Fatalf("%d objects materialized, want none after the refused class", len(ctx.instances))
+		}
+	})
+
+	t.Run("a member's classifier behavior reads the class's one object", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			part def Car {
+				attribute probe : Car;
+				exhibit state tally {
+					entry; then on;
+					state on { entry action peek { assign probe := a; } }
+				}
+			}
+			part a : Car;
+			part b : Car;
+			bind a = b;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		if _, err := evalIn(t, ctx, pkg.Scope, "a"); err != nil {
+			t.Fatalf("a: %v", err)
+		}
+		all, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+		if err != nil {
+			t.Fatalf("all test::Car: %v", err)
+		}
+		if ids := heldObjects(all); len(ids) != 1 {
+			t.Fatalf("all test::Car = %v, want the class's one object: a behavior reading a member must not materialize another", ids)
+		}
 	})
 
 	t.Run("a scope registered after the index builds still resolves its bindings", func(t *testing.T) {

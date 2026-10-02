@@ -1168,7 +1168,29 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 // materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
 	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		return Value{}, false, nil
+		if !ec.ctx.optionalValueless(sym) {
+			return Value{}, false, nil
+		}
+		// Of itself an optional usage denotes nothing, but a binding connector
+		// may have bound it to another usage's value.
+		ec.ctx.noteDeclarationRead(sym)
+		objs, bound, err := ec.ctx.namespaceBoundObjects(sym)
+		if err != nil || !bound {
+			return Value{}, bound, err
+		}
+		elements := make([]Value, 0, len(objs))
+		for _, inst := range objs {
+			obj, err := ec.ctx.objectValue(inst)
+			if err != nil {
+				return Value{}, true, err
+			}
+			elements = append(elements, obj)
+		}
+		val := sequenceOf(elements)
+		if len(elements) == 1 {
+			val = elements[0]
+		}
+		return val, true, nil
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)

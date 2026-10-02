@@ -244,7 +244,11 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 					}
 					elements = append(elements, val)
 				}
-				vals = append(vals, held{sequenceOf(elements), symbolText(member)})
+				val := sequenceOf(elements)
+				if len(elements) == 1 {
+					val = elements[0]
+				}
+				vals = append(vals, held{val, symbolText(member)})
 				seen[member] = true
 			}
 		}
@@ -287,13 +291,20 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		}
 	}
 	if len(vals) == 0 {
-		// The class has no source, so its one value is what the earliest
-		// member's own denotation would materialize: its lower bound of
-		// occurrences, made the way occurrencesOf makes them.
+		// The class has no source, so its one value is what the members' own
+		// denotations would materialize: the largest lower bound among them,
+		// made the way occurrencesOf makes them, so which member is read first
+		// does not change it.
 		earliest := class.members[0]
-		count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(earliest, ctx.findOwnerType(earliest)), 0, symbolText(earliest))
-		if err != nil {
-			return nil, true, fmt.Errorf("usage %s: %w", symbolText(earliest), err)
+		count := 0
+		for _, member := range class.members {
+			n, err := ctx.lowerBoundCount(ctx.featureMultiplicity(member, ctx.findOwnerType(member)), 0, symbolText(member))
+			if err != nil {
+				return nil, true, fmt.Errorf("usage %s: %w", symbolText(member), err)
+			}
+			if n > count {
+				count = n
+			}
 		}
 		release := ctx.elementScope()
 		if err := ctx.chargeElements(int64(count)); err != nil {
@@ -325,37 +336,41 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if len(class.bindings) > 0 {
 			text = ctx.bindingText(class.bindings[0])
 		}
-		count64 := int64(len(members))
-		conformed := make(map[*symbols.Symbol]Value, len(class.members))
+		// Recorded before the conform checks, which can start classifier
+		// behaviors of the shared objects: one of them reading a member reaches
+		// the objects the class already names rather than materializing another.
 		for _, member := range class.members {
-			if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(count64); msg != "" {
-				ctx.abandonInstancesSince(mark)
-				release()
-				return nil, true, fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg)
-			}
-			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
-			if err != nil {
-				ctx.abandonInstancesSince(mark)
-				release()
-				return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err)
-			}
-			conformed[member] = v
+			ctx.occurrences[member] = heldObjects(val)
+			ctx.bindNamespace(member, val)
 		}
-		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		fail := func(err error) ([]*Instance, bool, error) {
+			for _, member := range class.members {
+				delete(ctx.occurrences, member)
+				ctx.unbindNamespace(member)
+			}
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, true, err
 		}
+		count64 := int64(len(members))
 		for _, member := range class.members {
+			if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(count64); msg != "" {
+				return fail(fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg))
+			}
+			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
+			if err != nil {
+				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
+			}
 			if member != earliest {
 				if err := ctx.classifyHeld(member, val); err != nil {
-					ctx.abandonInstancesSince(mark)
-					release()
-					return nil, true, err
+					return fail(err)
 				}
 			}
-			ctx.occurrences[member] = heldObjects(conformed[member])
-			ctx.bindNamespace(member, conformed[member])
+			ctx.occurrences[member] = heldObjects(v)
+			ctx.bindNamespace(member, v)
+		}
+		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+			return fail(err)
 		}
 		release()
 	} else {

@@ -486,6 +486,13 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		}
 		return members, nil
 	case ctx.optionalValueless(sym):
+		// Of itself an optional usage denotes nothing, but a binding connector
+		// may have bound it to another usage's value.
+		if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
+			return nil, err
+		} else if bound {
+			return objs, nil
+		}
 		return nil, nil
 	}
 	return nil, ctx.undenotedUsage(sym)
