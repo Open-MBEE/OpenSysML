@@ -591,6 +591,11 @@ type Accept struct {
 	Trigger      ast.Node
 	// Scope is the scope the accept was declared in, in which SignalType resolves.
 	Scope *symbols.Scope
+	// Keeper reports the accept keeps the signal for a state deferring it, as a
+	// DeferredKeeper annotation on the node declares (`#MigrationMetadata::DeferredKeeper
+	// action receive accept kept : Sig;`): it takes an occurrence no other accept
+	// of the state's behavior is ready for.
+	Keeper bool
 }
 
 // Attribute is a lowered attribute default written among a behavior's members

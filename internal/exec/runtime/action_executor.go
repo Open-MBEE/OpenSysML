@@ -47,10 +47,6 @@ type ActionExecutor struct {
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
 	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
-	// deferred are the signals the state whose do behavior this flow runs defers:
-	// an accept of the flow's own keeping one yields the message to another
-	// accept of the run (keeps, yieldsKeeping). Empty for every other flow.
-	deferred []lower.DeferredSignal
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute

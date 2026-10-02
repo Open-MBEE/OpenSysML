@@ -26,6 +26,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(behavior.StateTransitionPass{})
 	reg.Register(behavior.ActionEndpointPass{})
 	reg.Register(UndeclaredSignalPass{})
+	reg.Register(DeferredKeeperPass{})
 	reg.Register(TypeCheckPass{})
 	reg.Register(TransitionGuardPass{})
 	reg.Register(TriggerArgumentPass{})

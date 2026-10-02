@@ -1,0 +1,1 @@
+12:5 warning [lint/deferred-keeper-unmarked] accept of deferred signal Ping is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it

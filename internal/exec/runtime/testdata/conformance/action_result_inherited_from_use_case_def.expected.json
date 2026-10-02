@@ -1,0 +1,7 @@
+{
+  "type": "action",
+  "evaluate": "test::ByUC",
+  "outputs": {
+    "n": {"type": "Integer", "value": 7}
+  }
+}

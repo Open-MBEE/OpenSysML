@@ -211,28 +211,15 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 	return order
 }
 
-// keeps reports whether the token sits at an accept keeping a deferred signal
-// of the state whose do behavior this flow runs: an accept of the flow's own
-// typed by a signal the state defers, the accept loop of the standard deferral
-// encoding (`item deferred : Sig[*] ordered; do action buffer { … accept kept : Sig; … }`).
+// keeps reports whether the token sits at the accept keeping a deferred signal
+// for the state whose do behavior this flow runs: the accept loop of the
+// standard deferral encoding, which its DeferredKeeper annotation names
+// (`#MigrationMetadata::DeferredKeeper action receive accept kept : Sig;`) and
+// lowering records as Accept.Keeper; an accept of the same signal without the
+// annotation is an ordinary consumer, wherever it stands.
 func (e *ActionExecutor) keeps(t Token) bool {
-	if len(e.deferred) == 0 || t.frame != e.root {
-		return false
-	}
 	accept, ok := e.messageAccept(t)
-	if !ok || accept.SignalType == nil {
-		return false
-	}
-	kept := e.ctx.triggerType(accept.Scope, accept.SignalType)
-	if kept == nil {
-		return false
-	}
-	for _, d := range e.deferred {
-		if e.ctx.triggerType(d.Scope, d.Type) == kept {
-			return true
-		}
-	}
-	return false
+	return ok && accept.Keeper
 }
 
 // yieldsKeeping reports whether a message the keeping accept at k would take is

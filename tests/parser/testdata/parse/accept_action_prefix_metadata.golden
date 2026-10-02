@@ -1,0 +1,52 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="AcceptPrefixMetadata" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="metadata" abstract=false variation=false name="M"))
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Scene"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="Camera"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Watch"
+          (Membership visibility="default"
+            (Usage kind="port" name="lens" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Camera
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="framed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="M")
+              (Relationship kind="via" target=lens
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="scene" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Scene
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="<f2> framed2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="M")
+              (Membership visibility="default"
+                (Usage kind="attribute" name="scene" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Scene
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="M")
+              (Membership visibility="default"
+                (Usage kind="attribute" name="scene" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Scene
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="marked" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="$::AcceptPrefixMetadata::M")
+              (Membership visibility="default"
+                (Usage kind="attribute" name="scene" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Scene
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="done" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="scene" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Scene
+                    (*ast.QualifiedName))))))
+          (SuccessionEdge source="marked" target="done"))))))

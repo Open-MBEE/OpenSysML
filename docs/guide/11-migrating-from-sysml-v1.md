@@ -339,7 +339,9 @@ action fills from an accept loop while the state is active, substates included, 
 action sends the kept occurrences back to the object once the state is left, so the state
 entered next takes them as if they had just arrived. The state is annotated
 `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` as well, so a reader sees what
-was deferred without reading the encoding; the encoding and its rules are described under
+was deferred without reading the encoding, and the loop's accept is marked
+`#MigrationMetadata::DeferredKeeper`, which names it as the one keeping the signal rather than
+consuming it; the encoding and its rules are described under
 [Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). A transition out of
 the deferring state into a `choice` accepts the signal in both modes, since the pseudostate
 metadata spelling is written either way.
