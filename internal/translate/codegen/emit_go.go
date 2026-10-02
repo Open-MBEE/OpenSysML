@@ -666,6 +666,9 @@ func sysmlFormat(v any) string {
 	if t, ok := v.(string); ok {
 		return strconv.Quote(t)
 	}
+	if l, ok := v.(sysmlEnum); ok {
+		return sysmlLiterals[l]
+	}
 	if n, ok := v.(sysmlNum); ok {
 		if n.real {
 			v = n.r
@@ -712,6 +715,8 @@ func sysmlRun(fn func()) (err error) {
 func EmitGo(w io.Writer, p *Program) error {
 	e := &goEmitter{w: w, collections: p.Collections}
 	e.raw(goPrelude)
+	e.raw(goEnumPrelude)
+	e.raw(goEnumTables(p))
 	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\nconst sysmlDefaultMaxSteps = %d\n\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps))
 	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\nconst sysmlMinMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
 	if p.Collections {
@@ -752,6 +757,12 @@ func (e *goEmitter) linef(format string, args ...any) {
 }
 
 func goType(t Type) string {
+	if t.IsEnum() {
+		if t.Many() {
+			return goSeqType(t)
+		}
+		return "sysmlEnum"
+	}
 	switch t {
 	case TypeInt:
 		return "sysmlInt"
@@ -896,6 +907,12 @@ func (e *goEmitter) expr(x Expr) string {
 		return strconv.FormatBool(x.Value)
 	case StrLit:
 		return strconv.Quote(x.Value)
+	case EnumLit:
+		return fmt.Sprintf("sysmlEnum(%d)", x.T.Enum.Base+x.I)
+	case EnumText:
+		return "sysmlLiterals[" + e.expr(x.X) + "]"
+	case Refusal:
+		return e.refusal(x)
 	case Var:
 		return goLocal(x.Name)
 	case ToReal:
@@ -1070,6 +1087,9 @@ func (e *goEmitter) main(fn *Func) {
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
 		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool", TypeNum: "sysmlParseNum", TypeString: "sysmlParseString"}[p.Type.Elem()]
+		if p.Type.IsEnum() {
+			parser = goEnumParser(p.Type)
+		}
 		if p.Type.Many() {
 			parser = fmt.Sprintf("sysmlParseSeq[%s](args[%d], %q, %s)", goElem(p.Type), i, p.Name, parser)
 		} else {

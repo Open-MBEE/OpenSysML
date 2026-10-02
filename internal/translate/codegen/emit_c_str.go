@@ -265,9 +265,14 @@ var cUnprintable = sync.OnceValue(func() string {
 	return b.String()
 })
 
-// cStrLit is a String literal as a C sysml_str over static bytes; every byte
-// outside printable ASCII is an octal escape, so no source encoding is assumed.
+// cStrLit is a String literal as a C sysml_str over static bytes.
 func cStrLit(s string) string {
+	return fmt.Sprintf("((sysml_str){%d, %s})", len(s), cString(s))
+}
+
+// cString is a C string literal of s; every byte outside printable ASCII is an
+// octal escape, so no source encoding is assumed.
+func cString(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
 		switch c := s[i]; {
@@ -280,5 +285,5 @@ func cStrLit(s string) string {
 			fmt.Fprintf(&b, "\\%03o", c)
 		}
 	}
-	return fmt.Sprintf("((sysml_str){%d, \"%s\"})", len(s), b.String())
+	return "\"" + b.String() + "\""
 }

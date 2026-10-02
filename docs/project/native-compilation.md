@@ -62,7 +62,7 @@ A calc compiles when everything it reaches is in this subset:
 
 Everything else refuses: String, record (`attribute def`) and enum parameters, results or
 attributes, a `Collections::Set` (or any collection object) and a `TensorQuantityValue` wherever
-they appear (`type Collections::Set is not Integer, Real, Boolean or String`; a set has no native layout
+they appear (`type Collections::Set is not Integer, Real, Boolean, String or an enumeration`; a set has no native layout
 and a tensor's components are quantities), parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and* declares members
 (redefining inherited parameters or body is not compiled), sequences whose elements mix Integer
 and Real (`==`, `same`, `union` between an `Integer[0..*]` and a `Real[0..*]`, `Integer[0..*] ?? 5.5`),
@@ -404,7 +404,7 @@ eligibility rule.
 Status: the collection half is done — homogeneous sequences of the scalar types with any
 multiplicity, the shape rules, `for`, the sequence and control libraries and the element budget, in
 both backends, under the differential test described above. Records, enums and record field access
-are still refused (`type X is not Integer, Real, Boolean or String`), as are sequences mixing Integer and
+are still refused (`type X is not Integer, Real, Boolean, String or an enumeration`), as are sequences mixing Integer and
 Real elements; they are the remainder of this phase.
 
 **Phase 2 — Instances: parts, attributes, ports, connections.**

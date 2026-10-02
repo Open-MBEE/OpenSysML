@@ -11,45 +11,89 @@ import (
 // Type is a type of the compiled subset: a scalar, or a collection of scalars.
 // A collection value is the interpreter's dynamic view of a multi-valued
 // feature: null, one bare scalar, or a sequence of any length (its shape).
-type Type int
+// An enumeration-literal type names its enumeration in Enum.
+type Type struct {
+	k    typeKind
+	Enum *Enum
+}
+
+type typeKind uint8
 
 const (
-	TypeInvalid Type = iota
-	TypeInt          // Integer and its subtypes, unbounded (int64 until a result leaves it)
-	TypeReal         // Real and Rational, IEEE 754 binary64
-	TypeBool
-	TypeNum       // a Real-typed value, an Integer or a Real by run-time kind
-	TypeString    // a String, its characters Unicode code points held as UTF-8
-	TypeNull      // `null` before context fixes its collection type
-	TypeSeqInt    // collection of Integers
-	TypeSeqReal   // collection of Reals
-	TypeSeqBool   // collection of Booleans
-	TypeSeqNum    // collection of numbers, each element of its own kind
-	TypeSeqString // collection of Strings
+	kindInvalid typeKind = iota
+	kindInt
+	kindReal
+	kindBool
+	kindNum
+	kindString
+	kindEnum
+	kindNull
+	kindSeqInt
+	kindSeqReal
+	kindSeqBool
+	kindSeqNum
+	kindSeqString
+	kindSeqEnum
 )
 
+var (
+	TypeInvalid   = Type{}
+	TypeInt       = Type{k: kindInt}       // Integer and its subtypes, unbounded (int64 until a result leaves it)
+	TypeReal      = Type{k: kindReal}      // Real and Rational, IEEE 754 binary64
+	TypeBool      = Type{k: kindBool}      // Boolean
+	TypeNum       = Type{k: kindNum}       // a Real-typed value, an Integer or a Real by run-time kind
+	TypeString    = Type{k: kindString}    // a String, its characters Unicode code points held as UTF-8
+	TypeNull      = Type{k: kindNull}      // `null` before context fixes its collection type
+	TypeSeqInt    = Type{k: kindSeqInt}    // collection of Integers
+	TypeSeqReal   = Type{k: kindSeqReal}   // collection of Reals
+	TypeSeqBool   = Type{k: kindSeqBool}   // collection of Booleans
+	TypeSeqNum    = Type{k: kindSeqNum}    // collection of numbers, each element of its own kind
+	TypeSeqString = Type{k: kindSeqString} // collection of Strings
+)
+
+// EnumType is the type of e's literals.
+func EnumType(e *Enum) Type { return Type{k: kindEnum, Enum: e} }
+
+// Enum is an enumeration definition whose literals are identified by
+// themselves: literal i is the value Base+i of the program's literal table.
+type Enum struct {
+	Name     string   // qualified name
+	Short    string   // the enumeration's own name, which a literal prints under
+	Literals []string // literal names in declaration order
+	Base     int
+	ID       int // position in Program.Enums
+}
+
+// Literal is the text the interpreter prints literal i as: `Color::red`.
+func (e *Enum) Literal(i int) string { return e.Short + "::" + e.Literals[i] }
+
 func (t Type) String() string {
-	switch t {
-	case TypeInt:
+	switch t.k {
+	case kindInt:
 		return "Integer"
-	case TypeReal:
+	case kindReal, kindNum:
 		return "Real"
-	case TypeBool:
+	case kindBool:
 		return "Boolean"
-	case TypeNum:
-		return "Real"
-	case TypeString:
+	case kindString:
 		return "String"
-	case TypeNull:
+	case kindEnum:
+		return t.Enum.Name
+	case kindNull:
 		return "null"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum, TypeSeqString:
+	}
+	if t.Many() {
 		return t.Elem().String() + "[0..*]"
 	}
 	return "invalid"
 }
 
-// Scalar reports whether t is exactly one Integer, Real, Boolean, number or String.
-func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeString }
+// Scalar reports whether t is exactly one Integer, Real, Boolean, number,
+// String or enumeration literal.
+func (t Type) Scalar() bool { return t.k >= kindInt && t.k <= kindEnum }
+
+// IsEnum reports whether t's values are enumeration literals.
+func (t Type) IsEnum() bool { return t.Elem().k == kindEnum }
 
 // numeric reports whether t's values are Integers, Reals or numbers.
 func numeric(t Type) bool {
@@ -58,12 +102,12 @@ func numeric(t Type) bool {
 }
 
 // Many reports whether t is a collection type.
-func (t Type) Many() bool { return t >= TypeSeqInt }
+func (t Type) Many() bool { return t.k >= kindSeqInt }
 
 // Elem is the scalar type of t's values: t itself for a scalar.
 func (t Type) Elem() Type {
 	if t.Many() {
-		return t - TypeSeqInt + TypeInt
+		return Type{k: t.k - kindSeqInt + kindInt, Enum: t.Enum}
 	}
 	return t
 }
@@ -73,7 +117,7 @@ func (t Type) Seq() Type {
 	if !t.Scalar() {
 		return t
 	}
-	return t - TypeInt + TypeSeqInt
+	return Type{k: t.k - kindInt + kindSeqInt, Enum: t.Enum}
 }
 
 // Mult is a declared multiplicity, checked on the count of values a collection
@@ -127,6 +171,7 @@ func (r Range) Lower() int64 {
 // budget and per-statement release then track.
 type Program struct {
 	Funcs       []*Func
+	Enums       []*Enum
 	Entry       *Func
 	Collections bool
 	// Target is the backend the program was compiled for.
@@ -197,6 +242,25 @@ type Unary struct {
 type Cond struct {
 	C, Then, Else Expr
 	T             Type
+}
+
+// EnumLit is literal I of the enumeration T names, identified by itself.
+type EnumLit struct {
+	T Type
+	I int
+}
+
+// EnumText is the qualified name an enumeration literal prints as, the String
+// BaseFunctions::ToString gives of it.
+type EnumText struct{ X Expr }
+
+// Refusal evaluates Operands in order, then fails. Its message is Parts, joined
+// by the interpreter's description of each operand when Describe is set.
+type Refusal struct {
+	Operands []Expr
+	Parts    []string
+	Describe bool
+	T        Type
 }
 
 // Call invokes another compiled function, arguments coerced to parameter types.
@@ -352,6 +416,9 @@ func (RealLit) Type() Type   { return TypeReal }
 func (BoolLit) Type() Type   { return TypeBool }
 func (StrLit) Type() Type    { return TypeString }
 func (v Var) Type() Type     { return v.T }
+func (e EnumLit) Type() Type { return e.T }
+func (EnumText) Type() Type  { return TypeString }
+func (r Refusal) Type() Type { return r.T }
 func (b Binary) Type() Type  { return b.T }
 func (u Unary) Type() Type   { return u.T }
 func (c Cond) Type() Type    { return c.T }

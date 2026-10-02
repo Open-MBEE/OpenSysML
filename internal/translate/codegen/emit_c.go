@@ -523,9 +523,11 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	e.collections = p.Collections
 	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
+	e.raw(cEnumRuntime(p))
 	if p.Collections {
 		e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_ELEMENTS %d\n", runtime.DefaultMaxElements))
 		e.raw(cSeqRuntime())
+		e.raw(cEnumSeqRuntime(p))
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -553,7 +555,7 @@ type cEmitter struct {
 // pure is an operand whose evaluation cannot fail, so its order is immaterial.
 func pure(x Expr) bool {
 	switch x := x.(type) {
-	case IntLit, RealLit, BoolLit, StrLit, Var, NullLit:
+	case IntLit, RealLit, BoolLit, StrLit, EnumLit, Var, NullLit:
 		return true
 	case ToReal:
 		return pure(x.X)
@@ -603,6 +605,12 @@ func (e *cEmitter) linef(format string, args ...any) {
 }
 
 func cType(t Type) string {
+	if t.IsEnum() {
+		if t.Many() {
+			return "sysml_seq_" + cSeqSuffix(t)
+		}
+		return "sysml_enum"
+	}
 	switch t {
 	case TypeInt:
 		return "sysml_int"
@@ -868,6 +876,12 @@ func (e *cEmitter) expr(x Expr) string {
 		return "false"
 	case StrLit:
 		return cStrLit(x.Value)
+	case EnumLit:
+		return fmt.Sprintf("((sysml_enum)%d)", x.T.Enum.Base+x.I)
+	case EnumText:
+		return "sysml_literal_str(" + e.expr(x.X) + ")"
+	case Refusal:
+		return e.refusal(x)
 	case Var:
 		return cLocal(x.Name)
 	case ToReal:
@@ -1132,7 +1146,11 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 		e.linef("sysml_max_elements = sysml_read_budget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", SYSML_DEFAULT_MAX_ELEMENTS);")
 	}
 	for i, p := range fn.Params {
-		e.linef("%s %s = sysml_parse_%s(argv[%d], \"%s\");", cType(p.Type), cLocal(p.Name), cType(p.Type)[len("sysml_"):], i+1, p.Name)
+		parser := cType(p.Type)[len("sysml_"):]
+		if p.Type.IsEnum() && !p.Type.Many() {
+			parser = cSeqSuffix(p.Type)
+		}
+		e.linef("%s %s = sysml_parse_%s(argv[%d], \"%s\");", cType(p.Type), cLocal(p.Name), parser, i+1, p.Name)
 	}
 	e.linef("%s result = %s;", cType(fn.Result), cZero(fn.Result))
 	e.linef("for (long long i = 0; i < repeat; i++) {")
@@ -1145,16 +1163,18 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("}")
 	e.indent--
 	e.linef("}")
-	switch fn.Result {
-	case TypeInt:
+	switch {
+	case fn.Result.IsEnum() && !fn.Result.Many():
+		e.linef("sysml_print_enum(result);")
+	case fn.Result == TypeInt:
 		e.linef("printf(\"%%\" PRId64 \"\\n\", result);")
-	case TypeReal:
+	case fn.Result == TypeReal:
 		e.linef("sysml_print_real(result);")
-	case TypeBool:
+	case fn.Result == TypeBool:
 		e.linef("puts(result ? \"true\" : \"false\");")
-	case TypeNum:
+	case fn.Result == TypeNum:
 		e.linef("sysml_print_num(result);")
-	case TypeString:
+	case fn.Result == TypeString:
 		e.linef("sysml_print_str(result);")
 	default:
 		e.linef("sysml_print_seq_%s(result);", cSeqSuffix(fn.Result))

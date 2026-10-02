@@ -50,6 +50,12 @@ type Compiler struct {
 	// numbers of either kind; widened is set when a pass adds one.
 	nums    map[slot]bool
 	widened bool
+	// enums are the enumerations compiled values are literals of, in the
+	// order first met; literalNames is the printed form of every literal.
+	enums        map[*symbols.Symbol]*Enum
+	enumOrder    []*Enum
+	literals     map[*symbols.Symbol]enumLiteral
+	literalNames []string
 }
 
 // slot is a Real-typed feature of one specialization: a parameter by name, a
@@ -62,7 +68,7 @@ type slot struct {
 
 // New returns a Compiler resolving names through resolver and typing through model.
 func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
-	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}}
+	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}, literals: map[*symbols.Symbol]enumLiteral{}}
 }
 
 // Compile compiles entry and every calc it invokes, transitively, for target.
@@ -79,7 +85,7 @@ func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, erro
 		if err != nil {
 			return nil, err
 		}
-		return &Program{Funcs: c.order, Entry: fn, Collections: c.collections, Target: target}, nil
+		return &Program{Funcs: c.order, Enums: c.enumOrder, Entry: fn, Collections: c.collections, Target: target}, nil
 	}
 }
 
@@ -487,14 +493,31 @@ func (fc *funcCompiler) declaredType(scope *symbols.Scope, u *ast.Usage, name st
 	if err != nil {
 		return TypeInvalid, RangeAny, err
 	}
+	t, r, why := fc.valueType(typ)
+	if why != "" {
+		return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: %s", name, why))
+	}
+	return t, r, nil
+}
+
+// valueType is the compiled representation of the values typ classifies and
+// the range a write to it is checked against, or why it has none.
+func (fc *funcCompiler) valueType(typ *symbols.Symbol) (Type, Range, string) {
+	if typ.Kind == symbols.SymbolEnumerationDef {
+		e, why := fc.c.enumOf(typ)
+		if why != "" {
+			return TypeInvalid, RangeAny, why
+		}
+		return EnumType(e), RangeAny, ""
+	}
 	t, r, ok := scalarType(fc.c.name(typ))
 	if !ok {
-		return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: type %s is not Integer, Real, Boolean or String", name, fc.c.name(typ)))
+		return TypeInvalid, RangeAny, fmt.Sprintf("type %s is not Integer, Real, Boolean, String or an enumeration", fc.c.name(typ))
 	}
 	if t == TypeString {
 		fc.c.collections = true
 	}
-	return t, r, nil
+	return t, r, ""
 }
 
 // scalarType maps a library data type to the compiled representation and the
@@ -899,9 +922,14 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 	}
 	// A library constant reads as its value, as the interpreter's feature seam gives it.
 	if qn != nil {
-		if sym, ok := fc.c.resolver.ResolveQualified(fc.scope, qn); ok && fc.c.resolver.Index().Library(sym) {
-			if v, ok := libFeatureValue(fc.c.name(sym)); ok {
-				return v, nil
+		if sym, ok := fc.c.resolver.ResolveQualified(fc.scope, qn); ok {
+			if x, isLit, err := fc.compileEnumLiteral(sym); isLit {
+				return x, err
+			}
+			if fc.c.resolver.Index().Library(sym) {
+				if v, ok := libFeatureValue(fc.c.name(sym)); ok {
+					return v, nil
+				}
 			}
 		}
 	}
@@ -948,7 +976,17 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 	case ast.OpRange:
 		return fc.compileRange(n)
 	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow:
-		l, r, t, wrap, err := fc.numericOperands(n)
+		l, r, wrap, err := fc.binaryOperands(n)
+		if err != nil {
+			return nil, err
+		}
+		if x, ok, err := fc.enumOperator(n.Operator, l, r); ok {
+			if err != nil {
+				return nil, err
+			}
+			return wrap(x), nil
+		}
+		l, r, t, err := fc.numericOperands(n.Operator, l, r)
 		if err != nil {
 			return nil, err
 		}
@@ -984,7 +1022,17 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		}
 		return wrap(Binary{Op: n.Operator, L: l, R: r, T: t}), nil
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
-		l, r, t, wrap, err := fc.numericOperands(n)
+		l, r, wrap, err := fc.binaryOperands(n)
+		if err != nil {
+			return nil, err
+		}
+		if x, ok, err := fc.enumOperator(n.Operator, l, r); ok {
+			if err != nil {
+				return nil, err
+			}
+			return wrap(x), nil
+		}
+		l, r, t, err := fc.numericOperands(n.Operator, l, r)
 		if err != nil {
 			return nil, err
 		}
@@ -1031,6 +1079,10 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		}
 		if x.Type() == TypeBool {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' over a Boolean", n.Operator))
+		}
+		if x.Type().IsEnum() {
+			fc.c.collections = true
+			return Refusal{Operands: []Expr{x}, Parts: []string{fmt.Sprintf("type mismatch: unary '%s' requires numeric operand, got enumeration literal", n.Operator)}, T: x.Type()}, nil
 		}
 		if x.Type() == TypeNum && n.Operator == ast.OpNeg {
 			return fc.split([]Expr{x}, func(v []Expr) Expr {
@@ -1116,20 +1168,16 @@ func (fc *funcCompiler) rawOperands(n *ast.OperatorExpr) (Expr, Expr, error) {
 	return l, r, nil
 }
 
-// numericOperands compiles both operands and widens them to a common numeric type.
-func (fc *funcCompiler) numericOperands(n *ast.OperatorExpr) (Expr, Expr, Type, func(Expr) Expr, error) {
-	l, r, wrap, err := fc.binaryOperands(n)
-	if err != nil {
-		return nil, nil, TypeInvalid, nil, err
-	}
+// numericOperands widens the operands of op to a common numeric type.
+func (fc *funcCompiler) numericOperands(op ast.OperatorKind, l, r Expr) (Expr, Expr, Type, error) {
 	if l.Type() == TypeString && r.Type() == TypeString {
-		return l, r, TypeString, wrap, nil
+		return l, r, TypeString, nil
 	}
 	if !numeric(l.Type()) || !numeric(r.Type()) {
-		return nil, nil, TypeInvalid, nil, fc.unsupported(fmt.Sprintf("'%s' over %s and %s", n.Operator, l.Type(), r.Type()))
+		return nil, nil, TypeInvalid, fc.unsupported(fmt.Sprintf("'%s' over %s and %s", op, l.Type(), r.Type()))
 	}
 	if l.Type() == TypeNum || r.Type() == TypeNum {
-		return l, r, TypeNum, wrap, nil
+		return l, r, TypeNum, nil
 	}
 	t := l.Type()
 	if l.Type() != r.Type() {
@@ -1137,7 +1185,7 @@ func (fc *funcCompiler) numericOperands(n *ast.OperatorExpr) (Expr, Expr, Type, 
 	}
 	l, _ = fc.coerce(l, t, "")
 	r, _ = fc.coerce(r, t, "")
-	return l, r, t, wrap, nil
+	return l, r, t, nil
 }
 
 // unify is the common type of two values: Integers and Reals meet as numbers,
@@ -1301,6 +1349,10 @@ func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (
 			return nil, err
 		}
 		types[a.Param] = args[i].Value.Type()
+	}
+	if fqn == "BaseFunctions::ToString" && len(args) == 1 && types[0].IsEnum() {
+		fc.c.collections = true
+		return EnumText{X: args[0].Value}, nil
 	}
 	if slices.Contains(types, TypeNum) {
 		return fc.numLibCall(fqn, params, args, types)

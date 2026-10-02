@@ -262,8 +262,8 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
 	ident := n.Operator == ast.OpEqEqEq || n.Operator == ast.OpNeqEqEq
 	lt, rt := l.Type(), r.Type()
-	if lt.Scalar() && rt.Scalar() && (lt == TypeString) != (rt == TypeString) {
-		// A String equals no value of another kind, whatever its operands hold.
+	if lt.Scalar() && rt.Scalar() && identityKind(lt) != identityKind(rt) {
+		// A String or literal equals no value of another kind, whatever its operands hold.
 		var lets []Let
 		_, lets = fc.hoist(l, lets)
 		_, lets = fc.hoist(r, lets)
@@ -280,6 +280,10 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		op := ast.OpEq
 		if neq {
 			op = ast.OpNeq
+		}
+		if lt.IsEnum() {
+			// A literal is identified by itself, so `===` is `==`.
+			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
 		}
 		if lt != rt || lt == TypeNum {
 			// Numbers compare by value under `==`, and by kind too under `===`.
@@ -301,7 +305,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	case rt == TypeNull:
 		re = le
 	}
-	if le != re {
+	if le != re && !(le.IsEnum() && re.IsEnum()) {
 		if !numeric(le) || !numeric(re) {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
 		}
@@ -315,6 +319,18 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		return nil, err
 	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
+}
+
+// identityKind groups the scalar types whose values may equal one another:
+// numbers and Booleans, Strings, and enumeration literals.
+func identityKind(t Type) int {
+	switch {
+	case t == TypeString:
+		return 1
+	case t.IsEnum():
+		return 2
+	}
+	return 0
 }
 
 // compileSeqCall is a call of a collection operation. The receiver of
@@ -517,7 +533,7 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 			if !ok {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s: type %s does not resolve", p.Name, qnText(p.Type)))
 			}
-			if t, _, ok := scalarType(fc.c.name(sym)); !ok || t != paramTypes[i] && !(t == TypeReal && paramTypes[i] == TypeNum) {
+			if t, _, why := fc.valueType(sym); why != "" || t != paramTypes[i] && !(t == TypeReal && paramTypes[i] == TypeNum) {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s typed other than %s", p.Name, paramTypes[i]))
 			}
 		}

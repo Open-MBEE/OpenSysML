@@ -515,6 +515,9 @@ static inline uint64_t sysml_real_key(sysml_real r) {
 
 // cSeqSuffix names the element type of a collection in the C runtime.
 func cSeqSuffix(t Type) string {
+	if t.IsEnum() {
+		return fmt.Sprintf("enum%d", t.Elem().Enum.ID)
+	}
 	switch t.Elem() {
 	case TypeInt:
 		return "int"

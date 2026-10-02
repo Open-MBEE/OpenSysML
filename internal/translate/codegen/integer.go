@@ -125,7 +125,11 @@ func unboundedIntExpr(x Expr) string {
 		if x.Big != nil {
 			return fmt.Sprintf("the Integer literal %s, beyond int64,", x.Big)
 		}
-	case RealLit, BoolLit, StrLit, Var, NullLit:
+	case RealLit, BoolLit, StrLit, EnumLit, Var, NullLit:
+	case EnumText:
+		return unboundedIntExprs(x.X)
+	case Refusal:
+		return unboundedIntExprs(x.Operands...)
 	case Binary:
 		if what := unboundedIntExprs(x.L, x.R); what != "" {
 			return what

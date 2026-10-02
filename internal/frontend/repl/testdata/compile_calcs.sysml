@@ -546,6 +546,33 @@ package Compiled {
 		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
 		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }
 	}
+	package E {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		enum def Color { enum red; enum green; enum blue; }
+		enum def Shade { enum red; enum dark; }
+		calc def Id { in c : Color; return : Color = c; }
+		calc def Red { return : Color = Color::red; }
+		calc def IsRed { in c : Color; return : Boolean = c == Color::red; }
+		calc def NotRed { in c : Color; return : Boolean = c != Color::red; }
+		calc def Same { in a : Color; in b : Color; return : Boolean = a === b; }
+		calc def Cross { in c : Color; return : Boolean = c == Shade::red; }
+		calc def VsInt { in c : Color; return : Boolean = c == 3; }
+		calc def VsText { in c : Color; return : Boolean = c != "Color::red"; }
+		calc def Pick { in b : Boolean; return : Color = if b ? Color::red else Color::blue; }
+		calc def Add { in c : Color; return : Color = c + 1; }
+		calc def Mul { in c : Color; in r : Real; return : Real = r * c; }
+		calc def Less { in a : Color; in b : Color; return : Boolean = a < b; }
+		calc def AtLeast { in a : Color; return : Boolean = 1 >= a; }
+		calc def Neg { in c : Color; return : Color = -c; }
+		calc def Text { in c : Color; return : String = BaseFunctions::ToString(c); }
+		calc def Seq { in c : Color; return : Color[0..*] = (c, Color::green); }
+		calc def Unique { in c : Color; attribute x : Color[0..*] = (c, Color::red); return : Color[0..*] = x; }
+		calc def Has { in c : Color; return : Boolean = includes((Color::red, Color::blue), c); }
+		calc def Count { in x : Color[0..*]; return : Integer = size(x); }
+		calc def SeqEq { in x : Color[0..*]; return : Boolean = x == (Color::red, Color::green); }
+		calc def Reds { in x : Color[0..*]; return : Color[0..*] = x->select {in v : Color; v == Color::red}; }
+	}
 	package Str {
 		private import SequenceFunctions::*;
 		private import ControlFunctions::*;
@@ -610,7 +637,6 @@ package Refused {
 	enum def Color { red; green; }
 	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
-	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }
 	calc def CollectNull { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; null}; }
 

@@ -18,7 +18,7 @@ const (
 )
 
 type sysmlElem interface {
-	sysmlInt | float64 | bool | sysmlNum | string
+	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum
 }
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
@@ -127,6 +127,8 @@ func sysmlElemKind[T sysmlElem](v T) string {
 		return "an Integer"
 	case string:
 		return "string"
+	case sysmlEnum:
+		return "enumeration literal"
 	}
 	return "a Boolean"
 }
