@@ -12892,7 +12892,7 @@
       "status": "not-implemented",
       "implementation": [],
       "tests": [],
-      "reason": "an instance specification classified by an association (a link) is not written",
+      "reason": "an instance specification classified by an association (a link) is not written; the scope counts every instance specification, links or not, so it is an upper bound",
       "scope": [
         "uml:InstanceSpecification"
       ]
@@ -13441,7 +13441,7 @@
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def",
+      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -13496,7 +13496,7 @@
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def",
+      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -13526,7 +13526,7 @@
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def",
+      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -19014,7 +19014,7 @@
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a plain UML class is written as a part def, not an occurrence def",
+      "reason": "a plain UML class is written as a part def, not an occurrence def; the scope counts every uml:Class, blocks included, so it is an upper bound",
       "scope": [
         "uml:Class"
       ]
