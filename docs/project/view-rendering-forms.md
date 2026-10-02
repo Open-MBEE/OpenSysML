@@ -82,7 +82,9 @@ node with a single output and nothing else — a UML value specification action 
 it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
 reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
 it is set only when that flow lowers to nodes of its own, so an action whose body is a single
-statement or a bound value carries no `own flow` and no nested cluster.
+statement or a bound value carries no `own flow` and no nested cluster. The node is the nested
+flow's frame: its own pins are the ones the flow's bindings attach to, and the flow's nodes take
+the IDs after it.
 
 A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
 `behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,

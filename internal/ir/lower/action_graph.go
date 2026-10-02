@@ -1197,7 +1197,7 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 			if chain, feature, ok := assignTarget(other); ok {
 				binding.OtherChain, binding.OtherFeature = chain, feature
 			}
-			binding.OtherParameter = ownParameter(scope, other)
+			binding.OtherParameter = ownParameter(scope, graph.Scope, other)
 		}
 		out = append(out, binding)
 	}
@@ -1364,66 +1364,78 @@ func lowerValueBindings(graph *ActionGraph) {
 				}
 				binding.OtherNode, binding.OtherPath, binding.OtherPin = other, path, otherPin
 			} else {
-				binding.OtherParameter = ownParameter(graph.Scope, binding.Other)
+				binding.OtherParameter = ownParameter(feature.Scope, graph.Scope, binding.Other)
 			}
 			graph.ValueBindings = append(graph.ValueBindings, binding)
 		}
 	}
 }
 
-// ownParameter is the parameter of the action around scope that a binding end
-// names, "" for an end naming none: a bare name the action's body declares as a
-// parameter, or one of its generals declares (a usage's inherited parameter), or
-// the action's own parameter qualified (`ToastBread::bread`). A name a block
-// between the end and the action declares is the block's, not a parameter.
-func ownParameter(scope *symbols.Scope, end ast.Node) string {
+// ownParameter is the parameter of the action whose body is frame that a
+// binding end written in scope names, "" for an end naming none: a bare name
+// the frame declares as a parameter, or one of its generals declares (a usage's
+// inherited parameter), or the frame's own parameter qualified
+// (`ToastBread::bread`). A bare name a scope between the end and the frame
+// declares or inherits — a node's own parameter sharing the frame's name — is
+// that scope's, not the frame's. An end in a general's body (an inherited
+// node's pin) names the frame's parameters as the frame's own body does.
+func ownParameter(scope, frame *symbols.Scope, end ast.Node) string {
 	segments := endSegments(end)
-	if len(segments) == 0 {
+	if frame == nil || len(segments) == 0 {
 		return ""
 	}
 	name := segments[len(segments)-1]
 	if len(segments) > 1 {
 		_, owner, sym, ok := qualifiedEndFeature(end, scope)
-		if !ok || !isParameter(sym.Decl) {
+		if !ok || !isParameter(sym.Decl) || !declaresFrame(frame, owner.Decl) {
 			return ""
 		}
-		for s := scope; s != nil; s = s.Parent() {
-			if !isActionDecl(s.Node()) {
-				continue
-			}
-			if owner.Decl == s.Node() {
-				return name
-			}
-			for _, body := range resolve.ActionGeneralBodies(s) {
-				if owner.Decl == body.Node() {
-					return name
-				}
-			}
-			return ""
-		}
-		return ""
+		return name
 	}
 	for s := scope; s != nil; s = s.Parent() {
-		if sym, ok := s.LookupLocal(name); ok {
-			if isParameter(sym.Decl) {
-				return name
-			}
+		if declaresFrame(frame, s.Node()) {
+			break
+		}
+		if _, ok := lookupActionLocal(s, name); ok {
 			return ""
 		}
-		if !isActionDecl(s.Node()) {
-			continue
-		}
-		for _, body := range resolve.ActionGeneralBodies(s) {
-			if sym, ok := body.LookupLocal(name); ok {
-				if isParameter(sym.Decl) {
-					return name
-				}
-				return ""
-			}
-		}
-		return ""
+	}
+	if sym, ok := lookupActionLocal(frame, name); ok && isParameter(sym.Decl) {
+		return name
 	}
 	return ""
+}
+
+// declaresFrame reports whether decl is the action whose body is frame or one
+// of the generals it takes its members from.
+func declaresFrame(frame *symbols.Scope, decl ast.Node) bool {
+	if frame.Node() == decl {
+		return true
+	}
+	for _, body := range resolve.ActionGeneralBodies(frame) {
+		if body.Node() == decl {
+			return true
+		}
+	}
+	return false
+}
+
+// lookupActionLocal is the symbol a scope declares by name or, for an action's
+// body, one of its generals declares: the names its members see before any
+// enclosing scope's.
+func lookupActionLocal(s *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	if sym, ok := s.LookupLocal(name); ok {
+		return sym, true
+	}
+	if !isActionDecl(s.Node()) {
+		return nil, false
+	}
+	for _, body := range resolve.ActionGeneralBodies(s) {
+		if sym, ok := body.LookupLocal(name); ok {
+			return sym, true
+		}
+	}
+	return nil, false
 }
 
 // isParameter reports whether a declaration is a directed parameter or a result.

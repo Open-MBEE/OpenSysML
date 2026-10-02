@@ -141,6 +141,64 @@ func TestActionWithoutParametersHasNoFramePins(t *testing.T) {
 	}
 }
 
+// A nested node with a flow of its own binds its parameter to a node of that
+// flow; the edge attaches to the pin of the node standing for it in the frame,
+// not to a root the nested rendering discards.
+func TestActionBindingWithinNestedFlow(t *testing.T) {
+	rendering := renderActionPins(t, "Pins::Stack")
+	wantNoNotices(t, rendering)
+	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{"outer.x == inner.y", "Pins::Stack.bread == outer.x"})
+	wantEdgeEndsDrawn(t, rendering)
+}
+
+// A node's own parameter sharing a frame parameter's name, declared by it or
+// inherited from its type, shadows the frame's: no frame wire is drawn.
+func TestActionBindingShadowedParameterDrawsNothing(t *testing.T) {
+	rendering := renderActionPins(t, "Pins::Shadow")
+	wantNoNotices(t, rendering)
+	wantEqual(t, "frame pins", pinTexts(rendering.Roots[0]), []string{"in x", "in b"})
+	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), nil)
+}
+
+// A specializing action definition takes its frame pins from its general, as
+// a usage does from its type, and its own node binds to one.
+func TestActionFramePinsInheritedBySpecialization(t *testing.T) {
+	rendering := renderActionPins(t, "Pins::Specialized")
+	wantNoNotices(t, rendering)
+	wantEqual(t, "frame pins", pinTexts(rendering.Roots[0]), []string{"in bread", "out toast"})
+	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{"Pins::Specialized.bread == heat2.b"})
+	wantEdgeEndsDrawn(t, rendering)
+}
+
+// wantEdgeEndsDrawn checks every edge joins drawn nodes, and its pins drawn
+// pins of them.
+func wantEdgeEndsDrawn(t *testing.T, r *Rendering) {
+	t.Helper()
+	ports := map[string]map[string]bool{}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		ports[node.ID] = map[string]bool{}
+		for _, port := range node.Ports {
+			ports[node.ID][port.ID] = true
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	for _, edge := range r.Edges {
+		for _, end := range [][2]string{{edge.From, edge.FromPort}, {edge.To, edge.ToPort}} {
+			if _, ok := ports[end[0]]; !ok {
+				t.Errorf("edge %s -> %s ends at undrawn node %s", edge.From, edge.To, end[0])
+			} else if end[1] != "" && !ports[end[0]][end[1]] {
+				t.Errorf("edge %s -> %s ends at undrawn pin %s of %s", edge.From, edge.To, end[1], end[0])
+			}
+		}
+	}
+}
+
 // The DOT form draws the frame's pins as the squares the nodes' pins are, inside
 // the frame's cluster, and a binding as an undirected edge pin to pin.
 func TestDOTActionFramePins(t *testing.T) {
@@ -156,7 +214,7 @@ func TestDOTActionFramePins(t *testing.T) {
 			t.Errorf("frame pin %s: %q, want a pin square labelled %s", port, line, label)
 		}
 	}
-	for _, want := range []string{`"n0.0" -> "n1":"n1.0" [arrowhead=none];`, `"n3":"n3.1" -> "n0.1" [arrowhead=none];`} {
+	for _, want := range []string{`"n0.0" -> "n1":"n1.0" [arrowhead=none];`, `"n2":"n2.1" -> "n0.1" [arrowhead=none];`} {
 		if !strings.Contains(source, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, source)
 		}
@@ -181,7 +239,7 @@ func TestTextActionFramePins(t *testing.T) {
 func TestMermaidActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	source := rendering.Mermaid()
-	for _, want := range []string{"\n    n0_p0[\"bread\"]\n", "\n    n0_p1[\"toast\"]\n", `n0_p0 ===|"bread = b"| n1_p0`, `n3_p1 ===|"boxed = toast"| n0_p1`} {
+	for _, want := range []string{"\n    n0_p0[\"bread\"]\n", "\n    n0_p1[\"toast\"]\n", `n0_p0 ===|"bread = b"| n1_p0`, `n2_p1 ===|"boxed = toast"| n0_p1`} {
 		if !strings.Contains(source, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, source)
 		}
@@ -197,7 +255,7 @@ func TestMermaidActionFramePins(t *testing.T) {
 func TestPlantUMLActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	source, _ := rendering.PlantUML()
-	for _, want := range []string{"n0 -- n1 : bread = b\n", "n3 -- n0 : boxed = toast\n",
+	for _, want := range []string{"n0 -- n1 : bread = b\n", "n2 -- n0 : boxed = toast\n",
 		"' not represented: 6 pin(s) not drawn (Pins::ToastBread.bread, Pins::ToastBread.toast, heat.b, heat.t, pack.t, pack.boxed); PlantUML's state grammar has no pin, so the edges name them\n"} {
 		if !strings.Contains(source, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, source)

@@ -78,3 +78,34 @@ func TestActionGraphValueBindings(t *testing.T) {
 		t.Errorf("bindings = %+v, want pack.boxed to the parameter toast", graph.Bindings)
 	}
 }
+
+// A node's own parameter sharing a frame parameter's name is what its pins'
+// values name, whether the node declares it or inherits it from its type; a
+// parameter of the frame's general is the frame's.
+func TestActionGraphValueBindingsShadowed(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Heat { in b : Integer; }
+		action def A {
+			in x : Integer;
+			in b : Integer;
+			action child { in x : Integer; in y : Integer = x; }
+			action heat : Heat { in c : Integer = b; }
+			first start; then child; then heat; then done;
+		}
+	`, "A")
+	for _, binding := range graph.ValueBindings {
+		if binding.OtherParameter != "" {
+			t.Errorf("%s.%s binds to the parameter %q, want none: the name is the node's own", getNodeName(binding.Node), binding.Pin, binding.OtherParameter)
+		}
+	}
+	graph = scopedActionGraph(t, `
+		action def Base { in bread : Integer; }
+		action def A :> Base {
+			action heat { in b : Integer = bread; }
+			first start; then heat; then done;
+		}
+	`, "A")
+	if len(graph.ValueBindings) != 1 || graph.ValueBindings[0].OtherParameter != "bread" {
+		t.Errorf("value bindings = %+v, want heat.b to the inherited parameter bread", graph.ValueBindings)
+	}
+}

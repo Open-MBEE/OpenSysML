@@ -495,14 +495,18 @@ type actionSubject struct {
 	// the exposed action the subject is rendered under.
 	view *symbols.Symbol
 	elem *symbols.Symbol
+	// frame is the node already standing for the action in the enclosing
+	// rendering, whose pins its bindings attach to; nil for a rendered action.
+	frame *Node
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
-// successions and object flows as edges. A nested action declaring a body of its
-// own is lowered in turn, so the rendering shows the flow within it as well; its
-// own root is discarded, so the node standing for it in the caller carries its
-// geometry and notes. drawn collects the node drawn for each lowered node across
-// the nesting, so a binding reaching into a nested flow finds its pin.
+// successions, object flows and bindings as edges. A nested action declaring a
+// body of its own is lowered in turn, so the rendering shows the flow within it
+// as well; the node standing for it in the caller is its frame, carrying its
+// nodes, geometry and notes, and its pins are the ones its bindings attach to.
+// drawn collects the node drawn for each lowered node across the nesting, so a
+// binding reaching into a nested flow finds its pin.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
@@ -515,10 +519,11 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
-		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
-	root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
-	if depth == 0 {
+	root := subject.frame
+	if root == nil {
+		root = &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
+			Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
+		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
 	}
@@ -548,17 +553,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				nestedScope = actionScope(scope, nested)
 			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
-				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem}
+				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem, frame: child}
 			// The nested flow's own edges belong to the nested nodes, which the
 			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
-			if sub, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1); ok && len(sub.Children) > 0 {
-				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
+			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1); ok && len(child.Children) > 0 {
+				child.Detail = detailWith(child.Detail, "own flow")
 			}
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
 	r.bindingEdges(subject, graph, root, nodes, drawn, out)
-	if len(root.Children) == 0 {
+	if subject.frame == nil && len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
 	return root, true

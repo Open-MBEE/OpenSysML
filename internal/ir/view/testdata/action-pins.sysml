@@ -63,6 +63,35 @@ package Pins {
 		first start; then heat; then pack; then done;
 	}
 
+	// A node with a flow of its own binds its parameter to a node of that flow;
+	// the binding is drawn on the node standing for it in the enclosing frame.
+	action def Stack {
+		in bread : Bread;
+		action outer {
+			in x : Bread = bread;
+			action inner { in y : Bread = x; }
+			first start; then inner; then done;
+		}
+		first start; then outer; then done;
+	}
+
+	// A node's own parameter sharing a frame parameter's name — declared by it
+	// or inherited from its type — is what its pins' values name; no frame wire.
+	action def Shadow {
+		in x : Bread;
+		in b : Bread;
+		action child { in x : Bread; in y : Bread = x; }
+		action heat : Heat { in c : Bread = b; }
+		first start; then child; then heat; then done;
+	}
+
+	// A specializing action takes its frame pins from its general; a node of
+	// its own binds to one.
+	action def Specialized :> ToastBread {
+		action heat2 : Heat { in b = bread; }
+		first start; then heat2; then done;
+	}
+
 	action def Plain {
 		action a;
 		action b;

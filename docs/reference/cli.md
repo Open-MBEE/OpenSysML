@@ -592,7 +592,10 @@ type gives it — the way it draws each nested node's parameters as pins on the 
 parameter binding between the frame and a node's pin, or between two nodes' pins, as a binding edge
 between the pins: a nested parameter's value naming the action's parameter (`in b = bread;`,
 `in bread = ToastBread::bread;`, `out x :>> x = y;`), or an explicit `bind pack.boxed = toast;`. A
-binding one end of which is no pin — a literal, an expression, an attribute — draws nothing. `dot`
+name the node declares or inherits itself (`action child { in x; in y = x; }` under a frame with its
+own `x`) is the node's, not the frame's, and binds no frame pin; a node whose flow is drawn inside it
+binds its own parameters to its nodes' pins as the frame does. A binding one end of which is no pin —
+a literal, an expression, an attribute — draws nothing. `dot`
 sets the frame's pins on the cluster's border as squares, the way it sets a node's; `text` lists
 each pin under its node (`in bread`) and names the pins an edge joins (`heat.t => pack.t`,
 `ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and names the
