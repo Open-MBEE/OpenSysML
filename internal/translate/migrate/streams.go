@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -176,7 +176,7 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 			p.lost = append(p.lost, named+" has bytes that do not read ("+e.Reason()+")")
 			continue
 		case len(data) > 0 && ct == "":
-			p.lost = append(p.lost, named+" is no image (content type "+imagefile.Described(data)+")")
+			p.lost = append(p.lost, named+" is no image (content type "+describedImageContentType(data)+")")
 			continue
 		case len(data) == 0:
 			var reason string

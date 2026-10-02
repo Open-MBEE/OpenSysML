@@ -1,3 +1,33 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
 %% TypedViews::boilerView — state rendering (view def StateTransitionView)
 stateDiagram-v2
   state "«state def»<br>Boiler" as n0 {

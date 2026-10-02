@@ -688,8 +688,9 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     after the root run begins is the `Outcome.Err` of an outcome of its own, so a run some orders
     fail is reported rather than ending the search. A `SetupError` from root executor creation or
     a pure structural start check before model behavior runs fails the exploration without an
-    outcome; failures during initial behaviors are runtime outcomes. A `stop` that ends between
-    runs ends the exploration with its error before
+    outcome; failures during initial behaviors are runtime outcomes. Action-step-multiplicity
+    refusals occur when the step is reached, so they are runtime error outcomes, never a
+    `SetupError`. A `stop` that ends between runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
   does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the
   model's runs are then not a function of their choices

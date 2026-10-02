@@ -30,11 +30,14 @@ with the earlierOccurrence happening completely before the laterOccurrence"
 (`Occurrences.kerml`, `assoc all HappensBefore`). The steps of a behavior are its
 `enclosedPerformances`, happening during it (`Performances.kerml`, `Performance::enclosedPerformances`;
 `StatePerformances.kerml`, "all steps are implicitly considered to be enclosedPerformances, and
-hence happening during the state performance"). A feature with no declared multiplicity holds
-exactly one value (KerML 1.0 §7.4.5, the assumed `1..1`, the rule the compliance map applies to
-attributes), so a step such as `action left;` names one performance per performance of its owner
-unless the step declares otherwise. Nothing in the library orders two steps no chain of
-`HappensBefore` links connects.
+hence happening during the state performance"). The default `1..1` multiplicity for a feature
+(KerML 1.0 §7.4.5) is the rule for feature values, not an inherited count for an action node:
+`Actions.sysml` declares `Action.subactions` as `Action[0..*]`, and each action-node usage's own
+declared multiplicity determines how many performances it names, whether the usage is reached by a
+succession or starts concurrently as an unordered subaction. An omitted multiplicity remains one
+performance; a fixed finite `[n]` or `[n..n]` names `n` performances, including none for `[0]`. A
+non-fixed or unevaluable count cannot be run by this fixed-count executor. Nothing in the library
+orders two steps no chain of `HappensBefore` links connects.
 
 A `.trace.golden` records one **linearization** of that partial order plus tool-defined
 scheduling detail the library says nothing about:
@@ -80,7 +83,9 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `Actions.sysml` `MergeAction`, `ControlPerformances.kerml` `MergePerformance` | "Incoming succession connectors to a MergeAction must have source multiplicity 0..1"; "For each instance of MergePerformance, the incomingHBLink is an instance of exactly one of the Successions, ordering the MergePerformance as happening after an instance of the source of that Succession" | A merge performance follows one source performance; a source a given merge performance was not reached from need not exist |
 | `Actions.sysml` `DecisionAction`, `ControlPerformances.kerml` `DecisionPerformance` | "For each instance of DecisionPerformance, the outgoingHBLink is an instance of exactly one of the Successions, ordering the DecisionPerformance as happening before an instance of the target of that Succession" | Each decision performance is followed by a performance of the one target whose guard held |
 | `Stochastic.sysml` `Probability` | "A seeded run draws a branch by these weights, an unseeded run takes the most probable, and a weighted branch whose guard does not hold is left out of the draw, the others' weights renormalized." | These weights belong to model draws; they do not assign probabilities to unresolved scheduling choices |
-| KerML 1.0 §7.4.5 | A feature with no declared multiplicity holds exactly one value | A plain step is one performance per performance of its owner, however many successions reach it |
+| KerML 1.0 §7.4.5 | A feature with no declared multiplicity holds exactly one value | This constrains feature values, not action-node usage counts; a plain step with no multiplicity is one performance per performance of its owner, however many successions reach it |
+| `Performances.kerml` `Performance::enclosedPerformances`; `Actions.sysml` `Action.subactions` | `subactions : Action[0..*]`; `subperformances` | A node usage's declared multiplicity counts its enclosed performances, including unordered concurrent starts; each repeated performance owns a fresh node frame while writing the shared owner features |
+| OMG issue [KERML-29](https://issues.omg.org/issues/KERML-29) | Deferred; the multiplicity of succession ends is unresolved | The execution checker approximates an unwritten end as either unconstrained `[0..*]` or exact-one `[1..1]` and accepts only when both readings force and admit the endpoint counts |
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
 | `TransitionPerformances.kerml` `TransitionPerformance` | `binding transitionLink.earlierOccurrence = transitionLinkSource; succession [1] transitionLinkSource then [*] effect; succession [*] effect then [1] transitionLink.laterOccurrence; succession all [*] guard then [*] effect` | The effect runs after the source state performance has ended (its exit included) and before the target state performance starts (its entry included) |
@@ -207,7 +212,7 @@ many tokens arrived. `action_join_same_succession_twice` pins the converse: two 
 one succession into a join satisfy that succession once, and the second waits for the join's
 next firing (`log = 1212`).
 
-### A node reached over two successions is performed once, after both
+### A node without multiplicity reached over two successions is performed once, after both
 
 Fixture: `action_node_with_two_incoming_successions_runs_once` (golden).
 
@@ -218,7 +223,8 @@ start → split ⇉ l1 ──┐
 
 Derived constraints:
 
-- `both` is one performance of `converge` (KerML §7.4.5: the step declares no multiplicity).
+- `both` declares no multiplicity, so it is one performance of `converge`; this example says
+  nothing about a step usage that explicitly declares a count.
 - Each of `first l1 then both` and `first l2 then both` is a `HappensBefore` link whose
   `laterOccurrence` is that one performance, so it starts after both `l1` and `l2` have ended.
   This is the reading the pilot corpus states in prose for `engineStopped`, which five
@@ -248,6 +254,62 @@ the owning action: two performances of an action holding such a node each perfor
 `action_node_concurrent_performances` and `action_node_concurrent_nested_bindings` (goldens)
 that a flow-owning node reached from both branches of a fork is likewise one performance,
 holding at each pin the one delivery the flow into that pin carried.
+
+### Repeated action steps and shared writes
+
+Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_named_bound`,
+`_zero`, `_local_frames`, `_nested`, `_nested_state_entry`, `_perform`, `_ordering` and
+`_order_target_only`, `_unordered_start`, `_unordered_start_reverse`,
+`_unordered_beside_ordered`, `_unordered_zero`,
+`_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
+`_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
+`action_step_multiplicity_shared_writers` states the open outcome set.
+
+Derived constraints:
+
+- A missing multiplicity keeps the historical one performance. An action-node usage's own
+  `[n]`, `[n..n]`, or named exact bounds that evaluate to an exact count perform `n` times,
+  including unordered subactions that start concurrently without an incoming succession; `[0]`
+  performs no body, trace event, flow or data transfer. Other ranges and bounds the model cannot
+  evaluate do not identify a fixed number and are refused.
+- An action usage in a loop or conditional block flow is performed once per pass. Repetition in
+  those statement-engine flows is out of scope: exact counts other than `[1]`, including `[0]`,
+  are refused with `action-step-multiplicity-unsupported` rather than being expanded.
+- `Occurrences.kerml` `HappensBefore` orders whole source performances before whole target
+  performances. A repeated node therefore needs every incident edge to admit and force its
+  complete count. The accepted fixtures use explicitly written end multiplicities: `[1] p` to
+  `[*] a[3]`, a written target `[3] a[3]`, `[*] a[3]` to `[1] q`, and `[2] a[2]` to `[3] b[3]`.
+  A start source and done target constrain no repeated endpoint; guards, control-node adjacency,
+  pins of repeated nodes and external reads of their features exceed the supported subset.
+- KerML leaves succession-end defaults unresolved ([OMG KERML-29](https://issues.omg.org/issues/KERML-29),
+  deferred). The checker evaluates unwritten ends both as unconstrained `[0..*]` and as `[1..1]`,
+  accepting only an edge whose counts are forced and admitted under each reading. If a reading
+  forces an end that excludes its endpoint count, the result is `action-step-order-unsatisfiable`;
+  otherwise an edge not established by both readings is `action-step-order-open`. This is
+  deliberately approximate by refusal, not a new claim about KerML defaults.
+- A plain `then` (no written end multiplicities) between a repeated step and any step other than
+  the action's `start`/`done` is refused with `action-step-order-unsatisfiable`: under the
+  `[1..1]` reading the end excludes the step's count, and under the unconstrained reading the order
+  is left open. Write the ends explicitly (`succession first [1] p then [*] a;`, `then [3] a;`,
+  `succession first [*] a then [1] q;`) to state the library's fan-out/fan-in pattern.
+- In `action_step_multiplicity_shared_writers`, each of three `a` frames has its own `l`, which
+  snapshots the shared `c` when that frame begins; its `w` writes `l + 1` back to that same `c`.
+  If all three snapshots happen before any write, all writes store `1`; a snapshot after one or two
+  completed writes can lead to a final value of `2` or `3`. There are at most three writes, so the
+  hand-derived final set is exactly `{c = 1, c = 2, c = 3}`.
+
+Open: the order among sibling repeated performances is not established by their count. The
+runtime represents them as sibling tokens, each with an independent performance frame; their
+owner-frame writes share the same feature space. The last completion is a barrier: only after
+every performance at that node finishes can the token carry its succession and data flows on.
+Exploration therefore finds each admitted shared-write result without merging states that differ
+in the live repetition set.
+
+Fixed outcome: `action_step_multiplicity_exact` has `c = 3` under declared, reverse and explore
+schedules; explore reaches one distinct outcome. In `action_step_multiplicity_zero`, `[0]` leaves
+the initial `c` unchanged and its `q` successor still runs, setting `c = 7`. The local-frame
+fixture reaches `c = 3`: each fresh `l` starts at zero, becomes one, and contributes one to the
+shared `c`.
 
 ### Concurrent branches writing one feature: the value is open, the writes are not
 

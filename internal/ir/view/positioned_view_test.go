@@ -299,8 +299,8 @@ func TestQuotedNameEscapesDecodeInLabels(t *testing.T) {
 		t.Errorf("DOT carries a control escape:\n%s", dot)
 	}
 	mermaid := rendering.Mermaid()
-	if !strings.Contains(mermaid, "First Line<br>Second Line") {
-		t.Errorf("Mermaid lacks a <br> break:\n%s", mermaid)
+	if !strings.Contains(mermaid, "**'First Line**\n**Second Line'**") {
+		t.Errorf("Mermaid lacks a Markdown line break:\n%s", mermaid)
 	}
 	if strings.ContainsAny(mermaid, "\b\f\r") {
 		t.Errorf("Mermaid carries a control escape:\n%s", mermaid)

@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -79,6 +80,13 @@ type actionFrame struct {
 	// live counts the tokens still running in this performance's flow, which a
 	// fork inside it raises and a join or a retiring token lowers.
 	live int
+	// repeats holds each arrival's barrier and live performances of a repeated node.
+	repeats map[repetitionGroupID]*stepRepetition
+	// repetition is the instance index when this frame is a repeated step.
+	repetition      int64
+	repetitionGroup repetitionGroupID
+	// multiplicities are action-node declarations of a state behavior frame.
+	multiplicities map[ast.Node]*ast.Multiplicity
 	// inBody marks a flow a body statement runs to completion (runSubflow) rather
 	// than a token of the enclosing flow, so its last token retires instead of leaving.
 	inBody bool
@@ -675,12 +683,50 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 			}
 		}
 	}
+	if err := f.unsupportedRepeatedRead(node); err != nil {
+		return nil, true, err
+	}
 	perf, performed := f.subactions[node]
 	if !performed {
 		return nil, true, fmt.Errorf("%w: action node %s has not been performed yet",
 			ErrNodeNotPerformed, ActionNodeName(node))
 	}
 	return perf, true, nil
+}
+
+func (f *actionFrame) unsupportedRepeatedRead(node ast.Node) error {
+	var graph *lower.ActionGraph
+	multiplicities := f.multiplicities
+	for _, candidate := range []*lower.ActionGraph{f.graph, f.flow} {
+		if candidate == nil {
+			continue
+		}
+		if _, declared := candidate.Multiplicities[node]; declared {
+			graph = candidate
+			multiplicities = candidate.Multiplicities
+			break
+		}
+	}
+	if _, declared := multiplicities[node]; !declared {
+		return nil
+	}
+	if graph == nil {
+		graph = &lower.ActionGraph{Multiplicities: multiplicities}
+	}
+	var model = (*semantics.Model)(nil)
+	if f.perfs != nil && f.perfs.ctx != nil {
+		model = f.perfs.ctx.Semantics()
+	}
+	count, err := graph.StepCount(node, model)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+	}
+	if count == 1 {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(node, model,
+		lower.StepMultiplicityUnsupportedCode,
+		"features of a repeated action step cannot be read from outside the step", node))
 }
 
 // pin reads the value the performance's pin holds; a pin admitting no value that
@@ -1130,13 +1176,16 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 	return merged
 }
 
-// collect reports the values the performance and its subactions hold, a node's
-// under its path (`p.v`), the latest performance of each name standing for it.
+// collect reports the values the performance and its non-repeated subactions hold,
+// under their paths (`p.v`), the latest performance of each name standing for it.
 func (f *actionFrame) collect(prefix string, into map[string]Value) {
 	for name, value := range f.data {
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
+		if sub.repetition > 0 {
+			continue
+		}
 		sub.collect(prefix+name+".", into)
 	}
 }

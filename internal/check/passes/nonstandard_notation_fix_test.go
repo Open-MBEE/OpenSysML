@@ -373,3 +373,23 @@ package P {
 		})
 	}
 }
+
+// A KerML-only declaration keyword carries no fix: swapping `connector` for
+// `connection` or `class` for `occurrence def` changes the declared kind, so
+// -fix leaves the text as written.
+func TestNotationFixLeavesKerMLDeclarations(t *testing.T) {
+	for _, tc := range kermlDeclarationInventory {
+		_, sf, diags := notationDiagnostics(t, "a.sysml", tc.src)
+		if len(diags) == 0 {
+			t.Fatalf("%s: want a %s finding, got none", tc.keyword, CodeKerMLNotation)
+		}
+		for _, d := range diags {
+			if len(d.Fixes) != 0 {
+				t.Errorf("%s: finding %q carries fixes %+v, want none", tc.keyword, d.Message, d.Fixes)
+			}
+		}
+		if got := applyFixes(t, sf.Bytes(), diags); got != tc.src {
+			t.Errorf("%s: -fix rewrote the text:\n%s", tc.keyword, got)
+		}
+	}
+}

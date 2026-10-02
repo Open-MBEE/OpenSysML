@@ -499,11 +499,11 @@ const diagramDocumentModel = `package Imaging {
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagrams
 // as Mermaid when diagramForm is absent and as DOT or PlantUML when named; the
-// Mermaid block opens on the frontmatter its two-line cluster title needs.
+// Mermaid block carries its theme and the cluster-title margin it needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
-	mermaidHeader := "---\nconfig:\n  themeCSS: \".cluster-label .nodeLabel { text-align: center; }\"\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n%% Imaging::chainView — interconnection rendering"
+	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
 		"mermaid":  {"```mermaid\n", mermaidHeader},
@@ -517,6 +517,9 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		}
 		if !strings.Contains(res.Markdown, want.fence+want.header) {
 			t.Errorf("diagramForm %q: markdown missing %q:\n%s", form, want.fence+want.header, res.Markdown)
+		}
+		if (form == "" || form == "mermaid") && !strings.Contains(res.Markdown, "subGraphTitleMargin:\n      bottom: 24\n") {
+			t.Errorf("diagramForm %q: Mermaid lacks its cluster-title margin:\n%s", form, res.Markdown)
 		}
 		if strings.Count(res.Markdown, "```") != 2 {
 			t.Errorf("diagramForm %q: want exactly one fenced block:\n%s", form, res.Markdown)

@@ -207,6 +207,38 @@ imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 the problem is using the production in a SysML file at all. It is still parsed,
 with a warning in `.sysml` and silently in `.kerml`.
 
+The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
+does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
+KerML keyword and not a SysML one is reported on its declaration — `connector`
+(`KerML.xtext:824`), `class` (`:795`), `struct`, `datatype`, `classifier`,
+`subclassifier`, `feature` (`:537`), `step` (`:911`), `expr`, `bool`, `behavior`,
+`function`, `predicate`, `metaclass`, `assoc`, `assoc struct`, `interaction`, `inv`
+(`:980`) and `multiplicity` — pointed at the keyword itself, past `abstract`, `in`
+and the other prefixes. The message names the SysML spelling where there is one:
+
+| KerML declaration | SysML spelling |
+|-------------------|----------------|
+| `connector c from a to b;` | `connection`/`connect` (`SysML.xtext:1062`), or `binding` for a binding connector (`:1018`) |
+| `class`, `struct`, `datatype`, `classifier` | `occurrence def`, `item def`/`part def`, `attribute def`, any `… def` |
+| `feature` | a usage keyword — `attribute`, `part`, `ref` |
+| `step` | `action` |
+| `expr`, `bool` | `calc`, `constraint` |
+| `inv` | `constraint` / `assert constraint` |
+| `behavior`, `function`, `predicate` | `action def`, `calc def`, `constraint def` |
+| `metaclass` | `metadata def` |
+| `assoc`, `assoc struct` | `connection def` |
+| `subclassifier` | `specializes` on the definition itself |
+| `interaction`, `multiplicity` | none — move the declaration to a `.kerml` file |
+
+The parser keeps accepting the keywords whatever the file kind, so the finding is
+the notation pass's (warning by default, error under `-strict`), the members of a
+reported declaration are not reported again, and there is no `-fix`: swapping the
+keyword changes what kind of element is declared. The pinned pilot rejects each of
+these in a `.sysml` file (`no viable alternative at input …`, oracle case
+`tools/referee/reject/testdata/negative/extensions/x10-connector-in-sysml.sysml`).
+`binding`/`bind`, `succession`, `connection`/`connect`, `flow`, `interface` and
+`allocate` are SysML productions and stay silent.
+
 ### Reserved by SysML only — a name in a `.kerml` file
 
 A word is reserved by the grammar of the file it is written in, so a literal that

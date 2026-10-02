@@ -76,6 +76,13 @@ func ClassifierBehaviorOf(member ast.Node) (ClassifierBehavior, bool) {
 	}, true
 }
 
+// IsPerformedActionUsage reports whether usage binds a classifier-level
+// performed action.
+func IsPerformedActionUsage(usage *ast.Usage) bool {
+	behavior, ok := ClassifierBehaviorOf(usage)
+	return ok && behavior.Kind == PerformedAction
+}
+
 // ClassifierBehaviorsOf reports the behaviors the given members bind, in
 // declaration order.
 func ClassifierBehaviorsOf(members []ast.Node) []ClassifierBehavior {

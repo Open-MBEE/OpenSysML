@@ -1,4 +1,4 @@
-# Diagnostics: lints
+# Diagnostics: lints and checker warnings
 
 A *lint* is a warning about a model the specification accepts: nothing in SysML v2 or KerML
 makes the written model wrong, but it is almost always a slip. Each lint has a stable code,
@@ -13,6 +13,19 @@ the exit status or blocks a check.
 | `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
 | `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint |
 | `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution |
+
+## Action-step multiplicity warnings
+
+These constraint-level warnings report valid SysML models whose action-step multiplicities or
+succession ordering the executor cannot safely implement. They are emitted by `-validate` with
+source `action-step-multiplicity`; they are not lints and cannot be disabled with lint settings.
+
+| Code | Reported when |
+|------|---------------|
+| `action-step-multiplicity-not-fixed` | An action-step or written succession-end multiplicity does not evaluate to a fixed exact count |
+| `action-step-multiplicity-unsupported` | A repeated or zero-count step has an unsupported control-node, guard, pin, binding, connection, external-feature-read, state-behavior, part-level performed-action, or loop/conditional block-flow interaction, or a bound is beyond the 64-bit range (for example, `1180591620717411303424`) |
+| `action-step-order-unsatisfiable` | A succession end forces an endpoint count that it does not admit |
+| `action-step-order-open` | The declared or defaulted succession ends do not force the endpoint counts under both readings of an unwritten end |
 
 ## Switching a lint off
 

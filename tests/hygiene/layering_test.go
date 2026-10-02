@@ -62,6 +62,7 @@ var packageLayer = map[string]string{
 	"internal/ir/queryplan": "ir",
 	"internal/ir/docplan":   "ir",
 	"internal/ir/view":      "ir",
+	"internal/ir/imagefile": "ir",
 
 	"internal/check/passes":          "check",
 	"internal/check/passes/kit":      "check",
@@ -90,7 +91,6 @@ var packageLayer = map[string]string{
 	"internal/translate/export":           "translate",
 	"internal/translate/filename":         "translate",
 	"internal/translate/fmi":              "translate",
-	"internal/translate/imagefile":        "translate",
 	"internal/translate/migrate":          "translate",
 	"internal/translate/deferred":         "translate",
 	"internal/translate/mtip":             "translate",

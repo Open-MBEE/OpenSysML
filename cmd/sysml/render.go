@@ -169,7 +169,7 @@ func renderOptions(width int) (view.Options, error) {
 	return options, nil
 }
 
-// styleOption is the drawing style -render-style names for a DOT drawing,
+// styleOption is the drawing style -render-style names for a DOT or Mermaid drawing,
 // which must be one there is; none named is the default, the Pilot look.
 func styleOption() (view.DrawingStyle, error) {
 	if renderStyle == "" {

@@ -4,7 +4,7 @@
 
 **Source:** [SysML-v2-Pilot-Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) training examples  
 **Download:** https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/sysml/src/training  
-**Status:** 100/100 files parse and resolve cleanly (0 semantic errors)  
+**Status:** 100/100 files parse and resolve without semantic errors; `takePhoto[*]` also receives the expected `action-step-multiplicity-not-fixed` execution-scope warning
 **Errors**: none recorded  
 **Gate**: the per-file error counts are recorded in `tests/corpus/testdata/training_examples_expected.txt`, so `TestTrainingExamplesSemanticErrors` fails when a file regresses *or* improves without updating the list (`-update-training` regenerates it)  
 
@@ -605,10 +605,13 @@ one cache directory and fails if any file's diagnostics differ between the two.
 
 **Implementation Status**: Core behavioral semantics complete (889/889 execution conformance cases passing).
 
-**Training Example Status**: 100/100 clean. The last two files were false positives of ours, not
-OMG bugs: `start` and `done` are declared by `Items::Item` and redefined by `Parts::Part`, and every
-definition body now inherits the features its kind implies (see the re-pin below).
+**Training Example Status**: 100/100 files report no semantic errors. The last two files were false
+positives of ours, not OMG bugs: `start` and `done` are declared by `Items::Item` and redefined by
+`Parts::Part`, and every definition body now inherits the features its kind implies (see the re-pin
+below). The action-step checker separately warns that `takePhoto[*]` has no fixed execution count;
+that warning is outside this error-only corpus gate.
 
-A clean training corpus means these 100 files produce no diagnostic — it is not evidence about
-execution semantics, which this corpus does not run, nor about the notation these files happen not
-to use. See [spec compliance](spec-compliance.md) for what is and is not claimed.
+This gate's clean result means these files produce no semantic errors, not that they produce no
+diagnostics at every severity. It is not evidence about execution semantics, which this corpus does
+not run, nor about the notation these files happen not to use. See [spec compliance](spec-compliance.md)
+for what is and is not claimed.
