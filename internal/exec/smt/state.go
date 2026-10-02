@@ -16,6 +16,10 @@ const (
 	// NoEdge is the edge value of a token that arrived over no succession: the
 	// initial token, and a token a synchronization made.
 	NoEdge = "none"
+	// Pending is the edge value of a token at a repeated step whose move must
+	// still take the split into its siblings, as the interpreter's
+	// splitRepeatedStep spends a step on it.
+	Pending = "pending"
 	// Stutter is the choice of a move in which no token acts: the flow is
 	// complete, or every token left is held.
 	Stutter = "stutter"
@@ -48,6 +52,9 @@ func newSorts(prefix string, f *Flow) Sorts {
 		edges = append(edges, edgeLabel(f, i))
 	}
 	edges = append(edges, NoEdge)
+	if f.Repeated {
+		edges = append(edges, Pending)
+	}
 	choices := make([]string, 0, f.Slots+1)
 	for t := 0; t < f.Slots; t++ {
 		choices = append(choices, slotLabel(t))

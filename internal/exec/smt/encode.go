@@ -851,9 +851,14 @@ func (e *Encoding) actsAt(prev *State, choice *solve.Term) []*solve.Term {
 	for n := range f.Nodes {
 		var cases []*solve.Term
 		for t, slot := range prev.Slots {
-			cases = append(cases, and(
+			at := and(
 				eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
-				eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, n))))
+				eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, n)))
+			if f.Repeats[f.Nodes[n]] > 1 {
+				// A token pending its split makes the siblings; the body performs no move.
+				at = and(at, not(eq(solve.VarTerm(slot.Via), solve.ValueTerm(e.Sorts.Edge, Pending))))
+			}
+			cases = append(cases, at)
 		}
 		acts[n] = or(cases...)
 	}
@@ -987,7 +992,10 @@ type tokenStep struct {
 	// gate is the condition under which the acting token may take a succession:
 	// false while sibling performances of a repeated step are still at it, so
 	// every token but the last retires behind the barrier.
-	gate        *solve.Term
+	gate *solve.Term
+	// pending holds when the acting token sits at a repeated step whose split
+	// it must still take, so the move makes the siblings rather than performs.
+	pending     *solve.Term
 	consumed    []*solve.Term
 	free        []*solve.Term
 	placed      []*solve.Term
@@ -1001,10 +1009,11 @@ type tokenStep struct {
 func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, guards outgoingGuards) (step, fails, full *solve.Term) {
 	s := &tokenStep{
 		e: e, t: t, n: n, node: node, out: e.Flow.Outgoing[node], prev: prev, next: next, guards: guards,
-		travel: solve.VarTerm(m.Travel),
-		noEdge: solve.ValueTerm(e.Sorts.Edge, NoEdge),
-		absent: solve.ValueTerm(e.Sorts.Node, Absent),
-		gate:   solve.BoolTerm(true),
+		travel:  solve.VarTerm(m.Travel),
+		noEdge:  solve.ValueTerm(e.Sorts.Edge, NoEdge),
+		absent:  solve.ValueTerm(e.Sorts.Node, Absent),
+		gate:    solve.BoolTerm(true),
+		pending: solve.BoolTerm(false),
 	}
 	s.synchronize()
 	s.nextID = s.base
@@ -1016,17 +1025,23 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	case *ast.DecisionNode:
 		s.decide()
 	default:
-		if count := e.Flow.Repeats[node]; count > 1 && !e.Flow.Crosses[node] {
-			// A barrier: the token performs, then retires while sibling
-			// performances are still at the step; the last succeeds.
-			var siblings []*solve.Term
-			for u, other := range prev.Slots {
-				if u == t {
-					continue
+		if count := e.Flow.Repeats[node]; count > 1 {
+			s.pending = eq(solve.VarTerm(prev.Slots[s.t].Via), solve.ValueTerm(e.Sorts.Edge, Pending))
+			s.split(count)
+			if e.Flow.Crosses[node] {
+				s.gate = not(s.pending)
+			} else {
+				// A barrier: the token performs, then retires while sibling
+				// performances are still at the step; the last succeeds.
+				var siblings []*solve.Term
+				for u, other := range prev.Slots {
+					if u == t {
+						continue
+					}
+					siblings = append(siblings, eq(solve.VarTerm(other.At), nodeValue(e.Sorts, e.Flow, n)))
 				}
-				siblings = append(siblings, eq(solve.VarTerm(other.At), nodeValue(e.Sorts, e.Flow, n)))
+				s.gate = and(not(s.pending), not(or(siblings...)))
 			}
-			s.gate = not(or(siblings...))
 		}
 		s.succeed()
 	}
@@ -1227,7 +1242,7 @@ func (s *tokenStep) succeed() {
 		taken = or(taken, isFirst)
 		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
-	s.terms = append(s.terms, implies(not(taken), s.retire()))
+	s.terms = append(s.terms, implies(and(not(s.pending), not(taken)), s.retire()))
 	failures := undefinedGuards(s.guards.defined)
 	if !initial && len(s.out) > 1 {
 		failures = append(failures, gt(count, solve.IntTerm(1)))
@@ -1239,7 +1254,7 @@ func (s *tokenStep) succeed() {
 		}
 	}
 	if len(failures) > 0 {
-		s.fails = or(failures...)
+		s.fails = and(not(s.pending), or(failures...))
 	}
 }
 
@@ -1257,18 +1272,36 @@ func (s *tokenStep) freeRanks() (ranks []*solve.Term, total *solve.Term) {
 	return ranks, total
 }
 
-// arrive takes the acting token's p-th succession into its target, and when the
-// target performs n times places the n-1 sibling tokens in the free slots, as a
-// fork places its tokens; taken is the condition under which the edge is taken.
+// arrive takes the acting token's p-th succession into its target. Into a step
+// performed n times the token lands pending its split: the interpreter's
+// splitRepeatedStep spends the step after arrival minting the siblings, so the
+// encoding places them on the token's next move, marked by the Pending edge.
 func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
 	e, f := s.e, s.e.Flow
 	edge := f.Edges[s.out[p]]
-	extra := f.Repeats[edge.Target] - 1
-	if extra <= 0 {
+	if f.Repeats[edge.Target] <= 1 {
 		return s.take(p)
 	}
-	target := nodeValue(e.Sorts, f, f.Index[edge.Target])
-	via := edgeValue(e.Sorts, f, s.out[p])
+	after := s.next.Slots[s.t]
+	return and(
+		eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
+		eq(solve.VarTerm(after.Via), solve.ValueTerm(e.Sorts.Edge, Pending)),
+		eq(solve.VarTerm(after.ID), s.actorID),
+		eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+}
+
+// split is the move a token pending at a count-repeated step takes: it stays,
+// minting the count-1 sibling tokens the interpreter's splitRepeatedStep does,
+// in the free slots. Every sibling performs on a later move.
+func (s *tokenStep) split(count int64) {
+	e, f := s.e, s.e.Flow
+	target := nodeValue(e.Sorts, f, s.n)
+	s.terms = append(s.terms, implies(s.pending, and(
+		eq(solve.VarTerm(s.next.Slots[s.t].At), target),
+		eq(solve.VarTerm(s.next.Slots[s.t].Via), s.noEdge),
+		eq(solve.VarTerm(s.next.Slots[s.t].ID), s.actorID),
+		eq(s.travel, s.noEdge))))
+	extra := count - 1
 	ranks, total := s.freeRanks()
 	for u := range s.prev.Slots {
 		if u == s.t {
@@ -1277,23 +1310,17 @@ func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
 		after := s.next.Slots[u]
 		var hits []*solve.Term
 		for r := int64(0); r < extra; r++ {
-			hit := and(taken, s.free[u], eq(ranks[u], solve.IntTerm(r)))
+			hit := and(s.pending, s.free[u], eq(ranks[u], solve.IntTerm(r)))
 			hits = append(hits, hit)
 			s.terms = append(s.terms, implies(hit, and(
 				eq(solve.VarTerm(after.At), target),
-				eq(solve.VarTerm(after.Via), via),
+				eq(solve.VarTerm(after.Via), s.noEdge),
 				eq(solve.VarTerm(after.ID), add(s.base, solve.IntTerm(r))))))
 		}
 		s.placed[u] = or(s.placed[u], or(hits...))
 	}
-	s.nextID = add(s.nextID, ite(taken, solve.IntTerm(extra), solve.IntTerm(0)))
-	overflow := and(taken, gt(solve.IntTerm(extra), total))
-	if s.full == nil {
-		s.full = overflow
-	} else {
-		s.full = or(s.full, overflow)
-	}
-	return s.take(p)
+	s.nextID = add(s.nextID, ite(s.pending, solve.IntTerm(extra), solve.IntTerm(0)))
+	s.full = and(s.pending, gt(solve.IntTerm(extra), total))
 }
 
 // others ties the other slots: consumed ones are freed, the rest are as they

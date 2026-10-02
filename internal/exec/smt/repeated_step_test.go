@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
@@ -52,7 +54,7 @@ func TestEncodeRepeatedStepOutcomes(t *testing.T) {
 		{"zero", "action_step_multiplicity_zero.sysml", "test::Zero", 6, false, map[int64]bool{7: true}},
 		{"fork barrier", "action_step_multiplicity_fork_barrier.sysml", "test::U", 10, false, map[int64]bool{113: true}},
 		{"merge fanout", "action_step_multiplicity_merge_fanout.sysml", "test::U", 10, false, map[int64]bool{31: true}},
-		{"join per performance", "action_step_multiplicity_join_per_performance.sysml", "test::U", 10, false, map[int64]bool{3: true}},
+		{"join per performance", "action_step_multiplicity_join_per_performance.sysml", "test::U", 11, false, map[int64]bool{3: true}},
 		{"guard true", "action_step_multiplicity_guard_true.sysml", "test::U", 10, false, map[int64]bool{3: true}},
 		{"guard false", "action_step_multiplicity_guard_false.sysml", "test::U", 10, true, nil},
 	} {
@@ -126,6 +128,70 @@ func TestEncodeRepeatedStepSharedWriters(t *testing.T) {
 	}
 	if got := status(t, solver, enc, k, solve.And(solve.Not(failed), solve.Not(eq(solve.VarTerm(v), solve.IntTerm(1))), solve.Not(eq(solve.VarTerm(v), solve.IntTerm(2))))); got != solve.StatusUnsat {
 		t.Errorf("c outside {1,2} on unfailed completion: %v, want unsat", got)
+	}
+}
+
+// TestEngineWitnessesReplayOverRepeatedSteps: a violated property over a
+// repeated step gives a witness the interpreter replays — the split takes the
+// move the interpreter's splitRepeatedStep does, so the run's steps line up.
+func TestEngineWitnessesReplayOverRepeatedSteps(t *testing.T) {
+	e := engine(t)
+	for _, c := range []struct {
+		name, file, src, action, constraint string
+	}{
+		{"exact", "repeated_exact.sysml", `package test {
+	private import ScalarValues::*;
+	action def Rep {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 3 }
+		first start then a;
+		action a[3] { assign c := c + 1; }
+		then done;
+	}
+}`, "test::Rep", "test::Rep::belowFinal"},
+		{"fork barrier", "repeated_fork_barrier.sysml", `package test {
+	private import ScalarValues::*;
+	action def U {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 113 }
+		first start then a;
+		action a[3] { assign c := c + 1; }
+		succession first [*] a then f;
+		fork f;
+		then x;
+		then y;
+		action x { assign c := c + 10; }
+		action y { assign c := c + 100; }
+		succession first x then m;
+		succession first y then m;
+		merge m;
+		succession first m then done;
+	}
+}`, "test::U", "test::U::belowFinal"},
+		{"merge fanout", "repeated_merge_fanout.sysml", `package test {
+	private import ScalarValues::*;
+	action def U {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 31 }
+		first start then b;
+		action b { assign c := 1; }
+		succession first b then m;
+		merge m;
+		succession first m then [*] a;
+		action a[3] { assign c := c + 10; }
+		then done;
+	}
+}`, "test::U", "test::U::belowFinal"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := indexed(t, c.file, c.src)
+			result := answer(t, e, d, d.holds(t, c.action, c.constraint), analysis.Budget{Depth: 16})
+			expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
+			var violation *runtime.ViolationError
+			if len(result.Values) != 1 || !errors.As(result.Values[0].Err, &violation) {
+				t.Fatalf("the interpreter's violation is not reported: %+v", result.Values)
+			}
+		})
 	}
 }
 
