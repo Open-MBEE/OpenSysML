@@ -256,7 +256,7 @@ func wantDeferredDoorEncoding(t *testing.T, r *migrate.Result) {
 		"item deferred : Door[*] ordered;",
 		"do action buffer {",
 		"first start then receive;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }",
 		"then receive;",
 		"metadata MigrationMetadata::SynthesizedName about receive, keep;",
@@ -391,10 +391,10 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 		"then receiveBeep;",
 		"action run {",
 		"assign context.ticks := context.ticks + 1;",
-		"action receiveAlarm accept keptAlarm : Alarm;",
+		"#MigrationMetadata::DeferredKeeper action receiveAlarm accept keptAlarm : Alarm;",
 		"then action keepAlarm { assign deferredAlarm := SequenceFunctions::including(deferredAlarm, receiveAlarm.keptAlarm); }",
 		"then receiveAlarm;",
-		"action receiveBeep accept keptBeep : Beep;",
+		"#MigrationMetadata::DeferredKeeper action receiveBeep accept keptBeep : Beep;",
 		"then action keepBeep { assign deferredBeep := SequenceFunctions::including(deferredBeep, receiveBeep.keptBeep); }",
 		"then receiveBeep;",
 		"metadata MigrationMetadata::SynthesizedName about split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep;",
@@ -670,7 +670,7 @@ func TestStrictAcceptViaContextPortFixture(t *testing.T) {
 		"in ref context : ActivityReceiver[1];",
 		"action receive accept Ping via context.p;",
 		"transition first Waiting accept Go via context.p then Done;",
-		"action 'receive via p' accept 'kept via p' : Ping via context.p;",
+		"#MigrationMetadata::DeferredKeeper action 'receive via p' accept 'kept via p' : Ping via context.p;",
 		"action 'receive via p' accept 'ping via p' : Ping via p;",
 		"exhibit state life : Life { in ref :>> context = this; }",
 		"perform action await : Await { in ref :>> context = this; }",
@@ -702,13 +702,13 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 		"then receiveCmd;",
 		"then 'receiveCmd via inbox';",
 		"then 'receivePing via side';",
-		"action receiveCmd accept keptCmd : Cmd;",
+		"#MigrationMetadata::DeferredKeeper action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"then receiveCmd;",
-		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
+		"#MigrationMetadata::DeferredKeeper action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
 		"then action 'keepCmd via inbox' { assign deferredCmd := SequenceFunctions::including(deferredCmd, 'receiveCmd via inbox'.'keptCmd via inbox'); }",
 		"then 'receiveCmd via inbox';",
-		"action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
+		"#MigrationMetadata::DeferredKeeper action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
 		"then action 'keepPing via side' { assign deferredPing := SequenceFunctions::including(deferredPing, 'receivePing via side'.'keptPing via side'); }",
 		"then 'receivePing via side';",
 		"exit action flush {",
@@ -769,7 +769,7 @@ func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
 	wantNoLine(t, r.Notation, "defer Cmd;")
 	for _, line := range []string{
 		"item deferredCmd : Cmd[*] ordered;",
-		"action receiveCmd accept keptCmd : Cmd;",
+		"#MigrationMetadata::DeferredKeeper action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"for keptCmd in deferredCmd { send keptCmd to self; }",
 		"transition first Waiting accept Cmd via context.inbox then Working;",
@@ -853,7 +853,7 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	for _, line := range []string{
 		"state Busy {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Heating accept Door then Opened;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -947,7 +947,7 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	for _, line := range []string{
 		"state Off {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -1117,7 +1117,7 @@ func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
 	for _, line := range []string{
 		"state Off {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Off if context.ready then Done;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1195,7 +1195,7 @@ func TestStrictDeferralSurvivesInternalTransition(t *testing.T) {
 	wantNoLine(t, r.Notation, "defer Door;")
 	for _, line := range []string{
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Off accept Tick",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1275,7 +1275,7 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	for _, line := range []string{
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"item deferred : Stop[*] ordered;",
-		"action receive accept kept : Stop;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Stop;",
 		"transition first Busy accept Notification then Idle;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1299,7 +1299,7 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	r = migrateDocumentOptions(t, signals+special, block, migrate.Options{Strict: true})
 	for _, line := range []string{
 		"item deferredNotification : Notification[*] ordered;",
-		"action receiveNotification accept keptNotification : Notification;",
+		"#MigrationMetadata::DeferredKeeper action receiveNotification accept keptNotification : Notification;",
 		"transition first Busy accept Alarm then Idle;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1359,7 +1359,7 @@ func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Notification; }",
 		"item deferred : Event[*] ordered;",
-		"action receive accept kept : Event;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Event;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -1422,7 +1422,7 @@ func TestStrictDeferralNamesShadowNothingItRefersTo(t *testing.T) {
 	for _, line := range []string{
 		"ref item SequenceFunctions : Stop;",
 		"item deferred : receive[*] ordered;",
-		"action receive2 accept kept : receive;",
+		"#MigrationMetadata::DeferredKeeper action receive2 accept kept : receive;",
 		"then action keep { assign deferred := $::SequenceFunctions::including(deferred, receive2.kept); }",
 		"then receive2;",
 	} {
@@ -1478,7 +1478,7 @@ func TestStrictDeferralWithoutRunnableDoBehavior(t *testing.T) {
 		"do action buffer {",
 		"first start then receive;",
 		"/* do action Aux is written as a state def, which no state runs */",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

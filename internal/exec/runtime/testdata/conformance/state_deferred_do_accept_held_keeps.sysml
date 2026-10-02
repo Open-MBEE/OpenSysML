@@ -22,7 +22,7 @@ package Test {
                 fork split;
                 then receive;
                 then work;
-                action receive accept kept : Ping;
+                #MigrationMetadata::DeferredKeeper action receive accept kept : Ping;
                 then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
                 then receive;
                 action work {

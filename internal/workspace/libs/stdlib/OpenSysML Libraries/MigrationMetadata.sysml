@@ -17,6 +17,15 @@ standard library package MigrationMetadata {
         ref signal : Base::Anything[1];
     }
 
+    metadata def DeferredKeeper {
+        doc /* The annotated accept keeps the deferred signal it accepts for
+             * the state that defers it: the accept loop of the standard
+             * encoding stores each occurrence in the state's buffer rather than
+             * consuming it as the state's own behavior would, so the state's
+             * other accepts of the signal take an occurrence first. Written as
+             * `#DeferredKeeper action receive accept kept : Sig;`. */
+    }
+
     metadata def LibraryNameAvoided {
         doc /* The annotated top-level package was named, in the source model,
              * like a standard library package, which a qualified name starting

@@ -23,8 +23,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
 - Measured at the `2026-08` pin after bare parameters took their effective range `[0..*]`, removing
   the adjudicated `Behaviors.kerml:14` multiplicity warning (the `[1]` `RocketEquation` inputs keep
-  its warning at `delta-v-budget.sysml:93`): `380 file(s), 345 fully agreeing; 38 agreed, 40 only
-  ours, 1616 only the pilot's`, JSON totals `openSysMLDiagnostics 80 / pilotDiagnostics 1656 /
+  its warning at `delta-v-budget.sysml:93`): `381 file(s), 345 fully agreeing; 38 agreed, 41 only
+  ours, 1629 only the pilot's`, JSON totals `openSysMLDiagnostics 81 / pilotDiagnostics 1669 /
   severityMismatch 2`; ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
   `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run carried (`The
   opposite features 'owningType' … do not refer to each other`) are gone: the pilot fixed its
@@ -142,8 +142,8 @@ committed result of the *last refreshed* run, so **the harness is testable by re
 but only while the baseline is current. Check that first. The latest rebaseline, after bare
 parameters took their effective range `[0..*]` and removed the adjudicated `Behaviors.kerml:14`
 warning (the `[1]` `RocketEquation` inputs still produce the warning at
-`delta-v-budget.sysml:93`), is current: a live run gives `380 file(s), 345 fully agreeing; 38
-agreed, 40 only ours, 1616 only the pilot's`, byte-identical to the committed baseline, and
+`delta-v-budget.sysml:93`), is current: a live run gives `381 file(s), 345 fully agreeing; 38
+agreed, 41 only ours, 1629 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.

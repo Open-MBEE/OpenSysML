@@ -2867,6 +2867,9 @@ func (p *Parser) parseBodyMember() ast.Node {
 		if p.leadingPrefixIsActionNode() {
 			return p.parseActionMember()
 		}
+		if p.atAcceptNodeAt(p.prefixLookahead()) {
+			return p.parseAcceptNode(start, vis, trivia, p.parsePrefixMetadata())
+		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
 		// dependency keeps its prefixes the way a namespace member does.
 		var inner ast.Node
@@ -3040,7 +3043,7 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// (`accept when x > 1`) — and is parsed by the one payload parser triggers
 	// also use, so every spelling reaches lowering the same way.
 	if p.atAcceptNode() {
-		return p.parseAcceptNode(start, vis, trivia)
+		return p.parseAcceptNode(start, vis, trivia, nil)
 	}
 
 	// A transition usage stating its ends (SysML.xtext `TransitionUsage`):

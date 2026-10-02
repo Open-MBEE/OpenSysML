@@ -20,7 +20,7 @@ part def Receiver {
             item deferred : Ping[*] ordered;
             do action buffer {
                 first start then 'receive via p';
-                action 'receive via p' accept 'kept via p' : Ping via context.p;
+                #MigrationMetadata::DeferredKeeper action 'receive via p' accept 'kept via p' : Ping via context.p;
                 then action 'keep via p' { assign deferred := SequenceFunctions::including(deferred, 'receive via p'.'kept via p'); }
                 then 'receive via p';
                 metadata MigrationMetadata::SynthesizedName about 'receive via p', 'keep via p';

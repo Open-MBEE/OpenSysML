@@ -228,7 +228,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 380 files)
+## Results (pilot `2026-08`, 381 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -236,10 +236,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
-| `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
+| `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
 | `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **345** | **80** | **1656** | **38** | **2** | **40** | **1616** |
+| **Total** | **381** | **345** | **81** | **1669** | **38** | **2** | **41** | **1629** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -258,8 +258,8 @@ the [runtime showcase round](#runtime-showcase-round)): the non-standard-notatio
 `junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
 no SysML v2 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
 succession shorthands retired 30, removing `initial <state>;` and `transition <src> to <tgt>;`
-retired 27 more, and the standard-notation round below retired the last 7. `testdata` carries 8:
-the 3 adjudicated below and the 5 value-uniqueness diagnostics of `passes/unique_values.sysml`, a
+retired 27 more, and the standard-notation round below retired the last 7. `testdata` carries 9:
+the 4 adjudicated below and the 5 value-uniqueness diagnostics of `passes/unique_values.sysml`, a
 fixture that exists to draw them (see [Value uniqueness](#value-uniqueness--only-ours-5)) — the
 pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
@@ -812,8 +812,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1616** |
-| pilot diagnostics | 123 | **1656** |
+| only pilot | 82 | **1629** |
+| pilot diagnostics | 123 | **1669** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -942,9 +942,9 @@ Xpect assertions not present in these seven differential roots.
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 5 `kind-mismatch`; `kerml-examples` 9 `unmapped`; `examples` 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
-advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
+advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 8
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
-Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
+Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 syntax, 7 `unresolved-reference`;
 `examples` 6 syntax, 29 `unmapped`, 673 `kind-mismatch`, 888 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
@@ -1036,11 +1036,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 40 / 80** |
-| only pilot | **1616** |
-| pilot diagnostics | **1656** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 41 / 81** |
+| only pilot | **1629** |
+| pilot diagnostics | **1669** |
 | severity-only | **2** |
-| unmapped, our side | **34** |
+| unmapped, our side | **35** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **11** |
 | examples: only pilot | **1596** |
@@ -1226,6 +1226,7 @@ are gone from the three files listed in the movement table above.
 | ~~`passes/errors.sysml:4`, `resolve/errors.sysml:4`~~ | ~~`unresolved reference: Nowhere`~~ | **No longer a disagreement.** These were negative fixtures where the pilot was silent only because a bare `import` earlier in the same file broke its parse before it got there (see P1). Since F2 gave our fixtures an explicit visibility, the pilot parses them and reports `Nowhere` too: both rows are now agreement. |
 | `passes/constraints.sysml:2,3` | `A`/`B` `participates in a specialization cycle` (`unmapped`) | **Ours is right, and the pilot has no such check** — settled by F4, both by reading its validators and by probing it on clean files (see [Specialization cycles](#specialization-cycles-f4)). The silence is not a parse cascade of the kind P1 describes: the same three cycle shapes in files with nothing else in them are accepted by the pilot with zero diagnostics. A one-sided finding, so it is our extension of the reference rather than a disagreement — kept `unmapped` because no coarse category honestly covers it. |
 | `passes/constraints.sysml:9` | `multiplicity lower bound exceeds upper bound on lo` | **Ours is right**: `part lo [5..2];`. No pilot counterpart. |
+| `passes/deferred_keeper.sysml:12` | `accept of deferred signal Ping is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it` (`unmapped`) | **Ours is right, and one-sided by construction.** The fixture exists to draw the `deferred-keeper-unmarked` lint on a deferral loop written without the marker the SysML v1 migrator emits; the two states beside it, one marked and one without `DeferredEvent`, draw nothing. The lint reads this repository's `MigrationMetadata` library, which the reference does not have, so no pilot counterpart can exist. |
 
 ### Value uniqueness — only ours (5)
 
@@ -3078,10 +3079,10 @@ own `Must have a Boolean result` can agree with the pilot's identical string ins
 
 ## The remaining only-ours rows
 
-The only-ours column is **27** as published and **26** with the declared errata applied, and every
+The only-ours column is **28** as published and **27** with the declared errata applied, and every
 row in it is adjudicated. Three quarters of them are not candidate false positives at all: 7 are our
 own non-standard-notation warnings on our own demo models (`solver-demo.sysml`, 6 `require` outside a
-requirement body, and `pseudostates-demo.sysml`, 1 `junction`), 3 are our own fixtures under
+requirement body, and `pseudostates-demo.sysml`, 1 `junction`), 4 are our own fixtures under
 `testdata/passes/`, and 6+4+3 are the one-sided specialization-cycle family — the committed probes,
 `Simple Tests/PartTest.sysml:51,52,53,55` and `Simple Tests/Circular.kerml:9,10,11` — whose
 adjudication is [above](#specialization-cycles-f4). That leaves the reference's own corpora carrying
@@ -3244,6 +3245,7 @@ true positive: the identical construct at line 10 is now an agreement.
 | 7 `Couldn't resolve reference to …` (`b`, `c`, `sciencePower`, `drivePower`, `ignite`, `start`, `touchdown`) | `parse/expressions.sysml`:3, `solver-demo.sysml`:120,124, `views-demo.sysml`:88,90,108, `pseudostates-demo.sysml`:17 | **Split, both defensible, no code change.** Three are later segments of a chain whose head we already reported unresolved (`a.b.c`), where repeating the failure per segment adds nothing; four name action or state vertices in files the reference cannot parse past, so the names are missing from *its* model rather than invented by ours. Left. |
 | 11 syntax errors (`no viable alternative at input 'entry'` / `'evaluate'` / `'if'` / `'then'`, `missing '}' at 'action'`, `mismatched input 'transition'`, `missing EOF`) | `phase-c-behavioral-bodies.sysml`:175,176, `pseudostates-demo.sysml`:12,18,19, `views-demo.sysml`:106,107,109 | **The reference failing to parse notation of ours.** These trace to retained extensions — `choice`/`junction` pseudostates, `entry;` as a bare entry marker, the inline `if`/`else` action form — for which the pinned grammar has no production. Not gaps of ours; we already warn on the non-standard ones under the conformance modes. Left. |
 | 5 `Must be an accessible feature (use dot notation for nesting)` | `semantic-layer/demo.sysml`:44,45,46,50,51 | **Recovery collateral, not a gap** — the reduced model the previous round asked for now exists. All five references (`MathConstants::pi`, `::e`, `::Derived::twoPi`, and the two expression forms) transcribed into a file that declares `MathConstants` as a `package` are silent in both implementations; changing that one keyword to `namespace`, which the SysML grammar has no production for, makes the reference report `no viable alternative at input` on each namespace **and** exactly these five accessibility errors, at the same relative positions and in the same order as the file. Its recovery turns the unparsed namespace into a feature, so each qualified reference becomes a subsetting whose subsetted feature is featured within another feature and fails `canAccess`. The construct it claims to see is not the construct in the file. Left; no rule to add. The five rows carried the same categorizer asymmetry as the row above — we word this message exactly as the reference does — and are now categorized alike on both sides, which does not pair them, since we report nothing on those lines. |
+| 13 on this repository's `MigrationMetadata` annotations (8 `A metadata usage must be typed by one metadata definition.` / `Must have a concrete type` / `Must redefine an owning-type feature`, 5 `Couldn't resolve reference to Type 'MigrationMetadata::DeferredEvent'` / `'MigrationMetadata::DeferredKeeper'` / `Feature 'signal'`) | `passes/deferred_keeper.sysml`:8,28,32 | **Not a gap: the reference has no `MigrationMetadata` library.** The fixture annotates two states with `@MigrationMetadata::DeferredEvent` and one accept with `#MigrationMetadata::DeferredKeeper`, the markers the SysML v1 migrator writes, and the reference is run over the corpus without this repository's libraries, so every reference to them is unresolved there and the metadata usages typed by them draw the kind rows that follow from an unresolved type. Same cause as the `DocumentQueries` rows of `self-model/document.sysml` above. |
 
 ### The census the verdicts above account for
 

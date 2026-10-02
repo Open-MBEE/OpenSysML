@@ -81,6 +81,12 @@ expectation file holds no per-file counts and `-update-training` refuses to reco
 the other three are a **per-file ratchet** whose every movement must be adjudicated. Do not
 turn the assertion into a ratchet.
 
+`sysml -render-document -doc-form pdf` drives external converters (WeasyPrint, pandoc, mermaid-cli)
+that nothing else needs. `./scripts/download-doc-pdf-toolchain.sh` provisions pinned copies under
+`build/doc-pdf/`; point `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_MMDC` and
+`OPENSYSML_MMDC_PUPPETEER` at them to run the PDF integration tests. Those tests skip rather than
+fail when a converter is absent, so a passing run proves nothing until the converters were found.
+
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
 downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
 notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
@@ -166,6 +172,8 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 6. **Add/adjust tests** to lock in the fix and cover the failure mode.
 7. **Verify** with the full gate in §2. Remove any temporary debug code and dead code.
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
+9. **Open the PR as a draft** against `develop` and mark it ready for review once CI is green. Address
+   review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision.
 
 ---
 
@@ -176,7 +184,8 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
   `changes/unreleased/<slug>.<section>.md` (`<section>` is `added`, `changed`, `fixed`, …; body is
   the list item(s) only — see the README there). Concurrent PRs then cannot conflict on the changelog;
   the release procedure folds fragments in. `python3 scripts/changelog.py check` validates them.
-- **Comments:** don't add or remove comments/docs unrelated to your change.
+- **Comments:** don't add or remove comments/docs unrelated to your change. Keep a code comment to
+  one or two lines; no paragraphs.
 - **Commit messages — Conventional Commits:** `<type>(<scope>): <description>`
   - types: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`
   - e.g. `fix(runtime): preserve transition effects when lowering state graph`
@@ -192,6 +201,9 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
   - The conformance records under `docs/project/` are the one exception: they cross-reference each
     other by these labels, so each opens with a **Labels** note defining them. If you add a record
     that uses them, add that note too.
+  - Nor anything only the session that produced the change could resolve: no references to a
+    conversation ("as discussed", "per your request"), no links to agent sessions, and no narration
+    of your own process ("after reviewing", "I installed"). Write for a reader who has only the tree.
   - Real keyboard shortcuts (`F2` to rename, `F5` in VS Code) are not internal labels — spell them
     `<kbd>F2</kbd>` so their meaning is unambiguous.
   - Identifiers in code (an `errata.Entry.ID`, a test name) may keep their labels; when code points
