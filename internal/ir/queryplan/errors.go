@@ -43,6 +43,9 @@ const (
 	ErrorDuplicateColumn        ErrorKind = "duplicate-column"
 	ErrorEmptyProjection        ErrorKind = "empty-projection"
 	ErrorColumnAggregate        ErrorKind = "column-aggregate"
+	// ErrorCollectionFunction is a `->` function a cell cannot apply: unknown,
+	// or given the wrong arguments.
+	ErrorCollectionFunction ErrorKind = "collection-function"
 )
 
 // Error is a typed query-planning failure with its source location.
@@ -155,6 +158,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s must project at least one property or computed column", e.Query)
 	case ErrorColumnAggregate:
 		return fmt.Sprintf("query %s column %s does not support aggregate %q", e.Query, e.Target, e.Actual)
+	case ErrorCollectionFunction:
+		return fmt.Sprintf("query %s column %s cannot apply ->%s: %s", e.Query, e.Target, e.Actual, e.Expected)
 	default:
 		return fmt.Sprintf("query planning failed for %s", e.Query)
 	}

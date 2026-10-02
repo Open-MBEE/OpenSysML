@@ -73,3 +73,45 @@ func TestSendOfAbsentArgumentToRequiredAttributeIsLedgered(t *testing.T) {
 	wantNote(t, r, "_send", migrate.Approximated, "the argument pin target admits no value, which the signal's target, declared holding one, cannot: a run reaching the send with none stops at it")
 	wantLine(t, r.Notation, "send new Point(target, note) via tx;")
 }
+
+// misroutedSend is a beacon whose activity Hail counts its hails, so it acts on
+// the beacon, and sends a Ping, which declares no attribute, passing an argument
+// pin anyway, on a port of the unrelated block Relay.
+const misroutedSend = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_relay" name="Relay">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_rx" name="rx" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_beacon" name="Beacon">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hails" name="hails">` + integerHref + `
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_hails0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_hail" name="Hail">
+        <node xmi:type="uml:InitialNode" xmi:id="_hInit"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_hailCount" name="count">
+          <language>JavaScript</language>
+          <body>hails = hails + 1;</body>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_hailSend" name="send ping" signal="_ping" onPort="_rx">
+          <argument xmi:type="uml:ValuePin" xmi:id="_hailStrength" name="strength">
+            <value xmi:type="uml:LiteralReal" xmi:id="_hailStrengthV" value="0.5"/>
+          </argument>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_hFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_hE1" source="_hInit" target="_hailCount"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_hE3" source="_hailCount" target="_hailSend"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_hE2" source="_hailSend" target="_hFinal"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const misroutedSendApplications = `
+  <sysml:Block xmi:id="_b2" base_Class="_relay"/>
+  <sysml:Block xmi:id="_b3" base_Class="_beacon"/>`
+
+// A send on a port that is no port of the sender's object keeps the note on its
+// arguments beside the one on its port: both say what the send as written drops.
+func TestSendOnAnotherObjectsPortKeepsItsArgumentNote(t *testing.T) {
+	r := migrateDocument(t, misroutedSend, misroutedSendApplications)
+	wantNote(t, r, "_hailSend", migrate.Approximated, "the signal has no attribute for the argument pin strength, which is not sent; the port Relay::rx is no port of the object the sender acts on; the signal is sent to the sender")
+	wantLine(t, r.Notation, "send new Ping();")
+}

@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 11},
+		"d": {"type": "Integer", "value": 11}
+	}
+}

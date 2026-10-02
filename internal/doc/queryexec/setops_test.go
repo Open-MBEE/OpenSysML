@@ -311,6 +311,7 @@ calc def LaterAccepts :> Query {
 
 	got = rowTexts(t, fixture.rows(t, "AcceptsTwice", lamps))
 	want = []string{
+		"time=0.0 [s] path=lamp1 event=Report",
 		"time=0.0 [s] path=lamp1 event=Toggle",
 		"time=1.0 [s] path=lamp1 event=Dim",
 		"time=2.0 [s] path=lamp2 event=Toggle",
@@ -321,7 +322,7 @@ calc def LaterAccepts :> Query {
 		t.Fatalf("Union of the same accepts:\n%s\nwant:\n%s", joinLines(got), joinLines(want))
 	}
 	got = rowTexts(t, fixture.rows(t, "LaterAccepts", lamps))
-	if joinLines(got) != joinLines(want[2:]) {
-		t.Fatalf("accepts from 2 s:\n%s\nwant:\n%s", joinLines(got), joinLines(want[2:]))
+	if joinLines(got) != joinLines(want[3:]) {
+		t.Fatalf("accepts from 2 s:\n%s\nwant:\n%s", joinLines(got), joinLines(want[3:]))
 	}
 }

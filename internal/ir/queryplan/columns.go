@@ -99,6 +99,7 @@ func (c *compiler) compileColumn(
 		}
 	}
 	var expression Expression
+	rowVariable := ""
 	switch {
 	case expressionNode != nil:
 		expression, _, err = c.compileColumnExpression(query, owner, name, expressionNode, nil)
@@ -122,7 +123,9 @@ func (c *compiler) compileColumn(
 				Origin:    symbols.NodeOrigin(owner.DocName, body.Params[0].Type),
 			}
 		}
-		expression, _, err = c.compileColumnExpression(query, owner, name, body.Result, &columnRow{name: body.Params[0].Name, typeSymbol: rowType})
+		row := &columnRow{name: body.Params[0].Name, typeSymbol: rowType, column: name, params: params, dependency: dependency}
+		rowVariable = row.name
+		expression, _, err = c.compileCell(query, owner, body.Result, row)
 	case pathNode != nil:
 		literal, ok := pathNode.(*ast.LiteralString)
 		if ok {
@@ -156,6 +159,7 @@ func (c *compiler) compileColumn(
 	return Expression{
 		operation: OperationColumn,
 		target:    name,
+		value:     rowVariable,
 		arguments: arguments,
 		origin:    symbols.NodeOrigin(owner.DocName, node),
 	}, nil
@@ -266,42 +270,81 @@ func (c *compiler) columnArguments(
 	return name, expression, cell, path, nil
 }
 
+// columnRow is a variable a cell expression may name: the cell's row
+// parameter, or an element a collection body binds over it. outer is the
+// variable the body sits in; nested marks a body's variable, whose chains are
+// navigations rather than declared member paths.
 type columnRow struct {
 	name       string
 	typeSymbol *symbols.Symbol
+	outer      *columnRow
+	nested     bool
+	// The cell's root variable carries its column and the query's parameters
+	// and dependency sink, for the query operations a cell invokes.
+	column     string
+	params     []Parameter
+	dependency func(string)
 }
 
+// root is the cell's row variable, outermost of all.
+func (r *columnRow) root() *columnRow {
+	for r.outer != nil {
+		r = r.outer
+	}
+	return r
+}
+
+// lookup finds the innermost variable of that name, if any is in scope.
+func (r *columnRow) lookup(name *ast.QualifiedName) *columnRow {
+	if name == nil || name.Global || len(name.Parts) != 1 {
+		return nil
+	}
+	for v := r; v != nil; v = v.outer {
+		if v.name == name.Parts[0].Text {
+			return v
+		}
+	}
+	return nil
+}
+
+// columnType is what a column expression statically yields: its scalar kind
+// where derivable, and the type of the elements it reaches where known.
+type columnType struct {
+	prim    semantics.PrimType
+	element *symbols.Symbol
+}
+
+func scalarType(kind semantics.PrimType) columnType { return columnType{prim: kind} }
+
 // compileColumnExpression compiles a per-row calc expression into the plan's
-// closed row-property, literal, parameter and operator operations, returning
-// the statically known scalar type where one is derivable.
+// closed row-property, literal, parameter, operator, navigation and collection
+// operations, returning the statically known type where one is derivable.
 func (c *compiler) compileColumnExpression(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
 	column string,
 	node ast.Node,
 	row *columnRow,
-) (Expression, semantics.PrimType, error) {
+) (Expression, columnType, error) {
 	switch expression := node.(type) {
 	case *ast.FeatureReference:
-		if row != nil && !expression.Name.Global && len(expression.Name.Parts) == 1 && expression.Name.Parts[0].Text == row.name {
-			return Expression{}, semantics.PrimUnknown, &Error{
-				Kind:      ErrorUnsupportedExpression,
-				Query:     symbols.FQNOf(query),
-				Target:    column,
-				Parameter: row.name,
-				Origin:    symbols.NodeOrigin(owner.DocName, expression),
-			}
+		if variable := row.lookup(expression.Name); variable != nil {
+			return Expression{
+				operation: OperationVariable,
+				target:    variable.name,
+				origin:    symbols.NodeOrigin(owner.DocName, expression),
+			}, columnType{element: variable.typeSymbol}, nil
 		}
 		return c.compileColumnReference(query, owner, column, expression)
 	case *ast.LiteralString:
 		return c.literalExpression(owner, node, LiteralString, expression.Value, "").expression,
-			semantics.PrimString, nil
+			scalarType(semantics.PrimString), nil
 	case *ast.LiteralInteger:
 		return c.literalExpression(owner, node, LiteralInteger, expression.Value, "").expression,
-			semantics.PrimInteger, nil
+			scalarType(semantics.PrimInteger), nil
 	case *ast.LiteralReal:
 		return c.literalExpression(owner, node, LiteralReal, expression.Value, "").expression,
-			semantics.PrimReal, nil
+			scalarType(semantics.PrimReal), nil
 	case *ast.LiteralBool:
 		return c.literalExpression(
 				owner,
@@ -310,16 +353,21 @@ func (c *compiler) compileColumnExpression(
 				strconv.FormatBool(expression.Value),
 				"",
 			).expression,
-			semantics.PrimBoolean, nil
+			scalarType(semantics.PrimBoolean), nil
 	case *ast.NullExpr:
 		return c.literalExpression(owner, node, LiteralNull, "null", "").expression,
-			semantics.PrimUnknown, nil
+			columnType{}, nil
 	case *ast.OperatorExpr:
 		return c.compileColumnOperator(query, owner, column, expression, row)
 	case *ast.FeatureChainExpr:
 		return c.compileColumnChain(query, owner, column, expression, row)
+	case *ast.InvocationExpr:
+		if expression.Operand != nil {
+			return c.compileCollection(query, owner, column, expression, row)
+		}
+		return c.compileCellInvocation(query, owner, column, expression, row)
 	default:
-		return Expression{}, semantics.PrimUnknown, &Error{
+		return Expression{}, columnType{}, &Error{
 			Kind:   ErrorUnsupportedExpression,
 			Query:  symbols.FQNOf(query),
 			Target: column,
@@ -335,10 +383,10 @@ func (c *compiler) compileColumnReference(
 	owner *symbols.Symbol,
 	column string,
 	expression *ast.FeatureReference,
-) (Expression, semantics.PrimType, error) {
+) (Expression, columnType, error) {
 	target, ok := c.resolver.ResolveQualified(owner.Scope, expression.Name)
 	if !ok {
-		return Expression{}, semantics.PrimUnknown, &Error{
+		return Expression{}, columnType{}, &Error{
 			Kind:      ErrorUnknownColumnProperty,
 			Query:     symbols.FQNOf(query),
 			Target:    column,
@@ -353,7 +401,7 @@ func (c *compiler) compileColumnReference(
 				target:       param.Symbol.Name,
 				multiplicity: c.parameterMultiplicity(param.Symbol),
 				origin:       symbols.NodeOrigin(owner.DocName, expression),
-			}, c.staticPrimType(param.Symbol), nil
+			}, c.staticType(param.Symbol), nil
 		}
 	}
 	return Expression{
@@ -362,30 +410,30 @@ func (c *compiler) compileColumnReference(
 		value:        declaringTypeFQN(target),
 		multiplicity: c.featureMultiplicity(target),
 		origin:       symbols.NodeOrigin(owner.DocName, expression),
-	}, c.staticPrimType(target), nil
+	}, c.staticType(target), nil
 }
 
 // compileColumnChain compiles a feature chain — `stat.runs`, `'Monte
-// Carlo'.runs` — into a member path walked on each row at execution; a head
-// resolving in scope keeps its declaring type, a parameter or unresolved head is row-relative.
+// Carlo'.runs`, `row.connectorEnd.type` — into a member path walked on each
+// row at execution, or into navigations from the elements its head yields.
+// A head resolving in scope keeps its declaring type; a parameter or
+// unresolved head is row-relative.
 func (c *compiler) compileColumnChain(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
 	column string,
 	expression *ast.FeatureChainExpr,
 	row *columnRow,
-) (Expression, semantics.PrimType, error) {
+) (Expression, columnType, error) {
 	head, members, ok := columnChainParts(expression)
 	if !ok {
-		return Expression{}, semantics.PrimUnknown, &Error{
-			Kind:   ErrorUnsupportedExpression,
-			Query:  symbols.FQNOf(query),
-			Target: column,
-			Origin: symbols.NodeOrigin(owner.DocName, expression),
-		}
+		return c.compileNavigationChain(query, owner, column, expression, row)
 	}
-	if row != nil && !head.Global && len(head.Parts) == 1 && head.Parts[0].Text == row.name {
-		return c.compileRowChain(query, owner, column, expression, row, members)
+	if variable := row.lookup(head); variable != nil {
+		if variable.nested || isMetaclassSymbol(variable.typeSymbol) {
+			return c.compileNavigationChain(query, owner, column, expression, row)
+		}
+		return c.compileRowChain(query, owner, column, expression, variable, members)
 	}
 	segments, declaring := c.chainHeadSegments(query, owner, head)
 	for _, member := range members {
@@ -399,12 +447,12 @@ func (c *compiler) compileColumnChain(
 		value:        declaring,
 		multiplicity: Multiplicity{},
 		origin:       symbols.NodeOrigin(owner.DocName, expression),
-	}, semantics.PrimUnknown, nil
+	}, columnType{}, nil
 }
 
 // compileRowChain compiles a chain headed by the row parameter: one member is
 // the row's property, more walk a member path from the row's type.
-func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, expression *ast.FeatureChainExpr, row *columnRow, members []*ast.QualifiedName) (Expression, semantics.PrimType, error) {
+func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, expression *ast.FeatureChainExpr, row *columnRow, members []*ast.QualifiedName) (Expression, columnType, error) {
 	unsupported := &Error{
 		Kind:   ErrorUnsupportedExpression,
 		Query:  symbols.FQNOf(query),
@@ -412,7 +460,7 @@ func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, 
 		Origin: symbols.NodeOrigin(owner.DocName, expression),
 	}
 	if len(members) == 0 {
-		return Expression{}, semantics.PrimUnknown, unsupported
+		return Expression{}, columnType{}, unsupported
 	}
 	if len(members) == 1 && len(members[0].Parts) == 1 {
 		if target, ok := c.model.LookupMember(row.typeSymbol, members[0].Parts[0].Text); ok {
@@ -422,9 +470,9 @@ func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, 
 				value:        declaringTypeFQN(target),
 				multiplicity: c.featureMultiplicity(target),
 				origin:       symbols.NodeOrigin(owner.DocName, expression),
-			}, c.staticPrimType(target), nil
+			}, c.staticType(target), nil
 		}
-		return Expression{}, semantics.PrimUnknown, &Error{
+		return Expression{}, columnType{}, &Error{
 			Kind:      ErrorUnknownColumnProperty,
 			Query:     symbols.FQNOf(query),
 			Target:    column,
@@ -439,14 +487,14 @@ func (c *compiler) compileRowChain(query, owner *symbols.Symbol, column string, 
 		}
 	}
 	if len(segments) > 1 && row.typeSymbol.Kind == symbols.SymbolMetadataDef {
-		return Expression{}, semantics.PrimUnknown, unsupported
+		return Expression{}, columnType{}, unsupported
 	}
 	return Expression{
 		operation: OperationRowMember,
 		target:    source.MemberPathOf(segments),
 		value:     symbols.FQNOf(row.typeSymbol),
 		origin:    symbols.NodeOrigin(owner.DocName, expression),
-	}, semantics.PrimUnknown, nil
+	}, columnType{}, nil
 }
 
 // chainHeadSegments starts a member path at the chain's head: a head resolving
@@ -515,12 +563,17 @@ func declaringTypeFQN(target *symbols.Symbol) string {
 	return symbols.FQNOf(owner)
 }
 
-func (c *compiler) staticPrimType(sym *symbols.Symbol) semantics.PrimType {
+// staticType is the type a feature or parameter is declared with: its scalar
+// kind when it has one, else the type of the elements it holds.
+func (c *compiler) staticType(sym *symbols.Symbol) columnType {
 	typeSymbol := c.parameterTypeSymbol(sym)
 	if typeSymbol == nil {
-		return semantics.PrimUnknown
+		return columnType{}
 	}
-	return c.model.PrimTypeOf(typeSymbol)
+	if prim := c.model.PrimTypeOf(typeSymbol); prim != semantics.PrimUnknown {
+		return scalarType(prim)
+	}
+	return columnType{element: typeSymbol}
 }
 
 func (c *compiler) compileColumnOperator(
@@ -529,51 +582,49 @@ func (c *compiler) compileColumnOperator(
 	column string,
 	expression *ast.OperatorExpr,
 	row *columnRow,
-) (Expression, semantics.PrimType, error) {
+) (Expression, columnType, error) {
+	invalid := &Error{
+		Kind:   ErrorColumnOperator,
+		Query:  symbols.FQNOf(query),
+		Target: column,
+		Actual: expression.Operator.String(),
+		Origin: symbols.NodeOrigin(owner.DocName, expression),
+	}
 	arity := 0
 	switch expression.Operator {
 	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpNullCoalesce:
 		arity = 2
 	case ast.OpNeg, ast.OpPos:
 		arity = 1
+	case ast.OpEq, ast.OpNeq, ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr,
+		ast.OpXor, ast.OpImplies, ast.OpNot, ast.OpIsType, ast.OpHasType, ast.OpAt:
+		return c.compileLogicalOperator(query, owner, column, expression, row)
 	default:
-		return Expression{}, semantics.PrimUnknown, &Error{
-			Kind:   ErrorColumnOperator,
-			Query:  symbols.FQNOf(query),
-			Target: column,
-			Actual: expression.Operator.String(),
-			Origin: symbols.NodeOrigin(owner.DocName, expression),
-		}
+		return Expression{}, columnType{}, invalid
 	}
 	if len(expression.Operands) != arity {
-		return Expression{}, semantics.PrimUnknown, &Error{
-			Kind:   ErrorColumnOperator,
-			Query:  symbols.FQNOf(query),
-			Target: column,
-			Actual: expression.Operator.String(),
-			Origin: symbols.NodeOrigin(owner.DocName, expression),
-		}
+		return Expression{}, columnType{}, invalid
 	}
 	arguments := make([]Argument, 0, arity)
 	kinds := make([]semantics.PrimType, 0, arity)
 	for _, operand := range expression.Operands {
 		compiled, kind, err := c.compileColumnExpression(query, owner, column, operand, row)
 		if err != nil {
-			return Expression{}, semantics.PrimUnknown, err
+			return Expression{}, columnType{}, err
 		}
 		arguments = append(arguments, Argument{Value: compiled})
-		kinds = append(kinds, kind)
+		kinds = append(kinds, kind.prim)
 	}
 	result, err := c.validateColumnOperator(query, owner, column, expression, kinds)
 	if err != nil {
-		return Expression{}, semantics.PrimUnknown, err
+		return Expression{}, columnType{}, err
 	}
 	return Expression{
 		operation: OperationColumnOperator,
 		value:     expression.Operator.String(),
 		arguments: arguments,
 		origin:    symbols.NodeOrigin(owner.DocName, expression),
-	}, result, nil
+	}, scalarType(result), nil
 }
 
 // validateColumnOperator rejects statically detectable operand type

@@ -688,7 +688,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 		{"join starvation", "starve", `package test {
 			action starve {
 				first start;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then sync;
@@ -819,7 +819,7 @@ func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
 // the same schedule claiming another failure disagrees.
 func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 	m := parseExploreModel(t, `package test {
-		action def Bad { action a; action b; }
+		action def Bad { action a; action b; succession first a then b; succession first b then a; }
 		action outer {
 			first start;
 			then action run : Bad;
@@ -1319,7 +1319,7 @@ func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.
 			attribute x : Integer = 0;
 			first start;
 			action worker : Work;
-			action stranded;
+			ref action stranded;
 			join sync;
 			done;
 			succession first start then worker;

@@ -188,7 +188,7 @@ func TestDeadlockProperty(t *testing.T) {
 	action stuck {
 		first start;
 		action left;
-		action right;
+		ref action right;
 		join sync;
 		done;
 		succession first start then left;

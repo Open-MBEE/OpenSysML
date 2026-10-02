@@ -66,6 +66,11 @@ func UsageIsComposite(sym *symbols.Symbol) bool {
 	return ok && usageIsComposite(usage)
 }
 
+// UsageDeclIsComposite derives SysML Usage::isComposite (SysML v2 §7.6.2) for a usage declaration.
+func UsageDeclIsComposite(usage *ast.Usage) bool {
+	return usageIsComposite(usage)
+}
+
 func usageIsComposite(usage *ast.Usage) bool {
 	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone ||
 		usage.IsEnd || usage.IsEvent || usage.IsVariantReference() {

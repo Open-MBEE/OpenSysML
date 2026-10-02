@@ -45,7 +45,7 @@ empty else blocks are not authorable.
 | `expected_error` | all | substring the RPC's in-band `error` must contain (for `RunDocumentQuery`, the status error the call fails with) |
 
 A case without `expected_error` requires an empty `error` field. A case with `expected_error`
-asserts only the error, and is how failure modes (for example an action with no initial node)
+asserts only the error, and is how failure modes (for example an action whose successions leave no step to start at)
 are pinned.
 
 A feature value's `error` is a substring its `FeatureValue.error` must contain; one without an

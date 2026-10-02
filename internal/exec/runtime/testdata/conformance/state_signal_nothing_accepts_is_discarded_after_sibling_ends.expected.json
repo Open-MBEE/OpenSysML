@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "libraries": true,
+  "evaluate": "test::Panel::watch",
+  "performers": [
+    {
+      "object": "test::panel",
+      "finalState": "armed",
+      "stateVisits": ["idle", "armed"]
+    }
+  ],
+  "trace": true
+}
