@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -158,6 +161,64 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 		if !slices.Equal(heldObjects(allWarm), heldObjects(allCold)) {
 			t.Fatalf("warm extent = %v, cold = %v", heldObjects(allWarm), heldObjects(allCold))
+		}
+		optVal, err := evalIn(t, ctx, pkg.Scope, "opt")
+		if err != nil {
+			t.Fatalf("opt: %v", err)
+		}
+		if ids := heldObjects(optVal); !slices.Equal(ids, firstIDs) {
+			t.Fatalf("opt = %v, want the object vs filled it with, %v", ids, firstIDs)
+		}
+		optDeclared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::opt"))
+		if err != nil {
+			t.Fatalf("EvalDeclaredValue opt: %v", err)
+		}
+		if ids := heldObjects(optDeclared); !slices.Equal(ids, firstIDs) {
+			t.Fatalf("EvalDeclaredValue opt = %v, want %v", ids, firstIDs)
+		}
+	})
+
+	t.Run("a valueless scalar binding leaves both members undetermined", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			attribute a : Integer;
+			attribute b : Integer;
+			bind a = b;
+			attribute c : Integer;
+			attribute d : Integer = 5;
+			bind c = d;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		for _, name := range []string{"a", "b"} {
+			got, err := evalIn(t, ctx, pkg.Scope, name)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if FormatValue(got) != "<undetermined>" {
+				t.Fatalf("%s = %s, want undetermined: a valueless scalar binding fabricates no object", name, FormatValue(got))
+			}
+			declared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::"+name))
+			if err != nil {
+				t.Fatalf("EvalDeclaredValue %s: %v", name, err)
+			}
+			if FormatValue(declared) != "<undetermined>" {
+				t.Fatalf("EvalDeclaredValue %s = %s, want undetermined", name, FormatValue(declared))
+			}
+		}
+		if len(ctx.namespaceBindings) != 0 {
+			t.Fatalf("namespace bindings = %v, want none: a valueless scalar class records nothing", ctx.namespaceBindings)
+		}
+		if len(ctx.instances) != 0 {
+			t.Fatalf("instances = %d, want none: no objects were materialized", len(ctx.instances))
+		}
+		got, err := evalIn(t, ctx, pkg.Scope, "c")
+		if err != nil {
+			t.Fatalf("c: %v", err)
+		}
+		if FormatValue(got) != "5" {
+			t.Fatalf("c = %s, want 5: a valued scalar binding still carries the value", FormatValue(got))
 		}
 	})
 
@@ -592,6 +653,61 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 		if FormatValue(same) != "true" {
 			t.Fatalf("a === b after adoption = %s, want true", FormatValue(same))
+		}
+	})
+
+	t.Run("a reader holding another tree's symbols for a class reads its shared value", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part x : Car;
+			part y : Car = new Car();
+			bind x = y;
+		}`
+		file := parser.New(source.New("<test>", []byte(src))).ParseFile()
+		idx := symbols.NewIndex()
+		idx.AddDocument("<test>", file)
+		resolver := resolve.New(idx)
+		ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
+		pkg := lookupOne(t, idx, "test")
+
+		same, err := evalIn(t, ctx, pkg.Scope, "x === y")
+		if err != nil {
+			t.Fatalf("x === y: %v", err)
+		}
+		if FormatValue(same) != "true" {
+			t.Fatalf("x === y = %s, want true", FormatValue(same))
+		}
+		declared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::y"))
+		if err != nil {
+			t.Fatalf("EvalDeclaredValue y: %v", err)
+		}
+		if ids := heldObjects(declared); len(ids) != 1 {
+			t.Fatalf("EvalDeclaredValue y = %v, want y's one object", ids)
+		}
+
+		// A session can hold a second scope tree over the same declarations —
+		// the index's tree and the prompt's differ — whose symbols reach the
+		// reads anyway; the class answers through the declaration they name.
+		other := symbols.NewIndex()
+		other.AddDocument("<other>", file)
+		otherScope := other.DocumentRoot("<other>")
+		otherSame, err := evalIn(t, ctx, otherScope, "test::x === test::y")
+		if err != nil {
+			t.Fatalf("other tree x === y: %v", err)
+		}
+		if FormatValue(otherSame) != "true" {
+			t.Fatalf("other tree x === y = %s, want true: the class resolves by declaration", FormatValue(otherSame))
+		}
+		otherX := lookupOne(t, other, "test::x")
+		if otherX == lookupOne(t, idx, "test::x") {
+			t.Fatalf("the other tree's x is the index's symbol; the test needs a different one")
+		}
+		otherDeclared, err := ctx.EvalDeclaredValue(otherX)
+		if err != nil {
+			t.Fatalf("EvalDeclaredValue other-tree x: %v", err)
+		}
+		if !slices.Equal(heldObjects(otherDeclared), heldObjects(declared)) {
+			t.Fatalf("other-tree x = %v, want the shared object %v", heldObjects(otherDeclared), heldObjects(declared))
 		}
 	})
 

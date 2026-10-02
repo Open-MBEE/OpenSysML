@@ -437,7 +437,7 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		}
 		// A usage a binding connector governs reads as the binding's value, as
 		// an expression read of the same name answers.
-		if ctx.namespaceModelIndex().classes[sym] != nil {
+		if class, _ := ctx.namespaceClassMember(sym); class != nil || ctx.optionalValueless(sym) {
 			if val, bound, err := ctx.namespaceBoundValue(sym); bound || err != nil {
 				return val, err
 			}
@@ -1096,6 +1096,13 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
 			return val, nil
 		}
+		// The class's member declaring sym may be a different scope tree's
+		// symbol for it; its recorded binding is this usage's value too.
+		if _, member := ec.ctx.namespaceClassMember(sym); member != sym {
+			if val, ok := ec.ctx.namespaceBindings[member]; ok {
+				return val, nil
+			}
+		}
 	}
 	if ec.ctx.binding(sym) {
 		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
@@ -1175,11 +1182,13 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 // materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
 	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		if ec.ctx.namespaceModelIndex().classes[sym] == nil {
+		class, _ := ec.ctx.namespaceClassMember(sym)
+		if class == nil && !ec.ctx.optionalValueless(sym) {
 			return Value{}, false, nil
 		}
 		// Of itself the usage may denote nothing, but a binding connector
-		// may have bound it to another usage's value.
+		// may have bound it to another usage's value, or a subsetting may
+		// have filled it — reads through the binding answer those.
 		ec.ctx.noteDeclarationRead(sym)
 		return ec.ctx.namespaceBoundValue(sym)
 	}

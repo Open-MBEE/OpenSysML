@@ -22,8 +22,9 @@ import (
 // binding joins (its equivalence class) and which usages subset a namespace
 // usage, both in document-name then declaration order.
 type namespaceModelIndex struct {
-	subsetters map[*symbols.Symbol][]*symbols.Symbol
-	classes    map[*symbols.Symbol]*namespaceClass
+	subsetters  map[*symbols.Symbol][]*symbols.Symbol
+	classes     map[*symbols.Symbol]*namespaceClass
+	memberDecls map[ast.Node]*symbols.Symbol
 }
 
 // namespaceClass is one equivalence class of namespace usages joined by
@@ -50,8 +51,9 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 		return ctx.model.namespaceUsageIndex
 	}
 	out := &namespaceModelIndex{
-		subsetters: make(map[*symbols.Symbol][]*symbols.Symbol),
-		classes:    make(map[*symbols.Symbol]*namespaceClass),
+		subsetters:  make(map[*symbols.Symbol][]*symbols.Symbol),
+		classes:     make(map[*symbols.Symbol]*namespaceClass),
+		memberDecls: make(map[ast.Node]*symbols.Symbol),
 	}
 	classOf := func(sym *symbols.Symbol) *namespaceClass {
 		if class, ok := out.classes[sym]; ok {
@@ -132,6 +134,11 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 	}
 	for _, class := range out.classes {
 		sort.SliceStable(class.members, func(i, j int) bool { return declaredBefore(class.members[i], class.members[j]) })
+		for _, member := range class.members {
+			if member.Decl != nil {
+				out.memberDecls[member.Decl] = member
+			}
+		}
 	}
 	for _, subs := range out.subsetters {
 		sort.SliceStable(subs, func(i, j int) bool { return declaredBefore(subs[i], subs[j]) })
@@ -177,14 +184,30 @@ func (ctx *Context) namespaceBoundObjects(sym *symbols.Symbol) (objs []*Instance
 	if val, ok := ctx.namespaceBindings[sym]; ok {
 		return ctx.liveInstances(heldObjects(val)), true, nil
 	}
-	class := ctx.namespaceModelIndex().classes[sym]
+	class, member := ctx.namespaceClassMember(sym)
 	if class == nil {
 		if live, ok := ctx.liveOccurrences(sym); ok {
 			return live, true, nil
 		}
 		return nil, false, nil
 	}
-	return ctx.resolveNamespaceClass(class, sym)
+	return ctx.resolveNamespaceClass(class, member)
+}
+
+// namespaceClassMember is the binding class sym belongs to and its member
+// declaring sym: a reader may hold a different scope tree's symbol for one
+// declaration than the index's tree built the class of, so a missed symbol
+// match is retried on the declaration.
+func (ctx *Context) namespaceClassMember(sym *symbols.Symbol) (*namespaceClass, *symbols.Symbol) {
+	nmi := ctx.namespaceModelIndex()
+	if class := nmi.classes[sym]; class != nil {
+		return class, sym
+	}
+	member := nmi.memberDecls[sym.Decl]
+	if member == nil {
+		return nil, nil
+	}
+	return nmi.classes[member], member
 }
 
 // liveInstances is the live objects ids names, in order.
@@ -291,10 +314,22 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		}
 	}
 	if len(vals) == 0 {
-		// The class has no source, so its one value is what the members' own
-		// denotations would materialize: the largest lower bound among them,
-		// made the way occurrencesOf makes them, so which member is read first
-		// does not change it.
+		// A class whose members denote no objects has nothing to materialize:
+		// a valueless scalar binding leaves each member undetermined.
+		objectBearing := false
+		for _, member := range class.members {
+			if isOccurrenceUsage(member) || objectFeature(member) {
+				objectBearing = true
+				break
+			}
+		}
+		if !objectBearing {
+			return nil, false, nil
+		}
+		// The class's one value is what the members' own denotations would
+		// materialize: the largest lower bound among them, made the way
+		// occurrencesOf makes them, so which member is read first does not
+		// change it.
 		earliest := class.members[0]
 		count := 0
 		for _, member := range class.members {
@@ -411,6 +446,11 @@ func (ctx *Context) namespaceBoundValue(sym *symbols.Symbol) (Value, bool, error
 	}
 	if val, ok := ctx.namespaceBindings[sym]; ok {
 		return val, true, nil
+	}
+	if _, member := ctx.namespaceClassMember(sym); member != sym {
+		if val, ok := ctx.namespaceBindings[member]; ok {
+			return val, true, nil
+		}
 	}
 	elements := make([]Value, 0, len(objs))
 	for _, inst := range objs {
