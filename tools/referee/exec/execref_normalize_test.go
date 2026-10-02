@@ -57,6 +57,8 @@ func TestNormalizeOursSamples(t *testing.T) {
 		{"✓ seq\n  = [3, 1, 2]", normalized{Kind: kindSequence, Elements: []normalized{{Kind: kindInt, Value: "3"}, {Kind: kindInt, Value: "1"}, {Kind: kindInt, Value: "2"}}}},
 		{"✓ s\n  = \"abc\"", normalized{Kind: kindString, Value: "abc"}},
 		{"✓ q\n  = 3.00 [SI::kg]", normalized{Kind: kindQuantity, Value: "3.00 [SI::kg]"}},
+		{"✓ rat(1, 3)\n  = 1/3", normalized{Kind: kindReal, Value: "1/3"}},
+		{"✓ rat(-2, 3)\n  = -2/3", normalized{Kind: kindReal, Value: "-2/3"}},
 		{"", normalized{}},
 	}
 	for _, test := range tests {
@@ -145,6 +147,9 @@ func TestRealRoundingAndExponent(t *testing.T) {
 	}
 	if got := roundedReal(normalized{Kind: kindReal, Value: "0.3333333333333333"}); got != "0.33" {
 		t.Fatalf("roundedReal() = %q, want 0.33", got)
+	}
+	if got := compareValues(normalized{Kind: kindReal, Value: "0.3333333333333333"}, normalized{Kind: kindReal, Value: "1/3"}); got != "agree" {
+		t.Fatalf("compareValues(binary third, 1/3) = %q, want agree", got)
 	}
 }
 

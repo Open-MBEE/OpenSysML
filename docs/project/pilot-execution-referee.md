@@ -189,6 +189,11 @@ No compliance row's status flag is changed on the strength of this work.
   this harness. It is no longer a display limit — we now print `1.0 / 3.0` as
   `0.3333333333333333`, the same digits the pilot reports as `LiteralRational`, so the
   tolerance can be tightened on its own once the buckets it moves are adjudicated.
+- **A disagreement the specification decides is reported in its own bucket.** A `by-design:`
+  line in a `.cases` file names the clause the cases after it follow; a case so marked that would
+  bucket `disagree` buckets `differs-by-design` instead, and the report carries the clause beside
+  the raw outputs of both sides. Only a disagreement moves: a marked case that agrees still
+  buckets `agree`, and one that errors on either side keeps its error bucket.
 - **Integer vs Rational is reported, never normalized away.** `2 ** 40` gives the pilot
   `LiteralRational 1.099511627776E12` and gives us `1099511627776`; the harness buckets that
   `kind-only`, not `agree`.
@@ -216,7 +221,7 @@ Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pi
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
-prints the current ones. State of the 446 committed cases, the original 32, the 62 the
+prints the current ones. State of the 456 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
@@ -225,13 +230,26 @@ the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
 `extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
 `undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
-the 4 of `body_local_conformance.cases`:
+the 4 of `body_local_conformance.cases` and the 10 of `exact_rationals.cases`:
 
 ```
-agree: 211 · kind-only: 1 · order-only: 0 · disagree: 30
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 10 · ours-undetermined: 28
-both-error: 12 · nondeterministic: 0
+agree: 217 · kind-only: 1 · order-only: 0 · disagree: 29 · differs-by-design: 5
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 28
+both-error: 16 · nondeterministic: 0
 ```
+
+The ten `exact_rationals.cases` are the binary64 probes of
+[exact-rational-evaluation.md](exact-rational-evaluation.md#the-pilot-differs-by-design), marked
+`by-design` with KerML 1.0 §9.3.2.2.8 (a `Rational` is a rational number) and §8.4.4.9.2 (a
+`LiteralRational`'s result is a `Rational`). The pinned pilot holds a `LiteralRational` as a Java
+`double`; we hold it exactly. Five land in `differs-by-design`: `0.1 + 0.2 == 0.3`, `0.1 + 0.2 <=
+0.3`, `0.3 < 0.1 + 0.2`, `(1.0 / 49.0) * 49.0 == 1.0` and ten sums of a `0.1` attribute compared
+with `1.0`, each the opposite Boolean on the two sides. The other five agree, and only through the
+harness's own tolerance: `0.1 + 0.2` is `0.30000000000000004` from the pilot and `0.3` here, `0.1 +
+0.2 - 0.3` is `5.551115123125783E-17` and `0.0`, `1.0 / 3.0` and `1 / 3` are `0.3333333333333333`
+and `1/3`, all equal to two decimal places; `(1.0 / 3.0) * 3.0 == 1.0` is `true` on both sides
+because binary64 rounding happens to return `1.0`. No other case moved bucket when Rationals became
+exact.
 
 The first six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
 `ExtentExpression`, `BaseFunctions::'all'`), added with the evaluation they were meant to referee
@@ -607,7 +625,9 @@ with the implementation they were meant to referee and could not: the pilot answ
 or as an attribute's value — with the unevaluated `InvocationExpression rat`/`numer`/`denom`, so
 thirteen land in `pilot-unevaluated` and only `quotient-by-operator` (`6 / 4`, `1.5`) agrees. The
 semantics are therefore self-assessed, in
-[exact-rational-evaluation.md](exact-rational-evaluation.md#rationalfunctionsrat-numer-and-denom-over-a-binary64-rational).
+[exact-rational-evaluation.md](exact-rational-evaluation.md#rationalfunctionsrat-numer-and-denom).
+Our answers are exact — `rat(1, 3)` is `1/3`, `numer(0.1)` `1`, `denom(1.0 / 3.0)` `3` — where the
+pilot, had it evaluated them, would hold the binary64 nearest.
 
 The fourteen `value_classification.cases` all agree, and they were added with the fixes they
 referee: `x @ T` with a value subject is a classification test like `x istype T` — `a : Integer =
