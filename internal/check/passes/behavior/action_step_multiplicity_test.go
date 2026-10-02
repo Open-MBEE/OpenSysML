@@ -24,6 +24,24 @@ func actionStepMultiplicityDiags(t *testing.T, text string) []diag.Diagnostic {
 	return behavior.ActionStepMultiplicityPass{}.Run(ctx, "t.sysml", root)
 }
 
+func TestActionStepMultiplicityPassReportsLoweringErrors(t *testing.T) {
+	model := `package test {
+		action def Base {
+			first start then a;
+			action a;
+			then done;
+		}
+		action def Inc :> Base { attribute :>> a : Integer; }
+	}`
+	for _, diagnostic := range actionStepMultiplicityDiags(t, model) {
+		if diagnostic.Code == "action-step-lowering" &&
+			strings.Contains(diagnostic.Message, "redefining feature is not an action step") {
+			return
+		}
+	}
+	t.Fatal("diagnostics do not report the inherited action-graph lowering error")
+}
+
 func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 	tests := []struct {
 		name, code, model, step, multiplicity, reason string
@@ -418,6 +436,84 @@ func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActionStepMultiplicityPassUsesInheritedStepMultiplicity(t *testing.T) {
+	t.Run("non_fixed multiplicity points to base declaration", func(t *testing.T) {
+		model := `package test {
+			action def Base { action a[1..3]; }
+			action def Derived :> Base { action :>> a; }
+		}`
+		diags := actionStepMultiplicityDiags(t, model)
+		want := strings.Index(model, "[1..3]")
+		found := false
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-multiplicity-not-fixed" && diagnostic.Span.Offset == want {
+				found = true
+				if strings.Contains(diagnostic.Message, "inherited from test::Base::a") {
+					return
+				}
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want a non-fixed inherited multiplicity diagnostic at offset %d (found=%v)",
+			diags, want, found)
+	})
+
+	t.Run("plain then remains open for inherited repeated step", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			action def Base {
+				action a[3];
+				then action b;
+			}
+			action def Derived :> Base { action :>> a; }
+		}`)
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-order-open" {
+				return
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want strict plain-then order warning", diags)
+	})
+
+	t.Run("inherited repeated step in a loop body is unsupported", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				action worker {
+					attribute i : Integer = 0;
+					while i < 1 {
+						action tick[2];
+						assign i := i + 1;
+					}
+				}
+			}
+			action def Derived :> Base { action :>> worker; }
+		}`)
+		for _, diagnostic := range diags {
+			if diagnostic.Code == "action-step-multiplicity-unsupported" &&
+				strings.Contains(diagnostic.Message, "tick") &&
+				strings.Contains(diagnostic.Message, "[2]") {
+				return
+			}
+		}
+		t.Fatalf("diagnostics = %+v, want unsupported inherited [2] tick in loop body", diags)
+	})
+
+	t.Run("fixed repeated step with explicit first edges remains supported", func(t *testing.T) {
+		model := `package test {
+			action def Base {
+				action p[1];
+				action a[3];
+				action q[1];
+				succession first [1] p then [3] a;
+				succession first [3] a then [1] q;
+			}
+			action def Derived :> Base { action :>> a; }
+		}`
+		if diags := actionStepMultiplicityDiags(t, model); len(diags) != 0 {
+			t.Fatalf("diagnostics = %+v, want none", diags)
+		}
+	})
 }
 
 func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *testing.T) {

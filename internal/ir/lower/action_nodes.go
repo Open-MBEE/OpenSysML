@@ -109,6 +109,9 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 				recordNodeMultiplicity(graph, n)
 				recordNodeScope(graph, n, childScope(scope, n))
 			}
+		case *ast.PerformActionNode:
+			graph.Nodes = append(graph.Nodes, n)
+			graph.Bodies[n] = []Statement{performEffect(n, scope)}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
 			// A statement written among the action's own members is a subaction of
@@ -167,11 +170,22 @@ func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 
 func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	qn := actionEndpointQualifiedName(ref)
-	if qn == nil {
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil
+	}
+	name := qn.Parts[len(qn.Parts)-1].Text
+	if name == "start" || name == "done" {
 		return nil
 	}
 	decl, declaringScope, found, _ := resolve.ActionNodeInScope(graph.Scope, qn)
 	if !found || decl == nil {
+		return nil
+	}
+	return ensureDeclaredActionNode(graph, decl, declaringScope)
+}
+
+func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope *symbols.Scope) ast.Node {
+	if decl == nil {
 		return nil
 	}
 	for _, node := range graph.Nodes {
@@ -187,6 +201,8 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
+	case *ast.PerformActionNode:
+		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope)}

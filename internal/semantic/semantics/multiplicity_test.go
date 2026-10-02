@@ -105,6 +105,31 @@ func TestMultiplicityNoneWhenAbsent(t *testing.T) {
 	}
 }
 
+func TestGoverningMultiplicitySourceUsesRedefinitionNotSubsetting(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		action def Base { action a[3]; }
+		action def Redefined :> Base { action :>> a; }
+		action def Subset { action b :> Base::a; }
+	}`)
+	p := sym(t, root, "P")
+	base := sym(t, p.Scope, "Base")
+	baseStep, ok := base.Scope.LookupLocal("a")
+	if !ok {
+		t.Fatal("Base::a not found")
+	}
+
+	redefined := sym(t, sym(t, p.Scope, "Redefined").Scope, "a")
+	source, ok := m.GoverningMultiplicitySource(redefined)
+	if !ok || source != baseStep {
+		t.Fatalf("GoverningMultiplicitySource(Redefined::a) = %v, %v; want Base::a", source, ok)
+	}
+
+	subset := sym(t, sym(t, p.Scope, "Subset").Scope, "b")
+	if source, ok := m.GoverningMultiplicitySource(subset); ok {
+		t.Fatalf("GoverningMultiplicitySource(Subset::b) = %s, want no source from subsetting", source.Name)
+	}
+}
+
 // A feature that declares no multiplicity holds exactly one value, so the
 // effective multiplicity of a bare usage is the assumed 1..1.
 func TestEffectiveMultiplicityAssumesOne(t *testing.T) {

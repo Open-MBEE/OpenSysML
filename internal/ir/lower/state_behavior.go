@@ -83,12 +83,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 				Own:   true,
 			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node):
-			// Which of the two the behavior performs would be a silent pick.
-			behavior.Body = []Statement{Unsupported{
-				Description: "performing an action and stating a body of its own",
-				Node:        node,
-				Scope:       scope,
-			}}
+			behavior.Body = []Statement{lowerMergedBehaviorBody(node, scope, resolver)}
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
@@ -116,6 +111,19 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Multiplicity = usage.Multiplicity
 	}
 	return behavior
+}
+
+func lowerMergedBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+	bodyScope := childScope(scope, node)
+	graph, err := ToActionGraphWith(node, bodyScope, resolver)
+	if err != nil {
+		if graph == nil {
+			graph = newActionGraph(bodyScope)
+		}
+		graph.Invalid = err
+	}
+	StartFlow(graph)
+	return Block{Node: node, Scope: bodyScope, Graph: graph, Own: true, Stated: true}
 }
 
 // lowerBehaviorBody lowers an inline action body of a behavior. A body stating
@@ -160,8 +168,15 @@ func declaresOnlyFeatures(members []ast.Node) bool {
 		if actual == nil || statesNoStep(actual) {
 			continue
 		}
-		if m, ok := actual.(*ast.Usage); !ok || !DeclaresNodeFeature(m) {
+		m, ok := actual.(*ast.Usage)
+		if !ok || !DeclaresNodeFeature(m) {
 			return false
+		}
+		if m.Direction == ast.DirNone {
+			redefinitions, _ := ast.SplitRedefinitions(m.Relationships)
+			if len(redefinitions) > 0 {
+				return false
+			}
 		}
 	}
 	return true

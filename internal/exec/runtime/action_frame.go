@@ -19,10 +19,11 @@ import (
 // performances runs the nested performances of one behavior under root, its own,
 // evaluated in ctx as self: an action's executor is one, a state behavior's body another.
 type performances struct {
-	ctx   *Context
-	self  *Instance
-	root  *actionFrame
-	owner performanceOwner
+	ctx     *Context
+	self    *Instance
+	root    *actionFrame
+	owner   performanceOwner
+	ambient actionAmbient
 	// occurrence is the performance instance the root frame runs as, when the
 	// performed usage materialized one: `this` inside a behavior def denotes it.
 	occurrence *Instance
@@ -336,6 +337,16 @@ func (e *performances) beginPerformance(
 	perf.aliases = pins.aliases
 	perf.optional = pins.optional
 	perf.result = pins.result
+	if usage, ok := node.(*ast.Usage); ok {
+		if _, merged := mergedTypedSubflowInvocation(flow, usage); merged {
+			for name, direction := range pins.directions {
+				if direction == ast.DirOut || direction == ast.DirInOut {
+					perf.outputs = append(perf.outputs, name)
+				}
+			}
+			sort.Strings(perf.outputs)
+		}
+	}
 	// The performance is ongoing before anything seeding it streams, so a value carried
 	// back to its node reaches it rather than waiting for a later performance.
 	if parent.subactions == nil {
@@ -381,7 +392,10 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if !ok {
 		return nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(perf.flow, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(perf.flow, usage)
+	}
 	if !performs || inv.expr == nil || lower.IsCaseNode(usage) {
 		return nil
 	}
@@ -497,7 +511,10 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 	if !ok {
 		return nodePins{directions: make(map[string]ast.FeatureDirection)}, nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(graph, usage)
+	}
 	if !performs || lower.IsCaseNode(usage) {
 		return e.pinsOf(graph, node, inv, nil, nil)
 	}
@@ -536,7 +553,7 @@ func (e *performances) pinsOf(
 		inv.step, _ = stepSymbol(graph, node)
 	}
 	for _, callee := range callees {
-		held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
+		held, _, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
 		if err != nil {
 			return nodePins{}, err
 		}
@@ -697,25 +714,25 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 func (f *actionFrame) unsupportedRepeatedRead(node ast.Node) error {
 	var graph *lower.ActionGraph
 	multiplicities := f.multiplicities
+	var model = (*semantics.Model)(nil)
+	if f.perfs != nil && f.perfs.ctx != nil {
+		model = f.perfs.ctx.Semantics()
+	}
 	for _, candidate := range []*lower.ActionGraph{f.graph, f.flow} {
 		if candidate == nil {
 			continue
 		}
-		if _, declared := candidate.Multiplicities[node]; declared {
+		if candidate.HasStepMultiplicity(node, model) {
 			graph = candidate
 			multiplicities = candidate.Multiplicities
 			break
 		}
 	}
-	if _, declared := multiplicities[node]; !declared {
-		return nil
-	}
 	if graph == nil {
 		graph = &lower.ActionGraph{Multiplicities: multiplicities}
 	}
-	var model = (*semantics.Model)(nil)
-	if f.perfs != nil && f.perfs.ctx != nil {
-		model = f.perfs.ctx.Semantics()
+	if !graph.HasStepMultiplicity(node, model) {
+		return nil
 	}
 	count, err := graph.StepCount(node, model)
 	if err != nil {
@@ -1176,18 +1193,41 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 	return merged
 }
 
-// collect reports the values the performance and its non-repeated subactions hold,
-// under their paths (`p.v`), the latest performance of each name standing for it.
+// collect reports values held by the performance and its latest subactions by path.
 func (f *actionFrame) collect(prefix string, into map[string]Value) {
 	for name, value := range f.data {
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
+		subPrefix := prefix + name + "."
 		if sub.repetition > 0 {
+			sub.collectRepeatedOutputs(subPrefix, into)
 			continue
 		}
-		sub.collect(prefix+name+".", into)
+		sub.collect(subPrefix, into)
 	}
+}
+
+func (f *actionFrame) collectRepeatedOutputs(prefix string, into map[string]Value) {
+	outputs := f.repeatedOutputFeatures()
+	for name, value := range f.data {
+		if outputs[name] {
+			into[prefix+name] = value
+		}
+	}
+}
+
+func (f *actionFrame) repeatedOutputFeatures() map[string]bool {
+	outputs := make(map[string]bool)
+	for name, direction := range f.features {
+		if direction == ast.DirOut || direction == ast.DirInOut {
+			outputs[f.key(name)] = true
+		}
+	}
+	if f.result != "" {
+		outputs[f.key(f.result)] = true
+	}
+	return outputs
 }
 
 // latestSubactions is the latest performance of each named node under f, by name.
@@ -1230,7 +1270,14 @@ func (f *actionFrame) heldFeatures(prefix string, into map[string]bool) {
 		into[prefix+name] = true
 	}
 	for name, sub := range f.latestSubactions() {
-		sub.heldFeatures(prefix+name+".", into)
+		subPrefix := prefix + name + "."
+		if sub.repetition > 0 {
+			for feature := range sub.repeatedOutputFeatures() {
+				into[subPrefix+feature] = true
+			}
+			continue
+		}
+		sub.heldFeatures(subPrefix, into)
 	}
 }
 
@@ -1660,6 +1707,13 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, listener)
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
+	}
+	if !callee.joined {
+		ambient := actionAmbient{}
+		if performer == e.self {
+			ambient = actionAmbient{owner: e.owner, frames: e.root.lexicalFrames()}
+		}
+		callee.exec.setAmbient(ambient)
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
 	return callee, nil

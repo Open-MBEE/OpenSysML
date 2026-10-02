@@ -153,7 +153,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	}
 	// The performed action reads the values in scope where it is performed and its
 	// outputs come back to them, so a perform in a loop body sees that iteration.
-	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self)
+	_, outputs, err := invokeActionWithAmbient(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self, h.exec.ambient)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -377,7 +377,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocation(node); ok {
+		if inv, ok := nestedInvocationInGraph(graph, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}

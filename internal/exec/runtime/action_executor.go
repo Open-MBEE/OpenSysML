@@ -50,6 +50,7 @@ type ActionExecutor struct {
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute
+	ambient          actionAmbient
 	tokens           []Token
 	state            ExecutionState
 	nextTokenID      int64
@@ -196,17 +197,18 @@ func newActionExecutorOf(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it names — the
-	// definition typing it — as a classifier behavior binding does; under a tool, none.
-	action, tool, err := ctx.performanceBody(performed, action)
-	if err != nil {
-		return nil, err
-	}
-	graph, err := lowerPerformance(action, tool, ctx.Resolver())
+	// Select the executable graph from lowering, including any inherited action content.
+	action, tool, graph, err := ctx.performanceBody(performed, action)
 	if err != nil {
 		return nil, err
 	}
 	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+}
+
+func (e *ActionExecutor) setAmbient(ambient actionAmbient) {
+	e.ambient = ambient
+	e.performances.ambient = ambient
+	e.root.outer = slices.Clone(ambient.frames)
 }
 
 // newActionExecutorOn is an execution of graph, the lowering of action, ready to
@@ -243,24 +245,6 @@ func newActionExecutorOn(
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	return exec
-}
-
-// lowerPerformance lowers what a performance of action runs, in the scope it was written
-// in: its token flow, or under a tool only its own interface, the body never running.
-func lowerPerformance(action *symbols.Symbol, tool *toolExecution, resolver *resolve.Resolver) (*lower.ActionGraph, error) {
-	if tool != nil {
-		graph, err := lower.ToActionInterface(action.Decl, DeclScope(action))
-		if err != nil {
-			return nil, fmt.Errorf("lower action interface: %w", err)
-		}
-		return graph, nil
-	}
-	graph, err := lower.ToActionGraphWith(action.Decl, DeclScope(action), resolver)
-	if err != nil {
-		return nil, fmt.Errorf("lower action graph: %w", err)
-	}
-	lower.StartFlow(graph)
-	return graph, nil
 }
 
 // performanceFeatures lists the graph's attributes, then the inherited ones none
@@ -1241,7 +1225,10 @@ func (e *ActionExecutor) declaresAttribute(name string) bool {
 }
 
 // assignAround holds nothing: an action's performance is the outermost its nodes reach.
-func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
+func (e *ActionExecutor) assignAround(name string, value Value) (bool, error) {
+	if e.ambient.owner != nil {
+		return e.ambient.owner.assignAround(name, value)
+	}
 	return false, nil
 }
 
@@ -1276,7 +1263,10 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 }
 
 // returnAround holds nothing either.
-func (e *ActionExecutor) returnAround(string, Value) (bool, error) {
+func (e *ActionExecutor) returnAround(name string, value Value) (bool, error) {
+	if e.ambient.owner != nil {
+		return e.ambient.owner.returnAround(name, value)
+	}
 	return false, nil
 }
 
@@ -2423,7 +2413,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	work := &usageWork{exec: e, token: token.ID, perf: perf, graph: graph, usage: usage}
 	if isCaseStep(usage) {
 		work.isCase = true
-	} else if inv, ok := nestedInvocation(usage); ok {
+	} else if inv, ok := nestedInvocationInGraph(graph, usage); ok {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
@@ -2957,7 +2947,7 @@ func (e *ActionExecutor) State() ExecutionState {
 }
 
 // Results returns the values the action's features hold, under `node.pin` those of
-// each nested non-repeated node's latest performance and under `part.attribute` what the one
+// each nested node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
 	results := make(map[string]Value, len(e.root.data))

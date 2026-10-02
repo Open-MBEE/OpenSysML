@@ -1,0 +1,22 @@
+step 1: token 1@scaled
+eval literal 3 -> 3
+enter action node: scaled
+step 2: token 1@start, token 2@*ast.AssignmentActionNode
+stmt assign y
+    eval feature y -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+choice step 3: tokens 1@start, 2@*ast.AssignmentActionNode (unordered; took 2@*ast.AssignmentActionNode first)
+step 3: token 1@scaling
+stmt assign y
+    eval feature x -> 3
+      eval literal 10 -> 10
+    eval feature factor -> 10
+  eval operator * -> 30
+step 4: token 1@done
+leave action node: scaled
+step 5: token 1@check
+stmt assign seen
+  eval feature y -> 30
+step 6: token 1@done
+step 7: no active tokens

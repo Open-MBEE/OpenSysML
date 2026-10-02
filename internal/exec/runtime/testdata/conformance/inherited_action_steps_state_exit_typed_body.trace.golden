@@ -1,0 +1,15 @@
+exit: active (exit action)
+stmt action body
+enter action node: state behavior mixed
+  stmt assign hits
+      eval feature hits -> 0
+      eval literal 10 -> 10
+    eval operator + -> 10
+choice step 1: tokens 1@start, 2@b (unordered; took 2@b first)
+  stmt assign hits
+      eval feature hits -> 10
+      eval literal 1 -> 1
+    eval operator + -> 11
+leave action node: state behavior mixed
+enter: completed
+transition: active -> completed (event: accept Go)

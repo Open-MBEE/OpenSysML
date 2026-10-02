@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::u",
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 101}
+	}
+}

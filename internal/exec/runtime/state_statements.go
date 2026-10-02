@@ -68,12 +68,15 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 }
 
 func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
+	graph := &lower.ActionGraph{
+		Scope:          behavior.Scope,
+		Multiplicities: map[ast.Node]*ast.Multiplicity{},
+		Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
+	}
 	if behavior.Multiplicity != nil {
-		graph := &lower.ActionGraph{
-			Scope:          behavior.Scope,
-			Multiplicities: map[ast.Node]*ast.Multiplicity{behavior.Node: behavior.Multiplicity},
-			Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
-		}
+		graph.Multiplicities[behavior.Node] = behavior.Multiplicity
+	}
+	if graph.HasStepMultiplicity(behavior.Node, e.ctx.Semantics()) {
 		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
@@ -441,7 +444,10 @@ func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 		if !ok {
 			return fmt.Errorf("%s performs no action", h.describe())
 		}
-		return h.exec.invokeNested(inv)
+		return h.exec.invokeNested(inv, actionAmbient{
+			owner:  h,
+			frames: h.perfs.root.lexicalFrames(),
+		})
 	}
 	return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 }

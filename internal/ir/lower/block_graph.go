@@ -456,9 +456,11 @@ func blockMemberStatement(member ast.Node, scope *symbols.Scope, nodeBody bool) 
 // statesNoStep reports whether a member declares something about the block
 // rather than a step of it, so that reaching the block does not reach it.
 func statesNoStep(member ast.Node) bool {
-	switch member.(type) {
-	case *ast.Documentation, *ast.Comment, *ast.Definition, *ast.Import, *ast.Alias:
+	switch member := member.(type) {
+	case *ast.Documentation, *ast.Comment, *ast.Definition, *ast.Import, *ast.Alias, *ast.PrefixMetadata:
 		return true
+	case *ast.Usage:
+		return member.Kind == ast.UsageMetadata
 	default:
 		return false
 	}

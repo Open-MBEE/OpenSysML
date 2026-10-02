@@ -1,0 +1,1 @@
+- **Action performances now merge inherited steps and inherit redefined step multiplicity.** Body-stating typed usages, including entry/do/exit and performed classifier behaviors, run their own and inherited content once; nested typed flows do not invoke the typing twice, and multiplicity refusals point to the governing declaration.

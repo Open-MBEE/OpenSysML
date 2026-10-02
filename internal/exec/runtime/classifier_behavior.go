@@ -1013,21 +1013,26 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 // type binds, seeded with the values the binding declaration supplies, and
 // initializes it so its start is reported where every other behavior's is.
 func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
-	if usage := decl.behavior.Decl; lower.IsPerformedActionUsage(usage) && usage.Multiplicity != nil {
+	if usage := decl.behavior.Decl; lower.IsPerformedActionUsage(usage) {
 		scope := decl.member.OwnerScope
 		graph := &lower.ActionGraph{
 			Scope:          scope,
-			Multiplicities: map[ast.Node]*ast.Multiplicity{usage: usage.Multiplicity},
+			Multiplicities: map[ast.Node]*ast.Multiplicity{},
 			Scopes:         map[ast.Node]*symbols.Scope{usage: scope},
 		}
-		count, err := graph.StepCount(usage, ctx.Semantics())
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		if usage.Multiplicity != nil {
+			graph.Multiplicities[usage] = usage.Multiplicity
 		}
-		if count != 1 {
-			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
-				usage, ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
-				"part-level performed actions cannot execute with multiplicity other than [1]", nil))
+		if graph.HasStepMultiplicity(usage, ctx.Semantics()) {
+			count, err := graph.StepCount(usage, ctx.Semantics())
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+			}
+			if count != 1 {
+				return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
+					usage, ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
+					"part-level performed actions cannot execute with multiplicity other than [1]", nil))
+			}
 		}
 	}
 	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
@@ -1290,29 +1295,32 @@ func (ctx *Context) argumentParameter(scope *symbols.Scope, arg lower.Attribute)
 	return arg.Name
 }
 
-// actionBodySymbol resolves the element holding the body an action symbol
-// performs: itself when it states one, otherwise the action it names — the
-// definition typing it, or the feature it refers to. The symbol itself is
-// returned when nothing it names states a body, so the missing flow is reported
-// against the declaration that was asked for.
-func (ctx *Context) actionBodySymbol(action *symbols.Symbol) *symbols.Symbol {
+// actionBodyGraph selects the lowered flow a performance of action executes.
+func (ctx *Context) actionBodyGraph(action *symbols.Symbol) (*symbols.Symbol, *lower.ActionGraph, error) {
 	sym := action
+	var fallback *lower.ActionGraph
 	for depth := 0; depth < maxBehaviorBindingDepth; depth++ {
-		if statesBehaviorBody(sym) {
-			return sym
+		graph, err := lower.ToActionGraphWith(sym.Decl, DeclScope(sym), ctx.Resolver())
+		if err != nil {
+			return nil, nil, fmt.Errorf("lower action graph: %w", err)
+		}
+		lower.StartFlow(graph)
+		if depth == 0 {
+			fallback = graph
+		}
+		if len(graph.Nodes) > 0 || len(graph.Bodies) > 0 {
+			return sym, graph, nil
 		}
 		next := ctx.namedBehavior(sym)
 		if next == nil || next == sym ||
 			(next.Kind != symbols.SymbolActionUsage && next.Kind != symbols.SymbolActionDef) {
-			return action
+			return action, fallback, nil
 		}
 		sym = next
 	}
-	return action
+	return action, fallback, nil
 }
 
-// statesBehaviorBody reports whether a symbol's declaration states a behavior
-// body of its own rather than naming an element that holds one.
 func statesBehaviorBody(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Decl == nil {
 		return false
