@@ -1,0 +1,1 @@
+- The downloads page now links the prebuilt `opensysml-sysml.vsix` from the nightly release.
