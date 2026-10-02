@@ -266,7 +266,11 @@ Fixtures: `inherited_action_steps_p0`, `_p2`, `_p3`, `_usage_typed`,
 `_usage_typed_with_body`, `_multi_level`, `_diamond`, `_narrow`, `_keep`,
 `_redefine_two_levels`, `_direct_assign`, `_direct_send`, `_typed_node`, `_perform`,
 `_state_entry`, `_state_do`, `_state_exit`, `_redefined_typed_step`; the ordering-sensitive
-cases carry trace goldens.
+cases carry trace goldens. The body-stating cases are `_usage_typed_with_body`,
+`_nested_typed_usage_with_body`, `_state_entry_typed_body`, `_state_do_typed_body`,
+`_state_exit_typed_body`, `_state_entry_perform_body` and
+`_classifier_perform_typed_body`; state and classifier observations use explicit `inout` pins
+bound to `hits`.
 
 Derived constraints:
 
@@ -294,8 +298,8 @@ Derived constraints:
    the replacement for `a`, never a duplicate inherited node. Nearest-first generalization makes
    each inherited body run once through a diamond.
 6. A feature's type includes the types of features it redefines, so `Narrow2::a` inherits `Foo`
-   as its performed action. Its two performances update their shared `hits` feature twice while
-   each latest node frame reports `a.c = 1`.
+   as its performed action. Its two performances update their shared `hits` feature twice; the
+   repeated node's frame is not reported as an output.
 
 The fixed outcomes are P0 `c = 1`, P2 `c = 1, z = 0`, P3 `c = 101`, typed usage `u1.c = 1`,
 typed usage with its own `b` body `c = 101`, multi-level `c = 11`, diamond `c = 111`,
@@ -304,8 +308,8 @@ direct send `number = 5`, typed node `x.c = 1`, `perform` node `p.c = 1`, and on
 step each for state entry, do and exit. Body-stating typed state entry/do/exit each add the
 inherited step and own member once (`hits = 11`); the `entry perform` form has the same outcome,
 the empty-`Bump` entry body leaves `c = 1`, and the part-level typed classifier body leaves
-`hits = 101`. `Narrow2` performs `a` twice as `Foo` (`hits = 2`,
-with the latest `a.c = 1`). Subsetting alone does not carry multiplicity: only the own-or-
+`hits = 101`. `Narrow2` performs `a` twice as `Foo` and reports only the outer `hits = 2`.
+Subsetting alone does not carry multiplicity: only the own-or-
 redefined source used by `GoverningMultiplicityOf` does.
 
 Known refusals are cyclic specialization (`action specializes itself`), a missing redefined action
@@ -334,6 +338,15 @@ replacements (`inherited succession reaches more than one redefining step`).
    `perform` body. The inherited action's step and the own action body each add once in the state
    fixtures; the chosen trace order is a linearization, while the relative order of unordered
    members is not fixed by the library.
+   In `action_invoked_node_body_writes_output`, the usage's own `assign y := y + 1` is an
+   unordered subaction beside Scale's inherited `start → scaling → done` flow. The inherited
+   `scaling` step sets `y` to 30; the assignment leaves 31 if it runs after `scaling`, while
+   `scaling` leaves 30 if the assignment runs first. The following `check` reads that final value,
+   so the oracle admits exactly `{30, 31}`.
+   A typed node whose own statements read the callee's outputs is order-dependent under this merge
+   rule: an order before the producing step reads the unset output and fails. `state_block_flow_typed_node`
+   therefore reads `scaled.y` after the node. `action_invoked_node_body_writes_output` and
+   `state_block_flow_typed_node_body_writes_output` carry the `{30, 31}` sets.
 
 ### Repeated action steps and shared writes
 

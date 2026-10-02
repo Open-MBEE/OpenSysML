@@ -79,11 +79,18 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 			behavior.Body = []Statement{Block{
 				Node:  node,
 				Scope: scope,
-				Graph: lowerBlockFlow([]ast.Node{node}, scope, false),
+				Graph: ToActionNodeFlow(node, scope, resolver),
 				Own:   true,
 			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node):
-			behavior.Body = []Statement{lowerMergedBehaviorBody(node, scope, resolver)}
+			bodyScope := childScope(scope, node)
+			behavior.Body = []Statement{Block{
+				Node:   node,
+				Scope:  bodyScope,
+				Graph:  ToActionNodeFlow(node, scope, resolver),
+				Own:    true,
+				Stated: true,
+			}}
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
@@ -111,19 +118,6 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Multiplicity = usage.Multiplicity
 	}
 	return behavior
-}
-
-func lowerMergedBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
-	bodyScope := childScope(scope, node)
-	graph, err := ToActionGraphWith(node, bodyScope, resolver)
-	if err != nil {
-		if graph == nil {
-			graph = newActionGraph(bodyScope)
-		}
-		graph.Invalid = err
-	}
-	StartFlow(graph)
-	return Block{Node: node, Scope: bodyScope, Graph: graph, Own: true, Stated: true}
 }
 
 // lowerBehaviorBody lowers an inline action body of a behavior. A body stating
@@ -165,18 +159,16 @@ func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) [
 func declaresOnlyFeatures(members []ast.Node) bool {
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil || statesNoStep(actual) {
+		if actual == nil || statesNoStep(actual) || isAnnotation(actual) {
 			continue
 		}
-		m, ok := actual.(*ast.Usage)
-		if !ok || !DeclaresNodeFeature(m) {
-			return false
-		}
-		if m.Direction == ast.DirNone {
-			redefinitions, _ := ast.SplitRedefinitions(m.Relationships)
-			if len(redefinitions) > 0 {
+		if usage, ok := actual.(*ast.Usage); ok && usage.Kind == ast.UsageAttribute && usage.Direction == ast.DirNone {
+			if redefinitions, _ := ast.SplitRedefinitions(usage.Relationships); len(redefinitions) > 0 {
 				return false
 			}
+		}
+		if m, ok := actual.(*ast.Usage); !ok || !DeclaresNodeFeature(m) {
+			return false
 		}
 	}
 	return true

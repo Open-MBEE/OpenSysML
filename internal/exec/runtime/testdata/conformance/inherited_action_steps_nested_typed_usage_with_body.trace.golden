@@ -1,7 +1,7 @@
+eval literal 0 -> 0
 enter action node: y
 step 1: token 1@start, token 2@b
 stmt assign c
-      eval literal 0 -> 0
     eval feature c -> 0
     eval literal 100 -> 100
   eval operator + -> 100

@@ -50,7 +50,6 @@ type ActionExecutor struct {
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute
-	ambient          actionAmbient
 	tokens           []Token
 	state            ExecutionState
 	nextTokenID      int64
@@ -190,6 +189,16 @@ func newActionExecutorOf(
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
+	return newActionExecutorOfGraph(ctx, performed, action, self, occurrence, nil)
+}
+
+func newActionExecutorOfGraph(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	self *Instance,
+	occurrence *Instance,
+	graph *lower.ActionGraph,
+) (*ActionExecutor, error) {
 	if action.Kind != symbols.SymbolActionUsage && action.Kind != symbols.SymbolActionDef {
 		return nil, fmt.Errorf("symbol %s is not an action", action.Name)
 	}
@@ -197,18 +206,27 @@ func newActionExecutorOf(
 		return nil, err
 	}
 
-	// Select the executable graph from lowering, including any inherited action content.
-	action, tool, graph, err := ctx.performanceBody(performed, action)
-	if err != nil {
-		return nil, err
+	var tool *toolExecution
+	if graph == nil {
+		var err error
+		action, tool, graph, err = ctx.performanceBody(performed, action)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		held, found, err := ctx.toolPerformance(performed, action)
+		if err != nil {
+			return nil, err
+		}
+		if found != nil {
+			graph, err = lower.ToActionInterface(held.Decl, DeclScope(held))
+			if err != nil {
+				return nil, fmt.Errorf("lower action interface: %w", err)
+			}
+			action, tool = held, found
+		}
 	}
 	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
-}
-
-func (e *ActionExecutor) setAmbient(ambient actionAmbient) {
-	e.ambient = ambient
-	e.performances.ambient = ambient
-	e.root.outer = slices.Clone(ambient.frames)
 }
 
 // newActionExecutorOn is an execution of graph, the lowering of action, ready to
@@ -1225,10 +1243,7 @@ func (e *ActionExecutor) declaresAttribute(name string) bool {
 }
 
 // assignAround holds nothing: an action's performance is the outermost its nodes reach.
-func (e *ActionExecutor) assignAround(name string, value Value) (bool, error) {
-	if e.ambient.owner != nil {
-		return e.ambient.owner.assignAround(name, value)
-	}
+func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 	return false, nil
 }
 
@@ -1263,10 +1278,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 }
 
 // returnAround holds nothing either.
-func (e *ActionExecutor) returnAround(name string, value Value) (bool, error) {
-	if e.ambient.owner != nil {
-		return e.ambient.owner.returnAround(name, value)
-	}
+func (e *ActionExecutor) returnAround(string, Value) (bool, error) {
 	return false, nil
 }
 
@@ -2947,11 +2959,22 @@ func (e *ActionExecutor) State() ExecutionState {
 }
 
 // Results returns the values the action's features hold, under `node.pin` those of
-// each nested node's latest performance and under `part.attribute` what the one
+// each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
 	results := make(map[string]Value, len(e.root.data))
 	e.root.collect("", results)
+	if e.occurrence != nil {
+		for _, attr := range e.features {
+			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
+			if err != nil {
+				continue
+			}
+			if value := fv.HeldValue(); value.Kind != ValInvalid {
+				results[attr.Name] = value
+			}
+		}
+	}
 	e.collectPartsHeld(results)
 	return results
 }

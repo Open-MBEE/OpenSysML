@@ -3,15 +3,20 @@ enter: active
 transition: ready -> active (event: accept Go)
 do: active
 stmt action body
+  eval feature hits -> 0
 enter action node: state behavior mixed
-  stmt assign hits
-      eval feature hits -> 0
+  eval feature hits -> 0
+enter action node: mixed
+do: active
+  stmt assign n
+      eval feature n -> 0
       eval literal 10 -> 10
     eval operator + -> 10
-choice step 1: tokens 1@start, 2@b (unordered; took 2@b first)
+choice step 2: tokens 1@start, 2@b (unordered; took 2@b first)
 do: active
-  stmt assign hits
-      eval feature hits -> 10
+  stmt assign n
+      eval feature n -> 10
       eval literal 1 -> 1
     eval operator + -> 11
+leave action node: mixed
 leave action node: state behavior mixed

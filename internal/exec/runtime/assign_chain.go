@@ -33,9 +33,6 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 		return fmt.Errorf("%w: object #%d (%s) has no feature %s",
 			ErrNoSuchFeature, target.ID, symbolText(target.Type), feature)
 	}
-	if written, err := ec.writeActionOccurrenceFeature(target, feature, value); written || err != nil {
-		return err
-	}
 	// Written through the object itself, so the value is multiplicity-checked and
 	// seen by every feature reaching that object, as a direct write is.
 	if err := target.SetFeatureValue(ec.ctx, feature, value); err != nil {
@@ -43,21 +40,6 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	}
 	ec.ctx.noteObjectWrite(target, feature, value)
 	return nil
-}
-
-func (ec *EvalContext) writeActionOccurrenceFeature(target *Instance, feature string, value Value) (bool, error) {
-	for i := len(ec.frames) - 1; i >= 0; i-- {
-		perf := ec.frames[i].perf
-		if perf == nil || perf.perfs == nil || perf != perf.perfs.root {
-			continue
-		}
-		owner, ok := perf.perfs.owner.(*ActionExecutor)
-		if !ok || owner.occurrence != target {
-			continue
-		}
-		return true, owner.setFeature(feature, value)
-	}
-	return false, nil
 }
 
 // chainCarrier walks a chained target's steps to the object whose feature the

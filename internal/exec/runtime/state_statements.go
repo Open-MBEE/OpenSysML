@@ -61,10 +61,26 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 	}
 	host := e.behaviorHost(behavior, e.currentFiring())
 	defer e.ctx.holdClock(host.describe())()
-	if err := host.run(); err != nil {
+	if err := host.runBehavior(); err != nil {
 		return false, err
 	}
 	return host.terminated, nil
+}
+
+func (h *stateStmtHost) runBehavior() error {
+	if !h.exec.ctx.scheduling().oneMove() {
+		return h.run()
+	}
+	run := &bodyRun{work: h, steps: true}
+	for {
+		pause, paused := run.resume(h.exec.ctx)
+		if !paused {
+			return run.err
+		}
+		if !pause.tokenStep {
+			return errPaused
+		}
+	}
 }
 
 func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
@@ -444,10 +460,7 @@ func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 		if !ok {
 			return fmt.Errorf("%s performs no action", h.describe())
 		}
-		return h.exec.invokeNested(inv, actionAmbient{
-			owner:  h,
-			frames: h.perfs.root.lexicalFrames(),
-		})
+		return h.exec.invokeNested(inv)
 	}
 	return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 }

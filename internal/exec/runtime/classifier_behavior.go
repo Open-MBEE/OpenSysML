@@ -1061,7 +1061,11 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
-		exec, err := newActionExecutorOf(ctx, decl.member, sym, inst, occurrence)
+		var graph *lower.ActionGraph
+		if decl.behavior.StatesBody && decl.behavior.NamesBehavior {
+			graph = lower.ToActionNodeFlow(decl.member.Decl, DeclScope(decl.member), ctx.Resolver())
+		}
+		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, inst, occurrence, graph)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}

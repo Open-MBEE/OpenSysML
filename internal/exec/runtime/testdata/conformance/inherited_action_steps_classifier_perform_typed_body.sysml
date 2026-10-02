@@ -4,13 +4,15 @@ package test {
 	part def Machine {
 		attribute hits : Integer = 0;
 		action def BumpBase {
+			inout n : Integer;
 			first start then a;
-			action a { assign hits := hits + 1; }
+			action a { assign n := n + 1; }
 			then done;
 		}
 		action def Bump :> BumpBase;
 		perform action p : Bump {
-			action b { assign hits := hits + 100; }
+			inout n = hits;
+			action b { assign n := n + 100; }
 		}
 	}
 }

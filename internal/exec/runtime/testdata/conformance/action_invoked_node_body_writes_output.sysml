@@ -1,5 +1,5 @@
-// The typed usage merges Scale's ordered flow with its own unordered assignment,
-// so either write may stand last in `scaled`'s output.
+// The typed usage's own `assign y := y + 1` is unordered with Scale's inherited
+// `start → scaling → done`: it leaves 31 after scaling, or scaling overwrites it with 30 first.
 package test {
     private import ScalarValues::*;
 

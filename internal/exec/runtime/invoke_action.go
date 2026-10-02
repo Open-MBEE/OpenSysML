@@ -44,11 +44,6 @@ type actionInvocation struct {
 	scope *symbols.Scope
 }
 
-type actionAmbient struct {
-	owner  performanceOwner
-	frames []frame
-}
-
 // performed is what the invocation performs: the step declaring it, else the callee itself.
 func (inv actionInvocation) performed(callee *symbols.Symbol) *symbols.Symbol {
 	if inv.step != nil {
@@ -236,17 +231,6 @@ func invokeAction(
 	data map[string]Value,
 	self *Instance,
 ) (features, outputs map[string]Value, err error) {
-	return invokeActionWithAmbient(ctx, scope, inv, data, self, actionAmbient{})
-}
-
-func invokeActionWithAmbient(
-	ctx *Context,
-	scope *symbols.Scope,
-	inv actionInvocation,
-	data map[string]Value,
-	self *Instance,
-	ambient actionAmbient,
-) (features, outputs map[string]Value, err error) {
 	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {
 		return nil, nil, err
 	} else if resumed {
@@ -265,10 +249,7 @@ func invokeActionWithAmbient(
 	if err != nil {
 		return nil, nil, err
 	}
-	if performer != self {
-		ambient = actionAmbient{}
-	}
-	return invokeBoundAction(ctx, inv, sym, arguments, data, performer, ambient)
+	return invokeBoundAction(ctx, inv, sym, arguments, data, performer)
 }
 
 // performerOf is the object the callee runs as: for a `part.callee` target, the one
@@ -303,7 +284,6 @@ func invokeBoundAction(
 	pins map[string]Value,
 	data map[string]Value,
 	self *Instance,
-	ambient actionAmbient,
 ) (features, outputs map[string]Value, err error) {
 	if callee, resumed, err := popFrame[*calleeFrame](ctx); err != nil {
 		return nil, nil, err
@@ -347,9 +327,6 @@ func invokeBoundAction(
 	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
-	}
-	if !callee.joined {
-		callee.exec.setAmbient(ambient)
 	}
 	callee.name, callee.out = inv.name(), out
 	return ctx.runCallee(callee)

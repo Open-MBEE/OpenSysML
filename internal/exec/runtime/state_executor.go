@@ -5335,8 +5335,8 @@ func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.St
 // invokeNested performs an action from a state's entry/exit/effect behavior,
 // passing state data in through the callee's input parameters and merging its
 // output parameters back into state data.
-func (e *StateExecutor) invokeNested(inv actionInvocation, ambient actionAmbient) error {
-	_, outputs, err := invokeActionWithAmbient(e.ctx, e.stateMachine.Scope, inv, e.stateData, e.self, ambient)
+func (e *StateExecutor) invokeNested(inv actionInvocation) error {
+	_, outputs, err := invokeAction(e.ctx, e.stateMachine.Scope, inv, e.stateData, e.self)
 	if err != nil {
 		return err
 	}

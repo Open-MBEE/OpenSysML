@@ -1481,8 +1481,44 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 			Node:      m,
 			Scope:     featureScope,
 		})
-		if binding, ok := inoutValueBinding(node, m, name, featureScope); ok {
+		bindingScope := featureScope
+		if bindingScope != nil && bindingScope.Parent() != nil {
+			bindingScope = bindingScope.Parent()
+		}
+		if binding, ok := inoutValueBinding(node, m, name, bindingScope); ok {
 			graph.Bindings = append(graph.Bindings, binding)
+		}
+	}
+	if typedBody, _ := mergedTypedActionBody(node, scope); typedBody {
+		generals, _ := resolve.ActionGeneralization(scope, true)
+		seen := make(map[string]bool, len(features))
+		for _, feature := range features {
+			seen[feature.Name] = true
+		}
+		for _, general := range generals {
+			if general == nil || general.Node() == nil {
+				continue
+			}
+			for _, raw := range ast.DeclMembers(general.Node()) {
+				m, ok := unwrapMembership(raw).(*ast.Usage)
+				if !ok || !DeclaresNodeFeature(m) {
+					continue
+				}
+				name, _ := ast.EffectiveName(m)
+				if name == "" || seen[name] {
+					continue
+				}
+				seen[name] = true
+				graph.recordDeclaredIn(m, general)
+				features = append(features, Feature{
+					Name:      name,
+					Direction: m.Direction,
+					IsResult:  m.IsResult,
+					Value:     m.Value,
+					Node:      m,
+					Scope:     general,
+				})
+			}
 		}
 	}
 	graph.Features[node] = features
@@ -1792,6 +1828,9 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block 
 func isAnnotation(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+		return true
+	}
+	if usage, ok := n.(*ast.Usage); ok && usage.Kind == ast.UsageMetadata {
 		return true
 	}
 	return false

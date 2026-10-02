@@ -19,11 +19,10 @@ import (
 // performances runs the nested performances of one behavior under root, its own,
 // evaluated in ctx as self: an action's executor is one, a state behavior's body another.
 type performances struct {
-	ctx     *Context
-	self    *Instance
-	root    *actionFrame
-	owner   performanceOwner
-	ambient actionAmbient
+	ctx   *Context
+	self  *Instance
+	root  *actionFrame
+	owner performanceOwner
 	// occurrence is the performance instance the root frame runs as, when the
 	// performed usage materialized one: `this` inside a behavior def denotes it.
 	occurrence *Instance
@@ -382,7 +381,37 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 	if err := e.bindInputPins(perf, activation); err != nil {
 		return err
 	}
-	return e.seedDeclaredValues(perf, flow.Features[node], activation)
+	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
+		return err
+	}
+	return e.checkMergedTypedInputs(perf)
+}
+
+func (e *performances) checkMergedTypedInputs(perf *actionFrame) error {
+	usage, ok := perf.node.(*ast.Usage)
+	if !ok {
+		return nil
+	}
+	inv, merged := mergedTypedSubflowInvocation(perf.flow, usage)
+	if !merged {
+		return nil
+	}
+	callee, err := resolveActionSymbol(e.ctx, nodeScope(perf.flow, usage), inv)
+	if err != nil {
+		return err
+	}
+	perf.callee = callee
+	params := e.ctx.actionParametersOf(perf.callee)
+	inputs := make(map[string]Value)
+	for _, param := range params {
+		if param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
+			continue
+		}
+		if value, held := perf.data[perf.key(param.Name)]; held {
+			inputs[param.Name] = value
+		}
+	}
+	return checkInputsBound(inv, params, inputs)
 }
 
 // bindArguments writes the arguments a node passes its callee (`F(a = 3)`) to its pins,
@@ -1193,41 +1222,18 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 	return merged
 }
 
-// collect reports values held by the performance and its latest subactions by path.
+// collect reports the values the performance and its non-repeated subactions hold,
+// under their paths (`p.v`), the latest performance of each name standing for it.
 func (f *actionFrame) collect(prefix string, into map[string]Value) {
 	for name, value := range f.data {
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
-		subPrefix := prefix + name + "."
 		if sub.repetition > 0 {
-			sub.collectRepeatedOutputs(subPrefix, into)
 			continue
 		}
-		sub.collect(subPrefix, into)
+		sub.collect(prefix+name+".", into)
 	}
-}
-
-func (f *actionFrame) collectRepeatedOutputs(prefix string, into map[string]Value) {
-	outputs := f.repeatedOutputFeatures()
-	for name, value := range f.data {
-		if outputs[name] {
-			into[prefix+name] = value
-		}
-	}
-}
-
-func (f *actionFrame) repeatedOutputFeatures() map[string]bool {
-	outputs := make(map[string]bool)
-	for name, direction := range f.features {
-		if direction == ast.DirOut || direction == ast.DirInOut {
-			outputs[f.key(name)] = true
-		}
-	}
-	if f.result != "" {
-		outputs[f.key(f.result)] = true
-	}
-	return outputs
 }
 
 // latestSubactions is the latest performance of each named node under f, by name.
@@ -1270,14 +1276,10 @@ func (f *actionFrame) heldFeatures(prefix string, into map[string]bool) {
 		into[prefix+name] = true
 	}
 	for name, sub := range f.latestSubactions() {
-		subPrefix := prefix + name + "."
 		if sub.repetition > 0 {
-			for feature := range sub.repeatedOutputFeatures() {
-				into[subPrefix+feature] = true
-			}
 			continue
 		}
-		sub.heldFeatures(subPrefix, into)
+		sub.heldFeatures(prefix+name+".", into)
 	}
 }
 
@@ -1434,6 +1436,12 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 	written, err := e.assignEnclosing(end.at, name, value)
 	if err != nil {
 		return err
+	}
+	if !written && end.FromValue {
+		written, err = assignPerformerFeature(e.ctx, e.self, end.Scope, name, value)
+		if err != nil {
+			return err
+		}
 	}
 	if !written && !end.FromValue {
 		return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
@@ -1707,13 +1715,6 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, listener)
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
-	}
-	if !callee.joined {
-		ambient := actionAmbient{}
-		if performer == e.self {
-			ambient = actionAmbient{owner: e.owner, frames: e.root.lexicalFrames()}
-		}
-		callee.exec.setAmbient(ambient)
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
 	return callee, nil

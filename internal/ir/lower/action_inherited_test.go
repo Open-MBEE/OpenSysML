@@ -376,14 +376,63 @@ func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
 	}
 }
 
+func TestToActionGraphBodyStatingTypedNodeIncludesTypedPins(t *testing.T) {
+	src := `
+		action def Scale {
+			in x : Integer;
+			in factor : Integer = 10;
+			out y : Integer;
+			first start then scaling;
+			action scaling { assign y := x * factor; }
+			then done;
+		}
+		action def Host {
+			action scaled : Scale {
+				in x = 3;
+				assign y := y + 1;
+			}
+		}
+	`
+	host, scope, _ := inheritedActionDecl(t, src, "Host")
+	graph, err := ToActionGraph(host, scope)
+	if err != nil {
+		t.Fatalf("lower Host: %v", err)
+	}
+	node, ok := namedNode(graph, "scaled").(*ast.Usage)
+	if !ok {
+		t.Fatalf("scaled node = %T, want *ast.Usage", namedNode(graph, "scaled"))
+	}
+	features := make(map[string]Feature, len(graph.Features[node]))
+	for _, feature := range graph.Features[node] {
+		features[feature.Name] = feature
+	}
+	for name, direction := range map[string]ast.FeatureDirection{
+		"x":      ast.DirIn,
+		"factor": ast.DirIn,
+		"y":      ast.DirOut,
+	} {
+		feature, ok := features[name]
+		if !ok || feature.Direction != direction {
+			t.Errorf("typed feature %q = %#v, present %v; want direction %v", name, feature, ok, direction)
+		}
+	}
+	if features["factor"].Value == nil {
+		t.Error("typed default for factor was not lowered")
+	}
+}
+
 func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
 	src := `
+		metadata def Marker;
 		action def Base {
 			first start then a;
 			action a;
 			then done;
 		}
-		action usage : Base { in value = 3; }
+		action usage : Base {
+			metadata marker : Marker;
+			in value = 3;
+		}
 	`
 	p := parser.New(source.New("test.sysml", []byte(src)))
 	root := p.ParseFile()
@@ -412,6 +461,9 @@ func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
 	}
 	if inherited := namedNode(graph, "a"); inherited != nil {
 		t.Fatalf("pin-only typed usage adopted type body node %v", inherited)
+	}
+	if _, merged := graph.MergedTypedSubflows[usage]; merged {
+		t.Fatal("pin-only typed usage with metadata was marked as a merged subflow")
 	}
 }
 

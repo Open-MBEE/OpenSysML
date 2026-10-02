@@ -3,6 +3,7 @@ package lower
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -90,6 +91,14 @@ func lowerBlockFlow(members []ast.Node, scope *symbols.Scope, nodeBody bool) *Ac
 	return lowerBlockFlowWith(members, scope, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
 		return blockStep(graph, nodes, member, scope, nodeBody)
 	})
+}
+
+// ToActionNodeFlow lowers one action node as the sole node of a block flow.
+func ToActionNodeFlow(node ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) *ActionGraph {
+	graph := lowerBlockFlow([]ast.Node{node}, scope, false)
+	graph.resolver = resolver
+	StartFlow(graph)
+	return graph
 }
 
 // lowerStatedBlock lowers a loop or branch body stating a flow of its own.
@@ -356,7 +365,8 @@ func acceptsMessage(node *ast.Usage) bool {
 // action's flow: the features it declares, and the statements or flow its members
 // state — a flow of its own (`first`, a succession) as the subflow the node owns.
 func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	if node.IsTerminate || statesOwnFlow(node.Members) {
+	typedBody, _ := mergedTypedActionBody(node, scope)
+	if node.IsTerminate || statesOwnFlow(node.Members) || PerformsLeafStatements(node.Members) || typedBody {
 		lowerActionNode(graph, node, scope)
 		return
 	}
