@@ -572,45 +572,10 @@ func (l *oclLowering) call(n *oclNode) (oclValue, error) {
 		return oclValue{}, err
 	}
 	if !n.arrow {
-		switch n.name {
-		case "oclAsType":
-			if len(n.args) != 1 {
-				return oclValue{}, l.refuse(n, "casts without one type")
-			}
-			typ, _, ok := n.args[0].path()
-			if !ok || typ == "self" {
-				return oclValue{}, l.refuse(n, "casts to something other than a type name")
-			}
-			if src.symbol != oclConcrete {
-				// Slot, ElementValue and InstanceValue casts narrow reflection
-				// the v2 model does not spell.
-				return src, nil
-			}
-			if !oclKnownKind(typ) {
-				return oclValue{}, l.refuse(n, "casts to "+typ+", which is not a UML metaclass the lowering knows")
-			}
-			if !l.conforms(src.kind, typ) {
-				return oclValue{}, l.refuse(n, "casts a "+src.kind+" to "+typ+", which it cannot be")
-			}
-			src.kind = typ
-			return src, nil
-		case "oclIsKindOf", "oclIsTypeOf":
-			return oclValue{}, l.refuse(n, "tests a metaclass; the v2 model classifies by its own metaclasses")
-		}
-		return oclValue{}, l.refuse(n, "calls the operation "+strconv.Quote(n.name)+", which has no v2 spelling")
+		return l.dotCall(n, src)
 	}
-	if src.symbol == oclStereotypes && n.name == "size" && len(n.args) == 0 {
-		return oclValue{symbol: oclStereotypeCount, host: src.host, tag: src.tag}, nil
-	}
-	if src.symbol == oclStereotypes && (n.name == "notEmpty" || n.name == "isEmpty") && len(n.args) == 0 {
-		has, err := l.hasStereotype(n, src)
-		if err != nil {
-			return oclValue{}, err
-		}
-		if n.name == "isEmpty" {
-			has.text = "not " + has.text
-		}
-		return has, nil
+	if src.symbol == oclStereotypes {
+		return l.stereotypesCall(n, src)
 	}
 	if src.symbol != oclConcrete {
 		return oclValue{}, l.refuse(n, appliesOp(n.name)+" to stereotype applications, which the v2 model carries as features")
@@ -648,6 +613,58 @@ func (l *oclLowering) call(n *oclNode) (oclValue, error) {
 		return oclValue{text: src.text + "->" + l.function(n.name) + "(" + arg.text + ")", kind: kind, single: kind == "Boolean"}, nil
 	}
 	return oclValue{}, l.refuse(n, appliesOp(n.name)+", which is not a collection operation the lowering knows")
+}
+
+// dotCall lowers an operation called on a value with `.`: only the casts have
+// a v2 reading, and only onto a metaclass the value conforms to.
+func (l *oclLowering) dotCall(n *oclNode, src oclValue) (oclValue, error) {
+	switch n.name {
+	case "oclAsType":
+		if len(n.args) != 1 {
+			return oclValue{}, l.refuse(n, "casts without one type")
+		}
+		typ, _, ok := n.args[0].path()
+		if !ok || typ == "self" {
+			return oclValue{}, l.refuse(n, "casts to something other than a type name")
+		}
+		if src.symbol != oclConcrete {
+			// Slot, ElementValue and InstanceValue casts narrow reflection
+			// the v2 model does not spell.
+			return src, nil
+		}
+		if !oclKnownKind(typ) {
+			return oclValue{}, l.refuse(n, "casts to "+typ+", which is not a UML metaclass the lowering knows")
+		}
+		if !l.conforms(src.kind, typ) {
+			return oclValue{}, l.refuse(n, "casts a "+src.kind+" to "+typ+", which it cannot be")
+		}
+		src.kind = typ
+		return src, nil
+	case "oclIsKindOf", "oclIsTypeOf":
+		return oclValue{}, l.refuse(n, "tests a metaclass; the v2 model classifies by its own metaclasses")
+	}
+	return oclValue{}, l.refuse(n, "calls the operation "+strconv.Quote(n.name)+", which has no v2 spelling")
+}
+
+// stereotypesCall lowers a collection operation on the stereotypes applied to
+// an element: counting them, or testing whether one is applied.
+func (l *oclLowering) stereotypesCall(n *oclNode, src oclValue) (oclValue, error) {
+	if len(n.args) == 0 {
+		switch n.name {
+		case "size":
+			return oclValue{symbol: oclStereotypeCount, host: src.host, tag: src.tag}, nil
+		case "notEmpty", "isEmpty":
+			has, err := l.hasStereotype(n, src)
+			if err != nil {
+				return oclValue{}, err
+			}
+			if n.name == "isEmpty" {
+				has.text = "not " + has.text
+			}
+			return has, nil
+		}
+	}
+	return oclValue{}, l.refuse(n, appliesOp(n.name)+" to stereotype applications, which the v2 model carries as features")
 }
 
 // oclIterators maps the OCL iterators to the v2 sequence functions.

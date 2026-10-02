@@ -706,6 +706,22 @@ const (
 // entering it comes first; a stray initial entering an orthogonal region is written
 // there when that region has no entry of its own.
 func (m *migration) planEntries(sm *sysmlv1.Element) {
+	regions := machineRegions(sm)
+	for _, r := range regions {
+		m.entries[r] = m.planRegionEntry(r)
+	}
+	for _, r := range regions {
+		for _, st := range m.entries[r].strays {
+			if st.fate != strayForeign {
+				m.settleStray(st, r)
+			}
+		}
+	}
+}
+
+// machineRegions lists the regions of a state machine, nested ones included,
+// stopping at the machines nested in it.
+func machineRegions(sm *sysmlv1.Element) []*sysmlv1.Element {
 	var regions []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -720,51 +736,53 @@ func (m *migration) planEntries(sm *sysmlv1.Element) {
 		}
 	}
 	walk(sm)
-	for _, r := range regions {
-		e := &regionEntry{}
-		m.entries[r] = e
-		for _, v := range r.Owned("subvertex") {
-			if pseudoKind(v) != "initial" {
-				continue
-			}
-			out := m.initialTransitions(v)
-			if len(out) == 0 {
-				e.dangling = append(e.dangling, v)
-				continue
-			}
-			tgt := m.model.Ref(out[0], "target")
-			if foreign := foreignRegionOf(r, tgt); foreign != nil {
-				st := &strayInitial{init: v, transition: out[0], target: tgt, into: foreign}
-				if !isOrthogonal(r, foreign) {
-					st.fate = strayForeign
-				}
-				e.strays = append(e.strays, st)
-				continue
-			}
-			if e.init != nil {
-				e.duplicates = append(e.duplicates, v)
-				continue
-			}
-			e.init, e.transition = v, out[0]
+	return regions
+}
+
+// planRegionEntry sorts the initial pseudostates of region r: the one entering
+// it, its duplicates, the dangling ones, and the strays entering other regions.
+func (m *migration) planRegionEntry(r *sysmlv1.Element) *regionEntry {
+	e := &regionEntry{}
+	for _, v := range r.Owned("subvertex") {
+		if pseudoKind(v) != "initial" {
+			continue
 		}
+		out := m.initialTransitions(v)
+		if len(out) == 0 {
+			e.dangling = append(e.dangling, v)
+			continue
+		}
+		tgt := m.model.Ref(out[0], "target")
+		if foreign := foreignRegionOf(r, tgt); foreign != nil {
+			st := &strayInitial{init: v, transition: out[0], target: tgt, into: foreign}
+			if !isOrthogonal(r, foreign) {
+				st.fate = strayForeign
+			}
+			e.strays = append(e.strays, st)
+			continue
+		}
+		if e.init != nil {
+			e.duplicates = append(e.duplicates, v)
+			continue
+		}
+		e.init, e.transition = v, out[0]
 	}
-	for _, r := range regions {
-		for _, st := range m.entries[r].strays {
-			if st.fate == strayForeign {
-				continue
-			}
-			into := m.entries[st.into]
-			switch {
-			case into.init == nil:
-				into.init, into.transition, into.donor = st.init, st.transition, r
-			case m.model.Ref(into.transition, "target") == st.target:
-				st.fate = strayCoincides
-			default:
-				st.fate = strayConflicts
-				st.ownDonor = into.donor
-				st.ownTarget = m.model.Ref(into.transition, "target")
-			}
-		}
+	return e
+}
+
+// settleStray donates a stray initial of region from to the orthogonal region
+// it enters, or records how it agrees or conflicts with that region's own entry.
+func (m *migration) settleStray(st *strayInitial, from *sysmlv1.Element) {
+	into := m.entries[st.into]
+	switch {
+	case into.init == nil:
+		into.init, into.transition, into.donor = st.init, st.transition, from
+	case m.model.Ref(into.transition, "target") == st.target:
+		st.fate = strayCoincides
+	default:
+		st.fate = strayConflicts
+		st.ownDonor = into.donor
+		st.ownTarget = m.model.Ref(into.transition, "target")
 	}
 }
 
