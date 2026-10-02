@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -35,10 +36,6 @@ func branchURL(path string) (string, bool, error) {
 }
 
 func namesRepository(path string) bool {
-	for _, scheme := range []string{"flexo://", "http://", "https://"} {
-		if strings.HasPrefix(path, scheme) {
-			return true
-		}
-	}
-	return false
+	scheme, _, ok := strings.Cut(path, "://")
+	return ok && slices.Contains([]string{"flexo", "http", "https"}, scheme)
 }
