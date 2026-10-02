@@ -8,7 +8,7 @@ import (
 
 // The census document carries generated blocks between census:begin/end
 // markers: this program writes them and -check refuses a hand-edited block.
-var generatedBlocks = []string{"source", "summary", "rows", "gaps"}
+var generatedBlocks = []string{"source", "summary", "rows", "beyond", "errata", "gaps"}
 
 func blockMarker(name, which string) string {
 	return "<!-- census:" + which + " " + name + " -->"
@@ -23,6 +23,10 @@ func renderBlock(name string, b *Baseline) (string, error) {
 		return renderSummary(b), nil
 	case "rows":
 		return renderRows(b), nil
+	case "beyond":
+		return renderBeyond(b), nil
+	case "errata":
+		return renderErrata(b), nil
 	case "gaps":
 		return renderGaps(b), nil
 	}
@@ -31,8 +35,13 @@ func renderBlock(name string, b *Baseline) (string, error) {
 
 func renderSource(b *Baseline) string {
 	s := b.Source
-	return fmt.Sprintf("**Source:** OMG SysML v1 to v2 transformation model, document `%s`, `%s` (`%s`) — %d packages, %d classes, %d mapping classes, %d OCL bodies.",
+	line := fmt.Sprintf("**Source:** OMG SysML v1 to v2 transformation model, document `%s`, `%s` (`%s`) — %d packages, %d classes, %d mapping classes, %d OCL2.0 operation bodies",
 		s.Document, s.File, s.Digest, s.Packages, s.Classes, s.Mappings, s.OCLBodies)
+	if s.OCLSpecifications != s.OCLBodies {
+		line += fmt.Sprintf(" (of %d OCL2.0 specifications; the other %d are %d postconditions and %d owned rules)",
+			s.OCLSpecifications, s.OCLSpecifications-s.OCLBodies, s.OCLPostconditions, s.OCLOwnedRules)
+	}
+	return line + "."
 }
 
 func renderSummary(b *Baseline) string {
@@ -86,41 +95,98 @@ func renderRows(b *Baseline) string {
 	return out.String()
 }
 
-// gapsRow is one not-implemented or approximate row with its measured counts.
+func renderBeyond(b *Baseline) string {
+	var out strings.Builder
+	out.WriteString("| Migrator behaviour | Implementation | Test |\n")
+	out.WriteString("|---|---|---|")
+	for _, e := range b.Beyond {
+		fmt.Fprintf(&out, "\n| %s | %s | %s |", escape(e.Behaviour), cites(e.Implementation), cites(e.Tests))
+	}
+	return out.String()
+}
+
+// erratumMarker is the reason prefix that lists a row in the errata block.
+const erratumMarker = "candidate erratum:"
+
+// errataRows are the rows whose reason names a candidate erratum, in baseline order.
+func errataRows(b *Baseline) []Mapping {
+	var rows []Mapping
+	for _, m := range b.Mappings {
+		if i := strings.Index(strings.ToLower(m.Reason), erratumMarker); i >= 0 {
+			rows = append(rows, m)
+		}
+	}
+	return rows
+}
+
+func renderErrata(b *Baseline) string {
+	var out strings.Builder
+	out.WriteString("| OMG mapping | v1 source | v2 target | Status | Note |\n")
+	out.WriteString("|---|---|---|---|---|")
+	for _, m := range errataRows(b) {
+		marker, _ := markerFor(m.Status)
+		note := strings.TrimSpace(m.Reason[strings.Index(strings.ToLower(m.Reason), erratumMarker)+len(erratumMarker):])
+		fmt.Fprintf(&out, "\n| `%s` | %s | %s | %s | %s |", m.Name, code(m.From), code(m.To), marker, orDash(note))
+	}
+	return out.String()
+}
+
+// renderGaps groups the scoped rows that share one verdict, scope and reason
+// into a single ranked entry: dozens of sub-mappings carry the same scope, and
+// ranking each separately would repeat the same counts.
 func renderGaps(b *Baseline) string {
 	type gap struct {
-		m     Mapping
-		pssm  int
-		fix   int
-		total int
+		names  []string
+		status string
+		scope  []string
+		reason string
+		pssm   int
+		fix    int
+		total  int
 	}
-	var gaps []gap
+	groups := map[string]*gap{}
+	var order []*gap
 	for _, m := range b.Mappings {
 		if !scoped(m.Status) {
 			continue
 		}
-		g := gap{m: m}
-		for _, tok := range m.Scope {
-			c := b.Measurement.Counts[tok]
-			g.pssm += c.PSSM
-			g.fix += c.Fixtures
+		key := m.Status + "\x00" + strings.Join(m.Scope, "\x00") + "\x00" + m.Reason
+		g, ok := groups[key]
+		if !ok {
+			g = &gap{status: m.Status, scope: m.Scope, reason: m.Reason}
+			for _, tok := range m.Scope {
+				c := b.Measurement.Counts[tok]
+				g.pssm += c.PSSM
+				g.fix += c.Fixtures
+			}
+			g.total = g.pssm + g.fix
+			groups[key] = g
+			order = append(order, g)
 		}
-		g.total = g.pssm + g.fix
+		g.names = append(g.names, m.Name)
+	}
+	var gaps []*gap
+	for _, g := range order {
+		sort.Strings(g.names)
 		gaps = append(gaps, g)
 	}
 	sort.Slice(gaps, func(i, j int) bool {
 		if gaps[i].total != gaps[j].total {
 			return gaps[i].total > gaps[j].total
 		}
-		return gaps[i].m.Name < gaps[j].m.Name
+		return gaps[i].names[0] < gaps[j].names[0]
 	})
 	var out strings.Builder
-	out.WriteString("| Rank | OMG mapping | Status | Scope | PSSM suite | Fixtures | Total |\n")
-	out.WriteString("|---|---|---|---|---|---|---|")
+	out.WriteString("| Rank | OMG mappings | Status | Scope | PSSM suite | Fixtures | Total | Reason |\n")
+	out.WriteString("|---|---|---|---|---|---|---|---|")
 	for i, g := range gaps {
-		marker, _ := markerFor(g.m.Status)
-		fmt.Fprintf(&out, "\n| %d | `%s` | %s | %s | %d | %d | %d |",
-			i+1, g.m.Name, marker, cites(g.m.Scope), g.pssm, g.fix, g.total)
+		marker, _ := markerFor(g.status)
+		names := make([]string, len(g.names))
+		for j, n := range g.names {
+			names[j] = "`" + n + "`"
+		}
+		fmt.Fprintf(&out, "\n| %d | %d: %s | %s | %s | %d | %d | %d | %s |",
+			i+1, len(g.names), strings.Join(names, ", "), marker, cites(g.scope), g.pssm, g.fix, g.total, orDash(g.reason))
 	}
 	return out.String()
 }

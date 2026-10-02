@@ -88,10 +88,13 @@ const mappingsPackageID = "Mappings"
 
 // extracted holds what one pass over the pinned XMI derives.
 type extracted struct {
-	Packages  int
-	Classes   int
-	OCLBodies int
-	Mappings  []Mapping
+	Packages          int
+	Classes           int
+	OCLBodies         int
+	OCLSpecifications int
+	OCLPostconditions int
+	OCLOwnedRules     int
+	Mappings          []Mapping
 }
 
 // walk visits every element under n, n excluded.
@@ -133,11 +136,15 @@ func extract(path string) (*extracted, error) {
 		}
 	})
 	mappings.walk(func(e *node) {
-		if e.local == "bodyCondition" {
-			for _, s := range e.children {
-				if s.local == "specification" && s.attr("language") == "OCL2.0" {
-					out.OCLBodies++
-				}
+		if e.local == "specification" && e.attr("language") == "OCL2.0" {
+			out.OCLSpecifications++
+			switch e.parent.local {
+			case "bodyCondition":
+				out.OCLBodies++
+			case "postcondition":
+				out.OCLPostconditions++
+			case "ownedRule":
+				out.OCLOwnedRules++
 			}
 		}
 	})

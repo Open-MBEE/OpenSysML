@@ -230,10 +230,14 @@ func runUpdate(root string, opts options, out io.Writer) error {
 			Digest: "sha256:" + pin.SHA256, File: pin.File,
 			Packages: fresh.Packages, Classes: fresh.Classes,
 			Mappings: len(fresh.Mappings), OCLBodies: fresh.OCLBodies,
+			OCLSpecifications: fresh.OCLSpecifications,
+			OCLPostconditions: fresh.OCLPostconditions,
+			OCLOwnedRules:     fresh.OCLOwnedRules,
 		},
 	}
 	if previous != nil {
 		next.Measurement = previous.Measurement
+		next.Beyond = previous.Beyond
 	}
 	for _, e := range fresh.Mappings {
 		if old, ok := adjudicated[e.Name]; ok {
@@ -253,6 +257,9 @@ func runUpdate(root string, opts options, out io.Writer) error {
 	}
 	if next.Measurement.Counts == nil {
 		next.Measurement = Measurement{Corpora: []Corpus{}, Counts: map[string]TokenCount{}}
+	}
+	if next.Beyond == nil {
+		next.Beyond = []BeyondEntry{}
 	}
 	if err := writeBaseline(root, next); err != nil {
 		return err
@@ -312,10 +319,12 @@ func compareXMI(root string, base *Baseline, opts options, out io.Writer) error 
 	}
 	s := base.Source
 	if fresh.Packages != s.Packages || fresh.Classes != s.Classes ||
-		len(fresh.Mappings) != s.Mappings || fresh.OCLBodies != s.OCLBodies {
-		return fmt.Errorf("%s records %d packages, %d classes, %d mappings, %d OCL bodies but the model holds %d, %d, %d, %d: re-record with -update",
-			baselinePath, s.Packages, s.Classes, s.Mappings, s.OCLBodies,
-			fresh.Packages, fresh.Classes, len(fresh.Mappings), fresh.OCLBodies)
+		len(fresh.Mappings) != s.Mappings || fresh.OCLBodies != s.OCLBodies ||
+		fresh.OCLSpecifications != s.OCLSpecifications ||
+		fresh.OCLPostconditions != s.OCLPostconditions || fresh.OCLOwnedRules != s.OCLOwnedRules {
+		return fmt.Errorf("%s records %d packages, %d classes, %d mappings, %d/%d OCL bodies/specifications but the model holds %d, %d, %d, %d/%d: re-record with -update",
+			baselinePath, s.Packages, s.Classes, s.Mappings, s.OCLBodies, s.OCLSpecifications,
+			fresh.Packages, fresh.Classes, len(fresh.Mappings), fresh.OCLBodies, fresh.OCLSpecifications)
 	}
 	if err := base.matchesExtracted(fresh.Mappings); err != nil {
 		return err

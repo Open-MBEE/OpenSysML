@@ -110,6 +110,8 @@ func testRoot(t *testing.T, base *Baseline) string {
 		"<!-- census:begin source -->\nx\n<!-- census:end source -->\n\n" +
 		"<!-- census:begin summary -->\nx\n<!-- census:end summary -->\n\n" +
 		"<!-- census:begin rows -->\nx\n<!-- census:end rows -->\n\n" +
+		"<!-- census:begin beyond -->\nx\n<!-- census:end beyond -->\n\n" +
+		"<!-- census:begin errata -->\nx\n<!-- census:end errata -->\n\n" +
 		"<!-- census:begin gaps -->\nx\n<!-- census:end gaps -->\n"
 	rewritten, err := rewriteBlocks(doc, base)
 	if err != nil {
@@ -282,5 +284,146 @@ func TestValidateEnforcesTheAdjudicationRules(t *testing.T) {
 	base := testBaseline()
 	if err := base.validate(); err != nil {
 		t.Fatalf("the unmodified baseline must validate: %v", err)
+	}
+}
+
+// TestCheckCatchesABeyondCiteFailure: a beyond entry's citations resolve
+// against the tree like a row's.
+func TestCheckCatchesABeyondCiteFailure(t *testing.T) {
+	base := testBaseline()
+	base.Beyond = []BeyondEntry{
+		{Behaviour: "a behaviour with no OMG mapping", Implementation: []string{"internal/no/such/file.go:NoSuchFunc"}, Tests: []string{"internal/no/such/file_test.go:TestNoSuch"}},
+	}
+	root := testRoot(t, base)
+	runCheckFails(t, root, "internal/no/such/file.go does not exist")
+}
+
+// TestCheckCatchesAStaleErrataBlock: the errata table is generated from the
+// reasons that carry the candidate-erratum marker, so a hand edit is stale.
+func TestCheckCatchesAStaleErrataBlock(t *testing.T) {
+	base := testBaseline()
+	base.Mappings[1].Reason = "candidate erratum: writes a Flow, the specification expects a FlowUsage"
+	root := testRoot(t, base)
+	docPath := filepath.Join(root, filepath.FromSlash(censusDocPath))
+	content, err := os.ReadFile(docPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.Replace(string(content), "the specification expects a FlowUsage", "edited by hand", 1)
+	if stale == string(content) {
+		t.Fatal("the generated errata note was not found to edit")
+	}
+	if err := os.WriteFile(docPath, []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runCheckFails(t, root, "a generated block is stale")
+}
+
+// TestGapsGroupByVerdictScopeReason: rows sharing status, scope and reason
+// collapse into one ranked entry, and editing its figures is stale.
+func TestGapsGroupByVerdictScopeReason(t *testing.T) {
+	base := testBaseline()
+	base.Mappings[0].Status = StatusNotImplemented
+	base.Mappings[0].Reason = "no v2 writer"
+	base.Mappings[0].Scope = []string{"uml:Class"}
+	rendered := renderGaps(base)
+	if !strings.Contains(rendered, "| 1 | 2: `Alpha_Mapping`, `Beta_Mapping` |") {
+		t.Fatalf("the two shared-scope rows must group into one entry:\n%s", rendered)
+	}
+	root := testRoot(t, base)
+	docPath := filepath.Join(root, filepath.FromSlash(censusDocPath))
+	content, err := os.ReadFile(docPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := strings.Replace(string(content), "| 1 | 2: `Alpha_Mapping`, `Beta_Mapping` |", "| 1 | 3: `Alpha_Mapping`, `Beta_Mapping` |", 1)
+	if stale == string(content) {
+		t.Fatal("the generated gaps row was not found to edit")
+	}
+	if err := os.WriteFile(docPath, []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runCheckFails(t, root, "a generated block is stale")
+}
+
+// TestMeasureSeedsAbsentTokens: a scope token counted in neither corpus is
+// recorded {0,0}, because validate requires a count for every token used.
+func TestMeasureSeedsAbsentTokens(t *testing.T) {
+	checkout, err := repo.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	// The measure reads the PSSM pin, one suite file and the fixture roots.
+	for _, rel := range []string{"scripts/pssm-pin.sh"} {
+		content, err := os.ReadFile(filepath.Join(checkout, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		dst := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dst, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stub := `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"><uml:Model xmi:type="uml:Model" xmlns:uml="http://www.omg.org/spec/UML/20131001"/></xmi:XMI>`
+	for _, rel := range []string{pssmSuiteRel, vehicleFixture, "tests/migrate/testdata/xmi/one.xmi"} {
+		dst := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dst, []byte(stub), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	base := testBaseline()
+	base.Mappings[0].Scope = []string{"uml:Model"}
+	base.Mappings[1].Scope = []string{"uml:NonexistentClass"}
+	if err := measure(root, base, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := base.Measurement.Counts["uml:NonexistentClass"]; got != (TokenCount{}) {
+		t.Fatalf("an absent token must record {0,0}, got %+v", got)
+	}
+	if got := base.Measurement.Counts["uml:Model"]; got != (TokenCount{PSSM: 1, Fixtures: 2}) {
+		t.Fatalf("uml:Model must count once per corpus, got %+v", got)
+	}
+	if err := base.validate(); err != nil {
+		t.Fatalf("the measured baseline must validate: %v", err)
+	}
+}
+
+// TestCheckCatchesSourceCountDrift: the recorded model dimensions, the OCL
+// specification count among them, are compared against a fresh extraction
+// whenever the model is provisioned.
+func TestCheckCatchesSourceCountDrift(t *testing.T) {
+	root, err := repo.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin, err := ReadPin(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xmi := modelPath(root, pin.File, "")
+	if _, err := os.Stat(xmi); err != nil {
+		t.Skipf("pinned model not provisioned at %s (run ./scripts/download-sysml-v1tov2.sh)", xmi)
+	}
+	base, err := loadBaseline(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.Source.OCLSpecifications++
+	if err := compareXMI(root, base, options{}, &bytes.Buffer{}); err == nil {
+		t.Fatal("a drifted oclSpecifications count must fail")
+	}
+	base, err = loadBaseline(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compareXMI(root, base, options{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("the committed baseline must compare: %v", err)
 	}
 }

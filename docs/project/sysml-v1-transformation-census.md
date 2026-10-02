@@ -14,8 +14,23 @@ counts.
 `scripts/sysml-v1tov2-pin.sh`; `-check` compares against it when present and `-check -require-xmi`
 fails when absent.
 
+## Reading a row
+
+Each row's status says what the migrator does with the v1 element the OMG mapping covers:
+
+- **✅ faithful** — the migrator writes the OMG target, or the v2-equivalent shape of it.
+- **⚠️ approximate** — the migrator writes it with a documented loss and ledgers the element as
+  approximated.
+- **❌ not implemented** — the migrator does not write it.
+- **⛔ deliberate** — the migrator intentionally writes something different; the reason says why.
+- **🚧 known failure** — the mapping is attempted but comes out wrong.
+- **❔ unknown** — the verdict is not settled; the reason names what is missing.
+
+Sub-mappings — the `…Membership`, `…FeatureTyping`, `…Redefinition` and `…FeatureValue` classes
+that build one relationship of a target — share the verdict of the construct they belong to.
+
 <!-- census:begin source -->
-**Source:** OMG SysML v1 to v2 transformation model, document `ptc/25-04-10`, `SysMLv1Tov2.xmi` (`sha256:093359439fb62cb3a9b1e89fd850ac4ac0b4bbe135b4b54f7861492722cc8459`) — 38 packages, 910 classes, 783 mapping classes, 1084 OCL bodies.
+**Source:** OMG SysML v1 to v2 transformation model, document `ptc/25-04-10`, `SysMLv1Tov2.xmi` (`sha256:093359439fb62cb3a9b1e89fd850ac4ac0b4bbe135b4b54f7861492722cc8459`) — 38 packages, 910 classes, 783 mapping classes, 1084 OCL2.0 operation bodies (of 1088 OCL2.0 specifications; the other 4 are 3 postconditions and 1 owned rules).
 <!-- census:end source -->
 
 <!-- census:begin summary -->
@@ -54,6 +69,8 @@ fails when absent.
 | UML4SysML::Values | 33 | 0 | 0 | 0 | 0 | 0 | 33 |
 | **Total** | 783 | 0 | 0 | 0 | 0 | 0 | 783 |
 <!-- census:end summary -->
+
+## Census rows
 
 <!-- census:begin rows -->
 ### CommonMappings (18)
@@ -985,7 +1002,49 @@ fails when absent.
 | `ValueSpecification_Mapping` (abstract) | `ValueSpecification` | `Expression` | — | — | ❔ unknown | not yet adjudicated |
 <!-- census:end rows -->
 
+## Migrator behaviour with no OMG mapping
+
+The migrator also does things no OMG mapping class covers — in both directions: behaviours it
+performs that the model never asks for, and outputs it produces where the model is silent. Each
+entry names the behaviour and the code and test that carry it out.
+
+<!-- census:begin beyond -->
+| Migrator behaviour | Implementation | Test |
+|---|---|---|
+| MagicDraw/Cameo export quirks: tool profiles (MD Customization, UML Standard Profile, Validation) skipped by exact path; standard stereotypes recognised by provenance | `internal/translate/migrate/stereotypes.go:isStandard` | `tests/migrate/profile_test.go:TestToolProfilesAreSkippedByExactPathOnly` |
+| Element-by-element migration ledger (mapped / approximated / unmapped / skipped with a reason per element) | `internal/translate/migrate/migrate.go:add` | `tests/migrate/migrate_test.go:TestReportAccountsForEveryElement` |
+| MTIP diagram layout carried onto views as layout metadata and routes | `internal/translate/migrate/streams.go:layoutRecord` | `tests/migrate/layout_test.go:TestGoldenLayout` |
+| Diagrams written as views exposing what they show | `internal/translate/migrate/diagrams.go:planViews` | `internal/translate/migrate/diagrams_internal_test.go:TestDiagramViews` |
+| DocGen documents, sections, tables and expression columns lowered to executable views | `internal/translate/migrate/documents.go:planDocuments` | `tests/migrate/documents_test.go:TestMigratedDocumentsRender` |
+| Cameo simulation configurations written as runnable action defs; result snapshots and Monte Carlo summaries | `internal/translate/migrate/simconfig.go:simulationConfig` | `tests/migrate/simconfig_test.go:TestSimulationConfigBecomesARunnableActionDef` |
+| Pasted images in comments and documents written as image paragraphs from the archive | `internal/translate/migrate/documents.go:planImage` | `tests/migrate/images_test.go:TestImageParagraphsFromArchive` |
+| View Editor cross-references in prose resolved to v2 references | `internal/translate/migrate/references.go:resolveRef` | `tests/migrate/cross_references_test.go:TestMigratedCrossReferences` |
+| Deferred events (State::deferrableTrigger) kept and replayed through DeferredEvent / DeferredKeeper metadata; the OMG model has no mapping for deferrable triggers | `internal/translate/migrate/states.go:deferredHead` | `tests/migrate/behavior_more_test.go:TestStrictDeferredSignalsAreKeptAndReplayed` |
+| Extend and ExtensionPoint: written as a dependency on the extended use case (v2 has no extend); the OMG model has no mapping for them | `internal/translate/migrate/usecase.go:extend` | `tests/migrate/migrate_test.go:TestGoldenNotation` |
+| fUML / Alf library behaviors called by href computed through the v2 library | `internal/translate/migrate/activity.go:callBehavior` | `tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library` |
+<!-- census:end beyond -->
+
+## Candidate errata
+
+These rows name OMG mappings that look inconsistent with the SysML v2 specification. Nothing is
+filed upstream; the note on each row says what the mapping writes and what the specification
+expects instead.
+
+<!-- census:begin errata -->
+| OMG mapping | v1 source | v2 target | Status | Note |
+|---|---|---|---|---|
+<!-- census:end errata -->
+
+<!-- errata prose -->
+
+## Gaps ranked
+
+Approximate and not-implemented rows grouped by shared scope, ranked by how many elements of the
+pinned PSSM suite plus the repository's migration fixtures carry the scope tokens — `uml:X`
+counts elements whose xmi:type is `uml:X`, `sysml:X` counts stereotype applications named X in a
+SysML profile namespace. The counts are elements affected, not effort.
+
 <!-- census:begin gaps -->
-| Rank | OMG mapping | Status | Scope | PSSM suite | Fixtures | Total |
-|---|---|---|---|---|---|---|
+| Rank | OMG mappings | Status | Scope | PSSM suite | Fixtures | Total | Reason |
+|---|---|---|---|---|---|---|---|
 <!-- census:end gaps -->

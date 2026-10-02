@@ -66,24 +66,39 @@ func scoped(status string) bool {
 var scopeToken = regexp.MustCompile(`^(uml|sysml):[A-Za-z_]\w*$`)
 
 // Baseline is the committed record: the pin and the counts the rows came from,
-// the measured corpora, and each mapping's extracted fields and verdict.
+// the measured corpora, each mapping's extracted fields and verdict, and the
+// migrator behaviours no OMG mapping class covers.
 type Baseline struct {
-	Source      Source      `json:"source"`
-	Measurement Measurement `json:"measurement"`
-	Mappings    []Mapping   `json:"mappings"`
+	Source      Source        `json:"source"`
+	Measurement Measurement   `json:"measurement"`
+	Mappings    []Mapping     `json:"mappings"`
+	Beyond      []BeyondEntry `json:"beyond"`
+}
+
+// BeyondEntry is one migrator behaviour that has no OMG mapping class to cite.
+type BeyondEntry struct {
+	Behaviour      string   `json:"behaviour"`
+	Implementation []string `json:"implementation"`
+	Tests          []string `json:"tests"`
 }
 
 // Source identifies the document the census enumerates and its dimensions.
 type Source struct {
-	Document  string `json:"document"`
-	Version   string `json:"version"`
-	URL       string `json:"url"`
-	Digest    string `json:"digest"`
-	File      string `json:"file"`
-	Packages  int    `json:"packages"`
-	Classes   int    `json:"classes"`
-	Mappings  int    `json:"mappings"`
-	OCLBodies int    `json:"oclBodies"`
+	Document string `json:"document"`
+	Version  string `json:"version"`
+	URL      string `json:"url"`
+	Digest   string `json:"digest"`
+	File     string `json:"file"`
+	Packages int    `json:"packages"`
+	Classes  int    `json:"classes"`
+	Mappings int    `json:"mappings"`
+	// OCLBodies counts OCL2.0 operation bodies (bodyCondition specifications);
+	// OCLSpecifications counts every OCL2.0 specification, the rest of which
+	// split into postconditions and owned rules as recorded.
+	OCLBodies         int `json:"oclBodies"`
+	OCLSpecifications int `json:"oclSpecifications"`
+	OCLPostconditions int `json:"oclPostconditions"`
+	OCLOwnedRules     int `json:"oclOwnedRules"`
 }
 
 // Measurement records the corpora the scope tokens were counted over and the
@@ -194,6 +209,19 @@ func (b *Baseline) validate() error {
 	for tok := range b.Measurement.Counts {
 		if !used[tok] {
 			return fmt.Errorf("%s: token %s is measured but no scope uses it; run -measure", baselinePath, tok)
+		}
+	}
+	seenBehaviour := make(map[string]bool, len(b.Beyond))
+	for _, e := range b.Beyond {
+		if strings.TrimSpace(e.Behaviour) == "" {
+			return fmt.Errorf("%s: a beyond entry names no behaviour", baselinePath)
+		}
+		if seenBehaviour[e.Behaviour] {
+			return fmt.Errorf("%s: beyond entry %q is listed twice", baselinePath, e.Behaviour)
+		}
+		seenBehaviour[e.Behaviour] = true
+		if len(e.Implementation) == 0 || len(e.Tests) == 0 {
+			return fmt.Errorf("%s: beyond entry %q names no implementation or test", baselinePath, e.Behaviour)
 		}
 	}
 	return nil

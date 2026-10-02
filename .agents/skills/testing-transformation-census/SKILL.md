@@ -41,6 +41,23 @@ so on a current tree it must leave the file byte-identical
 census document between the `<!-- census:begin … -->` / `<!-- census:end … -->` markers and must
 likewise be a no-op on a current tree. `-measure` recomputes only the scope tokens the rows use.
 
+## What the document generates
+
+Six blocks between `<!-- census:begin … -->` / `<!-- census:end … -->` markers:
+`source` (provenance line with the OCL split: 1,084 bodyCondition bodies of 1,088 OCL2.0
+specifications — the rest are recorded postconditions and owned rules), `summary` (totals plus a
+per-package status table), `rows` (one table per package), `beyond` (migrator behaviours with no
+OMG mapping class, from the baseline's `beyond` entries — each needs ≥1 implementation and ≥1 test
+cite, resolved like a row's), `errata` (rows whose reason carries `candidate erratum:`, sorted by
+package then name), and `gaps` (approximate/not-implemented rows **grouped by shared status,
+scope and reason** — dozens of sub-mappings carry one scope — ranked by total measured count,
+ties by first mapping name).
+
+Two CI env nuances: `-check` consults `OPENSYSML_REQUIRE_PSSM_SUITE` only for the measurement
+comparison (a job that provisions neither input sets it to `""` at step level so an
+`OPENSYSML_REQUIRE_PSSM_SUITE=1` ambient env cannot fail it), and `OPENSYSML_REQUIRE_SYSML_V1TOV2`
+is consulted only by the Go test gate — `-require-xmi` is the command-level equivalent.
+
 ## Mutations the gate must catch
 
 Each of these must make `-check` exit non-zero with a message naming the drift; restore the file
@@ -66,6 +83,12 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
   measurement is stale".
 - Edit `source.document`/`url`/`digest` away from `scripts/sysml-v1tov2-pin.sh`: the source block
   is rejected before the model is read.
+- Edit a `source` count (`packages`, `classes`, `mappings`, `oclBodies`, `oclSpecifications`):
+  with the model present, the recorded dimensions are reported stale.
+- Hand-edit the `beyond` table or give a beyond entry a cite that does not resolve: the stale
+  block or the unresolved cite is reported.
+- Hand-edit the `errata` or `gaps` table (a note, a group's count or figure): "a generated block
+  is stale".
 
 ## Adjudicating a status change
 

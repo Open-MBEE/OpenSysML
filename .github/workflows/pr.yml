@@ -1048,9 +1048,11 @@ jobs:
       - name: Check the validation-constraint census matches its baseline
         run: go run -C tools ./cmd/validation-census -check
 
-      # Same for the transformation census; this job does not provision the
-      # model, so the comparison against it runs in the gate job that does.
+      # Same for the transformation census; this job provisions neither input,
+      # so the model and measurement comparisons run in the gate job that does.
       - name: Check the transformation census matches its baseline
+        env:
+          OPENSYSML_REQUIRE_PSSM_SUITE: ""
         run: go run -C tools ./cmd/transformation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.

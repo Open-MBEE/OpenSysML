@@ -125,41 +125,47 @@ func receiverType(fn *ast.FuncDecl) string {
 	return ""
 }
 
-// checkCites verifies a row's implementation and test citations resolve:
-// every implementation cite is a repo-relative .go file declaring the named
-// function or Type.method, and every test cite is a _test.go file declaring
-// `func TestX(t *testing.T)`.
+// checkCites verifies the rows' and beyond entries' implementation and test
+// citations resolve: every implementation cite is a repo-relative .go file
+// declaring the named function or Type.method, and every test cite is a
+// _test.go file declaring `func TestX(t *testing.T)`.
 func checkCites(decls *declarations, base *Baseline) []string {
 	var problems []string
-	for _, m := range base.Mappings {
-		for _, cite := range m.Implementation {
+	check := func(subject string, implementation, tests []string) {
+		for _, cite := range implementation {
 			match := implementationRef.FindStringSubmatch(cite)
 			if match == nil {
-				problems = append(problems, fmt.Sprintf("%s implementation %q is not a <file>.go:<function> or <file>.go:<Type>.<method> location", m.Name, cite))
+				problems = append(problems, fmt.Sprintf("%s implementation %q is not a <file>.go:<function> or <file>.go:<Type>.<method> location", subject, cite))
 				continue
 			}
 			found, err := decls.declared(match[1], match[2])
 			switch {
 			case err != nil:
-				problems = append(problems, fmt.Sprintf("%s implementation: %v", m.Name, err))
+				problems = append(problems, fmt.Sprintf("%s implementation: %v", subject, err))
 			case !found:
-				problems = append(problems, fmt.Sprintf("%s implementation %s declares no %s", m.Name, cite, match[2]))
+				problems = append(problems, fmt.Sprintf("%s implementation %s declares no %s", subject, cite, match[2]))
 			}
 		}
-		for _, cite := range m.Tests {
+		for _, cite := range tests {
 			match := testRef.FindStringSubmatch(cite)
 			if match == nil {
-				problems = append(problems, fmt.Sprintf("%s test %q is not a <file>_test.go:<TestFunc> location", m.Name, cite))
+				problems = append(problems, fmt.Sprintf("%s test %q is not a <file>_test.go:<TestFunc> location", subject, cite))
 				continue
 			}
 			found, err := decls.testDeclared(match[1], match[2])
 			switch {
 			case err != nil:
-				problems = append(problems, fmt.Sprintf("%s test: %v", m.Name, err))
+				problems = append(problems, fmt.Sprintf("%s test: %v", subject, err))
 			case !found:
-				problems = append(problems, fmt.Sprintf("%s test %s declares no func %s(t *testing.T)", m.Name, cite, match[2]))
+				problems = append(problems, fmt.Sprintf("%s test %s declares no func %s(t *testing.T)", subject, cite, match[2]))
 			}
 		}
+	}
+	for _, m := range base.Mappings {
+		check(m.Name, m.Implementation, m.Tests)
+	}
+	for _, e := range base.Beyond {
+		check(e.Behaviour, e.Implementation, e.Tests)
 	}
 	return problems
 }

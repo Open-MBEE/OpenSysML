@@ -93,7 +93,12 @@ func measure(root string, b *Baseline, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// Every used token is recorded, even one absent from both corpora: validate
+	// requires a count for every scope token, and a {0,0} is the honest count.
 	counts := make(map[string]TokenCount, len(tokens))
+	for tok := range tokens {
+		counts[tok] = TokenCount{}
+	}
 	suite := filepath.Join(root, filepath.FromSlash(pssmSuiteRel))
 	if _, err := os.Stat(suite); err != nil {
 		return fmt.Errorf("the PSSM suite is needed to measure scope tokens: run ./scripts/download-pssm-suite.sh (%v)", err)

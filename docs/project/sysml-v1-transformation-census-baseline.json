@@ -8,7 +8,10 @@
     "packages": 38,
     "classes": 910,
     "mappings": 783,
-    "oclBodies": 1084
+    "oclBodies": 1084,
+    "oclSpecifications": 1088,
+    "oclPostconditions": 3,
+    "oclOwnedRules": 1
   },
   "measurement": {
     "corpora": [
@@ -16430,6 +16433,107 @@
       "tests": [],
       "reason": "not yet adjudicated",
       "scope": []
+    }
+  ],
+  "beyond": [
+    {
+      "behaviour": "MagicDraw/Cameo export quirks: tool profiles (MD Customization, UML Standard Profile, Validation) skipped by exact path; standard stereotypes recognised by provenance",
+      "implementation": [
+        "internal/translate/migrate/stereotypes.go:isStandard"
+      ],
+      "tests": [
+        "tests/migrate/profile_test.go:TestToolProfilesAreSkippedByExactPathOnly"
+      ]
+    },
+    {
+      "behaviour": "Element-by-element migration ledger (mapped / approximated / unmapped / skipped with a reason per element)",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:add"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestReportAccountsForEveryElement"
+      ]
+    },
+    {
+      "behaviour": "MTIP diagram layout carried onto views as layout metadata and routes",
+      "implementation": [
+        "internal/translate/migrate/streams.go:layoutRecord"
+      ],
+      "tests": [
+        "tests/migrate/layout_test.go:TestGoldenLayout"
+      ]
+    },
+    {
+      "behaviour": "Diagrams written as views exposing what they show",
+      "implementation": [
+        "internal/translate/migrate/diagrams.go:planViews"
+      ],
+      "tests": [
+        "internal/translate/migrate/diagrams_internal_test.go:TestDiagramViews"
+      ]
+    },
+    {
+      "behaviour": "DocGen documents, sections, tables and expression columns lowered to executable views",
+      "implementation": [
+        "internal/translate/migrate/documents.go:planDocuments"
+      ],
+      "tests": [
+        "tests/migrate/documents_test.go:TestMigratedDocumentsRender"
+      ]
+    },
+    {
+      "behaviour": "Cameo simulation configurations written as runnable action defs; result snapshots and Monte Carlo summaries",
+      "implementation": [
+        "internal/translate/migrate/simconfig.go:simulationConfig"
+      ],
+      "tests": [
+        "tests/migrate/simconfig_test.go:TestSimulationConfigBecomesARunnableActionDef"
+      ]
+    },
+    {
+      "behaviour": "Pasted images in comments and documents written as image paragraphs from the archive",
+      "implementation": [
+        "internal/translate/migrate/documents.go:planImage"
+      ],
+      "tests": [
+        "tests/migrate/images_test.go:TestImageParagraphsFromArchive"
+      ]
+    },
+    {
+      "behaviour": "View Editor cross-references in prose resolved to v2 references",
+      "implementation": [
+        "internal/translate/migrate/references.go:resolveRef"
+      ],
+      "tests": [
+        "tests/migrate/cross_references_test.go:TestMigratedCrossReferences"
+      ]
+    },
+    {
+      "behaviour": "Deferred events (State::deferrableTrigger) kept and replayed through DeferredEvent / DeferredKeeper metadata; the OMG model has no mapping for deferrable triggers",
+      "implementation": [
+        "internal/translate/migrate/states.go:deferredHead"
+      ],
+      "tests": [
+        "tests/migrate/behavior_more_test.go:TestStrictDeferredSignalsAreKeptAndReplayed"
+      ]
+    },
+    {
+      "behaviour": "Extend and ExtensionPoint: written as a dependency on the extended use case (v2 has no extend); the OMG model has no mapping for them",
+      "implementation": [
+        "internal/translate/migrate/usecase.go:extend"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation"
+      ]
+    },
+    {
+      "behaviour": "fUML / Alf library behaviors called by href computed through the v2 library",
+      "implementation": [
+        "internal/translate/migrate/activity.go:callBehavior"
+      ],
+      "tests": [
+        "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library"
+      ]
     }
   ]
 }
