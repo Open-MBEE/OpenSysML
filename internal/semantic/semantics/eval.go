@@ -241,6 +241,63 @@ func (m *Model) EvalIn(scope *symbols.Scope, n ast.Node) (Value, bool) {
 	return m.evalIn(scope, n, nil)
 }
 
+// ReadsValuelessFeature reports whether evaluating n in scope reaches a feature
+// with no value, directly or through the values of the features it reads.
+func (m *Model) ReadsValuelessFeature(scope *symbols.Scope, n ast.Node) bool {
+	if m == nil || n == nil || m.resolver == nil {
+		return false
+	}
+	return m.readsValueless(scope, n, nil)
+}
+
+func (m *Model) readsValueless(scope *symbols.Scope, n ast.Node, seen map[*symbols.Symbol]bool) bool {
+	if m == nil || n == nil || m.resolver == nil {
+		return false
+	}
+	switch e := n.(type) {
+	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
+		sym, ok := m.resolver.ResolveTarget(scope, n)
+		if !ok || sym == nil {
+			return false
+		}
+		if target, aliasOK := m.resolver.ResolveAliasTarget(sym); aliasOK {
+			sym = target
+		}
+		if sym == nil || seen[sym] || !sym.Kind.IsFeature() {
+			return false
+		}
+		usage, ok := sym.Decl.(*ast.Usage)
+		if !ok {
+			return false
+		}
+		if usage.Value == nil {
+			return true
+		}
+		next := make(map[*symbols.Symbol]bool, len(seen)+1)
+		for s := range seen {
+			next[s] = true
+		}
+		next[sym] = true
+		return m.readsValueless(declScope(sym), usage.Value, next)
+	case *ast.OperatorExpr:
+		if e.Operator == ast.OpConditional && len(e.Operands) == 3 {
+			cond, ok := m.evalIn(scope, e.Operands[0], seen)
+			if ok && cond.Kind == ValBool {
+				if cond.Bool {
+					return m.readsValueless(scope, e.Operands[1], seen)
+				}
+				return m.readsValueless(scope, e.Operands[2], seen)
+			}
+		}
+		for _, operand := range e.Operands {
+			if m.readsValueless(scope, operand, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (m *Model) evalIn(scope *symbols.Scope, n ast.Node, seen map[*symbols.Symbol]bool) (Value, bool) {
 	if m == nil || n == nil {
 		return Value{}, false
