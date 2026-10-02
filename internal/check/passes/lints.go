@@ -20,8 +20,12 @@ const CodeUndeclaredSignal = "undeclared-signal"
 // whose definitions are unrelated and whose directed features are not conjugate.
 const CodePortTypeMismatch = "port-type-mismatch"
 
+// CodeDeferredKeeperUnmarked marks an accept of a deferred signal at the root
+// of a deferring state's do action that is not marked as the keeping accept.
+const CodeDeferredKeeperUnmarked = "deferred-keeper-unmarked"
+
 // lintCodes are the codes of the lints, in the order surfaces list them.
-var lintCodes = []string{CodeUndeclaredSignal, CodePortTypeMismatch}
+var lintCodes = []string{CodeUndeclaredSignal, CodePortTypeMismatch, CodeDeferredKeeperUnmarked}
 
 // LintCodes returns the codes of the diagnostics a surface may disable.
 func LintCodes() []string { return slices.Clone(lintCodes) }

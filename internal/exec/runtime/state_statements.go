@@ -189,7 +189,6 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *
 		return nil
 	}
 	host := e.behaviorHost(behavior, firing)
-	host.flow.deferred = e.graph.Deferred[behavior.Owner]
 	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
 	return &doRun{host: host, body: body}
 }

@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "evaluate": "test::Host",
+  "outputs": {
+    "got": {"type": "Integer", "value": 42},
+    "d.x": {"type": "Integer", "value": 21},
+    "d.y": {"type": "Integer", "value": 42}
+  }
+}

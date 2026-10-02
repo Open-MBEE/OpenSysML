@@ -225,8 +225,8 @@ var (
 	// no value of the type the trigger takes — the judgement validation makes of it.
 	ErrTimeTriggerType = errors.New("time trigger argument of the wrong type")
 
-	// ErrActionResultParameter is returned when an action to perform declares a
-	// `return` parameter, which only a function or expression owns.
+	// ErrActionResultParameter is returned when a return parameter's owner is no
+	// function or expression; an inherited function result is an output.
 	ErrActionResultParameter = errors.New("action declares a return parameter")
 
 	// ErrCalcRecursionLimit is returned when calc invocation nests deeper than

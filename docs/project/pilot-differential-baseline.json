@@ -53,15 +53,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 18,
-        "digest": "sha256:0bf9cc92df5634289ecb4d8a49016aeac48d637a69f4452ba27fb36ac2fb3152"
+        "files": 19,
+        "digest": "sha256:b77b1163db27281d114c44e6c28b23552681140ec1ac752e28cbbe64a3077fc4"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:8ba819a1c14f19ded56befeea557f2f9b8a52af3b0aa7989bd30cb4e59e372f0"
+        "digest": "sha256:dd8c046f00305a66649c6b55ad3d87dcfe2969757d3f8badd422f0e2184c9587"
       },
       {
         "name": "probes",
@@ -74,14 +74,14 @@
     "recorded": "2026-10-02"
   },
   "totals": {
-    "files": 380,
+    "files": 381,
     "filesFullyAgreeing": 345,
     "agreement": 38,
     "severityMismatch": 2,
-    "openSysMLOnly": 40,
-    "pilotOnly": 1616,
-    "openSysMLDiagnostics": 80,
-    "pilotDiagnostics": 1656
+    "openSysMLOnly": 41,
+    "pilotOnly": 1629,
+    "openSysMLDiagnostics": 81,
+    "pilotDiagnostics": 1669
   },
   "roots": [
     {
@@ -352,14 +352,14 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 18,
+        "files": 19,
         "filesFullyAgreeing": 10,
         "agreement": 34,
         "severityMismatch": 1,
-        "openSysMLOnly": 8,
-        "pilotOnly": 20,
-        "openSysMLDiagnostics": 43,
-        "pilotDiagnostics": 55
+        "openSysMLOnly": 9,
+        "pilotOnly": 33,
+        "openSysMLDiagnostics": 44,
+        "pilotDiagnostics": 68
       },
       "files": [
         {
@@ -574,6 +574,57 @@
           "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": []
+        },
+        {
+          "path": "passes/deferred_keeper.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 12,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 8,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 3
+            },
+            {
+              "line": 8,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 28,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 3
+            },
+            {
+              "line": 28,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 2
+            },
+            {
+              "line": 32,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 32,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            }
+          ]
         },
         {
           "path": "passes/errors.sysml",
@@ -8122,6 +8173,11 @@
     },
     {
       "side": "opensysml",
+      "message": "accept of deferred signal Ping is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "operator '-' requires a numeric operand, found String",
       "count": 1
     },
@@ -8360,14 +8416,14 @@
       }
     ],
     "totals": {
-      "files": 380,
+      "files": 381,
       "filesFullyAgreeing": 346,
       "agreement": 38,
       "severityMismatch": 2,
-      "openSysMLOnly": 39,
-      "pilotOnly": 1616,
-      "openSysMLDiagnostics": 79,
-      "pilotDiagnostics": 1656
+      "openSysMLOnly": 40,
+      "pilotOnly": 1629,
+      "openSysMLDiagnostics": 80,
+      "pilotDiagnostics": 1669
     },
     "findings": [
       {

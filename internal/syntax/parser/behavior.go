@@ -545,7 +545,10 @@ func (p *Parser) parseActionMember() ast.Node {
 	// An accept node is an action node (SysML.xtext ActionNode), so it stands
 	// wherever a statement does: `accept e : E;`, `then action a accept e : E { … }`.
 	if p.atAcceptNode() {
-		return p.parseBodyMember()
+		if len(prefixes) == 0 {
+			return p.parseBodyMember()
+		}
+		return p.parseAcceptNode(start, ast.VisibilityDefault, nil, prefixes)
 	}
 
 	// The words of our own node notation are names the lexer does not reserve,
@@ -2709,24 +2712,30 @@ func (p *Parser) parseMemberLeadingSuccession(start int) ast.Node {
 // (SysML.xtext `AcceptNode`): the `accept` keyword, optionally preceded by the
 // `action` keyword and the node's own name.
 func (p *Parser) atAcceptNode() bool {
-	if p.atKeyword("accept") {
+	return p.atAcceptNodeAt(0)
+}
+
+// atAcceptNodeAt is atAcceptNode for the member beginning i tokens ahead, past
+// the prefix metadata a member may open with (`#M action a accept e : E;`).
+func (p *Parser) atAcceptNodeAt(i int) bool {
+	if tok := p.peekN(i); tok.Kind == lexer.Keyword && tok.KeywordID == "accept" {
 		return true
 	}
-	if !p.atKeyword("action") {
+	if tok := p.peekN(i); tok.Kind != lexer.Keyword || tok.KeywordID != "action" {
 		return false
 	}
-	if p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "accept" {
+	if p.peekN(i+1).Kind == lexer.Keyword && p.peekN(i+1).KeywordID == "accept" {
 		return true
 	}
-	switch p.peekN(1).Kind {
+	switch p.peekN(i + 1).Kind {
 	case lexer.Identifier, lexer.UnrestrictedName, lexer.Lt:
 	default:
 		return false
 	}
 	// `action <name> accept …`, and `action <shortName> name accept …`, whose
 	// identification spends four tokens before the keyword.
-	for i := 1; i <= 5; i++ {
-		tok := p.peekN(i)
+	for j := i + 1; j <= i+5; j++ {
+		tok := p.peekN(j)
 		if tok.Kind == lexer.Keyword {
 			return tok.KeywordID == "accept"
 		}
@@ -2745,7 +2754,7 @@ func (p *Parser) atAcceptNode() bool {
 // body like any other action node.
 //
 //	('action' <name>?)? accept <payload> ('via' <port>)? (';' | '{' … '}')
-func (p *Parser) parseAcceptNode(start int, vis ast.Visibility, trivia []ast.Trivia) ast.Node {
+func (p *Parser) parseAcceptNode(start int, vis ast.Visibility, trivia []ast.Trivia, prefixes []*ast.PrefixMetadata) ast.Node {
 	var ident ast.Identification
 	// `action accept …` names no node of its own, so the keyword must not be read
 	// as the declaration's name.
@@ -2755,9 +2764,10 @@ func (p *Parser) parseAcceptNode(start int, vis ast.Visibility, trivia []ast.Tri
 	p.advance() // consume 'accept'
 
 	action := &ast.Usage{
-		Kind:    ast.UsageAction,
-		Keyword: "action",
-		Ident:   ident,
+		Prefixes: prefixes,
+		Kind:     ast.UsageAction,
+		Keyword:  "action",
+		Ident:    ident,
 	}
 
 	param := p.parsePayloadParameter()

@@ -572,7 +572,7 @@ func (e *emitter) kept(state *Vertex, where string) (*keeping, error) {
 			names = append(names, name)
 		}
 	}
-	enc := &deferred.Encoding{Including: "SequenceFunctions::including"}
+	enc := &deferred.Encoding{Including: "SequenceFunctions::including", Keeper: "MigrationMetadata::DeferredKeeper"}
 	for _, name := range names {
 		e.signals[name] = true
 		base := "deferred"

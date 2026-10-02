@@ -43,9 +43,11 @@ type Encoding struct {
 	// Buffer and Flush name the do and exit actions; Split names the fork that
 	// runs the accept loops beside each other and the state's own do behavior.
 	Buffer, Split, Flush string
-	// Including refers to SequenceFunctions::including from the state's scope.
-	Including string
-	Signals   []Signal
+	// Including refers to SequenceFunctions::including from the state's scope;
+	// Keeper to MigrationMetadata::DeferredKeeper, the annotation marking each
+	// accept loop's accept as the one keeping the signal for the state.
+	Including, Keeper string
+	Signals           []Signal
 }
 
 // Own is a state's own do or exit behavior rendered as the nested action the
@@ -117,7 +119,7 @@ func (e *Encoding) Do(w Writer, own func() Own) {
 				if l.Via != "" {
 					via = " via " + l.Via
 				}
-				w.Line("action " + l.Receive + " accept " + l.Payload + " : " + l.Accept + via + ";")
+				w.Line("#" + e.Keeper + " action " + l.Receive + " accept " + l.Payload + " : " + l.Accept + via + ";")
 				w.Line("then action " + l.Keep + " { assign " + k.Buffer + " := " + e.Including + "(" + k.Buffer + ", " + l.Receive + "." + l.Payload + "); }")
 				w.Line("then " + l.Receive + ";")
 				w.MadeUp(l.Receive)

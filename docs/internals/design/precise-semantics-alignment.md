@@ -2048,7 +2048,7 @@ package Deferred001 {
             attribute deferred : Continue[*] ordered;
             do action buffer {
                 first start then receive;
-                action receive accept kept : Continue;
+                #MigrationMetadata::DeferredKeeper action receive accept kept : Continue;
                 then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
                 then receive;
             }
