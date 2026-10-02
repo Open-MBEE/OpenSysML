@@ -8,6 +8,13 @@ function test_encode_value()
     assert_equal(opensysml.decodeValue(opensysml.encodeValue(big)), big, 'bigInteger round trip');
     q = opensysml.encodeValue(struct('magnitude', big, 'unit', 'kg', 'unitTerm', []));
     assert_equal(q.quantity.bigIntMagnitude, '1180591620717411303424', 'quantity bigIntMagnitude');
+    third = struct('numerator', '1', 'denominator', '3');
+    assert_equal(opensysml.encodeValue(third), struct('rationalValue', third), 'rational');
+    assert_equal(opensysml.decodeValue(opensysml.encodeValue(third)), third, 'rational round trip');
+    q = opensysml.encodeValue(struct('magnitude', third, 'unit', 'kg', 'unitTerm', []));
+    assert_equal(q.quantity.rationalMagnitude, third, 'quantity rationalMagnitude');
+    assert_error(@() opensysml.encodeValue(struct('numerator', '1', 'denominator', '4')), ...
+        'opensysml:encode', 'a double-exact rational is a Real');
     assert_equal(opensysml.encodeValue(1.5), struct('realValue', 1.5), 'real');
     assert_equal(opensysml.encodeValue('x'), struct('stringValue', 'x'), 'string');
     assert_equal(opensysml.encodeValue([]), struct('null', ''), 'null');

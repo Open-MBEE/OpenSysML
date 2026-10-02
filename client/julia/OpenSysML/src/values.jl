@@ -81,7 +81,7 @@ Base.string(unit::Unit) = isempty(unit.text) ? reduction(unit) : unit.text
 
 """A numeric magnitude associated with a named unit and optional reduction."""
 struct Quantity
-    magnitude::Union{Int64,BigInt,Float64}
+    magnitude::Union{Int64,BigInt,Rational{BigInt},Float64}
     unit::String
     unit_term::Union{Nothing,Unit}
 end
@@ -89,6 +89,9 @@ Quantity(magnitude::Bool, unit::AbstractString, term=nothing) =
     Quantity(Float64(magnitude), unit, term)
 Quantity(magnitude::Integer, unit::AbstractString, term=nothing) =
     Quantity(Int64(magnitude), String(unit), term === nothing ? nothing :
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
+Quantity(magnitude::Rational, unit::AbstractString, term=nothing) =
+    Quantity(_exact_rational(magnitude), String(unit), term === nothing ? nothing :
              term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
 Quantity(magnitude::AbstractFloat, unit::AbstractString, term=nothing) =
     Quantity(Float64(magnitude), String(unit), term === nothing ? nothing :
@@ -274,15 +277,14 @@ Base.:*(n::Real, q::Quantity) = q * n
 Base.:/(q::Quantity, n::Real) = Quantity(q.magnitude / n, q.unit, q.unit_term)
 function _exact_base_magnitude(q::Quantity, unit::Unit)
     magnitude = q.magnitude
-    magnitude isa Integer && !(magnitude isa Bool) ||
+    magnitude isa Union{Integer,Rational} && !(magnitude isa Bool) ||
         return nothing
     isfinite(unit.scale_num) && isinteger(unit.scale_num) ||
         return nothing
     isfinite(unit.scale_den) && isinteger(unit.scale_den) ||
         return nothing
     (unit.scale_num == 0 || unit.scale_den == 0) && return nothing
-    Rational{BigInt}(BigInt(magnitude) * BigInt(round(unit.scale_num)),
-                     BigInt(round(unit.scale_den)))
+    Rational{BigInt}(magnitude) * BigInt(round(unit.scale_num)) // BigInt(round(unit.scale_den))
 end
 function Base.:(==)(left::Quantity, right::Quantity)
     a, b = _unit(left), _unit(right)
@@ -335,7 +337,7 @@ function asreal(x)
 end
 
 const VALUE_ARMS = Set([
-    "intValue", "bigIntValue", "realValue", "boolValue", "stringValue", "instanceId", "sequence",
+    "intValue", "bigIntValue", "rationalValue", "realValue", "boolValue", "stringValue", "instanceId", "sequence",
     "null", "unset", "quantity", "enumLiteral", "complex", "array", "vector",
     "vectorQuantity", "measurementRef", "infinity", "function", "set",
     "tensorQuantity", "metaobject", "undetermined",
@@ -359,6 +361,32 @@ function parse_big_integer(digits::AbstractString)
     return n
 end
 
+# The exact Rational a rationalValue spells: canonical decimal terms in lowest
+# terms over a positive denominator, of a value no Float64 holds.
+function parse_rational(terms)
+    terms isa AbstractDict || error("not a rational: $(repr(terms))")
+    numerator, denominator = string(get(terms, "numerator", "")), string(get(terms, "denominator", ""))
+    occursin(r"^(0|-?[1-9][0-9]*)$", numerator) && occursin(r"^[1-9][0-9]*$", denominator) ||
+        error("not the decimal terms of a rational: $(repr(numerator))/$(repr(denominator))")
+    n, d = parse(BigInt, numerator), parse(BigInt, denominator)
+    gcd(n, d) == 1 || error("$numerator/$denominator is not in lowest terms")
+    q = n // d
+    _binary64(q) && error("$numerator/$denominator is a Float64, which realValue carries")
+    return q
+end
+
+# Whether a Float64 holds the rational exactly.
+_binary64(q::Rational) = (x = Float64(q); isfinite(x) && Rational{BigInt}(x) == q)
+
+# A Rational as KerML holds it: lowest terms over BigInt.
+_exact_rational(q::Rational) = Rational{BigInt}(q)
+
+# A Rational on the wire: realValue when a Float64 holds it exactly, rationalValue otherwise.
+rational_arm(q::Rational, real::String, rational::String) =
+    _binary64(q) ? (real => _json_real(Float64(q))) :
+    (rational => Dict{String,Any}("numerator" => string(numerator(q)),
+                                  "denominator" => string(denominator(q))))
+
 # An Integer on the wire: intValue within Int64, bigIntValue beyond it.
 integer_arm(x::Integer, small::String, big::String) =
     typemin(Int64) <= x <= typemax(Int64) ? (small => string(Int64(x))) : (big => string(BigInt(x)))
@@ -368,6 +396,7 @@ _unsupported_value(message) = throw(UnsupportedValueError(String(message)))
 function decode_quantity(q)
     magnitude = haskey(q, "intMagnitude") ? parse(Int64, q["intMagnitude"]) :
                 haskey(q, "bigIntMagnitude") ? parse_big_integer(q["bigIntMagnitude"]) :
+                haskey(q, "rationalMagnitude") ? parse_rational(q["rationalMagnitude"]) :
                 haskey(q, "realMagnitude") ? asreal(q["realMagnitude"]) :
                 _unsupported_value("quantity carries neither intMagnitude nor realMagnitude")
     term = get(q, "unitTerm", nothing)
@@ -383,6 +412,7 @@ function decode_value(v)
     v === nothing && return missing
     haskey(v, "intValue") && return parse(Int64, v["intValue"])
     haskey(v, "bigIntValue") && return parse_big_integer(v["bigIntValue"])
+    haskey(v, "rationalValue") && return parse_rational(v["rationalValue"])
     haskey(v, "realValue") && return asreal(v["realValue"])
     haskey(v, "boolValue") && return v["boolValue"]::Bool
     haskey(v, "stringValue") && return v["stringValue"]::String
@@ -414,6 +444,7 @@ function decode_value(v)
         components = map(get(v["vector"], "components", Any[])) do c
             haskey(c, "intValue") && return parse(Int64, c["intValue"])
             haskey(c, "bigIntValue") && return parse_big_integer(c["bigIntValue"])
+            haskey(c, "rationalValue") && return parse_rational(c["rationalValue"])
             haskey(c, "realValue") && return asreal(c["realValue"])
             _unsupported_value("vector component is not an intValue or realValue: $(first(keys(c)))")
         end
@@ -487,6 +518,8 @@ function encode_quantity(q::Quantity)
     body = Dict{String,Any}()
     if q.magnitude isa Integer
         push!(body, integer_arm(q.magnitude, "intMagnitude", "bigIntMagnitude"))
+    elseif q.magnitude isa Rational
+        push!(body, rational_arm(q.magnitude, "realMagnitude", "rationalMagnitude"))
     else
         body["realMagnitude"] = _json_real(Float64(q.magnitude))
     end
@@ -506,6 +539,7 @@ function encode_value(x::Bool)
     Dict{String,Any}("boolValue" => x)
 end
 encode_value(x::Integer) = Dict{String,Any}(integer_arm(x, "intValue", "bigIntValue"))
+encode_value(x::Rational) = Dict{String,Any}(rational_arm(x, "realValue", "rationalValue"))
 encode_value(x::AbstractFloat) = Dict{String,Any}("realValue" => _json_real(x))
 encode_value(x::AbstractString) = Dict{String,Any}("stringValue" => String(x))
 encode_value(::Nothing) = Dict{String,Any}("null" => "")
@@ -636,6 +670,8 @@ function value_capabilities(value)
     function visit(item)
         if item isa Integer && !(item isa Bool)
             typemin(Int64) <= item <= typemax(Int64) || push!(capabilities, CAPABILITY_BIG_INT_VALUES)
+        elseif item isa Rational
+            _binary64(item) || push!(capabilities, CAPABILITY_RATIONAL_VALUES)
         elseif item isa Quantity
             visit(item.magnitude)
         elseif item isa Complex
