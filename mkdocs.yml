@@ -51,6 +51,7 @@ theme:
 extra_css:
   - stylesheets/nav-menu.css
   - stylesheets/footer.css
+  - stylesheets/ecosystem.css
 
 plugins:
   - search
@@ -162,6 +163,8 @@ exclude_docs: |
 
 nav:
   - Documentation: README.md
+  - Downloads: downloads.md
+  - Ecosystem: ecosystem.md
   - Guide:
       - guide/README.md
       - guide/01-install.md
