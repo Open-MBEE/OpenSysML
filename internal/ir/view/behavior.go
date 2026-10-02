@@ -1,7 +1,6 @@
 package view
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -506,13 +505,12 @@ type actionSubject struct {
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
+	// A node performing statements holds no flow of its own to render.
+	if usage, ok := decl.(*ast.Usage); ok && depth > 0 && lower.PerformsLeafStatements(usage.Members) {
+		return nil, false
+	}
 	graph, err := lower.ToActionGraphWith(decl, scope, r.resolver)
 	if err != nil {
-		// A node performing statements holds no flow of its own to render, which is
-		// no shortcoming of the rendering; only an exposed action is reported.
-		if depth > 0 && errors.Is(err, lower.ErrStatementOutsideFlow) {
-			return nil, false
-		}
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}

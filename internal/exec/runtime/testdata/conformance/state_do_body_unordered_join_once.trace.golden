@@ -1,0 +1,34 @@
+exit: init
+enter: active
+transition: init -> active
+do: active
+stmt action body
+enter action node: state behavior ops
+  stmt assign total
+      eval feature total -> 0
+      eval literal 10 -> 10
+    eval operator + -> 10
+  stmt assign doneB
+    eval literal true -> true
+  stmt assign total
+      eval feature total -> 10
+      eval literal 1 -> 1
+    eval operator + -> 11
+  stmt assign doneA
+    eval literal true -> true
+choice step 1: tokens 1@a, 2@b (unordered; took 2@b first)
+do: active
+  stmt assign seen
+    eval feature total -> 11
+  stmt assign cRuns
+      eval feature cRuns -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  stmt assign total
+      eval feature total -> 11
+      eval literal 100 -> 100
+    eval operator + -> 111
+leave action node: state behavior ops
+exit: active
+enter: done
+transition: active -> done

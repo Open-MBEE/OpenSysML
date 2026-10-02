@@ -96,7 +96,7 @@ came from:
 
 ```console
 $ … /ParseSources -d '{"documents":[{"name":"behavior.sysml","content":"…"},{"name":"verification.sysml","content":"…"}]}'
-{"modelHash":"b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
+{"modelHash":"97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
 ```
 
 The response has three fields a client reads:
@@ -767,7 +767,7 @@ codes may appear in a release; a code, once published, keeps its meaning.
 client needs to branch, the service gives a field for it:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
 {"error":"calc invocation failed: not a calc: Demo::sedan is a part usage, not a calc definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}
 ```
 
@@ -780,7 +780,7 @@ present is an unspecified execution failure. The other common in-body failures, 
 ```text
 {"error":"symbol not found: Demo::Nope"}                                    Instantiate
 {"error":"state machine not found: Test::NoMachine"}                        ExecuteState
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 {"error":"evaluation failed: object has no such feature: member nothing not found in instance"}  Evaluate
 {"error":"evaluation failed: unresolved reference: sqrt — did you mean RealFunctions::sqrt or QuantityCalculations::sqrt?"}
 ```
@@ -885,7 +885,7 @@ Every behavior call takes a `modelHash` and a fully qualified `symbolId` (spelle
 `actionSymbolId` / `stateMachineSymbolId` on the two execution calls), builds a fresh runtime,
 runs, and returns the result plus any `error`/`diagnostics`. The examples use
 `conformance/fixtures/behavior.sysml` and `verification.sysml`, parsed together as model
-`b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9`, and the `Rover` model above.
+`97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610`, and the `Rover` model above.
 
 ### `Instantiate` and the `Instance` shape
 
@@ -968,14 +968,14 @@ $ … /Instantiate -d '{"modelHash":"5a85…c15b","symbolId":"Demo::Nope"}'
 input keeps its declared default:
 
 ```console
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
 {"outputs":{"result":{"intValue":"15"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive"}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive"}'
 {"outputs":{"result":{"intValue":"5"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::noStart"}'
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::noStart"}'
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 ```
 
 An action with no outputs answers `{}` (captured for `action nop { first start; done;
@@ -1162,7 +1162,7 @@ when it stopped, as a name → `Value` map. `conformance/fixtures/behavior.sysml
 runs to `done` on its own:
 
 ```console
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::Machine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::Machine"}'
 {"statesVisited":["init","Running","done"]}
 ```
 
@@ -1175,7 +1175,7 @@ do assign cycles := cycles + 1 then on; transition first on accept stop then off
 $ … /ExecuteState -d '{"modelHash":"449e7db990943f08c1918829b0c730cc9d9bf415b236a70debe93592d2477b6b","stateMachineSymbolId":"Pump::Controller","events":["start","stop","start"]}'
 {"statesVisited":["off","on","off","on"],"finalContext":{"cycles":{"intValue":"2"}}}
 
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::NoMachine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::NoMachine"}'
 {"error":"state machine not found: Test::NoMachine"}
 ```
 
@@ -1247,7 +1247,7 @@ spelled as the executed `finalContext` spells them.
 `result` is the calc's value:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
 {"result":{"realValue":5.5}}
 ```
 
@@ -1595,13 +1595,13 @@ one per assertion. All three return the `instances` they built, in the same shap
 `Instantiate`.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massPositive"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massPositive"}'
 {"verdict":{"kind":"constraint","elementId":"Demo::Vehicle::massPositive","element":"Demo::Vehicle::massPositive","holds":true}}
 
-$ … /VerifyRequirement -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::lightEnough"}'
+$ … /VerifyRequirement -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::lightEnough"}'
 {"verdict":{"kind":"requirement","elementId":"Demo::Vehicle::lightEnough","element":"Demo::Vehicle::lightEnough","holds":true}}
 
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 ```
 
 ```json
@@ -1644,7 +1644,7 @@ Reading a `Verdict`:
   when the reason is classified:
 
   ```console
-  $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+  $ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
   {"verdict":{"kind":"constraint","elementId":"Demo::sedan","element":"Demo::sedan","error":"not a constraint: sedan is a part usage, not a constraint definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}}
   ```
 
@@ -1666,7 +1666,7 @@ Reading a `Verdict`:
 (max 10) are satisfied by `sedan`:
 
 ```console
-$ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analysis"}'
+$ … /VerifySatisfaction -d '{"modelHash":"9794…8610","symbolId":"Demo::analysis"}'
 ```
 
 ```json
@@ -1799,7 +1799,7 @@ stopped at the limit, which is what lowers the strength. An answer decided befor
 was asked (a failure classified before the run) carries none of the three.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 {"verdict":{"kind":"constraint", …, "condition":"mass < 100.0","engine":"run","strength":"witnessed",
   "bounds":[{"name":"steps","limit":"10000000"},{"name":"elements","limit":"1000000"}]}, "instances":[…]}
 ```

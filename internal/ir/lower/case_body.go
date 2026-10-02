@@ -55,11 +55,26 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 	}
 
 	// The flow's nodes and the members sequencing them are the graph's; the
-	// other members are the case's locals and results, as in a calc body.
-	var locals, results []Statement
+	// other members are the case's locals and results, as in a calc body. A
+	// result no succession sequences ends the body after the flow, not in it.
 	sequenced := sequencedMembers(body)
+	stated := make([]ast.Node, 0, len(body))
 	for _, member := range body {
-		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] {
+		if !trailing[member] || sequenced[member] {
+			stated = append(stated, member)
+		}
+	}
+	graph, err := lowerActionFlow(stated, scope, resolver)
+	var nodes map[ast.Node]bool
+	if err == nil {
+		nodes = make(map[ast.Node]bool, len(graph.Nodes))
+		for _, node := range graph.Nodes {
+			nodes[node] = true
+		}
+	}
+	var locals, results []Statement
+	for _, member := range body {
+		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
 		}
 		stmt, states := calcStep(member, scope)
@@ -72,7 +87,6 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		}
 		locals = append(locals, stmt)
 	}
-	graph, err := ToActionGraphWith(owner, scope, resolver)
 	if err != nil {
 		unsupported := Unsupported{
 			Description: "the flow the steps of the body state: " + err.Error(),
@@ -132,30 +146,29 @@ func stepName(node ast.Node) string {
 }
 
 // StartFlow gives a flow performed whole — a case body's, a state behavior's, an
-// action's — that no `first` starts its one unpreceded step to begin at; where
-// none is found the graph keeps no start, and running it reports why.
+// action's — the nodes its performance starts at: the ordered part's start, where
+// no `first` states one its one unpreceded step, and every composite subaction no
+// succession leads to as a concurrent start (startsConcurrently). Where nothing
+// can start a flow stating steps, the graph keeps no start and running it
+// reports why (FlowStartError).
 func StartFlow(graph *ActionGraph) {
-	if graph.Initial != nil {
-		return
+	if graph.Initial == nil {
+		if start, err := CaseFlowStart(graph); err == nil {
+			graph.Initial = start
+		}
 	}
-	if start, err := CaseFlowStart(graph); err == nil {
-		graph.Initial = start
-	}
+	graph.Concurrent = unorderedSubactions(graph)
 }
 
 // CaseFlowStart finds the step a flow starts at where no `first` or start node
-// states one: the single step no succession leads to. Two such steps leave the
-// start unstated, and none is a cycle; either is reported.
+// states one: the single step no succession leads to that the flow performs
+// (performedStep). Two such steps leave the start unstated, and none is a
+// cycle; either is reported.
 func CaseFlowStart(graph *ActionGraph) (ast.Node, error) {
-	preceded := make(map[ast.Node]bool, len(graph.Nodes))
-	for _, edges := range graph.Edges {
-		for _, edge := range edges {
-			preceded[edge.Target] = true
-		}
-	}
+	preceded := precededNodes(graph)
 	var starts []ast.Node
 	for _, node := range graph.Nodes {
-		if _, final := node.(*ast.FinalNode); !final && !preceded[node] {
+		if _, final := node.(*ast.FinalNode); !final && !preceded[node] && performedStep(graph, node) {
 			starts = append(starts, node)
 		}
 	}

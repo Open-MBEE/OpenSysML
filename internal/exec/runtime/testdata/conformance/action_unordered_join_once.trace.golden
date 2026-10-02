@@ -1,0 +1,26 @@
+stmt assign total
+    eval feature total -> 0
+    eval literal 10 -> 10
+  eval operator + -> 10
+stmt assign doneB
+  eval literal true -> true
+stmt assign total
+    eval feature total -> 10
+    eval literal 1 -> 1
+  eval operator + -> 11
+stmt assign doneA
+  eval literal true -> true
+choice step 1: writes total := 11 by token 1, total := 10 by token 2 (unordered; total := 11 by token 1 stood)
+choice step 1: tokens 1@a, 2@b (unordered; took 2@b first)
+step 1: token 1@c, token 2@c
+stmt assign seen
+  eval feature total -> 11
+stmt assign cRuns
+    eval feature cRuns -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign total
+    eval feature total -> 11
+    eval literal 100 -> 100
+  eval operator + -> 111
+step 2: no active tokens

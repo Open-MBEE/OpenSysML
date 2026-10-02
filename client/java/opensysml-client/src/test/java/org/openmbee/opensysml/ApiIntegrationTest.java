@@ -618,7 +618,10 @@ class ApiIntegrationTest {
           succession first inner then done;
         }
         action noStart {
-          attribute result : Integer = 0;
+          action a;
+          action b;
+          succession first a then b;
+          succession first b then a;
         }
         action race {
           attribute x : Integer = 0;

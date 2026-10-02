@@ -393,9 +393,8 @@ const setupFailureModel = `package Setup {
   action Broken {
     action a;
     action b;
-    action c;
-    succession first a then c;
-    succession first b then c;
+    succession first a then b;
+    succession first b then a;
   }
   state def NoInitial {
     state idle;

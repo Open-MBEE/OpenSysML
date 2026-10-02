@@ -1350,13 +1350,11 @@ terminate pseudostate to the same spelling, which retired its `terminate-gap` bu
 **What it leaves.** A fork branch of a state machine cannot target a terminate action: the
 lowering's fork rule takes states as branch targets (`lower/fork_plan.go`), and the spelling
 reported rather than routed. The training corpus's `19. Terminate Actions/Terminate Actions
-Example-1.sysml` (`MonitoredActivity`) parses and every `terminate` it uses runs, but the model
-still stops at initialize: its nested node `performCriticalActivity` is two `perform`s with no
-`first` and no succession between them, so the flow-start rule (`lower/case_body.go`
-`CaseFlowStart`, `runtime/action_subflow.go` `noFlowStart`) reports two possible starts — `no
-succession leads to "monitorCriticalActivity" or to "criticalActivity"` — where §7.17.2 lets
-unsequenced nested actions start concurrently when their container does. That is a flow-start
-item, not a terminate one, and it is what the example waits on.
+Example-1.sysml` (`MonitoredActivity`) parses, every `terminate` it uses runs, and the model runs
+to completion: subactions no succession orders now start with their owner's performance
+(`lower/action_starts.go`), but the nested node `performCriticalActivity` holds only two
+`perform`s, which are referential event occurrence usages rather than composite subactions, so
+neither is performed and the `terminate` after `criticalActivity` is not reached.
 
 ## E2 — interrupting an ongoing performance ("interruptible regions") (landed)
 
