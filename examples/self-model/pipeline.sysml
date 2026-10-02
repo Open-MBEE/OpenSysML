@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 63;
+        attribute passCount : Integer = 64;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -202,6 +202,8 @@ package OpenSysMLPipeline {
         }
         // A lint: a signal trigger's name no declaration and no send accounts for.
         part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
+        // A lint: a deferred signal's keeping loop written without its marker.
+        part deferredKeepers : NameResolutionCheck { attribute :>> goType = "DeferredKeeperPass"; }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
