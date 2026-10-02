@@ -62,9 +62,10 @@ package Demo {
 }
 ```
 
-With this file, `sysml -calc "Demo::Margin(20.0, 100.0)"` gives `80.0`, `sysml -action Demo::Double`
-reports `y = 42`, `sysml -satisfy` reports `car` holds and `truck` fails (exit 1), and
-`sysml -state Demo::Lamp -advance 15` ends in `on`.
+With this file saved as `model.sysml`, `sysml -calc "Demo::Margin(20.0, 100.0)" model.sysml` gives
+`80.0`, `sysml -action Demo::Double model.sysml` reports `y = 42`, `sysml -satisfy model.sysml`
+reports `car` holds and `truck` fails (exit 1), and `sysml -state Demo::Lamp -advance 15 model.sysml`
+ends in `on`.
 
 ## Rules that matter
 
