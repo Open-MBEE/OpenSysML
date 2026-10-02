@@ -13,9 +13,9 @@ import (
 const msgMultiplicityBoundNatural = "Must have a Natural value"
 
 // MultiplicityBoundsPass checks that every multiplicity bound has a Natural
-// value (KerML 8.3.3.1.9, validateMultiplicityRangeBoundResultTypes): a
-// model-level evaluable bound must evaluate to a non-negative whole number or
-// `*`, and any other bound must have an Integer-conforming result type.
+// value (KerML 8.3.3.1.9, validateMultiplicityRangeBoundResultTypes): an evaluable
+// bound must fold to a non-negative integer or `*` and must not reach a valueless
+// feature; any other bound must have an Integer-conforming result type.
 type MultiplicityBoundsPass struct{}
 
 func (MultiplicityBoundsPass) Level() PassLevel { return LevelConstraint }
@@ -56,12 +56,17 @@ func (c *multiplicityBoundsChecker) checkBound(scope *symbols.Scope, bound ast.N
 	if bound == nil {
 		return
 	}
-	if v, ok := c.model.EvalIn(scope, bound); ok {
-		if v.Kind == semantics.ValInfinity || (v.Kind == semantics.ValInt && v.IntSign() >= 0) {
+	if c.model.ModelLevelEvaluable(scope, bound) {
+		if v, ok := c.model.EvalIn(scope, bound); ok {
+			if v.Kind != semantics.ValInfinity && !(v.Kind == semantics.ValInt && v.IntSign() >= 0) {
+				c.report(bound)
+			}
 			return
 		}
-		c.report(bound)
-		return
+		if c.model.ReadsValuelessFeature(scope, bound) {
+			c.report(bound)
+			return
+		}
 	}
 	if !c.boundIsInteger(scope, bound) {
 		c.report(bound)
