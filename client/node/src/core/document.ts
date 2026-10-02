@@ -19,7 +19,16 @@ import {
   UnitTermSchema,
 } from "../generated/sysml_pb.js";
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
-import { decodeBigInteger, fitsInt64, formatValue, type SysMLValue } from "./values.js";
+import {
+  decodeBigInteger,
+  decodeRational,
+  encodeQuantityMagnitude,
+  encodeRational,
+  fitsInt64,
+  formatValue,
+  rationalAsDouble,
+  type SysMLValue,
+} from "./values.js";
 
 /** Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`. */
 export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
@@ -27,6 +36,15 @@ export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
     (value) =>
       value.kind.case === "bigIntValue" ||
       (value.kind.case === "quantity" && value.kind.value.magnitude.case === "bigIntMagnitude"),
+  );
+}
+
+/** Whether a wire binding sends an exact Rational no double holds, which needs `rational_values`. */
+export function bindingHoldsRational(binding: DocumentQueryBinding): boolean {
+  return binding.values.some(
+    (value) =>
+      value.kind.case === "rationalValue" ||
+      (value.kind.case === "quantity" && value.kind.value.magnitude.case === "rationalMagnitude"),
   );
 }
 
@@ -238,6 +256,7 @@ export type DocumentValue =
   | number
   | boolean
   | { kind: "infinity" }
+  | Extract<SysMLValue, { kind: "rational" }>
   | ({ kind: "quantity" } & Extract<SysMLValue, { kind: "quantity" }>);
 
 /** What `bindings` accepts for one parameter: one value or several. */
@@ -369,6 +388,12 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
         `answered by queries, not bound to them`,
     );
   }
+  if (typeof value === "object" && "kind" in value && value.kind === "rational") {
+    const double = rationalAsDouble(value);
+    return double === undefined
+      ? create(DocumentValueSchema, { kind: { case: "rationalValue", value: encodeRational(value) } })
+      : create(DocumentValueSchema, { kind: { case: "realValue", value: double } });
+  }
   if (typeof value === "object" && "kind" in value && value.kind === "quantity") {
     return create(DocumentValueSchema, {
       kind: { case: "quantity", value: boundQuantity(value) },
@@ -385,12 +410,7 @@ function boundQuantity(
 ): ReturnType<typeof create<typeof QuantitySchema>> {
   const magnitude = value.magnitude;
   return create(QuantitySchema, {
-    magnitude:
-      magnitude.kind === "real"
-        ? { case: "realMagnitude", value: magnitude.value }
-        : fitsInt64(magnitude.value)
-          ? { case: "intMagnitude", value: magnitude.value }
-          : { case: "bigIntMagnitude", value: magnitude.value.toString() },
+    magnitude: encodeQuantityMagnitude(magnitude),
     unit: value.unit,
     ...(value.unitTerm === undefined
       ? {}
@@ -500,6 +520,8 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
       return decodeBigInteger(kind.value);
     case "realValue":
       return kind.value;
+    case "rationalValue":
+      return { kind: "rational" as const, ...decodeRational(kind.value) };
     case "boolValue":
       return kind.value;
     case "infinity":
@@ -515,7 +537,9 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
               ? { kind: "int", value: decodeBigInteger(magnitude.value) }
               : magnitude.case === "realMagnitude"
                 ? { kind: "real", value: magnitude.value }
-                : { kind: "real", value: 0 },
+                : magnitude.case === "rationalMagnitude"
+                  ? { kind: "rational", ...decodeRational(magnitude.value) }
+                  : { kind: "real", value: 0 },
         unit: kind.value.unit,
       };
       return decoded;

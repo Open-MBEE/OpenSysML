@@ -7,7 +7,7 @@ the model's own named queries and documents, not the SysML v2 API & Services
 Query that :mod:`opensysml.query` builds.
 
 A binding value is a plain Python value (``str``, ``int``, ``float``,
-``bool``), a :class:`~opensysml.values.Quantity`, an :class:`ElementRef`
+``bool``), an exact Rational as a :class:`fractions.Fraction`, a :class:`~opensysml.values.Quantity`, an :class:`ElementRef`
 naming a model element by qualified name, or an :class:`ObjectRef` naming an
 object the service holds for the model since ``instantiate`` — by id or by
 path (``"car.wheels[2]"``). Answered cells decode back to the same kinds, plus
@@ -18,6 +18,7 @@ query answered.
 """
 
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Optional, Sequence, Union
 
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
@@ -27,8 +28,11 @@ from opensysml.values import (
     Quantity,
     _Infinity,
     fits_int64,
+    holds_exactly_as_double,
     integer_from_decimal,
     integer_to_decimal,
+    rational_from_pb,
+    rational_to_pb,
 )
 
 
@@ -258,6 +262,20 @@ def binding_holds_big_int(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
     return any(_document_holds_big_int(value) for value in binding.values)
 
 
+def binding_holds_rational(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
+    """Whether a wire binding sends an exact Rational no double holds, which needs ``rational_values``."""
+    return any(_document_holds_rational(value) for value in binding.values)
+
+
+def _document_holds_rational(value: "sysml_pb2.DocumentValue") -> bool:
+    kind = value.WhichOneof("kind")
+    if kind == "rational_value":
+        return True
+    if kind == "quantity":
+        return value.quantity.WhichOneof("magnitude") == "rational_magnitude"
+    return False
+
+
 def _document_holds_big_int(value: "sysml_pb2.DocumentValue") -> bool:
     kind = value.WhichOneof("kind")
     if kind == "big_int_value":
@@ -317,6 +335,10 @@ def _bound_value(parameter, value):
         return sysml_pb2.DocumentValue(int_value=value)
     if isinstance(value, float):
         return sysml_pb2.DocumentValue(real_value=value)
+    if isinstance(value, Fraction):
+        if holds_exactly_as_double(value):
+            return sysml_pb2.DocumentValue(real_value=float(value))
+        return sysml_pb2.DocumentValue(rational_value=rational_to_pb(value))
     if isinstance(value, Quantity):
         return sysml_pb2.DocumentValue(quantity=_bound_quantity(parameter, value))
     if isinstance(value, DocumentVerdict):
@@ -402,6 +424,8 @@ def _value_of(value):
         return integer_from_decimal(value.big_int_value)
     if kind == "real_value":
         return value.real_value
+    if kind == "rational_value":
+        return rational_from_pb(value.rational_value)
     if kind == "bool_value":
         return value.bool_value
     if kind == "infinity":

@@ -12,11 +12,12 @@ import {
   TypeMismatchError,
 } from "./errors.js";
 import type { Instance } from "./model.js";
-import type {
-  ComplexValue,
-  EnumValue,
-  QuantityValue,
-  SysMLValue,
+import {
+  rationalToNumber,
+  type ComplexValue,
+  type EnumValue,
+  type QuantityValue,
+  type SysMLValue,
 } from "./values.js";
 
 /** A quantity feature value: a magnitude and the unit it is expressed in. */
@@ -181,6 +182,9 @@ export function asReal(featureName: string, value: SysMLValue): number {
   }
   if (value.kind === "int") {
     return Number(value.value);
+  }
+  if (value.kind === "rational") {
+    return rationalToNumber(value);
   }
   throw mismatch(featureName, "float", value);
 }

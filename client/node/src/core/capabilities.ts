@@ -113,6 +113,8 @@ export const CAPABILITY_ENGINES = "engines";
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
 /** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
 export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
+/** An exact Rational no double holds as `Value.rationalValue`, `Quantity.rationalMagnitude` and `DocumentValue.rationalValue`; a service without it reads one sent to it as null. */
+export const CAPABILITY_RATIONAL_VALUES = "rational_values";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

@@ -251,6 +251,10 @@ CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"
 
+#: An exact Rational no double holds as ``Value.rational_value``, ``Quantity.rational_magnitude``
+#: and ``DocumentValue.rational_value``; a service without it reads one sent to it as null.
+CAPABILITY_RATIONAL_VALUES = "rational_values"
+
 
 @dataclass(frozen=True)
 class ServerInfo:
