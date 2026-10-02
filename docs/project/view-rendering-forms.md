@@ -4,7 +4,7 @@
 > [the roadmap](roadmap.md), where each is stated in full; a reader who only wants the design can
 > ignore them.
 
-Status: **`text`, `markdown`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
+Status: **`text`, `markdown`, `csv`, `tsv`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
 `W1` and `plantuml` its `W2`, both wired into every surface `W3` names. This page records how a
 view's rendering is separated from the forms it is written in, how Mermaid, Graphviz DOT and
 PlantUML compare, and what the writers emit — the
@@ -42,6 +42,7 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | --- | --- | --- | --- |
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
+| `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
@@ -826,11 +827,12 @@ every palette, and text stays black.
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
+| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented seven for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
+| CLI, REPL, LSP, VS Code | A table view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each table and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is reported beside the artifact, never inside it | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml`, `%render-document <name> mermaid\|dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT or PlantUML source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
@@ -889,6 +891,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   tints; the sequential sampling; the unknown-palette error text and the silence of the text and
   Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
   and the `interconnection.okabe-ito`, `state.okabe-ito` and `tree.viridis` goldens.
+- `internal/ir/view/delimited_test.go`: the CSV and TSV of a table read back by `encoding/csv`
+  to its header and rows; a comma, a tab, a quote and a line break quoted; a short row padded; an
+  empty table's header alone; and every other kind refusing both forms.
 - `internal/ir/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
   tree, interconnection, state, state-entry, action, typed-action, typed-state, filtered, layout
   and every `sequence-*` fixture — and `interconnection.okabe-ito.plantuml.golden` beside the DOT

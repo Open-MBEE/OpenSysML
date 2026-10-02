@@ -69,8 +69,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports]]", "Graphviz DOT", "PlantUML")
 }
 
@@ -133,10 +133,10 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
-		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+		"usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
 	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
-	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
@@ -413,7 +413,7 @@ func TestRenderIsInHelpAndCompletion(t *testing.T) {
 	if got := s.Complete("%render Demo::sum", len("%render Demo::sum")); !slices.Contains(got.Candidates, "Demo::summary") {
 		t.Errorf("completing a view name offered %v", got.Candidates)
 	}
-	for _, form := range []string{"text", "mermaid", "markdown"} {
+	for _, form := range []string{"text", "mermaid", "markdown", "csv", "tsv"} {
 		if got := s.Complete("%render Demo::summary ", len("%render Demo::summary ")); !slices.Contains(got.Candidates, form) {
 			t.Errorf("completing the form offered %v, want %s", got.Candidates, form)
 		}
