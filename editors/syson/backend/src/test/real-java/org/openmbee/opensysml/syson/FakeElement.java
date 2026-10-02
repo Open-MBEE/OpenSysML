@@ -59,7 +59,7 @@ public class FakeElement extends ElementImpl {
 
     @Override
     public String getName() {
-        return declaredName;
+        return getDeclaredName();
     }
 
     @Override
