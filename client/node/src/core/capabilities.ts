@@ -116,7 +116,7 @@ export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
  * Orders capability names by code unit, the order the service reports them in.
  * Locale-aware collation ignores the underscores that separate their words.
  */
-function byCodeUnit(a: string, b: string): number {
+export function byCodeUnit(a: string, b: string): number {
   if (a < b) {
     return -1;
   }

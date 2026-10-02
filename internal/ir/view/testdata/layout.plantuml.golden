@@ -47,9 +47,13 @@ hide stereotype
 ' layout: n1 x=300 y=40 collapsed
 ' layout: n2 x=500 y=40 w=120 h=60
 ' route: n1->n2 400,70 450,120 500,70
-rectangle "**Loop**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
-  rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> #FFE8BD;line:333333
-  rectangle "**tank : Tank**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> {
+  rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>> #FFE8BD;line:333333 {
+    port "outlet" as n1.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n2 <<part>> <<usage>> {
+    port "inlet" as n2.0
+  }
 }
-n1 -[thickness=3]- n2 : supply
+n1.0 -[thickness=3]- n2.0 : supply
 @enduml

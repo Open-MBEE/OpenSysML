@@ -41,24 +41,24 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "**Thermostat**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
-  state "**heating**\n<size:10>//«state»//</size>" as n1 <<state>> <<usage>>
-  state "**idle**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>> {
-    state "**drying**\n<size:10>//«state»//</size>" as n3 <<state>> <<usage>>
-    state "**resting**\n<size:10>//«state»//</size>" as n4 <<state>> <<usage>>
+state "<size:10>//«state def»//</size>\n**Thermostat**" as n0 <<state def>> {
+  state "<size:10>//«state»//</size>\n**heating**" as n1 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**idle**" as n2 <<state>> <<usage>> {
+    state "<size:10>//«state»//</size>\n**drying**" as n3 <<state>> <<usage>>
+    state "<size:10>//«state»//</size>\n**resting**" as n4 <<state>> <<usage>>
     [*] --> n3 : [wet]
     [*] --> n4
   }
-  state "**monitoring**\n<size:10>//«state»//</size>" as n5 <<state>> <<usage>> {
-    state "**lights**\n<size:10>//«region»//</size>" as n6 <<region>> {
-      state "**lit**\n<size:10>//«state»//</size>" as n8 <<state>> <<usage>>
-      state "**unlit**\n<size:10>//«state»//</size>" as n9 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**monitoring**" as n5 <<state>> <<usage>> {
+    state "<size:10>//«region»//</size>\n**lights**" as n6 <<region>> {
+      state "<size:10>//«state»//</size>\n**lit**" as n8 <<state>> <<usage>>
+      state "<size:10>//«state»//</size>\n**unlit**" as n9 <<state>> <<usage>>
       [*] --> n8 : [dark]
       [*] --> n9 : [not dark]
     }
-    state "**fans**\n<size:10>//«region»//</size>" as n7 <<region>> {
-      state "**off**\n<size:10>//«state»//</size>\ninitial" as n10 <<state>> <<usage>>
-      state "**on**\n<size:10>//«state»//</size>" as n11 <<state>> <<usage>>
+    state "<size:10>//«region»//</size>\n**fans**" as n7 <<region>> {
+      state "<size:10>//«state»//</size>\n**off**\ninitial" as n10 <<state>> <<usage>>
+      state "<size:10>//«state»//</size>\n**on**" as n11 <<state>> <<usage>>
       [*] --> n10
     }
   }

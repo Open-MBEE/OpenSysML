@@ -52,6 +52,7 @@ import {
   CAPABILITY_STATE_ACTION_AUTHORING,
   CAPABILITY_TRANSITION_AUTHORING,
   CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+  byCodeUnit,
   requireCapability,
   upgradeRemedy,
   type ServerInfo,
@@ -381,10 +382,10 @@ export class Body {
 
   #addStatement(
     kind: string,
-    options: { then?: boolean | undefined; typeName?: string | undefined } & Record<string, unknown>,
+    options: { chained?: boolean | undefined; typeName?: string | undefined } & Record<string, unknown>,
   ): this {
     const fields = { ...options };
-    delete fields.then;
+    delete fields.chained;
     delete fields.typeName;
     const opts = sequenceOptions(
       fields["after"] as string | undefined,
@@ -392,7 +393,7 @@ export class Body {
     );
     delete fields.after;
     delete fields.multiplicity;
-    const keyword = this.#keyword(options.then);
+    const keyword = this.#keyword(options.chained);
     sequenceKeywordOptions(keyword, opts);
     this.#operations.push(
       sequenceStatement("", keyword, kind, fields, {
@@ -476,7 +477,7 @@ export class Body {
     sequenceText("type", type, true);
     sequenceText("via", via, true);
     return this.#addStatement("accept", {
-      then,
+      chained: then,
       typeName: type ?? "",
       parameter: payload,
       via: via ?? "",
@@ -499,7 +500,7 @@ export class Body {
     sequenceText("to", to, true);
     sequenceText("via", via, true);
     return this.#addStatement("send", {
-      then,
+      chained: then,
       value: payload,
       target: to ?? "",
       via: via ?? "",
@@ -516,7 +517,7 @@ export class Body {
     const { then, multiplicity } = options;
     sequenceText("target", target);
     sequenceText("value", value);
-    return this.#addStatement("assign", { then, target, value, multiplicity });
+    return this.#addStatement("assign", { chained: then, target, value, multiplicity });
   }
 
   /** Emit `if <condition> { <body> } [else { <elseBody> }]` or `then [m] if ...`. */
@@ -535,7 +536,7 @@ export class Body {
       throw new TypeError(`else_body must be Body or None, not ${nameOf(elseBody)}`);
     }
     return this.#addStatement("if", {
-      then,
+      chained: then,
       condition,
       body: body.operations,
       else_body: elseBody !== undefined && elseBody.operations.length > 0 ? elseBody.operations : [],
@@ -556,7 +557,7 @@ export class Body {
       throw new TypeError(`body must be Body, not ${nameOf(body)}`);
     }
     return this.#addStatement("while", {
-      then,
+      chained: then,
       condition,
       until: until ?? "",
       body: body.operations,
@@ -575,7 +576,7 @@ export class Body {
       throw new TypeError(`body must be Body, not ${nameOf(body)}`);
     }
     return this.#addStatement("loop", {
-      then,
+      chained: then,
       until: until ?? "",
       body: body.operations,
       multiplicity,
@@ -597,7 +598,7 @@ export class Body {
       throw new TypeError(`body must be Body, not ${nameOf(body)}`);
     }
     return this.#addStatement("for", {
-      then,
+      chained: then,
       parameter: variable,
       value: collection,
       typeName: type ?? "",
@@ -614,7 +615,7 @@ export class Body {
     const { then, multiplicity } = options;
     sequenceText("occurrence", occurrence, true);
     return this.#addStatement("terminate", {
-      then,
+      chained: then,
       value: occurrence ?? "",
       multiplicity,
     });
@@ -1949,7 +1950,7 @@ function addSequenceMessage(add: AddSequenceEdit, operationData: unknown, depth 
   const unknown = Object.keys(record).filter((key) => !SEQUENCE_DETAIL_FIELDS.has(key));
   if (unknown.length > 0) {
     throw new RangeError(
-      `malformed add_sequence operation: unknown fields ${unknown.sort().join(", ")}`,
+      `malformed add_sequence operation: unknown fields ${unknown.sort(byCodeUnit).join(", ")}`,
     );
   }
   for (const [key, value] of Object.entries(record)) {

@@ -1,5 +1,6 @@
 ---
 config:
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
@@ -12,10 +13,16 @@ config:
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["«part def»<br>Loop"]
     direction LR
-    n1["pump : Pump<br>«part»"]
-    n2["tank : Tank<br>«part»"]
+    subgraph n1 ["«part»<br>pump : Pump"]
+      direction LR
+      n1.0["outlet"]
+    end
+    subgraph n2 ["«part»<br>tank : Tank"]
+      direction LR
+      n2.0["inlet"]
+    end
   end
-  n1 ---|"supply"| n2
+  n1.0 ---|"supply"| n2.0
   style n1 fill:#FFE8BD,stroke:#333333

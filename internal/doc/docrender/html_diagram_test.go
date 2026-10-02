@@ -103,7 +103,7 @@ func TestHTMLDiagramPlantUMLForm(t *testing.T) {
 	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormPlantUML), "data-palette") {
 		t.Errorf("an unfilled figure carries a palette attribute")
 	}
-	if sequence := renderedFigureForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML); !strings.Contains(sequence, `<pre class="plantuml">`) || !strings.Contains(sequence, "participant &#34;**a**") || !strings.Contains(sequence, "n0 -&gt; n1\n") {
+	if sequence := renderedFigureForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML); !strings.Contains(sequence, `<pre class="plantuml">`) || !strings.Contains(sequence, "participant &#34;&lt;size:10&gt;//«part»//&lt;/size&gt;\\n**a**&#34;") || !strings.Contains(sequence, "n0 -&gt; n1\n") {
 		t.Errorf("sequence as plantuml:\n%s", sequence)
 	}
 }

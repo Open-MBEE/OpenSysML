@@ -157,7 +157,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	wants(t, dot,
 		"```dot\n// view: Imaging::chainView\n// kind: interconnection\n",
 		"digraph \"Imaging::chainView\" {",
-		`"n1" -> "n3" [label="link", arrowhead=none, penwidth=3, ltail="cluster_n1", lhead="cluster_n3"];`,
+		`"n1.0" -> "n3.0" [label="link", arrowhead=none, penwidth=3];`,
 		"| camera | 2.5 |",
 		"| name | mass |",
 	)
@@ -180,7 +180,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	wants(t, puml,
 		"```plantuml\n@startuml\n' Imaging::chainView — interconnection rendering",
 		"<style>\n",
-		"n1 -[thickness=3]- n3 : link\n",
+		"n1.0 -[thickness=3]- n3.0 : link\n",
 		"@enduml\n```",
 		"| camera | 2.5 |",
 	)

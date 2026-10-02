@@ -1,7 +1,7 @@
 %% FilteredViews::safetyView — tree rendering
 flowchart TD
-  n0["Radio<br>«part def»"]
-  n1["Airbag<br>«part def»"]
-  n2["Braking::Brake<br>«part def»"]
-  n3["pad<br>«part»"]
+  n0["«part def»<br>Radio"]
+  n1["«part def»<br>Airbag"]
+  n2["«part def»<br>Braking::Brake"]
+  n3["«part»<br>pad"]
   n2 --- n3
