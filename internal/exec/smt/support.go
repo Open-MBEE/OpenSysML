@@ -119,6 +119,9 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 	if k < 0 {
 		return nil, fmt.Errorf("smt: a bound of %d moves", k)
 	}
+	if len(graph.Concurrent) > 0 {
+		return nil, unorderedStart(graph)
+	}
 	if graph.Initial == nil {
 		return nil, &FlowError{Reason: "the flow has no initial node"}
 	}
@@ -190,6 +193,9 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 // each flow a node of it states of its own, so every frame's labels stay distinct.
 func (f *Flow) number(fr *Frame) error {
 	graph := fr.Graph
+	if graph != nil && len(graph.Concurrent) > 0 {
+		return unorderedStart(graph)
+	}
 	if graph == nil || graph.Initial == nil {
 		return &FlowError{Node: nodeLabel(fr.Node), Reason: "the flow has no initial node"}
 	}
@@ -232,6 +238,9 @@ func (f *Flow) number(fr *Frame) error {
 		if sub == nil {
 			continue
 		}
+		if sub.Err == nil && sub.Graph != nil && len(sub.Graph.Concurrent) > 0 {
+			return unorderedStart(sub.Graph)
+		}
 		if sub.Err != nil || sub.Graph == nil || sub.Graph.Initial == nil {
 			return f.refuseNested(node)
 		}
@@ -240,6 +249,13 @@ func (f *Flow) number(fr *Frame) error {
 		}
 	}
 	return nil
+}
+
+// unorderedStart refuses a flow with a subaction no succession reaches: one more
+// start than the encoding seeds.
+func unorderedStart(graph *lower.ActionGraph) error {
+	return &UnsupportedError{Node: nodeLabel(graph.Concurrent[0]), Construct: "unordered subaction",
+		Reason: "a subaction no succession reaches starts with its owner; the encoding seeds one start"}
 }
 
 // graphOf returns the lowered flow node runs in.

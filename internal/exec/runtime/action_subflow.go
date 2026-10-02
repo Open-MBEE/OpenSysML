@@ -28,8 +28,10 @@ func (e *performances) subflowOf(graph *lower.ActionGraph, node ast.Node) (*lowe
 	return sub, owns && sub != nil
 }
 
-// enterSubflow moves a token into the flow its node owns, run by the node's performance;
-// the flow was validated at initialize(), so an unbuildable one is an error here.
+// enterSubflow moves a token into the flow its node owns, run by the node's performance,
+// to the first node it starts at, a token of its own standing at each other; a flow
+// with nothing to start completes the node at once. The flow was validated at
+// initialize(), so an unbuildable one is an error here.
 func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
 	node := token.Location
@@ -37,12 +39,16 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 		return fmt.Errorf("%w: action node %s: %w",
 			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
 	}
-	if perf.graph == nil || perf.graph.Initial == nil {
+	if perf.graph == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, ActionNodeName(node))
 	}
+	if err := lower.FlowStartError(perf.graph); err != nil {
+		return fmt.Errorf("%w: no initial node found in action node %s: %w",
+			ErrInvalidActionFlow, ActionNodeName(node), err)
+	}
+	starts := perf.graph.Starts()
 	token.frame = perf
-	token.Location = perf.graph.Initial
 	token.Via = lower.ActionEdge{}
 	token.moved = e.sweep
 	perf.repetition = token.repetition
@@ -52,7 +58,22 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
+	perf.live = len(starts)
+	if len(starts) == 0 {
+		return e.leaveSubflow(tokenIdx)
+	}
+	token.Location = starts[0]
+	e.seedTokens(perf, starts[1:], e.sweep)
 	return nil
+}
+
+// seedTokens puts a token of frame's flow at each of starts, the nodes a
+// performance of it starts at concurrently (lower.StartFlow).
+func (e *ActionExecutor) seedTokens(frame *actionFrame, starts []ast.Node, moved uint64) {
+	for _, start := range starts {
+		e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: start, frame: frame, moved: moved})
+		e.nextTokenID++
+	}
 }
 
 // subflowFrame is a flow a body statement runs (runSubflow) where the body paused:
@@ -115,7 +136,7 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 }
 
 // enterBodyFlow starts the flow perf owns for a body statement performing its
-// node, with one token at its initial node.
+// node, with a token at each node it starts at.
 func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error) {
 	node := perf.node
 	if perf.graph != nil && perf.graph.Invalid != nil {
@@ -125,13 +146,18 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	if err := e.checkNodeResultParameters(perf.graph); err != nil {
 		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
 	}
-	if perf.graph == nil || perf.graph.Initial == nil {
+	if perf.graph == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
 	}
+	if err := lower.FlowStartError(perf.graph); err != nil {
+		return nil, fmt.Errorf("%w: no node starts the flow %s owns: %w",
+			ErrInvalidActionFlow, perf.describe(), err)
+	}
+	starts := perf.graph.Starts()
 	perf.inBody = true
-	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: perf.graph.Initial, frame: perf})
-	e.nextTokenID++
+	perf.live = len(starts)
+	e.seedTokens(perf, starts, 0)
 	// The root performance, a case body's own flow, has no node and is traced by name.
 	name := ActionNodeName(node)
 	if name == "" {
@@ -531,9 +557,9 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 				return fmt.Errorf("%w: action node %s: %w",
 					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
 			}
-			if sub.Graph.Initial == nil {
-				return fmt.Errorf("%w: no initial node found in action node %s%s",
-					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(sub.Graph))
+			if err := lower.FlowStartError(sub.Graph); err != nil {
+				return fmt.Errorf("%w: no initial node found in action node %s: %w",
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 			if err := e.validateSubflows(sub.Graph); err != nil {
 				return err
@@ -543,9 +569,9 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 			if err := e.validateSubflows(block); err != nil {
 				return err
 			}
-			if len(block.Nodes) > 0 && block.Initial == nil {
-				return fmt.Errorf("%w: no node starts the flow a body of action node %s states%s",
-					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(block))
+			if err := lower.FlowStartError(block); err != nil {
+				return fmt.Errorf("%w: no node starts the flow a body of action node %s states: %w",
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 		}
 	}

@@ -1,0 +1,35 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Demo" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Sig"))
+      (Membership visibility="default"
+        (Usage kind="part" name="rx" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="NoSucc"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="action" name="r" ref=true direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (SendStatement via=false
+            (ConstructorExpr type="Sig")
+            (FeatureReference name="rx"))
+          (*ast.AssignmentActionNode)
+          (Membership visibility="default"
+            (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Sig
+                    (*ast.QualifiedName)))))))))))

@@ -74,8 +74,14 @@ type ActionGraph struct {
 	Enclosing     *ActionGraph
 	EnclosingNode ast.Node
 
-	// InitialNode (required)
+	// Initial is the node the flow's ordered part starts at: the one a `first`
+	// names, else its one node no succession leads to; nil where neither exists.
 	Initial ast.Node
+
+	// Concurrent are the composite subactions no succession leads to, other than
+	// Initial, in declaration order: each starts when a performance of the flow
+	// does, unordered against Initial and against each other (StartFlow).
+	Concurrent []ast.Node
 
 	// Invalid is the error a stated body's flow failed to lower with,
 	// reported at initialize().

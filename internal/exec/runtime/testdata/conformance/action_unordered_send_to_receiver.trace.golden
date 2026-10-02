@@ -1,0 +1,17 @@
+materialize: Sys #1
+start: performed action drive of #1
+materialize: drive #2
+materialize: Rx #3
+start: exhibited state machine m of #3
+materialize: m #4
+enter: idle
+run: performed action drive of #1
+stmt send
+materialize: SubSig #5
+step 1: no active tokens
+run: exhibited state machine m of #3
+exit: idle
+enter: hit (entry action)
+stmt assign got
+  eval literal 1 -> 1
+transition: idle -> hit (event: accept Sig)

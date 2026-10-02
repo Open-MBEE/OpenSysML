@@ -1377,26 +1377,8 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 // hasFlow reports whether the action states a flow to start: an action with no
 // step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
-	return e.graph != nil && (e.graph.Initial != nil || statesSteps(e.graph) || e.dynamicsKind != lower.NotStateSpace)
-}
-
-// statesSteps reports whether the graph has a step to perform, a final node aside.
-func statesSteps(graph *lower.ActionGraph) bool {
-	for _, node := range graph.Nodes {
-		if _, final := node.(*ast.FinalNode); !final {
-			return true
-		}
-	}
-	return false
-}
-
-// noFlowStart says why a flow that states steps has no step to start at.
-func noFlowStart(graph *lower.ActionGraph) string {
-	if !statesSteps(graph) {
-		return ""
-	}
-	_, err := lower.CaseFlowStart(graph)
-	return ": " + err.Error()
+	return e.graph != nil && (len(e.graph.Starts()) > 0 || lower.FlowStartError(e.graph) != nil ||
+		e.dynamicsKind != lower.NotStateSpace)
 }
 
 // completeWithoutFlow completes an action stating no flow: it performs no step,
@@ -1534,9 +1516,9 @@ func (e *ActionExecutor) initialize() error {
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
 	}
-	if e.graph.Initial == nil {
-		return fmt.Errorf("%w: no initial node found in action %s%s",
-			ErrInvalidActionFlow, e.action.Name, noFlowStart(e.graph))
+	if err := lower.FlowStartError(e.graph); err != nil {
+		return fmt.Errorf("%w: no initial node found in action %s: %w",
+			ErrInvalidActionFlow, e.action.Name, err)
 	}
 
 	// A nested node's own flow is validated here, not at construction, so a
@@ -1548,20 +1530,22 @@ func (e *ActionExecutor) initialize() error {
 		return err
 	}
 
-	initialNode := e.graph.Initial
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
 
-	// Spawn initial token
-	token := Token{
-		ID:       e.nextTokenID,
-		Location: initialNode,
-		frame:    e.root,
+	// The performance starts its ordered flow and each unordered subaction at once.
+	starts := e.graph.Starts()
+	if len(starts) == 0 {
+		if err := checkStreamsReceived(e.root); err != nil {
+			return err
+		}
+		e.state = StateCompleted
+		e.ctx.endPerformanceLife(e.occurrence)
+		return nil
 	}
-	e.nextTokenID++
-	e.tokens = append(e.tokens, token)
+	e.seedTokens(e.root, starts, 0)
 
 	e.state = StateRunning
 	return nil

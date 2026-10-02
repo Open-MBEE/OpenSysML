@@ -12,6 +12,7 @@ import (
 func TestRuntimeRobustnessExploreFailures(t *testing.T) {
 	t.Run("fresh context failure fails the exploration", testExploreFreshContextFailure)
 	t.Run("root action initialization failure is setup", testExploreActionInitializationFailureIsSetup)
+	t.Run("unordered and empty actions are not setup failures", testExploreUnorderedActionsAreNotSetup)
 	t.Run("root state initialization failure is setup", testExploreStateInitializationFailureIsSetup)
 	t.Run("initial entry failure after a choice is a runtime outcome", testExploreInitialEntryFailureAfterChoiceIsRuntimeOutcome)
 	t.Run("deterministic entry failure is a runtime outcome", testExploreDeterministicEntryFailureIsRuntimeOutcome)
@@ -72,9 +73,8 @@ func testExploreActionInitializationFailureIsSetup(t *testing.T) {
 		action Broken {
 			action a;
 			action b;
-			action c;
-			succession first a then c;
-			succession first b then c;
+			succession first a then b;
+			succession first b then a;
 		}
 	}`)
 	sym := m.action(t, "Broken")
@@ -87,6 +87,36 @@ func testExploreActionInitializationFailureIsSetup(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidActionFlow) {
 		t.Errorf("setup error = %v, want ErrInvalidActionFlow", err)
+	}
+}
+
+func testExploreUnorderedActionsAreNotSetup(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action empty {}
+		action unordered {
+			attribute c : Integer := 0;
+			action a { assign c := c + 1; }
+			action b { assign c := c + 10; }
+		}
+		action joined {
+			attribute c : Integer := 0;
+			action a { assign c := c + 1; }
+			action b { assign c := c + 10; }
+			action d { assign c := c + 100; }
+			succession first a then d;
+			succession first b then d;
+		}
+	}`)
+	for name, runs := range map[string]int{"empty": 1, "unordered": 2, "joined": 2} {
+		exploration := exploreActionWith(t, m, name, 0)
+		if !exploration.Complete() || exploration.Runs != runs || exploration.FailedLinearizations() != 0 {
+			t.Errorf("explore %s: %s with %d runs and %d failures; want a complete %d-run search without failures",
+				name, exploration.Status(), exploration.Runs, exploration.FailedLinearizations(), runs)
+		}
+		if len(exploration.Outcomes) != 1 || exploration.Outcomes[0].Outcome.Err != nil {
+			t.Errorf("explore %s outcomes = %+v; want one successful outcome", name, exploration.Outcomes)
+		}
 	}
 }
 
@@ -335,7 +365,7 @@ func testExploreJoinDeadlockIsOutcome(t *testing.T) {
 			if x == 2 then starve;
 			action starve {
 				first start;
-				action stranded;
+				ref action stranded;
 				join wait;
 				done;
 				succession first start then wait;

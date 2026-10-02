@@ -1,0 +1,6 @@
+{
+  "type": "analysis",
+  "evaluate": "test::tally",
+  "trace": true,
+  "result": {"type": "Integer", "value": 15}
+}
