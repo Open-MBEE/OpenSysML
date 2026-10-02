@@ -263,6 +263,50 @@ func sysmlToReal(a sysmlInt) float64 {
 	return f
 }
 
+// sysmlNum is a value of a Real-typed feature: an Integer unless real is set.
+type sysmlNum struct {
+	i    sysmlInt
+	r    float64
+	real bool
+}
+
+func sysmlNI(i sysmlInt) sysmlNum { return sysmlNum{i: i} }
+func sysmlNR(r float64) sysmlNum  { return sysmlNum{r: r, real: true} }
+
+func (n sysmlNum) toReal() float64 {
+	if n.real {
+		return n.r
+	}
+	return sysmlToReal(n.i)
+}
+
+// sysmlNCmp orders two numbers exactly, whatever their kinds.
+func sysmlNCmp(a, b sysmlNum) int {
+	switch {
+	case !a.real && !b.real:
+		return sysmlICmp(a.i, b.i)
+	case !a.real:
+		return sysmlCmpIR(a.i, b.r)
+	case !b.real:
+		return -sysmlCmpIR(b.i, a.r)
+	case a.r < b.r:
+		return -1
+	case a.r > b.r:
+		return 1
+	}
+	return 0
+}
+
+// sysmlNSame is '===' of two numbers: the same kind and value.
+func sysmlNSame(a, b sysmlNum) bool { return a.real == b.real && sysmlNCmp(a, b) == 0 }
+
+func sysmlParseNum(s, name string) sysmlNum {
+	if digits := strings.TrimLeft(s, "+-"); len(s)-len(digits) <= 1 && digits != "" && strings.Trim(digits, "0123456789") == "" {
+		return sysmlNI(sysmlParseInt(s, name))
+	}
+	return sysmlNR(sysmlParseReal(s, name))
+}
+
 func sysmlAtLeast(v sysmlInt, lo int64, typ string) sysmlInt {
 	if sysmlICmp(v, sysmlI(lo)) < 0 {
 		sysmlFail(fmt.Sprintf("type mismatch: cannot write %s (an Integer) to a feature typed by %s", v, typ))
@@ -540,6 +584,13 @@ func sysmlParseBool(s, name string) bool {
 }
 
 func sysmlFormat(v any) string {
+	if n, ok := v.(sysmlNum); ok {
+		if n.real {
+			v = n.r
+		} else {
+			v = n.i
+		}
+	}
 	if i, ok := v.(sysmlInt); ok {
 		return i.String()
 	}
@@ -626,7 +677,9 @@ func goType(t Type) string {
 		return "float64"
 	case TypeBool:
 		return "bool"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool:
+	case TypeNum:
+		return "sysmlNum"
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
 		return goSeqType(t)
 	}
 	return "struct{}"
@@ -763,7 +816,26 @@ func (e *goEmitter) expr(x Expr) string {
 		if x.X.Type().Many() {
 			return "sysmlWiden(" + e.expr(x.X) + ")"
 		}
+		if x.X.Type() == TypeNum {
+			return e.expr(x.X) + ".toReal()"
+		}
 		return "sysmlToReal(" + e.expr(x.X) + ")"
+	case ToNum:
+		switch x.X.Type() {
+		case TypeInt:
+			return "sysmlNI(" + e.expr(x.X) + ")"
+		case TypeReal:
+			return "sysmlNR(" + e.expr(x.X) + ")"
+		}
+		return "sysmlNums(" + e.expr(x.X) + ")"
+	case AsInt:
+		return e.expr(x.X) + ".i"
+	case NumSplit:
+		ints := make([]string, len(x.Nums))
+		for i, v := range x.Nums {
+			ints[i] = "!" + goLocal(v.Name) + ".real"
+		}
+		return fmt.Sprintf("func() %s { if %s { return %s }; return %s }()", goType(x.T), strings.Join(ints, " && "), e.expr(x.Int), e.expr(x.Real))
 	case Unary:
 		operand := e.expr(x.X)
 		switch x.Op {
@@ -822,6 +894,15 @@ func (e *goEmitter) binary(x Binary) string {
 		return c
 	}
 	l, r := e.expr(x.L), e.expr(x.R)
+	if x.L.Type() == TypeNum {
+		switch x.Op {
+		case ast.OpEqEqEq:
+			return fmt.Sprintf("sysmlNSame(%s, %s)", l, r)
+		case ast.OpNeqEqEq:
+			return fmt.Sprintf("(!sysmlNSame(%s, %s))", l, r)
+		}
+		return fmt.Sprintf("(sysmlNCmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+	}
 	ints := x.L.Type() == TypeInt
 	switch x.Op {
 	case ast.OpAdd, ast.OpSub, ast.OpMul:
@@ -899,7 +980,7 @@ func (e *goEmitter) main(fn *Func) {
 	}
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
-		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool"}[p.Type.Elem()]
+		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool", TypeNum: "sysmlParseNum"}[p.Type.Elem()]
 		if p.Type.Many() {
 			parser = fmt.Sprintf("sysmlParseSeq[%s](args[%d], %q, %s)", goElem(p.Type), i, p.Name, parser)
 		} else {

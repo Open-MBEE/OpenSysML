@@ -150,6 +150,12 @@ func unboundedIntExpr(x Expr) string {
 		}
 	case ToReal:
 		return unboundedIntExprs(x.X)
+	case ToNum:
+		return unboundedIntExprs(x.X)
+	case AsInt:
+		return unboundedIntExprs(x.X)
+	case NumSplit:
+		return unboundedIntExprs(x.Int, x.Real)
 	case SeqLit:
 		return unboundedIntExprs(x.Elems...)
 	case ToMany:
@@ -172,7 +178,7 @@ func unboundedIntExpr(x Expr) string {
 		if what := unboundedIntExprs(x.Args...); what != "" {
 			return what
 		}
-		if (x.Op == SeqSum || x.Op == SeqProduct) && x.T == TypeInt {
+		if (x.Op == SeqSum || x.Op == SeqProduct) && (x.T == TypeInt || x.T == TypeNum) {
 			return fmt.Sprintf("the Integer %s", x.Op)
 		}
 	case Fold:

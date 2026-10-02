@@ -109,8 +109,8 @@ static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
 
 // cSeqTemplate is the runtime over one element type; ELEM is the C type, SFX
 // the suffix naming it, PRINT prints one element without a newline, FORMAT
-// writes one into a buffer, KIND is the interpreter's description of one, KEY
-// hashes one and SKIP says which elements equal nothing (a NaN).
+// writes one into a buffer, KINDOF is the interpreter's description of one, KEY
+// hashes one, EQ is '==' of two and SKIP says which elements equal nothing (a NaN).
 const cSeqTemplate = `
 typedef struct { int8_t shape; sysml_int len; ELEM *data; } sysml_seq_SFX;
 
@@ -190,12 +190,12 @@ static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
 		h ^= h >> 32;
 		for (size_t k = (size_t)h & (cap - 1);; k = (k + 1) & (cap - 1)) {
 			if (!slots[k]) { slots[k] = i + 1; break; }
-			if (s.data[slots[k] - 1] == v) {
+			if (EQ(s.data[slots[k] - 1], v)) {
 				sysml_int first = slots[k];
 				char text[64];
 				FORMAT(v, text, sizeof text);
 				free(slots);
-				sysml_failf("%s: uniqueness violation: %s (KIND) is written at positions %lld and %lld of a unique feature", where, text, (long long)first, (long long)i + 1);
+				sysml_failf("%s: uniqueness violation: %s (%s) is written at positions %lld and %lld of a unique feature", where, text, KINDOF(v), (long long)first, (long long)i + 1);
 			}
 		}
 	}
@@ -207,14 +207,14 @@ static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
 static sysml_bool sysml_eq_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	if (a.len == 0 || b.len == 0) return a.len == 0 && b.len == 0;
 	if (a.shape != b.shape || a.len != b.len) return false;
-	for (sysml_int i = 0; i < a.len; i++) if (a.data[i] != b.data[i]) return false;
+	for (sysml_int i = 0; i < a.len; i++) if (!EQ(a.data[i], b.data[i])) return false;
 	return true;
 }
 
 /* Same elements in order whatever the shape: SequenceFunctions::equals and same. */
 static sysml_bool sysml_equals_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	if (a.len != b.len) return false;
-	for (sysml_int i = 0; i < a.len; i++) if (a.data[i] != b.data[i]) return false;
+	for (sysml_int i = 0; i < a.len; i++) if (!EQ(a.data[i], b.data[i])) return false;
 	return true;
 }
 
@@ -224,7 +224,7 @@ static inline ELEM sysml_index_SFX(sysml_seq_SFX s, sysml_int i) {
 }
 
 static sysml_bool sysml_contains_SFX(sysml_seq_SFX s, ELEM v) {
-	for (sysml_int i = 0; i < s.len; i++) if (s.data[i] == v) return true;
+	for (sysml_int i = 0; i < s.len; i++) if (EQ(s.data[i], v)) return true;
 	return false;
 }
 
@@ -379,11 +379,57 @@ static sysml_seq_int sysml_range(sysml_int lo, sysml_int hi) {
 }
 
 /* The Real copy of an Integer collection, charged like any other materialized collection. */
-static sysml_seq_real sysml_widen(sysml_seq_int s) {
+static sysml_seq_real sysml_widen_int(sysml_seq_int s) {
 	sysml_charge(s.len);
 	sysml_seq_real r = {s.shape, s.len, s.len ? sysml_alloc((size_t)s.len * sizeof(sysml_real)) : NULL};
 	for (sysml_int i = 0; i < s.len; i++) r.data[i] = (sysml_real)s.data[i];
 	return r;
+}
+
+static sysml_seq_real sysml_widen_num(sysml_seq_num s) {
+	sysml_charge(s.len);
+	sysml_seq_real r = {s.shape, s.len, s.len ? sysml_alloc((size_t)s.len * sizeof(sysml_real)) : NULL};
+	for (sysml_int i = 0; i < s.len; i++) r.data[i] = sysml_num_real(s.data[i]);
+	return r;
+}
+
+/* The number copy of an Integer or Real collection, each element keeping its kind. */
+static sysml_seq_num sysml_nums_int(sysml_seq_int s) {
+	sysml_charge(s.len);
+	sysml_seq_num r = {s.shape, s.len, s.len ? sysml_alloc((size_t)s.len * sizeof(sysml_num)) : NULL};
+	for (sysml_int i = 0; i < s.len; i++) r.data[i] = sysml_ni(s.data[i]);
+	return r;
+}
+
+static sysml_seq_num sysml_nums_real(sysml_seq_real s) {
+	sysml_charge(s.len);
+	sysml_seq_num r = {s.shape, s.len, s.len ? sysml_alloc((size_t)s.len * sizeof(sysml_num)) : NULL};
+	for (sysml_int i = 0; i < s.len; i++) r.data[i] = sysml_nr(s.data[i]);
+	return r;
+}
+
+/* Folds numbers from the Integer identity: Integer arithmetic while both
+   operands hold Integers, Real arithmetic once one does not. */
+static sysml_num sysml_nfold(sysml_seq_num s, bool product, const char *op) {
+	sysml_num acc = sysml_ni(product ? 1 : 0);
+	for (sysml_int i = 0; i < s.len; i++) {
+		sysml_num v = s.data[i];
+		if (!acc.real && !v.real) {
+			bool over = product ? __builtin_mul_overflow(acc.i, v.i, &acc.i) : __builtin_add_overflow(acc.i, v.i, &acc.i);
+			if (over) sysml_failf("arithmetic overflow: %s leaves int64, which a C program holds", op);
+			continue;
+		}
+		acc = sysml_nr(product ? sysml_num_real(acc) * sysml_num_real(v) : sysml_num_real(acc) + sysml_num_real(v));
+		if (isinf(acc.r)) sysml_failf("arithmetic overflow: %s is not a finite Real", op);
+	}
+	return acc;
+}
+
+/* The hash key of a number: a whole one hashes as the Integer it equals. */
+static inline uint64_t sysml_num_key(sysml_num n) {
+	if (!n.real) return (uint64_t)n.i;
+	if (n.r == trunc(n.r) && n.r >= -9223372036854775808.0 && n.r < 9223372036854775808.0) return (uint64_t)(sysml_int)n.r;
+	return sysml_real_key(n.r);
 }
 
 static sysml_int sysml_isum(sysml_seq_int s, const char *op) {
@@ -449,6 +495,8 @@ func cSeqSuffix(t Type) string {
 		return "int"
 	case TypeReal:
 		return "real"
+	case TypeNum:
+		return "num"
 	}
 	return "bool"
 }
@@ -460,17 +508,21 @@ func cSeqRuntime() string {
 	// Element printers precede the template; the Real printer is the scalar one.
 	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
 	b.WriteString("static void sysml_format_int(sysml_int v, char *out, size_t size);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
-	for _, t := range []Type{TypeInt, TypeReal, TypeBool} {
+	b.WriteString("static inline uint64_t sysml_num_key(sysml_num n);\n")
+	b.WriteString("#define SYSML_SCALAR_EQ(a, b) ((a) == (b))\n#define SYSML_NEVER(v) false\n#define SYSML_KIND_INT(v) \"an Integer\"\n#define SYSML_KIND_REAL(v) \"a Real\"\n#define SYSML_KIND_BOOL(v) \"a Boolean\"\n")
+	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum} {
 		printer := "sysml_print_" + cSeqSuffix(t)
-		kind, key, skip := "an Integer", "(uint64_t)", "false && "
+		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "false && ", "SYSML_SCALAR_EQ"
 		switch t {
 		case TypeReal:
-			printer, kind, key, skip = "sysml_print_real_value", "a Real", "sysml_real_key", "isnan"
+			printer, kind, key, skip = "sysml_print_real_value", "SYSML_KIND_REAL", "sysml_real_key", "isnan"
 		case TypeBool:
-			kind = "a Boolean"
+			kind = "SYSML_KIND_BOOL"
+		case TypeNum:
+			printer, kind, key, skip, eq = "sysml_print_num_value", "sysml_num_kind", "sysml_num_key", "SYSML_NEVER", "sysml_num_eq"
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
-			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KIND", kind, "KEY", key, "SKIP", skip)
+			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)
@@ -639,6 +691,9 @@ func (e *cEmitter) seqCall(x SeqCall, v []string) string {
 	case SeqAnyTrue:
 		return fmt.Sprintf("sysml_any_true(%s)", v[0])
 	case SeqSum, SeqProduct:
+		if x.T == TypeNum {
+			return fmt.Sprintf("sysml_nfold(%s, %t, %q)", v[0], x.Op == SeqProduct, x.Op.Name())
+		}
 		fn := map[SeqOp]string{SeqSum: "sum", SeqProduct: "product"}[x.Op]
 		prefix := "i"
 		if x.T == TypeReal {
@@ -710,8 +765,12 @@ func (e *cEmitter) fold(x Fold) string {
 			less = ">"
 		}
 		fmt.Fprintf(&b, "if (!%s.len) sysml_fail(\"multiplicity violation: %s requires a collection of at least one element\"); ", seq, x.Op.Name())
-		fmt.Fprintf(&b, "%s sysml_r%d = 0; ", cType(x.T), n)
-		fmt.Fprintf(&b, "%s%s%s sysml_v%d = %s; if (sysml_i == 0 || sysml_v%d %s sysml_r%d) sysml_r%d = sysml_v%d; } ", loop, bind(at), cType(x.T), n, body, n, less, n, n, n)
+		fmt.Fprintf(&b, "%s sysml_r%d = %s; ", cType(x.T), n, cZero(x.T))
+		better := fmt.Sprintf("sysml_v%d %s sysml_r%d", n, less, n)
+		if x.T == TypeNum {
+			better = fmt.Sprintf("sysml_ncmp(sysml_v%d, sysml_r%d) %s 0", n, n, less)
+		}
+		fmt.Fprintf(&b, "%s%s%s sysml_v%d = %s; if (sysml_i == 0 || %s) sysml_r%d = sysml_v%d; } ", loop, bind(at), cType(x.T), n, body, better, n, n)
 		fmt.Fprintf(&b, "sysml_r%d; })", n)
 	default:
 		e.err = fmt.Errorf("codegen: C emitter has no case for body operation %s", x.Op)
@@ -726,7 +785,11 @@ func (e *cEmitter) forEach(s ForEach) {
 	elem := s.Seq.Type().Elem()
 	e.linef("{ %s %s = %s;", cType(s.Seq.Type()), seq, e.expr(s.Seq))
 	e.indent++
-	e.linef("if (%s.shape == SYSML_ONE) sysml_fail(\"type mismatch: 'for' iterates a collection, and %s is not one\");", seq, article(elem))
+	if elem == TypeNum {
+		e.linef("if (%s.shape == SYSML_ONE) sysml_failf(\"type mismatch: 'for' iterates a collection, and %%s is not one\", sysml_num_kind(%s.data[0]));", seq, seq)
+	} else {
+		e.linef("if (%s.shape == SYSML_ONE) sysml_fail(\"type mismatch: 'for' iterates a collection, and %s is not one\");", seq, article(elem))
+	}
 	mark := e.arenaMark()
 	e.linef("for (sysml_int sysml_i = 0; sysml_i < %s.len; sysml_i++) {", seq)
 	e.indent++

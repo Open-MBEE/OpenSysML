@@ -3,6 +3,7 @@ package codegen
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -40,20 +41,69 @@ type Compiler struct {
 	order []*Func
 	// collections is set once any compiled value is a collection.
 	collections bool
+	// keys is the specialization each function compiles.
+	keys   map[*Func]specKey
+	target Target
+	entry  specKey
+	// nums are the Real-typed slots some write gives an Integer, compiled as
+	// numbers of either kind; widened is set when a pass adds one.
+	nums    map[slot]bool
+	widened bool
+}
+
+// slot is a Real-typed feature of one specialization: a parameter by name, a
+// body-local attribute by declaration, or the result (neither).
+type slot struct {
+	key  specKey
+	name string
+	decl ast.Node
 }
 
 // New returns a Compiler resolving names through resolver and typing through model.
 func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
-	return &Compiler{model: model, resolver: resolver, funcs: map[specKey]*Func{}}
+	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}}
 }
 
-// Compile compiles entry and every calc it invokes, transitively.
-func (c *Compiler) Compile(entry *symbols.Symbol) (*Program, error) {
-	fn, err := c.compileCalcWith(entry, nil)
-	if err != nil {
-		return nil, err
+// Compile compiles entry and every calc it invokes, transitively, for target.
+// A Real-typed feature that may be given an Integer keeps its kind, as the
+// interpreter's does, so compiling repeats until no further such feature is found.
+func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, error) {
+	c.target, c.entry = target, specKeyOf(entry, nil)
+	for {
+		c.funcs, c.order, c.keys, c.collections, c.widened = map[specKey]*Func{}, nil, map[*Func]specKey{}, false, false
+		fn, err := c.compileCalcWith(entry, nil)
+		if c.widened {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &Program{Funcs: c.order, Entry: fn, Collections: c.collections, Target: target}, nil
 	}
-	return &Program{Funcs: c.order, Entry: fn, Collections: c.collections}, nil
+}
+
+// widen records that slot s may hold an Integer.
+func (c *Compiler) widen(s slot) {
+	if !c.nums[s] {
+		c.nums[s], c.widened = true, true
+	}
+}
+
+// slotted is b, declared by slot s, compiled as numbers once s may hold an Integer.
+func (c *Compiler) slotted(b binding, s slot) binding {
+	b.slot = &s
+	if b.t.Elem() == TypeReal && c.nums[s] {
+		b.t = numbers(b.t)
+	}
+	return b
+}
+
+// numbers is the number type of t's shape.
+func numbers(t Type) Type {
+	if t.Many() {
+		return TypeSeqNum
+	}
+	return TypeNum
 }
 
 // env is the lexical environment of a body: parameters and body-local variables,
@@ -76,6 +126,8 @@ type binding struct {
 	inline  Expr
 	fn      *funcValue
 	sampled *sampledFn
+	// slot is the declaration a write widens, for a Real-typed binding.
+	slot *slot
 }
 
 func (e *env) push()                    { e.frames = append(e.frames, map[string]binding{}) }
@@ -94,6 +146,7 @@ func (e *env) lookup(n string) (binding, bool) {
 type funcCompiler struct {
 	c     *Compiler
 	fn    *Func
+	key   specKey
 	sym   *symbols.Symbol
 	scope *symbols.Scope
 	env   env
@@ -134,9 +187,10 @@ func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Fun
 	// Registered before the body is compiled so recursion finds it; the result
 	// type of a recursive call is fixed by an earlier return (see compileCall).
 	c.funcs[key] = fn
+	c.keys[fn] = key
 	c.order = append(c.order, fn)
 
-	fc := &funcCompiler{c: c, fn: fn, sym: sym, scope: sym.Scope}
+	fc := &funcCompiler{c: c, fn: fn, key: key, sym: sym, scope: sym.Scope}
 	fc.env.push()
 	nextFn := 0
 	for _, member := range unwrapped(body) {
@@ -166,6 +220,12 @@ func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Fun
 		if err != nil {
 			return nil, err
 		}
+		s := slot{key: key, name: name}
+		if key == c.entry && c.target != TargetC && b.t.Elem() == TypeReal {
+			// A Go program reads a Real argument in either notation, as the interpreter does.
+			c.nums[s] = true
+		}
+		b = c.slotted(b, s)
 		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m, Unique: b.unique})
 		fc.env.bind(name, b)
 	}
@@ -223,6 +283,9 @@ func (c *Compiler) compileInheriting(sym *symbols.Symbol, body []ast.Node, rels 
 	if err != nil {
 		return nil, err
 	}
+	if specKeyOf(sym, fargs) == c.entry {
+		c.entry = specKeyOf(parent, fargs)
+	}
 	fn, err := c.compileCalcWith(parent, fargs)
 	if err != nil {
 		return nil, err
@@ -278,7 +341,11 @@ func (fc *funcCompiler) declaredResult(sym *symbols.Symbol, body []ast.Node) (bi
 			}
 			return binding{}, nil
 		}
-		return fc.declaredBinding(sym.Scope, u, name)
+		b, err := fc.declaredBinding(sym.Scope, u, name)
+		if err != nil {
+			return binding{}, err
+		}
+		return fc.c.slotted(b, slot{key: fc.key}), nil
 	}
 	return binding{}, nil
 }
@@ -585,7 +652,7 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
-		declared = b
+		declared = fc.c.slotted(b, slot{key: fc.key, decl: u})
 	} else if _, ok := fc.sampleCall(s.Value); ok {
 		return fc.compileSampledDeclare(s)
 	}
@@ -614,7 +681,7 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 	}
-	checked := binding{t: declared.t, r: declared.r, m: MultAny, unique: declared.unique}
+	checked := binding{t: declared.t, r: declared.r, m: MultAny, unique: declared.unique, slot: declared.slot}
 	if multStated {
 		checked.m = declared.m
 	}
@@ -726,16 +793,19 @@ func (fc *funcCompiler) compileBool(n ast.Node, what, fail string) (Expr, error)
 	return v, nil
 }
 
-// coerce widens an Integer operand to a Real where a Real is expected; any
-// other mismatch is outside the subset.
+// coerce widens an Integer operand to a Real where a Real is expected, and views
+// a number of one kind as a number of either; any other mismatch is outside the subset.
 func (fc *funcCompiler) coerce(v Expr, t Type, what string) (Expr, error) {
+	ve, te := v.Type().Elem(), t.Elem()
 	switch {
 	case v.Type() == t:
 		return v, nil
-	case v.Type() == TypeInt && t == TypeReal, v.Type() == TypeSeqInt && t == TypeSeqReal:
-		return ToReal{X: v}, nil
 	case v.Type() == TypeNull && t.Many():
 		return fc.retype(v, t), nil
+	case te == TypeNum && (ve == TypeInt || ve == TypeReal):
+		return fc.coerce(ToNum{X: v}, t, what)
+	case te == TypeReal && (ve == TypeInt || ve == TypeNum):
+		return fc.coerce(ToReal{X: v}, t, what)
 	case v.Type().Scalar() && t.Many():
 		return fc.toMany(v, t, what)
 	}
@@ -873,6 +943,13 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		if t == TypeNum {
+			x, err := fc.numArith(n.Operator, l, r)
+			if err != nil {
+				return nil, err
+			}
+			return wrap(x), nil
+		}
 		if n.Operator == ast.OpDiv {
 			// A quotient of Integers is a Rational.
 			t = TypeReal
@@ -892,9 +969,13 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		}
 		return wrap(Binary{Op: n.Operator, L: l, R: r, T: t}), nil
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
-		l, r, _, wrap, err := fc.numericOperands(n)
+		l, r, t, wrap, err := fc.numericOperands(n)
 		if err != nil {
 			return nil, err
+		}
+		if t == TypeNum {
+			l, _ = fc.coerce(l, TypeNum, "")
+			r, _ = fc.coerce(r, TypeNum, "")
 		}
 		return wrap(Binary{Op: n.Operator, L: l, R: r, T: TypeBool}), nil
 	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
@@ -936,6 +1017,13 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if x.Type() == TypeBool {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' over a Boolean", n.Operator))
 		}
+		if x.Type() == TypeNum && n.Operator == ast.OpNeg {
+			return fc.split([]Expr{x}, func(v []Expr) Expr {
+				return ToNum{X: Unary{Op: ast.OpNeg, X: asInt(v[0]), T: TypeInt}}
+			}, func(v []Expr) Expr {
+				return ToNum{X: Unary{Op: ast.OpNeg, X: asReal(v[0]), T: TypeReal}}
+			}, TypeNum), nil
+		}
 		return Unary{Op: n.Operator, X: x, T: x.Type()}, nil
 	case ast.OpNot:
 		if len(n.Operands) != 1 {
@@ -962,7 +1050,7 @@ func (fc *funcCompiler) binaryOperands(n *ast.OperatorExpr) (Expr, Expr, func(Ex
 		return nil, nil, nil, err
 	}
 	wrap := func(x Expr) Expr { return x }
-	if l.Type().Many() {
+	if l.Type().Many() || r.Type().Many() && l.Type() == TypeNum {
 		// A right operand whose evaluation only spends steps spends them in place.
 		if n, x := leading(r); n > 0 && pure(x) {
 			l, r = fc.then(l, n), x
@@ -1022,13 +1110,20 @@ func (fc *funcCompiler) numericOperands(n *ast.OperatorExpr) (Expr, Expr, Type, 
 	if l.Type() == TypeBool || r.Type() == TypeBool {
 		return nil, nil, TypeInvalid, nil, fc.unsupported(fmt.Sprintf("'%s' over a Boolean", n.Operator))
 	}
-	t, _ := fc.unify(l, r, "")
+	if l.Type() == TypeNum || r.Type() == TypeNum {
+		return l, r, TypeNum, wrap, nil
+	}
+	t := l.Type()
+	if l.Type() != r.Type() {
+		t = TypeReal
+	}
 	l, _ = fc.coerce(l, t, "")
 	r, _ = fc.coerce(r, t, "")
 	return l, r, t, wrap, nil
 }
 
-// unify is the common type of two numeric expressions: Real if either is.
+// unify is the common type of two values: Integers and Reals meet as numbers,
+// each keeping its kind.
 func (fc *funcCompiler) unify(a, b Expr, what string) (Type, error) {
 	at, bt := a.Type(), b.Type()
 	switch {
@@ -1044,9 +1139,9 @@ func (fc *funcCompiler) unify(a, b Expr, what string) (Type, error) {
 		return TypeInvalid, fc.unsupported(fmt.Sprintf("%s are %s and %s", what, at, bt))
 	}
 	if at.Scalar() && bt.Scalar() {
-		return TypeReal, nil
+		return TypeNum, nil
 	}
-	return TypeSeqReal, nil
+	return TypeSeqNum, nil
 }
 
 func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
@@ -1133,7 +1228,8 @@ func (fc *funcCompiler) finishCalcCall(callee *Func, args []Arg) (Expr, error) {
 	for i, a := range args {
 		p := callee.Params[a.Param]
 		// The callee checks multiplicity and range on entry; only the shape is bound here.
-		if args[i].Value, err = fc.bind(a.Value, binding{t: p.Type, m: MultAny}, paramWhere(p.Name), paramWhere(p.Name)); err != nil {
+		b := binding{t: p.Type, m: MultAny, slot: &slot{key: fc.c.keys[callee], name: p.Name}}
+		if args[i].Value, err = fc.bind(a.Value, b, paramWhere(p.Name), paramWhere(p.Name)); err != nil {
 			return nil, err
 		}
 	}
@@ -1188,16 +1284,80 @@ func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (
 		}
 		types[a.Param] = args[i].Value.Type()
 	}
+	if slices.Contains(types, TypeNum) {
+		return fc.numLibCall(fqn, params, args, types)
+	}
 	op, why := libOpFor(fqn, types)
 	if why != "" {
 		return nil, fc.unsupported(why)
 	}
+	return fc.libCall(op, fqn, params, args)
+}
+
+// libCall applies op to args, each coerced to its operand's type.
+func (fc *funcCompiler) libCall(op LibOp, fqn string, params []string, args []Arg) (Expr, error) {
+	args = slices.Clone(args)
+	var err error
 	for i, a := range args {
 		if args[i].Value, err = fc.coerce(a.Value, op.Operands()[a.Param], fmt.Sprintf("argument for %s of %s", params[a.Param], fqn)); err != nil {
 			return nil, err
 		}
 	}
 	return LibCall{Op: op, Args: args}, nil
+}
+
+// numLibCall applies a library function to number arguments: a function that
+// keeps its arguments' kind applies its Integer form when every one holds an
+// Integer, any other its Real form.
+func (fc *funcCompiler) numLibCall(fqn string, params []string, args []Arg, types []Type) (Expr, error) {
+	as := func(k Type) []Type {
+		ts := slices.Clone(types)
+		for i, t := range ts {
+			if t == TypeNum {
+				ts[i] = k
+			}
+		}
+		return ts
+	}
+	realOp, why := libOpFor(fqn, as(TypeReal))
+	if why != "" {
+		return nil, fc.unsupported(why)
+	}
+	intOp, why := libOpFor(fqn, as(TypeInt))
+	if why != "" || intOp == realOp {
+		return fc.libCall(realOp, fqn, params, args)
+	}
+	values := make([]Expr, len(args))
+	for i, a := range args {
+		values[i] = a.Value
+	}
+	t := intOp.Result()
+	if t != realOp.Result() {
+		t = TypeNum
+	}
+	var failed error
+	branch := func(op LibOp, k Type) func([]Expr) Expr {
+		return func(vs []Expr) Expr {
+			bound := slices.Clone(args)
+			for i := range bound {
+				bound[i].Value = vs[i]
+				if k == TypeInt {
+					bound[i].Value = asInt(vs[i])
+				}
+			}
+			x, err := fc.libCall(op, fqn, params, bound)
+			if err != nil {
+				failed = err
+				return BoolLit{}
+			}
+			if t == TypeNum {
+				return ToNum{X: x}
+			}
+			return x
+		}
+	}
+	x := fc.split(values, branch(intOp, TypeInt), branch(realOp, TypeReal), t)
+	return x, failed
 }
 
 // bindArgs compiles n's arguments in source order, each bound to one of params;

@@ -169,6 +169,26 @@ static inline int sysml_cmp_ir(sysml_int a, sysml_real r) {
 	return r > t ? -1 : (r < t ? 1 : 0);
 }
 
+/* A value of a Real-typed feature: an Integer unless real is set. */
+typedef struct { bool real; sysml_int i; sysml_real r; } sysml_num;
+
+static inline sysml_num sysml_ni(sysml_int i) { return (sysml_num){false, i, 0}; }
+static inline sysml_num sysml_nr(sysml_real r) { return (sysml_num){true, 0, r}; }
+static inline sysml_real sysml_num_real(sysml_num n) { return n.real ? n.r : (sysml_real)n.i; }
+
+/* Orders two numbers exactly, whatever their kinds. */
+static inline int sysml_ncmp(sysml_num a, sysml_num b) {
+	if (!a.real && !b.real) return a.i < b.i ? -1 : (a.i > b.i ? 1 : 0);
+	if (!a.real) return sysml_cmp_ir(a.i, b.r);
+	if (!b.real) return -sysml_cmp_ir(b.i, a.r);
+	return a.r < b.r ? -1 : (a.r > b.r ? 1 : 0);
+}
+
+/* '===' of two numbers: the same kind and value. */
+static inline sysml_bool sysml_nsame(sysml_num a, sysml_num b) { return a.real == b.real && sysml_ncmp(a, b) == 0; }
+static inline sysml_bool sysml_num_eq(sysml_num a, sysml_num b) { return sysml_ncmp(a, b) == 0; }
+static inline const char *sysml_num_kind(sysml_num n) { return n.real ? "a Real" : "an Integer"; }
+
 static inline sysml_real sysml_finite(sysml_real r) {
 	if (__builtin_expect(!isfinite(r), 0)) sysml_fail("arithmetic overflow: result is not a finite Real");
 	return r;
@@ -394,6 +414,22 @@ static void sysml_print_real(sysml_real r) {
 	fputc('\n', stdout);
 }
 
+static void sysml_format_num(sysml_num n, char *out, size_t size) {
+	if (n.real) sysml_format_real(n.r, out, size);
+	else snprintf(out, size, "%" PRId64, n.i);
+}
+
+static void sysml_print_num_value(sysml_num n) {
+	char text[64];
+	sysml_format_num(n, text, sizeof text);
+	fputs(text, stdout);
+}
+
+static void sysml_print_num(sysml_num n) {
+	sysml_print_num_value(n);
+	fputc('\n', stdout);
+}
+
 static sysml_int sysml_parse_int(const char *s, const char *name) {
 	char *end;
 	errno = 0;
@@ -437,7 +473,21 @@ static bool sysml_nonzero_notation(const char *s) {
 	return false;
 }
 
+/* Whether s is decimal Integer notation: an optional sign, then digits. */
+static bool sysml_int_notation(const char *s) {
+	if (*s == '+' || *s == '-') s++;
+	if (!*s) return false;
+	for (; *s; s++) if (*s < '0' || *s > '9') return false;
+	return true;
+}
+
+/* A Real argument is read only in Real notation: the interpreter keeps an
+   Integer argument an Integer, which a Real-typed C parameter cannot hold. */
 static sysml_real sysml_parse_real(const char *s, const char *name) {
+	if (sysml_int_notation(s)) {
+		fprintf(stderr, "argument %s: %s is an Integer, which a compiled C program reads for a Real parameter only in Real notation (as %s.0)\n", name, s, s);
+		exit(2);
+	}
 	if (!sysml_real_notation(s)) {
 		fprintf(stderr, "argument %s: %s is not a finite Real in decimal notation\n", name, s);
 		exit(2);
@@ -448,6 +498,11 @@ static sysml_real sysml_parse_real(const char *s, const char *name) {
 		exit(1);
 	}
 	return v;
+}
+
+static sysml_num sysml_parse_num(const char *s, const char *name) {
+	if (sysml_int_notation(s)) return sysml_ni(sysml_parse_int(s, name));
+	return sysml_nr(sysml_parse_real(s, name));
 }
 
 static sysml_bool sysml_parse_bool(const char *s, const char *name) {
@@ -502,6 +557,8 @@ func pure(x Expr) bool {
 		return true
 	case ToReal:
 		return pure(x.X)
+	case ToNum:
+		return pure(x.X)
 	}
 	return false
 }
@@ -553,7 +610,9 @@ func cType(t Type) string {
 		return "sysml_real"
 	case TypeBool:
 		return "sysml_bool"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool:
+	case TypeNum:
+		return "sysml_num"
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
 		return "sysml_seq_" + cSeqSuffix(t)
 	}
 	return "void"
@@ -775,6 +834,8 @@ func cZero(t Type) string {
 		return "false"
 	case t.Many():
 		return fmt.Sprintf("sysml_null_%s()", cSeqSuffix(t))
+	case t == TypeNum:
+		return "sysml_ni(0)"
 	}
 	return "0"
 }
@@ -797,9 +858,28 @@ func (e *cEmitter) expr(x Expr) string {
 		return cLocal(x.Name)
 	case ToReal:
 		if x.X.Type().Many() {
-			return "sysml_widen(" + e.expr(x.X) + ")"
+			return fmt.Sprintf("sysml_widen_%s(%s)", cSeqSuffix(x.X.Type()), e.expr(x.X))
+		}
+		if x.X.Type() == TypeNum {
+			return "sysml_num_real(" + e.expr(x.X) + ")"
 		}
 		return "(sysml_real)" + e.expr(x.X)
+	case ToNum:
+		switch x.X.Type() {
+		case TypeInt:
+			return "sysml_ni(" + e.expr(x.X) + ")"
+		case TypeReal:
+			return "sysml_nr(" + e.expr(x.X) + ")"
+		}
+		return fmt.Sprintf("sysml_nums_%s(%s)", cSeqSuffix(x.X.Type()), e.expr(x.X))
+	case AsInt:
+		return "(" + e.expr(x.X) + ").i"
+	case NumSplit:
+		ints := make([]string, len(x.Nums))
+		for i, v := range x.Nums {
+			ints[i] = "!" + cLocal(v.Name) + ".real"
+		}
+		return fmt.Sprintf("(%s ? %s : %s)", strings.Join(ints, " && "), e.expr(x.Int), e.expr(x.Real))
 	case Unary:
 		return e.unary(x)
 	case Binary:
@@ -907,6 +987,15 @@ func (e *cEmitter) binary(x Binary) string {
 // strict is a binary operator whose operands l and r are already evaluated.
 func (e *cEmitter) strict(x Binary, l, r string) string {
 	operands := x.L.Type()
+	if operands == TypeNum {
+		switch x.Op {
+		case ast.OpEqEqEq:
+			return fmt.Sprintf("sysml_nsame(%s, %s)", l, r)
+		case ast.OpNeqEqEq:
+			return fmt.Sprintf("(!sysml_nsame(%s, %s))", l, r)
+		}
+		return fmt.Sprintf("(sysml_ncmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+	}
 	switch x.Op {
 	case ast.OpAdd, ast.OpSub, ast.OpMul:
 		if operands == TypeInt {
@@ -1043,6 +1132,8 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 		e.linef("sysml_print_real(result);")
 	case TypeBool:
 		e.linef("puts(result ? \"true\" : \"false\");")
+	case TypeNum:
+		e.linef("sysml_print_num(result);")
 	default:
 		e.linef("sysml_print_seq_%s(result);", cSeqSuffix(fn.Result))
 	}

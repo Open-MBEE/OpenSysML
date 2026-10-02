@@ -214,6 +214,24 @@ var compiledCases = []compiledCase{
 	{"Wide::Least", []string{"(18446744073709551616,-18446744073709551616,3)"}},
 	{"Wide::Compare", []string{"-18446744073709551616", "18446744073709551616"}}, {"Wide::Compare", []string{"18446744073709551616", "18446744073709551616"}},
 	{"Loop::Churn", []string{"7.0"}}, {"Loop::ChurnFor", []string{"9"}}, {"Loop::ChurnNest", []string{"5.0"}},
+	{"Num::Keep", []string{"3"}}, {"Num::Keep", []string{"3.0"}}, {"Num::Keep", []string{"-0.0"}},
+	{"Num::Local", []string{"3"}}, {"Num::Twice", []string{"3"}}, {"Num::Twice", []string{"9223372036854775807"}},
+	{"Num::Plus", []string{"3", "0.5"}}, {"Num::Half", []string{"3"}}, {"Num::Half", []string{"4"}},
+	{"Num::Recip", []string{"3"}}, {"Num::Recip", []string{"0"}}, {"Num::Square", []string{"3"}},
+	{"Num::Same", []string{"3"}}, {"Num::Same", []string{"4"}}, {"Num::SameReal", []string{"3"}},
+	{"Num::Equal", []string{"3"}}, {"Num::Equal", []string{"4"}},
+	{"Num::Less", []string{"3", "3.5"}}, {"Num::Less", []string{"9007199254740993", "9007199254740992.0"}},
+	{"Num::Pick", []string{"true", "3"}}, {"Num::Pick", []string{"false", "3"}},
+	{"Num::Assigned", []string{"0"}}, {"Num::Assigned", []string{"4"}},
+	{"Num::Identity", []string{"3.0", "3"}}, {"Num::Identity", []string{"3", "3"}},
+	{"Num::MixLit", []string{"1"}}, {"Num::Collect", []string{"(1,2.5)"}}, {"Num::Collect", []string{"(1.5,2.5)"}}, {"Num::Collect", []string{"null"}},
+	{"Num::Sum", []string{"1"}}, {"Num::SumInts", []string{"1"}}, {"Num::Least", []string{"1"}}, {"Num::Least", []string{"3"}},
+	{"Num::Unique", []string{"1"}}, {"Num::Unique", []string{"2"}}, {"Num::Has", []string{"3"}}, {"Num::Has", []string{"4"}},
+	{"Num::Coalesce", []string{"null"}}, {"Num::Coalesce", []string{"(4)"}},
+	{"Num::Equality", []string{"(1,2)", "(1.0,2.0)"}}, {"Num::Equality", []string{"(1,2)", "(1.0,2.5)"}}, {"Num::Equality", []string{"null", "()"}},
+	{"Num::SameSeq", []string{"(1,2)", "(2.0,1.0)"}}, {"Num::SameSeq", []string{"(1)", "(1.5)"}},
+	{"Num::Union", []string{"(1,2)", "(2.0,3.5)"}}, {"Num::Union", []string{"null", "(1.5)"}},
+	{"Num::Floor", []string{"3"}}, {"Num::Max", []string{"3"}}, {"Num::Max", []string{"1"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the
@@ -329,23 +347,40 @@ func beyondInt64(args []string) bool {
 	return false
 }
 
+// integerForReal reports whether an argument in Integer notation is given for
+// a Real-typed parameter of p, which a compiled C program refuses as input: the
+// interpreter keeps that argument an Integer, and a C Real holds only binary64.
+func integerForReal(p *codegen.Program, args []string) bool {
+	for i, param := range p.Entry.Params {
+		if i >= len(args) || param.Type.Elem() != codegen.TypeReal {
+			continue
+		}
+		for _, tok := range strings.FieldsFunc(args[i], func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
+			if tok != "null" && strings.Trim(strings.TrimLeft(tok, "+-"), "0123456789") == "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // buildCalc compiles calc for target into exe, reporting false when the C target
 // refuses it for Integer arithmetic that may leave int64: the Go target, which
-// computes it exactly, must accept every calc.
-func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) bool {
+// computes it exactly, must accept every calc. It returns the program built, or nil.
+func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
-	program, err := s.CompileCalc("Compiled::" + calc)
+	program, err := s.CompileCalc("Compiled::"+calc, target)
 	if err != nil {
 		t.Fatalf("compile %s: %v", calc, err)
 	}
 	err = codegen.Build(program, target, exe)
 	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return false
+		return nil
 	}
 	if err != nil {
 		t.Fatalf("build %s: %v", calc, err)
 	}
-	return true
+	return program
 }
 
 // loadCompileFixture loads the fixture into a session with the default budgets,
@@ -376,6 +411,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			s := loadCompileFixture(t)
 			exes := map[string]string{}
+			programs := map[string]*codegen.Program{}
 			refused := map[string]bool{}
 			dir := t.TempDir()
 			for _, c := range compiledCases {
@@ -385,7 +421,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if !buildCalc(t, s, c.calc, target, exe) {
+					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
 						refused[c.calc] = true
 						continue
 					}
@@ -396,6 +432,14 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 					var exit *exec.ExitError
 					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is beyond int64") {
 						t.Errorf("%s(%s): got %v %q, want the argument refused as beyond int64 with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
+					}
+					continue
+				}
+				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
+					out, err := exec.Command(exe, c.args...).CombinedOutput()
+					var exit *exec.ExitError
+					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "only in Real notation") {
+						t.Errorf("%s(%s): got %v %q, want the Integer argument refused for a Real parameter with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
 					}
 					continue
 				}
@@ -476,7 +520,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if !buildCalc(t, s, c.calc, target, exe) {
+					if buildCalc(t, s, c.calc, target, exe) == nil {
 						refused[c.calc] = true
 						continue
 					}
@@ -499,7 +543,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			if out, err := exec.Command(exes["Seq::BigIn"], "--repeat", "3", "(1,2,3,4,5,6,7,8,9,10)").Output(); err != nil || strings.TrimSpace(string(out)) != "10" {
 				t.Errorf("--repeat within budget: got %q, %v", out, err)
 			}
-			program, err := s.CompileCalc("Compiled::Seq::BigW")
+			program, err := s.CompileCalc("Compiled::Seq::BigW", target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -565,6 +609,7 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 			s := loadCompileFixture(t)
 			dir := t.TempDir()
 			exes := map[string]string{}
+			programs := map[string]*codegen.Program{}
 			refused := map[string]bool{}
 			checked := 0
 			for _, c := range compiledCases {
@@ -574,11 +619,14 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if !buildCalc(t, s, c.calc, target, exe) {
+					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
 						refused[c.calc] = true
 						continue
 					}
 					exes[c.calc] = exe
+				}
+				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
+					continue
 				}
 				steps, ok := stepsTaken(t, s, c, limit)
 				if !ok {
@@ -629,7 +677,7 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	s := loadCompileFixture(t)
 	dir := t.TempDir()
 	for calc, arg := range map[string]string{"Churn": "50000.0", "ChurnFor": "50000", "ChurnNest": "10000.0"} {
-		program, err := s.CompileCalc("Compiled::Loop::" + calc)
+		program, err := s.CompileCalc("Compiled::Loop::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -661,13 +709,8 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"RecordParam", "type Refused::Point is not Integer, Real or Boolean"},
 		{"EnumParam", "type Refused::Color is not Integer, Real or Boolean"},
 		{"Extent", "operator 'all'"},
-		{"RealIntIdentity", "'===' between Real and Integer"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
-		{"CoalesceWidened", "a Real at the right operand of '??', which holds Integer[0..*]"},
-		{"MixedEquality", "a Integer[0..*] at the left operand of '==', which holds Real[0..*]"},
-		{"MixedSame", "same over Integer and Real collections"},
-		{"MixedUnion", "union over Integer and Real collections"},
 		{"CalcParam", "parameter f binds a function value, which a program cannot take on its command line"},
 		{"EscapingParam", "the function value f escaping as the result"},
 		{"ReturnedFunction", "an invocation where a function value is expected"},
@@ -700,7 +743,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},
 	} {
-		_, err := s.CompileCalc("Refused::" + tc.calc)
+		_, err := s.CompileCalc("Refused::"+tc.calc, codegen.TargetGo)
 		if err == nil {
 			t.Errorf("%s: compiled, want a refusal mentioning %q", tc.calc, tc.reason)
 			continue
@@ -712,7 +755,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 			t.Errorf("%s: %v does not mention %q", tc.calc, err, tc.reason)
 		}
 	}
-	if _, err := s.CompileCalc("Compiled::Nowhere"); err == nil {
+	if _, err := s.CompileCalc("Compiled::Nowhere", codegen.TargetGo); err == nil {
 		t.Error("an unknown calc compiled")
 	}
 }
@@ -729,7 +772,7 @@ func TestCompileRefusesAmbiguousCall(t *testing.T) {
 		private import B::*;
 		calc def Pick { in n : Integer; return : Integer = pick(n); }
 	}`)
-	_, err := s.CompileCalc("Amb::Pick")
+	_, err := s.CompileCalc("Amb::Pick", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) {
 		t.Fatalf("got %v, want an ErrUnsupported refusal", err)
 	}
@@ -753,7 +796,7 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, `Add binds parameter "a" twice`) {
 		t.Fatalf("diagnostics = %v, want Add binds parameter \"a\" twice", errs)
 	}
-	_, err := s.CompileCalc("Twice::Dup")
+	_, err := s.CompileCalc("Twice::Dup", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), "binds parameter a twice") {
 		t.Fatalf("CompileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
 	}
@@ -775,7 +818,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		{"Wide::Product", "the Integer product"},
 		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
 	} {
-		program, err := s.CompileCalc("Compiled::" + tc.calc)
+		program, err := s.CompileCalc("Compiled::"+tc.calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", tc.calc, err)
 		}
@@ -783,12 +826,16 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
 			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
 		}
+		program, err = s.CompileCalc("Compiled::"+tc.calc, codegen.TargetGo)
+		if err != nil {
+			t.Fatalf("compile %s: %v", tc.calc, err)
+		}
 		if _, err := codegen.Source(program, codegen.TargetGo); err != nil {
 			t.Errorf("Go source of %s: %v", tc.calc, err)
 		}
 	}
 	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
-		program, err := s.CompileCalc("Compiled::" + calc)
+		program, err := s.CompileCalc("Compiled::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", calc, err)
 		}
@@ -801,11 +848,11 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 // The generated source is deterministic and names the calc it came from.
 func TestCompiledSourceNamesTheCalc(t *testing.T) {
 	s := loadCompileFixture(t)
-	program, err := s.CompileCalc("Compiled::Hypot")
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, target := range codegen.Targets() {
+		program, err := s.CompileCalc("Compiled::Hypot", target)
+		if err != nil {
+			t.Fatal(err)
+		}
 		src, err := codegen.Source(program, target)
 		if err != nil {
 			t.Fatal(err)

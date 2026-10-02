@@ -35,6 +35,10 @@ func leading(x Expr) (int64, Expr) {
 		m, rest := leading(x.X)
 		x.X = rest
 		return m, x
+	case ToNum:
+		m, rest := leading(x.X)
+		x.X = rest
+		return m, x
 	case ToMany:
 		m, rest := leading(x.X)
 		x.X = rest
@@ -98,6 +102,8 @@ func infallible(x Expr) bool {
 		return true
 	case ToReal:
 		return infallible(x.X)
+	case ToNum:
+		return infallible(x.X)
 	}
 	return false
 }
@@ -109,6 +115,9 @@ func unstepped(x Expr) Expr {
 	case Steps:
 		return unstepped(x.X)
 	case ToReal:
+		x.X = unstepped(x.X)
+		return x
+	case ToNum:
 		x.X = unstepped(x.X)
 		return x
 	case Unary:

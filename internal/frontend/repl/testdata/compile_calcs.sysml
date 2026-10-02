@@ -511,6 +511,41 @@ package Compiled {
 		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(size(s))); } } return : Real[0..*] nonunique = keep; }
 		calc def ChurnNest { in n : Real; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Real = 0.0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0.0; } assign i := i + 1.0; } return : Real = size(keep) * 1.0 + size(inner); }
 	}
+	// Integers written to Real-typed features stay Integers, as the
+	// interpreter keeps them: arithmetic, comparison, identity, printing and
+	// collections over a value whose kind is known only at run time.
+	package Num {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import NumericalFunctions::*;
+		calc def Keep { in a : Real; return : Real = a; }
+		calc def Local { in a : Integer; attribute r : Real = a; return : Real = r; }
+		calc def Twice { in a : Integer; attribute r : Real = a; return : Real = r * 2 + 1; }
+		calc def Plus { in a : Integer; in b : Real; attribute r : Real = a; return : Real = r + b; }
+		calc def Half { in a : Integer; attribute r : Real = a; return : Real = r / 2; }
+		calc def Recip { in a : Integer; attribute r : Real = a; return : Real = r ** -1; }
+		calc def Square { in a : Integer; attribute r : Real = a; return : Real = r ** 2; }
+		calc def Same { in a : Integer; attribute r : Real = a; return : Boolean = r === 3; }
+		calc def SameReal { in a : Integer; attribute r : Real = a; return : Boolean = r === 3.0; }
+		calc def Equal { in a : Integer; attribute r : Real = a; return : Boolean = r == 3.0 and r != 4; }
+		calc def Less { in a : Integer; in b : Real; attribute r : Real = a; return : Boolean = r < b; }
+		calc def Pick { in c : Boolean; in a : Integer; return : Real = if c ? a else 2.5; }
+		calc def Assigned { in n : Integer; attribute r : Real = 0.5; for i in 1..n { assign r := i; } return : Real = r; }
+		calc def Identity { in x : Real; in y : Integer; return : Boolean = x === y; }
+		calc def MixLit { in a : Integer; return : Real[0..*] = (a, 2.5, 3); }
+		calc def Collect { in x : Real[0..*]; return : Real[0..*] = x->collect {in v; v * 2}; }
+		calc def Sum { in a : Integer; return : Real = sum((a, 2.5)); }
+		calc def SumInts { in a : Integer; return : Real = sum((a, 2)); }
+		calc def Least { in a : Integer; return : Real = (a, 2.5)->minimize {in v; v}; }
+		calc def Unique { in a : Integer; attribute x : Real[0..*] = (a, 1.0); return : Real[0..*] = x; }
+		calc def Has { in a : Integer; return : Boolean = includes((a, 2.5), 3.0); }
+		calc def Coalesce { in x : Integer[0..*]; return : Real = x ?? 5.5; }
+		calc def Equality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
+		calc def SameSeq { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
+		calc def Union { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
+		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
+		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }
+	}
 }
 
 // Calculations outside the subset, each refused for the reason its name states.
@@ -542,13 +577,8 @@ package Refused {
 	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
 	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
-	calc def RealIntIdentity { in x : Real; in y : Integer; return : Boolean = x === y; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }
 	calc def CollectNull { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; null}; }
-	calc def CoalesceWidened { in x : Integer[0..*]; return : Real = x ?? 5.5; }
-	calc def MixedEquality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
-	calc def MixedSame { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
-	calc def MixedUnion { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
 
 	// Function values: a program takes no function on its command line, and a
 	// function value is compiled only where it is applied or passed on.

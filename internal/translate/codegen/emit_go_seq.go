@@ -17,7 +17,9 @@ const (
 	sysmlMany
 )
 
-type sysmlElem interface{ sysmlInt | float64 | bool }
+type sysmlElem interface {
+	sysmlInt | float64 | bool | sysmlNum
+}
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
 type sysmlSeq[T sysmlElem] struct {
@@ -113,11 +115,16 @@ func sysmlCheck[T sysmlElem](s sysmlSeq[T], lo, hi int64, where string) sysmlSeq
 
 // sysmlElemKind is the interpreter's description of an element's type.
 func sysmlElemKind[T sysmlElem](v T) string {
-	switch any(v).(type) {
+	switch v := any(v).(type) {
 	case sysmlInt:
 		return "an Integer"
 	case float64:
 		return "a Real"
+	case sysmlNum:
+		if v.real {
+			return "a Real"
+		}
+		return "an Integer"
 	}
 	return "a Boolean"
 }
@@ -141,6 +148,17 @@ type sysmlBigKey string
 
 // sysmlKey is v as a map key: equal elements, and only they, share one.
 func sysmlKey[T sysmlElem](v T) any {
+	if n, ok := any(v).(sysmlNum); ok {
+		// A whole Real keys as the Integer it equals.
+		if n.real && (n.r != math.Trunc(n.r) || math.IsInf(n.r, 0)) {
+			return n.r
+		}
+		if n.real {
+			i, _ := new(big.Float).SetFloat64(n.r).Int(nil)
+			return sysmlKey(sysmlWrap(i))
+		}
+		return sysmlKey(n.i)
+	}
 	if i, ok := any(v).(sysmlInt); ok {
 		if i.big != nil {
 			return sysmlBigKey(i.big.String())
@@ -152,8 +170,11 @@ func sysmlKey[T sysmlElem](v T) any {
 
 // sysmlElemEq is the '==' of two elements.
 func sysmlElemEq[T sysmlElem](a, b T) bool {
-	if x, ok := any(a).(sysmlInt); ok {
+	switch x := any(a).(type) {
+	case sysmlInt:
 		return sysmlICmp(x, any(b).(sysmlInt)) == 0
+	case sysmlNum:
+		return sysmlNCmp(x, any(b).(sysmlNum)) == 0
 	}
 	return a == b
 }
@@ -362,15 +383,53 @@ func sysmlRangeCharge(n int64) {
 	sysmlSteps += n
 }
 
-// sysmlWiden is the Real copy of an Integer collection, charged like any
-// other materialized collection.
-func sysmlWiden(s sysmlSeq[sysmlInt]) sysmlSeq[float64] {
+// sysmlWiden is the Real copy of a collection of Integers or numbers, charged
+// like any other materialized collection.
+func sysmlWiden[T sysmlElem](s sysmlSeq[T]) sysmlSeq[float64] {
 	sysmlCharge(int64(len(s.data)))
 	r := sysmlSeq[float64]{s.shape, make([]float64, len(s.data))}
 	for i, v := range s.data {
-		r.data[i] = sysmlToReal(v)
+		switch v := any(v).(type) {
+		case sysmlInt:
+			r.data[i] = sysmlToReal(v)
+		case sysmlNum:
+			r.data[i] = v.toReal()
+		}
 	}
 	return r
+}
+
+// sysmlNums is the number copy of a collection of Integers or Reals, each
+// element keeping its kind.
+func sysmlNums[T sysmlElem](s sysmlSeq[T]) sysmlSeq[sysmlNum] {
+	sysmlCharge(int64(len(s.data)))
+	r := sysmlSeq[sysmlNum]{s.shape, make([]sysmlNum, len(s.data))}
+	for i, v := range s.data {
+		switch v := any(v).(type) {
+		case sysmlInt:
+			r.data[i] = sysmlNI(v)
+		case float64:
+			r.data[i] = sysmlNR(v)
+		}
+	}
+	return r
+}
+
+// sysmlNFold folds numbers from the Integer identity, by Integer arithmetic
+// while both operands hold Integers and by Real arithmetic once one does not.
+func sysmlNFold(s sysmlSeq[sysmlNum], identity int64, ints func(a, b sysmlInt) sysmlInt, reals func(a, b float64) float64, op string) sysmlNum {
+	acc := sysmlNI(sysmlI(identity))
+	for _, v := range s.data {
+		if !acc.real && !v.real {
+			acc = sysmlNI(ints(acc.i, v.i))
+			continue
+		}
+		acc = sysmlNR(reals(acc.toReal(), v.toReal()))
+		if math.IsInf(acc.r, 0) {
+			sysmlFailf("arithmetic overflow: %s is not a finite Real", op)
+		}
+	}
+	return acc
 }
 
 func sysmlISum(s sysmlSeq[sysmlInt], op string) sysmlInt {
@@ -625,6 +684,12 @@ func (e *goEmitter) seqCall(x SeqCall, v []string) string {
 	case SeqAnyTrue:
 		return fmt.Sprintf("sysmlAnyTrue(%s)", v[0])
 	case SeqSum, SeqProduct:
+		if x.T == TypeNum {
+			if x.Op == SeqSum {
+				return fmt.Sprintf("sysmlNFold(%s, 0, sysmlAdd, func(a, b float64) float64 { return a + b }, %q)", v[0], x.Op.Name())
+			}
+			return fmt.Sprintf("sysmlNFold(%s, 1, sysmlMul, func(a, b float64) float64 { return a * b }, %q)", v[0], x.Op.Name())
+		}
 		fn := map[SeqOp]string{SeqSum: "Sum", SeqProduct: "Product"}[x.Op]
 		prefix := "I"
 		if x.T == TypeReal {
@@ -684,8 +749,11 @@ func (e *goEmitter) fold(x Fold) string {
 		}
 		fmt.Fprintf(&b, "if len(s.data) == 0 { sysmlFail(%s) }; var r %s; ", strconv.Quote("multiplicity violation: "+x.Op.Name()+" requires a collection of at least one element"), goType(x.T))
 		better := fmt.Sprintf("k %s r", less)
-		if x.T == TypeInt {
+		switch x.T {
+		case TypeInt:
 			better = fmt.Sprintf("sysmlICmp(k, r) %s 0", less)
+		case TypeNum:
+			better = fmt.Sprintf("sysmlNCmp(k, r) %s 0", less)
 		}
 		fmt.Fprintf(&b, "for i, v := range s.data { %sk := %s; if i == 0 || %s { r = k } }; return r }()", bind("v"), body, better)
 	default:
@@ -701,7 +769,11 @@ func (e *goEmitter) forEach(s ForEach) {
 	e.indent++
 	e.linef("s := %s", e.expr(s.Seq))
 	e.linef("if s.shape == sysmlOne {")
-	e.linef("\tsysmlFail(%s)", strconv.Quote("type mismatch: 'for' iterates a collection, and "+article(elem)+" is not one"))
+	if elem == TypeNum {
+		e.linef("\tsysmlFail(\"type mismatch: 'for' iterates a collection, and \" + sysmlElemKind(s.data[0]) + \" is not one\")")
+	} else {
+		e.linef("\tsysmlFail(%s)", strconv.Quote("type mismatch: 'for' iterates a collection, and "+article(elem)+" is not one"))
+	}
 	e.linef("}")
 	e.linef("for _, %s := range s.data {", goLocal(s.Var))
 	e.indent++

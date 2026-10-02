@@ -18,10 +18,12 @@ const (
 	TypeInt          // Integer and its subtypes, unbounded (int64 until a result leaves it)
 	TypeReal         // Real and Rational, IEEE 754 binary64
 	TypeBool
+	TypeNum     // a Real-typed value, an Integer or a Real by run-time kind
 	TypeNull    // `null` before context fixes its collection type
 	TypeSeqInt  // collection of Integers
 	TypeSeqReal // collection of Reals
 	TypeSeqBool // collection of Booleans
+	TypeSeqNum  // collection of numbers, each element of its own kind
 )
 
 func (t Type) String() string {
@@ -32,16 +34,18 @@ func (t Type) String() string {
 		return "Real"
 	case TypeBool:
 		return "Boolean"
+	case TypeNum:
+		return "Real"
 	case TypeNull:
 		return "null"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool:
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum:
 		return t.Elem().String() + "[0..*]"
 	}
 	return "invalid"
 }
 
-// Scalar reports whether t is exactly one Integer, Real or Boolean.
-func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeBool }
+// Scalar reports whether t is exactly one Integer, Real, Boolean or number.
+func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeNum }
 
 // Many reports whether t is a collection type.
 func (t Type) Many() bool { return t >= TypeSeqInt }
@@ -115,6 +119,8 @@ type Program struct {
 	Funcs       []*Func
 	Entry       *Func
 	Collections bool
+	// Target is the backend the program was compiled for.
+	Target Target
 }
 
 // Func is one compiled calculation.
@@ -201,8 +207,24 @@ type LibCall struct {
 	Args []Arg
 }
 
-// ToReal widens an Integer to a Real; over a collection, every element.
+// ToReal widens an Integer, or a number of either kind, to a Real; over a
+// collection, every element.
 type ToReal struct{ X Expr }
+
+// ToNum views an Integer or a Real as a number keeping its kind; over a
+// collection, every element.
+type ToNum struct{ X Expr }
+
+// AsInt is the Integer a number holds, read where NumSplit has found one.
+type AsInt struct{ X Expr }
+
+// NumSplit is Int when every number in Nums holds an Integer, else Real; both
+// branches are of type T and read only Vars already evaluated.
+type NumSplit struct {
+	Nums      []Var
+	Int, Real Expr
+	T         Type
+}
 
 // NullLit is `null`, the empty value of collection type T (or TypeNull).
 type NullLit struct{ T Type }
@@ -327,6 +349,14 @@ func (t ToReal) Type() Type {
 	}
 	return TypeReal
 }
+func (t ToNum) Type() Type {
+	if t.X.Type().Many() {
+		return TypeSeqNum
+	}
+	return TypeNum
+}
+func (AsInt) Type() Type      { return TypeInt }
+func (n NumSplit) Type() Type { return n.T }
 func (n NullLit) Type() Type  { return n.T }
 func (s SeqLit) Type() Type   { return s.T }
 func (t ToMany) Type() Type   { return t.X.Type().Seq() }

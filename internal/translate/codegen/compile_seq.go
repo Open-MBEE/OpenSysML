@@ -13,8 +13,16 @@ import (
 // checks multiplicity, range and uniqueness. A run-time failure names the site
 // as the interpreter does, by label.
 func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, error) {
-	if b.t.Elem() == TypeReal && v.Type().Elem() == TypeInt {
+	switch ve := v.Type().Elem(); {
+	case b.t.Elem() == TypeReal && (ve == TypeInt || ve == TypeNum):
+		// An Integer written to a Real-typed feature stays an Integer.
+		if b.slot == nil {
+			return nil, fc.unsupported(fmt.Sprintf("an Integer bound at %s, which holds %s", where, b.t))
+		}
+		fc.c.widen(*b.slot)
 		v = ToReal{X: v}
+	case b.t.Elem() == TypeNum && (ve == TypeInt || ve == TypeReal):
+		v = ToNum{X: v}
 	}
 	vt := v.Type()
 	if b.t.Scalar() {
@@ -94,6 +102,12 @@ func (fc *funcCompiler) scalarOperand(v, other Expr, op ast.OperatorKind, left b
 // other still to be checked has its description filled at run time.
 func (fc *funcCompiler) pairOperand(v, other Expr, left bool, fail string, bare bool, fixed string) Expr {
 	desc := fixed
+	if desc == "" && other.Type() == TypeNum {
+		// A number is described by the kind it holds, which binaryOperands has
+		// evaluated into a Var.
+		kinds := func(d string) Expr { return fc.pairOperand(v, other, left, fail, bare, d) }
+		return NumSplit{Nums: []Var{other.(Var)}, Int: kinds("an Integer"), Real: kinds("a Real"), T: v.Type().Elem()}
+	}
 	if desc == "" {
 		desc = article(other.Type().Elem())
 	}
@@ -142,15 +156,24 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 			return nil, err
 		}
 		if t := v.Type(); t != TypeNull {
-			if elem != TypeInvalid && elem != t.Elem() {
+			if elem != TypeInvalid && elem != t.Elem() && (elem == TypeBool || t.Elem() == TypeBool) {
 				return nil, fc.unsupported(fmt.Sprintf("a sequence mixing %s and %s elements", elem, t.Elem()))
 			}
-			elem = t.Elem()
+			if elem != TypeInvalid && elem != t.Elem() {
+				elem = TypeNum
+			} else {
+				elem = t.Elem()
+			}
 		}
 		elems[i] = v
 	}
 	if elem == TypeInvalid {
 		return SeqLit{Elems: elems, T: TypeNull}, nil
+	}
+	for i, v := range elems {
+		if v.Type() != TypeNull && v.Type().Elem() != elem {
+			elems[i] = ToNum{X: v}
+		}
 	}
 	return SeqLit{Elems: elems, T: elem.Seq()}, nil
 }
@@ -213,10 +236,13 @@ func (fc *funcCompiler) compileCoalesce(n *ast.OperatorExpr) (Expr, error) {
 	if t == TypeNull {
 		return nil, fc.unsupported("'??' between two nulls")
 	}
-	if l, err = fc.toMany(l, t, "the left operand of '??'"); err != nil {
+	if le, re := t.Elem(), r.Type().Elem(); r.Type() != TypeNull && le != re && le != TypeBool && re != TypeBool {
+		t = TypeSeqNum
+	}
+	if l, err = fc.coerce(l, t, "the left operand of '??'"); err != nil {
 		return nil, err
 	}
-	if r, err = fc.toMany(r, t, "the right operand of '??'"); err != nil {
+	if r, err = fc.coerce(r, t, "the right operand of '??'"); err != nil {
 		return nil, err
 	}
 	return Coalesce{L: l, R: r, T: t}, nil
@@ -241,13 +267,13 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		if neq {
 			op = ast.OpNeq
 		}
-		if lt != rt {
+		if lt != rt || lt == TypeNum {
+			// Numbers compare by value under `==`, and by kind too under `===`.
+			l, _ = fc.coerce(l, TypeNum, "")
+			r, _ = fc.coerce(r, TypeNum, "")
 			if ident {
-				return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
+				op = n.Operator
 			}
-			t, _ := fc.unify(l, r, "")
-			l, _ = fc.coerce(l, t, "")
-			r, _ = fc.coerce(r, t, "")
 		}
 		return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
 	}
@@ -262,26 +288,19 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		re = le
 	}
 	if le != re {
-		if ident {
+		if le == TypeBool || re == TypeBool {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
 		}
-		le, re = TypeReal, TypeReal
+		// Collections compare their elements as numbers, under `===` too.
+		le, re = TypeNum, TypeNum
 	}
-	if l, err = fc.toMany(l, le.Seq(), "the left operand of '"+n.Operator.String()+"'"); err != nil {
+	if l, err = fc.coerce(l, le.Seq(), "the left operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
 	}
-	if r, err = fc.toMany(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
+	if r, err = fc.coerce(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
 	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
-}
-
-// widen is v as a collection of Reals.
-func widen(v Expr) Expr {
-	if v.Type() == TypeSeqReal {
-		return v
-	}
-	return ToReal{X: v}
 }
 
 // compileSeqCall is a call of a collection operation. The receiver of
@@ -334,16 +353,14 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			elem = t
 		case elem != t && (elem == TypeBool || t == TypeBool):
 			return nil, fc.unsupported(fmt.Sprintf("%s over Boolean and numeric collections", op.Name()))
-		case elem != t && !predicateOp(op):
-			return nil, fc.unsupported(fmt.Sprintf("%s over %s and %s collections", op.Name(), elem, t))
 		case elem != t:
-			elem = TypeReal
+			elem = TypeNum
 		}
 	}
 	if elem == TypeInvalid {
 		elem = TypeInt
 	}
-	if realAgg && elem == TypeInt {
+	if realAgg && elem != TypeBool {
 		elem = TypeReal
 	}
 	var err error
@@ -358,10 +375,7 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			}
 			continue
 		}
-		if a.Type() != TypeNull && a.Type().Elem() != elem {
-			a = widen(a)
-		}
-		if args[i], err = fc.toMany(a, elem.Seq(), what); err != nil {
+		if args[i], err = fc.coerce(a, elem.Seq(), what); err != nil {
 			return nil, err
 		}
 	}
@@ -455,7 +469,7 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 		}
 		t = elem.Seq()
 	case SeqMinimize, SeqMaximize:
-		if rt != TypeInt && rt != TypeReal {
+		if rt != TypeInt && rt != TypeReal && rt != TypeNum {
 			return nil, fc.unsupported(fmt.Sprintf("%s whose body yields %s, not a number", op.Name(), rt))
 		}
 		t = rt
@@ -489,7 +503,7 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 			if !ok {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s: type %s does not resolve", p.Name, qnText(p.Type)))
 			}
-			if t, _, ok := scalarType(fc.c.name(sym)); !ok || t != paramTypes[i] {
+			if t, _, ok := scalarType(fc.c.name(sym)); !ok || t != paramTypes[i] && !(t == TypeReal && paramTypes[i] == TypeNum) {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s typed other than %s", p.Name, paramTypes[i]))
 			}
 		}
