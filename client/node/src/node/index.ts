@@ -153,7 +153,10 @@ export async function save(
   if (target instanceof Migration) {
     const files = await migrationFiles(target, path);
     await writeFile(path, target.content, "utf8");
-    await Promise.all(files.map(([file, data]) => writeImage(file, data)));
+    await files.reduce(
+      (previous, [file, data]) => previous.then(() => writeImage(file, data)),
+      Promise.resolve(),
+    );
     return target;
   }
   const conversion =
