@@ -181,7 +181,7 @@ func TestReflectivePortUsageNestedFeaturesAndConnectorEnds(t *testing.T) {
 	port := nestedSym(t, root, "P::host::p")
 	nested := nestedSym(t, root, "P::host::p::nested")
 	assertReflectiveFeatureFlags(t, m, port)
-	for name, want := range map[string]bool{"isComposite": false, "isReference": true} {
+	for name, want := range map[string]bool{"isComposite": true, "isReference": false} {
 		got, ok := m.ReflectiveFeatureValue(nested, name)
 		if !ok || got.Bool != want {
 			t.Errorf("nested %s = %v (present %t), want %t", name, got, ok, want)

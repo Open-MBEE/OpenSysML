@@ -1684,10 +1684,9 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 	}
 
 	owner := sym.Owner()
-	// Pilot AttributeDefinition.java and AttributeUsage.java require referential features;
-	// Usage_isReference_SettingDelegate.java maps reference state to non-composite usage state.
-	if m.reflectiveAttributeFeatureOwner(owner) ||
-		(isUsage && m.metaclassConforms(owner, sysmlMetaclassPrefix+"PortUsage")) {
+	// The census records pilot silence for attribute-composite members
+	// (validateAttributeDefinitionFeatures, validateAttributeUsageFeatures; docs/project/validation-constraints.md).
+	if m.reflectiveAttributeFeatureOwner(owner) {
 		flags.isComposite = false
 	}
 	if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {

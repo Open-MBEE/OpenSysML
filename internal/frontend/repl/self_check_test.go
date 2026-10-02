@@ -111,3 +111,43 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 		t.Fatalf("no unevaluated verdict: %+v", verdicts)
 	}
 }
+
+func TestSelfCheckReportsNestedCompositePortUsageViolation(t *testing.T) {
+	s := loadSelfCheckRepoFixture(t, "tools/referee/reject/testdata/negative/semantic/s25-port-nested-composite-part.sysml")
+	verdicts := s.selfCheck("SysMLValidation")
+	assertSelfCheckViolation(t, verdicts,
+		"validatePortUsageNestedUsagesNotComposite",
+		"S25PortNestedCompositePart::p::pt")
+}
+
+func TestSelfCheckReportsCompositePortDefinitionUsageViolation(t *testing.T) {
+	s := loadSelfCheckRepoFixture(t, "tools/referee/reject/testdata/negative/xpect/p26-port-def-nonreferential-usage.sysml")
+	verdicts := s.selfCheck("SysMLValidation")
+	assertSelfCheckViolation(t, verdicts,
+		"validatePortDefinitionOwnedUsagesNotComposite",
+		"P26PortDefNonReferentialUsage::pd1")
+}
+
+func loadSelfCheckRepoFixture(t *testing.T, path string) *Session {
+	t.Helper()
+	text, err := os.ReadFile(filepath.Join("..", "..", "..", path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession()
+	s.SubmitFiles([]SourceFile{{Name: filepath.Base(path), Text: string(text)}})
+	return s
+}
+
+func assertSelfCheckViolation(t *testing.T, verdicts []Verdict, constraint, element string) {
+	t.Helper()
+	for _, verdict := range verdicts {
+		text := verdict.Subject + "\n" + strings.Join(verdict.Lines, "\n")
+		if verdict.Status == VerdictFails &&
+			strings.Contains(text, constraint) &&
+			strings.Contains(text, element) {
+			return
+		}
+	}
+	t.Fatalf("no %s violation for %s in %+v", constraint, element, verdicts)
+}
