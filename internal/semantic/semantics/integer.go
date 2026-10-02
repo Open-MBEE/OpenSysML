@@ -318,25 +318,6 @@ func IntDivTrunc(a, b Value) (Value, bool) {
 	return BigIntValue(new(big.Int).Quo(a.bigView(), b.bigView())), true
 }
 
-// IntQuotient is the exact rational quotient of two Integers rounded once to
-// the nearest float64, shared by the folder and the runtime; ok=false on a
-// zero divisor. Rounding each operand first would move quotients of operands
-// beyond 2^53, where float64 loses exactness. A quotient beyond the float64
-// range rounds to an infinity, which callers report as a Real overflow.
-func IntQuotient(a, b Value) (float64, bool) {
-	if b.IntSign() == 0 {
-		return 0, false
-	}
-	var r *big.Rat
-	if a.ext == nil && b.ext == nil {
-		r = new(big.Rat).SetFrac64(a.Int, b.Int)
-	} else {
-		r = new(big.Rat).SetFrac(a.bigView(), b.bigView())
-	}
-	q, _ := r.Float64()
-	return q, true
-}
-
 // IntPow is a**n for an Integer base and a non-negative Integer exponent,
 // refused with ErrIntegerSizeLimit before it is computed when the result would
 // need more than maxBits.
