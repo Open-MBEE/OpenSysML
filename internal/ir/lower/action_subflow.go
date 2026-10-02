@@ -232,10 +232,6 @@ type effectiveActionMember struct {
 }
 
 func effectiveActionMembers(node *ast.Usage, scope *symbols.Scope) ([]effectiveActionMember, bool, error) {
-	owner := scope
-	if owner != nil && owner.Parent() != nil {
-		owner = owner.Parent()
-	}
 	var collect func(*ast.Usage, *symbols.Scope, map[ast.Node]bool) ([]effectiveActionMember, bool, error)
 	collect = func(usage *ast.Usage, bodyScope *symbols.Scope, active map[ast.Node]bool) ([]effectiveActionMember, bool, error) {
 		if active[usage] {

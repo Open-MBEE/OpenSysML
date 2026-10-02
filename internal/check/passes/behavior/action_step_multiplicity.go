@@ -312,9 +312,12 @@ func (c *actionStepMultiplicityChecker) report(graph *lower.ActionGraph, err err
 	c.reported[stepErr.Node][stepErr.Code] = true
 	declaration := stepErr.Declaration
 	if declaration == nil && graph != nil {
-		declaration = graph.Multiplicities[stepErr.Node]
-		if declaration == nil {
-			declaration, _ = graph.StepMultiplicity(stepErr.Node, c.model)
+		multiplicity := graph.Multiplicities[stepErr.Node]
+		if multiplicity == nil {
+			multiplicity, _ = graph.StepMultiplicity(stepErr.Node, c.model)
+		}
+		if multiplicity != nil {
+			declaration = multiplicity
 		}
 	}
 	span := stepErr.Node.Span()

@@ -420,7 +420,7 @@ func declaredGenerals(body *symbols.Scope, typing bool) ([]*symbols.Symbol, bool
 	var uncertain bool
 	for _, rel := range rels {
 		if rel == nil || (rel.Kind != ast.RelSpecializes && rel.Kind != ast.RelSubsets &&
-			rel.Kind != ast.RelRedefines && (typing == false ||
+			rel.Kind != ast.RelRedefines && (!typing ||
 			(rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences))) {
 			continue
 		}

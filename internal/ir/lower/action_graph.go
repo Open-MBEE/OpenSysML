@@ -1332,30 +1332,6 @@ func resolveFirstNode(graph *ActionGraph) error {
 	return nil
 }
 
-// lowerSuccession adds the edge a succession states between the nodes its two
-// ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string, sourceMultiplicity, targetMultiplicity *ast.Multiplicity) error {
-	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
-	if sourceNode == nil {
-		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
-	}
-	targetNode := resolveActionEndpoint(graph, targetRef, false)
-	if targetNode == nil {
-		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
-	}
-	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-		Source:             sourceNode,
-		Target:             targetNode,
-		Guard:              guard,
-		Decl:               decl,
-		Probability:        weight,
-		Name:               name,
-		SourceMultiplicity: sourceMultiplicity,
-		TargetMultiplicity: targetMultiplicity,
-	})
-	return nil
-}
-
 // lowerPinBindings lowers a binding to one PinBinding per end that addresses a
 // pin of a node nodes resolves; a binding addressing no node lowers to nothing.
 func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope *symbols.Scope) ([]PinBinding, error) {
@@ -2303,15 +2279,6 @@ func flowEndText(end ast.Node) string {
 		return edgeEndName(e.Name)
 	}
 	return "(nothing)"
-}
-
-// parsePinReference extracts node and pin name from a qualified reference.
-// Format: "nodeName.pinName" or just "nodeName" (pin = "")
-func parsePinReference(nodes []ast.Node, qname *ast.QualifiedName) (ast.Node, string) {
-	if qname == nil {
-		return nil, ""
-	}
-	return flowEnd(nodesNamed(nodes), qname)
 }
 
 // statementKeyword names a body statement for a diagnostic.
