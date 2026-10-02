@@ -78,7 +78,10 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
 - Give a `faithful`/`approximate`/`known-failure` row an empty `implementation` or `tests`, or a
   `not-implemented`/`approximate` row an empty `scope`, or any non-`faithful` row an empty
   `reason`: the baseline is rejected before the document or the model is read.
-- Use a scope token that is not `uml:<Name>` or `sysml:<Name>`, or one `-measure` has not counted.
+- Use a scope token that is not `uml:<Name>` or `sysml:<Name>` (optionally qualified
+  `[attr]`/`[attr=value]` — the qualifier restricts to elements carrying the attribute, or a
+  direct child element of that name; the value form matches the attribute exactly), or one
+  `-measure` has not counted.
 - Edit a recorded count under `measurement.counts` (with the PSSM suite present): "the recorded
   measurement is stale".
 - Edit `source.document`/`url`/`digest` away from `scripts/sysml-v1tov2-pin.sh`: the source block
@@ -95,6 +98,7 @@ afterwards (`git checkout -- <file>` on a clean tree, or keep a copy).
 Verdicts are edited by hand in the baseline (the extracted fields are not). Moving a row to
 ✅/⚠️/🚧 needs an implementation cite that resolves (`<file>.go:<Func>` or `<file>.go:<Type.method>`)
 and a test cite that resolves (`<file>_test.go:<TestX>`); a ❌/⚠️ row needs at least one
-`uml:<Name>`/`sysml:<Name>` scope token, after which `-measure` must re-run so the token is counted
+`uml:<Name>`/`sysml:<Name>` scope token (with an optional `[attr]`/`[attr=value]` qualifier
+when only a subset applies, e.g. `uml:ObjectFlow[weight]`), after which `-measure` must re-run so the token is counted
 and the gaps table re-orders, then `go run -C tools ./cmd/transformation-census` rewrites the
 document — `-check` fails until all three agree.

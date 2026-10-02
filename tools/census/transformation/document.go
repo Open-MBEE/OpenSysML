@@ -38,7 +38,7 @@ func renderSource(b *Baseline) string {
 	line := fmt.Sprintf("**Source:** OMG SysML v1 to v2 transformation model, document `%s`, `%s` (`%s`) — %d packages, %d classes, %d mapping classes, %d OCL2.0 operation bodies",
 		s.Document, s.File, s.Digest, s.Packages, s.Classes, s.Mappings, s.OCLBodies)
 	if s.OCLSpecifications != s.OCLBodies {
-		line += fmt.Sprintf(" (of %d OCL2.0 specifications; the other %d are %d postconditions and %d owned rules)",
+		line += fmt.Sprintf(" (of %d OCL2.0 specifications; the other %d are postconditions (%d) and owned rules (%d))",
 			s.OCLSpecifications, s.OCLSpecifications-s.OCLBodies, s.OCLPostconditions, s.OCLOwnedRules)
 	}
 	return line + "."

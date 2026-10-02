@@ -62,8 +62,9 @@ func scoped(status string) bool {
 	return status == StatusNotImplemented || status == StatusApproximate
 }
 
-// scopeToken is a measured corpus token: `uml:<Name>` or `sysml:<Name>`.
-var scopeToken = regexp.MustCompile(`^(uml|sysml):[A-Za-z_]\w*$`)
+// scopeToken is a measured corpus token: `uml:<Name>` or `sysml:<Name>`,
+// optionally qualified `[attr]` (attribute or direct child) or `[attr=value]`.
+var scopeToken = regexp.MustCompile(`^(uml|sysml):[A-Za-z_]\w*(\[[A-Za-z_]\w*(=[^\]\s]+)?\])?$`)
 
 // Baseline is the committed record: the pin and the counts the rows came from,
 // the measured corpora, each mapping's extracted fields and verdict, and the
@@ -196,7 +197,7 @@ func (b *Baseline) validate() error {
 		}
 		for _, tok := range m.Scope {
 			if !scopeToken.MatchString(tok) {
-				return fmt.Errorf("%s: %s scope %q is not uml:<Name> or sysml:<Name>", baselinePath, m.Name, tok)
+				return fmt.Errorf("%s: %s scope %q is not a scope token (uml:<Name> or sysml:<Name>, optionally qualified)", baselinePath, m.Name, tok)
 			}
 			used[tok] = true
 		}
