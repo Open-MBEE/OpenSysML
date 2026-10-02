@@ -39,6 +39,23 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[0..*]",
 		},
 		{
+			name: "unordered unbounded count",
+			code: "action-step-multiplicity-not-fixed",
+			model: `action def A {
+				action a[0..*];
+			}`,
+			step: "a", multiplicity: "[0..*]",
+		},
+		{
+			name: "unordered repeated step with outgoing succession",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				action a[3] { } then q;
+				action q { }
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
 			name: "open ordering",
 			code: "action-step-order-open",
 			model: `action def A {
@@ -113,6 +130,23 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 					}
 					then done;
 				}
+			}`,
+			step: "tick", multiplicity: "[3]",
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+		},
+		{
+			name: "unordered step in a while block",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then worker;
+				action worker {
+					while true {
+						action anchor;
+						first start then anchor;
+						action tick[3] { }
+					}
+				}
+				then done;
 			}`,
 			step: "tick", multiplicity: "[3]",
 			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
@@ -235,6 +269,22 @@ func TestActionStepMultiplicityPassReportsUnaddressableBoundAsUnsupported(t *tes
 	}
 }
 
+func TestActionStepMultiplicityPassReportsUnaddressableConcurrentStartAsUnsupported(t *testing.T) {
+	got := actionStepMultiplicityDiags(t, `action def A {
+		action a[2**70];
+	}`)
+	if len(got) != 1 {
+		t.Fatalf("diagnostics = %+v, want one action-step warning", got)
+	}
+	if got[0].Severity != diag.SeverityWarning || got[0].Source != "action-step-multiplicity" ||
+		got[0].Code != "action-step-multiplicity-unsupported" {
+		t.Fatalf("diagnostic = %+v, want action-step-multiplicity-unsupported warning", got[0])
+	}
+	if !strings.Contains(got[0].Message, "1180591620717411303424") {
+		t.Errorf("diagnostic message = %q, want the exact bound", got[0].Message)
+	}
+}
+
 func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 	tests := []struct {
 		name, model string
@@ -282,6 +332,27 @@ func TestActionStepMultiplicityPassLeavesSupportedStepsAlone(t *testing.T) {
 				first start then a;
 				action a[3];
 				then done;
+			}`,
+		},
+		{
+			name: "unordered repeated step",
+			model: `action def A {
+				action a[3];
+			}`,
+		},
+		{
+			name: "unordered zero-count step",
+			model: `action def A {
+				action a[0];
+			}`,
+		},
+		{
+			name: "unordered repeated step with nested concurrent starts",
+			model: `action def A {
+				action a[2] {
+					action x;
+					action y;
+				}
 			}`,
 		},
 		{
@@ -367,6 +438,16 @@ func TestActionStepMultiplicityPassChecksStateBehaviorAndPartPerformance(t *test
 			model: `state def Machine {
 				state active {
 					do action tick[2] { }
+				}
+			}`,
+			step: "tick",
+		},
+		{
+			name: "unordered state do behavior with a sibling",
+			model: `state def Machine {
+				state active {
+					do action tick[2] { }
+					do action sibling { }
 				}
 			}`,
 			step: "tick",

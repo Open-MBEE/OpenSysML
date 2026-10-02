@@ -105,6 +105,8 @@ zero — returns typed `ErrNotEncoded` as an `UnsupportedError`, naming the step
 multiplicity. An unevaluable or non-fixed count is refused the same way, with a reason that the
 SMT engine requires a fixed single-performance step. The solver therefore never encodes repeated
 performance as a single token move or makes a claim about its interleavings.
+`Analyze` also refuses graphs with unordered starts through `unorderedStart`; that separate
+restriction remains in force alongside multiplicity refusal, and is checked first when both apply.
 
 The query is over **`k` moves**. State `s_0` is the initial state (the token at `Initial`, the
 attribute defaults from `ActionGraph.Attributes`, the pinned and free inputs); `s_i` is the

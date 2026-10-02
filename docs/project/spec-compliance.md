@@ -67,7 +67,7 @@ what cannot be checked by anything is in
 
 **Actions (19/19 features):**
 - Initial/final node token placement
-- Exact finite multiplicity on an action-node usage, including zero; bounds beyond the 64-bit range are refused with their exact value (for example, `1180591620717411303424`)
+- Exact finite multiplicity on action-node usages, including unordered (concurrent-start) subactions and zero; bounds beyond the 64-bit range are refused with their exact value (for example, `1180591620717411303424`)
 - Fork node (1→N parallelism)
 - Join node (N→1 synchronization)
 - Merge node (N→1 non-blocking)

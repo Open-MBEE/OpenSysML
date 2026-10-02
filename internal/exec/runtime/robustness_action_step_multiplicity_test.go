@@ -85,6 +85,19 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
+			name: "unordered repeated step with outgoing succession", step: "a", multiplicity: "[3]",
+			code: lower.StepOrderUnsatisfiableCode,
+			model: `package test {
+				private import ScalarValues::*;
+				action def A {
+					attribute c : Integer = 0;
+					action a[3] { assign c := c + 1; } then q;
+					action q { }
+					then done;
+				}
+			}`,
+		},
+		{
 			name: "single-count-written-end-excludes-count", step: "a", multiplicity: "[1]",
 			code: lower.StepOrderUnsatisfiableCode,
 			model: `package test {
@@ -254,6 +267,20 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
+			name: "unordered state do behavior with a sibling", step: "tick", multiplicity: "[2]",
+			code:  lower.StepMultiplicityUnsupportedCode,
+			state: true,
+			model: `package test {
+				state def Machine {
+					entry; then active;
+					state active {
+						do action tick[2] { }
+						do action sibling { }
+					}
+				}
+			}`,
+		},
+		{
 			name: "bodiless-do-two", step: "tick", multiplicity: "[2]",
 			code:  lower.StepMultiplicityUnsupportedCode,
 			state: true,
@@ -277,6 +304,24 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 						while i < 1 {
 							action tick[3] { }
 							assign i := i + 1;
+						}
+					}
+					then done;
+				}
+			}`,
+		},
+		{
+			name: "unordered while-block-three", step: "tick", multiplicity: "[3]",
+			code:   lower.StepMultiplicityUnsupportedCode,
+			reason: "a step inside a loop or conditional body is performed once per pass; repeated or zero counts are not executed there",
+			model: `package test {
+				action def A {
+					first start then worker;
+					action worker {
+						while true {
+							action anchor;
+							first start then anchor;
+							action tick[3] { }
 						}
 					}
 					then done;
@@ -464,6 +509,81 @@ func TestActionStepMultiplicityExploreHasOneExactOutcome(t *testing.T) {
 	}
 }
 
+func TestActionStepMultiplicityUnorderedStartsFollowEachSchedule(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action def Rep {
+			attribute c : Integer = 0;
+			action a[3] { assign c := c + 1; }
+		}
+	}`)
+	action := m.action(t, "Rep")
+	for _, spelling := range []string{"declared", "reverse"} {
+		t.Run(spelling, func(t *testing.T) {
+			ctx, err := m.fresh()
+			if err != nil {
+				t.Fatalf("fresh context: %v", err)
+			}
+			policy, err := ParseSchedulePolicy(spelling)
+			if err != nil {
+				t.Fatalf("ParseSchedulePolicy(%q): %v", spelling, err)
+			}
+			if err := ctx.SetSchedule(policy); err != nil {
+				t.Fatalf("SetSchedule(%q): %v", spelling, err)
+			}
+			outcome, err := ctx.ActionOutcomePerformedBy(action, nil, nil)
+			if err != nil {
+				t.Fatalf("perform unordered repeated action: %v", err)
+			}
+			if outcome.Err != nil {
+				t.Fatalf("action outcome error = %v", outcome.Err)
+			}
+			if got := outcome.String(); !strings.Contains(got, "c = 3") {
+				t.Errorf("outcome = %q, want c = 3", got)
+			}
+		})
+	}
+
+	exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+		return ctx.ActionOutcomePerformedBy(action, nil, nil)
+	})
+	if err != nil {
+		t.Fatalf("explore unordered repeated action: %v", err)
+	}
+	if !exploration.Complete() || len(exploration.Outcomes) != 1 {
+		t.Fatalf("exploration = %s with %d outcomes, want one complete outcome", exploration.Status(), len(exploration.Outcomes))
+	}
+	if got := exploration.Outcomes[0].Outcome.String(); !strings.Contains(got, "c = 3") {
+		t.Errorf("explored outcome = %q, want c = 3", got)
+	}
+}
+
+func TestActionStepMultiplicityNestedUnorderedStartsExploreOneOutcome(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action def Nested {
+			attribute c : Integer = 0;
+			action a[2] {
+				action x { assign c := c + 1; }
+				action y { assign c := c + 1; }
+			}
+		}
+	}`)
+	action := m.action(t, "Nested")
+	exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+		return ctx.ActionOutcomePerformedBy(action, nil, nil)
+	})
+	if err != nil {
+		t.Fatalf("explore nested unordered starts: %v", err)
+	}
+	if !exploration.Complete() || len(exploration.Outcomes) != 1 {
+		t.Fatalf("exploration = %s with %d outcomes, want one complete outcome", exploration.Status(), len(exploration.Outcomes))
+	}
+	if got := exploration.Outcomes[0].Outcome.String(); !strings.Contains(got, "c = 4") {
+		t.Errorf("explored outcome = %q, want c = 4", got)
+	}
+}
+
 func TestActionStepMultiplicityExploreOmitsRepeatedLocals(t *testing.T) {
 	path := filepath.Join("testdata", "conformance", "action_step_multiplicity_shared_writers.sysml")
 	text, err := os.ReadFile(path)
@@ -533,12 +653,51 @@ func TestRuntimeRobustnessActionStepMultiplicityOutcomes(t *testing.T) {
 		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
 	})
 
+	t.Run("unordered top-level action explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Rep {
+				action a[0..*];
+			}
+		}`)
+		action := m.action(t, "Rep")
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			return ctx.ActionOutcomePerformedBy(action, nil, nil)
+		})
+		assertActionStepMultiplicityExploreOutcome(t, exploration, err)
+	})
+
 	t.Run("unaddressable top-level action explore", func(t *testing.T) {
 		m := parseLibraryModel(t, `package test {
 			action def Rep {
 				first start then a;
 				action a[2**70] { }
 				then done;
+			}
+		}`)
+		action := m.action(t, "Rep")
+		exploration, err := Explore(context.Background(), DefaultExploreSchedulePolicy, m.fresh, func(ctx *Context) (Outcome, error) {
+			return ctx.ActionOutcomePerformedBy(action, nil, nil)
+		})
+		if err != nil {
+			t.Fatalf("Explore error = %v, want the refusal as an outcome", err)
+		}
+		if exploration == nil || len(exploration.Outcomes) != 1 || exploration.FailedLinearizations() != 1 {
+			t.Fatalf("exploration = %v; want one error outcome and one failed linearization", exploration)
+		}
+		err = exploration.Outcomes[0].Outcome.Err
+		assertActionStepMultiplicityErrorIsNotSetup(t, err)
+		if !errors.Is(err, ErrIntegerUnaddressable) {
+			t.Errorf("outcome error = %v, want ErrIntegerUnaddressable", err)
+		}
+		if !strings.Contains(err.Error(), "1180591620717411303424") {
+			t.Errorf("outcome error = %q, want the exact bound", err)
+		}
+	})
+
+	t.Run("unordered unaddressable top-level action explore", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			action def Rep {
+				action a[2**70] { }
 			}
 		}`)
 		action := m.action(t, "Rep")

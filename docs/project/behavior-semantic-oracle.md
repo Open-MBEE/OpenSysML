@@ -33,10 +33,11 @@ with the earlierOccurrence happening completely before the laterOccurrence"
 hence happening during the state performance"). The default `1..1` multiplicity for a feature
 (KerML 1.0 §7.4.5) is the rule for feature values, not an inherited count for an action node:
 `Actions.sysml` declares `Action.subactions` as `Action[0..*]`, and each action-node usage's own
-declared multiplicity determines how many performances it names. An omitted multiplicity remains
-one performance; a fixed finite `[n]` or `[n..n]` names `n` performances, including none for
-`[0]`. A non-fixed or unevaluable count cannot be run by this fixed-count executor. Nothing in the
-library orders two steps no chain of `HappensBefore` links connects.
+declared multiplicity determines how many performances it names, whether the usage is reached by a
+succession or starts concurrently as an unordered subaction. An omitted multiplicity remains one
+performance; a fixed finite `[n]` or `[n..n]` names `n` performances, including none for `[0]`. A
+non-fixed or unevaluable count cannot be run by this fixed-count executor. Nothing in the library
+orders two steps no chain of `HappensBefore` links connects.
 
 A `.trace.golden` records one **linearization** of that partial order plus tool-defined
 scheduling detail the library says nothing about:
@@ -83,7 +84,7 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `Actions.sysml` `DecisionAction`, `ControlPerformances.kerml` `DecisionPerformance` | "For each instance of DecisionPerformance, the outgoingHBLink is an instance of exactly one of the Successions, ordering the DecisionPerformance as happening before an instance of the target of that Succession" | Each decision performance is followed by a performance of the one target whose guard held |
 | `Stochastic.sysml` `Probability` | "A seeded run draws a branch by these weights, an unseeded run takes the most probable, and a weighted branch whose guard does not hold is left out of the draw, the others' weights renormalized." | These weights belong to model draws; they do not assign probabilities to unresolved scheduling choices |
 | KerML 1.0 §7.4.5 | A feature with no declared multiplicity holds exactly one value | This constrains feature values, not action-node usage counts; a plain step with no multiplicity is one performance per performance of its owner, however many successions reach it |
-| `Performances.kerml` `Performance::enclosedPerformances`; `Actions.sysml` `Action.subactions` | `subactions : Action[0..*]`; `subperformances` | A node usage's declared multiplicity counts its enclosed performances; each repeated performance owns a fresh node frame while writing the shared owner features |
+| `Performances.kerml` `Performance::enclosedPerformances`; `Actions.sysml` `Action.subactions` | `subactions : Action[0..*]`; `subperformances` | A node usage's declared multiplicity counts its enclosed performances, including unordered concurrent starts; each repeated performance owns a fresh node frame while writing the shared owner features |
 | OMG issue [KERML-29](https://issues.omg.org/issues/KERML-29) | Deferred; the multiplicity of succession ends is unresolved | The execution checker approximates an unwritten end as either unconstrained `[0..*]` or exact-one `[1..1]` and accepts only when both readings force and admit the endpoint counts |
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
@@ -258,15 +259,19 @@ holding at each pin the one delivery the flow into that pin carried.
 
 Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_named_bound`,
 `_zero`, `_local_frames`, `_nested`, `_nested_state_entry`, `_perform`, `_ordering` and
-`_order_target_only`;
+`_order_target_only`, `_unordered_start`, `_unordered_start_reverse`,
+`_unordered_beside_ordered`, `_unordered_zero`,
+`_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
+`_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
 `action_step_multiplicity_shared_writers` states the open outcome set.
 
 Derived constraints:
 
 - A missing multiplicity keeps the historical one performance. An action-node usage's own
-  `[n]`, `[n..n]`, or named exact bounds that evaluate to an exact count perform `n` times;
-  `[0]` performs no body, trace event, flow or data transfer. Other ranges and bounds the model
-  cannot evaluate do not identify a fixed number and are refused.
+  `[n]`, `[n..n]`, or named exact bounds that evaluate to an exact count perform `n` times,
+  including unordered subactions that start concurrently without an incoming succession; `[0]`
+  performs no body, trace event, flow or data transfer. Other ranges and bounds the model cannot
+  evaluate do not identify a fixed number and are refused.
 - An action usage in a loop or conditional block flow is performed once per pass. Repetition in
   those statement-engine flows is out of scope: exact counts other than `[1]`, including `[0]`,
   are refused with `action-step-multiplicity-unsupported` rather than being expanded.
