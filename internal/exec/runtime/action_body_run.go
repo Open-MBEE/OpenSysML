@@ -78,6 +78,9 @@ type bodyRun struct {
 	// drives where a step is one move, its machine going on between the moves;
 	// shared only in a flow two of whose moves may touch what another does.
 	steps, shared bool
+	// stepDraws has a seeded run draw whether to pause after a callee's start shot or a
+	// move of its flow where two of its moves may touch what another does.
+	stepDraws bool
 }
 
 // bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
@@ -466,11 +469,15 @@ func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work}
 	if outer := e.ctx.body; outer != nil {
 		run.awaitsMessages, run.steps, run.shared = outer.awaitsMessages, outer.steps, outer.shared
+		run.stepDraws, run.token = outer.stepDraws, outer.token
 	}
 	open := run.steps
 	scheduling := e.ctx.scheduling()
 	if scheduling.oneMove() && len(e.tokens) > 1 && !run.steps {
 		run.steps, run.shared = true, true
+	}
+	if _, draws := scheduling.bodyYields(len(e.tokens) > 1); draws && !run.stepDraws {
+		run.stepDraws, run.token = true, e.tokens[tokenIdx].ID
 	}
 	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && (open || !e.tokens[tokenIdx].drivenByBody()) && e.bodyDivides(work, open) {
 		run.yields, run.draws, run.token, run.guards = yields, draws, e.tokens[tokenIdx].ID, true
@@ -611,12 +618,31 @@ func (ctx *Context) guardPerformed() {
 }
 
 // tokenStepBody pauses the body on the stack after one token move of graph's flow
-// where its run goes one move at a time there; nil, going on, else.
+// where its run goes one move at a time there, or a seeded draw says so; nil, going on, else.
 func (ctx *Context) tokenStepBody(graph *lower.ActionGraph) error {
-	if !ctx.stepsTokens() || ctx.body.shared && !ctx.flowSharesMoves(graph) {
+	switch {
+	case ctx.stepsTokens():
+		if ctx.body.shared && !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+	case ctx.drawsTokenSteps():
+		if !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
+	default:
 		return nil
 	}
 	return ctx.pauseBody(bodyPause{tokenStep: true})
+}
+
+// drawsTokenSteps reports whether the body on the stack is a seeded run drawing
+// whether to pause after the moves of the callees it performs.
+func (ctx *Context) drawsTokenSteps() bool {
+	return ctx.body != nil && ctx.body.stepDraws
 }
 
 // flowSharesMoves caches lower.FlowSharesMoves by graph.

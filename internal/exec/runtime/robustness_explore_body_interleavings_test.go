@@ -220,6 +220,22 @@ func testBodyInterleavingsCallees(t *testing.T) {
 				t.Errorf("check: seen diverges over %v, want [1 2]", got)
 			}
 			run := caseRun(t, m, c.action)
+			seeded := map[string]bool{}
+			for seed := 1; seed <= 32; seed++ {
+				ctx, err := m.fresh()
+				if err != nil {
+					t.Fatal(err)
+				}
+				mustSchedule(t, ctx, mustPolicy(t, fmt.Sprintf("seed:%d", seed)))
+				outcome, err := run(ctx)
+				if err != nil {
+					t.Fatalf("seed:%d: %v", seed, err)
+				}
+				seeded[outcomeValue(t, outcome, "seen")] = true
+			}
+			if !seeded["1"] || !seeded["2"] || len(seeded) != 2 {
+				t.Errorf("seeds 1-32 gave seen in %v, want both 1 and 2", seeded)
+			}
 			for _, spelling := range []string{"reverse", "declared"} {
 				ctx, err := m.fresh()
 				if err != nil {

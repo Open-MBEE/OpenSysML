@@ -631,7 +631,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // pauseAfterMove pauses the body performing this action after one token move where
 // its run goes one move at a time and another move is open now; nil else.
 func (e *ActionExecutor) pauseAfterMove() error {
-	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+	if !e.ctx.stepsTokens() && !e.ctx.drawsTokenSteps() || e.state != StateRunning || !e.canAct(nil) {
 		return nil
 	}
 	return e.ctx.tokenStepBody(e.graph)

@@ -158,7 +158,8 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   (`Context.startShotMove`), its own bodies divide where two of their moves may touch what they
   do not hold (`lower.BodySharesMoves`), and its flow pauses after each move when two of its
   moves may (`lower.FlowSharesMoves`, `Context.tokenStepBody`). A pause inside a body-driven
-  token propagates to the body driving it.
+  token propagates to the body driving it. A seeded run whose step holds another token pauses
+  there when `drawYield` says so (`Context.drawsTokenSteps`), so seeds reach those outcomes too.
 - **Executors on one clock.** Separate executors — object behaviors, state machines, actions
   started together — still interleave by whole turns: the executor the due order draws runs
   until it has no move at the instant (`Context.runDue`, `invocationRun.turn`). Their moves
