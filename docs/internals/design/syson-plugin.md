@@ -3,7 +3,7 @@
 **Date:** 2026-09-20
 **Status:** Discovery, design and implementation notes for `editors/syson/`
 **Scope:** a future `editors/syson/`, the Java client under `client/java/opensysml-client`, the wire in `api/proto/sysml.proto`
-**SysON pinned at:** [`v2026.9.0`](https://github.com/eclipse-syson/syson/releases/tag/v2026.9.0) (commit `ede4fbc43a607720350b850a862211660a99652a`); `main` was one commit ahead of the tag when this was written and differs in nothing this document relies on
+**SysON pinned at:** [`v2026.9.2`](https://github.com/eclipse-syson/syson/releases/tag/v2026.9.2) (commit `4632d8999602f4d43da09dd0db12a75adb47dd30`); the discovery below was conducted against `v2026.9.0`, whose `ErrorPayload.message()` accessor is removed in `v2026.9.2`
 
 ---
 

@@ -1542,7 +1542,7 @@ jobs:
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
 
-      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      # SysON 2026.9.2 runs on 21; the module compiles at release 17.
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
