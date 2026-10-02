@@ -446,6 +446,8 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.name(subject, n.Name)
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
+	// The members ahead of the trigger come first, in the grammar's order.
+	e.transitionHeadMembers(subject, n)
 	succession, membership, err := e.transitionSuccession(subject, n, owner)
 	if err != nil {
 		return err
@@ -538,10 +540,82 @@ func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember
 	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
 		return rdf.Term{}, rdf.Term{}, err
 	}
-	if err := e.connectorEnd(succession, connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, targetTerm: e.edgeReference(n.Target), noCollapse: true}); err != nil {
+	// A chained target (`then b.c`) is the OwnedFeatureChain its end's
+	// reference subsetting owns; a name is the member it resolves to here.
+	target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
+	if qualifiedNameHasChain(n.Target) {
+		target.target = n.Target
+	} else {
+		target.targetTerm = e.edgeReference(n.Target)
+	}
+	if err := e.connectorEnd(succession, target); err != nil {
 		return rdf.Term{}, rdf.Term{}, err
 	}
 	return succession, membership, nil
+}
+
+// transitionHeadMembers emits what a transition owns ahead of its trigger
+// (SysML-textual-bnf TransitionUsage :1281-1290, TargetTransitionUsage
+// :1292-1300): the FeatureChainMember naming the source of a `first`
+// transition, then an EmptyParameterMember (:1081-1085), and a second one
+// ahead of a trigger it states as a TriggerActionMember.
+func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMember) {
+	if qualifiedText(n.Source) != "" {
+		e.transitionSourceMember(subject, n.Source)
+	}
+	e.emptyParameterMember(subject, "linkparam")
+	if e.triggerPayload(n) != nil {
+		e.emptyParameterMember(subject, "triggerparam")
+	}
+}
+
+// transitionSourceMember emits the FeatureChainMember of `first source`: a
+// Membership whose member is the state it names, or, for `first a.b`, an
+// OwningMembership owning the chain Feature (FeatureChainMember, :1111-1116).
+func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.QualifiedName) {
+	if qualifiedNameHasChain(source) {
+		// A chain is a node, as an end's chain is.
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "sourcechain"), subject, "sourcechain")
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+		e.typed(chain, mFeature)
+		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+		e.featureChainings(chain, e.qualifiedChainReferences(source))
+		e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
+		return
+	}
+	membership := e.ids.minted(rdf.ExpressionIRI(subject, "sourcemember"), subject, "sourcemember")
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(mMembership))
+	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
+	e.graph.Add(membership, e.sysml(pOwner), subject)
+	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
+	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
+	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+}
+
+// emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
+// owning an EmptyUsage, a ReferenceUsage that declares nothing.
+func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
+	// Minted as an element, as the transition's succession is: an
+	// expression-part id would read back from the element form as a node.
+	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.typed(feature, mReferenceUsage)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	// A parameter with no direction of its own is an `in` parameter.
+	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
 }
 
 // triggerSegment is the qualified-name segment of a transition's trigger
@@ -2398,6 +2472,11 @@ func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool
 
 // transitionReferenceText renders a standard endpoint, falling back to legacy RDF.
 func (d *decoder) transitionReferenceText(el *element, property, legacy string) (string, error) {
+	// A chained end (`first a.b`, `then b.c`) is written as the chain it owns,
+	// which the collapsed source or target, the feature it reaches, is not.
+	if text, ok, err := d.transitionChainText(el, property); err != nil || ok {
+		return text, err
+	}
 	_, standard, err := d.transitionObject(el, property)
 	if err != nil {
 		return "", err
@@ -2406,6 +2485,66 @@ func (d *decoder) transitionReferenceText(el *element, property, legacy string) 
 		return d.referenceText(el, rdf.SysML+property)
 	}
 	return d.referenceText(el, rdf.SysML+legacy)
+}
+
+// transitionChainText is the chain a transition's source or target is written
+// as: the chain its FeatureChainMember owns, or the chain its succession's
+// target end references; ok is false when that end names a feature directly.
+func (d *decoder) transitionChainText(el *element, property string) (string, bool, error) {
+	subject := rdf.IRI(el.iri)
+	var chain rdf.Term
+	switch property {
+	case pSource:
+		owned := d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)
+		if len(owned) == 0 || d.metaclass(owned[0]) != mOwningMembership {
+			return "", false, nil
+		}
+		chain, _ = d.graph.Object(owned[0], rdf.SysML+pOwnedRelatedElement)
+	case pTarget:
+		succession, ok := d.graph.Object(subject, rdf.SysML+"succession")
+		if !ok {
+			return "", false, nil
+		}
+		ends := d.graph.Objects(succession, rdf.SysML+pConnectorEnd)
+		if len(ends) != 2 {
+			return "", false, nil
+		}
+		target, ok, err := d.standardEndTarget(ends[1], el)
+		if err != nil || !ok {
+			return "", false, err
+		}
+		chain = target
+	default:
+		return "", false, nil
+	}
+	if !chain.IsIRI() {
+		return "", false, nil
+	}
+	isChain, err := d.chainFeatureTerm(chain)
+	if err != nil || !isChain {
+		return "", false, err
+	}
+	// The chain is written in place of the collapsed endpoint, so the two
+	// must state the same one.
+	if head, hasHead, err := d.transitionObject(el, property); err != nil {
+		return "", false, err
+	} else if hasHead {
+		same, err := d.sameEndpoint(head, chain)
+		if err != nil {
+			return "", false, err
+		}
+		if !same {
+			return "", false, &UnsupportedError{
+				What: fmt.Sprintf("the transition <%s>", el.iri),
+				Note: fmt.Sprintf("its head states <%s> as its %s while it owns the chain <%s>, and writing one would drop the other", head.Value, property, chain.Value),
+			}
+		}
+	}
+	parts, err := d.standardChainText(chain, el)
+	if err != nil {
+		return "", false, err
+	}
+	return strings.Join(parts, "."), true, nil
 }
 
 // transitionLinkError refuses a transition whose effect and body links do not
