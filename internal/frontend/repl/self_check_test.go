@@ -3,6 +3,7 @@ package repl
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,7 @@ func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
 		t.Fatalf("summary = %q, want zero violations", counts)
 	}
 
-	_, stats := s.selfCheckWithCounts("SysMLValidation")
+	_, stats := s.selfCheckWithCounts("SysMLValidation", false)
 	for constraint, want := range map[string]int{
 		"validateControlNodeIsComposite":                6,
 		"validateEventOccurrenceUsageIsReference":       2,
@@ -83,7 +84,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 		t.Fatal("model has errors")
 	}
 
-	verdicts, stats := s.selfCheckWithCounts("T")
+	verdicts, stats := s.selfCheckWithCounts("T", true)
 	if stats.violations == 0 {
 		t.Fatal("false constraint produced no violation verdicts")
 	}
@@ -100,7 +101,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			strings.Contains(joined, "T::P::c") && strings.Contains(joined, "self_check.sysml:") {
 			foundViolation = true
 		}
-		if strings.Contains(joined, "could not be evaluated") {
+		if verdict.Status == VerdictUnresolved && strings.Contains(joined, "could not be evaluated") {
 			foundUnevaluated = true
 		}
 	}
@@ -108,13 +109,59 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 		t.Fatalf("no source-located violation for composite feature: %+v", verdicts)
 	}
 	if !foundUnevaluated {
-		t.Fatalf("no unevaluated verdict: %+v", verdicts)
+		t.Fatalf("no unresolved unevaluated verdict: %+v", verdicts)
+	}
+	summary := verdicts[len(verdicts)-1]
+	if summary.Status != VerdictFails ||
+		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.unevaluated)+" unevaluated") {
+		t.Fatalf("summary with a violation and unevaluated checks = %+v, want a failing summary", summary)
+	}
+}
+
+func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
+	const src = `
+		package T {
+			private import SequenceFunctions::*;
+			constraint def inspectTypeSpecializations {
+				in element : KerML::Type;
+				element.ownedSpecialization->isEmpty();
+			}
+			part def P;
+		}
+	`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{{Name: "unevaluated_self_check.sysml", Text: src}})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("model has errors")
+	}
+
+	verdicts, stats := s.selfCheckWithCounts("T", true)
+	if stats.violations != 0 || stats.evaluationErrors != 0 || stats.unevaluated == 0 {
+		t.Fatalf("self-check counts = %+v, want unevaluated outcomes only", stats)
+	}
+	foundUnevaluated := false
+	for _, verdict := range verdicts {
+		if verdict.Status == VerdictUnresolved && strings.Contains(strings.Join(verdict.Lines, "\n"), "could not be evaluated") {
+			foundUnevaluated = true
+			break
+		}
+	}
+	if !foundUnevaluated {
+		t.Fatalf("no unresolved unevaluated verdict: %+v", verdicts)
+	}
+	summary := verdicts[len(verdicts)-1]
+	if summary.Status != VerdictHolds ||
+		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.unevaluated)+" unevaluated") {
+		t.Fatalf("unevaluated-only summary = %+v, want a passing summary with its unevaluated count", summary)
 	}
 }
 
 func TestSelfCheckReportsNestedCompositePortUsageViolation(t *testing.T) {
 	s := loadSelfCheckRepoFixture(t, "tools/referee/reject/testdata/negative/semantic/s25-port-nested-composite-part.sysml")
-	verdicts := s.selfCheck("SysMLValidation")
+	verdicts := s.SelfCheck()
 	assertSelfCheckViolation(t, verdicts,
 		"validatePortUsageNestedUsagesNotComposite",
 		"S25PortNestedCompositePart::p::pt")
@@ -122,10 +169,44 @@ func TestSelfCheckReportsNestedCompositePortUsageViolation(t *testing.T) {
 
 func TestSelfCheckReportsCompositePortDefinitionUsageViolation(t *testing.T) {
 	s := loadSelfCheckRepoFixture(t, "tools/referee/reject/testdata/negative/xpect/p26-port-def-nonreferential-usage.sysml")
-	verdicts := s.selfCheck("SysMLValidation")
+	verdicts := s.SelfCheck()
 	assertSelfCheckViolation(t, verdicts,
 		"validatePortDefinitionOwnedUsagesNotComposite",
 		"P26PortDefNonReferentialUsage::pd1")
+}
+
+func TestSelfCheckIgnoresWorkspaceSysMLValidationPackage(t *testing.T) {
+	const src = `
+		package SysMLValidation {
+			constraint def Reject {
+				in element : KerML::Feature;
+				false;
+			}
+		}
+		package P { part def T; }
+	`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{{Name: "workspace_validation.sysml", Text: src}})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("model has errors")
+	}
+
+	verdicts := s.SelfCheck()
+	if len(verdicts) == 0 || verdicts[len(verdicts)-1].Status != VerdictHolds {
+		t.Fatalf("SelfCheck() = %+v, want bundled checks to pass", verdicts)
+	}
+	summary := strings.Join(verdicts[len(verdicts)-1].Lines, "\n")
+	if !strings.Contains(summary, ", 0 violations,") || strings.Contains(summary, ", 0 checks,") {
+		t.Fatalf("bundled validation constraints were not applied: %q", summary)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(verdict.Subject, "Reject") {
+			t.Fatalf("workspace constraint contaminated SelfCheck(): %+v", verdict)
+		}
+	}
 }
 
 func loadSelfCheckRepoFixture(t *testing.T, path string) *Session {

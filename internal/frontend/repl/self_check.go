@@ -43,15 +43,11 @@ type selfCheckCounts struct {
 // SelfCheck applies the SysMLValidation constraints to the workspace model.
 func (s *Session) SelfCheck() []Verdict {
 	defer s.enter()()
-	return s.selfCheck("SysMLValidation")
-}
-
-func (s *Session) selfCheck(pkg string) []Verdict {
-	verdicts, _ := s.selfCheckWithCounts(pkg)
+	verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
 	return verdicts
 }
 
-func (s *Session) selfCheckWithCounts(pkg string) ([]Verdict, selfCheckCounts) {
+func (s *Session) selfCheckWithCounts(pkg string, includeWorkspacePackages bool) ([]Verdict, selfCheckCounts) {
 	counts := selfCheckCounts{applications: make(map[string]int)}
 	idx := s.browseIndex()
 	if idx == nil {
@@ -66,7 +62,7 @@ func (s *Session) selfCheckWithCounts(pkg string) ([]Verdict, selfCheckCounts) {
 	counts.elements = len(elements)
 	sources := selfCheckSources(s.sessionDocs())
 
-	constraints, err := selfCheckConstraints(idx, sem, pkg)
+	constraints, err := selfCheckConstraints(idx, sem, pkg, includeWorkspacePackages)
 	var verdicts []Verdict
 	if err != nil {
 		counts.evaluationErrors++
@@ -113,7 +109,6 @@ func (s *Session) selfCheckWithCounts(pkg string) ([]Verdict, selfCheckCounts) {
 			case selfCheckUnevaluable(invokeErr):
 				counts.unevaluated++
 				v := unevaluableVerdict(subject, "Constraint "+constraintName, invokeErr, nil, "")
-				v.Status = VerdictHolds
 				v.Lines[0] = fmt.Sprintf("? %s: %s could not be evaluated", location, subject)
 				verdicts = append(verdicts, v)
 			default:
@@ -132,10 +127,11 @@ func (s *Session) selfCheckWithCounts(pkg string) ([]Verdict, selfCheckCounts) {
 	return append(verdicts, Verdict{Subject: "Self-model check", Status: summaryStatus, Lines: []string{summary}}), counts
 }
 
-func selfCheckConstraints(idx *symbols.Index, sem *semantics.Model, pkg string) ([]selfCheckConstraint, error) {
+func selfCheckConstraints(idx *symbols.Index, sem *semantics.Model, pkg string, includeWorkspacePackages bool) ([]selfCheckConstraint, error) {
 	var packageSymbols []*symbols.Symbol
 	for _, sym := range idx.LookupQualified(pkg) {
-		if sym.Kind == symbols.SymbolPackage && sym.Scope != nil {
+		if sym.Kind == symbols.SymbolPackage && sym.Scope != nil &&
+			(includeWorkspacePackages || idx.IsLibraryDocument(sym.DocName)) {
 			packageSymbols = append(packageSymbols, sym)
 		}
 	}

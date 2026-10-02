@@ -729,9 +729,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	if c.selfCheck {
-		for _, v := range sess.SelfCheck() {
-			rep.verdict(v)
-		}
+		rep.selfCheck(sess.SelfCheck())
 	}
 
 	for _, name := range c.constraints {
