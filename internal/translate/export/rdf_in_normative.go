@@ -820,22 +820,40 @@ func (d *decoder) rangeOwner(subject rdf.Term) (rdf.Term, bool) {
 	return rdf.IRI(m.owner), true
 }
 
-// chainTail is the feature the last link of a chain feature names, or term
-// itself when it is no chain.
-func (d *decoder) chainTail(term rdf.Term) (rdf.Term, error) {
+// sameEndpoint reports whether a transition's collapsed endpoint and the one
+// its structure states agree. A head that is itself a chain names that chain,
+// so the structure must state the same links; a head that is a feature is what
+// a structural chain (`first a.b`, `then b.c`) reaches, its last link.
+func (d *decoder) sameEndpoint(head, structural rdf.Term) (bool, error) {
+	headLinks, err := d.chainLinksOrSelf(head)
+	if err != nil {
+		return false, err
+	}
+	links, err := d.chainLinksOrSelf(structural)
+	if err != nil {
+		return false, err
+	}
+	if len(headLinks) > 1 {
+		return slices.Equal(headLinks, links), nil
+	}
+	return headLinks[0] == links[len(links)-1], nil
+}
+
+// chainLinksOrSelf is the ordered links of a chain feature, or term alone
+// when it is no chain.
+func (d *decoder) chainLinksOrSelf(term rdf.Term) ([]rdf.Term, error) {
 	if !term.IsIRI() {
-		return term, nil
+		return []rdf.Term{term}, nil
 	}
 	isChain, err := d.chainFeatureTerm(term)
 	if err != nil || !isChain {
-		return term, err
+		return []rdf.Term{term}, err
 	}
-	// The FeatureChaining links, or the derived chainingFeature list alone.
 	links, err := d.chainSegments(term)
 	if err != nil || len(links) == 0 {
-		return term, err
+		return []rdf.Term{term}, err
 	}
-	return links[len(links)-1], nil
+	return links, nil
 }
 
 // headEnd reports whether el is an unnamed end a connector owns through an
@@ -867,15 +885,11 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if err != nil || !hasHead {
 			return false, err
 		}
-		// A chain (`first a.b`, `then b.c`) reaches the feature its last link
-		// names, on either side: a head derived from the structure may be one.
-		if stated, err = d.chainTail(stated); err != nil {
+		same, err := d.sameEndpoint(head, stated)
+		if err != nil {
 			return false, err
 		}
-		if head, err = d.chainTail(head); err != nil {
-			return false, err
-		}
-		if stated != head {
+		if !same {
 			return false, &UnsupportedError{
 				What: what,
 				Note: fmt.Sprintf("its head states <%s> as its %s while its owned %s refers to <%s>, and writing one would drop the other", head.Value, role, el.metaclass, stated.Value),

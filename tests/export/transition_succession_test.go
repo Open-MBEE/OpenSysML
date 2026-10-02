@@ -344,3 +344,61 @@ func TestTransitionStructureAloneReadsBack(t *testing.T) {
 		})
 	}
 }
+
+// A transition whose head states a chain as its endpoint names that chain: a
+// structural chain reaching the same feature through other links (`a1.c`
+// against `a2.c`, both `T::c`) is refused, not written in its place. The head's
+// own chain, or the feature it reaches, agrees.
+func TestTransitionChainEndpointsCompareByTheirLinks(t *testing.T) {
+	src := "package P {\n    state def T {\n        state c;\n    }\n    state def S {\n        state a1 : T;\n        state a2 : T;\n        state b;\n" +
+		"        transition v first a1.c then b;\n        transition w first a2.c then b;\n        transition x first b then a1.c;\n        transition y first b then a2.c;\n    }\n}\n"
+	if diagnostics := diagnosticMessages("m.sysml", []byte(src)); len(diagnostics) > 0 {
+		t.Fatalf("the model should analyse clean:\n%s", strings.Join(diagnostics, "\n"))
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	// restate points a transition's collapsed endpoint, T::c, at a chain feature.
+	restate := func(t *testing.T, transition, property, to string) string {
+		t.Helper()
+		blocks := strings.Split(graph, "\n\n")
+		edited := false
+		line := "sysml:" + property + " elmt:P__T__c "
+		for i, block := range blocks {
+			if strings.HasPrefix(block, transition+"\n") && strings.Contains(block, line) {
+				blocks[i], edited = strings.Replace(block, line, "sysml:"+property+" "+to+" ", 1), true
+			}
+		}
+		if !edited {
+			t.Fatalf("%s states no %s:\n%s", transition, line, graph)
+		}
+		return strings.Join(blocks, "\n\n")
+	}
+	for _, tc := range []struct {
+		name, transition, property, to string
+		refused                        bool
+	}{
+		{"source chain through other links", "elmt:P__S__v", "source", "expr:P__S__w_psourcechain", true},
+		{"its own source chain", "elmt:P__S__v", "source", "expr:P__S__v_psourcechain", false},
+		{"target chain through other links", "elmt:P__S__x", "target", "expr:P__S__y_succession_pend1_pchain", true},
+		{"its own target chain", "elmt:P__S__x", "target", "expr:P__S__x_succession_pend1_pchain", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !strings.Contains(graph, tc.to+"\n") {
+				t.Fatalf("no chain %s in the graph", tc.to)
+			}
+			back, err := convert.Convert("m.ttl", []byte(restate(t, tc.transition, tc.property, tc.to)), convert.FormatTurtle, convert.FormatSysML)
+			var unsupported *export.UnsupportedError
+			switch {
+			case tc.refused && (!errors.As(err, &unsupported) || !strings.Contains(err.Error(), tc.property)):
+				t.Errorf("expected the disagreeing %s to be refused, got %v\n%s", tc.property, err, back)
+			case !tc.refused && err != nil:
+				t.Errorf("the transition's own chain should agree: %v", err)
+			case !tc.refused && string(back) != src:
+				t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+			}
+		})
+	}
+}

@@ -2511,6 +2511,22 @@ func (d *decoder) transitionChainText(el *element, property string) (string, boo
 	if err != nil || !isChain {
 		return "", false, err
 	}
+	// The chain is written in place of the collapsed endpoint, so the two
+	// must state the same one.
+	if head, hasHead, err := d.transitionObject(el, property); err != nil {
+		return "", false, err
+	} else if hasHead {
+		same, err := d.sameEndpoint(head, chain)
+		if err != nil {
+			return "", false, err
+		}
+		if !same {
+			return "", false, &UnsupportedError{
+				What: fmt.Sprintf("the transition <%s>", el.iri),
+				Note: fmt.Sprintf("its head states <%s> as its %s while it owns the chain <%s>, and writing one would drop the other", head.Value, property, chain.Value),
+			}
+		}
+	}
 	parts, err := d.standardChainText(chain, el)
 	if err != nil {
 		return "", false, err
