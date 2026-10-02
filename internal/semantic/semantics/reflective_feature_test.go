@@ -753,9 +753,10 @@ func TestReflectiveObjectiveIsRequirementUsage(t *testing.T) {
 	}`
 	for _, fixture := range reflectiveFixtures(t, "objective-usage.sysml", source.KindSysML, src) {
 		objective := nestedSym(t, fixture.root, "P::Case::objective")
-		if objective.Kind != symbols.SymbolRequirementUsage ||
+		if objective.Kind != symbols.SymbolPartUsage ||
 			!fixture.model.reflectiveMetaclassConforms(objective, "RequirementUsage") {
-			t.Errorf("%s has kind %s; want RequirementUsage", fixture.model.fqnOf(objective), objective.Kind)
+			t.Errorf("%s has kind %s; want the structural PartUsage kind and reflective RequirementUsage metaclass",
+				fixture.model.fqnOf(objective), objective.Kind)
 		}
 		if fixture.model.reflectiveMetaclassConforms(objective, "PartUsage") {
 			t.Errorf("%s conforms to PartUsage; objective requirement usages must not", fixture.model.fqnOf(objective))
