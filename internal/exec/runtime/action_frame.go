@@ -584,10 +584,15 @@ func (f *actionFrame) path() string {
 		return ""
 	}
 	name := ActionNodeName(f.node)
-	if prefix := f.parent.path(); prefix != "" {
+	prefix := f.parent.path()
+	switch {
+	case name == "":
+		return prefix
+	case prefix == "":
+		return name
+	default:
 		return prefix + "." + name
 	}
-	return name
 }
 
 // declares reports whether the performance holds a feature of this name.

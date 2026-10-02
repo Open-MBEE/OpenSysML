@@ -623,10 +623,31 @@ func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool
 			context = append(context, "performed by "+caller)
 		}
 		if len(context) > 0 {
-			descriptions[i] += " (" + strings.Join(context, ", ") + ")"
+			if performance == "" && caller != "" {
+				descriptions[i] = appendWaitContext(descriptions[i], []string{"performed by " + caller})
+			} else {
+				descriptions[i] += " (" + strings.Join(context, ", ") + ")"
+			}
 		}
 	}
 	return descriptions, blocked
+}
+
+func appendWaitContext(description string, context []string) string {
+	if len(context) == 0 {
+		return description
+	}
+	if open := strings.LastIndex(description, " ("); open >= 0 && strings.HasSuffix(description, ")") {
+		inside := description[open+2 : len(description)-1]
+		parts := []string{inside}
+		for _, item := range context {
+			if item != inside {
+				parts = append(parts, item)
+			}
+		}
+		return description[:open+2] + strings.Join(parts, ", ") + ")"
+	}
+	return description + " (" + strings.Join(context, ", ") + ")"
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -1924,7 +1945,7 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
 // the order the run's scheduling policy has it try them.
 func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) *tokenSchedule {
-	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible))
+	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible, nil))
 }
 
 // oneMoveEligible is the eligibility of a step moving one token: a token not
@@ -1932,9 +1953,14 @@ func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) b
 func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
 
 // stepCandidates lists the tokens a step may move, as the policy is handed them.
-func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
+func (e *ActionExecutor) stepCandidates(
+	order *stepOrder,
+	eligible func(Token) bool,
+	scope *actionFrame,
+) stepTokens {
 	tokens := stepTokens{
 		owner:   e,
+		scope:   scope,
 		step:    e.stepCount + 1,
 		ids:     make([]int64, 0, len(e.tokens)),
 		parked:  make(map[int64]bool),

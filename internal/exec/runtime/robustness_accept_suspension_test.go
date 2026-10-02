@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -146,6 +149,42 @@ func acceptSuspensionForkBody(choice, nodeBodyPerform bool) string {
 		succession first right then chosen;
 		succession first chosen then done;`, 1)
 	return "attribute pick : Integer = 0;\n\t\t" + body
+}
+
+func acceptSuspensionConformanceSource(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join("testdata", "conformance", name+".sysml")
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(source)
+}
+
+func acceptSuspensionStatedBlockDeadlockSource() string {
+	return `package P {
+		private import ScalarValues::*;
+		action short {
+			attribute total : Integer = 0;
+			first start;
+			fork split;
+			action sum {
+				loop {
+					accept n : Integer;
+					assign total := total + n;
+				} until total >= 10;
+			}
+			action sender { send 4; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then sum;
+			succession first split then sender;
+			succession first sum then sync;
+			succession first sender then sync;
+			succession first sync then done;
+		}
+	}`
 }
 
 func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
@@ -385,6 +424,125 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 			again := secondCheck.Finals[i]
 			if final.identity != again.identity || FormatChoices(final.Witness.Choices) != FormatChoices(again.Witness.Choices) {
 				t.Errorf("check final %d differs: %+v; %+v", i, final, again)
+			}
+		}
+	})
+
+	t.Run("check_and_explore_stated_block_accepts", func(t *testing.T) {
+		for _, tc := range []struct {
+			name    string
+			fixture string
+			action  string
+			values  map[string]string
+		}{
+			{name: "loop", fixture: "action_accept_loop_body", action: "acceptsInLoop", values: map[string]string{"total": "10"}},
+			{name: "branch", fixture: "action_accept_if_branch", action: "acceptsInBranch", values: map[string]string{"received": "7"}},
+			{name: "sequential", fixture: "action_accept_sequential_body", action: "acceptsInSequentialBody", values: map[string]string{"total": "10", "seen": "10"}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				source := acceptSuspensionConformanceSource(t, tc.fixture)
+				_, exec := acceptSuspensionExecutor(t, source, tc.action)
+				_, err := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
+					return struct{}{}, exec.RunToCompletion()
+				})
+				if err != nil {
+					t.Fatalf("RunToCompletion: %v", err)
+				}
+				for feature, want := range tc.values {
+					value, err := strconv.ParseInt(want, 10, 64)
+					if err != nil {
+						t.Fatalf("test value %q: %v", want, err)
+					}
+					assertIntOutput(t, exec.Results(), feature, value)
+				}
+
+				model := parseLibraryModel(t, source)
+				action := model.action(t, tc.action)
+				report, err := acceptSuspensionWatchdog(t, "Check", func() (*CheckReport, error) {
+					return Check(context.Background(), model.fresh, starterOf(action), CheckBudget{},
+						CheckOptions{Reduce: true}, nil)
+				})
+				if errors.Is(err, ErrCheckRefused) {
+					t.Fatalf("Check refused: %v", err)
+				}
+				if err != nil {
+					t.Fatalf("Check: %v", err)
+				}
+				if report.Verdict != CheckExhaustive || len(report.Violations) != 0 {
+					t.Fatalf("Check: %s, violations %v; want exhaustive", report.Status(), report.Violations)
+				}
+				for _, final := range report.Finals {
+					for feature, want := range tc.values {
+						if got := final.Values[feature]; got != want {
+							t.Errorf("Check final %s = %q, want %q", feature, got, want)
+						}
+					}
+				}
+
+				policy := mustPolicy(t, "explore")
+				explored, err := acceptSuspensionWatchdog(t, "Explore", func() (*Exploration, error) {
+					return Explore(context.Background(), policy, model.fresh, func(ctx *Context) (Outcome, error) {
+						outputs, err := ctx.ExecuteAction(action)
+						if err != nil {
+							return Outcome{}, err
+						}
+						return ctx.ActionOutcome(outputs), nil
+					})
+				})
+				if err != nil {
+					t.Fatalf("Explore: %v", err)
+				}
+				if !explored.Complete() || len(explored.Outcomes) != len(report.Finals) {
+					t.Fatalf("Explore: %s with %d outcomes, want complete and %d outcomes", explored.Status(), len(explored.Outcomes), len(report.Finals))
+				}
+				for _, outcome := range explored.Outcomes {
+					if outcome.Outcome.Err != nil {
+						t.Fatalf("Explore outcome: %v", outcome.Outcome.Err)
+					}
+					for feature, want := range tc.values {
+						if !strings.Contains(outcome.Outcome.String(), feature+" = "+want) {
+							t.Errorf("Explore outcome %q lacks %s = %s", outcome.Outcome.String(), feature, want)
+						}
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("check_reports_stated_block_accept_deadlock", func(t *testing.T) {
+		source := acceptSuspensionStatedBlockDeadlockSource()
+		_, exec := acceptSuspensionExecutor(t, source, "short")
+		_, runErr := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
+			return struct{}{}, exec.RunToCompletion()
+		})
+		if !errors.Is(runErr, ErrAcceptDeadlock) {
+			t.Fatalf("RunToCompletion error = %v, want ErrAcceptDeadlock", runErr)
+		}
+		want := "accept deadlock in action short: nothing can post the awaited message " +
+			"(accept n waiting since step 3 for a message of type Integer (in sum, performed by sum); " +
+			"1 token(s) blocked for another reason)"
+		if got := runErr.Error(); got != want {
+			t.Errorf("deadlock = %q, want %q", got, want)
+		}
+
+		model := parseLibraryModel(t, source)
+		action := namedOrFoundSymbol(t, model.idx, "P::short", model.idx.DocumentRoot(model.path), ast.DefAction, ast.UsageAction)
+		report, err := acceptSuspensionWatchdog(t, "Check", func() (*CheckReport, error) {
+			return Check(context.Background(), model.fresh, starterOf(action), CheckBudget{},
+				CheckOptions{Reduce: true}, nil)
+		})
+		if errors.Is(err, ErrCheckRefused) {
+			t.Fatalf("Check refused: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("Check: %v", err)
+		}
+		if report.Verdict != CheckViolation || len(report.Violations) == 0 {
+			t.Fatalf("Check: %s, violations %v; want an accept-deadlock violation", report.Status(), report.Violations)
+		}
+		for _, violation := range report.Violations {
+			if !errors.Is(violation.Err, ErrAcceptDeadlock) || !strings.Contains(violation.Err.Error(), "accept deadlock") {
+				t.Errorf("violation error = %v, want ErrAcceptDeadlock", violation.Err)
 			}
 		}
 	})
