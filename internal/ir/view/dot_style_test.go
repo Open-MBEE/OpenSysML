@@ -317,16 +317,19 @@ func TestDOTRefusesAnUnregisteredPalette(t *testing.T) {
 	}
 }
 
-// The Mermaid form notes a palette it cannot draw; the text and Markdown forms
-// take none and say nothing; a palette never changes the DOT header.
+// Mermaid draws a palette with classes; the text and Markdown forms take none
+// and say nothing; a palette never changes the DOT header.
 func TestPaletteOnOtherForms(t *testing.T) {
 	rendering := render(t, "state.sysml", "MachineViews::vehicleStates")
 	mermaid, err := rendering.WriteWith(FormMermaid, Options{Palette: PaletteBrewerSet2})
 	if err != nil {
 		t.Fatalf("mermaid: %v", err)
 	}
-	if !strings.Contains(mermaid, "  classDef style_n1 fill:#") || !strings.Contains(mermaid, "\n  class n1 style_n1\n") || strings.Contains(mermaid, "palette") {
-		t.Errorf("Mermaid state diagram is not filled from the palette:\n%s", mermaid)
+	if !strings.Contains(mermaid, "classDef palette0 ") || strings.Contains(mermaid, "not represented: palette") {
+		t.Errorf("Mermaid does not draw the palette:\n%s", mermaid)
+	}
+	if !strings.Contains(mermaid, "fill:") || !strings.Contains(mermaid, "theme: base") {
+		t.Errorf("Mermaid is missing its palette or theme:\n%s", mermaid)
 	}
 	if plain := rendering.Mermaid(); strings.Contains(plain, "palette") || strings.Contains(plain, "classDef") {
 		t.Errorf("Mermaid notes or draws a palette none was asked for:\n%s", plain)
@@ -335,7 +338,7 @@ func TestPaletteOnOtherForms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sequence mermaid: %v", err)
 	}
-	if !strings.Contains(sequence, "%% not represented: palette brewer-set2; Mermaid fills no node of a sequence diagram\n") || strings.Contains(sequence, "fill:") {
+	if !strings.Contains(sequence, "%% not represented: palette brewer-set2; Mermaid's sequence diagram cannot fill individual participants (the PlantUML form fills them)\n") || strings.Contains(sequence, "fill:") {
 		t.Errorf("Mermaid sequence diagram does not note the palette:\n%s", sequence)
 	}
 	text, err := rendering.WriteWith(FormText, Options{Palette: PaletteBrewerSet2})
@@ -394,7 +397,7 @@ func TestMermaidRefusesAnUnregisteredPalette(t *testing.T) {
 }
 
 // Mermaid fills every node the DOT form fills, with the same hex, by a
-// flowchart `style` or a state diagram `classDef`; a sequence is excepted.
+// class in flowcharts and state diagrams; a sequence is excepted.
 func TestMermaidPaletteParityWithDOT(t *testing.T) {
 	for _, tc := range plantumlGoldenCases {
 		if tc.kind == KindSequence {
@@ -407,17 +410,13 @@ func TestMermaidPaletteParityWithDOT(t *testing.T) {
 				t.Fatalf("%s %s DOT: %v", tc.name, palette, err)
 			}
 			mermaid := rendering.MermaidWith(Options{Palette: palette})
-			dotFills, mermaidFills := map[string]string{}, map[string]string{}
+			dotFills := map[string]string{}
 			for _, line := range strings.Split(dot, "\n") {
 				if m := dotFillLine.FindStringSubmatch(line); m != nil {
 					dotFills[m[1]] = m[2]
 				}
 			}
-			for _, line := range strings.Split(mermaid, "\n") {
-				if m := mermaidFillLine.FindStringSubmatch(line); m != nil {
-					mermaidFills[m[1]+m[2]] = m[3]
-				}
-			}
+			mermaidFills := mermaidPaletteFills(mermaid)
 			if len(dotFills) == 0 || !maps.Equal(dotFills, mermaidFills) {
 				t.Errorf("%s %s: DOT fills %v, Mermaid %v", tc.name, palette, dotFills, mermaidFills)
 			}
@@ -435,19 +434,49 @@ func TestGoldenMermaidPalettes(t *testing.T) {
 	mermaid := rendering.MermaidWith(Options{Palette: PaletteOkabeIto})
 	checkGolden(t, filepath.Join("testdata", "interconnection.okabe-ito.mermaid.golden"), mermaid)
 	plain := rendering.Mermaid()
-	if !strings.HasPrefix(mermaid, plain) {
-		t.Errorf("palette Mermaid does not extend the black-and-white one:\n%s\n%s", mermaid, plain)
+	if withoutMermaidPaletteClasses(mermaid) != plain {
+		t.Errorf("palette Mermaid differs from the black-and-white one beyond its palette classes:\n%s\n%s", mermaid, plain)
 	}
-	for _, line := range strings.Split(strings.TrimPrefix(mermaid, plain), "\n") {
-		if line != "" && mermaidFillLine.FindStringSubmatch(line) == nil {
-			t.Errorf("palette Mermaid adds %q, not a fill", line)
-		}
+	if len(mermaidPaletteFills(mermaid)) == 0 {
+		t.Errorf("palette Mermaid fills no node:\n%s", mermaid)
 	}
 }
 
-// mermaidFillLine is a flowchart `style` or a state diagram `classDef` fill
-// statement: the node ID in group 1 or 2, the fill in group 3.
-var mermaidFillLine = regexp.MustCompile(`^\s*(?:style (\S+)|classDef style_(\S+)) fill:(#[0-9A-F]{6})`)
+var mermaidPaletteDefinitionLine = regexp.MustCompile(`^\s*classDef (palette[0-9]+) fill:(#[0-9A-F]{6}),stroke:(#[0-9A-F]{6})$`)
+var mermaidPaletteAssignmentLine = regexp.MustCompile(`^\s*class ([^ ]+) (palette[0-9]+)$`)
+
+func mermaidPaletteFills(source string) map[string]string {
+	definitions := map[string]string{}
+	var assignments []struct{ ids, class string }
+	for _, line := range strings.Split(source, "\n") {
+		if match := mermaidPaletteDefinitionLine.FindStringSubmatch(line); match != nil {
+			definitions[match[1]] = match[2]
+		}
+		if match := mermaidPaletteAssignmentLine.FindStringSubmatch(line); match != nil {
+			assignments = append(assignments, struct{ ids, class string }{match[1], match[2]})
+		}
+	}
+	fills := map[string]string{}
+	for _, assignment := range assignments {
+		if fill, ok := definitions[assignment.class]; ok {
+			for _, id := range strings.Split(assignment.ids, ",") {
+				fills[id] = fill
+			}
+		}
+	}
+	return fills
+}
+
+func withoutMermaidPaletteClasses(source string) string {
+	var lines []string
+	for _, line := range strings.Split(source, "\n") {
+		if mermaidPaletteDefinitionLine.MatchString(line) || mermaidPaletteAssignmentLine.MatchString(line) {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
 
 // The palette goldens: the interconnection and state renderings in okabe-ito,
 // the tree in viridis. Each is its black-and-white golden with fills added.

@@ -43,7 +43,7 @@ const RenderPaletteCapability = "openSysmlRenderPalette"
 const RenderFormsCapability = "openSysmlRenderForms"
 
 // RenderStylesCapability is the experimental capability whose value lists the
-// drawing styles a render request's `style` draws the DOT form in, the first
+// drawing styles a render request's `style` draws the DOT or Mermaid form in, the first
 // the default; a server without it draws the Pilot look alone.
 const RenderStylesCapability = "openSysmlRenderStyles"
 
@@ -84,7 +84,7 @@ func renderFormNames() []string {
 // document's own view. Form is the artifact written, defaulting to the machine
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
-// Style names the drawing style the DOT form draws in; empty is the default, pilot.
+// Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
 // Ports names how much of a part's ports an interconnection draws; empty is the
 // default, minimal.
 type renderParams struct {
@@ -125,7 +125,7 @@ type renderResult struct {
 // given for a declaration of a workspace document alone, a library's being
 // beyond every operation; DeclaredHere marks the requested document's own, the
 // only ones the operations besides a layout reach. Fill and Border are the
-// `#RRGGBB` colours the palette gives the node, as the DOT and PlantUML forms draw it; absent
+// `#RRGGBB` colours the palette gives the node, as the DOT, Mermaid and PlantUML forms draw it; absent
 // for a node left black and white, and for every node when no palette is asked for.
 // Style is the node's own Style annotation, which wins over the palette and the drawing style.
 type renderNode struct {

@@ -1,0 +1,43 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% Site::mixedView — interconnection rendering (render asInterconnectionDiagram)
+%% canvas: unit=px w=900 h=600
+%% layout: n1 x=100 y=200 w=120 h=60
+%% layout: n2 x=400 y=200 w=120 h=60
+%% layout: picture0 x=0 y=0 w=823 h=577
+%% layout: picture1 x=700 y=20 w=80 h=40 above
+flowchart LR
+  subgraph n0 ["`*«part def»*
+**Table**`"]
+    direction LR
+    n1("`*«part»*
+**bench : Bench**`")
+    n2("`*«part»*
+**camera : Camera**`")
+  end
+  picture0@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "the bench, from above", w: 823, h: 577 }
+  picture1@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "", w: 80, h: 40 }

@@ -241,6 +241,12 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 			code: "kerml-notation",
 		},
 		{
+			name: "connector in sysml",
+			file: "w6c_connector.sysml",
+			src:  "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
+			code: "kerml-notation",
+		},
+		{
 			name: "featured by in sysml",
 			file: "w6c_featured.sysml",
 			src: `package P {

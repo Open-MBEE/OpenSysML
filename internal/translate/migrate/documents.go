@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -770,7 +770,7 @@ func (m *migration) archivedImage(named, name string, c *sysmlv1.Element) (data 
 	}
 	ct = imagefile.ContentType(data)
 	if ct == "" {
-		return nil, "", "", named + " is not an image (content type " + imagefile.Described(data) + ")"
+		return nil, "", "", named + " is not an image (content type " + describedImageContentType(data) + ")"
 	}
 	return data, entry, ct, ""
 }

@@ -1,17 +1,38 @@
 ---
 config:
-  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% TypedViews::cycleView — action rendering (view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["«action»<br>run : Cycle"]
+  subgraph n0 ["`*«action»*
+**run : Cycle**`"]
     direction TD
-    n1["initial"]
-    n2["«action»<br>warm : Warm"]
-    n3["final"]
+    n1@{ shape: f-circ, label: "" }
+    n2("`*«action»*
+**warm : Warm**`")
+    n3@{ shape: fr-circ, label: "" }
   end
   n1 --> n2
   n2 --> n3

@@ -6,8 +6,8 @@
 
 Status: **`text`, `markdown`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
 `W1` and `plantuml` its `W2`, both wired into every surface `W3` names. This page records how a
-view's rendering is separated from the forms it is written in, why Graphviz DOT and PlantUML are
-offered next to Mermaid, and what the DOT and [PlantUML](#plantuml) writers emit — the
+view's rendering is separated from the forms it is written in, how Mermaid, Graphviz DOT and
+PlantUML compare, and what the writers emit — the
 [DiagramLayout](diagram-layout-annotations.md) geometry included.
 
 ## The rendering and its forms
@@ -117,14 +117,16 @@ kinds draw the same flowchart labels. A flowchart reserves one line of height fo
 title and draws the first child over the rest, so a rendering whose cluster title spans several
 lines opens on a YAML frontmatter block, `config: flowchart: subGraphTitleMargin: bottom: <n>`,
 claiming 24px per extra line as the title's bottom margin, with a `themeCSS` rule centring the
-title's lines under one another, which Mermaid otherwise sets flush left inside the centred
-block (`writeFlowchartFrontmatter`, `mermaidTitleCSS`); the block rides the text into every consumer, and a flowchart without such a cluster, a tree, a
-state diagram and a sequence diagram carry none. Every `subgraph` opens on a `direction`
+title's lines under one another (`writeFlowchartFrontmatter`); the block rides the text into every
+consumer, and a flowchart without such a cluster, a tree, a state diagram and a sequence diagram
+carry none. Every `subgraph` opens on a `direction`
 statement restating the flowchart's own (`TD`, `LR` for an interconnection, or the one asked
 for), since Mermaid lays out a subgraph that states none without regard to the flowchart's;
-a tree draws containment as edges, not subgraphs, so it states none. DOT writes an HTML-like
-label, `label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>`, the keyword line at
-10pt over the name in bold at the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
+a tree draws containment as edges, not subgraphs, so it states none. Flowchart labels use Markdown
+when every line is safe, with the italic keyword first, then bold head lines and plain details,
+separated by real newlines; unsafe labels fall back to the escaped `<br>` form. DOT writes an
+HTML-like label, `label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>`, the keyword
+line at 10pt over the name in bold at the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's
 declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
 a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.
@@ -155,6 +157,33 @@ ends in (`triggerLabel` in `behavior.go`): `accept Signals::'APS Internal'::'Go 
 arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a call from a signal), so a transition a v1 migration wrote with the signal's whole
 path does not carry that path across the drawing. A time or change event, and an accept of an
 event feature (`accept :> shutDown`), keep their written text.
+
+## Mermaid
+
+Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
+actions use `flowchart`; state renderings use `stateDiagram-v2`; sequence renderings use
+`sequenceDiagram`. One YAML frontmatter block sets the Pilot black-and-white theme for every
+grammar, with only the theme variables for that grammar; Cameo changes its font and supported
+colour variables. Trees remain plain node-and-containment-edge structures. Action and
+interconnection subgraphs use hidden anchors for links that touch their cluster boundaries. The
+table records what each rendering feature writes:
+
+| Feature | Mermaid syntax and behavior |
+| --- | --- |
+| Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
+| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
+| Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
+| Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
+| State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
+| Edges | `===` for connections/bindings, `-.->` for flows, `-->` for other edges, and `---` for tree containment. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Markdown labels | Flowchart node and subgraph titles use bold head lines, an italic keyword line and plain detail lines. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. State, sequence and edge labels are unchanged. |
+| Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
+| Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
+| Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
+| Ports | Any node with a used port is a subgraph containing connected ports in declaration order, before its children; edge endpoints route through those port nodes. |
+| Pictures | Flowcharts write `img` shapes and geometry comments. Local images are embedded as data URLs by document backends; unreadable, unsupported and over-limit images are omitted with notices. State and sequence diagrams do not draw pictures. |
+
+The expanded shapes `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
 
 ## Why DOT next to Mermaid
 
@@ -332,17 +361,17 @@ touching how the graph is walked.
 
 ## Style
 
-The DOT form draws in one of two **drawing styles** (`view.DrawingStyle`, `Options.Style`):
+The DOT and Mermaid forms draw in one of two **drawing styles** (`view.DrawingStyle`, `Options.Style`):
 `pilot`, the default and the one below, or [`cameo`](#the-cameo-style), the look of a diagram drawn
-by Cameo Systems Modeler. A style is chosen at render time — `-render-style`, `%render … dot
+by Cameo Systems Modeler. A style is chosen at render time — `-render-style`, `%render … mermaid
 [palette] cameo`, `"style"` on `opensysml/render`, the VS Code panel's **Style** list — and is
 independent of the palette, which recolours the plain nodes of whichever style is drawn. Over
 either style a `DiagramLayout::Style` on a member sets that node's or edge's own fill, pen, text
 colour, font, size, weight and slant, written after the skin's attributes so Graphviz takes it, and
 a `DiagramLayout::Note` is drawn beside the member it is about ([the annotations](diagram-layout-annotations.md)).
-The forms that draw no style write it as a notice (`%% not represented: style cameo; only the DOT
-form draws a diagram in a style`), and every form other than `dot` counts, in the same notice, the
-Styles and Notes it draws in part or not at all, so neither is dropped silently.
+Forms that draw no style write a notice (`%% not represented: style cameo; only the DOT and
+Mermaid forms draw a diagram in a style`). Unsupported Style fields and unrepresentable Notes
+are counted in notices rather than dropped silently.
 
 By default the DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
@@ -413,7 +442,7 @@ horizontal gradient, sampled at the left and right of a box. The constants live 
 A `DiagramLayout::Style` on a member overrides the row above for that node or edge: its `fill`
 replaces the gradient with a solid colour, its `line` the pen, its `text` and `font` the type, and
 `bold`/`italic` wrap the label — a label already bold is not doubled. A palette recolours the plain
-nodes as under `pilot`, over the Cameo pens.
+nodes in all three graphical forms; palette fills take precedence over Cameo.
 
 ### Palettes
 
@@ -455,11 +484,12 @@ Brewer (http://colorbrewer.org/), licensed under the Apache License, Version 2.0
 - **What stays black and white.** Pseudo-states, control nodes (fork, join, decision, …) and
   cluster borders keep the B&W rules under every palette; only plain nodes are filled.
 - **Mermaid.** The same hex per node as DOT (`TestMermaidPaletteParityWithDOT`), as a flowchart
-  `style <id> fill:#hex,stroke:#hex` statement or a state diagram's `classDef style_<id> …` and
+  `classDef`/`class` pair or a state diagram's `classDef style_<id> …` and
   `class <id> style_<id>` pair, written after the nodes and edges where a Style's colours go; a
   pin node keeps the theme's fill. A sequence diagram has no fill per participant and writes a
   `%% not represented: palette <name>; Mermaid fills no node of a sequence diagram` comment.
-- **Other forms.** Text and Markdown ignore a palette silently. An unknown palette name is a typed `*view.UnknownPaletteError` (wrapping
+- **Other forms.** Text and Markdown ignore a palette silently. An unknown palette name is a typed
+  `*view.UnknownPaletteError` (wrapping
   `view.ErrUnknownPalette`) naming the palettes there are, on every surface.
 
 The palette API is shaped so a later caller can ask for the colour of category *i* of *n*
@@ -789,18 +819,19 @@ every palette, and text stays black.
 
 ## Surfaces
 
-`dot` and `plantuml` are accepted wherever a form is chosen:
+`dot`, `mermaid` and `plantuml` are accepted wherever a form is chosen:
 
 | Surface | Where | Documentation |
 | --- | --- | --- |
-| CLI | `-render <view> -render-form dot\|plantuml`; `-render-all <dir> -render-form dot` writes `.dot` files and `-render-form plantuml` writes `.puml` files; `-render-palette <name>` fills either | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
-| REPL | `%render <view> dot\|plantuml [palette]`; `%help` names them; the form and, after a form that takes one, the palette complete | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; a palette also gives each node of the result its `fill` and `border`, so a client drawing its own SVG colours a node as these forms do (`Rendering.Fills`) | [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
+| REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
+| CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
-| Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
+| Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml`, `%render-document <name> mermaid\|dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT or PlantUML source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -842,12 +873,21 @@ and did not change. A view-render RPC added later would take the form as a strin
   exposed feature is no second root — drawn once, keeping its stated position, the connection
   joining the nested node, in every form and whatever the expose order; and an exposed feature
   whose container is not exposed still stands as a root.
+- `internal/ir/view/mermaid_test.go`: flowchart shapes and Markdown-label safety fallbacks; Pilot
+  and Cameo frontmatter; palette parity with DOT for every golden model and palette; edge syntax
+  and linkStyle indices including containment and note anchors; declared flowchart link endpoints
+  for every golden model, palette and style; plain tree containment; anchored non-tree subgraphs;
+  notes in all grammars; used-port subgraphs with children; empty decision symbols and quoted
+  note/fork strings; grammar-scoped theme variables; picture inlining and missing/unsupported-image
+  notices; and edge counting.
+  `TestMermaidRendersWithInstalledMMDC` is opt-in through `OPENSYSML_MMDC` and checks every
+  Mermaid golden plus palette and Cameo variants with HTML labels both on and off.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every
   kind and the stability of the family order; the contrast ratio of every palette colour at both
-  tints; the sequential sampling; the unknown-palette error text; the Mermaid notice and the
-  silence of the text and Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
+  tints; the sequential sampling; the unknown-palette error text and the silence of the text and
+  Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
   and the `interconnection.okabe-ito`, `state.okabe-ito` and `tree.viridis` goldens.
 - `internal/ir/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
   tree, interconnection, state, state-entry, action, typed-action, typed-state, filtered, layout
@@ -868,11 +908,11 @@ and did not change. A view-render RPC added later would take the form as a strin
   Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
 - `cmd/sysml/render_test.go`, `internal/frontend/repl/view_render_test.go`, `internal/frontend/lsp/render_test.go`:
   each form on each surface — DOT refused for a table or sequence, PlantUML for a table and
-  written for a sequence; `-render-all` writing `.dot` and `.puml`; the palette accepted on both,
-  noted by Mermaid, and refused by name with the palettes there are.
+  written for a sequence; `-render-all` writing `.dot` and `.puml`; palettes accepted by Mermaid
+  and refused by name with the palettes there are.
 - `internal/ir/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
-  refused when unknown (`invalid-palette`) or stated on a kind with no DOT or PlantUML form
-  (`unsupported-palette`), carried into the document IR and onto the DOT and HTML figures.
+  refused when unknown (`invalid-palette`) or stated on a kind with no graphical form
+  (`unsupported-palette`), carried into the document IR and onto the HTML figures.
 - `internal/doc/docrender`, `docpdf`, `cmd/sysml`, `internal/frontend/repl`, `internal/frontend/lsp`: the
   render-time diagram form defaulting to Mermaid, written as a `dot` or `plantuml` fence and a
   `<pre class="dot">` or `<pre class="plantuml">` for every graph-shaped block with tables left
@@ -895,6 +935,12 @@ and did not change. A view-render RPC added later would take the form as a strin
 
 ## Known limitations
 
+- Mermaid 11.3 or later is required for the expanded `fr-circ`, `f-circ`, `fork`,
+  `notch-rect` and `img` shapes; classic shapes are used where available.
+- Mermaid's fork bars do not draw their labels. Cameo gradients become flat fills and Mermaid
+  has no Cameo frame/header tab. Sequence diagrams cannot fill individual participants.
+- Free and edge-anchored state notes, state notes on pseudostates, and free sequence notes cannot
+  be represented. Picture geometry and z-order survive only as comments; Mermaid chooses placement.
 - A `Route` is written as the polyline through its waypoints; the writer does not smooth it
   into a curve, and Graphviz draws it as given.
 - The PDF backend draws a DOT or PlantUML diagram only when the tool is installed: Graphviz and
@@ -924,15 +970,15 @@ and did not change. A view-render RPC added later would take the form as a strin
 - Graphviz has no corner radius, shadow or text wrapping, so the skin's `UsageRoundCorner 20`,
   `Shadowing 0` and `wrapWidth 300`, and Cameo's drop shadow and corner radius, are approximated
   or dropped as the [style](#style) section records.
-- A `Style` is drawn whole only by the DOT form; the Mermaid and PlantUML forms take a node's
-  fill, line and text colour and not its font or an edge's Style, the text form none of it, and
-  each says so in a notice counting the styled nodes and edges. Notes are drawn by the DOT form
-  alone; the others count them.
-- A pasted raster image in a source diagram has no annotation and is not drawn; the migration
-  counts it as dropped.
+- Mermaid draws supported node and flowchart-edge Style fields, including edge-label fonts, and
+  reports unsupported font families and state/sequence edge fields in a notice. Flowchart, state
+  and sequence notes are drawn only when their anchors fit
+  those grammars; free state/sequence notes and state notes on pseudostates are reported.
+- Mermaid flowcharts draw pictures as image nodes and document backends inline local image data.
+  Picture positions and z-order survive only as comments; state and sequence pictures are not drawn.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering
   has no edge kind for them.
-- A palette fills nodes by keyword family only; colouring by a data attribute or query result,
-  and Mermaid theming, are not built.
+- A palette fills nodes by keyword family only; colouring by a data attribute or query result is
+  not built.
 - Producing DOT still runs no Graphviz binary. The goldens are checked by the in-test syntax
   walk; a Graphviz installation is used only by hand to look at them.

@@ -499,17 +499,16 @@ sysml> %render Demo::summary dot okabe-ito
 
 The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`,
 `brewer-dark2`, `viridis` and `cividis` ([their sources](../project/view-rendering-forms.md#palettes));
-any other name is refused with that list. A palette fills the `mermaid`, `dot` and `plantuml`
-forms alone (`%render <name> text okabe-ito` is refused), and a `Diagram` block of a document
-states its own ([`palette`](../manual/authoring.md#diagrams)).
-
+any other name is refused with that list. DOT, Mermaid and PlantUML accept palettes;
+Mermaid sequence diagrams report that they cannot fill individual participants. A `Diagram` block
+of a document states its own ([`palette`](../manual/authoring.md#diagrams)).
 A word `minimal` or `full` after the form names how much of a part's ports an interconnection
 draws: `minimal`, the default, the ports a connector of the view ends at, each a small square on
 the part's border named beside it; `full`, every port a part has, labelled `name : Type`
 (`%render Plant::loopView dot full`). It is accepted in any order with the palette and the
 style, once, and completes beside them.
 
-A third word after `dot` names the drawing style: `pilot`, the look above and the default, or
+A word after `dot` or `mermaid` names the drawing style: `pilot`, the look above and the default, or
 `cameo`, the look of Cameo Systems Modeler — a diagram frame with a `stm [State Machine] … [ … ]`
 header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment
 and the UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)):
@@ -518,9 +517,10 @@ and the UML pseudo-state symbols ([the measurements](../project/view-rendering-f
 sysml> %render Demo::modes dot okabe-ito cameo
 ```
 
-Any other word is refused with the two styles. A `mermaid` or `plantuml` rendering under a
-style other than `pilot` writes a `not represented: style cameo` notice: only the DOT form draws
-a diagram in a style. A member's own `DiagramLayout::Style` colours it over either look, and a
+Any other word is refused with the two styles. A `plantuml` rendering under a style other than
+`pilot` writes a `not represented: style cameo` notice: only the DOT and Mermaid forms draw a
+diagram in a style. Mermaid draws supported Cameo details and notes the flattened gradients and
+omitted frame. A member's own `DiagramLayout::Style` colours it over either look, and a
 `DiagramLayout::Note` is drawn beside the member it is about.
 
 A `sequence` or `table` view has no DOT form, and asking for one tells you which form the kind

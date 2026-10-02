@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 )
 
 // rasterizer draws the diagrams of one form to SVG with an external tool.

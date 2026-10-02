@@ -622,6 +622,37 @@ package Fail {
 	}
 }
 
+func TestExploreReportsActionStepMultiplicityRefusalAsOutcome(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, `
+package StepMultiplicity {
+  action Rep {
+    first start then a;
+    action a[0..*];
+    then done;
+  }
+}
+`, "step-multiplicity")
+
+	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "StepMultiplicity::Rep", Schedule: "explore",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction under explore: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("response error = %q, want a run outcome", resp.Error)
+	}
+	if resp.Exploration == nil || !resp.Exploration.Complete || len(resp.Outcomes) != 1 ||
+		resp.Exploration.FailedLinearizations != 1 {
+		t.Fatalf("exploration %v with outcomes %v, want one failed outcome", resp.Exploration, resp.Outcomes)
+	}
+	if !strings.Contains(resp.Outcomes[0].Error, "unsupported action step multiplicity") {
+		t.Errorf("outcome error = %q, want the action-step-multiplicity refusal", resp.Outcomes[0].Error)
+	}
+}
+
 // Exploring needs the schedule_explore capability on every RPC carrying the
 // field; the other policies need only schedule.
 func TestExploreIsUnimplementedWithoutItsCapability(t *testing.T) {

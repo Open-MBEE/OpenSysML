@@ -259,7 +259,7 @@ func TestPlantUMLFormSupport(t *testing.T) {
 		if got := kind.SupportsForm(FormPlantUML); got != want {
 			t.Errorf("%s.SupportsForm(plantuml) = %v, want %v", kind, got, want)
 		}
-		if got := kind.SupportsPalette(); got != (kind.SupportsForm(FormDot) || kind.SupportsForm(FormPlantUML)) {
+		if got := kind.SupportsPalette(); got != (kind.SupportsForm(FormDot) || kind.SupportsForm(FormMermaid) || kind.SupportsForm(FormPlantUML)) {
 			t.Errorf("%s.SupportsPalette() = %v", kind, got)
 		}
 		if kind.MachineForm() == FormPlantUML {

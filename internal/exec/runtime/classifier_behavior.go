@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // classifierBehaviorDecl is a behavior a type binds to its objects, paired with
@@ -1012,6 +1013,23 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 // type binds, seeded with the values the binding declaration supplies, and
 // initializes it so its start is reported where every other behavior's is.
 func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
+	if usage := decl.behavior.Decl; lower.IsPerformedActionUsage(usage) && usage.Multiplicity != nil {
+		scope := decl.member.OwnerScope
+		graph := &lower.ActionGraph{
+			Scope:          scope,
+			Multiplicities: map[ast.Node]*ast.Multiplicity{usage: usage.Multiplicity},
+			Scopes:         map[ast.Node]*symbols.Scope{usage: scope},
+		}
+		count, err := graph.StepCount(usage, ctx.Semantics())
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		}
+		if count != 1 {
+			return nil, fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
+				usage, ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
+				"part-level performed actions cannot execute with multiplicity other than [1]", nil))
+		}
+	}
 	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
 	if err != nil {
 		return nil, err

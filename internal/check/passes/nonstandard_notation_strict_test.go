@@ -176,3 +176,25 @@ func TestKeywordAsNameLeavesTheNamesTheGrammarAdmits(t *testing.T) {
 		}
 	}
 }
+
+// A KerML-only declaration keyword in a SysML file follows the mode the way
+// `namespace` does: a warning by default, an error under strict conformance,
+// and silence in a KerML file either way.
+func TestKerMLDeclarationFollowsTheMode(t *testing.T) {
+	for _, tc := range kermlDeclarationInventory {
+		strict := notationDiags(t, "a.sysml", tc.src, diag.ConformanceStrict)
+		def := notationDiags(t, "a.sysml", tc.src, diag.ConformanceDefault)
+		if len(strict) != 1 || len(def) != 1 {
+			t.Fatalf("%s: strict gave %d finding(s), default %d; want one each", tc.keyword, len(strict), len(def))
+		}
+		if strict[0].Severity != diag.SeverityError || strict[0].Code != CodeKerMLNotation {
+			t.Errorf("%s: strict: got %+v, want a kerml-notation error", tc.keyword, strict[0])
+		}
+		if def[0].Severity != diag.SeverityWarning || def[0].Code != CodeKerMLNotation {
+			t.Errorf("%s: default: got %+v, want a kerml-notation warning", tc.keyword, def[0])
+		}
+		if got := notationDiags(t, "a.kerml", kermlTwin(tc.src), diag.ConformanceStrict); len(got) != 0 {
+			t.Errorf("%s: a KerML file uses KerML notation: got %+v, want silence", tc.keyword, got)
+		}
+	}
+}

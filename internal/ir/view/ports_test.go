@@ -83,7 +83,7 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 	for label, want := range map[string]string{
 		"DOT":      `"` + primary.ID + `" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>primary : ControlSystem</b>>];`,
 		"PlantUML": "  rectangle \"<size:10>//«part»//</size>\\n**primary : ControlSystem**\" as " + primary.ID + " <<part>> <<usage>>\n",
-		"Mermaid":  "    " + primary.ID + "[\"«part»<br>primary : ControlSystem\"]\n",
+		"Mermaid":  "    " + primary.ID + "(\"`*«part»*\n**primary : ControlSystem**`\")\n",
 		"text":     "  part primary : ControlSystem\n  part backup : ControlSystem\n    port durationOut\n",
 	} {
 		if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid, "text": text}[label], want) {
@@ -98,7 +98,7 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationOut</font></td>`,
 			`"` + backup.ID + `":"` + standby.ID + `" -> "` + heating.ID + `":"` + in.ID + `" [label="standby"`},
 		"PlantUML": {"    port \"durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
-		"Mermaid":  {"      " + standby.ID + "[\"durationOut\"]\n", "  " + standby.ID + " ---|\"standby\"| " + in.ID + "\n"},
+		"Mermaid":  {"      " + standby.ID + "[\"durationOut\"]\n", "  " + standby.ID + " ===|\"standby\"| " + in.ID + "\n"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid}[label], want) {
@@ -141,8 +141,8 @@ func TestPortedAndPinlessEdgesMixUnderTheMinimalDisplay(t *testing.T) {
 			`"` + sensor.ID + `" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>sensor : Pump</b>>];`},
 		"PlantUML": {outlet.ID + " -[thickness=3]- " + inlet.ID + " : supply\n", pump.ID + " -[dashed]-> " + tank.ID + " : of Water\n",
 			"  rectangle \"<size:10>//«part»//</size>\\n**sensor : Pump**\" as " + sensor.ID + " <<part>> <<usage>>\n"},
-		"Mermaid": {"  " + outlet.ID + " ---|\"supply\"| " + inlet.ID + "\n", "  " + pump.ID + " -.->|\"of Water\"| " + tank.ID + "\n",
-			"    " + sensor.ID + "[\"«part»<br>sensor : Pump\"]\n"},
+		"Mermaid": {"  " + outlet.ID + " ===|\"supply\"| " + inlet.ID + "\n", "  " + pump.ID + "_anchor -.->|\"of Water\"| " + tank.ID + "_anchor\n",
+			"    " + sensor.ID + "(\"`*«part»*\n**sensor : Pump**`\")\n"},
 	} {
 		form := map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid}[label]
 		for _, want := range wants {

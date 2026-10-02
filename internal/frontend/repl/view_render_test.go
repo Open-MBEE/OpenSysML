@@ -39,7 +39,8 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.Join(out, "\n")
-	if !strings.HasPrefix(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
+	if !strings.HasPrefix(text, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
+		!strings.Contains(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
 		t.Errorf("%%render mermaid = %q, want a Mermaid flowchart", text)
 	}
 }
@@ -133,10 +134,9 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
 		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "\n  style n0 fill:#E69F00,stroke:#E69F00\n")
+	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
 	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
 	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
-	// The palette completes after the dot, mermaid and plantuml forms, and after no other.
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
@@ -533,10 +533,9 @@ func TestRenderBetweenStepsDisturbsNothing(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "total = 5")
 }
 
-// The DOT form takes a drawing style beside the palette, in either order; the
+// The DOT and Mermaid forms take a drawing style beside the palette, in either order; the
 // Cameo style frames the diagram, an explicit pilot draws the default look, and
-// the style completes with the palettes. Other forms take the style and say
-// they do not draw it.
+// the style completes with the palettes. PlantUML takes no drawing style.
 func TestRenderDotTakesAStyle(t *testing.T) {
 	s := viewSession(t)
 	for _, line := range []string{"%render Demo::summary dot cameo", "%render Demo::summary dot okabe-ito cameo", "%render Demo::summary dot cameo okabe-ito"} {
@@ -549,7 +548,10 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	if got := run(t, s, "%render Demo::summary dot"); got != plain {
 		t.Errorf("the pilot style is not the default:\n%s\n---\n%s", got, plain)
 	}
-	wants(t, run(t, s, "%render Demo::summary mermaid cameo"), "style cameo; only the DOT form draws a diagram in a style")
+	mermaid := run(t, s, "%render Demo::summary mermaid cameo")
+	if !strings.Contains(mermaid, `fontFamily: "Arial, Helvetica, sans-serif"`) || strings.Contains(mermaid, "not represented: style cameo") {
+		t.Errorf("%%render mermaid cameo did not draw Cameo:\n%s", mermaid)
+	}
 	wants(t, run(t, s, "%render Demo::summary dot cameo pilot"), renderUsage)
 	wants(t, run(t, s, "%render Demo::summary dot okabe-ito viridis"), renderUsage)
 	if got := s.Complete("%render Demo::summary dot okabe-ito ca", len("%render Demo::summary dot okabe-ito ca")); !slices.Equal(got.Candidates, []string{"cameo"}) {

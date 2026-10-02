@@ -1,0 +1,26 @@
+step 1: token 1@a, token 2@a
+enter action node: a
+enter action node: a
+choice step 2: tokens 1@a, 2@a (unordered; took 2@a first)
+step 2: token 1@x, token 2@x, token 3@y, token 4@y
+stmt assign c
+    eval feature c -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign c
+    eval feature c -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign c
+    eval feature c -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+leave action node: a
+stmt assign c
+    eval feature c -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+leave action node: a
+choice step 3: writes c := 4 by token 1, c := 3 by token 2, c := 2 by token 3, c := 1 by token 4 (unordered; c := 4 by token 1 stood)
+choice step 3: tokens 1@x, 2@x, 3@y, 4@y (unordered; took 4@y first)
+step 3: no active tokens

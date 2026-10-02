@@ -156,16 +156,16 @@ func TestPictureOnlyViewIsNotEmpty(t *testing.T) {
 	if strings.Contains(dot, "exposes nothing") {
 		t.Errorf("DOT calls the pictured view empty:\n%s", dot)
 	}
-	notice := "not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the dot form draws pictures"
-	reason := "the view shows 1 picture(s), which the mermaid form does not draw"
-	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+notice) || !strings.Contains(mermaid, reason) {
+	mermaidNotice := "not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the file does not read"
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+mermaidNotice) || strings.Contains(mermaid, "picture0@{") {
 		t.Errorf("Mermaid drops the picture silently:\n%s", mermaid)
 	}
 	puml, err := rendering.PlantUML()
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
-	if !strings.Contains(puml, "' "+notice) || !strings.Contains(puml, "the view shows 1 picture(s), which the plantuml form does not draw") {
+	if !strings.Contains(puml, "' not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the dot form draws pictures") ||
+		!strings.Contains(puml, "the view shows 1 picture(s), which the plantuml form does not draw") {
 		t.Errorf("PlantUML drops the picture silently:\n%s", puml)
 	}
 	if text := rendering.Text(); !strings.Contains(text, "pictures:\n  \"images/site.jpg\" at (0, 0) size 640×480\n") {

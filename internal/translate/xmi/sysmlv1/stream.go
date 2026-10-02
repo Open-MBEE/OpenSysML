@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 )
 
 // Symbol is one symbol of a tool's own serialization of a diagram: what it

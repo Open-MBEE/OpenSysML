@@ -135,21 +135,20 @@ func joinForms(forms []Form, conjunction string) string {
 func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
 // Options are what a rendering is written with beside its form. Each form
-// takes the ones that apply to it: the text form its Width, the Mermaid form
-// its Direction and Unplaced, the DOT and PlantUML forms their Direction,
-// Palette and Unplaced. A form ignores the rest, the Mermaid form saying so
-// of a Palette in a comment.
+// takes the ones that apply to it: the text form its Width, Mermaid, DOT and
+// PlantUML their Direction, Palette, Style and Unplaced, and the interconnection
+// forms their Ports display. A form ignores the rest.
 type Options struct {
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
 	// leaves each kind's default.
 	Direction Direction
-	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
+	// Palette is the palette the DOT, Mermaid and PlantUML forms fill nodes from, by
 	// keyword family; empty draws in black and white.
 	Palette Palette
 	// Ports is how much of a part's ports an interconnection draws; empty
 	// draws the connected ones, as PortsMinimal does.
 	Ports Ports
-	// Style is the look the DOT form draws in; empty is the Pilot's, StylePilot.
+	// Style is the look the DOT and Mermaid forms draw in; empty is the Pilot's, StylePilot.
 	Style DrawingStyle
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
 	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
@@ -188,6 +187,17 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 			return r.DOTWith(options)
 		case FormPlantUML:
 			return r.PlantUMLWith(options)
+		case FormMermaid:
+			if err := options.Palette.check(); err != nil {
+				return "", err
+			}
+			if err := options.Unplaced.check(); err != nil {
+				return "", err
+			}
+			if err := options.Style.check(); err != nil {
+				return "", err
+			}
+			return r.MermaidWith(options), nil
 		}
 		if err := options.Palette.check(); err != nil {
 			return "", err
