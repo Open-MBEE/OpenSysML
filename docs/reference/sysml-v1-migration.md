@@ -2021,5 +2021,10 @@ lets any other accept of the signal the state's own do behavior is parked at tak
 occurrence first, and the loop keeps only what nothing else of the state takes. The keeper is
 known by the annotation's resolved type alone, never by where the accept stands, so an accept
 of the deferred signal written without it — at any level of the do action — is an ordinary
-accept. Both annotations are written through `$::MigrationMetadata` where a package of the
+accept. Output migrated before the marker existed wrote the loop's accept bare, so the checker
+reports an unmarked accept of a deferred signal at the root of a `DeferredEvent` state's do
+action, where no accept of that signal is marked, with the `deferred-keeper-unmarked` warning ([diagnostics](diagnostics.md#deferred-keeper-unmarked)):
+the model still analyses and runs, the accept consuming each occurrence rather than keeping it;
+re-migrate it, or write the marker on the accept. Both annotations are written through
+`$::MigrationMetadata` where a package of the
 model shadows the library's name.

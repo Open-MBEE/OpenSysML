@@ -12,6 +12,7 @@ the exit status or blocks a check.
 |------|-------------|------|
 | `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution |
 | `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint |
+| `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution |
 
 ## Switching a lint off
 
@@ -100,3 +101,36 @@ It covers `connect a.p to b.q;` (and `connection … connect`), interface usages
 `ConnectionUsage`, `InterfaceUsage` and `FlowUsage` (`SysML.xtext:1062`, `:1153`, `:1269`).
 An end that is not a port, or whose port type does not resolve, is not judged. The
 specification states no constraint of this kind, so it is a lint rather than an error.
+
+## `deferred-keeper-unmarked`
+
+A SysML v1 state's deferred signal is migrated to the standard encoding described under
+[Deferred signals](sysml-v1-migration.md#deferred-signals): the state is annotated
+`@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }`, and its do action keeps each
+occurrence of `Sig` through an accept loop whose accept is written
+`#MigrationMetadata::DeferredKeeper action receive accept kept : Sig;`. The runtime knows the
+keeping accept by that annotation alone — it is the accept that yields an occurrence to any
+other accept of the state able to take it, and keeps what nothing else takes — so an accept of
+the deferred signal written without it is an ordinary accept, which consumes the occurrence.
+Output migrated before the marker existed wrote the loop's accept bare, and so does a model
+written by hand after the pattern.
+
+The lint reports each accept node at the root of the do action of a state annotated
+`MigrationMetadata::DeferredEvent` whose payload is typed by the signal the annotation names,
+when no accept of that signal there carries `MigrationMetadata::DeferredKeeper`: once one does,
+the state has its keeping loop, and a bare accept of the signal beside it is the ordinary
+consumer the marker exists to tell apart, which takes an occurrence first. Both annotations
+are known by their resolved type, however the model spells them (through an import, an alias
+or `$::MigrationMetadata`), and a metadata definition of the model that merely shares the
+library name is not one of them.
+
+```text
+m.sysml:12:5: warning: accept of deferred signal Ping is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it
+```
+
+The model still analyses and runs; the accept simply takes each occurrence rather than keeping
+it. Re-migrate the model, which writes the marker on every keeping accept, or write
+`#MigrationMetadata::DeferredKeeper` on the accept yourself. An accept of the signal nested
+below the do action's root, one beside a marked keeper of the signal, or one under a state the
+annotation does not name, is an ordinary accept by design and is not reported, nor is an
+accept whose signal does not resolve, which name resolution reports.

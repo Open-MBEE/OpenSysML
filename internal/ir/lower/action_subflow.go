@@ -155,7 +155,7 @@ func lowerAccept(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			SubsetsEvent: subsettingTarget(m),
 			Trigger:      m.Value,
 			Scope:        scope,
-			Keeper:       isDeferredKeeper(graph.resolver, scope, node),
+			Keeper:       IsDeferredKeeper(graph.resolver, scope, node),
 		}
 	}
 }

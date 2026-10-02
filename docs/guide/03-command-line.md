@@ -261,10 +261,11 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Two further warnings, `undeclared-signal` and `port-type-mismatch`, are *lints*: the model
-is valid SysML v2, but a `when <name>` that no declaration or `send`
-accounts for, or a connection between ports whose definitions are unrelated, is almost
-always a slip. `-strict` leaves them warnings, since they are not about notation.
+Three further warnings, `undeclared-signal`, `port-type-mismatch` and
+`deferred-keeper-unmarked`, are *lints*: the model is valid SysML v2, but a `when <name>` that
+no declaration or `send` accounts for, a connection between ports whose definitions are
+unrelated, or a deferred signal's accept loop written without the `DeferredKeeper` marker that
+names it as the keeper, is almost always a slip. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
 `disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
