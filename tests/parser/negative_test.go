@@ -317,6 +317,8 @@ func TestNegative(t *testing.T) {
 		{"flow_from_without_to", "action def A { action a; flow x from a; }"},
 		{"flow_named_from_no_source", "action def A { flow x from to b; }"},
 		{"accept_when_no_condition", "action def A { accept when; }"},
+		{"prefixed_accept_no_payload", "action def A { metadata def M; #M action a accept ; }"},
+		{"prefixed_accept_no_terminator", "action def A { metadata def M; #M action a accept e : E }"},
 		{"accept_at_no_instant", "action def A { accept at; }"},
 		{"accept_no_payload", "action def A { accept; }"},
 		{"accept_subsets_no_event", "action def A { action i accept :>; }"},
