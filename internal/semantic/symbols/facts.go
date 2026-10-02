@@ -51,6 +51,10 @@ type LibraryFacts struct {
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
+	// Portion is the `snapshot` or `timeslice` prefix of a usage, or
+	// PortionNone when the declaration has no portion keyword.
+	Portion ast.PortionKind
+
 	// Modifiers are the declaration's boolean modifiers (`end`, `derived`, ...).
 	Modifiers Modifiers
 

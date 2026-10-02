@@ -1276,6 +1276,169 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return nil, false
 	}
 	switch feature {
+	case "owningNamespace":
+		if !m.reflectiveMetaclassConforms(sym, "Element") {
+			return nil, false
+		}
+		owner := m.ownerOf(sym)
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Namespace") {
+			return nil, true
+		}
+		return []*symbols.Symbol{owner}, true
+	case "owningType":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		owner := m.ownerOf(sym)
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") {
+			return nil, true
+		}
+		return []*symbols.Symbol{owner}, true
+	case "featuringType":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		var out []*symbols.Symbol
+		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Type") {
+			out = append(out, owner)
+		}
+		if sym.Recorded() {
+			for _, target := range m.RecordedRelationshipTargets(sym, ast.RelFeaturedBy) {
+				if m.reflectiveMetaclassConforms(target, "Type") && !containsElement(out, target) {
+					out = append(out, target)
+				}
+			}
+		} else {
+			for _, rel := range RelationshipsOf(sym) {
+				if rel == nil || rel.Kind != ast.RelFeaturedBy {
+					continue
+				}
+				target := m.RelationshipTarget(sym, rel)
+				if target != nil && m.reflectiveMetaclassConforms(target, "Type") && !containsElement(out, target) {
+					out = append(out, target)
+				}
+			}
+		}
+		return out, true
+	case "input":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		if behaviorLike(sym) {
+			out := m.InputParametersOf(sym)
+			return includeSubjectParameterInOrder(m, sym, out), true
+		}
+		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut), true
+	case "output":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		if behaviorLike(sym) {
+			var out []*symbols.Symbol
+			for _, parameter := range m.BehaviorParametersOf(sym) {
+				if parameter.Symbol == nil || parameter.IsResult ||
+					(parameter.Direction != ast.DirOut && parameter.Direction != ast.DirInOut) {
+					continue
+				}
+				out = append(out, parameter.Symbol)
+			}
+			for _, parameter := range m.BehaviorParametersOf(sym) {
+				if parameter.Symbol != nil && parameter.IsResult {
+					out = append(out, parameter.Symbol)
+				}
+			}
+			return out, true
+		}
+		return m.directedFeatures(sym, ast.DirOut, ast.DirInOut), true
+	case "parameter":
+		if !m.reflectiveMetaclassConforms(sym, "Behavior") &&
+			!m.reflectiveMetaclassConforms(sym, "Step") {
+			return nil, false
+		}
+		var out []*symbols.Symbol
+		for _, parameter := range m.BehaviorParametersOf(sym) {
+			if parameter.Symbol != nil {
+				out = append(out, parameter.Symbol)
+			}
+		}
+		return includeSubjectParameterInOrder(m, sym, out), true
+	case "directedFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
+	case "subjectParameter":
+		if !m.ownsSubjectParameter(sym) {
+			return nil, false
+		}
+		if subject := m.SubjectParameterOf(sym); subject != nil {
+			return []*symbols.Symbol{subject}, true
+		}
+		return nil, true
+	case "objectiveRequirement":
+		if !m.ownsObjectiveRequirement(sym) {
+			return nil, false
+		}
+		owned, inherited := m.ObjectivesOf(sym)
+		objectives := append(owned, inherited...)
+		if len(objectives) > 0 && objectives[0] != nil {
+			return []*symbols.Symbol{objectives[0]}, true
+		}
+		return nil, true
+	case "result":
+		if !m.reflectiveMetaclassConforms(sym, "Expression") &&
+			!m.reflectiveMetaclassConforms(sym, "Function") {
+			return nil, false
+		}
+		if result := m.ResultParameterOf(sym); result != nil {
+			return []*symbols.Symbol{result}, true
+		}
+		return nil, true
+	case "individualDefinition":
+		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
+			return nil, false
+		}
+		for _, definition := range m.definitionTypedFeatures(sym, "occurrenceDefinition") {
+			if value, ok := m.ReflectiveFeatureValue(definition, "isIndividual"); ok && value.Kind == symbols.FilterValueBool && value.Bool {
+				return []*symbols.Symbol{definition}, true
+			}
+		}
+		return nil, true
+	case "metaclass":
+		if !m.reflectiveMetaclassConforms(sym, "MetadataFeature") {
+			return nil, false
+		}
+		return m.conformingTypes(sym, "Metaclass"), true
+	case "endFeature", "ownedEndFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		ends := m.EndFeatures(sym)
+		if feature == "endFeature" {
+			return ends, true
+		}
+		owned := make([]*symbols.Symbol, 0, len(ends))
+		for _, end := range ends {
+			if end != nil && m.ownerOf(end) == sym {
+				owned = append(owned, end)
+			}
+		}
+		return owned, true
+	case "unioningType":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.UnioningTypes(sym), true
+	case "intersectingType":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.IntersectingTypes(sym), true
+	case "differencingType":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return nil, false
+		}
+		return m.DifferencingTypes(sym), true
 	case "owner":
 		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
 			return nil, true
@@ -1298,7 +1461,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "documentation":
 		return m.documentationSymbols(sym), true
 	case "relatedFeature", "sourceFeature", "targetFeature":
-		if !m.IsConnectorObjectUsage(sym) {
+		if !m.reflectiveMetaclassConforms(sym, "Connector") {
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
@@ -1335,7 +1498,135 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.reflectiveOwnedUsages(sym, feature); ok {
 		return elems, true
 	}
+	if typed, ok := reflectiveDefinitionFeatures[feature]; ok {
+		if !m.reflectiveMetaclassConforms(sym, typed.owner) {
+			return nil, false
+		}
+		return m.definitionTypedFeatures(sym, feature), true
+	}
 	return nil, false
+}
+
+type reflectiveDefinitionFeature struct {
+	owner  string
+	target string
+}
+
+var reflectiveDefinitionFeatures = map[string]reflectiveDefinitionFeature{
+	"occurrenceDefinition":       {owner: "OccurrenceUsage", target: "Class"},
+	"itemDefinition":             {owner: "ItemUsage", target: "Structure"},
+	"partDefinition":             {owner: "PartUsage", target: "PartDefinition"},
+	"portDefinition":             {owner: "PortUsage", target: "PortDefinition"},
+	"actionDefinition":           {owner: "ActionUsage", target: "Behavior"},
+	"attributeDefinition":        {owner: "AttributeUsage", target: "DataType"},
+	"stateDefinition":            {owner: "StateUsage", target: "Behavior"},
+	"constraintDefinition":       {owner: "ConstraintUsage", target: "Predicate"},
+	"requirementDefinition":      {owner: "RequirementUsage", target: "RequirementDefinition"},
+	"calculationDefinition":      {owner: "CalculationUsage", target: "Function"},
+	"caseDefinition":             {owner: "CaseUsage", target: "CaseDefinition"},
+	"analysisCaseDefinition":     {owner: "AnalysisCaseUsage", target: "AnalysisCaseDefinition"},
+	"verificationCaseDefinition": {owner: "VerificationCaseUsage", target: "VerificationCaseDefinition"},
+	"useCaseDefinition":          {owner: "UseCaseUsage", target: "UseCaseDefinition"},
+	"viewDefinition":             {owner: "ViewUsage", target: "ViewDefinition"},
+	"viewpointDefinition":        {owner: "ViewpointUsage", target: "ViewpointDefinition"},
+	"renderingDefinition":        {owner: "RenderingUsage", target: "RenderingDefinition"},
+	"metadataDefinition":         {owner: "MetadataUsage", target: "Metaclass"},
+	"flowDefinition":             {owner: "FlowUsage", target: "Interaction"},
+	"connectionDefinition":       {owner: "ConnectionUsage", target: "AssociationStructure"},
+	"interfaceDefinition":        {owner: "InterfaceUsage", target: "InterfaceDefinition"},
+	"allocationDefinition":       {owner: "AllocationUsage", target: "AllocationDefinition"},
+	"enumerationDefinition":      {owner: "EnumerationUsage", target: "EnumerationDefinition"},
+}
+
+func (m *Model) reflectiveMetaclassConforms(sym *symbols.Symbol, name string) bool {
+	if sym == nil {
+		return false
+	}
+	meta := m.MetaclassOf(sym)
+	target := m.Metaclass(name)
+	return meta != nil && target != nil && m.Conforms(meta, target)
+}
+
+func (m *Model) ownsSubjectParameter(sym *symbols.Symbol) bool {
+	return m.reflectiveMetaclassConforms(sym, "CaseDefinition") ||
+		m.reflectiveMetaclassConforms(sym, "CaseUsage") ||
+		m.reflectiveMetaclassConforms(sym, "RequirementDefinition") ||
+		m.reflectiveMetaclassConforms(sym, "RequirementUsage")
+}
+
+func (m *Model) ownsObjectiveRequirement(sym *symbols.Symbol) bool {
+	return m.reflectiveMetaclassConforms(sym, "CaseDefinition") ||
+		m.reflectiveMetaclassConforms(sym, "CaseUsage")
+}
+
+func (m *Model) directedFeatures(sym *symbols.Symbol, directions ...ast.FeatureDirection) []*symbols.Symbol {
+	allowed := make(map[ast.FeatureDirection]bool, len(directions))
+	for _, direction := range directions {
+		allowed[direction] = true
+	}
+	var out []*symbols.Symbol
+	for _, member := range m.membersIncludingAnonymous(sym) {
+		direction, ok := ReflectiveDirection(member)
+		if ok && allowed[direction] {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
+func includeSubjectParameterInOrder(m *Model, owner *symbols.Symbol, values []*symbols.Symbol) []*symbols.Symbol {
+	subject := m.SubjectParameterOf(owner)
+	if subject == nil {
+		return values
+	}
+	for _, value := range values {
+		if value == subject {
+			return values
+		}
+	}
+	members := m.membersIncludingAnonymous(owner)
+	subjectIndex := -1
+	for i, member := range members {
+		if member == subject {
+			subjectIndex = i
+			break
+		}
+	}
+	insertAt := len(values)
+	for i, value := range values {
+		for j, member := range members {
+			if member == value && subjectIndex >= 0 && j > subjectIndex {
+				insertAt = i
+				break
+			}
+		}
+		if insertAt == i {
+			break
+		}
+	}
+	out := make([]*symbols.Symbol, 0, len(values)+1)
+	out = append(out, values[:insertAt]...)
+	out = append(out, subject)
+	out = append(out, values[insertAt:]...)
+	return out
+}
+
+func (m *Model) conformingTypes(sym *symbols.Symbol, target string) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, typ := range m.FeatureTypeSet(sym) {
+		if m.reflectiveMetaclassConforms(typ, target) {
+			out = append(out, typ)
+		}
+	}
+	return out
+}
+
+func (m *Model) definitionTypedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
+	typed, ok := reflectiveDefinitionFeatures[feature]
+	if !ok {
+		return nil
+	}
+	return m.conformingTypes(sym, typed.target)
 }
 
 // dependencyEnds is the elements one side of a dependency names, in order; a
@@ -1455,11 +1746,20 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 // ReflectiveDirection is the direction sym's feature declaration states
 // (Feature::direction); ok is false where sym declares no feature.
 func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
-	traits, ok := featureTraitsOf(sym)
-	if !ok {
+	if sym != nil && sym.Recorded() {
+		if !sym.IsFeature() {
+			return ast.DirNone, false
+		}
+		return sym.Facts.Direction, true
+	}
+	if sym == nil || !sym.IsFeature() {
 		return ast.DirNone, false
 	}
-	return traits.Direction, true
+	traits, ok := featureTraitsOf(sym)
+	if ok {
+		return traits.Direction, true
+	}
+	return ast.DirNone, true
 }
 
 // ReflectiveFeatureValue reads a metaclass feature derived from the
@@ -1482,6 +1782,15 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 		values := make([]symbols.FilterValue, 0, len(bodies))
 		for _, body := range bodies {
 			values = append(values, symbols.FilterValue{Kind: symbols.FilterValueString, Str: body})
+		}
+		return values, true
+	}
+	if elements, ok := m.ReflectiveElements(sym, feature); ok {
+		values := make([]symbols.FilterValue, 0, len(elements))
+		for _, element := range elements {
+			if fqn := m.fqnOf(element); fqn != "" {
+				values = append(values, symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn})
+			}
 		}
 		return values, true
 	}
@@ -1521,9 +1830,49 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return emptyValue(), true
 		}
 		return stringOrEmpty(direction.String()), true
+	case "portionKind":
+		if !m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
+			return symbols.FilterValue{}, false
+		}
+		if sym.Recorded() {
+			return stringOrEmpty(sym.Facts.Portion.Keyword()), true
+		}
+		if usage, ok := sym.Decl.(*ast.Usage); ok {
+			return stringOrEmpty(usage.Portion.Keyword()), true
+		}
+		return emptyValue(), true
 	}
 	if value, ok := m.reflectiveFeatureBoolean(sym, feature); ok {
 		return value, true
+	}
+	switch feature {
+	case "isVariation":
+		isDefinition := sym.Kind.IsDefinition() &&
+			sym.Kind != symbols.SymbolMetaclass && sym.Kind != symbols.SymbolKerMLType &&
+			!m.isKerMLDoc(sym)
+		if !isDefinition &&
+			!m.reflectiveMetaclassConforms(sym, "Usage") {
+			return symbols.FilterValue{}, false
+		}
+		return boolValue(IsVariation(sym)), true
+	case "isIndividual":
+		if !m.reflectiveMetaclassConforms(sym, "OccurrenceDefinition") &&
+			!m.reflectiveMetaclassConforms(sym, "OccurrenceUsage") {
+			return symbols.FilterValue{}, false
+		}
+		hasIndividualModifier := sym.Facts != nil &&
+			sym.Facts.Modifiers.Has(symbols.ModIndividual)
+		if sym.Recorded() {
+			return boolValue(hasIndividualModifier), true
+		}
+		switch d := sym.Decl.(type) {
+		case *ast.Definition:
+			return boolValue(d.IsIndividual), true
+		case *ast.Usage:
+			return boolValue(d.IsIndividual), true
+		default:
+			return boolValue(hasIndividualModifier), true
+		}
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Comment:
@@ -1555,10 +1904,6 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return boolValue(d.IsAll), true
 		case "isConstant":
 			return boolValue(d.IsConstant), true
-		case "isVariation":
-			return boolValue(IsVariation(sym)), true
-		case "isIndividual":
-			return boolValue(d.IsIndividual), true
 		case "isParallel":
 			return boolValue(d.IsParallel), true
 		}
@@ -1566,14 +1911,15 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		switch feature {
 		case "isSufficient":
 			return boolValue(d.IsAll), true
-		case "isVariation":
-			return boolValue(IsVariation(sym)), true
 		case "isVariant":
 			return boolValue(IsVariant(sym)), true
-		case "isIndividual":
-			return boolValue(d.IsIndividual), true
 		case "isParallel":
 			return boolValue(d.IsParallel), true
+		}
+	}
+	if sym.Recorded() && feature == "isIndividual" {
+		if sym.Facts.Node == symbols.NodeDefinition || sym.Facts.Node == symbols.NodeUsage {
+			return boolValue(sym.Facts.Modifiers.Has(symbols.ModIndividual)), true
 		}
 	}
 	return symbols.FilterValue{}, false
@@ -1701,6 +2047,12 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 	// The census records pilot silence for attribute-composite members
 	// (validateAttributeDefinitionFeatures, validateAttributeUsageFeatures; docs/project/validation-constraints.md).
 	if m.reflectiveAttributeFeatureOwner(owner) {
+		flags.isComposite = false
+	}
+	if isUsage && m.metaclassConforms(sym, sysmlMetaclassPrefix+"PortUsage") &&
+		(owner == nil ||
+			(!m.reflectiveMetaclassConforms(owner, "PortDefinition") &&
+				!m.reflectiveMetaclassConforms(owner, "PortUsage"))) {
 		flags.isComposite = false
 	}
 	if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {

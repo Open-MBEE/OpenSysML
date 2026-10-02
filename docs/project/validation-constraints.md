@@ -12,7 +12,7 @@ reader who only wants the verdicts can ignore them.
 
 ## OpenSysML self-model validation
 
-The `SysMLValidation` standard-library package states 13 validation constraints as SysML
+The `SysMLValidation` standard-library package states 41 validation constraints as SysML
 constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
 applies each constraint to every reflectively classified element in the non-library workspace.
 The library currently states:
@@ -30,6 +30,34 @@ The library currently states:
 - `validateControlNodeIsComposite`
 - `validatePortDefinitionOwnedUsagesNotComposite`
 - `validatePortUsageNestedUsagesNotComposite`
+- `validateFlowEndIsEnd`
+- `validateFlowEndNestedFeature`
+- `validateMetadataFeatureMetaclass`
+- `validateBindingConnectorIsBinary`
+- `validateConnectorRelatedFeatures`
+- `validateFeatureEndNoDirection`
+- `validateTypeOwnedMultiplicity`
+- `validateConnectionDefinitionIsSufficient`
+- `validateDefinitionVariationIsAbstract`
+- `validateUsageVariationIsAbstract`
+- `validateForLoopActionUsageLoopVariable`
+- `validateControlNodeOwningType`
+- `validatePortUsageIsReference`
+- `validateUsageIsReferential`
+- `validateCaseDefinitionSubjectParameterPosition`
+- `validateCaseUsageSubjectParameterPosition`
+- `validateRequirementDefinitionSubjectParameterPosition`
+- `validateRequirementUsageSubjectParameterPosition`
+- `validateOccurrenceUsageIsPortion`
+- `validateOccurrenceUsagePortionKind`
+- `validateOccurrenceUsageIndividualDefinition`
+- `validateOccurrenceUsageIndividualUsage`
+- `validatePartUsagePartDefinition`
+- `validateTypeUnioningTypesNotSelf`
+- `validateTypeIntersectingTypesNotSelf`
+- `validateTypeDifferencingTypesNotSelf`
+- `validateAssociationEndTypes`
+- `validateMetadataFeatureMetaclassNotAbstract`
 
 Constraints whose OCL reads reflective features the current model does not derive are omitted
 from the library. If an included constraint cannot be evaluated because a reflective feature is

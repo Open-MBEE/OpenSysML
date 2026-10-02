@@ -429,6 +429,30 @@ func ownedRoles(sym *symbols.Symbol, role caseRole) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
+	if sym.Recorded() {
+		for _, member := range sym.Scope.Members() {
+			if member == nil {
+				continue
+			}
+			memberRole := noCaseRole
+			if member.Facts.Node == symbols.NodeSubject {
+				memberRole = subjectRole
+			} else if member.Facts.Node == symbols.NodeUsage {
+				switch member.Facts.UsageKind {
+				case ast.UsageSubject:
+					memberRole = subjectRole
+				case ast.UsageObjective:
+					memberRole = objectiveRole
+				case ast.UsageActor, ast.UsageStakeholder:
+					memberRole = actorRole
+				}
+			}
+			if memberRole == role {
+				out = append(out, member)
+			}
+		}
+		return out
+	}
 	for _, member := range declMembers(sym) {
 		if roleOfNode(member) != role {
 			continue
@@ -459,6 +483,10 @@ func analysisCase(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.Facts.DefKind == ast.DefAnalysisCase ||
+			sym.Facts.UsageKind == ast.UsageAnalysisCase
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
 		return d.Kind == ast.DefAnalysisCase
@@ -470,6 +498,18 @@ func analysisCase(sym *symbols.Symbol) bool {
 
 func roleOf(sym *symbols.Symbol) caseRole {
 	if sym == nil {
+		return noCaseRole
+	}
+	if sym.Recorded() {
+		if sym.Facts.Node == symbols.NodeSubject || sym.Facts.UsageKind == ast.UsageSubject {
+			return subjectRole
+		}
+		switch sym.Facts.UsageKind {
+		case ast.UsageObjective:
+			return objectiveRole
+		case ast.UsageActor, ast.UsageStakeholder:
+			return actorRole
+		}
 		return noCaseRole
 	}
 	return roleOfNode(sym.Decl)
