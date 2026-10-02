@@ -154,11 +154,11 @@ func (ctx *Context) orderFeaturingInstances(order lower.BehaviorOrder, end lower
 	}
 	if order.Featuring == nil {
 		instances, _ := ctx.liveOccurrences(end.Path[0])
-		return instances
+		return sortedInstancesByID(instances)
 	}
 	if symbolIsUsage(order.Featuring) {
 		instances, _ := ctx.liveOccurrences(order.Featuring)
-		return instances
+		return sortedInstancesByID(instances)
 	}
 	var instances []*Instance
 	for _, inst := range ctx.instances {
@@ -166,7 +166,26 @@ func (ctx *Context) orderFeaturingInstances(order lower.BehaviorOrder, end lower
 			instances = append(instances, inst)
 		}
 	}
+	sortInstancesByID(instances)
 	return instances
+}
+
+func sortedInstancesByID(instances []*Instance) []*Instance {
+	sorted := slices.Clone(instances)
+	sortInstancesByID(sorted)
+	return sorted
+}
+
+func sortInstancesByID(instances []*Instance) {
+	slices.SortFunc(instances, func(a, b *Instance) int {
+		if a.ID < b.ID {
+			return -1
+		}
+		if a.ID > b.ID {
+			return 1
+		}
+		return 0
+	})
 }
 
 func (ctx *Context) orderEndTargets(order lower.BehaviorOrder, end lower.BehaviorOrderEnd) []*Instance {
@@ -270,6 +289,7 @@ func (ctx *Context) orderFeatureValues(inst *Instance, feature *symbols.Symbol) 
 			out = append(out, child)
 		}
 	}
+	sortInstancesByID(out)
 	return out
 }
 
@@ -557,7 +577,7 @@ func (ctx *Context) checkSuccessionOrderViolation(inst *Instance, member *symbol
 				if candidate == nil || candidate.member == nil ||
 					!ctx.behaviorOrderFeatureMatches(candidate.Object, candidate.member, endFeature(order.Earlier)) ||
 					!slices.Contains(targets, candidate.Object) ||
-					!ctx.behaviorPerformanceBegun(candidate) {
+					!ctx.behaviorPerformanceRunning(candidate) {
 					continue
 				}
 				return ctx.successionViolation(order, candidate, inst, featuring)
@@ -585,8 +605,18 @@ func (ctx *Context) checkSuccessionOrderViolation(inst *Instance, member *symbol
 }
 
 func (ctx *Context) behaviorPerformanceBegun(behavior *ObjectBehavior) bool {
+	life, ok := ctx.behaviorPerformanceLife(behavior)
+	return ok && life.began != 0
+}
+
+func (ctx *Context) behaviorPerformanceRunning(behavior *ObjectBehavior) bool {
+	life, ok := ctx.behaviorPerformanceLife(behavior)
+	return ok && life.began != 0 && life.ended == 0
+}
+
+func (ctx *Context) behaviorPerformanceLife(behavior *ObjectBehavior) (life, bool) {
 	if behavior == nil || behavior.deferred != nil {
-		return false
+		return life{}, false
 	}
 	var occurrence *Instance
 	if behavior.Action != nil {
@@ -595,10 +625,10 @@ func (ctx *Context) behaviorPerformanceBegun(behavior *ObjectBehavior) bool {
 		occurrence = behavior.State.occurrence
 	}
 	if occurrence == nil {
-		return false
+		return life{}, false
 	}
-	life, ok := ctx.lives[occurrence.ID]
-	return ok && life.began != 0 && life.ended == 0
+	performance, ok := ctx.lives[occurrence.ID]
+	return performance, ok
 }
 
 func (ctx *Context) successionViolation(order lower.BehaviorOrder, other *ObjectBehavior, inst, featuring *Instance) error {

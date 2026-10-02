@@ -61,11 +61,11 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	if ctx.declarative {
 		return nil
 	}
-	if err := ctx.checkSuccessionOrderViolation(inst, decl.member); err != nil {
-		return err
-	}
 	if ctx.runsBound(inst, decl.member, typ) {
 		return nil
+	}
+	if err := ctx.checkSuccessionOrderViolation(inst, decl.member); err != nil {
+		return err
 	}
 	defer ctx.beginRun()()
 	defer ctx.holdDrivenWork()()
