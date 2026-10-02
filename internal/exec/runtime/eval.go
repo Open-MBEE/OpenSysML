@@ -2061,9 +2061,9 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, err
 	}
 	if held {
-		return ec.Eval(n.Operands[1])
+		return ec.evalHeld(n.Operands[1])
 	}
-	return ec.Eval(n.Operands[2])
+	return ec.evalHeld(n.Operands[2])
 }
 
 // evalNullCoalesce evaluates `a ?? b`, evaluating b only when a is empty.
@@ -2071,11 +2071,11 @@ func (ec *EvalContext) evalNullCoalesce(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 2 {
 		return Value{}, fmt.Errorf("'??' requires 2 operands, got %d", len(n.Operands))
 	}
-	left, err := ec.Eval(n.Operands[0])
+	left, err := ec.evalHeld(n.Operands[0])
 	if err != nil {
 		return Value{}, err
 	}
-	second := func() (Value, error) { return ec.Eval(n.Operands[1]) }
+	second := func() (Value, error) { return ec.evalHeld(n.Operands[1]) }
 	return coalesceNull(left, second, ec.declaredCount(ec.scope, n.Operands[1]))
 }
 

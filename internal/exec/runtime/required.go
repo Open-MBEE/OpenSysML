@@ -113,6 +113,9 @@ func (ctx *Context) requiredMember(r *requiredMembers, id int64) (*Instance, err
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
+	if fv := ctx.droppedFrom(r, owner); fv != nil {
+		inst.owner, inst.ownerFeature = ctx.otherHomeOf(inst, fv)
+	}
 	if l, ok := ctx.lives[inst.ID]; ok {
 		if l.began == l.reached {
 			l.began = r.reached
@@ -121,6 +124,22 @@ func (ctx *Context) requiredMember(r *requiredMembers, id int64) (*Instance, err
 		ctx.lives[inst.ID] = l
 	}
 	return inst, nil
+}
+
+// droppedFrom is the feature of owner a write took r's members out of, as releaseDropped
+// released the made ones from it; nil while the feature still holds them.
+func (ctx *Context) droppedFrom(r *requiredMembers, owner *Instance) *FeatureValue {
+	if owner == nil {
+		return nil
+	}
+	fv := owner.FeatureValues[r.feature]
+	if fv == nil || !fv.Materialized {
+		return nil
+	}
+	if seq := requiredTail(fv.HeldValue()); seq != nil && seq.required.first == r.first && seq.required.count == r.count {
+		return nil
+	}
+	return fv
 }
 
 // reachedObject is the object id names, a required member made now; ok is false for an

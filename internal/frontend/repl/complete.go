@@ -3,6 +3,7 @@ package repl
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -421,10 +422,17 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 				if int64(seg.Index) > runtime.ElementCount(fv.Values) || fv.Values.Kind == runtime.ValNull {
 					return objectShape{}, false
 				}
-				var err error
-				if val, err = s.rtCtx.ElementAt(fv.Values, seg.Index-1); err != nil {
-					return objectShape{}, false
+				made, ok := s.madeElementAt(fv.Values, seg.Index-1)
+				if !ok {
+					// A required member not made yet is followed by type, not made to complete.
+					typ := s.objectTypeOf(feat)
+					if typ == nil {
+						return objectShape{}, false
+					}
+					shape = objectShape{typ: typ}
+					continue
 				}
+				val = made
 			}
 			id, isObject := val.Object()
 			if !isObject {
@@ -444,6 +452,16 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 		shape = objectShape{typ: typ}
 	}
 	return shape, true
+}
+
+// madeElementAt is the value at the 0-based index of a collection when it is already
+// there; false for a required member not made yet.
+func (s *Session) madeElementAt(val runtime.Value, index int) (runtime.Value, bool) {
+	positions, values := s.rtCtx.MadeElements(val)
+	if i, found := slices.BinarySearch(positions, index); found {
+		return values[i], true
+	}
+	return runtime.Value{}, false
 }
 
 // holdsObjects reports whether a feature is a path segment of the object holding

@@ -30,6 +30,8 @@ func TestRuntimeRobustnessLazyRequired(t *testing.T) {
 	t.Run("quantifier_reaches_every_value", testLazyRequiredQuantified)
 	t.Run("state_key_spells_the_population", testLazyRequiredStateKey)
 	t.Run("every_feature_of_the_holder_is_read", testLazyRequiredEveryFeature)
+	t.Run("conditional_keeps_the_count", testLazyRequiredConditional)
+	t.Run("replaced_population_releases_its_members", testLazyRequiredReplaced)
 }
 
 const lazyHolderSrc = `
@@ -472,5 +474,53 @@ func testLazyRequiredEveryFeature(t *testing.T) {
 	}
 	if n := len(ctx.instances); n > 1100 {
 		t.Errorf("reading every feature made %d objects", n)
+	}
+}
+
+// testLazyRequiredConditional counts a population a conditional or `??` passes through
+// without reaching every member.
+func testLazyRequiredConditional(t *testing.T) {
+	inst, ctx := lazyHolder(t, strings.Replace(lazyHolderSrc, "C[5000]", "C[1000000000]", 1))
+	for _, src := range []string{"size(if true ? p else ())", "size(if false ? () else p)", "size(p ?? ())", "size(() ?? p)"} {
+		if got := FormatValue(mustEvalOn(t, ctx, inst, src)); got != "1000000000" {
+			t.Errorf("%s = %s, want 1000000000", src, got)
+		}
+	}
+	if _, err := evalOn(t, ctx, inst, "(if true ? p else ()).m"); !errors.Is(err, ErrElementLimitExceeded) {
+		t.Errorf("(if true ? p else ()).m = %v, want %v", err, ErrElementLimitExceeded)
+	}
+	if n := len(ctx.instances); n > 10 {
+		t.Errorf("counting through a conditional made %d objects", n)
+	}
+}
+
+// testLazyRequiredReplaced writes another population over one: a member of the one
+// replaced, reached after, is no longer held by the feature, as an eager one released is not.
+func testLazyRequiredReplaced(t *testing.T) {
+	inst, ctx := lazyHolder(t, strings.Replace(lazyHolderSrc, "part p : C[5000];", "part p : C[5000]; part q : C[5000];", 1))
+	mustEvalOn(t, ctx, inst, "size(p)")
+	replaced := requiredTail(inst.FeatureValues["p"].HeldValue())
+	if replaced == nil {
+		t.Fatal("p is not held lazily")
+	}
+	kept := mustEvalOn(t, ctx, inst, "p#(10)")
+	q, err := inst.GetFeatureValue(ctx, "q")
+	if err != nil {
+		t.Fatalf("q: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "p", q.HeldValue()); err != nil {
+		t.Fatalf("write p := q: %v", err)
+	}
+	for _, id := range []int64{kept.Instance, replaced.required.first + 3999} {
+		obj, ok := ctx.Instance(id)
+		if !ok {
+			t.Fatalf("#%d of the replaced population is gone", id)
+		}
+		if obj.owner == inst && obj.ownerFeature == "p" {
+			t.Errorf("#%d is still held by p, which holds q's members", id)
+		}
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, inst, "p#(1) == q#(1)")); got != "true" {
+		t.Errorf("p#(1) == q#(1) is %s after the write", got)
 	}
 }
