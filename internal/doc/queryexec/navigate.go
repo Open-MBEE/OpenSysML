@@ -150,45 +150,16 @@ func (e *executor) navigateValue(expression queryplan.Expression, value Value, f
 // (Element::documentation as the prose of its bodies, as the row property
 // reads it), else the elements; ok is false where the model derives neither.
 func (e *executor) reflectiveValues(expression queryplan.Expression, sym *symbols.Symbol, feature string) ([]Value, bool, error) {
-	elements, ok := e.context.Model.ReflectiveElements(sym, feature)
-	featureValues, hasFeatureValues := e.context.Model.ReflectiveFeatureValues(sym, feature)
-	if hasFeatureValues {
-		if ok && hasAnonymousElement(elements) && onlyElementReferences(featureValues) {
-			return e.elementValues(sym, elements), true, nil
+	if feature != "documentation" {
+		if elements, ok := e.context.Model.ReflectiveElements(sym, feature); ok {
+			return reflectiveElementValues(sym, elements), true, nil
 		}
+	}
+	if _, ok := e.context.Model.ReflectiveFeatureValues(sym, feature); ok {
 		values, err := e.reflectiveFeatureValues(expression, feature, sym)
 		return values, true, err
 	}
-	if !ok {
-		return nil, false, nil
-	}
-	return e.elementValues(sym, elements), true, nil
-}
-
-func (e *executor) elementValues(sym *symbols.Symbol, elements []*symbols.Symbol) []Value {
-	values := make([]Value, 0, len(elements))
-	for _, element := range elements {
-		values = append(values, valueAt(ElementValue(element), ElementValue(sym).Origin()))
-	}
-	return values
-}
-
-func hasAnonymousElement(elements []*symbols.Symbol) bool {
-	for _, element := range elements {
-		if element.Name == "" {
-			return true
-		}
-	}
-	return false
-}
-
-func onlyElementReferences(values []symbols.FilterValue) bool {
-	for _, value := range values {
-		if value.Kind != symbols.FilterValueRef {
-			return false
-		}
-	}
-	return true
+	return nil, false, nil
 }
 
 // connectorEnds is Connector::connectorEnd of a connector usage: one value per

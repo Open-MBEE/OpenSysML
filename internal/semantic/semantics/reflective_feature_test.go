@@ -176,6 +176,28 @@ func TestReflectiveConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 	}
 }
 
+func TestReflectiveRepeatedBindingRelatedFeaturesRemainBinaryWhenRecorded(t *testing.T) {
+	const src = `package P {
+		class C {
+			feature a;
+			binding repeated of a = a;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "repeated-binding.kerml", source.KindKerML, src) {
+		connector := nestedSym(t, fixture.root, "P::C::repeated")
+		feature := nestedSym(t, fixture.root, "P::C::a")
+		related, ok := fixture.model.ReflectiveElements(connector, "relatedFeature")
+		if !ok || len(related) != 2 || related[0] != feature || related[1] != feature {
+			t.Errorf("%s.relatedFeature = %v (supported %t), want two references to %s",
+				symbols.FQNOf(connector), related, ok, symbols.FQNOf(feature))
+		}
+		assertReflectiveElements(t, fixture.model, connector, "relatedFeature",
+			"P::C::a", "P::C::a")
+		assertReflectiveElements(t, fixture.model, connector, "sourceFeature", "P::C::a")
+		assertReflectiveElements(t, fixture.model, connector, "targetFeature", "P::C::a")
+	}
+}
+
 func TestReflectiveKerMLSuccessionRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		private import ScalarValues::*;

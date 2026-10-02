@@ -276,6 +276,17 @@ func TestSelfCheckBatch2ConstraintFixtures(t *testing.T) {
 			negative: selfCheckFixtureFile(t, "tools/referee/reject/testdata/negative/semantic/k49-binding-connector-with-three-ends.kerml"),
 		},
 		{
+			name:       "binding connector with repeated feature is binary",
+			constraint: "validateBindingConnectorIsBinary",
+			positive: SourceFile{Name: "repeated_binding.kerml", Text: `package T {
+				class A {
+					feature a;
+					binding repeated of a = a;
+				}
+			}`},
+			negative: selfCheckFixtureFile(t, "tools/referee/reject/testdata/negative/semantic/k49-binding-connector-with-three-ends.kerml"),
+		},
+		{
 			name:       "case subject is first input",
 			constraint: "validateCaseDefinitionSubjectParameterPosition",
 			positive: SourceFile{Name: "case_positive.sysml", Text: `package T {

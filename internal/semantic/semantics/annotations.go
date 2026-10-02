@@ -1729,7 +1729,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
 	var related []*symbols.Symbol
 	if sym.Recorded() {
-		related = m.recordedElements(sym, sym.Facts.RelatedFeatures)
+		related = m.recordedSequence(sym.Facts.RelatedFeatures)
 	} else {
 		ends := m.EndFeatures(sym)
 		paths := m.reflectiveConnectorEndPaths(sym)
