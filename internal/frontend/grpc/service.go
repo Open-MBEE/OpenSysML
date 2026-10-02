@@ -15,8 +15,8 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -814,7 +814,7 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 	}
 
 	// Lookup symbol by FQN
-	syms := lookupNamed(cached.Index, req.SymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -898,7 +898,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	// prompt evaluates in the context it pinned.
 	var subject *symbols.Symbol
 	if req.SubjectSymbolId != "" {
-		syms := lookupNamed(cached.Index, req.SubjectSymbolId)
+		syms := symbolfacts.LookupNamed(cached.Index, req.SubjectSymbolId)
 		if len(syms) == 0 {
 			return &pb.EvaluateResponse{
 				Error: fmt.Sprintf("subject not found: %s", req.SubjectSymbolId),
@@ -911,7 +911,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	var scope *symbols.Scope
 	if req.ContextSymbolId != "" {
 		// Lookup context symbol
-		syms := lookupNamed(cached.Index, req.ContextSymbolId)
+		syms := symbolfacts.LookupNamed(cached.Index, req.ContextSymbolId)
 		if len(syms) > 0 && syms[0].Scope != nil {
 			scope = syms[0].Scope
 		}
@@ -980,7 +980,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 
 	// Lookup symbol
-	syms := lookupNamed(cached.Index, req.SymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1041,7 +1041,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Lookup action symbol
-	syms := lookupNamed(cached.Index, req.ActionSymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1176,7 +1176,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// Lookup state machine symbol
-	syms := lookupNamed(cached.Index, req.StateMachineSymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1261,90 +1261,11 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 		return nil
 	}
 	rootScope := model.Index.DocumentRoot(doc.Source.Name())
-	for _, sym := range model.Index.LookupQualified("") { // Root has empty name
-		if sym.Scope == rootScope {
-			return s.symbolToProto(sym, model.SymbolContext())
-		}
-	}
-	if rootScope == nil {
-		return nil
-	}
-	return &pb.SymbolInfo{
-		Id:       "",
-		Name:     "",
-		Kind:     "RootNamespace",
-		Metadata: make(map[string]string),
-		ChildIds: collectChildIDs(rootScope, model.Index),
-	}
-}
-
-// collectChildIDs extracts child symbol FQNs from a scope
-func collectChildIDs(scope *symbols.Scope, idx *symbols.Index) []string {
-	var ids []string
-	for _, sym := range scope.AllMembers() {
-		ids = append(ids, idx.GetFQN(sym))
-	}
-	return ids
+	return s.symbolInfoToProto(symbolfacts.Root(model.SymbolContext(), rootScope), model.Index)
 }
 
 // computeHash generates SHA-256 hash of content
 func computeHash(content string) string {
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash)
-}
-
-// lookupNamed resolves a symbol ID written in either spelling: the quoted,
-// notation-legal form a model author writes ('My Pkg'::Car), or the unquoted
-// spelling the index records (My Pkg::Car), which keeps working as it did.
-// Model elements come before library homonyms: an ID naming both denotes the
-// model's own element, which is what the client asked about.
-func lookupNamed(idx *symbols.Index, id string) []*symbols.Symbol {
-	if syms := idx.LookupQualified(id); len(syms) > 0 {
-		return modelFirst(idx, syms)
-	}
-	if plain, ok := unquotedName(id); ok && plain != id {
-		return modelFirst(idx, idx.LookupQualified(plain))
-	}
-	return nil
-}
-
-// modelFirst reorders matches so the ones the model declares precede the ones
-// standard-library content declares, each group keeping its index order.
-func modelFirst(idx *symbols.Index, syms []*symbols.Symbol) []*symbols.Symbol {
-	out := make([]*symbols.Symbol, 0, len(syms))
-	var lib []*symbols.Symbol
-	for _, sym := range syms {
-		if idx.Library(sym) {
-			lib = append(lib, sym)
-			continue
-		}
-		out = append(out, sym)
-	}
-	return append(out, lib...)
-}
-
-// unquotedName is the name a notation-legal qualified name states, with the
-// quoting of its unrestricted segments removed, or false for an ID the notation
-// does not read as one whole name.
-func unquotedName(id string) (string, bool) {
-	if id == "" {
-		return "", false
-	}
-	p := parser.New(source.New("<symbol-id>", []byte(id)))
-	expr := p.ParseExpression()
-	if len(p.Diagnostics) > 0 || p.Offset() != len(id) {
-		return "", false
-	}
-	ref, ok := expr.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || ref.Name.Global || len(ref.Name.Parts) == 0 {
-		return "", false
-	}
-	segments := make([]string, 0, len(ref.Name.Parts))
-	for _, part := range ref.Name.Parts {
-		if part.Text == "" {
-			return "", false
-		}
-		segments = append(segments, part.Text)
-	}
-	return strings.Join(segments, "::"), true
 }

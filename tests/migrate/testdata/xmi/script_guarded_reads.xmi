@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_exec" name="Executive">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tMax" name="tMax"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tdiff" name="tdiff"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_tdiff0" value="0.0"/>
+      </ownedAttribute>
+      <!-- idle never assigns its outputs z and y, so w and v may hold no value: clamp assigns tMax only when w does, then reads tMax. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_cap" name="Cap">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_idle" name="idle">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_idlez" name="z"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_idley" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language>
+          <body>tdiff = tdiff * 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_clamp" name="clamp">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_clampw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>tMax = w;
+tdiff = tMax * 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_settle" name="settle">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_settlew" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>tMax = 1;
+tMax = w;
+tdiff = tMax * 2;</body>
+        </node>
+        <!-- pick assigns tMax from w, then from v: it is unset only when both hold none; early reads tMax between the two. -->
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pick" name="pick">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_pickw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <inputValue xmi:type="uml:InputPin" xmi:id="_pickv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>tMax = w;
+tMax = v;
+tdiff = tMax * 2;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_early" name="early">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_earlyw" name="w"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <inputValue xmi:type="uml:InputPin" xmi:id="_earlyv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language>
+          <body>tMax = w;
+tdiff = tMax * 2;
+tMax = v;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_idle"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o1" source="_idlez" target="_clampw"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_clamp" target="_settle"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o2" source="_idlez" target="_settlew"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_settle" target="_pick"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o3" source="_idlez" target="_pickw"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o4" source="_idley" target="_pickv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c4" source="_pick" target="_early"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o5" source="_idlez" target="_earlyw"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_o6" source="_idley" target="_earlyv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c5" source="_early" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_exec"/>
+</xmi:XMI>
