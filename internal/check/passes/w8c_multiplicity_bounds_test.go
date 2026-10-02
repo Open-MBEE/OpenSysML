@@ -65,6 +65,24 @@ func TestW8CMultiplicityBoundEvaluableMustHaveValue(t *testing.T) {
 			want: 1,
 		},
 		{
+			name: "conditional skips unselected valueless branch",
+			src: `package P {
+	feature u : ScalarValues::Natural;
+	feature k : ScalarValues::Natural = if true ? (2 as ScalarValues::Natural) else u;
+	feature d [k];
+}`,
+			want: 0,
+		},
+		{
+			name: "conditional selects valueless branch",
+			src: `package P {
+	feature u : ScalarValues::Natural;
+	feature k : ScalarValues::Natural = if false ? (2 as ScalarValues::Natural) else u;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
 			name: "indirect operator reads valued feature",
 			src: `package P {
 	private import ScalarValues::*;

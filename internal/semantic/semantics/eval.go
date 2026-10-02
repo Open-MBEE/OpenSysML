@@ -280,6 +280,15 @@ func (m *Model) readsValueless(scope *symbols.Scope, n ast.Node, seen map[*symbo
 		next[sym] = true
 		return m.readsValueless(declScope(sym), usage.Value, next)
 	case *ast.OperatorExpr:
+		if e.Operator == ast.OpConditional && len(e.Operands) == 3 {
+			cond, ok := m.evalIn(scope, e.Operands[0], seen)
+			if ok && cond.Kind == ValBool {
+				if cond.Bool {
+					return m.readsValueless(scope, e.Operands[1], seen)
+				}
+				return m.readsValueless(scope, e.Operands[2], seen)
+			}
+		}
 		for _, operand := range e.Operands {
 			if m.readsValueless(scope, operand, seen) {
 				return true
