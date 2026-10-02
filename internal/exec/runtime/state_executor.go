@@ -124,7 +124,11 @@ type StateExecutor struct {
 
 	// changeFired holds the change-triggered transitions already taken on a
 	// condition that has stayed true, so an unchanged one does not re-fire.
-	changeFired map[*lower.Transition]bool
+	changeFired      map[*lower.Transition]bool
+	changeObserved   map[*lower.Transition]bool
+	changePending    map[*lower.Transition]bool
+	changeReads      map[*lower.Transition][]*FeatureValue
+	changeEvaluating bool
 
 	// firingChange is the change-triggered transition being taken, whose latch the
 	// state entries it causes must leave alone.
@@ -252,6 +256,7 @@ func newStateExecutorForOccurrence(
 		return nil, err
 	}
 	ctx.clock.attach(exec)
+	ctx.registerStateExecutor(exec)
 
 	return exec, nil
 }
@@ -282,6 +287,9 @@ func newStateExecutorOn(
 		timerScheduled:     make(map[*lower.Transition]bool),
 		timeTriggerVerdict: make(map[*lower.Transition]error),
 		changeFired:        make(map[*lower.Transition]bool),
+		changeObserved:     make(map[*lower.Transition]bool),
+		changePending:      make(map[*lower.Transition]bool),
+		changeReads:        make(map[*lower.Transition][]*FeatureValue),
 		breakpointNodes:    make(map[ast.Node]bool),
 		dispatchMark:       -1,
 		activeConfig: &StateConfiguration{
@@ -512,6 +520,8 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 }
 
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
+	endWrite := e.ctx.beginFeatureWrite(nil)
+	defer endWrite()
 	if e.occurrence != nil {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
 			return fmt.Errorf("%w: write %s of object #%d: %w",
@@ -535,6 +545,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 		}
 	}
 	e.stateData[name] = value
+	e.ctx.noteStateDataWrite()
 	return nil
 }
 
@@ -5183,6 +5194,9 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 				e.changeRearmed[trans] = true
 			}
 		}
+		delete(e.changeObserved, trans)
+		delete(e.changePending, trans)
+		delete(e.changeReads, trans)
 	}
 
 	if e.breakpointNodes[state] && e.breakpointHit == nil {
@@ -5231,6 +5245,9 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	timed := make(map[*lower.Transition]bool)
 	for _, trans := range e.graph.Transitions[state] {
 		delete(e.timerScheduled, trans)
+		delete(e.changeObserved, trans)
+		delete(e.changePending, trans)
+		delete(e.changeReads, trans)
 		if _, isTime := trans.Trigger.(*ast.TimeEvent); isTime {
 			timed[trans] = true
 		}
@@ -5357,6 +5374,7 @@ func (e *StateExecutor) writeStateValue(name string, value Value) error {
 		return e.assignAttribute(name, value)
 	}
 	e.stateData[name] = value
+	e.ctx.noteStateDataWrite()
 	return nil
 }
 
@@ -5585,6 +5603,7 @@ func (e *StateExecutor) Release() {
 		}
 	}
 	e.ctx.clock.detach(e)
+	e.ctx.unregisterStateExecutor(e)
 }
 
 // Resume returns a machine suspended at quiescence to running, so a driver that

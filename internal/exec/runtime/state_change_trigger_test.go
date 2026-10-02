@@ -61,6 +61,39 @@ func TestChangeTriggerFiresOnRiseFromDoBehavior(t *testing.T) {
 	}
 }
 
+func TestChangeTriggerKeepsOutsideWriteRiseUntilPoll(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		part def Holder {
+			attribute ready : Boolean = false;
+			exhibit state main {
+				entry; then waiting;
+				state waiting;
+				accept when ready then done;
+				state done;
+			}
+		}
+		part holder : Holder;
+	`))
+	holder, err := ctx.occurrenceOf(resolveSymbol(t, idx.DocumentRoot("<test>"), "holder"))
+	if err != nil {
+		t.Fatalf("occurrenceOf(holder): %v", err)
+	}
+	exec := holder.ExhibitedStates()[0].State
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("initial run: %v", err)
+	}
+	if err := holder.SetFeatureValue(ctx, "ready", boolValue(true)); err != nil {
+		t.Fatalf("raise ready: %v", err)
+	}
+	if err := holder.SetFeatureValue(ctx, "ready", boolValue(false)); err != nil {
+		t.Fatalf("lower ready: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run after external writes: %v", err)
+	}
+	assertCurrentState(t, exec, "done")
+}
+
 // A false change condition is not quiescence: the machine suspends, and says
 // which condition it is waiting on rather than reporting silent completion.
 func TestChangeTriggerFalseConditionIsReported(t *testing.T) {

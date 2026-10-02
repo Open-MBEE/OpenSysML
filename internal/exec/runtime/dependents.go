@@ -113,6 +113,19 @@ func (ctx *Context) deriveOnce(inst *Instance, fv *FeatureValue, name string) (v
 // noteRead lists the value being derived, if any, as a dependent of the fv just read,
 // held by inst, and fv among what it reads; a derivation being observed sees the read.
 func (ctx *Context) noteRead(inst *Instance, fv *FeatureValue) {
+	if len(ctx.readRecorders) != 0 {
+		reads := ctx.readRecorders[len(ctx.readRecorders)-1]
+		found := false
+		for _, read := range reads {
+			if read == fv {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ctx.readRecorders[len(ctx.readRecorders)-1] = append(reads, fv)
+		}
+	}
 	if len(ctx.tracing) != 0 {
 		ctx.observeRead(inst, fv)
 	}
@@ -296,6 +309,8 @@ func (ctx *Context) invalidateDependents(fv *FeatureValue) {
 // invalidate unmaterializes the dependents, transitively, returning those being
 // derived right now: each stays listed, its derivation stale as its source changed under it.
 func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureValue) {
+	endWrite := ctx.beginFeatureWrite(nil)
+	defer endWrite()
 	for _, dep := range dependents {
 		switch {
 		case ctx.markStale(dep):
@@ -306,6 +321,7 @@ func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureV
 			ctx.invalidateDependents(dep)
 		default:
 			ctx.noteProbeWrite(dep)
+			ctx.noteFeatureWrite(dep)
 			dep.Value, dep.Values, dep.Materialized, dep.intrinsic = Value{}, Value{}, false, false
 			ctx.invalidateDependents(dep)
 		}

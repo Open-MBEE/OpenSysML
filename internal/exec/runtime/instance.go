@@ -787,6 +787,8 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 	if err != nil {
 		return err
 	}
+	endWrite := ctx.beginFeatureWrite(fv)
+	defer endWrite()
 	return ctx.storedBeforeStarting(func() error {
 		if err := ctx.holdWritten(inst, fv, value); err != nil {
 			return fmt.Errorf("feature %s.%s: %w", inst.Type.Name, name, err)

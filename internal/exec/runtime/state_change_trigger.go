@@ -133,6 +133,10 @@ func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
 	defer func() { e.changeFired = fired }()
+	observed, pending, reads := maps.Clone(e.changeObserved), maps.Clone(e.changePending), maps.Clone(e.changeReads)
+	defer func() {
+		e.changeObserved, e.changePending, e.changeReads = observed, pending, reads
+	}()
 	poll := newChangePoll()
 	e.changeRearmed = make(map[*lower.Transition]bool)
 	defer func() { e.changeRearmed = nil }()
@@ -204,10 +208,15 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				if err != nil {
 					return fmt.Errorf("state %s: %w", source.Name, err)
 				}
-				poll.condition[trans] = holds
+				pending := e.changePending[trans]
+				delete(e.changePending, trans)
+				poll.condition[trans] = holds || pending
 				poll.observed = append(poll.observed, trans)
+				e.changeObserved[trans] = holds
 				if !holds {
 					delete(e.changeFired, trans)
+				}
+				if !poll.condition[trans] {
 					poll.wait(trans, source.Name, "condition is false")
 					continue
 				}
@@ -252,14 +261,96 @@ func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode,
 // changeConditionHolds evaluates one change condition in the scope the
 // transition was written in, the machine's data shadowing it.
 func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans *lower.Transition) (bool, error) {
+	if e.changeEvaluating {
+		return false, fmt.Errorf("change condition evaluation is reentrant")
+	}
+	e.changeEvaluating = true
+	defer func() { e.changeEvaluating = false }()
+	endRead := e.ctx.beginChangeRead()
 	condVal, err := e.evalStepOf(trans.Source, changeEvent.Condition, trans.Scope)
 	if err != nil {
+		endRead()
 		return false, fmt.Errorf("eval change condition: %w", err)
 	}
 	if condVal.Kind != ValConst || condVal.Const.Kind != semantics.ValBool {
+		endRead()
 		return false, fmt.Errorf("change condition must be boolean, got %v", condVal.Kind)
 	}
+	e.changeReads[trans] = endRead()
 	return condVal.Const.Bool, nil
+}
+
+func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
+	if fv == nil || e.ctx.probes > 0 || e.changeEvaluating {
+		return
+	}
+	e.observeChangedValue(func(reads []*FeatureValue) bool {
+		return reads == nil || containsFeatureValue(reads, fv)
+	})
+}
+
+func (e *StateExecutor) observeStateDataWrite() {
+	if e.ctx.probes > 0 || e.changeEvaluating {
+		return
+	}
+	e.observeChangedValue(func([]*FeatureValue) bool { return true })
+}
+
+func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool) {
+	seen := make(map[*lower.Transition]bool)
+	observe := func(source *ast.StateNode, previouslyWatched bool) {
+		for _, trans := range e.graph.Transitions[source] {
+			changeEvent, ok := trans.Trigger.(*ast.ChangeEvent)
+			if !ok || seen[trans] {
+				continue
+			}
+			seen[trans] = true
+			if previouslyWatched {
+				if _, watched := e.changeObserved[trans]; !watched {
+					continue
+				}
+			}
+			if !relevant(e.changeReads[trans]) {
+				continue
+			}
+			var holds bool
+			var err error
+			e.preview(func() { holds, err = e.changeConditionHolds(changeEvent, trans) })
+			if err != nil {
+				continue
+			}
+			observed := e.changeObserved[trans]
+			if !holds {
+				e.changeObserved[trans] = false
+				delete(e.changeFired, trans)
+				continue
+			}
+			if !observed && !e.changeFired[trans] {
+				e.changePending[trans] = true
+			}
+			e.changeObserved[trans] = true
+		}
+	}
+	for _, leaf := range e.activeLeaves() {
+		for _, source := range e.getParentChain(leaf) {
+			observe(source, false)
+		}
+	}
+	// A transition effect runs after the source exits but before the target
+	// enters. Enclosing states remain active throughout that interval.
+	observe(e.graph.Machine, true)
+	for _, source := range e.graph.States {
+		observe(source, true)
+	}
+}
+
+func containsFeatureValue(values []*FeatureValue, target *FeatureValue) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 // risenChangeTransitions returns the positions of the state's change-triggered

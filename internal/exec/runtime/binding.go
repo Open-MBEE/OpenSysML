@@ -188,11 +188,12 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 	if ctx.resolvingBindings[key] {
 		return Value{}, false, &BindingCycleError{Features: []string{bindingLocationText(bindingLocation{instance: inst, name: name})}}
 	}
-	if !target.BindingDerived || ctx.CompositeTypeOf(target.Feature) != nil {
+	if !target.BindingDerived || target.Written || ctx.CompositeTypeOf(target.Feature) != nil {
 		return ctx.resolveBindings(inst, target, name, key)
 	}
 	// A value a binding gave is resolved afresh: clearing it and binding it again is one write.
 	before := ctx.beforeWrite(target)
+	ctx.noteFeatureWrite(target)
 	ctx.noteProbeWrite(target)
 	target.Value = Value{}
 	target.Values = Value{}
@@ -870,7 +871,8 @@ func (ctx *Context) unmaterializedObjectEnd(endpoint bindingEndpoint) bool {
 // bindingEndpointDerived reports a feature end whose every value was assigned by a binding.
 func bindingEndpointDerived(endpoint bindingEndpoint) bool {
 	for _, loc := range endpoint.locations {
-		if !loc.instance.FeatureValues[loc.name].BindingDerived {
+		fv := loc.instance.FeatureValues[loc.name]
+		if !fv.BindingDerived || fv.Written {
 			return false
 		}
 	}
@@ -889,6 +891,8 @@ func (ctx *Context) assignBindingEndpoint(endpoint bindingEndpoint, val Value, b
 	}
 	loc := endpoint.locations[0]
 	fv := loc.instance.FeatureValues[loc.name]
+	endWrite := ctx.beginFeatureWrite(fv)
+	defer endWrite()
 	before := ctx.beforeWrite(fv)
 	err := ctx.assignBindingValue(loc.instance, fv, loc.name, val)
 	ctx.afterWrite(fv, before)
@@ -904,6 +908,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 		return err
 	}
 	ctx.noteProbeWrite(fv)
+	ctx.noteFeatureWrite(fv)
 	if fv.Feature.Scalar() {
 		fv.Value = val
 		fv.Values = Value{}
