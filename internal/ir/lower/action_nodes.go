@@ -73,8 +73,15 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 }
 
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	return collectActionNodesWithAncestors(members, scope, resolver, nil)
+}
+
+func collectActionNodesWithAncestors(
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node,
+) (*ActionGraph, error) {
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
+	graph.lowering = actionLoweringAncestors(scope, ancestors)
 
 	// First pass: collect nodes.
 	for _, member := range members {

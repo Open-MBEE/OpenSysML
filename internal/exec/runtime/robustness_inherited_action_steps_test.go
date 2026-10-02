@@ -9,6 +9,43 @@ import (
 )
 
 func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
+	t.Run("body_stating_typed_usage_of_general", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute c : Integer = 0;
+			}
+			action def P :> Base {
+				attribute d : Integer = 0;
+				first start then x;
+				action x : Base {
+					assign c := c + 1;
+				}
+				then done;
+			}
+		}`, "P")
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+	})
+
+	t.Run("recursive_typed_action_body", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def A {
+				attribute c : Integer = 0;
+				first start then x;
+				action x : A {
+					assign c := c + 1;
+				}
+				then done;
+			}
+		}`, "A")
+		if !errors.Is(err, lower.ErrRecursiveActionTyping) {
+			t.Fatalf("ExecuteAction error = %v, want ErrRecursiveActionTyping", err)
+		}
+	})
+
 	t.Run("cyclic_specialization", func(t *testing.T) {
 		_, err := executeInheritedAction(t, `package test {
 			action def A :> B;

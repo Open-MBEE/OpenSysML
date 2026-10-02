@@ -109,6 +109,10 @@ type ActionGraph struct {
 	// it gives a meaning to (Probability) from any other; nil reads none.
 	resolver *resolve.Resolver
 
+	// lowering holds the declarations whose action content is being lowered on
+	// this path.
+	lowering []ast.Node
+
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
 
@@ -770,11 +774,17 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 }
 
 func toActionGraphWithTyping(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
+	return toActionGraphWithTypingAndAncestors(actionDecl, scope, resolver, typing, nil)
+}
+
+func toActionGraphWithTypingAndAncestors(
+	actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
+) (*ActionGraph, error) {
 	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
 	}
-	graph, err := lowerActionFlowWithTyping(members, scope, resolver, typing)
+	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, ancestors)
 	if err != nil {
 		return nil, err
 	}
@@ -786,13 +796,20 @@ func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve
 }
 
 func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
+	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, nil)
+}
+
+func lowerActionFlowWithTypingAndAncestors(
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
+) (*ActionGraph, error) {
 	generals, cyclic := resolve.ActionGeneralization(scope, typing)
 	if cyclic {
 		graph := newActionGraph(scope)
 		graph.resolver = resolver
+		graph.lowering = actionLoweringAncestors(scope, ancestors)
 		return graph, fmt.Errorf("%w: %s", ErrCyclicSpecialization, actionDescription(scope))
 	}
-	graph, err := collectActionNodes(members, scope, resolver)
+	graph, err := collectActionNodesWithAncestors(members, scope, resolver, ancestors)
 	if err != nil {
 		return graph, err
 	}
@@ -816,6 +833,25 @@ func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolve
 	recordBlockNodes(graph)
 	encloseBlockFlows(graph)
 	return graph, nil
+}
+
+func actionLoweringAncestors(scope *symbols.Scope, ancestors []ast.Node) []ast.Node {
+	out := slices.Clone(ancestors)
+	add := func(node ast.Node) {
+		if node == nil {
+			return
+		}
+		for _, existing := range out {
+			if existing == node {
+				return
+			}
+		}
+		out = append(out, node)
+	}
+	if scope != nil {
+		add(scope.Node())
+	}
+	return out
 }
 
 // actionEdgeLowerer lowers the members of an action body that connect its nodes,

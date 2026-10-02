@@ -467,6 +467,143 @@ func TestToActionGraphPinOnlyTypedUsageKeepsInvocation(t *testing.T) {
 	}
 }
 
+func TestToActionGraphFeatureOnlySelfTypedNodeKeepsInvocation(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			action x : A[0..*] {
+				ref occurrence r :>> self;
+			}
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	node, ok := namedNode(graph, "x").(*ast.Usage)
+	if !ok {
+		t.Fatalf("x node = %T, want *ast.Usage", namedNode(graph, "x"))
+	}
+	if subflow := graph.Subflows[node]; subflow != nil {
+		t.Fatalf("x subflow = %#v, want no merged typed subflow", subflow)
+	}
+	if _, merged := graph.MergedTypedSubflows[node]; merged {
+		t.Fatal("feature-only self-typed x was marked as a merged typed subflow")
+	}
+}
+
+func TestToActionGraphExecutableSelfTypedNodeRefusesRecursiveMerge(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			first start then x;
+			action x : A {
+				assign c := c + 1;
+			}
+			then done;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	node := namedNode(graph, "x")
+	subflow := graph.Subflows[node]
+	if subflow == nil || !errors.Is(subflow.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("x subflow = %#v, want ErrRecursiveActionTyping", subflow)
+	}
+}
+
+func TestToActionGraphBodyStatingTypedNodeMergesFiniteGeneral(t *testing.T) {
+	src := `
+		action def Base {
+			attribute c : Integer := 0;
+		}
+		action def P :> Base {
+			attribute d : Integer := 0;
+			first start then x;
+			action x : Base {
+				assign c := c + 1;
+			}
+			then done;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "P")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower P: %v", err)
+	}
+	node := namedNode(graph, "x")
+	subflow := graph.Subflows[node]
+	if subflow == nil || subflow.Graph == nil || subflow.Err != nil {
+		t.Fatalf("x subflow = %#v, want a successfully merged typed subflow", subflow)
+	}
+	if _, merged := graph.MergedTypedSubflows[node]; !merged {
+		t.Fatal("x was not marked as a merged typed subflow")
+	}
+}
+
+func TestToActionGraphInheritedTypedBodyRecursionIsRefused(t *testing.T) {
+	src := `
+		action def Base {
+			attribute c : Integer := 0;
+			action x : P {
+				assign c := c + 1;
+			}
+		}
+		action def P :> Base;
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "Base")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower Base: %v", err)
+	}
+	outer := namedNode(graph, "x")
+	outerSubflow := graph.Subflows[outer]
+	if outerSubflow == nil || outerSubflow.Graph == nil || outerSubflow.Err != nil {
+		t.Fatalf("outer x subflow = %#v, want P's graph", outerSubflow)
+	}
+	inner := namedNode(outerSubflow.Graph, "x")
+	innerSubflow := outerSubflow.Graph.Subflows[inner]
+	if innerSubflow == nil || !errors.Is(innerSubflow.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("inner x subflow = %#v, want ErrRecursiveActionTyping", innerSubflow)
+	}
+}
+
+func TestToActionGraphExecutableMutuallyTypedNodesRefuseRecursiveMerge(t *testing.T) {
+	src := `
+		action def A {
+			attribute c : Integer := 0;
+			action y : B {
+				assign c := c + 1;
+			}
+		}
+		action def B {
+			attribute c : Integer := 0;
+			action z : A {
+				assign c := c + 1;
+			}
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "A")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower A: %v", err)
+	}
+	y := namedNode(graph, "y")
+	subflow := graph.Subflows[y]
+	if subflow == nil || subflow.Graph == nil {
+		t.Fatalf("y subflow = %#v, want B's graph", subflow)
+	}
+	z := namedNode(subflow.Graph, "z")
+	recursive := subflow.Graph.Subflows[z]
+	if recursive == nil || !errors.Is(recursive.Err, ErrRecursiveActionTyping) {
+		t.Fatalf("z subflow = %#v, want ErrRecursiveActionTyping", recursive)
+	}
+}
+
 func TestToActionGraphTypedUsageOverridesMatchingInheritedSuccession(t *testing.T) {
 	src := `package test {
 		action def Base {

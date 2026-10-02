@@ -93,6 +93,18 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		rawMembers = append(rawMembers, member.Decl)
 	}
 	typedBody, typedAction := mergedTypedActionBody(node, scope)
+	var typedTarget ast.Node
+	if typedBody {
+		typedTarget = resolveTypedActionTarget(graph.resolver, typedAction)
+		if typedActionTargetIsAncestor(graph, typedTarget) {
+			if typedBodyHasExecutableContent(rawMembers) {
+				recordInvalidSubflow(graph, node, fmt.Errorf("%w: %s",
+					ErrRecursiveActionTyping, ast.SimpleName(typedAction.Target)))
+				return
+			}
+			typedBody = false
+		}
+	}
 	if !runsOwnFlow(rawMembers) && !typedBody {
 		for _, member := range BodyStatementMembers(rawMembers) {
 			actual := unwrapMembership(member)
@@ -108,7 +120,11 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	if graph.Subflows == nil {
 		graph.Subflows = make(map[ast.Node]*Subflow)
 	}
-	sub, err := toActionGraphWithTyping(node, scope, graph.resolver, typedBody)
+	ancestors := graph.lowering
+	if typedBody {
+		ancestors = appendLoweringAncestor(ancestors, typedTarget)
+	}
+	sub, err := toActionGraphWithTypingAndAncestors(node, scope, graph.resolver, typedBody, ancestors)
 	if err == nil {
 		sub.Enclosing, sub.EnclosingNode = graph, node
 		StartFlow(sub)
@@ -120,6 +136,73 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		}
 		graph.MergedTypedSubflows[node] = typedAction
 	}
+}
+
+func resolveTypedActionTarget(resolver *resolve.Resolver, typed PerformedType) ast.Node {
+	if typed.Target == nil || typed.Scope == nil {
+		return nil
+	}
+	if resolver != nil {
+		if decl, _, ok := resolver.TypeDecl(typed.Scope, typed.Target); ok {
+			return decl
+		}
+	}
+	decl, _, _ := resolve.TypeDeclInScope(typed.Scope, typed.Target)
+	return decl
+}
+
+func typedActionTargetIsAncestor(graph *ActionGraph, target ast.Node) bool {
+	if graph == nil {
+		return false
+	}
+	return loweringHasAncestor(graph.lowering, target)
+}
+
+func loweringHasAncestor(ancestors []ast.Node, target ast.Node) bool {
+	if target == nil {
+		return false
+	}
+	for _, ancestor := range ancestors {
+		if ancestor == target {
+			return true
+		}
+	}
+	return false
+}
+
+func appendLoweringAncestor(ancestors []ast.Node, target ast.Node) []ast.Node {
+	if target == nil || loweringHasAncestor(ancestors, target) {
+		return ancestors
+	}
+	out := append([]ast.Node(nil), ancestors...)
+	return append(out, target)
+}
+
+func typedBodyHasExecutableContent(members []ast.Node) bool {
+	for _, member := range members {
+		actual := unwrapMembership(member)
+		if actual == nil || statesNoStep(actual) || isAnnotation(actual) {
+			continue
+		}
+		switch node := actual.(type) {
+		case *ast.Usage:
+			switch node.Kind {
+			case ast.UsageAction, ast.UsageState, ast.UsageTransition, ast.UsageSuccession,
+				ast.UsageStep, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+				return true
+			default:
+				if node.IsAccept || node.IsTerminate || node.IsActionNode {
+					return true
+				}
+			}
+		case *ast.AcceptActionUsage, *ast.EntryMember, *ast.DoMember, *ast.ExitMember,
+			*ast.StateNode:
+			return true
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func mergedTypedActionBody(node *ast.Usage, scope *symbols.Scope) (bool, PerformedType) {
