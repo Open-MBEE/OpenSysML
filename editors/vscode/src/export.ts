@@ -4,7 +4,7 @@
 import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
-export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"];
+export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml"];
 
 /** How an exported form is saved: the file extension and the save dialog's filter name. */
 export interface ExportFile {
@@ -32,7 +32,7 @@ const UNKNOWN_FORM: ExportFile = { extension: ".txt", filter: "Text" };
 
 /**
  * serverForms lists the forms a server writes: the ones it advertises under
- * `openSysmlRenderForms` in its experimental capabilities, else the documented seven.
+ * `openSysmlRenderForms` in its experimental capabilities, else the documented five.
  */
 export function serverForms(experimental: Record<string, unknown> | undefined): string[] {
   const advertised = experimental?.[RENDER_FORMS_CAPABILITY];

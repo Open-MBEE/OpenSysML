@@ -234,6 +234,32 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+// A delimited form carries no notice, so %render lists a table's after its records.
+func TestRenderOfADelimitedTableListsItsNotices(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindTable,
+		View:    "Demo::odd",
+		Columns: []string{"Element", "Kind"},
+		Rows:    [][]string{{"Demo::odd", "view"}},
+		Notices: []string{"nested view Demo::odd is nested in itself; listed once"},
+	}
+	for form, sep := range map[view.Form]string{view.FormCSV: ",", view.FormTSV: "\t"} {
+		lines, err := artifactLines(rendering, form, view.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"Element" + sep + "Kind", "Demo::odd" + sep + "view", "", "not represented:",
+			"  - nested view Demo::odd is nested in itself; listed once"}
+		if !slices.Equal(lines, want) {
+			t.Errorf("%s = %q, want %q", form, lines, want)
+		}
+	}
+	rendering.Notices = nil
+	if lines, err := artifactLines(rendering, view.FormCSV, view.Options{}); err != nil || len(lines) != 2 {
+		t.Errorf("csv without a notice = %q, %v, want the two records alone", lines, err)
+	}
+}
+
 func TestRenderOfAnUnknownNameReports(t *testing.T) {
 	out, _, err := viewSession(t).RunMeta("%render Demo::Nope")
 	if err != nil {

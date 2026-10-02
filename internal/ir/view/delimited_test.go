@@ -118,6 +118,12 @@ func TestDelimitedFormsAreForTablesOnly(t *testing.T) {
 	if !errors.As(err, &wrong) || !strings.Contains(err.Error(), "ask for text, mermaid, dot or plantuml") {
 		t.Errorf("csv of a tree error = %v, want a *WrongFormError offering the tree's forms", err)
 	}
+	tree := render(t, "tree.sysml", "VehicleViews::vehicleView")
+	for form, write := range map[Form]func() (string, error){FormCSV: tree.CSV, FormTSV: tree.TSV} {
+		if out, err := write(); !errors.As(err, &wrong) || wrong.Form != form || out != "" {
+			t.Errorf("direct %s of a tree = %q, %v, want a *WrongFormError", form, out, err)
+		}
+	}
 	if FormCSV.TakesPalette() || FormTSV.TakesPalette() {
 		t.Error("a delimited form takes a palette")
 	}

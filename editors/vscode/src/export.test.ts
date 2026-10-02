@@ -80,7 +80,7 @@ test("an export asks the server for the drawing style the panel draws in, and fo
   assert.equal(plain.requests[0].style, undefined);
 });
 
-test("serverForms takes the forms the server advertises, else the documented seven", () => {
+test("serverForms takes the forms the server advertises, else the documented five", () => {
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["text", "mermaid", "markdown", "dot", "plantuml"] }), [
     "text",
     "mermaid",
@@ -93,12 +93,12 @@ test("serverForms takes the forms the server advertises, else the documented sev
   assert.deepEqual(serverForms({ openSysmlRender: true }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: [] }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["dot", 3] }), DOCUMENTED_FORMS);
-  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"]);
+  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml"]);
 });
 
 test("every form saves under its own extension and filter, and an unknown one as text", () => {
   assert.deepEqual(
-    DOCUMENTED_FORMS.map((form) => [form, exportFile(form).extension, exportFile(form).filter]),
+    [...DOCUMENTED_FORMS, "csv", "tsv"].map((form) => [form, exportFile(form).extension, exportFile(form).filter]),
     [
       ["text", ".txt", "Text"],
       ["mermaid", ".mmd", "Mermaid"],
