@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -572,11 +573,11 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 	return nil
 }
 
-// checkResultParameters refuses an action, or a node of its flow, declaring a
-// `return` parameter — only a function or expression owns one.
+// checkResultParameters refuses a `return` whose owner is no function or
+// expression; an inherited function result is an output.
 func (e *ActionExecutor) checkResultParameters() error {
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
-		if param.IsResult {
+		if param.IsResult && !semantics.ResultParameterOwnerValid(param.Symbol) {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
 				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)
 		}
@@ -590,7 +591,7 @@ func (e *ActionExecutor) checkNodeResultParameters(graph *lower.ActionGraph) err
 	}
 	for _, node := range graph.Nodes {
 		for _, f := range graph.Features[node] {
-			if f.IsResult {
+			if f.IsResult && !semantics.DeclaresFunction(node) {
 				return fmt.Errorf("%w: action node %s declares `return %s`; write `out %s`",
 					ErrActionResultParameter, ActionNodeName(node), f.Name, f.Name)
 			}

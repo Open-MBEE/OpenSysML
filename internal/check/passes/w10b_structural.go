@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -68,7 +69,7 @@ func (c *w10bStructuralChecker) check(decl ast.Node) {
 		c.reportExtra(do, msgOnlyOneDoAction, "state-do-action")
 		c.reportExtra(exit, msgOnlyOneExitAction, "state-exit-action")
 	}
-	if functionDecl(decl) {
+	if semantics.DeclaresFunction(decl) {
 		var returns []ast.Node
 		for _, m := range members {
 			if u, ok := unwrapUsageMember(m); ok && u.IsResult {

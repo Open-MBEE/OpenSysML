@@ -438,12 +438,10 @@ What the Batmobile run reports after the fork fixes, attributed:
   mismatches (actors and stakeholders are part usages). `'Drive Batmobile'`
   execution stops at the decision guard because `scanEnvironment.status` is
   never given a value.
-- **OpenSysML runtime.** `ActivateRocketBooster :> 'Activate rocket booster'`
-  inherits the `result` return parameter of the use case def it specializes,
-  and `ActionExecutor.checkResultParameters`
-  (`internal/exec/runtime/action_subflow.go`) rejects inherited as well as
-  declared return parameters: `action ActivateRocketBooster declares 'return
-  result'; write 'out result'`. Not fixed here.
+- **OpenSysML runtime.** The inherited `result` is an output parameter, and
+  `ActivateRocketBooster :> 'Activate rocket booster'` runs to completion.
+  Only a `return` declared in a non-function owner is refused, matching the
+  validator.
 
 Verdicts on standard-library constraints (`ShapeItems`, `Geometry`) that
 `validateInstance` reports carry no SysON element: the library is not part of
