@@ -123,6 +123,9 @@ type Context struct {
 	// re-scans its types and must not attach the same member again.
 	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
 
+	// successionOrderNotes deduplicates refused-order notes per order and object.
+	successionOrderNotes map[successionOrderNoteKey]bool
+
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
 
@@ -361,6 +364,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+		successionOrderNotes:    make(map[successionOrderNoteKey]bool),
 
 		shareDefaults:  SharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),
@@ -1929,6 +1933,11 @@ func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instan
 // performed by self with its inputs bound ahead of its defaults, without
 // starting execution.
 func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	if member := ctx.classifierBehaviorMemberForAction(action, self); member != nil {
+		if err := ctx.checkSuccessionOrderViolation(self, member); err != nil {
+			return nil, rootActionError(nil, err, true)
+		}
+	}
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, rootActionError(nil, fmt.Errorf("create action executor: %w", err), true)

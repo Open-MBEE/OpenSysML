@@ -50,6 +50,8 @@ type ObjectBehavior struct {
 	// typeBound marks the behavior bound by the object's type at materialization
 	// or restart, rather than started by an explicit `perform obj.beh.start`.
 	typeBound bool
+	ctx       *Context
+	deferred  *classifierBehaviorDecl
 }
 
 // Describe names the behavior and the object running it, for diagnostics.
@@ -674,17 +676,24 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 // runs everything attached.
 func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 	defer ctx.holdDrivenWork()()
+	ctx.noteRefusedBehaviorOrders(inst)
 	for _, typ := range inst.types() {
 		for i, decl := range ctx.classifierBehaviorsOf(typ) {
 			if ctx.runsBound(inst, decl.member, typ) {
 				continue
 			}
-			if ctx.trace != nil {
-				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+			var behavior *ObjectBehavior
+			var err error
+			if ctx.shouldDeferBehavior(inst, decl.member) {
+				behavior, err = ctx.deferredBehaviorFor(inst, decl, i)
+			} else {
+				if ctx.trace != nil {
+					ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+				}
+				ctx.attachBehavior(inst, decl.member)
+				behavior, err = ctx.attachClassifierBehavior(inst, decl)
+				ctx.behaviorAttached(inst, decl.member)
 			}
-			ctx.attachBehavior(inst, decl.member)
-			behavior, err := ctx.attachClassifierBehavior(inst, decl)
-			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
 				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
 					if behavior != nil {
@@ -698,8 +707,10 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
 			ctx.behaviorsAttached++
-			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+			if behavior.deferred == nil {
+				ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+			}
 			ctx.workChanged()
 		}
 	}
@@ -922,7 +933,20 @@ func (ctx *Context) drainObjectBehaviors() error {
 		}
 		behavior, ok := ctx.nextRunnableBehavior()
 		if !ok {
-			return nil
+			return ctx.successionCycle()
+		}
+		if behavior.deferred != nil {
+			if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+				wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+				if recordsFailure(behavior, err) {
+					ctx.endFailedPerformance(behavior, wrapped)
+					continue
+				}
+				return wrapped
+			}
+			if behavior.Err != nil {
+				continue
+			}
 		}
 		if ctx.trace != nil {
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
@@ -998,6 +1022,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 func (b *ObjectBehavior) hasPendingWork() bool {
 	if b.Err != nil {
 		return false
+	}
+	if b.deferred != nil {
+		return b.ctx != nil && !b.ctx.lifeEnded(b.Object) && b.ctx.deferredBehaviorReady(b)
 	}
 	switch {
 	case b.State != nil:
@@ -1098,6 +1125,7 @@ func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehavi
 		member:   decl.member,
 		bindings: chain,
 		kinds:    ctx.behaviorKinds(chain),
+		ctx:      ctx,
 	}
 	var occurrence *Instance
 	switch decl.behavior.Kind {

@@ -210,6 +210,7 @@ func (ctx *Context) destroy(inst *Instance) error {
 		}
 	}
 	ctx.livesChanged()
+	ctx.workChanged()
 	ctx.forgetDerivedFrom(ended)
 	ctx.endBehaviorsWith(ended)
 	ctx.forgetMessagesTo(ended)
@@ -295,6 +296,9 @@ func (b *ObjectBehavior) completed() bool {
 	if b.Err != nil {
 		return true
 	}
+	if b.deferred != nil {
+		return b.ctx != nil && b.ctx.lifeEnded(b.Object)
+	}
 	switch {
 	case b.Action != nil:
 		return b.Action.State().Ended()
@@ -317,6 +321,7 @@ func (ctx *Context) beginPerformanceLife(inst *Instance, activation int64) {
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
+	ctx.workChanged()
 }
 
 // endPerformanceLife records a performance occurrence completing, where one
@@ -332,6 +337,7 @@ func (ctx *Context) endPerformanceLife(inst *Instance) {
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
+	ctx.workChanged()
 }
 
 // carryLife keeps a carried-over object destroyed when it was destroyed in the

@@ -141,6 +141,10 @@ type Model struct {
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
+	behaviorOrdersReady bool
+	behaviorOrders      []lower.BehaviorOrder
+	behaviorOrdersByEnd map[*symbols.Symbol][]lower.BehaviorOrder
+
 	// triggerTypes memoizes the definition an accept's type reference denotes in the
 	// scope it is written in, and signalMatches whether a signal conforms to one; a
 	// machine judges every message in flight against every trigger it holds each step.
@@ -277,6 +281,9 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.scopes = append(m.scopes, scope)
 	m.declared = nil
 	m.census = nil
+	m.behaviorOrdersReady = false
+	m.behaviorOrders = nil
+	m.behaviorOrdersByEnd = nil
 }
 
 // declaredSymbol is the symbol a registered scope tree declares for the
