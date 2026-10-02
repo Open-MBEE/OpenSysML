@@ -191,6 +191,15 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Distinct: seq without its repeated values, the first of each kept in the
+	 * order met; a cell applies it to a sequence as `->DocumentQueries::Distinct()`
+	 * beside the KerML sequence functions (`->SequenceFunctions::size()`,
+	 * `->ControlFunctions::select {in e; …}`). */
+	calc def Distinct {
+		in seq : Base::Anything[0..*] ordered nonunique;
+		return result : Base::Anything[0..*] ordered;
+	}
+
 	/* One computed table column: exactly one of expression, cell, or path.
 	 * expression is evaluated in query scope; cell receives each row as its
 	 * parameter; path reads a dotted member path from the row. */

@@ -1240,8 +1240,25 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
+	case "ownedElement":
+		return m.ownedElementsOf(sym), true
+	case "member":
+		return m.membersIncludingAnonymous(sym), true
+	case "feature":
+		var features []*symbols.Symbol
+		for _, member := range m.membersIncludingAnonymous(sym) {
+			if member.IsFeature() {
+				features = append(features, member)
+			}
+		}
+		return features, true
 	case "documentation":
 		return m.documentationSymbols(sym), true
+	case "relatedFeature", "sourceFeature", "targetFeature":
+		if !m.IsConnectorObjectUsage(sym) {
+			return nil, false
+		}
+		return m.connectorRelatedFeatures(sym, feature), true
 	case "ownedFeature":
 		var features []*symbols.Symbol
 		for _, member := range ownedMembersOf(sym) {
@@ -1290,6 +1307,57 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 	return ends
 }
 
+// ownedElementsOf is Element::ownedElement: the members sym's body declares,
+// the named ones in declaration order and then those declared without a
+// name, and its documentation.
+func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	members := ownedMembersOf(sym)
+	seen := make(map[*symbols.Symbol]bool, len(members))
+	for _, member := range members {
+		seen[member] = true
+	}
+	if sym.Scope != nil {
+		sym.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
+			if member.Kind != symbols.SymbolAlias && !seen[member] {
+				seen[member] = true
+				members = append(members, member)
+			}
+			return true
+		})
+	}
+	for _, doc := range m.documentationSymbols(sym) {
+		if !seen[doc] {
+			seen[doc] = true
+			members = append(members, doc)
+		}
+	}
+	return members
+}
+
+// connectorRelatedFeatures is Connector::relatedFeature, sourceFeature or
+// targetFeature of a connector usage: the features its ends attach to, all,
+// the first, or the rest, in end order.
+func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
+	var related []*symbols.Symbol
+	for i, end := range m.ConnectorEndPaths(sym) {
+		if len(end.Features) == 0 {
+			continue
+		}
+		switch feature {
+		case "sourceFeature":
+			if i != 0 {
+				continue
+			}
+		case "targetFeature":
+			if i == 0 {
+				continue
+			}
+		}
+		related = append(related, end.Features[len(end.Features)-1])
+	}
+	return related
+}
+
 // ownedMembersOf is every element sym's own body declares, in declaration order:
 // an alias is a membership rather than an element, and a name registered twice
 // (short and primary) is one element.
@@ -1307,6 +1375,38 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 		return true
 	})
 	return members
+}
+
+// membersIncludingAnonymous is Namespace::member: the named members MembersOf
+// reports followed by the members declared without a name, sym's own and then
+// those its supertypes contribute that no feature of sym redefines.
+func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol {
+	named := m.MembersOf(sym)
+	out := make([]*symbols.Symbol, len(named), len(named)+1)
+	copy(out, named)
+	seen := make(map[*symbols.Symbol]bool, len(named))
+	for _, s := range named {
+		seen[s] = true
+	}
+	mask := m.redefinitionMask(sym, true)
+	collect := func(scope *symbols.Scope, inherited bool) {
+		if scope == nil || !scope.HasAnonymousMembers() {
+			return
+		}
+		scope.ForEachAnonymousMember(func(s *symbols.Symbol) bool {
+			if s.Kind == symbols.SymbolAlias || seen[s] || (inherited && m.maskedBy(mask, s)) {
+				return true
+			}
+			seen[s] = true
+			out = append(out, s)
+			return true
+		})
+	}
+	collect(sym.Scope, false)
+	for _, src := range m.MemberSources(sym) {
+		collect(src.Scope, true)
+	}
+	return out
 }
 
 // ReflectiveDirection is the direction sym's feature declaration states
@@ -1369,6 +1469,15 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true
+	case "direction":
+		direction, ok := ReflectiveDirection(sym)
+		if !ok {
+			return symbols.FilterValue{}, false
+		}
+		if direction == ast.DirNone {
+			return emptyValue(), true
+		}
+		return stringOrEmpty(direction.String()), true
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Comment:

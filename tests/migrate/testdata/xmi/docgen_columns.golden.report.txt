@@ -1,0 +1,213 @@
+# SysML v1 to v2 migration report: docgen_columns.xmi
+# exported by Example UML Tool
+# migrated 204 element(s): 146 mapped, 54 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (4)
+«CollectByAssociation» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association	_st_ifc_assoc_collect	(it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«CollectByAssociation» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association	_st_ifc_assoc_collect	(it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«SortByProperty» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property	_st_ifc_sorted_sort	(no query operation or content block stands for «SortByProperty»)
+«SortByProperty» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property	_st_ifc_sorted_sort	(no query operation or content block stands for «SortByProperty»)
+
+## approximated (54)
+«Document» Class	Observatory::Documents::Interface Control Document	_doc_icd	-> Observatory::Documents::'Interface Control Document'	(a plain UML class without «Block» is written as a part def)
+«Document» Class	Observatory::Documents::Interface Control Document	_st_doc_icd	-> part def Observatory::Documents::'Interface Control Document Document'	(the «Document» is written as a Document definition of 4 section(s); the column «TableExpressionColumn» Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::Iterated is not written: the expression "ownedElement->iterate(x; acc : Integer = 0 | acc + 1)" is not lowered: the character ";" has no place in an OCL expression; Project lists its properties first: documentation precede the other columns; properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others; each item's documentation follows its name)
+«Document» Class	Observatory::Documents::Interface Summary	_doc_sum	-> Observatory::Documents::'Interface Summary'	(a plain UML class without «Block» is written as a part def)
+«Document» Class	Observatory::Documents::Interface Summary	_st_doc_sum	-> part def Observatory::Documents::'Interface Summary Document'	(the «Document» is written as a Document definition of 1 section(s); properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+Activity	Observatory::Viewpoints::Connections Viewpoint::Connections Method	_act_conn	-> Observatory::Viewpoints::'Connections Viewpoint'::'Connections Method'	(the classifier behavior is run by every object of Observatory::Viewpoints::Connections Viewpoint as its usage connections Method)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Collect Owned Elements	_conn_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Filter By Metaclasses	_conn_filter	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections	_st_conn_table	-> part Observatory::Documents::'Interface Control Document Document'::Connections::table	(its rows are the query 'Interface Control Document Table of Connections Rows'; Project lists its properties first: documentation precede the other columns)
+«TableAttributeColumn» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::Description	_conn_col_desc	-> Description	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::Direction	_conn_col_dir	-> Direction	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::Point of Interface on Controller Rack	_conn_col_rack	-> 'Point of Interface on Controller Rack'	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::Point of Interface on Optical Bench	_conn_col_bench	-> 'Point of Interface on Optical Bench'	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::Type	_conn_col_type	-> Type	(a step with no behavior and no duration; it passes the token on)
+Activity	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method	_act_ifc	-> Observatory::Viewpoints::'Interfaces Viewpoint'::'Interfaces Method'	(the classifier behavior is run by every object of Observatory::Viewpoints::Interfaces Viewpoint as its usage interfaces Method)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Collect Owned Elements	_ifc_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Filter By Metaclasses	_ifc_parts	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Filter By Metaclasses	_ifc_none_filter	-> 'Filter By Metaclasses 2'	(a step with no behavior and no duration; it passes the token on; written as Filter By Metaclasses 2 since a sibling is also named Filter By Metaclasses)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity::Activity	_ifc_none_bullet	-> Activity	(a step with no behavior and no duration; it passes the token on)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Assembly	_ifc_bullet	-> Assembly	(a step with no behavior and no duration; it passes the token on)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Assembly	_st_ifc_bullet	-> part Observatory::Documents::'Interface Control Document Document'::Interfaces::list	(its rows are the query 'Interface Control Document Assembly Rows'; properties typed by a view or viewpoint are not listed)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Assembly	_st_ifc_bullet	-> part Observatory::Documents::'Interface Control Document Document'::Interfaces::'list 2'	(its rows are the query 'Interface Control Document Assembly Rows 2'; properties typed by a view or viewpoint are not listed)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Assembly	_st_ifc_bullet	-> part Observatory::Documents::'Interface Summary Document'::Interfaces::list	(its rows are the query 'Interface Summary Assembly Rows'; properties typed by a view or viewpoint are not listed)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Assembly	_st_ifc_bullet	-> part Observatory::Documents::'Interface Summary Document'::Interfaces::'list 2'	(its rows are the query 'Interface Summary Assembly Rows 2'; properties typed by a view or viewpoint are not listed)
+«CollectTypes» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Collect Types	_ifc_types	-> 'Collect Types'	(a step with no behavior and no duration; it passes the token on)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table	_st_ifc_table	-> part Observatory::Documents::'Interface Control Document Document'::Interfaces::table	(its rows are the query 'Interface Control Document Interfaces Table Rows'; properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table	_st_ifc_table	-> part Observatory::Documents::'Interface Control Document Document'::Interfaces::'table 2'	(its rows are the query 'Interface Control Document Interfaces Table Rows 2'; properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table	_st_ifc_table	-> part Observatory::Documents::'Interface Summary Document'::Interfaces::table	(its rows are the query 'Interface Summary Interfaces Table Rows'; properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table	_st_ifc_table	-> part Observatory::Documents::'Interface Summary Document'::Interfaces::'table 2'	(its rows are the query 'Interface Summary Interfaces Table Rows 2'; properties typed by a view or viewpoint are not listed; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports is not written: its chain is not lowered: «SortByProperty» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property is not migrated: no query operation or content block stands for «SortByProperty»; the column «TableAttributeColumn» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated is not written: its chain is not lowered: «CollectByAssociation» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association is not migrated: it follows the composite attributes of each row to their types, and no query operation tells a composite feature from the others)
+«CollectByAssociation» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::Collect By Association	_ifc_assoc_collect	-> 'Collect By Association'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::Collect Owned Elements	_ifc_desc_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::Filter By Metaclasses	_ifc_desc_ports	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::Collect Owned Elements	_ifc_ifc_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«CollectTypes» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::Collect Types	_ifc_ifc_types	-> 'Collect Types'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::Filter By Metaclasses	_ifc_ifc_ports	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+«TableAttributeColumn» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Name	_ifc_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Collect Owned Elements	_ifc_sorted_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«SortByProperty» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::Sort By Property	_ifc_sorted_sort	-> 'Sort By Property'	(a step with no behavior and no duration; it passes the token on)
+«SortByName» CallBehaviorAction	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Sort By Name	_ifc_sort	-> 'Sort By Name'	(a step with no behavior and no duration; it passes the token on)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::One Part::The Part	_one_list	-> 'The Part'	(a step with no behavior and no duration; it passes the token on)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::One Part::The Part	_st_one_list	-> part Observatory::Documents::'Interface Control Document Document'::'Per Part'::collimator::list	(its rows are the query 'Interface Control Document The Part Rows'; properties typed by a view or viewpoint are not listed; each item's documentation follows its name)
+«BulletedList» CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::One Part::The Part	_st_one_list	-> part Observatory::Documents::'Interface Control Document Document'::'Per Part'::mirror::list	(its rows are the query 'Interface Control Document The Part Rows 2'; properties typed by a view or viewpoint are not listed; each item's documentation follows its name)
+Activity	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method	_act_per	-> Observatory::Viewpoints::'Per Part Viewpoint'::'Per Part Method'	(the classifier behavior is run by every object of Observatory::Viewpoints::Per Part Viewpoint as its usage per Part Method)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::Collect Owned Elements	_per_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::Filter By Metaclasses	_per_parts	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+Activity	Observatory::Viewpoints::Totals Viewpoint::Totals Method	_act_totals	-> Observatory::Viewpoints::'Totals Viewpoint'::'Totals Method'	(the classifier behavior is run by every object of Observatory::Viewpoints::Totals Viewpoint as its usage totals Method)
+«CollectOwnedElements» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Collect Owned Elements	_tot_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByMetaclasses» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Filter By Metaclasses	_tot_filter	-> 'Filter By Metaclasses'	(a step with no behavior and no duration; it passes the token on)
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals	_st_tot_table	-> part Observatory::Documents::'Interface Control Document Document'::'Interface Totals'::table	(its rows are the query 'Interface Control Document Interface Totals Rows'; the column «TableExpressionColumn» Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::Iterated is not written: the expression "ownedElement->iterate(x; acc : Integer = 0 | acc + 1)" is not lowered: the character ";" has no place in an OCL expression)
+«TableAttributeColumn» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::Interface Type	_tot_col_name	-> 'Interface Type'	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::Iterated	_tot_col_iter	-> Iterated	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::Number of Interfaces	_tot_col_count	-> 'Number of Interfaces'	(a step with no behavior and no duration; it passes the token on)
+«TableAttributeColumn» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::Interface Type	_tot_each_name	-> 'Interface Type'	(a step with no behavior and no duration; it passes the token on)
+«TableExpressionColumn» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::Number of Interfaces	_tot_each_count	-> 'Number of Interfaces'	(a step with no behavior and no duration; it passes the token on)
+«SortByName» CallBehaviorAction	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Sort By Name	_tot_sort	-> 'Sort By Name'	(a step with no behavior and no duration; it passes the token on)
+
+## mapped (146)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Observatory	_pkg_obs	-> Observatory
+Package	Observatory::Assemblies	_pkg_asm	-> Observatory::Assemblies
+«Block» Class	Observatory::Assemblies::Collimator	_blk_coll	-> Observatory::Assemblies::Collimator
+«ProxyPort» Port	Observatory::Assemblies::Collimator::ctl	_port_coll_ctl	-> Observatory::Assemblies::Collimator::ctl
+«ProxyPort» Port	Observatory::Assemblies::Collimator::usb	_port_coll_usb	-> Observatory::Assemblies::Collimator::usb
+Comment	Observatory::Assemblies::Collimator::usb::<Comment>	_doc_coll_usb
+«Block» Class	Observatory::Assemblies::Controller Rack	_blk_rack	-> Observatory::Assemblies::'Controller Rack'
+Property	Observatory::Assemblies::Controller Rack::hub	_prop_hub	-> Observatory::Assemblies::'Controller Rack'::hub
+«Block» Class	Observatory::Assemblies::Hub	_blk_hub	-> Observatory::Assemblies::Hub
+«ProxyPort» Port	Observatory::Assemblies::Hub::serial	_port_hub_serial	-> Observatory::Assemblies::Hub::serial
+«ProxyPort» Port	Observatory::Assemblies::Hub::usb	_port_hub_usb	-> Observatory::Assemblies::Hub::usb
+«Block» Class	Observatory::Assemblies::Mirror	_blk_mirror	-> Observatory::Assemblies::Mirror
+«ProxyPort» Port	Observatory::Assemblies::Mirror::tilt	_port_mirror_tilt	-> Observatory::Assemblies::Mirror::tilt
+Comment	Observatory::Assemblies::Mirror::tilt::<Comment>	_doc_mirror_tilt
+«Block» Class	Observatory::Assemblies::Observatory System	_blk_sys	-> Observatory::Assemblies::'Observatory System'
+Property	Observatory::Assemblies::Observatory System::bench	_prop_bench	-> Observatory::Assemblies::'Observatory System'::bench
+Connector	Observatory::Assemblies::Observatory System::camera link	_conn_usb	-> Observatory::Assemblies::'Observatory System'::'camera link'
+Comment	Observatory::Assemblies::Observatory System::camera link::<Comment>	_doc_conn_usb
+Property	Observatory::Assemblies::Observatory System::rack	_prop_rack	-> Observatory::Assemblies::'Observatory System'::rack
+Connector	Observatory::Assemblies::Observatory System::tilt link	_conn_serial	-> Observatory::Assemblies::'Observatory System'::'tilt link'
+«Block» Class	Observatory::Assemblies::Optical Bench	_blk_bench	-> Observatory::Assemblies::'Optical Bench'
+Property	Observatory::Assemblies::Optical Bench::collimator	_prop_coll	-> Observatory::Assemblies::'Optical Bench'::collimator
+Property	Observatory::Assemblies::Optical Bench::mirror	_prop_mirror	-> Observatory::Assemblies::'Optical Bench'::mirror
+Package	Observatory::Documents	_pkg_docs	-> Observatory::Documents
+«Expose» Dependency	Observatory::Documents::<Dependency>	_expose_totals	-> Observatory::Documents::'Interface Totals'
+«Expose» Dependency	Observatory::Documents::<Dependency>	_expose_conn	-> Observatory::Documents::Connections
+«Expose» Dependency	Observatory::Documents::<Dependency>	_expose_ifc	-> Observatory::Documents::Interfaces
+«Expose» Dependency	Observatory::Documents::<Dependency>	_expose_per	-> Observatory::Documents::'Per Part'
+«View» Class	Observatory::Documents::Connections	_view_conn	-> Observatory::Documents::Connections
+«Conform» Generalization	Observatory::Documents::Connections::<Generalization>	_gen_conn	-> Observatory::Documents::Connections
+Property	Observatory::Documents::Interface Control Document::connections	_doc_conn	-> Observatory::Documents::'Interface Control Document'::connections
+Property	Observatory::Documents::Interface Control Document::interfaces	_doc_ifc	-> Observatory::Documents::'Interface Control Document'::interfaces
+Property	Observatory::Documents::Interface Control Document::perPart	_doc_per	-> Observatory::Documents::'Interface Control Document'::perPart
+Property	Observatory::Documents::Interface Control Document::totals	_doc_totals	-> Observatory::Documents::'Interface Control Document'::totals
+Property	Observatory::Documents::Interface Summary::interfaces	_doc_sum_ifc	-> Observatory::Documents::'Interface Summary'::interfaces
+«View» Class	Observatory::Documents::Interface Totals	_view_totals	-> Observatory::Documents::'Interface Totals'
+«Conform» Generalization	Observatory::Documents::Interface Totals::<Generalization>	_gen_totals	-> Observatory::Documents::'Interface Totals'
+«View» Class	Observatory::Documents::Interfaces	_view_ifc	-> Observatory::Documents::Interfaces
+«Conform» Generalization	Observatory::Documents::Interfaces::<Generalization>	_gen_ifc	-> Observatory::Documents::Interfaces
+«View» Class	Observatory::Documents::Per Part	_view_per	-> Observatory::Documents::'Per Part'
+«Conform» Generalization	Observatory::Documents::Per Part::<Generalization>	_gen_per	-> Observatory::Documents::'Per Part'
+Package	Observatory::Interface Types	_pkg_types	-> Observatory::'Interface Types'
+«ValueType» DataType	Observatory::Interface Types::Bits	_vt_bits	-> Observatory::'Interface Types'::Bits
+«InterfaceBlock» Class	Observatory::Interface Types::Serial	_ib_serial	-> Observatory::'Interface Types'::Serial
+«FlowProperty» Property	Observatory::Interface Types::Serial::cmd	_fp_serial_cmd	-> Observatory::'Interface Types'::Serial::cmd
+«InterfaceBlock» Class	Observatory::Interface Types::Spare	_ib_spare	-> Observatory::'Interface Types'::Spare
+«InterfaceBlock» Class	Observatory::Interface Types::USB	_ib_usb	-> Observatory::'Interface Types'::USB
+«FlowProperty» Property	Observatory::Interface Types::USB::data	_fp_usb_data	-> Observatory::'Interface Types'::USB::data
+Package	Observatory::Viewpoints	_pkg_viewpoints	-> Observatory::Viewpoints
+«Viewpoint» Class	Observatory::Viewpoints::Connections Viewpoint	_vp_conn	-> Observatory::Viewpoints::'Connections Viewpoint'
+ActivityFinalNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::<ActivityFinalNode>	_conn_final	-> final
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::<ControlFlow>	_conn_e2
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::<ControlFlow>	_conn_e3
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::<ControlFlow>	_conn_e4
+InitialNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::<InitialNode>	_conn_init	-> start
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections	_conn_table	-> 'Table of Connections'
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<ControlFlow>	_conn_table_e2
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<ControlFlow>	_conn_table_e3
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<ControlFlow>	_conn_table_e4
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<ControlFlow>	_conn_table_e5
+ControlFlow	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<ControlFlow>	_conn_table_e6
+FlowFinalNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<FlowFinalNode>	_conn_table_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Connections Viewpoint::Connections Method::Table of Connections::<InitialNode>	_conn_table_init	-> start
+«Viewpoint» Class	Observatory::Viewpoints::Interfaces Viewpoint	_vp_ifc	-> Observatory::Viewpoints::'Interfaces Viewpoint'
+ActivityFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ActivityFinalNode>	_ifc_final	-> final
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e3
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e4
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e5
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e6
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<ControlFlow>	_ifc_e7
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::<InitialNode>	_ifc_init	-> start
+«StructuredQuery» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity	_st_ifc_none	(it loops over no element: «FilterByMetaclasses» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Filter By Metaclasses drops all 2 elements collected, none of them a diagram; its body is not written, as DocGen writes nothing for it)
+«StructuredQuery» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity	_st_ifc_none	(it loops over no element: «FilterByMetaclasses» Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Filter By Metaclasses drops all 2 elements collected, none of them a diagram; its body is not written, as DocGen writes nothing for it)
+«StructuredQuery» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity	_ifc_none	-> 'Per Activity'
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity::<ControlFlow>	_ifc_none_e2
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity::<FlowFinalNode>	_ifc_none_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Activity::<InitialNode>	_ifc_none_init	-> start
+«StructuredQuery» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly	_ifc_loop	-> 'Per Assembly'
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::<ControlFlow>	_ifc_loop_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::<ControlFlow>	_ifc_loop_e3
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::<ControlFlow>	_ifc_loop_e4
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::<FlowFinalNode>	_ifc_loop_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::<InitialNode>	_ifc_loop_init	-> start
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table	_ifc_table	-> 'Interfaces Table'
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<ControlFlow>	_ifc_table_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<ControlFlow>	_ifc_table_e3
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<ControlFlow>	_ifc_table_e4
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<ControlFlow>	_ifc_table_e5
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<ControlFlow>	_ifc_table_e6
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<FlowFinalNode>	_ifc_table_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::<InitialNode>	_ifc_table_init	-> start
+«TableAttributeColumn» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated	_ifc_col_assoc	-> Associated
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::<ControlFlow>	_ifc_assoc_e2
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::<FlowFinalNode>	_ifc_assoc_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Associated::<InitialNode>	_ifc_assoc_init	-> start
+«TableAttributeColumn» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description	_ifc_col_desc	-> Description
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::<ControlFlow>	_ifc_desc_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::<ControlFlow>	_ifc_desc_e3
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::<FlowFinalNode>	_ifc_desc_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Description::<InitialNode>	_ifc_desc_init	-> start
+«TableAttributeColumn» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces	_ifc_col_ifc	-> Interfaces
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::<ControlFlow>	_ifc_ifc_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::<ControlFlow>	_ifc_ifc_e3
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::<ControlFlow>	_ifc_ifc_e4
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::<FlowFinalNode>	_ifc_ifc_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Interfaces::<InitialNode>	_ifc_ifc_init	-> start
+«TableAttributeColumn» StructuredActivityNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports	_ifc_col_sorted	-> 'Sorted Ports'
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::<ControlFlow>	_ifc_sorted_e2
+ControlFlow	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::<ControlFlow>	_ifc_sorted_e3
+FlowFinalNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::<FlowFinalNode>	_ifc_sorted_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Interfaces Viewpoint::Interfaces Method::Per Assembly::Interfaces Table::Sorted Ports::<InitialNode>	_ifc_sorted_init	-> start
+«Viewpoint» Class	Observatory::Viewpoints::Per Part Viewpoint	_vp_per	-> Observatory::Viewpoints::'Per Part Viewpoint'
+«Dynamic_View» Activity	Observatory::Viewpoints::Per Part Viewpoint::One Part	_act_one_part	-> Observatory::Viewpoints::'Per Part Viewpoint'::'One Part'
+ActivityFinalNode	Observatory::Viewpoints::Per Part Viewpoint::One Part::<ActivityFinalNode>	_one_final	-> final
+ControlFlow	Observatory::Viewpoints::Per Part Viewpoint::One Part::<ControlFlow>	_one_e2
+InitialNode	Observatory::Viewpoints::Per Part Viewpoint::One Part::<InitialNode>	_one_init	-> start
+ActivityFinalNode	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::<ActivityFinalNode>	_per_final	-> final
+ControlFlow	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::<ControlFlow>	_per_e2
+ControlFlow	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::<ControlFlow>	_per_e3
+ControlFlow	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::<ControlFlow>	_per_e4
+InitialNode	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::<InitialNode>	_per_init	-> start
+CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::One Part	_per_call	-> 'One Part'
+CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::One Part	_per_call	-> part Observatory::Documents::'Interface Control Document Document'::'Per Part'::collimator
+CallBehaviorAction	Observatory::Viewpoints::Per Part Viewpoint::Per Part Method::One Part	_per_call	-> part Observatory::Documents::'Interface Control Document Document'::'Per Part'::mirror
+«Viewpoint» Class	Observatory::Viewpoints::Totals Viewpoint	_vp_totals	-> Observatory::Viewpoints::'Totals Viewpoint'
+ActivityFinalNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ActivityFinalNode>	_tot_final	-> final
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ControlFlow>	_tot_e2
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ControlFlow>	_tot_e3
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ControlFlow>	_tot_e4
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ControlFlow>	_tot_e5
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<ControlFlow>	_tot_e6
+InitialNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::<InitialNode>	_tot_init	-> start
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals	_tot_table	-> 'Interface Totals'
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::<ControlFlow>	_tot_table_e2
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::<ControlFlow>	_tot_table_e3
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::<ControlFlow>	_tot_table_e4
+FlowFinalNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::<FlowFinalNode>	_tot_table_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Interface Totals::<InitialNode>	_tot_table_init	-> start
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type	_tot_each	-> 'Per Type'
+«TableStructure» StructuredActivityNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type	_st_tot_each	-> part Observatory::Documents::'Interface Control Document Document'::'Interface Totals'::'table 2'	(its rows are the query 'Interface Control Document Per Type Rows')
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::<ControlFlow>	_tot_each_e2
+ControlFlow	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::<ControlFlow>	_tot_each_e3
+FlowFinalNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::<FlowFinalNode>	_tot_each_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Observatory::Viewpoints::Totals Viewpoint::Totals Method::Per Type::<InitialNode>	_tot_each_init	-> start
