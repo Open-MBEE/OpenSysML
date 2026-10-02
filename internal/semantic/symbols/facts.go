@@ -419,6 +419,8 @@ func IsAbstract(sym *Symbol) bool {
 		return d.IsAbstract
 	case *ast.Usage:
 		return d.IsAbstract
+	case *ast.CrossFeatureMember:
+		return d.IsAbstract
 	}
 	return false
 }
