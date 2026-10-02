@@ -85,6 +85,9 @@ func TestCheckRejectsAnAbsentRequiredModel(t *testing.T) {
 func TestCheckHonoursTheRequireEnv(t *testing.T) {
 	root := testRoot(t, testBaseline())
 	t.Setenv(RootEnv, t.TempDir())
+	// The synthetic root holds no corpora; an ambient PSSM require would fail
+	// the measurement comparison before the model question is reached.
+	t.Setenv(pssmRequireEnv, "")
 	t.Setenv(RequireEnv, "1")
 	if err := runCheck(root, options{}, &bytes.Buffer{}); err == nil ||
 		!strings.Contains(err.Error(), "download-sysml-v1tov2.sh") {
