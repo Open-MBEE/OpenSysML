@@ -225,6 +225,13 @@ func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 		if err := graph.CheckStep(node, c.model); err != nil {
 			c.report(graph, err)
 		}
+		for _, edge := range graph.Incoming(node) {
+			literal, guarded := edge.Guard.(*ast.LiteralBool)
+			if guarded && !literal.Value && edge.TargetMultiplicity != nil {
+				c.report(graph, graph.StepError(node, c.model, lower.StepOrderOpenCode,
+					"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
+			}
+		}
 	}
 	for _, subflow := range graph.Subflows {
 		if subflow != nil {

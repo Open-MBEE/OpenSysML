@@ -820,7 +820,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "", nil, nil)
+	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "", nil, n.TargetMultiplicity)
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -879,12 +879,13 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		return err
 	}
 	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
-		Source:      sourceNode,
-		Target:      targetNode,
-		Guard:       n.Guard,
-		Decl:        n,
-		Probability: weight,
-		Name:        n.Name,
+		Source:             sourceNode,
+		Target:             targetNode,
+		Guard:              n.Guard,
+		Decl:               n,
+		Probability:        weight,
+		Name:               n.Name,
+		TargetMultiplicity: n.TargetMultiplicity,
 	})
 	return nil
 }

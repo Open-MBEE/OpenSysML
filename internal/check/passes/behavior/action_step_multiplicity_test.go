@@ -144,6 +144,96 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			}`,
 			step: "a", multiplicity: "[3]",
 		},
+		{
+			name: "a fork cannot drive every performance",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then f;
+				fork f;
+				action a[3];
+				succession first f then a;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "a written wildcard into a join contradicts its mandate",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then j;
+				join j;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "the succession's written end multiplicity contradicts the one SysML requires at a join node",
+		},
+		{
+			name: "a join waits on another incoming succession",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then b;
+				action b;
+				action a[3];
+				succession first a then j;
+				succession first b then j;
+				join j;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "a merge's successor orders under the per-performance count",
+			code: "action-step-order-unsatisfiable",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then m;
+				merge m;
+				action q;
+				succession first m then q;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "guarded succession out of a repeated step",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				action q;
+				succession first a if true then q;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "guarded succession without a written target end",
+			code: "action-step-multiplicity-unsupported",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then a;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "literal false guard into a repeated step",
+			code: "action-step-order-open",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if false then [*] a;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "a false guard leaves the performances of the repeated step unordered with respect to its source",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -552,6 +642,58 @@ func TestActionStepMultiplicityPassAcceptsExecutedRepetition(t *testing.T) {
 				part camera : Camera {
 					perform action takePhoto[2] : Act;
 				}
+			}`,
+		},
+		{
+			name: "repeated step behind a fork barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then f;
+				fork f;
+				then done;
+			}`,
+		},
+		{
+			name: "repeated step behind a decision barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then d;
+				decide d;
+				if true then done;
+			}`,
+		},
+		{
+			name: "repeated step fanned out of a merge",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;
+			}`,
+		},
+		{
+			name: "every performance crosses a lone join",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then j;
+				join j;
+				then done;
+			}`,
+		},
+		{
+			name: "guarded succession with a written target end",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then [*] a;
+				succession first [*] a then [1] done;
 			}`,
 		},
 	}

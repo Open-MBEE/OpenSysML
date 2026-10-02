@@ -223,6 +223,138 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
+	// A join with another incoming succession cannot order under the repeated
+	// step's count: the other source performs once, the join per performance.
+	t.Run("join-with-another-incoming", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then b;
+				action b;
+				action a[3];
+				succession first a then j;
+				succession first b then j;
+				join j;
+				then done;
+			}
+		}`)
+		if !errors.Is(err, ErrActionStepMultiplicity) {
+			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
+		}
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+	})
+
+	// A fork performs once, so it cannot drive a repeated step's count however
+	// the edge's ends are written.
+	t.Run("fork-drives-repeated-step", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then f;
+				fork f;
+				action a[3];
+				succession first f then a;
+				then done;
+			}
+		}`)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+	})
+
+	// A written [*] end into a join contradicts the end multiplicity SysML
+	// mandates there, and is unsatisfiable rather than a barrier.
+	t.Run("wildcard-into-join-contradicts-mandate", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then j;
+				join j;
+				then done;
+			}
+		}`)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+		if !strings.Contains(err.Error(), "contradicts the one SysML requires at a join node") {
+			t.Errorf("execution error = %q, want the mandated-end reason", err)
+		}
+	})
+
+	// A guard on an edge whose source is a repeated step stays refused: the
+	// grammar admits no source-end multiplicity there.
+	t.Run("guard-out-of-repeated-step", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then a;
+				action a[3];
+				action q;
+				succession first a if true then q;
+				succession first [*] a then [1] done;
+			}
+		}`)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepMultiplicityUnsupportedCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepMultiplicityUnsupportedCode)
+		}
+	})
+
+	// The merge every performance crosses performs n times, which a successor
+	// performing once cannot order.
+	t.Run("merge-successor-under-per-performance-count", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then a;
+				action a[3];
+				succession first a then m;
+				merge m;
+				action q;
+				succession first m then q;
+				then done;
+			}
+		}`)
+		if !errors.Is(err, ErrActionStepMultiplicity) {
+			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
+		}
+	})
+
+	// Explore agrees with run: the false guard is the open order one error
+	// outcome reports.
+	t.Run("explore-guard-false", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			action def GuardFalse {
+				attribute c : Integer = 0;
+				attribute g : Boolean = false;
+				first start then p;
+				action p;
+				succession first p if g then [*] a;
+				action a[3] { assign c := c + 1; }
+				succession first [*] a then [1] done;
+			}
+		}`)
+		x := m.exploreAction(t, "explore", "GuardFalse")
+		if len(x.Outcomes) != 1 {
+			t.Fatalf("outcomes %v, want exactly one", outcomeTexts(x))
+		}
+		outcome := x.Outcomes[0].Outcome
+		if outcome.Err == nil {
+			t.Fatalf("outcome error = nil, want the open-order error")
+		}
+		if !strings.Contains(outcome.Err.Error(), "a false guard leaves the performances of the repeated step unordered") {
+			t.Errorf("outcome error = %v, want the guard's open-order reason", outcome.Err)
+		}
+	})
+
 	// A nested repeated read yields the sequence over performances, which a
 	// single-valued target cannot take.
 	t.Run("repeated-read-into-single-valued", func(t *testing.T) {

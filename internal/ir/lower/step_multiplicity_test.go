@@ -253,7 +253,7 @@ func TestActionGraphCheckStepSuccessions(t *testing.T) {
 			wantCode:           StepOrderUnsatisfiableCode,
 		},
 		{name: "guarded edge is unsupported", stepCount: 3, guard: &ast.LiteralBool{Value: true}, wantCode: StepMultiplicityUnsupportedCode},
-		{name: "control node adjacency is unsupported", stepCount: 3, repeatedIsSource: true, control: true, wantCode: StepMultiplicityUnsupportedCode},
+		{name: "control node adjacency takes the plain-then check", stepCount: 3, repeatedIsSource: true, control: true, wantCode: StepOrderUnsatisfiableCode},
 		{name: "guarded edge at single count is unchanged", stepCount: 1, guard: &ast.LiteralBool{Value: true}},
 		{name: "control adjacency at single count is unchanged", stepCount: 1, repeatedIsSource: true, control: true},
 	}
@@ -313,6 +313,271 @@ func TestActionGraphCheckStepSuccessions(t *testing.T) {
 				if !errors.As(err, &stepErr) || stepErr.Code != test.wantCode {
 					t.Fatalf("CheckStep error = %v, want code %q", err, test.wantCode)
 				}
+			}
+		})
+	}
+}
+
+// Edges between a repeated step and a control node follow the ranges SysML
+// mandates at the node, even unwritten: a crossing into a join or merge is
+// bijective and performs the node once per performance, other adjacencies once.
+func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    string
+		wantCode string
+	}{
+		{
+			name: "written wildcard into a fork is a barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				fork f;
+				succession first [*] a then f;
+				then done;
+			}`,
+		},
+		{
+			name: "written wildcard into a decision is a barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				decide d;
+				succession first [*] a then d;
+				if true then done;
+			}`,
+		},
+		{
+			name: "plain succession into a fork is refused",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				fork f;
+				succession first a then f;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "exact-one end into a fork excludes the count",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				fork f;
+				succession first [1] a then f;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "written wildcard out of a merge fans out",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;
+			}`,
+		},
+		{
+			name: "plain succession out of a merge is refused",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then a;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "a fork cannot drive every performance",
+			model: `action def A {
+				first start then f;
+				fork f;
+				action a[3];
+				succession first f then a;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "a decision cannot drive every performance",
+			model: `action def A {
+				first start then d;
+				decide d;
+				action a[3];
+				succession first d then a;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "every performance crosses a lone join",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then j;
+				join j;
+				then done;
+			}`,
+		},
+		{
+			name: "every performance crosses a lone merge",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then m;
+				merge m;
+				then done;
+			}`,
+		},
+		{
+			name: "a join waits on another incoming succession",
+			model: `action def A {
+				first start then b;
+				action b;
+				action a[3];
+				succession first a then j;
+				succession first b then j;
+				join j;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "a merge's successor orders under the per-performance count",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first a then m;
+				merge m;
+				action q;
+				succession first m then q;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "a written wildcard into a join contradicts its mandate",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then j;
+				join j;
+				then done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			graph, model := lowerStepMultiplicityModel(t, test.model)
+			var node ast.Node
+			for candidate := range graph.Multiplicities {
+				if getNodeName(candidate) == "a" {
+					node = candidate
+					break
+				}
+			}
+			if node == nil {
+				t.Fatal("step a not found in graph")
+			}
+			err := graph.CheckStep(node, model)
+			if test.wantCode == "" {
+				if err != nil {
+					t.Fatalf("CheckStep error = %v, want nil", err)
+				}
+				return
+			}
+			var stepErr *StepMultiplicityError
+			if !errors.As(err, &stepErr) || stepErr.Code != test.wantCode {
+				t.Fatalf("CheckStep error = %v, want code %q", err, test.wantCode)
+			}
+		})
+	}
+}
+
+// A guarded succession into a repeated step orders when its target end is
+// written; one out of a repeated step stays refused, and an unwritten target
+// end stays open.
+func TestActionGraphCheckStepGuardedSuccessions(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    string
+		wantCode string
+	}{
+		{
+			name: "written target end counts every performance",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then [*] a;
+				succession first [*] a then [1] done;
+			}`,
+		},
+		{
+			name: "written exact target end excludes the count",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then [2] a;
+				succession first [*] a then [1] done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "unwritten target end stays refused",
+			model: `action def A {
+				first start then p;
+				action p;
+				action a[3];
+				succession first p if true then a;
+				succession first [*] a then [1] done;
+			}`,
+			wantCode: StepMultiplicityUnsupportedCode,
+		},
+		{
+			name: "guard out of a repeated step stays refused",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				action q;
+				succession first a if true then q;
+				succession first [*] a then [1] done;
+			}`,
+			wantCode: StepMultiplicityUnsupportedCode,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			graph, model := lowerStepMultiplicityModel(t, test.model)
+			var node ast.Node
+			for candidate := range graph.Multiplicities {
+				if getNodeName(candidate) == "a" {
+					node = candidate
+					break
+				}
+			}
+			if node == nil {
+				t.Fatal("step a not found in graph")
+			}
+			err := graph.CheckStep(node, model)
+			if test.wantCode == "" {
+				if err != nil {
+					t.Fatalf("CheckStep error = %v, want nil", err)
+				}
+				return
+			}
+			var stepErr *StepMultiplicityError
+			if !errors.As(err, &stepErr) || stepErr.Code != test.wantCode {
+				t.Fatalf("CheckStep error = %v, want code %q", err, test.wantCode)
 			}
 		})
 	}

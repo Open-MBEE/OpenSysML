@@ -132,7 +132,7 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 		},
 		{
 			name: "fork-adjacency", step: "a", multiplicity: "[3]",
-			code: lower.StepMultiplicityUnsupportedCode,
+			code: lower.StepOrderUnsatisfiableCode,
 			model: `package test {
 				action def A {
 					fork f;

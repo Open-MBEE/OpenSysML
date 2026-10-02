@@ -624,6 +624,9 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		if v.Guard != nil {
 			kids = append(kids, v.Guard)
 		}
+		if v.TargetMultiplicity != nil {
+			kids = append(kids, v.TargetMultiplicity)
+		}
 		kids = append(kids, v.Effect...)
 		kids = append(kids, v.Members...)
 		writeChildren(b, depth, kids)
@@ -733,6 +736,9 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		kids := []Node{}
 		if v.Guard != nil {
 			kids = append(kids, v.Guard)
+		}
+		if v.TargetMultiplicity != nil {
+			kids = append(kids, v.TargetMultiplicity)
 		}
 		kids = append(kids, v.Members...)
 		writeChildren(b, depth, kids)

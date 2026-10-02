@@ -155,17 +155,153 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 	if other == node {
 		other = edge.Target
 	}
-	if edge.Guard != nil || isControlNode(other) {
-		reason := "control-node successions require a single crossing at the repeated step"
-		if edge.Guard != nil {
-			reason = "guarded successions cannot order every performance of the repeated step"
+	if edge.Guard != nil {
+		// A guard runs at the edge's source, which a written end on an edge out
+		// of the repeated step cannot constrain; into one it needs its written
+		// target end to count every performance.
+		if edge.Target != node || edge.TargetMultiplicity == nil {
+			return g.stepError(node, model, StepMultiplicityUnsupportedCode,
+				"guarded successions cannot order every performance of the repeated step", edge.Decl)
 		}
-		return g.stepError(node, model, StepMultiplicityUnsupportedCode, reason, edge.Decl)
+		// The guard's grammar writes no source end, but the one performance it
+		// leaves crosses once: order the edge with that end fixed at one.
+		sourceEnd := &crossingRange{lower: 1, upper: 1, written: true}
+		return g.checkEdgeOrder(node, edge, count, nil, sourceEnd, nil, model)
+	}
+	if isControlNode(other) {
+		return g.checkControlEdge(node, edge, other, count, model)
 	}
 	return g.checkRepeatedEdgeOrder(node, edge, count, model)
 }
 
+// checkControlEdge orders an edge between a repeated step and a control node,
+// whose ends SysML fixes even where nothing is written: the succession crosses
+// the node once per performance into a join or merge, and once elsewhere.
+func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control ast.Node, count int64, model *semantics.Model) error {
+	into := edge.Target == control
+	sourceEnd, targetEnd := mandatedControlEnds(control, into)
+	if err := g.checkMandatedEnd(node, edge.SourceMultiplicity, sourceEnd, control, model, edge.Decl); err != nil {
+		return err
+	}
+	if err := g.checkMandatedEnd(node, edge.TargetMultiplicity, targetEnd, control, model, edge.Decl); err != nil {
+		return err
+	}
+	_, joins := control.(*ast.JoinNode)
+	_, merges := control.(*ast.MergeNode)
+	if into && (joins || merges) {
+		// The crossing is bijective, so the control node performs once per
+		// performance of the repeated step; every other edge at it must still
+		// order under that count.
+		counts := map[ast.Node]int64{control: count}
+		check := func(other ActionEdge) error {
+			if other == edge {
+				return nil
+			}
+			s, t := mandatedControlEnds(control, other.Target == control)
+			return g.checkEdgeOrder(node, other, count, counts, s, t, model)
+		}
+		for _, other := range g.Incoming(control) {
+			if err := check(other); err != nil {
+				return err
+			}
+		}
+		for _, other := range g.Edges[control] {
+			if err := check(other); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	counts := map[ast.Node]int64{control: 1}
+	return g.checkEdgeOrder(node, edge, count, counts, sourceEnd, targetEnd, model)
+}
+
+// checkMandatedEnd refuses a written end that contradicts the range SysML
+// mandates at a control node, which no default may rescue.
+func (g *ActionGraph) checkMandatedEnd(node ast.Node, written *ast.Multiplicity, mandated *crossingRange, control ast.Node, model *semantics.Model, declaration ast.Node) error {
+	if written == nil || mandated == nil {
+		return nil
+	}
+	rangeIn, err := g.crossingRange(node, node, written, model)
+	if err != nil {
+		return err
+	}
+	if rangeIn.lower != mandated.lower || rangeIn.upper != mandated.upper || rangeIn.upperInfinite != mandated.upperInfinite {
+		return g.stepError(node, model, StepOrderUnsatisfiableCode,
+			"the succession's written end multiplicity contradicts the one SysML requires at a "+controlKindName(control)+" node", declaration)
+	}
+	return nil
+}
+
+// mandatedControlEnds returns the range SysML mandates at the source and target
+// ends of an edge incident to a control node: `into` means the edge leads into
+// the node. A nil end has no mandate and keeps the usual defaults.
+func mandatedControlEnds(control ast.Node, into bool) (sourceEnd, targetEnd *crossingRange) {
+	exactOne := &crossingRange{lower: 1, upper: 1, written: true}
+	zeroOrOne := &crossingRange{lower: 0, upper: 1, written: true}
+	if into {
+		targetEnd = exactOne
+		switch control.(type) {
+		case *ast.JoinNode:
+			sourceEnd = exactOne
+		case *ast.MergeNode:
+			sourceEnd = zeroOrOne
+		}
+		return sourceEnd, targetEnd
+	}
+	sourceEnd = exactOne
+	switch control.(type) {
+	case *ast.ForkNode:
+		targetEnd = exactOne
+	case *ast.DecisionNode:
+		targetEnd = zeroOrOne
+	}
+	return sourceEnd, targetEnd
+}
+
+func controlKindName(node ast.Node) string {
+	switch node.(type) {
+	case *ast.ForkNode:
+		return "fork"
+	case *ast.JoinNode:
+		return "join"
+	case *ast.MergeNode:
+		return "merge"
+	case *ast.DecisionNode:
+		return "decision"
+	}
+	return "control"
+}
+
+// CrossesPerPerformance reports whether node, a step performed n times, leads
+// its every performance into a join or merge: the edge is bijective, so the
+// control node fires once per performance rather than behind a barrier.
+func (g *ActionGraph) CrossesPerPerformance(node ast.Node, model *semantics.Model) bool {
+	if g == nil || node == nil {
+		return false
+	}
+	for _, edge := range g.Edges[node] {
+		if edge.Guard != nil {
+			continue
+		}
+		switch edge.Target.(type) {
+		case *ast.JoinNode, *ast.MergeNode:
+			return true
+		}
+	}
+	return false
+}
+
 func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, count int64, model *semantics.Model) error {
+	return g.checkEdgeOrder(node, edge, count, nil, nil, nil, model)
+}
+
+// checkEdgeOrder is the order check of checkRepeatedEdgeOrder with explicit
+// counts and mandated ranges substituted: counts overrides the step count an
+// endpoint reports (a control node performing per performance), and each
+// mandated end stands in for an unwritten one — a written end that differs
+// contradicts it and is unsatisfiable.
+func (g *ActionGraph) checkEdgeOrder(node ast.Node, edge ActionEdge, count int64, counts map[ast.Node]int64, mandatedSource, mandatedTarget *crossingRange, model *semantics.Model) error {
 	if isStartNode(edge.Source) || isDoneNode(edge.Target) {
 		return nil
 	}
@@ -173,19 +309,44 @@ func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, cou
 		return nil
 	}
 
-	sourceCount, err := g.StepCount(edge.Source, model)
+	countOf := func(endpoint ast.Node) (int64, error) {
+		if counts != nil {
+			if c, ok := counts[endpoint]; ok {
+				return c, nil
+			}
+		}
+		return g.StepCount(endpoint, model)
+	}
+	sourceCount, err := countOf(edge.Source)
 	if err != nil {
 		return err
 	}
-	targetCount, err := g.StepCount(edge.Target, model)
+	targetCount, err := countOf(edge.Target)
 	if err != nil {
 		return err
 	}
-	sourceRange, err := g.crossingRange(node, edge.Source, edge.SourceMultiplicity, model)
+	endRange := func(endpoint ast.Node, written *ast.Multiplicity, mandated *crossingRange) (crossingRange, error) {
+		rangeIn, err := g.crossingRange(node, endpoint, written, model)
+		if err != nil {
+			return crossingRange{}, err
+		}
+		if mandated == nil {
+			return rangeIn, nil
+		}
+		if !rangeIn.written {
+			return *mandated, nil
+		}
+		if rangeIn.lower != mandated.lower || rangeIn.upper != mandated.upper || rangeIn.upperInfinite != mandated.upperInfinite {
+			return crossingRange{}, g.stepError(node, model, StepOrderUnsatisfiableCode,
+				"the succession's written end multiplicity contradicts the one SysML requires at a "+controlKindName(endpoint)+" node", edge.Decl)
+		}
+		return rangeIn, nil
+	}
+	sourceRange, err := endRange(edge.Source, edge.SourceMultiplicity, mandatedSource)
 	if err != nil {
 		return err
 	}
-	targetRange, err := g.crossingRange(node, edge.Target, edge.TargetMultiplicity, model)
+	targetRange, err := endRange(edge.Target, edge.TargetMultiplicity, mandatedTarget)
 	if err != nil {
 		return err
 	}
