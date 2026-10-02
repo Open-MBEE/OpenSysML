@@ -24,6 +24,9 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(5);
 // A service that closes its stdout without serving an address is on its way
 // out; its exit status is the evidence of why, so it gets this long to arrive.
 const EXIT_STATUS_GRACE: Duration = Duration::from_millis(500);
+// A child killed under a connection closes its sockets a moment before its exit
+// is reportable; a joined child that refuses the handshake gets this long to die.
+const EXIT_REPORT_GRACE: Duration = Duration::from_millis(500);
 const STDERR_LINES_KEPT: usize = 20;
 /// Bound on a buffered response, so a runaway service cannot exhaust memory.
 /// A parse of a large model answers far above ureq's 10 MB default.
@@ -60,21 +63,40 @@ pub(crate) struct ConnectionInner {
 }
 
 impl Connection {
-    /// Start or join the process-wide private sysml-grpc child; one that has exited is replaced.
+    /// Start or join the process-wide private sysml-grpc child; one that has exited, or
+    /// that exits as it is joined, is replaced.
     pub fn private() -> Result<Self, Error> {
-        let private = {
-            let mut registry = private_service()
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner);
-            if let Some(existing) = registry.upgrade().filter(|service| service.running()) {
-                existing
-            } else {
-                let started = Arc::new(PrivateService::start()?);
-                *registry = Arc::downgrade(&started);
-                started
+        let (service, joined) = Self::private_service(None)?;
+        match Self::from_target(service.address.clone(), Some(Arc::clone(&service))) {
+            Err(Error::Transport(reason)) if joined => {
+                if !service.exits_within(EXIT_REPORT_GRACE) {
+                    return Err(Error::Transport(reason));
+                }
+                let (replacement, _) = Self::private_service(Some(&service))?;
+                Self::from_target(replacement.address.clone(), Some(replacement))
             }
-        };
-        Self::from_target(private.address.clone(), Some(private))
+            connection => connection,
+        }
+    }
+
+    /// The registered private child, started when none runs; `dead` is one the caller
+    /// has seen exit, never joined again. True means an existing child was joined.
+    fn private_service(
+        dead: Option<&Arc<PrivateService>>,
+    ) -> Result<(Arc<PrivateService>, bool), Error> {
+        let mut registry = private_service()
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let existing = registry
+            .upgrade()
+            .filter(|service| dead.is_none_or(|dead| !Arc::ptr_eq(service, dead)))
+            .filter(|service| service.running());
+        if let Some(existing) = existing {
+            return Ok((existing, true));
+        }
+        let started = Arc::new(PrivateService::start()?);
+        *registry = Arc::downgrade(&started);
+        Ok((started, false))
     }
 
     /// Connect to an explicitly managed external service.
@@ -584,6 +606,20 @@ impl PrivateService {
                 .try_wait(),
             Ok(None)
         )
+    }
+
+    /// Whether the child's exit becomes reportable within `grace`.
+    fn exits_within(&self, grace: Duration) -> bool {
+        let deadline = Instant::now() + grace;
+        loop {
+            if !self.running() {
+                return true;
+            }
+            if Instant::now() >= deadline {
+                return false;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
     }
 }
 
