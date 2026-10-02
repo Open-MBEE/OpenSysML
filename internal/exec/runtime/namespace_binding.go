@@ -10,20 +10,144 @@ import (
 )
 
 // A namespace-level binding connector (`bind a = b;` owned by a package or
-// namespace rather than a type) requires its two ends to have the same values
-// (KerML 1.0 §7.4.6.3): two valueless usages it joins share one object,
-// materialized once and registered as an occurrence of the earlier-declared
-// end's usage; a valueless usage bound to a feature chain denotes the chain's
-// objects; two ends carrying values of their own are a consistency check.
+// namespace rather than a type) requires its ends to have the same values
+// (KerML 1.0 §7.4.6.3): every usage the run's namespace-owned bindings join —
+// a member of one equivalence class — denotes the class's one value. That value
+// is the one a member declares or a chain end evaluates to (several, pairwise
+// equal or refused), or one object materialized for the earliest-declared
+// member and classified by every member's types when none declares one.
 
-// namespaceBindingsOf is the lowered binding connectors scope owns, taken once per Model.
-func (ctx *Context) namespaceBindingsOf(scope *symbols.Scope) []lower.Binding {
-	if cached, ok := ctx.model.namespaceBindingIR[scope]; ok {
-		return cached
+// namespaceModelIndex is the model's namespace-owned bindings and subsetting
+// usages walked once over every document's namespace scopes: which usages a
+// binding joins (its equivalence class) and which usages subset a namespace
+// usage, both in document-name then declaration order.
+type namespaceModelIndex struct {
+	subsetters map[*symbols.Symbol][]*symbols.Symbol
+	classes    map[*symbols.Symbol]*namespaceClass
+}
+
+// namespaceClass is one equivalence class of namespace usages joined by
+// bindings: its members, the ends carrying a value of their own (a valued
+// member or an end that names no usage, evaluated where its binding was
+// written), and the bindings for their multiplicity refusal.
+type namespaceClass struct {
+	members  []*symbols.Symbol
+	sources  []namespaceSource
+	bindings []lower.Binding
+}
+
+// namespaceSource is one end carrying a value into its class: a valued usage
+// end (usage non-nil) or an end written any other way (usage nil).
+type namespaceSource struct {
+	binding lower.Binding
+	end     int
+	usage   *symbols.Symbol
+}
+
+// namespaceModelIndex builds the index once per Model, on first need.
+func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
+	if ctx.model.namespaceUsageIndex != nil {
+		return ctx.model.namespaceUsageIndex
 	}
-	bindings := lower.NamespaceBindings(scope)
-	ctx.model.namespaceBindingIR[scope] = bindings
-	return bindings
+	out := &namespaceModelIndex{
+		subsetters: make(map[*symbols.Symbol][]*symbols.Symbol),
+		classes:    make(map[*symbols.Symbol]*namespaceClass),
+	}
+	classOf := func(sym *symbols.Symbol) *namespaceClass {
+		if class, ok := out.classes[sym]; ok {
+			return class
+		}
+		class := &namespaceClass{}
+		out.classes[sym] = class
+		return class
+	}
+	merge := func(a, b *symbols.Symbol) *namespaceClass {
+		ca, cb := classOf(a), classOf(b)
+		if ca == cb {
+			return ca
+		}
+		ca.members = append(ca.members, cb.members...)
+		ca.sources = append(ca.sources, cb.sources...)
+		ca.bindings = append(ca.bindings, cb.bindings...)
+		for _, member := range cb.members {
+			out.classes[member] = ca
+		}
+		out.classes[b] = ca
+		return ca
+	}
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if member.Scope != nil && member.Scope != scope && namespaceScope(member.Scope) {
+				walk(member.Scope)
+				return true
+			}
+			member = ctx.declaredSymbol(member)
+			if _, ok := member.Decl.(*ast.Usage); !ok {
+				return true
+			}
+			for _, rel := range relationshipsOfKind(member, ast.RelSubsets) {
+				if target := ctx.model.semantics.RelationshipTarget(member, rel); target != nil {
+					out.subsetters[target] = append(out.subsetters[target], member)
+				}
+			}
+			return true
+		})
+		for _, binding := range lower.NamespaceBindings(scope) {
+			var class *namespaceClass
+			for end := range binding.Ends {
+				if u, ok := ctx.namespaceEndUsage(binding, end); ok {
+					if class == nil {
+						class = classOf(u)
+					} else {
+						class = merge(class.members[len(class.members)-1], u)
+					}
+					if !containsSymbol(class.members, u) {
+						class.members = append(class.members, u)
+					}
+				}
+			}
+			if class == nil {
+				continue
+			}
+			class.bindings = append(class.bindings, binding)
+			for end := range binding.Ends {
+				u, named := ctx.namespaceEndUsage(binding, end)
+				if named {
+					if decl, isUsage := u.Decl.(*ast.Usage); isUsage && decl.Value != nil {
+						class.sources = append(class.sources, namespaceSource{binding: binding, end: end, usage: u})
+					}
+				} else {
+					class.sources = append(class.sources, namespaceSource{binding: binding, end: end})
+				}
+			}
+		}
+	}
+	if ctx.model.resolver != nil {
+		if idx := ctx.model.resolver.Index(); idx != nil {
+			for _, doc := range idx.Documents() {
+				walk(idx.DocumentRoot(doc))
+			}
+		}
+	}
+	for _, class := range out.classes {
+		sort.SliceStable(class.members, func(i, j int) bool { return declaredBefore(class.members[i], class.members[j]) })
+	}
+	for _, subs := range out.subsetters {
+		sort.SliceStable(subs, func(i, j int) bool { return declaredBefore(subs[i], subs[j]) })
+	}
+	ctx.model.namespaceUsageIndex = out
+	return out
+}
+
+// containsSymbol reports whether syms holds sym.
+func containsSymbol(syms []*symbols.Symbol, sym *symbols.Symbol) bool {
+	for _, s := range syms {
+		if s == sym {
+			return true
+		}
+	}
+	return false
 }
 
 // namespaceEndUsage resolves a binding end written as a name to the usage it
@@ -47,23 +171,6 @@ func (ctx *Context) namespaceEndUsage(binding lower.Binding, end int) (*symbols.
 	return sym, true
 }
 
-// namespaceBindingFor is the namespace-owned binding whose end names sym, and
-// which end of it sym is.
-func (ctx *Context) namespaceBindingFor(sym *symbols.Symbol) (lower.Binding, int, bool) {
-	scope := sym.OwnerScope
-	if scope == nil || !namespaceScope(scope) {
-		return lower.Binding{}, -1, false
-	}
-	for _, binding := range ctx.namespaceBindingsOf(scope) {
-		for end := range binding.Ends {
-			if u, ok := ctx.namespaceEndUsage(binding, end); ok && u == sym {
-				return binding, end, true
-			}
-		}
-	}
-	return lower.Binding{}, -1, false
-}
-
 // namespaceBoundObjects is the objects a namespace usage joined by a namespace-owned
 // binding denotes. bound reports whether a binding governs the usage at all.
 func (ctx *Context) namespaceBoundObjects(sym *symbols.Symbol) (objs []*Instance, bound bool, err error) {
@@ -73,11 +180,11 @@ func (ctx *Context) namespaceBoundObjects(sym *symbols.Symbol) (objs []*Instance
 	if live, ok := ctx.liveOccurrences(sym); ok {
 		return live, true, nil
 	}
-	binding, _, ok := ctx.namespaceBindingFor(sym)
-	if !ok {
+	class := ctx.namespaceModelIndex().classes[sym]
+	if class == nil {
 		return nil, false, nil
 	}
-	return ctx.resolveNamespaceBinding(binding, sym)
+	return ctx.resolveNamespaceClass(class, sym)
 }
 
 // liveInstances is the live objects ids names, in order.
@@ -91,37 +198,137 @@ func (ctx *Context) liveInstances(ids []int64) []*Instance {
 	return out
 }
 
-// resolveNamespaceBinding makes the ends of a namespace-owned binding denote the same
-// values, reporting the objects the end asking for (want) denotes. A second call for
-// the binding under way answers not-bound so the end being evaluated resolves as usual.
-func (ctx *Context) resolveNamespaceBinding(binding lower.Binding, want *symbols.Symbol) ([]*Instance, bool, error) {
-	if ctx.resolvingNamespaceBindings[binding.Decl] {
+// resolveNamespaceClass makes every member of a binding's equivalence class denote
+// the class's one value, reporting the objects the member asking for (want)
+// denotes. A second call for the class under way answers not-bound so a member
+// being evaluated resolves as usual — its declared value cycles through the
+// binding stack — while a chain end reading a member of its own class is the
+// cyclic dependency CyclicBindingError reports.
+func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.Symbol) ([]*Instance, bool, error) {
+	if ctx.resolvingNamespaceClasses[class] {
+		if ctx.namespaceChainReads[class] {
+			return nil, true, &CyclicBindingError{Usage: want, Stated: ctx.qualifiedSymbolName(want)}
+		}
 		return nil, false, nil
 	}
-	if err := ctx.namespaceBindingCounts(binding); err != nil {
-		return nil, true, err
+	for _, binding := range class.bindings {
+		if err := ctx.namespaceBindingCounts(binding); err != nil {
+			return nil, true, err
+		}
 	}
-	ctx.resolvingNamespaceBindings[binding.Decl] = true
-	defer delete(ctx.resolvingNamespaceBindings, binding.Decl)
+	ctx.resolvingNamespaceClasses[class] = true
+	defer delete(ctx.resolvingNamespaceClasses, class)
 
-	valueless := [2]*symbols.Symbol{}
-	for end := range binding.Ends {
-		sym, ok := ctx.namespaceEndUsage(binding, end)
-		if !ok {
+	type held struct {
+		val  Value
+		text string
+	}
+	var vals []held
+	seen := make(map[*symbols.Symbol]bool)
+	recorded := func() {
+		for _, member := range class.members {
+			if seen[member] {
+				continue
+			}
+			if val, ok := ctx.namespaceBindings[member]; ok {
+				vals = append(vals, held{val, symbolText(member)})
+				seen[member] = true
+				continue
+			}
+			if live, ok := ctx.liveOccurrences(member); ok {
+				elements := make([]Value, 0, len(live))
+				for _, inst := range live {
+					val, err := ctx.objectValue(inst)
+					if err != nil {
+						return
+					}
+					elements = append(elements, val)
+				}
+				vals = append(vals, held{sequenceOf(elements), symbolText(member)})
+				seen[member] = true
+			}
+		}
+	}
+	recorded()
+	for _, src := range class.sources {
+		if src.usage != nil {
+			if seen[src.usage] {
+				continue
+			}
+			seen[src.usage] = true
+			decl := src.usage.Decl.(*ast.Usage)
+			val, err := NewEvalContext(ctx, src.usage.OwnerScope).declaredValue(src.usage, decl.Value)
+			if err != nil {
+				return nil, true, err
+			}
+			vals = append(vals, held{val, ctx.bindingEndpointText(src.binding, src.end)})
 			continue
 		}
-		if decl, isUsage := sym.Decl.(*ast.Usage); isUsage && decl.Value == nil {
-			valueless[end] = sym
+		ctx.namespaceChainReads[class] = true
+		val, err := NewEvalContext(ctx, src.binding.Scope).Eval(src.binding.Ends[src.end].Expr)
+		delete(ctx.namespaceChainReads, class)
+		if err != nil {
+			return nil, true, err
+		}
+		vals = append(vals, held{val, ctx.bindingEndpointText(src.binding, src.end)})
+	}
+	// Members a source's evaluation denoted contribute their value to the class.
+	recorded()
+	for i := range vals {
+		for j := i + 1; j < len(vals); j++ {
+			if !ctx.equalValues(vals[i].val, vals[j].val) {
+				return nil, true, &BindingConflictError{
+					Left:       vals[i].text,
+					Right:      vals[j].text,
+					LeftValue:  vals[i].val,
+					RightValue: vals[j].val,
+				}
+			}
 		}
 	}
-	switch {
-	case valueless[0] != nil && valueless[1] != nil:
-		return ctx.bindSharedNamespaceObject(binding, valueless, want)
-	case valueless[0] != nil || valueless[1] != nil:
-		return ctx.bindNamespaceEnd(binding, valueless, want)
-	default:
-		return ctx.checkNamespaceBinding(binding, want)
+	if len(vals) == 0 {
+		earliest := class.members[0]
+		inst, err := ctx.occurrenceOf(earliest)
+		if err != nil {
+			return nil, true, fmt.Errorf("usage %s: %w", symbolText(earliest), err)
+		}
+		val, err := ctx.objectValue(inst)
+		if err != nil {
+			return nil, true, err
+		}
+		for _, member := range class.members {
+			if member == earliest {
+				continue
+			}
+			if err := ctx.classifyHeld(member, val); err != nil {
+				return nil, true, err
+			}
+		}
+		for _, member := range class.members {
+			ctx.occurrences[member] = heldObjects(val)
+			ctx.bindNamespace(member, val)
+		}
+	} else {
+		val := vals[0].val
+		text := symbolText(class.members[0])
+		if len(class.bindings) > 0 {
+			text = ctx.bindingText(class.bindings[0])
+		}
+		for _, member := range class.members {
+			if seen[member] {
+				continue
+			}
+			ec := NewEvalContext(ctx, member.OwnerScope)
+			v, err := ec.conformDeclared(member, val)
+			if err != nil {
+				return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err)
+			}
+			ctx.occurrences[member] = heldObjects(v)
+			ctx.bindNamespace(member, v)
+		}
 	}
+	objs, _, err := ctx.namespaceBoundObjects(want)
+	return objs, true, err
 }
 
 // namespaceBindingCounts refuses an end or connector multiplicity other than the one
@@ -148,118 +355,6 @@ func (ctx *Context) namespaceBindingCounts(binding lower.Binding) error {
 	return nil
 }
 
-// bindSharedNamespaceObject makes two valueless namespace usages denote one object:
-// the objects either already denotes, or one materialized once for the
-// earlier-declared end's usage and classified by the other as its value.
-func (ctx *Context) bindSharedNamespaceObject(binding lower.Binding, ends [2]*symbols.Symbol, want *symbols.Symbol) ([]*Instance, bool, error) {
-	earlier, later := ends[0], ends[1]
-	if !declaredBefore(earlier, later) {
-		earlier, later = later, earlier
-	}
-	if live, ok := ctx.liveOccurrences(earlier); ok {
-		return live, true, nil
-	}
-	if live, ok := ctx.liveOccurrences(later); ok {
-		return live, true, nil
-	}
-	ctx.bindingStack = append(ctx.bindingStack, ends[0], ends[1])
-	defer func() { ctx.bindingStack = ctx.bindingStack[:len(ctx.bindingStack)-2] }()
-	inst, err := ctx.occurrenceOf(earlier)
-	if err != nil {
-		return nil, true, fmt.Errorf("usage %s: %w", symbolText(earlier), err)
-	}
-	val, err := ctx.objectValue(inst)
-	if err != nil {
-		return nil, true, err
-	}
-	if err := ctx.classifyHeld(later, val); err != nil {
-		return nil, true, err
-	}
-	ctx.bindNamespace(later, val)
-	objs, _, err := ctx.namespaceBoundObjects(want)
-	return objs, true, err
-}
-
-// bindNamespaceEnd makes a valueless namespace usage denote the objects the binding's
-// other end already denotes: that end's own value, evaluated and conformed to the
-// usage's declaration (KerML 1.0 §7.4.6.3).
-func (ctx *Context) bindNamespaceEnd(binding lower.Binding, ends [2]*symbols.Symbol, want *symbols.Symbol) ([]*Instance, bool, error) {
-	uEnd := 0
-	if ends[1] != nil {
-		uEnd = 1
-	}
-	u := ends[uEnd]
-	ctx.bindingStack = append(ctx.bindingStack, u)
-	defer func() { ctx.bindingStack = ctx.bindingStack[:len(ctx.bindingStack)-1] }()
-	val, err := ctx.namespaceBindingEndValue(binding, 1-uEnd)
-	if err != nil {
-		return nil, true, err
-	}
-	ec := NewEvalContext(ctx, u.OwnerScope)
-	val, err = ec.conformDeclared(u, val)
-	if err != nil {
-		return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, ctx.bindingText(binding), err)
-	}
-	ctx.occurrences[u] = heldObjects(val)
-	ctx.bindNamespace(u, val)
-	objs, _, err := ctx.namespaceBoundObjects(want)
-	return objs, true, err
-}
-
-// namespaceBindingEndValue is the value a binding end carries: a valued usage's
-// declared value, or its expression evaluated where the binding was written.
-func (ctx *Context) namespaceBindingEndValue(binding lower.Binding, end int) (Value, error) {
-	if sym, ok := ctx.namespaceEndUsage(binding, end); ok {
-		if val, ok := ctx.namespaceBindings[sym]; ok {
-			return val, nil
-		}
-		if decl, isUsage := sym.Decl.(*ast.Usage); isUsage && decl.Value != nil {
-			return NewEvalContext(ctx, sym.OwnerScope).declaredValue(sym, decl.Value)
-		}
-		if live, ok := ctx.liveOccurrences(sym); ok {
-			elements := make([]Value, 0, len(live))
-			for _, inst := range live {
-				val, err := ctx.objectValue(inst)
-				if err != nil {
-					return Value{}, err
-				}
-				elements = append(elements, val)
-			}
-			return sequenceOf(elements), nil
-		}
-		return Value{}, nil
-	}
-	return NewEvalContext(ctx, binding.Scope).Eval(binding.Ends[end].Expr)
-}
-
-// checkNamespaceBinding is the consistency check for a binding whose ends each carry
-// a value of their own: the two must be equal, as a bound feature's is.
-func (ctx *Context) checkNamespaceBinding(binding lower.Binding, want *symbols.Symbol) ([]*Instance, bool, error) {
-	var vals [2]Value
-	for end := range binding.Ends {
-		val, err := ctx.namespaceBindingEndValue(binding, end)
-		if err != nil {
-			return nil, true, err
-		}
-		vals[end] = val
-	}
-	if !ctx.equalValues(vals[0], vals[1]) {
-		return nil, true, &BindingConflictError{
-			Left:       ctx.bindingEndpointText(binding, 0),
-			Right:      ctx.bindingEndpointText(binding, 1),
-			LeftValue:  vals[0],
-			RightValue: vals[1],
-		}
-	}
-	var wantEnd int
-	for end := range binding.Ends {
-		if sym, ok := ctx.namespaceEndUsage(binding, end); ok && sym == want {
-			wantEnd = end
-		}
-	}
-	return ctx.liveInstances(heldObjects(vals[wantEnd])), true, nil
-}
-
 // namespacedSubsetObjects is the objects a namespace usage takes from the usages
 // subsetting it, as a composite collection takes its subsetting features' values
 // (KerML 1.0 §7.3.4.4): their objects are members, optional subsetters with room and
@@ -276,7 +371,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 	if !isOccurrenceUsage(sym) && !objectFeature(sym) {
 		return nil, false, nil
 	}
-	subs := ctx.namespaceSubsetters(sym)
+	subs := ctx.namespaceModelIndex().subsetters[sym]
 	if len(subs) == 0 {
 		return nil, false, nil
 	}
@@ -397,42 +492,4 @@ func containsInstance(objs []*Instance, id int64) bool {
 		}
 	}
 	return false
-}
-
-// namespaceSubsetters is the usages any namespace of the model declares that
-// subset sym, in document-name then declaration order.
-func (ctx *Context) namespaceSubsetters(sym *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	var walk func(scope *symbols.Scope)
-	walk = func(scope *symbols.Scope) {
-		scope.ForEachMember(func(member *symbols.Symbol) bool {
-			if member.Scope != nil && member.Scope != scope && namespaceScope(member.Scope) {
-				walk(member.Scope)
-				return true
-			}
-			member = ctx.declaredSymbol(member)
-			if member == sym {
-				return true
-			}
-			if _, ok := member.Decl.(*ast.Usage); !ok {
-				return true
-			}
-			for _, rel := range relationshipsOfKind(member, ast.RelSubsets) {
-				if ctx.model.semantics.RelationshipTarget(member, rel) == sym {
-					out = append(out, member)
-					break
-				}
-			}
-			return true
-		})
-	}
-	if ctx.model.resolver != nil {
-		if idx := ctx.model.resolver.Index(); idx != nil {
-			for _, doc := range idx.Documents() {
-				walk(idx.DocumentRoot(doc))
-			}
-		}
-	}
-	sort.SliceStable(out, func(i, j int) bool { return declaredBefore(out[i], out[j]) })
-	return out
 }

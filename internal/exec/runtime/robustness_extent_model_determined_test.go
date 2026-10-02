@@ -55,6 +55,67 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 	})
 
+	t.Run("a class of two differing valued members leaves nothing bound", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car = new Car();
+			part b : Car = new Car();
+			part c : Car;
+			bind a = b;
+			bind b = c;
+		}`
+		ctx, idx := contextForSource(t, src)
+		pkg := lookupOne(t, idx, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "c")
+		if !errors.Is(err, ErrBindingConflict) {
+			t.Fatalf("c = %v, want binding conflict", err)
+		}
+		sym := lookupOne(t, idx, "test::c")
+		if ids := ctx.occurrences[sym]; len(ids) != 0 {
+			t.Fatalf("occurrences[test::c] = %v, want none: the refused class records no occurrences", ids)
+		}
+		if _, ok := ctx.namespaceBindings[sym]; ok {
+			t.Fatal("c is bound, want nothing bound after the refused class")
+		}
+	})
+
+	t.Run("the class's value is the same whichever member is read first", func(t *testing.T) {
+		src := `package test {
+			part def Car;
+			part a : Car;
+			part b : Car;
+			bind a = b;
+			part e : Car;
+			bind b = e;
+		}`
+		extents := make([][]int64, 2)
+		for i, first := range []string{"e", "a"} {
+			ctx, idx := contextForSource(t, src)
+			pkg := lookupOne(t, idx, "test")
+			if _, err := evalIn(t, ctx, pkg.Scope, first); err != nil {
+				t.Fatalf("%s: %v", first, err)
+			}
+			for _, expr := range []string{"a === e", "a === b"} {
+				same, err := evalIn(t, ctx, pkg.Scope, expr)
+				if err != nil || FormatValue(same) != "true" {
+					t.Fatalf("%s after %s = %v (%v), want true", expr, first, FormatValue(same), err)
+				}
+			}
+			all, err := evalIn(t, ctx, pkg.Scope, "all test::Car")
+			if err != nil {
+				t.Fatalf("all test::Car: %v", err)
+			}
+			extents[i] = heldObjects(all)
+		}
+		if !slices.Equal(extents[0], extents[1]) {
+			t.Fatalf("extent read from e first = %v, from a first = %v", extents[0], extents[1])
+		}
+		if len(extents[0]) != 1 {
+			t.Fatalf("extent = %v, want the class's one object", extents[0])
+		}
+	})
+
 	t.Run("an abstract collection under-count is refused", func(t *testing.T) {
 		src := `package test {
 			part def Car;

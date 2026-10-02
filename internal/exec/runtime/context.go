@@ -289,9 +289,12 @@ type Context struct {
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
 
-	// resolvingNamespaceBindings holds the namespace-owned binding connectors being
-	// resolved, so an end read while one is under way is a cycle, not a recursion.
-	resolvingNamespaceBindings map[*ast.Usage]bool
+	// resolvingNamespaceClasses holds the namespace binding classes being resolved, so
+	// a member read while one is under way resolves as usual rather than recursing.
+	resolvingNamespaceClasses map[*namespaceClass]bool
+	// namespaceChainReads holds the classes whose chain ends are being evaluated:
+	// such a read of a member of the same class is a cyclic dependency.
+	namespaceChainReads map[*namespaceClass]bool
 	// namespaceCollecting holds the namespace usages whose subsetting usages are
 	// being read, so two subsetting each other are reported as a cycle.
 	namespaceCollecting map[*symbols.Symbol]bool
@@ -369,8 +372,9 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 
-		resolvingNamespaceBindings: make(map[*ast.Usage]bool),
-		namespaceCollecting:        make(map[*symbols.Symbol]bool),
+		resolvingNamespaceClasses: make(map[*namespaceClass]bool),
+		namespaceChainReads:       make(map[*namespaceClass]bool),
+		namespaceCollecting:       make(map[*symbols.Symbol]bool),
 
 		shareDefaults:  SharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),
