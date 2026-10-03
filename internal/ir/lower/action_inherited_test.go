@@ -419,8 +419,8 @@ func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
 			action a { out y : Integer; assign y := 7; }
 			action b { in v : Integer; }
 			first start then a;
-			then b;
-			then done;
+			first a then b;
+			first b then done;
 		}
 		action def S :> G {
 			flow f2 from a.y to b.v;
@@ -435,6 +435,16 @@ func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
 	a, b := namedNode(graph, "a"), namedNode(graph, "b")
 	if a == nil || b == nil {
 		t.Fatalf("inherited action nodes: a = %v, b = %v", a, b)
+	}
+	if edges := graph.Edges[graph.Initial]; len(edges) != 1 || edges[0].Target != a {
+		t.Fatalf("initial edges = %v, want one edge to a", edges)
+	}
+	if edges := graph.Edges[a]; len(edges) != 1 || edges[0].Target != b {
+		t.Fatalf("a edges = %v, want one edge to b", edges)
+	}
+	done := namedNode(graph, "done")
+	if edges := graph.Edges[b]; len(edges) != 1 || edges[0].Target != done {
+		t.Fatalf("b edges = %v, want one edge to done", edges)
 	}
 	flowDecl := actionMember(t, root, "S", "f2")
 	var ownFlow *ObjectFlow

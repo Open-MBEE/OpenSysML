@@ -37,8 +37,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				action a { out y : Integer; assign y := 7; }
 				action b { in v : Integer; }
 				first start then a;
-				then b;
-				then done;
+				first a then b;
+				first b then done;
 			}
 			action def S :> G {
 				flow f2 from a.y to b.v;
@@ -87,7 +87,7 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 					if !hasB || b.Kind != ValConst || b.Const.Int != 7 {
 						t.Fatalf("S b.v = %v, want 7", b)
 					}
-				} else if hasB && b.Kind == ValConst && b.Const.Int == 7 {
+				} else if hasB {
 					t.Fatalf("S b.v = %v, want no value from a.y", b)
 				}
 			})

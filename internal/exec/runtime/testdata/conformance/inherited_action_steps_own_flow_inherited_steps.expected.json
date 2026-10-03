@@ -2,6 +2,7 @@
 	"type": "action",
 	"libraries": true,
 	"evaluate": "test::S",
+	"trace": true,
 	"outputs": {
 		"b.v": {"type": "Integer", "value": 7}
 	}
