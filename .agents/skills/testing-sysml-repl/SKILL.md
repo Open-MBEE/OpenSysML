@@ -1151,6 +1151,27 @@ changes:
   `unresolved reference: n`; the CLI has **no** flag for action inputs, so exercise `in`/`out`
   parameters by having a caller action invoke `action call = Callee(a = 3, b = 4);`.
 
+## Action fan-out CLI checks
+
+- Use explicit succession syntax in minimal repros: `succession a then done;`
+  or `first a then done;`. A bare `a then done;` inside an action body can be
+  rejected as `expected a body member` before execution; do not mistake that
+  diagnostic for a runtime fan-out refusal.
+- The default scheduler is `reverse`, not `declared`. Compare explicit
+  `-schedule declared` with `-schedule reverse`; a no-flag run normally agrees
+  with reverse.
+- `-engine smt -action <name>` asks whether execution holds, not for the table
+  of final values. Use `-engine smt -action <name> -check-diverge <feature>` to
+  request two witnessed final values. `-engine check` and `-schedule explore`
+  expose outcomes directly. SMT may explicitly refuse an implicit join at a
+  plain node, whereas the runtime supports it; use an explicit join for a
+  cross-engine scheduling comparison.
+- Bound adversarial loops with `OPENSYSML_MAX_ACTION_STEPS=200`, and wrap the
+  command with `timeout 30`. Assert the step-limit diagnostic and exit 2,
+  not watchdog exit 124. Report CLI diagnostics separately from Go error
+  identity: the CLI does not expose `errors.Is`, and static merge/join
+  validation may prevent reaching the runtime guard.
+
 ## Control flow inside an action node body
 
 `while`, `loop … until` (braced and unbraced), `for … in` and `if`/`else` execute inside an
