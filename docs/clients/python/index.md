@@ -12,6 +12,10 @@ Python 3.10 or newer is required. Install the published package from PyPI:
 python -m pip install opensysml
 ```
 
+`opensysml` 0.9.1 and earlier do not download the service automatically. Set
+`OPENSYSML_GRPC_VERSION=v0.9.1` (or another release tag), or provide a service
+binary through `OPENSYSML_BINARY` or `$PATH`.
+
 To work from a repository checkout, run this at its root:
 
 ```bash
@@ -25,9 +29,10 @@ not bundle the service executable.
 
 When no service is configured, the first operation starts a private service
 child. If its built-against release is not already cached, the client downloads
-that release and verifies its signed checksum manifest and pinned asset digest.
-The cache is shared with the other clients. See [The service](service.md) for
-binary resolution and trust details.
+that release and verifies it against the digest pinned in the package or, for
+a release newer than the package's table, the release's signed checksum
+manifest. The cache is shared with the other clients. See [The service](service.md)
+for binary resolution and trust details.
 
 ```python
 import opensysml

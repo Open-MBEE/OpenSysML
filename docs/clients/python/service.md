@@ -25,19 +25,23 @@ client languages; the cache's metadata records its release and repository so a
 stale cache is not mistaken for the requested release. A hand-installed
 executable cache without release metadata is preserved.
 
-Downloads are verified against a signed release checksum manifest and the
-digest pinned in the Python package. A server-provided `.sha256` sidecar alone
-is not a trust anchor. If the release or platform asset is unavailable, a
-working cache remains in use; otherwise an executable on `$PATH` may be used
-with a warning. If none is available, `ConnectionError` names the release
-tags tried and suggests building the service, selecting another release,
-installing it on `$PATH`, or connecting to a caller-managed service.
+The digest pinned in the Python package is authoritative when one is
+available; a signed checksum manifest that disagrees with that pin is an
+integrity failure. For a release newer than the package's digest table, the
+client verifies the release manifest's signature and uses its digest. A
+server-provided `.sha256` sidecar alone is not a trust anchor. If the release
+or platform asset is unavailable, a working cache remains in use; otherwise
+an executable on `$PATH` may be used with a warning. If none is available,
+`ConnectionError` names the release tags tried and suggests building the
+service, selecting another release, installing it on `$PATH`, or connecting
+to a caller-managed service.
 
 A checksum mismatch or invalid manifest signature is an integrity failure and
-is never bypassed by the cache or `$PATH` fallback. If no digest is pinned,
-the download is refused by default. An explicit
-`OPENSYSML_ALLOW_UNPINNED_DOWNLOAD=<owner/repo>` (or `=1` for any repository)
-opts into trusting a same-origin checksum, with a warning.
+is never bypassed by the cache or `$PATH` fallback. Without a package pin or
+a digest from a verifiable signed manifest, the download is refused by
+default. `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD=<owner/repo>` (or `=1` for any
+repository) opts into trusting a same-origin checksum in that case, with a
+warning.
 
 The digest table is embedded in the Python package as
 `opensysml/release-digests.json`, a synced copy of `client/release-digests.json`.

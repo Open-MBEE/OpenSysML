@@ -14,8 +14,7 @@ pip install opensysml
 ```
 
 The runtime dependencies are `grpcio>=1.83.0`, `protobuf>=7.35.1` and
-`sigstore>=4.5.0,<5`. Development-only dependencies such as `psutil` are not
-installed for package users.
+`sigstore>=4.5.0,<5`.
 
 ## Quickstart
 
@@ -51,10 +50,15 @@ print(model.eval("mass", subject="Demo::sedan"))
 On its first connection, the client starts a `sysml-grpc` service if none was
 configured. It checks `$OPENSYSML_BINARY`, the shared cache, downloads the
 release it was built against, then checks `$PATH`. Release downloads are
-verified against signed checksum metadata and digests embedded in this
-package. See the [service guide](https://opensysml.org/clients/python/service/)
-for cache ownership, offline behavior, trust configuration and external
-service setup.
+verified against the digest pinned in the package when one is available. For
+a release newer than the package's table, the client verifies the release's
+signed checksum manifest and uses its digest. A manifest that disagrees with
+a package pin is an integrity failure. Without a package pin or a digest from
+a verifiable signed manifest, the download is refused unless
+`OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` opts into trusting a same-origin checksum.
+See the [service guide](https://opensysml.org/clients/python/service/) for
+cache ownership, offline behavior, trust configuration and external service
+setup.
 
 ## Documentation
 
@@ -70,4 +74,5 @@ service setup.
 - [API reference](https://opensysml.org/reference/python-api/)
 
 To install from a checkout, run tests, regenerate protobufs or pin release
-digests, see [DEVELOPING.md](DEVELOPING.md).
+digests, see
+[DEVELOPING.md](https://github.com/Open-MBEE/OpenSysML/blob/develop/client/python/DEVELOPING.md).
