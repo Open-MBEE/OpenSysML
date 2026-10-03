@@ -19,8 +19,9 @@ docs_dir: docs
 
 theme:
   name: material
-  # overrides/ holds the landing page template and the header menu; every documentation
-  # page is otherwise the theme as shipped.
+  # overrides/ holds the landing page template, the header menu and the sidebar navigation
+  # (the shipped partial minus the tab-mode hiding of inactive top-level items); every
+  # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
   features:
     - navigation.instant
@@ -65,6 +66,22 @@ plugins:
 
 not_in_nav: |
   guide/09-python.md
+  internals/README.md
+  internals/architecture.md
+  internals/testing.md
+  internals/performance.md
+  internals/interface-records.md
+  internals/execution-ir-design.md
+  project/README.md
+  project/spec-compliance.md
+  project/exact-rational-evaluation.md
+  project/expansion-regions.md
+  project/bitwise-complement.md
+  project/exception-handlers.md
+  project/pilot-differential.md
+  project/spec-pilot-gap-register.md
+  project/roadmap.md
+  project/nightly.md
 
 # repo_links: links out of docs/ (examples/, Go sources, CONTRIBUTING.md) are correct
 # on GitHub and 404 here, so they are rewritten to the repository at build time.
@@ -231,21 +248,5 @@ nav:
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
       - WebAssembly builds: reference/wasm.md
-  - Internals:
-      - internals/README.md
-      - Architecture: internals/architecture.md
-      - Testing: internals/testing.md
-      - Performance: internals/performance.md
-      - Interface records: internals/interface-records.md
-      - Execution IR design: internals/execution-ir-design.md
-  - Project:
-      - project/README.md
-      - Spec compliance: project/spec-compliance.md
-      - Exact-rational evaluation: project/exact-rational-evaluation.md
-      - Expansion regions: project/expansion-regions.md
-      - Bitwise complement: project/bitwise-complement.md
-      - Exception handlers: project/exception-handlers.md
-      - Pilot differential: project/pilot-differential.md
-      - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md
-      - Roadmap: project/roadmap.md
-      - Nightly snapshots: project/nightly.md
+  # internals/ and project/ are published but kept out of the tab bar: they are contributor
+  # records, reachable through links, search and GitHub (see not_in_nav).
