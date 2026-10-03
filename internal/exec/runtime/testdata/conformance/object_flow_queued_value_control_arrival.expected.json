@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::relay",
+	"trace": true,
+	"outputs": {
+		"runs": {"type": "Integer", "value": 2},
+		"took": {"type": "Integer", "value": 7},
+		"b.v": {"type": "Integer", "value": 7}
+	}
+}

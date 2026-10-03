@@ -14,14 +14,11 @@ part def Plant {
         in ref context : Plant[1];
         first start then 'fork';
         fork 'fork';
-        first 'fork' then 'join';
+        first 'fork' then rate;
         first 'fork' then two;
         action two {
             out result[1] = 2.0;
         }
-        first two then 'join';
-        join 'join';
-        first 'join' then rate;
         action rate {
             in factor[1];
             out result[1];
@@ -30,8 +27,8 @@ part def Plant {
         first rate then final;
         action final terminate;
         bind result = rate.result;
-        flow two.result to rate.factor;
-        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
-        metadata MigrationMetadata::StandIn about 'fork', 'join';
+        succession flow two.result to rate.factor;
+        metadata MigrationMetadata::SynthesizedName about 'fork', final;
+        metadata MigrationMetadata::StandIn about 'fork';
     }
 }

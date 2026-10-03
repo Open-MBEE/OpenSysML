@@ -249,6 +249,15 @@ func sysmlSame[T sysmlElem](a, b sysmlSeq[T]) bool {
 	return true
 }
 
+// sysmlIdent is the '===' of collections: their '==' with each element '===' its
+// counterpart.
+func sysmlIdent[T sysmlElem](a, b sysmlSeq[T]) bool {
+	if len(a.data) == 0 || len(b.data) == 0 {
+		return len(a.data) == 0 && len(b.data) == 0
+	}
+	return a.shape == b.shape && sysmlSame(a, b)
+}
+
 // sysmlPos is an index as a position: one beyond int64 addresses none.
 func sysmlPos(i sysmlInt, op string) int64 {
 	if i.big != nil {
@@ -626,6 +635,9 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		return fmt.Sprintf("func() %s { l := %s; if len(l.data) != 0 { return l }; return %s }()", goSeqType(x.T), e.expr(x.L), e.expr(x.R)), true
 	case SeqEq:
 		eq := fmt.Sprintf("sysmlEq(%s, %s)", e.expr(x.L), e.expr(x.R))
+		if x.Ident {
+			eq = fmt.Sprintf("sysmlIdent(%s, %s)", e.expr(x.L), e.expr(x.R))
+		}
 		if x.Neq {
 			return "(!" + eq + ")", true
 		}

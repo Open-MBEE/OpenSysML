@@ -1,0 +1,74 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="Objects"
+      (InitialNode name="start" successor="produce")
+      (Membership visibility="default"
+        (Usage kind="action" name="produce" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="y" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))))
+      (ForkNode name="split"
+        (Membership visibility="default"
+          (Usage kind="attribute" name="inputObject1" ref=true direction="in" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))))
+        (Membership visibility="default"
+          (Usage kind="attribute" name="outputObject1" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (FeatureReference name="inputObject1")))
+        (Membership visibility="default"
+          (Usage kind="attribute" name="outputObject2" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (FeatureReference name="inputObject1"))))
+      (JoinNode name="pair"
+        (Membership visibility="default"
+          (Usage kind="attribute" name="inputObject1" ref=true direction="in" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))))
+        (Membership visibility="default"
+          (Usage kind="attribute" name="inputObject2" ref=true direction="in" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))))
+        (Membership visibility="default"
+          (Usage kind="attribute" name="outputObject1" ref=true direction="out" composite=false derived=false ordered=false nonunique=true
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (SequenceExpr
+              (FeatureReference name="inputObject1")
+              (FeatureReference name="inputObject2")))))
+      (MergeNode name="pick"
+        (Membership visibility="default"
+          (Usage kind="attribute" name="inputObject1" ref=true direction="in" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))))
+        (Membership visibility="default"
+          (Usage kind="attribute" name="outputObject1" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (FeatureReference name="inputObject1"))))
+      (Membership visibility="default"
+        (Usage kind="action" name="keep" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="2"))))))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+          (FlowEnds from="produce.y" to="split.inputObject1" payload="Real" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+          (FlowEnds from="split.outputObject1" to="pair.inputObject1" payload="Real" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+          (FlowEnds from="split.outputObject2" to="pick.inputObject1" payload="Real" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+          (FlowEnds from="pick.outputObject1" to="pair.inputObject2" payload="Real" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+          (FlowEnds from="pair.outputObject1" to="keep.v" payload="Real" declared=false))))))

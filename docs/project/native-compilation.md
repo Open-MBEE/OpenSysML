@@ -316,7 +316,8 @@ arithmetic rather than the host language's:
   null zero times and refuses a scalar; indexing is one-based and out-of-range is an error; nested
   sequence literals flatten and null contributes no element; `lo..hi` is inclusive and empty when
   descending; `reduce` of an empty sequence is null and `minimize`/`maximize` of one is an error;
-  `==` compares elementwise while `===` also distinguishes shape and Integer from Real, and an
+  `==` compares elementwise while `===` also distinguishes shape and is element-wise identity,
+  so an Integer element is never `===` an equal Real one (`(1, 2.5) === (1.0, 2.5)` is false), and an
   empty collection of any shape is null to both and to `??`. Every
   sequence a program builds or is given counts against the interpreter's element budget
   (`OPENSYSML_MAX_ELEMENTS`, default 1,000,000), reset per run under `--repeat` with the

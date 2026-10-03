@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_pipe" name="Pipeline">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a" name="a"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/><defaultValue xmi:type="uml:LiteralReal" xmi:id="_a0" value="0.0"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_b" name="b"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/><defaultValue xmi:type="uml:LiteralReal" xmi:id="_b0" value="0.0"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_n" name="n"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/><defaultValue xmi:type="uml:LiteralInteger" xmi:id="_n0" value="0"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/><defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_on0" value="true"/></ownedAttribute>
+
+      <!-- Relay: a value flows from one action to the next, under a guard of literal true. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_relay" name="Relay">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_rp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_rpy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 2.5;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_rc" name="consume">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_rcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_rp"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ro1" source="_rpy" target="_rcv">
+          <guard xmi:type="uml:LiteralBoolean" xmi:id="_rg" value="true"/>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_rc" target="_rf"/>
+      </ownedBehavior>
+
+      <!-- Gate: the flow passes its value only while on holds. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_gate" name="Gate">
+        <node xmi:type="uml:InitialNode" xmi:id="_gi"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_gp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_gpy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 4.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_gc" name="consume">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_gcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_gf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ge1" source="_gi" target="_gp"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_go1" source="_gpy" target="_gcv">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_gg"><language>JavaScript</language><body>on</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ge2" source="_gc" target="_gf"/>
+      </ownedBehavior>
+
+      <!-- Spread: a fork copies one value to two actions. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_spread" name="Spread">
+        <node xmi:type="uml:InitialNode" xmi:id="_si"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_spy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 3.0;</body>
+        </node>
+        <node xmi:type="uml:ForkNode" xmi:id="_sfork" name="copy"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sa" name="left">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_sav" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_sb" name="right">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_sbv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>b = v * 2;</body>
+        </node>
+        <node xmi:type="uml:JoinNode" xmi:id="_sjoin" name="both"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se1" source="_si" target="_sp"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_so1" source="_spy" target="_sfork"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_so2" source="_sfork" target="_sav"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_so3" source="_sfork" target="_sbv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se2" source="_sa" target="_sjoin"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se3" source="_sb" target="_sjoin"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se4" source="_sjoin" target="_sf"/>
+      </ownedBehavior>
+
+      <!-- Fan: one output feeds two actions directly, which both follow it. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_fan" name="Fan">
+        <node xmi:type="uml:InitialNode" xmi:id="_fi"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_fpy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 5.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fa" name="left">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_fav" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fb" name="right">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_fbv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>b = v + 1;</body>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fe1" source="_fi" target="_fp"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_fo1" source="_fpy" target="_fav"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_fo2" source="_fpy" target="_fbv"/>
+      </ownedBehavior>
+
+      <!-- Hold: a join passes the value on once the control flow has arrived too. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_hold" name="Hold">
+        <node xmi:type="uml:InitialNode" xmi:id="_hi"/>
+        <node xmi:type="uml:ForkNode" xmi:id="_hfork" name="start both"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_hp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_hpy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 7.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_hw" name="warm">
+          <language>JavaScript</language><body>n = n + 1;</body>
+        </node>
+        <node xmi:type="uml:JoinNode" xmi:id="_hjoin" name="ready"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_hc" name="consume">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_hcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_hf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_he1" source="_hi" target="_hfork"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_he2" source="_hfork" target="_hp"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_he3" source="_hfork" target="_hw"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ho1" source="_hpy" target="_hjoin"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_he4" source="_hw" target="_hjoin"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ho2" source="_hjoin" target="_hcv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_he5" source="_hc" target="_hf"/>
+      </ownedBehavior>
+
+      <!-- Either: a merge passes on the value of whichever branch ran. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_either" name="Either">
+        <node xmi:type="uml:InitialNode" xmi:id="_ei"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_edec" name="which"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_ehi" name="high">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_ehiy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 9.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_elo" name="low">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_eloy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 1.0;</body>
+        </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_emerge" name="pick"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_ec" name="consume">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_ecv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ef"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ee1" source="_ei" target="_edec"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ee2" source="_edec" target="_ehi">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_eg1"><language>JavaScript</language><body>on</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ee3" source="_edec" target="_elo">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_eg2"><language>JavaScript</language><body>!on</body></guard>
+        </edge>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_eo1" source="_ehiy" target="_emerge"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_eo2" source="_eloy" target="_emerge"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_eo3" source="_emerge" target="_ecv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ee4" source="_ec" target="_ef"/>
+      </ownedBehavior>
+
+      <!-- Count: a merge loops the value back through an increment three times. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_count" name="Count">
+        <node xmi:type="uml:InitialNode" xmi:id="_ci"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_cz" name="zero">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_czy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/></outputValue>
+          <language>JavaScript</language><body>y = 0;</body>
+        </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_cmerge" name="again"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_cs" name="step">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_csx" name="x"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/></inputValue>
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_csy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/></outputValue>
+          <language>JavaScript</language><body>y = x + 1;
+n = y;</body>
+        </node>
+        <node xmi:type="uml:DecisionNode" xmi:id="_cdec" name="done yet"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_cf"/>
+        <node xmi:type="uml:FlowFinalNode" xmi:id="_cff"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ce1" source="_ci" target="_cz"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_co1" source="_czy" target="_cmerge"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_co2" source="_cmerge" target="_csx"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ce2" source="_cs" target="_cdec"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_co3" source="_csy" target="_cmerge">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_cg0"><language>JavaScript</language><body>n &lt; 3</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ce3" source="_cdec" target="_cf">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_cg2"><language>JavaScript</language><body>n &gt;= 3</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ce4" source="_cdec" target="_cff">
+          <guard xmi:type="uml:LiteralString" xmi:id="_cg3" value="else"/>
+        </edge>
+      </ownedBehavior>
+      <!-- Pair: a join gathers the values of two actions into one pin. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_pair" name="Pair">
+        <node xmi:type="uml:InitialNode" xmi:id="_pi"/>
+        <node xmi:type="uml:ForkNode" xmi:id="_pfk" name="both"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pl" name="low">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_ply" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 1.5;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_ph" name="high">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_phy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 8.5;</body>
+        </node>
+        <node xmi:type="uml:JoinNode" xmi:id="_pj" name="gather"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pc" name="keep">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_pcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/><lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pcl" value="2"/><upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pcu" value="2"/></inputValue>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe1" source="_pi" target="_pfk"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe2" source="_pfk" target="_pl"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe3" source="_pfk" target="_ph"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_po1" source="_ply" target="_pj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_po2" source="_phy" target="_pj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_po3" source="_pj" target="_pcv"/>
+      </ownedBehavior>
+
+      <!-- Stream: a value flows into a streaming parameter of the behavior a call runs. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_sink" name="Sink">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_sinkp" name="v" direction="in" isStream="true"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></ownedParameter>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_stream" name="Stream">
+        <node xmi:type="uml:InitialNode" xmi:id="_ti"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_tp" name="produce">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_tpy" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 6.0;</body>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_tc" name="feed" behavior="_sink">
+          <argument xmi:type="uml:InputPin" xmi:id="_tcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></argument>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_te1" source="_ti" target="_tp"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_te2" source="_tp" target="_tc"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_to1" source="_tpy" target="_tcv"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_blk" base_Class="_pipe"/>
+</xmi:XMI>
