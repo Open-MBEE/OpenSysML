@@ -11,14 +11,17 @@ import (
 // it joins pins of two actions of the activity that fire, under no guard but true,
 // from no streaming parameter to none, a value travels it, and it is the succession
 // its target waits on; or it enters or leaves a node passing objects through as the
-// succession between its ends, under no guard. Settled once the data waits are.
+// succession between its ends, under no guard. A source whose end is stamped leads
+// on through its stamp instead. Settled once the data waits and timings are.
 func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	if v, ok := a.succFlow[e]; ok {
 		return v
 	}
 	src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 	var v bool
+	_, stamped := a.after[ownerNode(src)]
 	switch {
+	case stamped:
 	case a.through[src] || a.through[tgt]:
 		v = e.Type == "ObjectFlow" && !realGuard(e) && !a.dataOnly[e] && slices.Contains(a.succ[ownerNode(src)], e)
 	default:
