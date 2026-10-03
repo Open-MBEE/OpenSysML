@@ -635,7 +635,7 @@ then evaluate, instantiate and execute against it.</p>
 <div class="osml-terminal__bar"><span class="osml-terminal__title">sysml-engine — wasm, in this page</span>
 <span class="osml-terminal__btn osml-terminal__btn--min"></span><span class="osml-terminal__btn osml-terminal__btn--max"></span><span class="osml-terminal__btn osml-terminal__btn--close"></span></div>
 <pre class="osml-live__out"><code><span class="osml-dim">$ sysml model.sysml — engine not loaded</span>
-<span class="osml-dim">  press "load engine" — downloads ~27 MB once, then runs entirely here</span>
+<span class="osml-dim">  press "load engine" — downloads ~7 MB once, then runs entirely here</span>
 </code></pre>
 <div class="osml-live__row">
 <button class="osml-showcase__tab" id="osml-live-load" type="button">Load engine</button>
@@ -713,19 +713,20 @@ then evaluate, instantiate and execute against it.</p>
 
   load.addEventListener('click', function () {
     load.disabled = true;
-    println('<span class="osml-dim">loading sysml-engine.wasm (~27 MB)…</span>');
+    println('<span class="osml-dim">loading sysml-engine.wasm (~7 MB)…</span>');
     var s = document.createElement('script');
     s.src = '/assets/wasm_exec.js';
     s.onload = function () {
+      if (!('DecompressionStream' in window)) {
+        println('<span class="osml-err">✗ this browser cannot inflate the module — try a current Chrome, Firefox or Safari</span>');
+        load.disabled = false;
+        return;
+      }
       var go = new Go();
-      var fetcher = fetch('/assets/sysml-engine.wasm');
-      var done = WebAssembly.instantiateStreaming
-        ? WebAssembly.instantiateStreaming(fetcher, go.importObject).catch(function () {
-            return fetcher.then(function (r) { return r.arrayBuffer(); })
-              .then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
-          })
-        : fetcher.then(function (r) { return r.arrayBuffer(); })
-            .then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
+      var done = fetch('/assets/sysml-engine.wasm.gz')
+        .then(function (r) { return r.body.pipeThrough(new DecompressionStream('gzip')); })
+        .then(function (rs) { return new Response(rs).arrayBuffer(); })
+        .then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
       done.then(function (res) {
         go.run(res.instance);
         (function wait() {
