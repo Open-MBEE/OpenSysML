@@ -622,6 +622,14 @@ package Compiled {
 		calc def SameParam { in a : Real; return : Boolean = same((a, 2.5), (1, 2.5)); }
 		calc def SameHeld { in a : Integer; attribute r : Real = a; return : Boolean = same((r, 2.5), (1.0, 2.5)); }
 		calc def SameHeldInt { in a : Integer; attribute r : Real = a; return : Boolean = same((r), (1)); }
+		calc def IdSeq { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x === y; }
+		calc def IdMix { return : Boolean = (1, 2.5) === (1.0, 2.5); }
+		calc def IdMixKept { return : Boolean = (1, 2.5) === (1, 2.5); }
+		calc def NidMix { return : Boolean = (1, 2.5) !== (1.0, 2.5); }
+		calc def IdParam { in a : Real; return : Boolean = (a, 2.5) === (1, 2.5); }
+		calc def IdHeld { in a : Integer; attribute r : Real = a; return : Boolean = (r, 2.5) === (1.0, 2.5); }
+		calc def IdNested { in a : Real; return : Boolean = ((a, 1), 2.5) === ((1, 1.0), 2.5); }
+		calc def EqMix { return : Boolean = (1, 2.5) == (1.0, 2.5); }
 		calc def Union { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
 		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
 		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }

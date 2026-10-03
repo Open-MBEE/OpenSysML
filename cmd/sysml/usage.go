@@ -58,6 +58,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml -instantiate p -constraint C model.sysml", "Check C against an object of p"),
 				usage.Ex("sysml -validate model.sysml", "Report diagnostics only"),
 				usage.Ex("sysml -validate -strict model.sysml", "...asking whether it is conforming SysML v2"),
+				usage.Ex("sysml -self-check model.sysml", "Apply the 13 SysML validation constraints"),
 				usage.Ex("sysml -instantiate car -validate=car m.sysml", "Check every assertion about an object"),
 				usage.Ex(`sysml -calc "Fall(3, 4)" model.sysml`, "Invoke a calculation"),
 				usage.Ex("sysml -analysis shipCost model.sysml", "Run an analysis case"),
@@ -71,9 +72,12 @@ func doc() usage.Doc {
 				usage.Ex("sysml -satisfy -json model.sysml", "Report the verdicts as JSON"),
 			},
 			Paragraphs: []string{
-				"Each check flag may be repeated. -validate=<object> checks every " +
+				"Check flags may be combined. -validate=<object> checks every " +
 					"assertion about an object -instantiate created and the objects it " +
 					"holds: an object named, #<id>, or a path such as car.engine. " +
+					"-self-check applies the OpenSysML SysMLValidation constraints to " +
+					"each reflectively classified element; underived reflective features " +
+					"are reported as unevaluated, not as violations. " +
 					"-requirement and -satisfy report beside each verdict the verdict of " +
 					"every verification case verifying the requirement. -analysis takes " +
 					"arguments for the case's inputs and an object as its subject, as " +
@@ -605,6 +609,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
+	fs.BoolVar(&modelChecks.selfCheck, "self-check", false, "Apply the SysMLValidation constraints to every reflectively classified model element and exit")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
@@ -704,6 +709,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
+			usage.Opt("self-check", ""),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
 			usage.Opt("calc", callArg),
