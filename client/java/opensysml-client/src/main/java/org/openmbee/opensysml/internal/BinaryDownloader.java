@@ -30,6 +30,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
@@ -171,22 +172,67 @@ public final class BinaryDownloader {
   }
 
   /**
-   * The release a caller asked to be downloaded, from the options or the environment.
+   * The release to download, from the options, the environment, or this client.
    *
    * @param options how the connection was configured
-   * @return a release tag, {@code latest}, or empty when no download was asked for
+   * @return the requested, environment, or built-against release tag; always present
    */
   public static Optional<String> versionAskedFor(ConnectionOptions options) {
     return versionAskedFor(options, System::getenv);
   }
 
-  static Optional<String> versionAskedFor(
+  /**
+   * A release explicitly selected by the options or environment.
+   *
+   * @param options how the connection was configured
+   * @return the explicitly selected release, if any
+   */
+  public static Optional<String> explicitVersion(ConnectionOptions options) {
+    return explicitVersion(options, System::getenv);
+  }
+
+  /**
+   * A release explicitly selected by the options or the supplied environment.
+   *
+   * @param options how the connection was configured
+   * @param environment source of environment variable values
+   * @return the explicitly selected release, if any
+   */
+  public static Optional<String> explicitVersion(
       ConnectionOptions options, UnaryOperator<String> environment) {
     if (options.downloadVersion().isPresent()) {
       return options.downloadVersion();
     }
     String set = environment.apply(ConnectionOptions.VERSION_ENV);
     return set == null || set.isBlank() ? Optional.empty() : Optional.of(set.trim());
+  }
+
+  static Optional<String> versionAskedFor(
+      ConnectionOptions options, UnaryOperator<String> environment) {
+    return explicitVersion(options, environment).or(() -> Optional.of(builtAgainstRelease()));
+  }
+
+  static boolean versionWasExplicit(
+      ConnectionOptions options, UnaryOperator<String> environment) {
+    return explicitVersion(options, environment).isPresent();
+  }
+
+  static String builtAgainstRelease() {
+    Properties properties = new Properties();
+    try (InputStream input =
+        BinaryDownloader.class.getResourceAsStream("/opensysml-version.properties")) {
+      if (input == null) {
+        throw new IllegalStateException("Missing opensysml-version.properties");
+      }
+      properties.load(input);
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not read opensysml-version.properties", e);
+    }
+    String version = properties.getProperty("version");
+    if (version == null || version.isBlank()) {
+      throw new IllegalStateException("Missing client version in opensysml-version.properties");
+    }
+    return "v" + version.trim();
   }
 
   /**

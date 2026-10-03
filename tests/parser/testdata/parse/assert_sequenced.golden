@@ -1,0 +1,30 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="AssertSequenced" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="action" name="check" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="action" name="raise" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="raised" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="=="
+                  (FeatureReference name="level")
+                  (LiteralInteger value="3")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="high" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="level")
+                  (LiteralInteger value="3")))))
+          (InitialNode name="start" successor="raise")
+          (InitialNode name="raise" successor="raised")
+          (InitialNode name="raised" successor="high")
+          (InitialNode name="high" successor="done"))))))

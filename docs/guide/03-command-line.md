@@ -453,7 +453,10 @@ before the first run, and `-json` reports the same rows inside the check the swe
 REPL's [`%sweep` and `%samples`](04-repl.md#command-summary) do the same interactively.
 
 A state machine takes only its initial transition unless `-advance` says how much simulated
-time to run for. `-advance 0` runs the machine up to the present, dispatching whatever is already
+time to run for, whichever `-schedule` or `-engine` answers: `explore` and `-engine check`
+search that same point, and when the machine leaves a do behavior, an event, a timer or a
+change condition pending there, their standing line says the result is `after the initial
+transition only` and that `-advance <time>` runs them. `-advance 0` runs the machine up to the present, dispatching whatever is already
 due. The `-action` and `-state` behaviors of one invocation run on one simulation clock, so
 `-advance` moves them together: an action that `accept after 5 [SI::s]` and a machine that
 accepts the signal it then sends both settle under `-advance 5`, and what comes due at the same

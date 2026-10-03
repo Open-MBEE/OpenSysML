@@ -22,3 +22,12 @@
 .md-copyright__highlight a {
   text-decoration: underline;
 }
+
+/* Keep the community icon discreet until it is needed. */
+.md-social__link {
+  opacity: .45;
+}
+.md-social__link:hover,
+.md-social__link:focus-visible {
+  opacity: 1;
+}

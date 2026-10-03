@@ -26,6 +26,7 @@ config:
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
+%% not represented: 1 pin(s) not drawn (provide.fuel); a flowchart draws the pins an edge ends at
 flowchart TD
   subgraph n0 ["`*«action def»*
 **Drive**`"]
@@ -43,34 +44,34 @@ own flow`"]
       direction TD
       n3_anchor[" "]
       n3_p0["reading"]
-      n5@{ shape: f-circ, label: "" }
-      n6("`*«action»*
+      n4@{ shape: f-circ, label: "" }
+      n5("`*«action»*
 **record**`")
     end
-    n7("`*«action»*
+    n6("`*«action»*
 **tally**`")
-    n8@{ shape: fork, label: "split" }
-    n9@{ shape: fork, label: "sync" }
-    n10@{ shape: fr-circ, label: "" }
-    n11("`*«action»*
+    n7@{ shape: fork, label: "split" }
+    n8@{ shape: fork, label: "sync" }
+    n9@{ shape: fr-circ, label: "" }
+    n10("`*«action»*
 **park**`")
-    n12{"`*«decision»*
+    n11{"`*«decision»*
 **check**`"}
   end
-  n5 --> n6
-  n1 --> n8
-  n2_anchor --> n9
+  n4 --> n5
+  n1 --> n7
+  n2_anchor --> n8
   n2_p1 -.->|"torque to reading"| n3_p0
-  n3_anchor --> n9
-  n7 --> n9
-  n8 --> n2_anchor
-  n8 --> n3_anchor
-  n8 --> n7
-  n9 --> n12
+  n3_anchor --> n8
+  n6 --> n8
+  n7 --> n2_anchor
+  n7 --> n3_anchor
+  n7 --> n6
+  n8 --> n11
+  n10 --> n9
+  n11 -->|"[speed #gt; 0]"| n9
   n11 --> n10
-  n12 -->|"[speed #gt; 0]"| n10
-  n12 --> n11
   classDef control fill:#181818,stroke:#181818
-  class n8,n9 control
+  class n7,n8 control
   classDef anchor fill:none,stroke:none
   class n2_anchor,n3_anchor anchor

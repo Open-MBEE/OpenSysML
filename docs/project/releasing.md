@@ -728,13 +728,13 @@ version: it changes what every installer ships.
 
 ### Pinned release digests
 
-The table in `client/release-digests.json`, which every client ships a synced
-copy of, still covers the releases published before signing existed, and it
-stays the override: where a pin exists
-it wins, and a verified manifest that disagrees with a pin is an error rather
-than a downgrade. **Per release there is now nothing to do** — pinning a release
-signed by the pipeline is optional. Pinning still works, and is worth doing for
-a release clients on an older `opensysml` should be able to install:
+The committed copies of `client/release-digests.json` stay in sync and still
+cover releases published before signing existed. A pin remains an override:
+where a client has a pin, it wins, and clients that verify signed manifests
+refuse a disagreement rather than downgrade. **Per release there is now nothing
+to do** — pinning a release signed by the pipeline is optional. Pinning still
+works, and is worth doing for a release clients on an older `opensysml` should
+be able to install:
 
 ```bash
 export GITHUB_TOKEN=...   # must be able to read this repository's releases
@@ -748,6 +748,10 @@ needed is read access to this repository's releases — `public_repo` for a clas
 token, `Contents: read` for a fine-grained one; nothing is written through the
 API. Without either variable the script fails immediately with
 `MissingTokenError` naming the variable, rather than at the first request.
+
+The Rust client does not verify signed manifests itself. `publish-crates`
+stamps the crate's own release tag from `dist/SHA256SUMS.txt` before packaging;
+that package-time addition is not committed to the synced client tables.
 
 ## The SonarCloud scan
 
@@ -1103,8 +1107,8 @@ The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
 by the `release` workflow's `publish-npm` job, from the same core `v<version>`
 tag that publishes the binaries and `opensysml` — at that version. No other tag
 publishes it; the `client-node-v*` path never ran and is no longer matched.
-**Nothing has been published yet** — the next core release is the first
-publish, and the `npm` context it needs is already in place (see
+The npm packages are published with core releases at the client's version, and
+the `npm` context they need is already in place (see
 [What the job needs](#what-the-job-needs-1)).
 
 ### Six packages, one tag
@@ -1263,7 +1267,7 @@ The Java client in `client/java/` is published to Maven Central as
 — by the `release` workflow's `publish-maven` job, from the same core
 `v<version>` tag that publishes the binaries, `opensysml` and
 `@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
-tagged and is no longer used. **Nothing has been published yet.**
+tagged and is no longer used. **The Java artifacts are not on Maven Central yet.**
 
 ### What a maintainer must obtain first
 
@@ -1415,11 +1419,10 @@ next core patch release.
 
 ## Releasing the Rust client to crates.io
 
-The `opensysml` crate is published by the `release` workflow's `publish-crates`
+The `opensysml` crate is published on crates.io by the `release` workflow's `publish-crates`
 job from the core `v<version>` tag, at the version `Cargo.toml` declares, after
 the suite and the GitHub release. `opensysml-rust-v*` was never tagged and is no
-longer used; nothing has been published yet — the name `opensysml` is free on
-crates.io. The maintainer-run `cargo publish` and the bump-then-tag procedure
+longer used. The maintainer-run `cargo publish` and the bump-then-tag procedure
 it followed are gone.
 
 ### What a maintainer must obtain first
@@ -1464,13 +1467,14 @@ documents its own minimum supported Rust version. `opensysml-conformance` is a
 workspace member and a runner, not a library, and is **not** published: it
 reads `conformance/scenarios` from this repository.
 
-One limitation stands, and this publish does not change it: a download of the
-`sysml-grpc` release binary — which `$OPENSYSML_GRPC_VERSION` asks for —
-verifies only against the digests pinned in the crate's embedded
-`release-digests.json`, which currently runs through v0.3.0. A published crate
-therefore cannot download the binary of its own release; it is used against a
-running service or a binary it is pointed at (`$OPENSYSML_GRPC_BINARY`, then
-`sysml-grpc` on `$PATH`). See `client/rust/README.md` for the resolution order.
+Before packaging, the job stamps the crate's embedded `release-digests.json`
+with the five service-asset digests for `CIRCLE_TAG` from
+`dist/SHA256SUMS.txt`. The release build has already signed and verified this
+manifest. A crate published from a release tag can therefore verify and
+download the release it was built against by default. The Rust client still
+does not verify the manifest's Sigstore signature itself. A crate built from a
+Git checkout, or asked for another release, still needs a matching pin or
+`$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`.
 
 ### Pre-releases
 
@@ -1487,10 +1491,11 @@ so consumers get it only by naming it exactly.
 3. Refuses the version when crates.io already holds it (a published version
    cannot be replaced, only yanked), and refuses rather than guesses when the
    API cannot be asked.
-4. `cargo package -p opensysml --locked` — the dry run that builds and verifies
-   the packaged file list.
-5. `cargo publish -p opensysml --locked --no-verify`; cargo reads the token
-   from the environment, so nothing is written to disk.
+4. Stamps `CIRCLE_TAG` from `dist/SHA256SUMS.txt`, packages with
+   `cargo package -p opensysml --allow-dirty --locked`, and verifies the
+   packaged crate embeds all five service digests for that tag.
+5. `cargo publish -p opensysml --locked --no-verify --allow-dirty`; cargo reads
+   the token from the environment, so nothing is written to disk.
 
 ### If a publish goes wrong
 

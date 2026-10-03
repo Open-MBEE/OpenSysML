@@ -125,7 +125,11 @@ func unboundedIntExpr(x Expr) string {
 		if x.Big != nil {
 			return fmt.Sprintf("the Integer literal %s, beyond int64,", x.Big)
 		}
-	case RealLit, BoolLit, Var, NullLit:
+	case RealLit, BoolLit, StrLit, EnumLit, Var, NullLit:
+	case EnumText:
+		return unboundedIntExprs(x.X)
+	case Refusal:
+		return unboundedIntExprs(x.Operands...)
 	case Binary:
 		if what := unboundedIntExprs(x.L, x.R); what != "" {
 			return what
@@ -150,6 +154,12 @@ func unboundedIntExpr(x Expr) string {
 		}
 	case ToReal:
 		return unboundedIntExprs(x.X)
+	case ToNum:
+		return unboundedIntExprs(x.X)
+	case AsInt:
+		return unboundedIntExprs(x.X)
+	case NumSplit:
+		return unboundedIntExprs(x.Int, x.Real)
 	case SeqLit:
 		return unboundedIntExprs(x.Elems...)
 	case ToMany:
@@ -172,7 +182,7 @@ func unboundedIntExpr(x Expr) string {
 		if what := unboundedIntExprs(x.Args...); what != "" {
 			return what
 		}
-		if (x.Op == SeqSum || x.Op == SeqProduct) && x.T == TypeInt {
+		if (x.Op == SeqSum || x.Op == SeqProduct) && (x.T == TypeInt || x.T == TypeNum) {
 			return fmt.Sprintf("the Integer %s", x.Op)
 		}
 	case Fold:
@@ -181,6 +191,15 @@ func unboundedIntExpr(x Expr) string {
 		return unboundedIntExprs(x.X)
 	case Sampled:
 		return unboundedIntExprs(x.S.Seq, x.S.Body.Body, x.In)
+	case Steps:
+		return unboundedIntExprs(x.X)
+	case FnLit:
+		return unboundedIntExprs(x.Env...)
+	case FnWiden:
+		return unboundedIntExprs(x.X)
+	case FnEnv:
+	case FnDispatch:
+		return unboundedIntExprs(append([]Expr{x.F}, x.Cases...)...)
 	default:
 		return fmt.Sprintf("expression %T", x)
 	}
@@ -195,8 +214,8 @@ func unboundedIntBinary(x Binary) string {
 		if x.L.Type() != TypeInt {
 			return ""
 		}
-		l, lok := x.L.(IntLit)
-		r, rok := x.R.(IntLit)
+		l, lok := bare(x.L).(IntLit)
+		r, rok := bare(x.R).(IntLit)
 		if lok && rok && l.Big == nil && r.Big == nil {
 			res, err := semantics.IntArith(x.Op, semantics.IntValue(l.Value), semantics.IntValue(r.Value), semantics.DefaultMaxIntegerBits)
 			if _, fits := res.Int64(); err == nil && fits {
@@ -207,7 +226,7 @@ func unboundedIntBinary(x Binary) string {
 		if x.T != TypeInt {
 			return ""
 		}
-		if n, ok := x.R.(IntLit); ok && n.Big == nil && (n.Value == 0 || n.Value == 1) {
+		if n, ok := bare(x.R).(IntLit); ok && n.Big == nil && (n.Value == 0 || n.Value == 1) {
 			return ""
 		}
 	default:

@@ -221,6 +221,24 @@ func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, cou
 	return nil
 }
 
+// CheckBehaviorOrderMultiplicity applies the action-step succession rule at one performance per end.
+func CheckBehaviorOrderMultiplicity(scope *symbols.Scope, earlier, later ast.Node, earlierMultiplicity, laterMultiplicity *ast.Multiplicity, decl ast.Node, model *semantics.Model) error {
+	if earlierMultiplicity == nil && laterMultiplicity == nil {
+		return nil
+	}
+	graph := &ActionGraph{
+		Scope:          scope,
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+	}
+	return graph.checkRepeatedEdgeOrder(later, ActionEdge{
+		Source:             earlier,
+		Target:             later,
+		Decl:               decl,
+		SourceMultiplicity: earlierMultiplicity,
+		TargetMultiplicity: laterMultiplicity,
+	}, 1, model)
+}
+
 type crossingRange struct {
 	lower         int64
 	upper         int64
@@ -334,136 +352,171 @@ func connectionEndStartsAt(end string, path []string) bool {
 	return true
 }
 
+// checkRepeatedFeatureReads refuses an expression outside the repeated step
+// node that reads a feature of the step through a chain naming it.
 func (g *ActionGraph) checkRepeatedFeatureReads(node ast.Node, model *semantics.Model) error {
-	check := func(expression ast.Node, scope *symbols.Scope) error {
-		var found *ast.FeatureChainExpr
-		ast.Inspect(expression, func(candidate ast.Node) bool {
-			chain, ok := candidate.(*ast.FeatureChainExpr)
-			if !ok {
-				return true
-			}
-			base, segments := flattenChain(chain)
-			if len(segments) == 0 {
-				return true
-			}
-			if g.chainNamesNode(base, segments, node, scope) {
-				found = chain
-				return false
-			}
-			return true
-		})
-		if found == nil {
-			return nil
-		}
-		return g.stepError(node, model, StepMultiplicityUnsupportedCode,
-			"features of a repeated action step cannot be read from outside the step", found)
-	}
 	outermost := g
 	for outermost.Enclosing != nil {
 		outermost = outermost.Enclosing
 	}
-	visited := make(map[*ActionGraph]bool)
-	var scanGraph func(*ActionGraph) error
-	var scanStatement func(Statement) error
-	scanStatement = func(statement Statement) error {
-		switch s := statement.(type) {
-		case Block:
-			if err := scanGraph(s.Graph); err != nil {
-				return err
-			}
-			for _, nested := range s.Statements {
-				if err := scanStatement(nested); err != nil {
-					return err
-				}
-			}
-		case Loop:
-			return scanStatement(s.Body)
-		case If:
-			if err := scanStatement(s.Then); err != nil {
-				return err
-			}
-			if s.Else != nil {
-				return scanStatement(*s.Else)
-			}
+	scan := &repeatedReadScanner{graph: g, node: node, model: model, outermost: outermost, visited: map[*ActionGraph]bool{}}
+	return scan.scanGraph(outermost)
+}
+
+// repeatedReadScanner walks every graph of a flow but the repeated step's own,
+// checking each expression for a read of the step's features.
+type repeatedReadScanner struct {
+	graph     *ActionGraph
+	node      ast.Node
+	model     *semantics.Model
+	outermost *ActionGraph
+	visited   map[*ActionGraph]bool
+}
+
+// check reports a chain in expression that names a feature of the repeated step.
+func (r *repeatedReadScanner) check(expression ast.Node, scope *symbols.Scope) error {
+	var found *ast.FeatureChainExpr
+	ast.Inspect(expression, func(candidate ast.Node) bool {
+		chain, ok := candidate.(*ast.FeatureChainExpr)
+		if !ok {
+			return true
 		}
+		base, segments := flattenChain(chain)
+		if len(segments) == 0 {
+			return true
+		}
+		if r.graph.chainNamesNode(base, segments, r.node, scope) {
+			found = chain
+			return false
+		}
+		return true
+	})
+	if found == nil {
 		return nil
 	}
-	isInsideRepeatedStep := func(graph *ActionGraph) bool {
-		for current := graph; current != nil && current != outermost; current = current.Enclosing {
-			if current.EnclosingNode == node {
-				return true
+	return r.graph.stepError(r.node, r.model, StepMultiplicityUnsupportedCode,
+		"features of a repeated action step cannot be read from outside the step", found)
+}
+
+// scanStatement scans the graphs nested in a body statement.
+func (r *repeatedReadScanner) scanStatement(statement Statement) error {
+	switch s := statement.(type) {
+	case Block:
+		if err := r.scanGraph(s.Graph); err != nil {
+			return err
+		}
+		for _, nested := range s.Statements {
+			if err := r.scanStatement(nested); err != nil {
+				return err
 			}
 		}
-		return false
-	}
-	scanGraph = func(graph *ActionGraph) error {
-		if graph == nil || visited[graph] || isInsideRepeatedStep(graph) {
-			return nil
+	case Loop:
+		return r.scanStatement(s.Body)
+	case If:
+		if err := r.scanStatement(s.Then); err != nil {
+			return err
 		}
-		visited[graph] = true
-		for _, attribute := range graph.Attributes {
-			scope := attribute.Scope
+		if s.Else != nil {
+			return r.scanStatement(*s.Else)
+		}
+	}
+	return nil
+}
+
+// isInsideRepeatedStep tells whether graph is nested in the repeated step itself,
+// where its features are read freely.
+func (r *repeatedReadScanner) isInsideRepeatedStep(graph *ActionGraph) bool {
+	for current := graph; current != nil && current != r.outermost; current = current.Enclosing {
+		if current.EnclosingNode == r.node {
+			return true
+		}
+	}
+	return false
+}
+
+// scanGraph checks every expression of graph and the graphs nested in it.
+func (r *repeatedReadScanner) scanGraph(graph *ActionGraph) error {
+	if graph == nil || r.visited[graph] || r.isInsideRepeatedStep(graph) {
+		return nil
+	}
+	r.visited[graph] = true
+	if err := r.scanValues(graph); err != nil {
+		return err
+	}
+	for owner, accept := range graph.Accepts {
+		if owner != r.node {
+			if err := r.check(accept.Trigger, accept.Scope); err != nil {
+				return err
+			}
+		}
+	}
+	for source, edges := range graph.Edges {
+		for _, edge := range edges {
+			if err := r.check(edge.Guard, graph.nodeScope(source)); err != nil {
+				return err
+			}
+		}
+	}
+	if err := r.scanBodies(graph); err != nil {
+		return err
+	}
+	for owner, subflow := range graph.Subflows {
+		if owner == r.node || subflow == nil {
+			continue
+		}
+		if err := r.scanGraph(subflow.Graph); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// scanValues checks the attribute and feature values of graph.
+func (r *repeatedReadScanner) scanValues(graph *ActionGraph) error {
+	for _, attribute := range graph.Attributes {
+		scope := attribute.Scope
+		if scope == nil {
+			scope = graph.Scope
+		}
+		if err := r.check(attribute.Value, scope); err != nil {
+			return err
+		}
+	}
+	for owner, features := range graph.Features {
+		if owner == r.node {
+			continue
+		}
+		for _, feature := range features {
+			scope := feature.Scope
 			if scope == nil {
-				scope = graph.Scope
+				scope = graph.nodeScope(owner)
 			}
-			if err := check(attribute.Value, scope); err != nil {
+			if err := r.check(feature.Value, scope); err != nil {
 				return err
 			}
 		}
-		for owner, features := range graph.Features {
-			if owner == node {
-				continue
-			}
-			for _, feature := range features {
-				scope := feature.Scope
-				if scope == nil {
-					scope = graph.nodeScope(owner)
-				}
-				if err := check(feature.Value, scope); err != nil {
-					return err
-				}
-			}
-		}
-		for owner, accept := range graph.Accepts {
-			if owner != node {
-				if err := check(accept.Trigger, accept.Scope); err != nil {
-					return err
-				}
-			}
-		}
-		for source, edges := range graph.Edges {
-			for _, edge := range edges {
-				if err := check(edge.Guard, graph.nodeScope(source)); err != nil {
-					return err
-				}
-			}
-		}
-		for owner, statements := range graph.Bodies {
-			if owner == node {
-				continue
-			}
-			for _, statement := range statements {
-				for _, expression := range statementExpressions(statement) {
-					if err := check(expression, graph.nodeScope(owner)); err != nil {
-						return err
-					}
-				}
-				if err := scanStatement(statement); err != nil {
-					return err
-				}
-			}
-		}
-		for owner, subflow := range graph.Subflows {
-			if owner == node || subflow == nil {
-				continue
-			}
-			if err := scanGraph(subflow.Graph); err != nil {
-				return err
-			}
-		}
-		return nil
 	}
-	return scanGraph(outermost)
+	return nil
+}
+
+// scanBodies checks the statements of every node body of graph but the step's own.
+func (r *repeatedReadScanner) scanBodies(graph *ActionGraph) error {
+	for owner, statements := range graph.Bodies {
+		if owner == r.node {
+			continue
+		}
+		for _, statement := range statements {
+			for _, expression := range statementExpressions(statement) {
+				if err := r.check(expression, graph.nodeScope(owner)); err != nil {
+					return err
+				}
+			}
+			if err := r.scanStatement(statement); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (g *ActionGraph) chainNamesNode(base ast.Node, segments []string, node ast.Node, scope *symbols.Scope) bool {

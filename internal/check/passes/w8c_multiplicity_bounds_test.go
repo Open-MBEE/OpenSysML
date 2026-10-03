@@ -22,6 +22,177 @@ func TestW8CMultiplicityBoundNotNatural(t *testing.T) {
 	}
 }
 
+func TestW8CMultiplicityBoundEvaluableMustHaveValue(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want int
+	}{
+		{
+			name: "package feature without value",
+			src: `package P {
+	feature k : ScalarValues::Natural;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "package feature with value",
+			src: `package P {
+	feature j : ScalarValues::Natural = 3;
+	feature e [j];
+}`,
+			want: 0,
+		},
+		{
+			name: "indirect package feature without value",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	feature k : Natural = u;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "indirect operator reads feature without value",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	feature k : Natural = u + 1;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "conditional skips unselected valueless branch",
+			src: `package P {
+	feature u : ScalarValues::Natural;
+	feature k : ScalarValues::Natural = if true ? (2 as ScalarValues::Natural) else u;
+	feature d [k];
+}`,
+			want: 0,
+		},
+		{
+			name: "conditional selects valueless branch",
+			src: `package P {
+	feature u : ScalarValues::Natural;
+	feature k : ScalarValues::Natural = if false ? (2 as ScalarValues::Natural) else u;
+	feature d [k];
+}`,
+			want: 1,
+		},
+		{
+			name: "indirect operator reads valued feature",
+			src: `package P {
+	private import ScalarValues::*;
+	feature j : Natural = 2;
+	feature k : Natural = j + 1;
+	feature d [k];
+}`,
+			want: 0,
+		},
+		{
+			name: "class member indirectly reads package feature",
+			src: `package P {
+	private import ScalarValues::*;
+	feature u : Natural;
+	class T {
+		feature k : Natural = u;
+		feature d [k];
+	}
+}`,
+			want: 0,
+		},
+		{
+			name: "cyclic feature values",
+			src: `package P {
+	private import ScalarValues::*;
+	feature a : Natural = b;
+	feature b : Natural = a;
+	feature d [a];
+}`,
+			want: 0,
+		},
+		{
+			name: "package feature valued by cast",
+			src: `package P {
+	feature k : ScalarValues::Natural = 2 as ScalarValues::Natural;
+	feature d [k];
+}`,
+			want: 0,
+		},
+		{
+			name: "evaluable cast bound",
+			src: `package P {
+	feature d [0..(2 as ScalarValues::Integer)];
+}`,
+			want: 0,
+		},
+		{
+			name: "type member without value",
+			src: `package P {
+	class T {
+		feature k : ScalarValues::Natural;
+		feature d [k];
+	}
+}`,
+			want: 0,
+		},
+		{
+			name: "package feature with negative value",
+			src: `package P {
+	feature n : ScalarValues::Integer = -1;
+	feature f [n];
+}`,
+			want: 1,
+		},
+		{
+			name: "type member with negative value",
+			src: `package P {
+	class U {
+		feature n : ScalarValues::Integer = -1;
+		feature g [n];
+	}
+}`,
+			want: 0,
+		},
+		{
+			name: "untyped package feature",
+			src: `package P {
+	feature u;
+	feature f [u];
+}`,
+			want: 1,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			msgs := w8cMessages(t, tt.src)
+			if w8cCount(msgs, msgMultiplicityBoundNatural) != tt.want {
+				t.Errorf("want %d %q, got %v", tt.want, msgMultiplicityBoundNatural, msgs)
+			}
+		})
+	}
+}
+
+func TestW8CMultiplicityBoundEvaluableMustHaveValueSysML(t *testing.T) {
+	src := `package P {
+	attribute k : ScalarValues::Natural;
+	attribute d [k];
+}`
+	var got int
+	for _, d := range constraintDiags(t, src) {
+		if d.Message == msgMultiplicityBoundNatural {
+			got++
+		}
+	}
+	if got != 1 {
+		t.Errorf("want one %q, got %d", msgMultiplicityBoundNatural, got)
+	}
+}
+
 func TestW8CMultiplicityBoundLegal(t *testing.T) {
 	src := `package P {
 	feature n = 0;
@@ -106,6 +277,32 @@ func TestW8CMultiplicityBoundImplicitKindTypeSysML(t *testing.T) {
 	part us [act];
 	part sub :> p;
 	part vs [sub];
+	part def H {
+		attribute n : Natural;
+		part ok [n];
+		attribute a;
+		part oka [a];
+		ref r;
+		part okr [r];
+		attribute m :> n;
+		part okm [0..m];
+	}
+}`
+	var got []string
+	for _, d := range constraintDiags(t, src) {
+		if d.Message == msgMultiplicityBoundNatural {
+			got = append(got, src[d.Span.Offset:d.Span.End()])
+		}
+	}
+	want := []string{"p", "i", "q", "act", "sub"}
+	if !slices.Equal(got, want) {
+		t.Errorf("bounds reported %v, want %v", got, want)
+	}
+}
+
+func TestW8CMultiplicityBoundEvaluableKindTypeSysML(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
 	attribute n : Natural;
 	part ok [n];
 	attribute a;
@@ -121,7 +318,7 @@ func TestW8CMultiplicityBoundImplicitKindTypeSysML(t *testing.T) {
 			got = append(got, src[d.Span.Offset:d.Span.End()])
 		}
 	}
-	want := []string{"p", "i", "q", "act", "sub"}
+	want := []string{"n", "a", "r", "m"}
 	if !slices.Equal(got, want) {
 		t.Errorf("bounds reported %v, want %v", got, want)
 	}
@@ -194,7 +391,6 @@ func TestW8CMultiplicityBoundResultTypeSilent(t *testing.T) {
 		"natural redef":         "class C { feature n : ScalarValues::Natural; } class D specializes C { feature :>> n; feature f [n]; }",
 		"untyped":               "class C { feature u; feature f [u]; }",
 		"untyped subset":        "class C { feature u; feature v subsets u; feature f [v]; }",
-		"untyped package level": "feature u; feature f [u];",
 		"unresolved subset":     "class C { feature q : Undeclared; feature v subsets q; feature f [v]; }",
 		"unresolved type":       "class C { feature q : Undeclared; feature f [q]; }",
 		"unresolved bound":      "class C { feature f [nothere]; }",

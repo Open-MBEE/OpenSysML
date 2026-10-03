@@ -191,7 +191,7 @@ func TestNotationFixSkipsExistingImport(t *testing.T) {
 		t.Fatalf("fix should carry the replacement edit alone: %+v", fix)
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
-	if n := strings.Count(fixed, "import StateMachines"); n != 1 {
+	if strings.Count(fixed, "import StateMachines") != 1 {
 		t.Fatalf("a second StateMachines import was inserted:\n%s", fixed)
 	}
 	if !strings.Contains(fixed, "#choice state pick;") {

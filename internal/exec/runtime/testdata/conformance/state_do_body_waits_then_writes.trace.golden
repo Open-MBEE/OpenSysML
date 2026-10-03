@@ -1,0 +1,11 @@
+do: s
+stmt action body
+enter action node: state behavior <anonymous>
+  stmt assign c
+    eval literal 1 -> 1
+    eval literal 2 -> 2
+  eval index -> 2 [SI::s]
+do: s
+  stmt assign c
+    eval literal 2 -> 2
+leave action node: state behavior <anonymous>

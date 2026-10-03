@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::Holder",
+  "slots": {
+    "r1.n": {"type": "Integer", "value": 1},
+    "r2.n": {"type": "Integer", "value": 1}
+  }
+}

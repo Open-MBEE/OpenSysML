@@ -360,12 +360,12 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\n",
 		`"n1" [fillcolor=black, label="", pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
-		`"n7" [shape=diamond, label="", xlabel="check", pos="100,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`"n9" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
-		`"n10" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
-		`"n9" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
-		`"n7" -> "n10" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
+		`"n5" [shape=diamond, label="", xlabel="check", pos="100,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"n6" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"n7" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
+		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
+		`"n7" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
+		`"n5" -> "n8" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
@@ -382,11 +382,11 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 	s := session(t, r)
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n5" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
-			`"n3" -> "n4" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
+			`"n4" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
+			`"n2" -> "n3" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
 			`"n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,134!", pin=true];`,
-			`"n3.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,106!", pin=true];`,
-			`"n1.0" -> "n3.0" [style=dashed, pos="e,113.5,112 113.5,128 113.5,128 140,80 140,80 140,80 140,160 140,160 140,160 118.5,121 118.5,121"];`,
+			`"n2.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,106!", pin=true];`,
+			`"n1.0" -> "n2.0" [style=dashed, pos="e,113.5,112 113.5,128 113.5,128 140,80 140,80 140,80 140,160 140,160 140,160 118.5,121 118.5,121"];`,
 		},
 		"Behavior::Modes::Modes": {
 			`"n1" -> "n2" [label="accept Go", pos="e,110,110 200,110 200,110 120,110 120,110", lp="155,98"];`,

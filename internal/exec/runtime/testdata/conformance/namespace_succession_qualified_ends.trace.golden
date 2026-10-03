@@ -1,0 +1,43 @@
+materialize: Holder #1
+materialize: Robot #2
+start: performed action grip of #2
+materialize: grip #3
+materialize: Robot #4
+start: performed action grip of #4
+materialize: grip #5
+run: performed action grip of #2
+step 1: token 1@grip1
+stmt assign n
+    eval feature n -> 0
+    eval literal 10 -> 10
+  eval operator * -> 0
+step 2: token 1@done
+step 3: no active tokens
+run: performed action grip of #4
+step 1: token 1@grip1
+stmt assign n
+    eval feature n -> 0
+    eval literal 10 -> 10
+  eval operator * -> 0
+step 2: token 1@done
+step 3: no active tokens
+start: performed action move of #2
+materialize: move #6
+run: performed action move of #2
+step 1: token 1@move1
+stmt assign n
+    eval feature n -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens
+start: performed action move of #4
+materialize: move #7
+run: performed action move of #4
+step 1: token 1@move1
+stmt assign n
+    eval feature n -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens

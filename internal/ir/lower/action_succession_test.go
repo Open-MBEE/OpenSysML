@@ -180,7 +180,7 @@ func TestToActionGraphCarriesActionAndSuccessionEndMultiplicities(t *testing.T) 
 	`)
 	p := nodeNamed(t, graph, "p")
 	a := nodeNamed(t, graph, "a")
-	if got := graph.Multiplicities[a]; got == nil {
+	if graph.Multiplicities[a] == nil {
 		t.Fatal("action node a lost its declared multiplicity")
 	}
 	edges := graph.Edges[p]

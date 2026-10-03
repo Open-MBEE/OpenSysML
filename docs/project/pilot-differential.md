@@ -2856,26 +2856,33 @@ fetches. Together they bound how long a stale figure can survive to about a day.
 
 ### Multiplicity bound result types round
 
-`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.3.6) is now a constraint-tier rule of ours
-(`passes/w8c_multiplicity_bounds.go`): a bound that is not evaluated at model level must still
-have an Integer-conforming result, read from the referenced feature's declared type or, for
-arithmetic, from its operands. The rule moves no row of the reference corpora — the only
+`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.3.6) is a constraint-tier rule
+(`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must evaluate to a
+non-negative integer or `*`; a bound that is not model-level evaluable is judged by whether its
+result type conforms to Integer. The rule moves no row of the reference corpora — the only
 non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
 `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml`) name Integer- or Natural-typed
 sibling features, which both sides accept — and moves
-`semantic/k37-multiplicity-bound-not-natural.kerml` to both-reject. Two points where
-`KerMLValidator.checkMultiplicityRange` (`KerMLValidator.xtend:1333`) and our rule part are
-adjudicated toward the specification rather than the referee:
+`semantic/k37-multiplicity-bound-not-natural.kerml` to both-reject. The package-level bound
+disagreement is now adjudicated toward the pilot; the exponentiation difference below remains
+adjudicated toward the specification:
 
-- **A bound naming a package-level feature is judged by that feature's type.** The pilot treats
-  a reference to a feature with no featuring type and no value as model-level evaluable, evaluates
-  it to the feature itself rather than a literal, and reports the `-2` null result, so
-  `feature k : Natural; feature d [k];` at package level draws `Must have a Natural value` from
-  the pilot and nothing from us; the same pair inside a class is judged by `k`'s type on both
-  sides. The specification asks for the result's type, which for a feature reference is the
-  referent's wherever it is owned;
+- **A package-level feature without a value is not a valid evaluable bound.** The maintainer
+  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.3.6 requires a model-level-
+  evaluable bound to evaluate to a non-negative value. Under §8.3.4.8.5, a package-level feature
+  without a value is model-level evaluable and evaluates to itself, so `[k]` is rejected by both
+  validators. A type member is not model-level evaluable and is judged by its result type. An
+  evaluable bound the evaluator does not fold (for example, a cast) is also judged by its result
+  type; only a folded value other than a non-negative integer or `*`, or an evaluation that
+  reaches a feature with no value, directly or through another feature's value, is rejected. The
+  pilot also rejects `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does
+  not yield a literal there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's
+  OCL (`value <> null implies value >= 0` over
+  `valueOf`, §8.3.3.1.9) cannot
+  distinguish a non-literal result from a negative value because `valueOf` returns null for
+  both. OpenSysML follows the prose;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
-  holds the report, filed as [Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803).
+  records the ruling on [Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803).
 - **`**` and `^` keep an Integer whole only under a Natural exponent.** The pilot's
   `isIntegerOperator` lists both alongside `+`, `-`, `*` and `%`, so `2 ** n` with `n : Integer`
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer

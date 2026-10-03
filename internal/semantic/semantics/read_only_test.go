@@ -54,7 +54,7 @@ func TestFeatureReadOnly(t *testing.T) {
 				}
 				return
 			}
-			if wantSym := nestedSym(t, root, tt.declared); got.Declared != wantSym {
+			if got.Declared != nestedSym(t, root, tt.declared) {
 				t.Fatalf("declared by %v, want %s", got.Declared, tt.declared)
 			}
 		})

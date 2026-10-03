@@ -1,0 +1,12 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="part" abstract=false variation=false name="Robot"
+      (Membership visibility="default"
+        (Usage kind="action" name="grip" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"))
+      (Membership visibility="default"
+        (Usage kind="action" name="move" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"))
+      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (ConnectorEnd target="grip"
+          (*ast.QualifiedName))
+        (ConnectorEnd target="move"
+          (*ast.QualifiedName))))))

@@ -77,7 +77,7 @@ func TestDOTFormSupport(t *testing.T) {
 	if got := KindTree.SupportedForms(); fmt.Sprint(got) != "[text mermaid dot plantuml]" {
 		t.Errorf("tree forms = %v", got)
 	}
-	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown]" {
+	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
 		t.Errorf("table forms = %v", got)
 	}
 	unsupported := []struct {
@@ -119,7 +119,7 @@ func TestDOTFormSupport(t *testing.T) {
 		t.Errorf("markdown of a tree error = %v, want it to offer dot", err)
 	}
 	_, err = render(t, "tree.sysml", "VehicleViews::vehicleView").Write("svg")
-	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown, dot and plantuml") {
+	if err == nil || !strings.Contains(err.Error(), "text, mermaid, markdown, dot, plantuml, csv and tsv") {
 		t.Errorf("unknown form error = %v, want it to list dot", err)
 	}
 }
