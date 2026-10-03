@@ -553,6 +553,7 @@
     /* The schematic: the stack drawn the way the site's Graphviz DOT renderings look —
        a white figure, «kind» stereotype over a bold name, hairline edges with arrowheads. */
     .osml-schematic {
+      position: relative;
       max-width: 46rem;
       margin: 0 auto;
       padding: 1rem 1.2rem .6rem;
@@ -612,13 +613,77 @@
     .osml-nnode.is-dragging {
       cursor: grabbing;
     }
-    .osml-nnode.is-hover .osml-node,
+    .osml-nnode,
+    .osml-wire {
+      transition: opacity .25s;
+    }
+    /* The hot node and its wires stay lit while the rest of the figure dims back. */
+    .osml-schematic--focus .osml-nnode:not(.is-hot),
+    .osml-schematic--focus .osml-wire:not(.is-hot) {
+      opacity: .28;
+    }
+    .osml-nnode.is-hot .osml-node,
     .osml-nnode:focus-visible .osml-node {
-      stroke: var(--md-accent-fg-color);
+      stroke: #fff;
+      stroke-width: 3;
+    }
+    .osml-nnode.is-hot {
+      filter: drop-shadow(0 0 .3rem #fff) drop-shadow(0 0 .9rem rgba(255, 255, 255, .55));
+    }
+    .osml-wire.is-hot {
+      stroke: #fff;
       stroke-width: 2;
     }
-    .osml-wire.is-hover {
-      stroke: var(--md-accent-fg-color);
+    .osml-nodecard {
+      position: absolute;
+      z-index: 2;
+      width: 15rem;
+      padding: .5rem .7rem .65rem;
+      border: 1px solid var(--md-accent-fg-color);
+      border-radius: .35rem;
+      background: var(--md-default-bg-color);
+      box-shadow: 0 .4rem 1.4rem rgba(0, 0, 0, .45);
+      color: var(--md-default-fg-color);
+      font-size: .62rem;
+      line-height: 1.45;
+      text-align: left;
+    }
+    .osml-nodecard[hidden] { display: none; }
+    .osml-nodecard__stereo {
+      color: var(--md-accent-fg-color);
+      font-weight: 700;
+      font-style: italic;
+      padding-right: 1rem;
+    }
+    .osml-nodecard__name { font-size: .8rem; font-weight: 700; }
+    .osml-nodecard__sub { opacity: .75; }
+    .osml-nodecard__attrs {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: .12rem .55rem;
+      margin-top: .45rem;
+    }
+    .osml-nodecard__k { opacity: .55; }
+    .osml-nodecard__v { font-family: monospace; word-break: break-all; }
+    .osml-nodecard__edge { white-space: nowrap; }
+    .osml-nodecard__close {
+      position: absolute;
+      top: .25rem;
+      right: .45rem;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font-size: .85rem;
+      cursor: pointer;
+      opacity: .6;
+    }
+    .osml-nodecard__close:hover { opacity: 1; }
+    .osml-nodecard__link {
+      display: inline-block;
+      margin-top: .5rem;
+      color: var(--md-accent-fg-color);
+      font-weight: 700;
     }
 
     /* The sponsor button floats over the bottom-right corner of the landing page only,
@@ -724,7 +789,7 @@
       </div>
     </div>
     <div class="osml-schematic" data-osml-schematic>
-      <svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing Flexo MMS at the center, connected to OpenSysML, sysml-toolkit, and the SysML v2 Pilot Implementation. Nodes can be dragged; clicking a node opens its project.">
+      <svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing Flexo MMS at the center, connected to OpenSysML, sysml-toolkit, and the SysML v2 Pilot Implementation. Nodes can be dragged; clicking a node opens its project; right-clicking shows its attributes and edges.">
         <defs>
           <marker id="osml-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
             <path d="M0,0 L8,4 L0,8 z" fill="rgba(255,255,255,.55)" />
@@ -758,7 +823,7 @@
           <text class="osml-node-sub" x="450" y="442" text-anchor="middle" font-size="10">OMG reference &middot; Java</text>
         </g>
       </svg>
-      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — each one opens its project.</p>
+      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes.</p>
     </div>
 <script>
 (function () {
@@ -811,9 +876,108 @@
         " " + (s.x + mx * 0.66 + px).toFixed(1) + "," + (s.y + my * 0.66 + py).toFixed(1) +
         " " + e.x.toFixed(1) + "," + e.y.toFixed(1));
     });
+    if (posEl && activeNode && pos[activeNode]) {
+      posEl.textContent = Math.round(pos[activeNode].x) + " · " + Math.round(pos[activeNode].y);
+    }
   }
 
-  var dragging = null, dragFrom = null, moved = false;
+  var dragging = null, dragFrom = null, moved = false, pressTimer = null, longPressed = false;
+
+  var escAttr = function (s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  };
+
+  // The detail card: right-clicking a node pins its attributes (stereotype, repo,
+  // live position and its edges) beside the figure and keeps it lit.
+  var card = document.createElement("div");
+  card.className = "osml-nodecard";
+  card.hidden = true;
+  card.setAttribute("role", "dialog");
+  root.appendChild(card);
+  var activeNode = null, posEl = null;
+
+  function peerName(key) {
+    return nodes[key].g.querySelector(".osml-node-label").textContent;
+  }
+
+  function hot(k, on) {
+    nodes[k].g.classList.toggle("is-hot", on);
+    wires.forEach(function (p) {
+      if (p.dataset.osmlWire.split(",").indexOf(k) >= 0) p.classList.toggle("is-hot", on);
+    });
+  }
+
+  function setFocus() {
+    root.classList.toggle("osml-schematic--focus",
+      root.querySelector(".osml-nnode.is-hot") !== null);
+  }
+
+  function cool(k) {
+    if (activeNode === k || nodes[k].g.matches(":hover")) return;
+    hot(k, false);
+    setFocus();
+  }
+
+  function openCard(k, px, py) {
+    var g = nodes[k].g;
+    var stereo = g.querySelector(".osml-node-stereo").textContent;
+    var name = g.querySelector(".osml-node-label").textContent;
+    var sub = g.querySelector(".osml-node-sub").textContent;
+    var href = g.dataset.osmlHref || "";
+    var edges = wires.filter(function (p) {
+      return p.dataset.osmlWire.split(",").indexOf(k) >= 0;
+    }).map(function (p) {
+      var ends = p.dataset.osmlWire.split(",");
+      return (ends[0] === k ? "\u2192 " : "\u2190 ") + peerName(ends[0] === k ? ends[1] : ends[0]);
+    });
+    card.innerHTML =
+      '<button class="osml-nodecard__close" type="button" aria-label="Close">\u00d7</button>' +
+      '<div class="osml-nodecard__stereo">' + escAttr(stereo) + '</div>' +
+      '<div class="osml-nodecard__name">' + escAttr(name) + '</div>' +
+      '<div class="osml-nodecard__sub">' + escAttr(sub) + '</div>' +
+      '<div class="osml-nodecard__attrs">' +
+      '<div class="osml-nodecard__k">kind</div><div class="osml-nodecard__v">' + escAttr(stereo) + '</div>' +
+      '<div class="osml-nodecard__k">repo</div><div class="osml-nodecard__v">' + escAttr(href.replace(/^https?:\/\//, "")) + '</div>' +
+      '<div class="osml-nodecard__k">pos</div><div class="osml-nodecard__v" data-osml-pos>\u00b7</div>' +
+      '<div class="osml-nodecard__k">edges</div><div class="osml-nodecard__v">' +
+      edges.map(function (e) { return '<div class="osml-nodecard__edge">' + escAttr(e) + '</div>'; }).join("") +
+      '</div></div>' +
+      '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>';
+    card.hidden = false;
+    card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
+    posEl = card.querySelector("[data-osml-pos]");
+    var x = Math.min(Math.max(px + 14, 4), Math.max(4, root.clientWidth - card.offsetWidth - 4));
+    var y = Math.min(Math.max(py + 14, 4), Math.max(4, root.clientHeight - card.offsetHeight - 4));
+    card.style.left = x + "px";
+    card.style.top = y + "px";
+    if (activeNode && activeNode !== k) {
+      var prev = activeNode;
+      activeNode = null;
+      cool(prev);
+    }
+    activeNode = k;
+    hot(k, true);
+    setFocus();
+  }
+
+  function closeCard() {
+    if (!activeNode) return;
+    var k = activeNode;
+    activeNode = null;
+    posEl = null;
+    card.hidden = true;
+    cool(k);
+    setFocus();
+  }
+
+  document.addEventListener("pointerdown", function (e) {
+    if (!activeNode || !root.isConnected) return;
+    if (card.contains(e.target) || nodes[activeNode].g.contains(e.target)) return;
+    closeCard();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && activeNode) closeCard();
+  });
 
   // Draw-in: wires trace themselves in, nodes fade up behind them.
   if (!reduceMotion.matches) {
@@ -833,9 +997,14 @@
     });
   }
   layout(0);
+  // Once drawn in, hand opacity back to the stylesheet so focus dimming applies.
   setTimeout(function () {
-    wires.forEach(function (p) { p.style.strokeDasharray = "none"; });
-  }, 1600);
+    wires.forEach(function (p) { p.style.strokeDasharray = ""; p.style.transition = ""; });
+    Object.keys(nodes).forEach(function (k) {
+      nodes[k].g.style.opacity = "";
+      nodes[k].g.style.transition = "";
+    });
+  }, 1700);
 
   if (!reduceMotion.matches) {
     (function tick(now) {
@@ -855,8 +1024,21 @@
   Object.keys(nodes).forEach(function (k) {
     var n = nodes[k];
     n.g.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0) return;
       dragging = n;
       moved = false;
+      longPressed = false;
+      clearTimeout(pressTimer);
+      // Touch has no right button: a held, unmoved press opens the same card.
+      if (e.pointerType !== "mouse") {
+        var cx = e.clientX, cy = e.clientY;
+        pressTimer = setTimeout(function () {
+          if (dragging !== n || moved) return;
+          longPressed = true;
+          var rr = root.getBoundingClientRect();
+          openCard(k, cx - rr.left, cy - rr.top);
+        }, 550);
+      }
       var p = svgPoint(e);
       dragFrom = { x: p.x - n.dx, y: p.y - n.dy };
       n.g.setPointerCapture(e.pointerId);
@@ -867,34 +1049,44 @@
       if (dragging !== n) return;
       var p = svgPoint(e);
       var nx = p.x - dragFrom.x, ny = p.y - dragFrom.y;
-      if (Math.abs(nx - n.dx) + Math.abs(ny - n.dy) > 4) moved = true;
+      if (Math.abs(nx - n.dx) + Math.abs(ny - n.dy) > 4) { moved = true; clearTimeout(pressTimer); }
       n.dx = nx; n.dy = ny;
       if (reduceMotion.matches) layout(0);
     });
     function endDrag() {
       if (dragging !== n) return false;
+      clearTimeout(pressTimer);
       dragging = null;
       n.g.classList.remove("is-dragging");
       return true;
     }
     n.g.addEventListener("pointerup", function () {
       if (!endDrag()) return;
-      if (!moved && n.g.dataset.osmlHref) {
+      if (!moved && !longPressed && n.g.dataset.osmlHref) {
         window.open(n.g.dataset.osmlHref, "_blank", "noopener");
       }
     });
     // A touch drag can end through cancellation, or capture through another route.
     n.g.addEventListener("pointercancel", endDrag);
     n.g.addEventListener("lostpointercapture", endDrag);
+    n.g.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      var rr = root.getBoundingClientRect();
+      openCard(k, e.clientX - rr.left, e.clientY - rr.top);
+    });
     n.g.addEventListener("pointerenter", function () {
-      n.g.classList.add("is-hover");
-      wires.forEach(function (p) {
-        if (p.dataset.osmlWire.split(",").indexOf(k) >= 0) p.classList.add("is-hover");
-      });
+      hot(k, true);
+      setFocus();
     });
     n.g.addEventListener("pointerleave", function () {
-      n.g.classList.remove("is-hover");
-      wires.forEach(function (p) { p.classList.remove("is-hover"); });
+      cool(k);
+    });
+    n.g.addEventListener("focus", function () {
+      hot(k, true);
+      setFocus();
+    });
+    n.g.addEventListener("blur", function () {
+      cool(k);
     });
     n.g.addEventListener("keydown", function (e) {
       if ((e.key === "Enter" || e.key === " ") && n.g.dataset.osmlHref) {
