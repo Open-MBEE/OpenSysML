@@ -50,11 +50,17 @@ print(model.eval("mass", subject="Demo::sedan"))
 On its first connection, the client starts a `sysml-grpc` service if none was
 configured. It checks `$OPENSYSML_BINARY`, the shared cache, downloads the
 release it was built against, then checks `$PATH`. Release downloads are
-verified against the digest pinned in the package when one is available. For
-a release newer than the package's table, the client verifies the release's
-signed checksum manifest and uses its digest. A manifest that disagrees with
-a package pin is an integrity failure. Without a package pin or a digest from
-a verifiable signed manifest, the download is refused unless
+verified against the digest pinned in the package when one is available. A
+release of `opensysml` pins the five `sysml-grpc-*` binaries of its own release,
+stamped into its `release-digests.json` from the built binaries before the wheel
+is built, so installing a release and connecting needs no environment variable
+and no `sigstore` at run time. For another release, or one newer than the
+package's table, the client verifies the release's signed checksum manifest
+with `sigstore` and uses its digest; if that package is missing the download is
+refused, never taken unverified, and the error names the package and its
+install (`python -m pip install 'sigstore>=4.5.0,<5'`). A manifest that
+disagrees with a package pin is an integrity failure. Without a package pin or
+a digest from a verifiable signed manifest, the download is refused unless
 `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` opts into trusting a same-origin checksum.
 See the [service guide](https://opensysml.org/clients/python/service/) for
 cache ownership, offline behavior, trust configuration and external service
