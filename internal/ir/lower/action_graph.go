@@ -115,6 +115,9 @@ type ActionGraph struct {
 	// calculation block's own flow.
 	StatementOrders map[ast.Node]*StatementOrder
 
+	// UnstatedCaseFlow marks an unordered case body lifted into an action graph.
+	UnstatedCaseFlow bool
+
 	// BlockNodes lists, per node, the action nodes its body's blocks (an `if` branch,
 	// a loop body) declare, in declaration order: subperformances reached by name from it.
 	BlockNodes map[ast.Node][]ast.Node

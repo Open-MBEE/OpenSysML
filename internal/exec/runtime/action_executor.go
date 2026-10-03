@@ -1609,10 +1609,15 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
-		if node.Kind == ast.UsageConstraint {
+		if e.tokenGraph(tokenIdx).StatementRuns[node] || node.Kind == ast.UsageConstraint {
 			return e.stepStatementNode(tokenIdx)
 		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
+	case *ast.PerformActionNode:
+		if e.tokenGraph(tokenIdx).UnstatedCaseFlow {
+			return e.stepStatementNode(tokenIdx)
+		}
+		return fmt.Errorf("unsupported node type: %T", node)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		// An action node member written as a statement (`then send x via p;`,
@@ -2821,6 +2826,8 @@ func statementNodeKeyword(node ast.Node) string {
 		return "a 'send'"
 	case *ast.TerminateStatement:
 		return "a 'terminate'"
+	case *ast.PerformActionNode:
+		return "a 'perform'"
 	case *ast.Usage:
 		return "the assertion " + ActionNodeName(n)
 	default:
