@@ -155,7 +155,7 @@ public final class Connection implements AutoCloseable {
 
   private static Optional<String> requiredRelease(ConnectionOptions options) {
     Optional<String> asked = BinaryDownloader.versionAskedFor(options);
-    if (asked.isEmpty() || !asked.get().equals("latest")) {
+    if (!asked.orElseThrow().equals("latest")) {
       return asked;
     }
     try {

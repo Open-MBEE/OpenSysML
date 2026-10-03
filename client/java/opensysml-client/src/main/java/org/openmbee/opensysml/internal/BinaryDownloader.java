@@ -175,7 +175,7 @@ public final class BinaryDownloader {
    * The release to download, from the options, the environment, or this client.
    *
    * @param options how the connection was configured
-   * @return the requested or built-against release tag
+   * @return the requested, environment, or built-against release tag; always present
    */
   public static Optional<String> versionAskedFor(ConnectionOptions options) {
     return versionAskedFor(options, System::getenv);

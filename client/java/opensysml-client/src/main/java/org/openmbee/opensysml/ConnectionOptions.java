@@ -279,8 +279,8 @@ public final class ConnectionOptions {
 
     /**
      * The release to download when no binary is installed, or when the cached one is another
-     * release. Without one, {@code $OPENSYSML_GRPC_VERSION} decides, and nothing is downloaded
-     * without either.
+     * release. Without one, {@code $OPENSYSML_GRPC_VERSION} decides; otherwise this client's
+     * built-against release is used.
      *
      * @param downloadVersion a release tag (e.g. {@code v0.3.0}) or {@code latest}; absent uses
      *     {@code $OPENSYSML_GRPC_VERSION} or this client's built-against release

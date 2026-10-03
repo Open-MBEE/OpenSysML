@@ -104,11 +104,12 @@ package Demo {
     Octave 7+.
 
 The service clients share the cache `~/.opensysml/bin/sysml-grpc` and can use a binary on `$PATH`;
-Python, Java and Rust download the release they were built against when no release is configured.
-An explicit path comes first, from a variable that differs by client: `$OPENSYSML_BINARY` for
-Python and Node, `$OPENSYSML_GRPC_BINARY` for Java and Rust. [Getting the service
-binary](#getting-the-service-binary) gives the five ways to provide one. The Go API needs none: it
-is the engine.
+Python and Java download and verify the release they were built against when no release is
+configured. Rust tries its built-against release but, without a pinned digest, falls back to a
+working cache or `$PATH` with a warning, or errors if neither is available. An explicit path comes
+first, from a variable that differs by client: `$OPENSYSML_BINARY` for Python and Node,
+`$OPENSYSML_GRPC_BINARY` for Java and Rust. [Getting the service binary](#getting-the-service-binary)
+gives the five ways to provide one. The Go API needs none: it is the engine.
 
 ### Author an action body
 

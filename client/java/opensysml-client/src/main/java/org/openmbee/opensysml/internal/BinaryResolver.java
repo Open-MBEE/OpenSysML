@@ -82,41 +82,23 @@ public final class BinaryResolver {
 
     boolean implicit = !BinaryDownloader.versionWasExplicit(options, environment);
     Optional<String> version = BinaryDownloader.versionAskedFor(options, environment);
+    String release = version.orElseThrow();
     Path cache = downloader.binaryPath();
-    if (version.isEmpty()) {
-      List<String> looked = new ArrayList<>();
-      for (Path candidate : candidates(cache, environment)) {
-        looked.add(candidate.toString());
-        if (isExecutable(candidate)) {
-          return verified(candidate, options);
-        }
-      }
-      throw new ServiceStartException(
-          "no sysml-grpc binary found; build one with `make build`, install one with the "
-              + "opensysml Python client, ask for a release with "
-              + "ConnectionOptions.downloadVersion() or $"
-              + ConnectionOptions.VERSION_ENV
-              + ", or name a binary with ConnectionOptions.binaryPath() or $"
-              + ConnectionOptions.BINARY_ENV
-              + ". Looked at: "
-              + String.join(", ", looked));
-    }
     Path resolved;
     try {
-      resolved =
-          downloaded(options, downloader, version.get(), cache, implicit, environment);
+      resolved = downloaded(options, downloader, release, cache, implicit, environment);
     } catch (UnpinnedReleaseException e) {
       if (!implicit) {
         throw e;
       }
-      throw unavailable(version.get(), e);
+      throw unavailable(release, e);
     } catch (ChecksumMismatchException e) {
       throw e;
     } catch (ServiceStartException e) {
       if (!implicit) {
         throw e;
       }
-      throw unavailable(version.get(), e);
+      throw unavailable(release, e);
     }
     return verified(resolved, options);
   }

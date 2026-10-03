@@ -937,8 +937,7 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
             chosen = _ensure_binary_locked(
                 force_download, version, github_repo, binary_path, implicit
             )
-            if chosen is not None:
-                return stable_binary() if chosen == binary_path else chosen
+            return stable_binary() if chosen == binary_path else chosen
     except UnpinnedReleaseError as e:
         if not implicit:
             raise
@@ -951,9 +950,8 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
         download_error = e
 
     on_path = binary_on_path()
-    if on_path is not None and download_error is None:
-        return on_path
-    if download_error is not None and on_path is not None:
+    assert download_error is not None
+    if on_path is not None:
         warnings.warn(
             f"Could not download sysml-grpc release {version} ({download_error}); "
             f"using {on_path} from $PATH instead.",
@@ -961,12 +959,8 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
         )
         return on_path
 
-    detail = (
-        f"Could not download the sysml-grpc release {version}: {download_error}."
-        if download_error is not None
-        else f"Could not find sysml-grpc on $PATH after checking {binary_path}."
-    )
-    if download_error is not None and '404' in str(download_error):
+    detail = f"Could not download the sysml-grpc release {version}: {download_error}."
+    if '404' in str(download_error):
         detail += " This may be an unreleased checkout."
     raise ConnectionError(
         f"{detail} Looked at: ${BINARY_ENV}, {binary_path}, $PATH.\n"
@@ -982,8 +976,7 @@ def _ensure_binary_locked(force_download, version, github_repo, binary_path, imp
     """The cache or a download of the release asked for, with the shared cache held.
 
     Returns:
-        str or None: The binary chosen, or None when nothing is cached and no
-            release was asked for, which leaves $PATH to answer
+        str: The executable path chosen from the cache or release download
     """
     # An unrecorded executable may be a developer's hand-installed build.
     cached = None

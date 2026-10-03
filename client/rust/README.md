@@ -93,6 +93,11 @@ release cannot be downloaded, a working cache is kept with a warning, or a
 binary on `$PATH` is used with a warning; checksum mismatches are never
 answered from either.
 
+Unlike the Python and Java clients, Rust verifies pinned digests only and does
+not verify signed release manifests. For releases without a pin, it refuses
+the download and uses a working cache or `$PATH` with a warning; if neither is
+available, it errors.
+
 The download goes to a temporary file, is verified, and only then atomically
 replaces the cache with mode `0700` (POSIX). Requests time out after 15 seconds.
 Beside the binary the client writes `sysml-grpc.json` — `version`, `sha256`,
