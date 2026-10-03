@@ -183,8 +183,10 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   place, and two orders that only swap adjacent independent statements (by the reduction's
   footprints) are one. Two or more candidates are a `ChoiceStatementOrder`
   (`stmtEngine.pickStatement`); a compound statement already started yields at its inner
-  boundaries so a dependent sibling may run between them. `reverse` and `declared` take
-  declaration order, so their results do not move; `explore`, the checker, replay and seeds
+  boundaries so a dependent sibling may run between them. `declared` and `reverse` run
+  a nested body's statements first to last as before, and an action definition's own statements
+  in the token order each policy already gave them (`reverse` last to first), so their results
+  do not move; `explore`, the checker, replay and seeds
   choose. A terminate action usage's implicit terminate is one of its body's statements in this
   sense. `explore` enumerates without partial-order reduction, so a body of many dependent
   unordered statements may exhaust its run budget, which it reports as incomplete.

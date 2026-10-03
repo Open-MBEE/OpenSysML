@@ -771,7 +771,8 @@ of several nodes can run ahead of, or be overtaken by, a concurrent one at each 
 unordered. Where another performance's moves can change what a leaf body computes, the body
 yields after its initial values are read and after each statement, so a concurrent branch may
 run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
-statements of one body still run in declaration order. A run that
+statements of a nested body run first to last, and an action definition's own statements in
+the token order each policy gives them (`reverse` last to first). A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the

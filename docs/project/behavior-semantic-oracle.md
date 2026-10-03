@@ -598,7 +598,9 @@ orders; the `if` case `{y = 0, y = 10}`. Each is stated as `outcomes` citing thi
 exploration reaches every member and nothing else, `Order` in 2 runs, `Chain` in 6, the
 independent body in 1. The exact goldens record the default schedule.
 
-`declared` and `reverse` perform the statements in declaration order, a tool-defined order.
+`declared` and `reverse` perform a nested body's statements first to last, and an action
+definition's own statements in the token order each policy gives them (`reverse` last to first),
+a tool-defined order.
 `explore`, `-engine check`, replay and seeded schedules choose among the statements that may run
 next (`lower.StatementOrder`). Two orders that differ only by swapping adjacent independent
 statements, by the footprints the checker's reduction uses, are one choice. A declaration of a
