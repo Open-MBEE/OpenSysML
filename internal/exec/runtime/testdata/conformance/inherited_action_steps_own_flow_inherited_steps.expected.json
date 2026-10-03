@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::S",
+	"outputs": {
+		"b.v": {"type": "Integer", "value": 7}
+	}
+}

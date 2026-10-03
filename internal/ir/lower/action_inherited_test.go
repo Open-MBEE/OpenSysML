@@ -412,6 +412,54 @@ func TestToActionGraphInheritsGatedSuccessionFlow(t *testing.T) {
 	t.Fatal("inherited succession flow f has no carrying edge")
 }
 
+func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			action a { out y : Integer; assign y := 7; }
+			action b { in v : Integer; }
+			first start then a;
+			then b;
+			then done;
+		}
+		action def S :> G {
+			flow f2 from a.y to b.v;
+		}
+	`
+	decl, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatalf("inherited action nodes: a = %v, b = %v", a, b)
+	}
+	flowDecl := actionMember(t, root, "S", "f2")
+	var ownFlow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		if graph.DataFlows[a][i].Decl == flowDecl {
+			ownFlow = &graph.DataFlows[a][i]
+			break
+		}
+	}
+	if ownFlow == nil || ownFlow.Target != b || ownFlow.SourcePin != "y" || ownFlow.TargetPin != "v" {
+		t.Fatalf("S's flow = %+v, want a.y to b.v", ownFlow)
+	}
+	for _, inherited := range []ast.Node{a, b} {
+		count := 0
+		for _, node := range graph.Nodes {
+			if node == inherited {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("inherited node %s occurs %d times, want once", getNodeName(inherited), count)
+		}
+	}
+}
+
 func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
 	src := `
 		action def B1 {

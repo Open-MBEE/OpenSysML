@@ -30,6 +30,28 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("specialization_flow_connects_inherited_steps", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def G {
+				action a { out y : Integer; assign y := 7; }
+				action b { in v : Integer; }
+				first start then a;
+				then b;
+				then done;
+			}
+			action def S :> G {
+				flow f2 from a.y to b.v;
+			}
+		}`, "S")
+		if err != nil {
+			t.Fatalf("ExecuteAction(S): %v", err)
+		}
+		if got, ok := outputs["b.v"]; !ok || got.Kind != ValConst || got.Const.Int != 7 {
+			t.Fatalf("S b.v = %v, want 7", got)
+		}
+	})
+
 	t.Run("inherited_gated_succession_flow", func(t *testing.T) {
 		for _, tc := range []struct {
 			guard string

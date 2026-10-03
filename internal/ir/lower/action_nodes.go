@@ -185,7 +185,19 @@ func collectInheritedActionNodes(graph *ActionGraph, members []ast.Node) {
 			}
 			ensureInheritedActionNode(graph, n.Target)
 		case *ast.Usage:
-			if n.Kind == ast.UsageSuccession && len(n.ConnectorEnds) == 2 {
+			switch {
+			case n.Kind == ast.UsageFlow && n.FlowEnds != nil:
+				for _, end := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
+					segments := endSegments(end)
+					if len(segments) == 0 {
+						continue
+					}
+					nodeName := &ast.QualifiedName{}
+					nodeName.NodeSpan = end.Span()
+					nodeName.SetSingleton(ast.NameSegment{Text: segments[0], Span: end.Span()})
+					ensureInheritedActionNode(graph, nodeName)
+				}
+			case n.Kind == ast.UsageSuccession && len(n.ConnectorEnds) == 2:
 				ensureInheritedActionNode(graph, connectorEndReference(n.ConnectorEnds[0]))
 				ensureInheritedActionNode(graph, connectorEndReference(n.ConnectorEnds[1]))
 			}
