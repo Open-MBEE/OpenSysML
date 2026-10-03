@@ -1,0 +1,9 @@
+exit: idle
+enter: outer (entry action)
+stmt action body
+stmt action body
+  stmt assign ready
+    eval literal true -> true
+eval feature ready -> true
+enter: active
+transition: idle -> outer (event: accept Go)

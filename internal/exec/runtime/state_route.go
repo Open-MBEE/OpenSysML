@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -306,6 +307,9 @@ func (e *StateExecutor) defaultEntryBodyAvailable(
 		if routeErr != nil {
 			return true
 		}
+		if resolved.choice != nil {
+			return true
+		}
 		if !e.defaultEntryRouteAvailable(resolved) {
 			return false
 		}
@@ -317,22 +321,33 @@ func (e *StateExecutor) defaultEntryBodyAvailable(
 	} else if entry.Target != nil {
 		targets = append(targets, entry.Target)
 	}
+	if len(targets) == 0 {
+		return true
+	}
 	for _, target := range targets {
-		if seenStates[target] {
-			continue
+		if e.defaultEntryTargetAvailable(target, maps.Clone(seenBodies), maps.Clone(seenStates)) {
+			return true
 		}
-		seenStates[target] = true
-		regions, composite := e.graph.CompositeStates[target]
-		if !composite {
-			if !e.defaultEntryBodyAvailable(target, seenBodies, seenStates) {
-				return false
-			}
-			continue
-		}
-		for _, region := range regions {
-			if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
-				return false
-			}
+	}
+	return false
+}
+
+func (e *StateExecutor) defaultEntryTargetAvailable(
+	target *ast.StateNode,
+	seenBodies map[ast.Node]bool,
+	seenStates map[*ast.StateNode]bool,
+) bool {
+	if seenStates[target] {
+		return true
+	}
+	seenStates[target] = true
+	regions, composite := e.graph.CompositeStates[target]
+	if !composite {
+		return e.defaultEntryBodyAvailable(target, seenBodies, seenStates)
+	}
+	for _, region := range regions {
+		if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
+			return false
 		}
 	}
 	return true
@@ -347,24 +362,10 @@ func (e *StateExecutor) defaultEntryRouteAvailable(current route) bool {
 		}
 		return false
 	}
-	if current.choice == nil {
+	if current.choice != nil {
 		return true
 	}
-	outgoing := e.graph.Transitions[current.choice]
-	enabled, _, err := e.enabledBranches(current.choice, outgoing)
-	if err != nil {
-		return true
-	}
-	for _, index := range enabled {
-		beyond, err := e.follow(current.choice, outgoing[index], route{crossed: current.crossed})
-		if errors.Is(err, errNoWayThrough) {
-			continue
-		}
-		if err != nil || e.defaultEntryRouteAvailable(beyond) {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 // settleDraws makes the draws the route is open at, in turn, once the transition

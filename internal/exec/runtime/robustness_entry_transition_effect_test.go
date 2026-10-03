@@ -40,36 +40,52 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 		}
 	})
 
-	t.Run("choice without an enabled branch disables entry", func(t *testing.T) {
+	t.Run("choice without an enabled branch after the effect returns its typed error", func(t *testing.T) {
 		exec := stateExecutorForSource(t, "Machine", `package test {
 			attribute def Go;
-			attribute def Later;
 			state Machine {
 				attribute ready : Boolean = false;
+				attribute attempts : Integer = 0;
 				entry; then start;
 				state start;
 				state target {
 					entry action boot { }
-					transition boot then pick;
+					transition boot do action {
+						assign attempts := attempts + 1;
+					} then pick;
 					choice pick;
 					transition pick if ready then nested;
 					state nested;
 				}
-				state fallback;
 				transition first start accept Go then target;
-				transition first start accept Later then fallback;
 			}
 		}`)
 		exec.SendSignal("Go", nil)
-		if err := exec.ProcessNextEvent(); err != nil {
-			t.Fatalf("ProcessNextEvent(Go) = %v, want disabled transition", err)
+		err := exec.ProcessNextEvent()
+		if !errors.Is(err, ErrChoiceWithoutBranch) || !errors.Is(err, errNoWayThrough) {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want ErrChoiceWithoutBranch wrapped by errNoWayThrough", err)
 		}
-		assertCurrentState(t, exec, "start")
-		exec.SendSignal("Later", nil)
-		if err := exec.ProcessNextEvent(); err != nil {
-			t.Fatalf("ProcessNextEvent(Later): %v", err)
+		if got := exec.StateData()["attempts"].Const.Int; got != 1 {
+			t.Fatalf("entry effect attempts = %d, want 1 before resolving the choice", got)
 		}
-		assertCurrentState(t, exec, "fallback")
+	})
+
+	t.Run("junction without an enabled branch is resolved before the effect", func(t *testing.T) {
+		err := stateExecutorError(t, `package test {
+			state Machine {
+				attribute ready : Boolean = false;
+				entry action boot { }
+				transition boot do action {
+					assign ready := true;
+				} then pick;
+				junction pick;
+				transition pick if ready then active;
+				state active;
+			}
+		}`, "Machine")
+		if !errors.Is(err, errNoWayThrough) || errors.Is(err, ErrChoiceWithoutBranch) {
+			t.Fatalf("execution error = %v, want errNoWayThrough from junction pick", err)
+		}
 	})
 
 	t.Run("fork target remains unsupported", func(t *testing.T) {

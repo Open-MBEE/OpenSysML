@@ -5013,13 +5013,19 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 			return nil, err
 		}
 		if holds {
+			var entryRoute route
+			if entry.Via != nil {
+				entryRoute, err = e.resolveEntryRoute(entry.Via)
+				if err != nil {
+					return nil, err
+				}
+			}
 			if err := e.runEntryEffect(owner, entry); err != nil {
 				return nil, err
 			}
 			target := entry.Target
 			if entry.Via != nil {
-				var err error
-				target, err = e.followEntryRoute(owner, entry.Via)
+				target, err = e.continueEntryRoute(entry.Via, entryRoute)
 				if err != nil {
 					return nil, err
 				}
@@ -5057,11 +5063,16 @@ func (e *StateExecutor) runEntryEffect(owner ast.Node, entry *lower.EntryTransit
 	return nil
 }
 
-func (e *StateExecutor) followEntryRoute(owner ast.Node, via *ast.PseudostateNode) (*ast.StateNode, error) {
+func (e *StateExecutor) resolveEntryRoute(via *ast.PseudostateNode) (route, error) {
 	route, err := e.followOut(via, route{})
 	if err != nil {
-		return nil, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
+		return route, fmt.Errorf("entry transition through %s %s: %w", via.Kind, via.Name, err)
 	}
+	return route, nil
+}
+
+func (e *StateExecutor) continueEntryRoute(via *ast.PseudostateNode, route route) (*ast.StateNode, error) {
+	var err error
 	for {
 		if route.draw != nil {
 			route, err = e.settleDraws(route)
