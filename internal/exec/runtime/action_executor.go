@@ -392,7 +392,10 @@ func (e *ActionExecutor) Step() error {
 	if acted {
 		e.moved = true
 	}
-	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
+	// A one-move step ends at its move with the other tokens untried, so the move is
+	// progress even when the work it resumed parks again where it was.
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore) ||
+		acted && e.ctx.scheduling().oneMove()
 	if err != nil {
 		e.endPausedBodies()
 		return err
