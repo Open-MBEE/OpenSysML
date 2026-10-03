@@ -240,7 +240,10 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
 | «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
-| ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
+| ObjectFlow | `succession flow of T from a.out to b.in;` (T the source pin's type, no `of` when it is untyped), which orders `b` after `a` and delivers the value `a.out` holds when `a` completes; `flow a.out to b.in;` where another edge already orders them or the flow carries its value only, and into a «stream» parameter, which UML streams;, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
+| ObjectFlow with a guard | `first a if g then f; succession flow f of T from a.out to b.in;`, the guarded succession leading to the flow itself (named `'a.out to b.in'` when the v1 flow has no name), so the value moves and `b` is ordered only when `g` holds; into an action entered through a timing stamp or a structured node, `first a if g then` that entry beside a `flow` carrying the value; a guard of literal `true` is no guard, so the flow is an unguarded `succession flow` | mapped |
+| ObjectFlow into or out of a fork, join or merge | the node declares `in ref inputObjectN` for the Nth object flow into it and `out ref outputObjectN` for the Nth out of it — `out ref outputObject1 = inputObject1;` at a fork, `= (inputObject1, inputObject2)` at a join (`nonunique`) or merge — and the flow names the feature, `succession flow of T from a.y to f.inputObject1;`; the runtime holds the value at the node until a token passes it, a fork copying it to every output, a join gathering one of each input, a merge passing on the one that arrived with the token; a node whose flows lead to or from an end no flow may name (a pin of an unmigrated action, a node of a structured activity node the flow enters from outside) keeps them routed from their sources to the pins the node leads to | mapped / approximated |
+| Edge `weight` | not written: every measured weight is UML's default 1, which a succession already means, and the `SysMLv1Library::ActivityEdgeData` metadata the transformation names is not bundled | — |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
@@ -401,7 +404,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | v1 edge shown by a diagram | named member |
 |---|---|
 | ControlFlow | `succession 'a to b' first a then b;` (`'start to b'` from an initial node, `if g` after the source as before); a decision's `else` branch, which v2 admits no name for, is written `else x;` on the line right after its `decide` (the grammar sequences it from the member before it) and is reported so |
-| ObjectFlow between pins | `flow 'a.out to b.in' from a.out to b.in;`; several edges carrying one producer–pin pair share the one member, named when any of them is shown |
+| ObjectFlow between pins | `succession flow 'a.out to b.in' of T from a.out to b.in;` (or `flow 'a.out to b.in' from a.out to b.in;` as the table above says); several edges carrying one producer–pin pair share the one member, named when any of them is shown |
 | ObjectFlow at a parameter | `binding 'p = a.out' bind p = a.out;` — exposable, but an `ActionFlowView` draws neither the parameter nor the binding, so its route is reported `not drawn` |
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
 | Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
@@ -1013,9 +1016,12 @@ library root.
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
 call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins
-are `bind`/`flow` statements from the object flows that reach them. A node several edges leave
-without a fork is written through one (`fork fork2;`), and a node several edges reach without
-a join waits through one, both reported as approximations. An opaque action whose body is a
+are `bind`/`flow` statements from the object flows that reach them. An object flow between two
+actions is a `succession flow`: the target waits for every succession flow that reaches it, and
+each succession flow leaving a node starts its target beside the node's other successions, as
+after a fork. A node several control flows leave without a fork is written through one
+(`fork fork2;`), and a node several control flows reach without a join waits through one, both
+reported as approximations. An opaque action whose body is a
 script is read statement by statement through the [opaque-language subset](#the-opaque-language-subset):
 `i = 1; GS_Found = false;` becomes two `assign` statements, `i += 1` an
 `assign context.tcs.i := context.tcs.i + 1;`, and the body is kept as a comment naming its language
@@ -1210,7 +1216,8 @@ itself is reported as routing data only. A control node no edge leaves ends the 
 `done` does — through the stamp or wait a DurationObservation or DurationConstraint places on it, as a
 flow final does — and one no edge reaches is skipped as a node nothing refers to. An action whose
 input is fed by an object flow from an action outside its control path waits for the value as
-well as for the control flow — a `join` of the two — but only when the producer runs on every
+well as for the control flow — the flow is a `succession flow` beside the control flow's
+succession — but only when the producer runs on every
 pass of the surrounding loop; a producer a later pass can skip, through a decision or a guarded
 edge, is not waited on, since the wait would starve the consumer where v1 would go on with the
 value the last pass left.

@@ -104,6 +104,9 @@ type EdgeForm struct {
 	Else        bool      `json:"else,omitempty"`
 	Probability *ExprForm `json:"probability,omitempty"`
 	Decl        SpanForm  `json:"decl"`
+	// Gate is the guarded succession leading to the succession flow this edge
+	// orders (`first a if g then f;`), when one does.
+	Gate *SpanForm `json:"gate,omitempty"`
 }
 
 // ObjectFlowForm is a data flow from a pin of Source to a pin of Target. Kind is
@@ -116,6 +119,9 @@ type ObjectFlowForm struct {
 	Target    int      `json:"target"`
 	TargetPin string   `json:"targetPin,omitempty"`
 	Decl      SpanForm `json:"decl"`
+	// Gate is the succession leading to this succession flow, which moves its
+	// value only when that succession is taken.
+	Gate *SpanForm `json:"gate,omitempty"`
 }
 
 // PinBindingForm is a binding connector with an end at a node's pin; see
@@ -411,6 +417,7 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 			if edge.Probability != nil {
 				ef.Probability = x.expr(scope, edge.Probability.Expr)
 			}
+			ef.Gate = x.gate(scope, edge.Gate)
 			form.Edges = append(form.Edges, ef)
 		}
 		for _, flow := range graph.DataFlows[node] {
@@ -422,6 +429,7 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 				Target:    ids.add(flow.Target),
 				TargetPin: flow.TargetPin,
 				Decl:      x.span(scope, flow.Decl),
+				Gate:      x.gate(scope, flow.Gate),
 			})
 		}
 	}
@@ -832,6 +840,15 @@ func (x *graphsExporter) span(scope *symbols.Scope, node ast.Node) SpanForm {
 	}
 	s := node.Span()
 	return SpanForm{Document: docOf(scope), Offset: s.Offset, Len: s.Len}
+}
+
+// gate is the span of the succession gating a succession flow, nil when none does.
+func (x *graphsExporter) gate(scope *symbols.Scope, node ast.Node) *SpanForm {
+	if nilNode(node) {
+		return nil
+	}
+	span := x.span(scope, node)
+	return &span
 }
 
 // connections writes the connectors a behavior routes through.

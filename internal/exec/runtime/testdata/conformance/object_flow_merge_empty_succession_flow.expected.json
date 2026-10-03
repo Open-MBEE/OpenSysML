@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"evaluate": "test::control",
+	"trace": true,
+	"outputs": {
+		"twos": {"type": "Integer", "value": 1}
+	}
+}
