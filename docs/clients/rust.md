@@ -75,7 +75,20 @@ as blocking typed calls.
 
 ## Service source
 
-Set `OPENSYSML_GRPC_BINARY` or put `sysml-grpc` on `$PATH`. See the
+A crate published from a release tag carries that release's service digests,
+stamped from the release checksum manifest at publish time. With nothing
+configured, it downloads the release it was built against, verifies it against
+those digests and installs it in the shared cache `~/.opensysml/bin/sysml-grpc`.
+
+`opensysml` 0.9.1 and earlier were published without these digests and do not
+download the service. For them, set `OPENSYSML_GRPC_BINARY` or put `sysml-grpc`
+on `$PATH`.
+
+A crate built from a Git checkout, or asked for another release through
+`OPENSYSML_GRPC_VERSION`, needs a matching embedded pin or
+`OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`, which trusts the checksum served beside
+the binary. The client does not verify the manifest's Sigstore signature
+itself. See the
 [service-binary reference](../reference/clients.md#providing-the-service-binary).
 
 ## Next steps
