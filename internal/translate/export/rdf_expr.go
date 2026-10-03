@@ -394,7 +394,7 @@ func binaryLiteralText(term rdf.Term) string {
 	if exact, err := semantics.ParseRational(term.Value, semantics.DefaultMaxIntegerBits); err == nil && exact.Rat().Cmp(value) == 0 {
 		return term.Value
 	}
-	return decimalText(value, max(int(value.Denom().TrailingZeroBits()), 1))
+	return decimalText(value, max(int(value.Denom().TrailingZeroBits()), 1)) // #nosec G115 -- a trailing-zero count fits
 }
 
 func (e *encoder) typed(subject rdf.Term, metaclass string) {

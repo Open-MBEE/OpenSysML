@@ -26,7 +26,7 @@ var ErrRationalSizeLimit = errors.New("rational size limit exceeded")
 // must not modify it afterwards.
 func RatValue(r *big.Rat) Value {
 	if r.Num().IsInt64() && r.Num().Int64() != math.MinInt64 && r.Denom().IsUint64() && r.Denom().Uint64() <= math.MaxUint32 {
-		return Value{Kind: ValRational, Int: r.Num().Int64(), den: uint32(r.Denom().Uint64())}
+		return Value{Kind: ValRational, Int: r.Num().Int64(), den: uint32(r.Denom().Uint64())} // #nosec G115 -- checked within uint32 above
 	}
 	return Value{Kind: ValRational, ext: r}
 }
@@ -56,7 +56,7 @@ func smallRat(num, den int64) (Value, bool) {
 	if den > math.MaxUint32 {
 		return Value{}, false
 	}
-	return Value{Kind: ValRational, Int: num, den: uint32(den)}, true
+	return Value{Kind: ValRational, Int: num, den: uint32(den)}, true // #nosec G115 -- checked within uint32 above
 }
 
 func abs64(x int64) int64 {
@@ -153,7 +153,7 @@ func (v Value) RatSign() int {
 // magnitude plus the bits of its denominator.
 func (v Value) RatBitLen() int64 {
 	if num, den, ok := v.small(); ok {
-		return int64(bits.Len64(uint64(abs64(num))) + bits.Len64(uint64(den)))
+		return int64(bits.Len64(uint64(abs64(num))) + bits.Len64(uint64(den))) // #nosec G115 -- both non-negative
 	}
 	r := v.ratView()
 	return int64(r.Num().BitLen() + r.Denom().BitLen())
@@ -191,7 +191,7 @@ func RationalOfReal(r float64) (Value, bool) {
 	// r is m·2^e with m odd; a denominator 2^-e within uint32 stays inline.
 	frac, exp := math.Frexp(r)
 	m, e := int64(frac*(1<<53)), exp-53
-	tz := bits.TrailingZeros64(uint64(m))
+	tz := bits.TrailingZeros64(uint64(m)) // #nosec G115 -- only the trailing zero bits are read
 	m, e = m>>tz, e+tz
 	if e < 0 && e >= -31 {
 		return Value{Kind: ValRational, Int: m, den: 1 << -e}, true
@@ -579,9 +579,9 @@ func (v Value) FormatRational() string {
 	}
 	k := max(twos, fives)
 	scaled := num.BigInt()
-	scaled.Mul(scaled, new(big.Int).Exp(ten, big.NewInt(int64(k)), nil))
+	scaled.Mul(scaled, new(big.Int).Exp(ten, big.NewInt(int64(k)), nil)) // #nosec G115 -- a trailing-zero count fits
 	scaled.Quo(scaled, den.bigView())
-	return formatDecimal(scaled, int64(k))
+	return formatDecimal(scaled, int64(k)) // #nosec G115 -- a trailing-zero count fits
 }
 
 // formatDecimal renders n·10^-k in FormatReal's layout: positional between

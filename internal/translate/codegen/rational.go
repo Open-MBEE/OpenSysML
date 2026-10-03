@@ -215,7 +215,7 @@ func scalesExactly(x Expr) bool {
 		return false
 	}
 	n := r.Num()
-	return n.BitLen()-1 == int(n.TrailingZeroBits())
+	return n.BitLen()-1 == int(n.TrailingZeroBits()) // #nosec G115 -- a trailing-zero count fits
 }
 
 // exactWiden guards x's Integer leaves and whole results, so that binary64
