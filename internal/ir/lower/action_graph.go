@@ -581,6 +581,16 @@ type Unsupported struct {
 
 func (Unsupported) statement() { /* marker: closed Statement set */ }
 
+// Assert is an `assert constraint` a succession orders among a flow's steps: the
+// flow reaching it checks the conditions Sym states.
+type Assert struct {
+	Node  *ast.Usage
+	Sym   *symbols.Symbol // the assertion's symbol, nil where the scope does not declare it
+	Scope *symbols.Scope  // the scope the assertion was declared in
+}
+
+func (Assert) statement() { /* marker: closed Statement set */ }
+
 // Accept is a lowered accept parameter: `action r accept msg : Warning;`.
 // SignalType is the parameter's declared type name as written, nil when it was
 // declared without one, in which case the node accepts a message of any type.
@@ -2009,6 +2019,49 @@ func sequencedMembers(members []ast.Node) map[ast.Node]bool {
 		}
 	}
 	return sequenced
+}
+
+// orderedAssertions collects the `assert constraint` members of a body that one
+// of its successions names or binds by position, each a step of the flow.
+func orderedAssertions(members []ast.Node) map[*ast.Usage]bool {
+	named := make(map[string]bool)
+	name := func(ends ...*ast.QualifiedName) {
+		for _, end := range ends {
+			if end != nil && len(end.Parts) == 1 {
+				named[end.Parts[0].Text] = true
+			}
+		}
+	}
+	for _, member := range members {
+		switch n := unwrapMembership(member).(type) {
+		case *ast.InitialNode:
+			name(n.First, n.Successor)
+		case *ast.SuccessionEdge:
+			name(n.Source, n.Target)
+		case *ast.ControlFlowEdge:
+			name(n.Source, n.Target)
+		case *ast.Usage:
+			if n.Kind == ast.UsageSuccession {
+				for _, end := range n.ConnectorEnds {
+					if ref := connectorEndReference(end); ref != nil && ast.SimpleName(ref) != "" {
+						named[ast.SimpleName(ref)] = true
+					}
+				}
+			}
+		}
+	}
+	sequenced := sequencedMembers(members)
+	ordered := make(map[*ast.Usage]bool)
+	for _, member := range members {
+		u, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || !resolve.IsAssertion(u) {
+			continue
+		}
+		if sequenced[u] || named[getNodeName(u)] || named[u.Ident.ShortName] {
+			ordered[u] = true
+		}
+	}
+	return ordered
 }
 
 func findNodeByName(nodes []ast.Node, qname *ast.QualifiedName) ast.Node {

@@ -76,6 +76,7 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
+	asserted := orderedAssertions(members)
 
 	// First pass: collect nodes.
 	for _, member := range members {
@@ -109,6 +110,9 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 				graph.Nodes = append(graph.Nodes, n)
 				recordNodeMultiplicity(graph, n)
 				recordNodeScope(graph, n, childScope(scope, n))
+			case asserted[n]:
+				graph.Nodes = append(graph.Nodes, n)
+				graph.Bodies[n] = []Statement{Assert{Node: n, Sym: scope.MemberDeclaring(n), Scope: scope}}
 			}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
@@ -185,6 +189,10 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
+		if resolve.IsAssertion(n) {
+			graph.Bodies[n] = []Statement{Assert{Node: n, Sym: declaringScope.MemberDeclaring(n), Scope: declaringScope}}
+			break
+		}
 		recordNodeMultiplicity(graph, n)
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
