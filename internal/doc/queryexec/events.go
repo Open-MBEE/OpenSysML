@@ -198,6 +198,8 @@ func (e *executor) instantArgument(expression queryplan.Expression, name string)
 	switch {
 	case bound.kind == ValueInteger:
 		instant = bound.integer.AsReal()
+	case bound.kind == ValueRational:
+		instant = bound.integer.AsReal()
 	case bound.kind == ValueReal:
 		instant = bound.real
 	case bound.kind == ValueQuantity:

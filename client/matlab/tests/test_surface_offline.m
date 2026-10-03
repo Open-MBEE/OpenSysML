@@ -72,6 +72,27 @@ function test_surface_offline()
     wire = opensysml.encodeValue({int64(1), {wide}}, bigConn);
     assert_equal(wire.sequence.elements{2}.sequence.elements{1}.bigIntValue, ...
         '1180591620717411303424', 'nested Integer beyond int64 with big_int_values');
+    third = struct('numerator', '1', 'denominator', '3');
+    thirdQuantity = struct('magnitude', third, 'unit', 'kg');
+    for value = {third, {int64(1), {third}}, thirdQuantity, struct('components', {{thirdQuantity}})}
+        assert_error(@() opensysml.encodeValue(value{1}, conn), ...
+            'opensysml:missingCapability', 'exact Rational without rational_values');
+    end
+    rationalConn = opensysml.external('127.0.0.1:1');
+    rationalConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
+        {[capabilities, {'rational_values'}]}));
+    wire = opensysml.encodeValue({int64(1), {third}}, rationalConn);
+    assert_equal(wire.sequence.elements{2}.sequence.elements{1}.rationalValue, third, ...
+        'nested exact Rational with rational_values');
+    half = struct('numerator', '1', 'denominator', '2');
+    assert_equal(opensysml.encodeValue(half, rationalConn), struct('rationalValue', half), ...
+        'double-exact Rational with rational_values');
+    wire = opensysml.encodeValue({half}, conn);
+    assert_equal(wire.sequence.elements{1}, struct('realValue', 0.5), ...
+        'double-exact Rational without rational_values');
+    halfQuantity = opensysml.encodeValue(struct('magnitude', half, 'unit', 'kg'), conn);
+    assert_equal(halfQuantity.quantity.realMagnitude, 0.5, ...
+        'double-exact Rational magnitude without rational_values');
     assert_equal(opensysml.parseUint64('18446744073709551615'), ...
         intmax('uint64'), 'exact uint64 parsing');
 
@@ -199,6 +220,11 @@ function test_surface_offline()
     assert_equal(wide{1}.values{1}.bigIntValue, '9223372036854775808', 'Integer binding beyond int64');
     decodedWide = opensysml.internal.decodeDocumentValue(struct('bigIntValue', '-1180591620717411303424'));
     assert_equal(decodedWide.bigInteger, '-1180591620717411303424', 'document Integer beyond int64');
+    exact = opensysml.buildDocumentBindings(struct('r', {{struct('numerator', '2', 'denominator', '3')}}));
+    assert_equal(exact{1}.values{1}.rationalValue.denominator, '3', 'exact Rational binding');
+    decodedExact = opensysml.internal.decodeDocumentValue(struct('rationalValue', ...
+        struct('numerator', '-2', 'denominator', '3')));
+    assert_equal(decodedExact.numerator, '-2', 'document exact Rational');
     queryConn = opensysml.external('127.0.0.1:1');
     queryConn.primeServerInfo(struct('version', 'test', 'capabilities', ...
         {{'document_query'}}));
@@ -209,6 +235,22 @@ function test_surface_offline()
             'bindings', struct('n', {bound})), ...
             'opensysml:missingCapability', 'document binding beyond int64 without big_int_values');
     end
+    thirdBound = struct('numerator', '1', 'denominator', '3');
+    for bound = {thirdBound, struct('magnitude', thirdBound, 'unit', '')}
+        assert_error(@() opensysml.runDocumentQuery(queryModel, 'Q::q', ...
+            'bindings', struct('n', {bound})), ...
+            'opensysml:missingCapability', 'document exact Rational without rational_values');
+    end
+    halfBound = struct('numerator', '1', 'denominator', '2');
+    older = opensysml.buildDocumentBindings( ...
+        struct('n', {{halfBound, thirdBound, struct('magnitude', halfBound, 'unit', 'kg')}}));
+    older = cellfun(@opensysml.internal.bindingRationalsAsReals, older, 'UniformOutput', false);
+    assert_equal(older{1}.values{1}, struct('realValue', 0.5), ...
+        'document double-exact Rational as a Real without rational_values');
+    assert_equal(older{1}.values{2}.rationalValue, thirdBound, ...
+        'document Rational no double holds kept without rational_values');
+    assert_equal(older{1}.values{3}.quantity.realMagnitude, 0.5, ...
+        'document double-exact Rational magnitude as a Real without rational_values');
     assert_error(@() opensysml.buildDocumentBindings(struct('bad', {struct('type', 'verdict')})), ...
         'opensysml:argument', 'unsupported document binding');
 

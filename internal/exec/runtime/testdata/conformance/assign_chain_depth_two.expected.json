@@ -3,6 +3,6 @@
 	"evaluate": "test::write",
 	"trace": true,
 	"outputs": {
-		"seen": {"type": "Real", "value": 4.5}
+		"seen": {"type": "Rational", "value": "4.5"}
 	}
 }

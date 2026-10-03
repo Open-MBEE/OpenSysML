@@ -169,6 +169,34 @@ static inline int sysml_cmp_ir(sysml_int a, sysml_real r) {
 	return r > t ? -1 : (r < t ? 1 : 0);
 }
 
+/* An Integer in exact Rational arithmetic, computed in binary64 only over values binary64 holds. */
+static inline sysml_real sysml_to_real_exact(sysml_int a) {
+	if (__builtin_expect(a > (1LL << 53) || a < -(1LL << 53), 0)) sysml_fail("unsupported: exact Rational arithmetic over an Integer beyond 2^53, which binary64 does not hold exactly");
+	return (sysml_real)a;
+}
+
+/* r with an exact Rational's unsigned zero. */
+static inline sysml_real sysml_unsigned_zero(sysml_real r) { return r == 0 ? 0.0 : r; }
+
+/* The exact whole number r, which binary64 holds below 2^53. */
+static inline sysml_real sysml_whole(sysml_real r) {
+	if (__builtin_expect(r >= 9007199254740992.0 || r <= -9007199254740992.0, 0)) sysml_fail("unsupported: exact Rational arithmetic reaching 2^53, beyond which binary64 does not hold a whole number exactly");
+	return sysml_unsigned_zero(r);
+}
+
+/* Orders the exact quotient a/b, b nonzero, against the whole number c. */
+static inline int sysml_cmp_q(sysml_int a, sysml_int b, __int128 c) {
+	__int128 n = a, d = b;
+	if (d < 0) { n = -n; d = -d; }
+	__int128 m = c * d;
+	return n < m ? -1 : (n > m ? 1 : 0);
+}
+
+static inline sysml_int sysml_nonzero(sysml_int b) {
+	if (__builtin_expect(b == 0, 0)) sysml_fail("division by zero");
+	return b;
+}
+
 /* A value of a Real-typed feature: an Integer unless real is set. */
 typedef struct { bool real; sysml_int i; sysml_real r; } sysml_num;
 
@@ -497,7 +525,7 @@ static sysml_real sysml_parse_real(const char *s, const char *name) {
 		fprintf(stderr, "argument %s: arithmetic overflow: %s is outside the Real range\n", name, s);
 		exit(1);
 	}
-	return v;
+	return v == 0 ? 0.0 : v;
 }
 
 static sysml_num sysml_parse_num(const char *s, const char *name) {
@@ -904,6 +932,9 @@ func (e *cEmitter) expr(x Expr) string {
 		if x.X.Type() == TypeNum {
 			return "sysml_num_real(" + e.expr(x.X) + ")"
 		}
+		if x.Exact {
+			return "sysml_to_real_exact(" + e.expr(x.X) + ")"
+		}
 		return "(sysml_real)" + e.expr(x.X)
 	case ToNum:
 		switch x.X.Type() {
@@ -1000,6 +1031,9 @@ func (e *cEmitter) unary(x Unary) string {
 		if x.T == TypeInt {
 			return "sysml_neg(" + operand + ")"
 		}
+		if x.Exact {
+			return "(0.0 - " + operand + ")"
+		}
 		return "(-" + operand + ")"
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no unary case for %s", x.Op)
@@ -1007,6 +1041,18 @@ func (e *cEmitter) unary(x Unary) string {
 }
 
 func (e *cEmitter) binary(x Binary) string {
+	if q, ok := exactQuotient(x.L); ok && isComparison(x.Op) {
+		return e.sequenced([]Expr{q.L, q.R}, func(v []string) string {
+			return fmt.Sprintf("({ sysml_nonzero(%s); %s; })", v[1], e.sequenced([]Expr{wholeOperand(x.R)}, func(c []string) string {
+				return fmt.Sprintf("(sysml_cmp_q(%s, %s, (__int128)%s) %s 0)", v[0], v[1], c[0], cOperator(x.Op))
+			}))
+		})
+	}
+	if q, ok := exactQuotient(x.R); ok && isComparison(x.Op) {
+		return e.sequenced([]Expr{wholeOperand(x.L), q.L, q.R}, func(v []string) string {
+			return fmt.Sprintf("(-sysml_cmp_q(%s, sysml_nonzero(%s), (__int128)%s) %s 0)", v[1], v[2], v[0], cOperator(x.Op))
+		})
+	}
 	if i, ok := widenedInt(x.L); ok && isComparison(x.Op) && !isWidenedInt(x.R) {
 		return e.sequenced([]Expr{i, x.R}, func(v []string) string {
 			return fmt.Sprintf("(sysml_cmp_ir(%s, %s) %s 0)", v[0], v[1], cOperator(x.Op))
@@ -1055,21 +1101,26 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 		return fmt.Sprintf("(sysml_ncmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
 	}
 	switch x.Op {
-	case ast.OpAdd, ast.OpSub, ast.OpMul:
+	case ast.OpAdd, ast.OpSub:
 		if operands == TypeInt {
-			return fmt.Sprintf("sysml_%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "add", ast.OpSub: "sub", ast.OpMul: "mul"}[x.Op], l, r)
+			return fmt.Sprintf("sysml_%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "add", ast.OpSub: "sub"}[x.Op], l, r)
 		}
-		return fmt.Sprintf("sysml_finite(%s %s %s)", l, cOperator(x.Op), r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_finite(%s %s %s)", l, cOperator(x.Op), r))
+	case ast.OpMul:
+		if operands == TypeInt {
+			return fmt.Sprintf("sysml_mul(%s, %s)", l, r)
+		}
+		return cUnsignedZero(x, fmt.Sprintf("sysml_finite(%s * %s)", l, r))
 	case ast.OpDiv:
 		if operands == TypeInt {
 			return fmt.Sprintf("sysml_quot(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysml_rdiv(%s, %s)", l, r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_rdiv(%s, %s)", l, r))
 	case ast.OpMod:
 		if operands == TypeInt {
 			return fmt.Sprintf("sysml_mod(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysml_rmod(%s, %s)", l, r)
+		return cUnsignedZero(x, fmt.Sprintf("sysml_rmod(%s, %s)", l, r))
 	case ast.OpPow:
 		return e.pow(x, l, r)
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe, ast.OpEq, ast.OpNeq:
@@ -1079,6 +1130,17 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 	}
 	e.err = fmt.Errorf("codegen: C emitter has no binary case for %s", x.Op)
 	return "0"
+}
+
+// cUnsignedZero gives an exact Rational operation's zero result no sign.
+func cUnsignedZero(x Binary, r string) string {
+	if x.Whole && x.Guard {
+		return "sysml_whole(" + r + ")"
+	}
+	if x.Exact {
+		return "sysml_unsigned_zero(" + r + ")"
+	}
+	return r
 }
 
 // pow follows semantics.Pow: Integer ** Integer is an Integer, anything else a

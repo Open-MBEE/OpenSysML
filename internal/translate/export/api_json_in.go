@@ -542,7 +542,7 @@ func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, valu
 		if apiJSONInteger.MatchString(lexical) {
 			return rdf.TypedLiteral(lexical, rdf.XSD+"integer"), nil
 		}
-		return rdf.TypedLiteral(lexical, realDatatype(lexical)), nil
+		return exactRealLiteral(lexical)
 	case string:
 		if apiJSONIsExpressionText(sysmlKey, v) {
 			return rdf.TypedLiteral(v, rdf.OpenSysML+dtExpression), nil

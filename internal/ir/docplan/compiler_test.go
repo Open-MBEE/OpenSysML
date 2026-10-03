@@ -653,9 +653,9 @@ func TestCompileAcceptsSignedNumericBindings(t *testing.T) {
 	if !bindings[1].Values()[0].Origin().Located() {
 		t.Fatalf("offset origin = %+v", bindings[1].Values()[0].Origin())
 	}
-	factor, ok := bindings[2].Values()[0].Real()
-	if !ok || factor != 2.5 {
-		t.Fatalf("factor = %g %v", factor, ok)
+	factor, ok := bindings[2].Values()[0].Rational()
+	if !ok || factor.FormatRational() != "2.5" {
+		t.Fatalf("factor = %s %v", factor.FormatRational(), ok)
 	}
 }
 

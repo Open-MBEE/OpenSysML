@@ -1,0 +1,93 @@
+step 1: token 1@sum
+stmt for i
+    eval literal 1 -> 1
+    eval literal 10 -> 10
+  eval operator .. -> (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+  iteration 1
+    stmt assign tenths
+        eval feature tenths -> 0.0
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.1
+  iteration 2
+    stmt assign tenths
+        eval feature tenths -> 0.1
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.2
+  iteration 3
+    stmt assign tenths
+        eval feature tenths -> 0.2
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.3
+  iteration 4
+    stmt assign tenths
+        eval feature tenths -> 0.3
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.4
+  iteration 5
+    stmt assign tenths
+        eval feature tenths -> 0.4
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.5
+  iteration 6
+    stmt assign tenths
+        eval feature tenths -> 0.5
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.6
+  iteration 7
+    stmt assign tenths
+        eval feature tenths -> 0.6
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.7
+  iteration 8
+    stmt assign tenths
+        eval feature tenths -> 0.7
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.8
+  iteration 9
+    stmt assign tenths
+        eval feature tenths -> 0.8
+        eval literal 0.1 -> 0.1
+      eval operator + -> 0.9
+  iteration 10
+    stmt assign tenths
+        eval feature tenths -> 0.9
+        eval literal 0.1 -> 0.1
+      eval operator + -> 1.0
+stmt for n
+    eval literal 1 -> 1
+    eval literal 4 -> 4
+  eval operator .. -> (1, 2, 3, 4)
+  iteration 1
+    stmt assign harmonic
+        eval feature harmonic -> 0.0
+          eval literal 1 -> 1
+          eval feature n -> 1
+        eval operator / -> 1.0
+      eval operator + -> 1.0
+  iteration 2
+    stmt assign harmonic
+        eval feature harmonic -> 1.0
+          eval literal 1 -> 1
+          eval feature n -> 2
+        eval operator / -> 0.5
+      eval operator + -> 1.5
+  iteration 3
+    stmt assign harmonic
+        eval feature harmonic -> 1.5
+          eval literal 1 -> 1
+          eval feature n -> 3
+        eval operator / -> 1/3
+      eval operator + -> 11/6
+  iteration 4
+    stmt assign harmonic
+        eval feature harmonic -> 11/6
+          eval literal 1 -> 1
+          eval feature n -> 4
+        eval operator / -> 0.25
+      eval operator + -> 25/12
+stmt assign reachesOne
+    eval feature tenths -> 1.0
+    eval literal 1 -> 1
+  eval operator == -> true
+step 2: token 1@done
+step 3: no active tokens

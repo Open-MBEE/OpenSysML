@@ -123,6 +123,9 @@ func (fc *funcCompiler) pairOperand(v, other Expr, left bool, fail string, bare 
 	}
 	if desc == "" {
 		desc = article(other.Type().Elem())
+		if other.Type().Elem() == TypeReal && fc.exactness(other) != binary64 {
+			desc = "a Rational"
+		}
 	}
 	if left && other.Type().Many() {
 		return ToOne{X: v, Fail: fail, Bare: bare, Other: other, OtherOne: desc}
@@ -310,6 +313,9 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 			// function and the run it closes over, so `===` is `==`.
 			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
 		}
+		if !ident && fc.meetsExact(l, r) {
+			return fc.kindSplit(Binary{Op: op, L: l, R: r, T: TypeBool}, fc.exactCompare), nil
+		}
 		if lt != rt || lt == TypeNum {
 			// Numbers compare by value under `==`, and by kind too under `===`.
 			l, _ = fc.coerce(l, TypeNum, "")
@@ -318,7 +324,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 				op = n.Operator
 			}
 		}
-		return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
+		return fc.rationalComparison(Binary{Op: op, L: l, R: r, T: TypeBool})
 	}
 	fc.c.collections = true
 	le, re := lt.Elem(), rt.Elem()
@@ -346,6 +352,11 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	}
 	if r, err = fc.coerce(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
+	}
+	if fc.exactness(l) == exactRational || fc.exactness(r) == exactRational {
+		if err := fc.exactOperands(fmt.Sprintf("'%s'", n.Operator), l, r); err != nil {
+			return nil, err
+		}
 	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
 }
@@ -440,6 +451,11 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			return nil, err
 		}
 	}
+	if !realAgg {
+		if err := fc.exactOperands(op.Name(), args...); err != nil {
+			return nil, err
+		}
+	}
 	t, err := fc.seqResult(op, elem)
 	if err != nil {
 		return nil, err
@@ -526,6 +542,9 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 		t = rt
 	default:
 		return nil, fc.unsupported(op.Name() + " with a body")
+	}
+	if err := fc.exactOperands(op.Name(), seq); err != nil {
+		return nil, err
 	}
 	// The body is a value of its own, evaluated after the operand.
 	return Fold{Op: op, Seq: seq, Steps: 1, Body: lambda, T: t}, nil

@@ -62,9 +62,9 @@ func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
 }
 
 // TestRealArithmeticOverflowIsReported requires an arithmetic result that is no
-// finite Real to be an error rather than an infinity.
+// finite Real to be an error rather than an infinity; 4.0 ** 0.5 is a Real.
 func TestRealArithmeticOverflowIsReported(t *testing.T) {
-	value, err := evalStringExpr(t, "1.0e308 * 10.0")
+	value, err := evalStringExpr(t, "(4.0 ** 0.5) * 1.0e308")
 	if err == nil {
 		t.Fatalf("eval = %v, want an overflow error", value)
 	}

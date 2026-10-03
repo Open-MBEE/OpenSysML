@@ -64,6 +64,7 @@ const (
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
+	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

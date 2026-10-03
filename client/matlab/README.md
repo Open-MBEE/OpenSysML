@@ -93,13 +93,14 @@ A `Model` exposes `hash`, `connection`, `diagnostics`, `documents`,
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-two `Value` arms;
+`opensysml.decodeValue` reads all twenty-three `Value` arms;
 `opensysml.encodeValue` writes request values.
 
 | Wire arm | MATLAB/Octave value |
 | --- | --- |
 | `intValue` | Exact `int64`; JSON decimal digits are never routed through a double. |
 | `bigIntValue` | `struct('bigInteger', char)`: an Integer beyond `int64`, kept as its decimal digits since no MATLAB number holds it, and sent back as written. A quantity's `bigIntMagnitude` and a vector component decode the same way. |
+| `rationalValue` | `struct('numerator', char, 'denominator', char)`: an exact Rational no `double` holds (such as `1/3`), kept as its lowest-terms decimal numerator and positive denominator, and sent back as written. Any such struct, one a `double` holds included, is sent as `rationalValue` to a service with `rational_values`; to one without it, a Rational a `double` holds is sent as that `realValue` and any other is refused. A Rational a `double` holds exactly arrives as `realValue`, and a `realValue` sent is always a Real. A quantity's `rationalMagnitude` and a vector component decode the same way. |
 | `realValue` | `double`, including `"NaN"`, `"Infinity"`, and `"-Infinity"`. |
 | `boolValue` / `stringValue` | `logical` / `char`. |
 | `instanceId` | `struct('instanceRef', int64)`. |

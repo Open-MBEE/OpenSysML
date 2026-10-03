@@ -46,6 +46,24 @@ public sealed interface Value {
   record RealValue(double value) implements Value {}
 
   /**
+   * An exact {@code Rational}, such as {@code 1/3}. A service answers one a {@code double} holds
+   * exactly as a {@link RealValue}; one sent as this stays a Rational to a service advertising
+   * {@code rational_values}.
+   *
+   * @param value the rational
+   */
+  record RationalValue(Rational value) implements Value {
+    /**
+     * Creates an exact rational value.
+     *
+     * @param value the rational, never {@code null}
+     */
+    public RationalValue {
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  /**
    * A {@code Complex} value in rectangular form: one number, never a sequence of two reals.
    *
    * <p>Only a service advertising the {@code complex_values} capability reports one as itself
@@ -387,8 +405,8 @@ public sealed interface Value {
   }
 
   /**
-   * A vector of numbers, each an {@link IntegerValue}, {@link BigIntegerValue} or {@link RealValue}
-   * as the model computed
+   * A vector of numbers, each an {@link IntegerValue}, {@link BigIntegerValue}, {@link
+   * RationalValue} or {@link RealValue} as the model computed
    * it: one value, never a sequence of numbers.
    *
    * <p>Only a service advertising the {@code structured_values} capability reports one as itself
@@ -400,8 +418,8 @@ public sealed interface Value {
     /**
      * Creates a vector, copying the components.
      *
-     * @param components the components, each an {@link IntegerValue}, {@link BigIntegerValue} or
-     *     {@link RealValue}
+     * @param components the components, each an {@link IntegerValue}, {@link BigIntegerValue},
+     *     {@link RationalValue} or {@link RealValue}
      * @throws IllegalArgumentException if a component is not a number
      */
     public VectorValue {
@@ -409,6 +427,7 @@ public sealed interface Value {
       for (Value component : components) {
         if (!(component instanceof IntegerValue)
             && !(component instanceof BigIntegerValue)
+            && !(component instanceof RationalValue)
             && !(component instanceof RealValue)) {
           throw new IllegalArgumentException(
               "vector component is not a number: " + component.getClass().getSimpleName());
@@ -713,6 +732,7 @@ public sealed interface Value {
     }
     if (this instanceof IntegerValue
         || this instanceof BigIntegerValue
+        || this instanceof RationalValue
         || this instanceof RealValue
         || this instanceof ComplexValue) {
       return numbersEqual(this, other);
@@ -779,8 +799,8 @@ public sealed interface Value {
   }
 
   /**
-   * A number's magnitude as a {@link Long}, {@link BigInteger} or {@link Double}; {@code null} off
-   * the real axis.
+   * A number's magnitude as a {@link Long}, {@link BigInteger}, {@link Rational} or {@link
+   * Double}; {@code null} off the real axis.
    */
   private static Number onRealAxis(Value value) {
     if (value instanceof IntegerValue integer) {
@@ -788,6 +808,9 @@ public sealed interface Value {
     }
     if (value instanceof BigIntegerValue integer) {
       return integer.value();
+    }
+    if (value instanceof RationalValue rational) {
+      return rational.value();
     }
     if (value instanceof RealValue real) {
       return real.value();
@@ -799,6 +822,19 @@ public sealed interface Value {
   }
 
   private static boolean magnitudesEqual(Number a, Number b) {
+    if (a instanceof Rational && b instanceof Rational) {
+      return a.equals(b);
+    }
+    if (a instanceof Rational && b instanceof Double || a instanceof Double && b instanceof Rational) {
+      // A Rational meets a Real at Real precision, as the service compares them.
+      return a.doubleValue() == b.doubleValue();
+    }
+    a = a instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : a;
+    b = b instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : b;
+    if (a instanceof Rational || b instanceof Rational) {
+      // A rational no double holds is never whole, so it is no Integer.
+      return false;
+    }
     if (a instanceof BigInteger x) {
       return b instanceof BigInteger y ? x.equals(y) : b instanceof Double r && realIsBig(r, x);
     }
@@ -873,23 +909,29 @@ public sealed interface Value {
   }
 
   /**
-   * The base magnitude as an exact numerator/denominator while an integer scales by whole factors;
-   * empty otherwise.
+   * The base magnitude as an exact numerator/denominator while an integer or a rational scales by
+   * whole factors; empty otherwise.
    */
   private static BigInteger[] exactBaseMagnitude(Quantity quantity) {
     Quantity.UnitTerm term = quantity.reduction().get();
-    if (!quantity.isIntegral()
+    if (!quantity.isExact()
         || !isWhole(term.scaleNumerator())
         || !isWhole(term.scaleDenominator())) {
       return new BigInteger[0];
     }
-    BigInteger magnitude =
-        quantity.magnitude() instanceof BigInteger big
-            ? big
-            : BigInteger.valueOf(quantity.magnitude().longValue());
+    BigInteger numerator;
+    BigInteger denominator = BigInteger.ONE;
+    if (quantity.magnitude() instanceof Rational rational) {
+      numerator = rational.numerator();
+      denominator = rational.denominator();
+    } else if (quantity.magnitude() instanceof BigInteger big) {
+      numerator = big;
+    } else {
+      numerator = BigInteger.valueOf(quantity.magnitude().longValue());
+    }
     return new BigInteger[] {
-      magnitude.multiply(wholeOf(term.scaleNumerator())),
-      wholeOf(term.scaleDenominator())
+      numerator.multiply(wholeOf(term.scaleNumerator())),
+      denominator.multiply(wholeOf(term.scaleDenominator()))
     };
   }
 
@@ -922,8 +964,8 @@ public sealed interface Value {
   }
 
   /**
-   * This value as a {@code double}, for the numeric arms; an integer beyond {@code long} is the
-   * nearest {@code double}, ties to even, and infinite only past the finite range.
+   * This value as a {@code double}, for the numeric arms; an integer beyond {@code long} or a
+   * rational is the nearest {@code double}, ties to even, and infinite only past the finite range.
    *
    * @return the magnitude of an integer, real or quantity value
    * @throws IllegalStateException if this value is not numeric
@@ -934,6 +976,9 @@ public sealed interface Value {
     }
     if (this instanceof BigIntegerValue integer) {
       return integer.value().doubleValue();
+    }
+    if (this instanceof RationalValue rational) {
+      return rational.value().doubleValue();
     }
     if (this instanceof RealValue real) {
       return real.value();

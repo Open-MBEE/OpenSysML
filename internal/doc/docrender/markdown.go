@@ -717,6 +717,9 @@ func valueText(names namer, value queryexec.Value) string {
 	if integer, ok := value.IntegerConst(); ok {
 		return integer.FormatInt()
 	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalText(rational)
+	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)
 	}

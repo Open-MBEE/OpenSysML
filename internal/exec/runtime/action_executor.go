@@ -1304,6 +1304,9 @@ func (e *ActionExecutor) initializeAttributes() error {
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
+		if err := e.holdAttributeAsReal(attr, &value); err != nil {
+			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+		}
 		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
 			return err
 		}
@@ -1314,6 +1317,19 @@ func (e *ActionExecutor) initializeAttributes() error {
 	}
 
 	return nil
+}
+
+// holdAttributeAsReal holds an attribute default as the Real its declaration states.
+func (e *ActionExecutor) holdAttributeAsReal(attr lower.Attribute, value *Value) error {
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	sym, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok {
+		return nil
+	}
+	return e.ctx.holdAsReal(value, e.ctx.extractType(sym))
 }
 
 // bindContextDefault binds an unbound `in ref` parameter of a behavior started on an

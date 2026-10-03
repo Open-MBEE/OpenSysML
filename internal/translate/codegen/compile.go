@@ -195,6 +195,8 @@ type funcCompiler struct {
 	// result is the return binding once a declaration or a return has fixed it.
 	result binding
 	temps  int
+	// exactTemps is how the interpreter holds each hoisted temporary's value.
+	exactTemps map[string]exactness
 	// outer is the body enclosing a closure; captured are the names the closure
 	// reads from it, captureErr the first it cannot, and selfCalls is set once
 	// the closure calls itself.
@@ -671,7 +673,7 @@ func scalarType(fqn string) (Type, Range, bool) {
 		return TypeInt, RangeNatural, true
 	case "ScalarValues::Positive":
 		return TypeInt, RangePositive, true
-	case "ScalarValues::Real", "ScalarValues::Rational":
+	case "ScalarValues::Real":
 		return TypeReal, RangeAny, true
 	case "ScalarValues::Boolean":
 		return TypeBool, RangeAny, true
@@ -1030,7 +1032,11 @@ func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 		if err != nil {
 			return nil, fc.unsupported(fmt.Sprintf("literal %s is outside the Real range", n.Value))
 		}
-		return RealLit{Value: v}, nil
+		exact, err := semantics.ParseRational(n.Value, semantics.DefaultMaxIntegerBits)
+		if err != nil {
+			return nil, fc.unsupported(fmt.Sprintf("literal %s: %v", n.Value, err))
+		}
+		return RealLit{Value: v, Rat: exact.Rat()}, nil
 	case *ast.LiteralBool:
 		return BoolLit{Value: n.Value}, nil
 	case *ast.LiteralString:
@@ -1208,13 +1214,24 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			switch {
 			case isLit && lit.sign() >= 0:
 			case isLit:
-				t = TypeReal
-				l, r = ToReal{X: l}, ToReal{X: r}
+				k, _ := leading(r)
+				base, lets := fc.hoist(l, nil)
+				var x Expr = restep(k, fc.reciprocalPow(base, lit))
+				for i := len(lets) - 1; i >= 0; i-- {
+					x = Let{Name: lets[i].Name, Value: lets[i].Value, In: x}
+				}
+				return wrap(x), nil
 			default:
 				return nil, fc.unsupported("`**` of an Integer by a non-literal Integer exponent (write the exponent as a literal, or make the base Real)")
 			}
 		}
-		return wrap(Binary{Op: n.Operator, L: l, R: r, T: t}), nil
+		var x Expr = Binary{Op: n.Operator, L: l, R: r, T: t}
+		if t == TypeReal {
+			if x, err = fc.rationalArithmetic(x.(Binary)); err != nil {
+				return nil, err
+			}
+		}
+		return wrap(x), nil
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
 		l, r, wrap, err := fc.binaryOperands(n)
 		if err != nil {
@@ -1237,10 +1254,17 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			return nil, err
 		}
 		if t == TypeNum {
+			if fc.meetsExact(l, r) {
+				return wrap(fc.kindSplit(Binary{Op: n.Operator, L: l, R: r, T: TypeBool}, fc.exactCompare)), nil
+			}
 			l, _ = fc.coerce(l, TypeNum, "")
 			r, _ = fc.coerce(r, TypeNum, "")
 		}
-		return wrap(Binary{Op: n.Operator, L: l, R: r, T: TypeBool}), nil
+		x, err := fc.rationalComparison(Binary{Op: n.Operator, L: l, R: r, T: TypeBool})
+		if err != nil {
+			return nil, err
+		}
+		return wrap(x), nil
 	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
 		return fc.compileEquality(n)
 	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
@@ -1294,6 +1318,9 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			}, func(v []Expr) Expr {
 				return ToNum{X: Unary{Op: ast.OpNeg, X: asReal(v[0]), T: TypeReal}}
 			}, TypeNum), nil
+		}
+		if n.Operator == ast.OpNeg && x.Type() == TypeReal {
+			return fc.rationalNeg(x), nil
 		}
 		return Unary{Op: n.Operator, X: x, T: x.Type()}, nil
 	case ast.OpNot:
@@ -1354,6 +1381,10 @@ func (fc *funcCompiler) hoist(v Expr, lets []Let) (Expr, []Let) {
 	fc.temps++
 	// A NUL cannot occur in a source name, so the temporary shadows nothing.
 	name := fmt.Sprintf("\x00%d", fc.temps)
+	if fc.exactTemps == nil {
+		fc.exactTemps = map[string]exactness{}
+	}
+	fc.exactTemps[name] = fc.classify(v, false)
 	return Var{Name: name, T: v.Type()}, append(lets, Let{Name: name, Value: v})
 }
 
@@ -1623,6 +1654,13 @@ func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (
 func (fc *funcCompiler) libCall(op LibOp, fqn string, params []string, args []Arg) (Expr, error) {
 	args = slices.Clone(args)
 	var err error
+	if op == LibIsZero || op == LibIsUnit {
+		for _, a := range args {
+			if fc.exactness(a.Value) == exactRational {
+				return nil, fc.unsupported(fmt.Sprintf("%s of an exact Rational binary64 does not hold exactly (compiled code holds Rationals as binary64)", fqn))
+			}
+		}
+	}
 	for i, a := range args {
 		if args[i].Value, err = fc.coerce(a.Value, op.Operands()[a.Param], fmt.Sprintf("argument for %s of %s", params[a.Param], fqn)); err != nil {
 			return nil, err

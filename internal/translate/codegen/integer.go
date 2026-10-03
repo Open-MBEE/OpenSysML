@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -13,6 +14,13 @@ func intLit(v semantics.Value) IntLit {
 		return IntLit{Value: n}
 	}
 	return IntLit{Big: v.BigInt()}
+}
+
+func (l IntLit) big() *big.Int {
+	if l.Big != nil {
+		return l.Big
+	}
+	return big.NewInt(l.Value)
 }
 
 func (l IntLit) sign() int {
@@ -42,6 +50,20 @@ func widenedInt(x Expr) (Expr, bool) {
 		return w.X, true
 	}
 	return nil, false
+}
+
+// exactQuotient is x as an Integer quotient compared exactly, if it is one.
+func exactQuotient(x Expr) (Binary, bool) {
+	q, ok := x.(Binary)
+	return q, ok && q.Exact && q.Op == ast.OpDiv && q.L.Type() == TypeInt
+}
+
+// wholeOperand is the whole number x as an Integer where it widens one.
+func wholeOperand(x Expr) Expr {
+	if i, ok := widenedInt(x); ok {
+		return i
+	}
+	return x
 }
 
 func isWidenedInt(x Expr) bool {
