@@ -107,6 +107,13 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 		notices = append(notices, fmt.Sprintf("%d fork/join name(s) (%s); Mermaid's fork bar draws no label",
 			len(names), strings.Join(names, ", ")))
 	}
+	if r.Kind == KindAction {
+		used := r.usedPorts(r.portView(options.Ports))
+		if pins := r.undrawnPins(func(node *Node, port Port) bool { return used[node.ID][port.ID] }); len(pins) > 0 {
+			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
+				len(pins), strings.Join(pins, ", ")))
+		}
+	}
 	if r.Kind == KindSequence && options.Palette != "" {
 		notices = append(notices, fmt.Sprintf("palette %s; Mermaid's sequence diagram cannot fill individual participants (the PlantUML form fills them)", options.Palette))
 	}

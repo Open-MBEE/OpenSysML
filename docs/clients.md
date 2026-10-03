@@ -28,31 +28,28 @@ service serves.
   <p class="osml-eco__links"><a href="../reference/python-api/">Python API</a> · <a href="https://pypi.org/project/opensysml/">PyPI</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">Not yet published</span>
+  <span class="osml-eco__tag">Published · npm</span>
   <h3>Node / TypeScript</h3>
-  <p>The <code>@openmbee/opensysml</code> client, including a browser entry point. Pin a release
-  tag or build from <code>client/node</code> until it reaches npm.</p>
-  <p class="osml-eco__links"><a href="../reference/clients/">Choosing a client</a></p>
+  <p><code>npm install @openmbee/opensysml</code> installs the client and its per-platform
+  <code>sysml-grpc</code> binary package.</p>
+  <p class="osml-eco__links"><a href="../reference/node-api/">Node API</a> · <a href="https://www.npmjs.com/package/@openmbee/opensysml">npm</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">Not yet published</span>
+  <span class="osml-eco__tag">Build from a checkout</span>
   <h3>Java</h3>
-  <p>The Java client library. Pin a release tag or build from source until it reaches
-  Maven Central.</p>
+  <p>Not on Maven Central; build and install the Java client from a checkout.</p>
   <p class="osml-eco__links"><a href="../reference/clients/">Choosing a client</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">Not yet published</span>
+  <span class="osml-eco__tag">Published · crates.io</span>
   <h3>Rust</h3>
-  <p>The Rust client library. Pin a release tag or build from source until it reaches
-  crates.io.</p>
-  <p class="osml-eco__links"><a href="../reference/clients/">Choosing a client</a></p>
+  <p><code>opensysml = "0.9"</code> installs the client from crates.io.</p>
+  <p class="osml-eco__links"><a href="../reference/rust-api/">Rust API</a> · <a href="https://crates.io/crates/opensysml">crates.io</a></p>
 </div>
 <div class="osml-eco__card">
-  <span class="osml-eco__tag">Not yet published</span>
+  <span class="osml-eco__tag">Build from source</span>
   <h3>Julia &amp; MATLAB</h3>
-  <p>The Julia package and the MATLAB toolbox. Build from source until they reach a
-  registry.</p>
+  <p>Julia is not in General; develop it from a checkout. MATLAB is source to add to the path.</p>
   <p class="osml-eco__links"><a href="../reference/clients/">Choosing a client</a></p>
 </div>
 <div class="osml-eco__card">

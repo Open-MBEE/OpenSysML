@@ -88,8 +88,61 @@ func TestRenderOfATabularView(t *testing.T) {
 		t.Errorf("the text form is no aligned table:\n%s", text.stdout)
 	}
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "mermaid")
-	if mermaid.status != exitUnevaluable || !strings.Contains(mermaid.stderr, "ask for text or markdown") {
+	if mermaid.status != exitUnevaluable || !strings.Contains(mermaid.stderr, "ask for text, markdown, csv or tsv") {
 		t.Errorf("Mermaid of a table = %d\n%s", mermaid.status, mermaid.output())
+	}
+}
+
+// A table is written as CSV or TSV when asked, on stdout or into a file, and a
+// graph-shaped view is refused either form.
+func TestRenderOfATableAsDelimitedValues(t *testing.T) {
+	binary := buildCLI(t)
+
+	csvOut := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "csv")
+	if csvOut.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", csvOut.status, exitHolds, csvOut.output())
+	}
+	if !strings.HasPrefix(csvOut.stdout, "Element,Kind,Type,Declared in\nDemo::Vehicle,part def,,\n") {
+		t.Errorf("stdout is no CSV table:\n%s", csvOut.stdout)
+	}
+	out := filepath.Join(t.TempDir(), "parts.tsv")
+	tsvOut := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "tsv", "-o", out)
+	if tsvOut.status != exitHolds || tsvOut.stdout != "" || !strings.Contains(tsvOut.stderr, "(tsv, ") {
+		t.Fatalf("exit status = %d, want %d\n%s", tsvOut.status, exitHolds, tsvOut.output())
+	}
+	written, err := os.ReadFile(out) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(written), "Element\tKind\tType\tDeclared in\nDemo::Vehicle\tpart def\t\t\n") {
+		t.Errorf("the file is no TSV table:\n%s", written)
+	}
+	tree := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "csv")
+	if tree.status != exitUnevaluable || !strings.Contains(tree.stderr, "is not written as csv") {
+		t.Errorf("CSV of a tree = %d\n%s", tree.status, tree.output())
+	}
+}
+
+// -render-all with a forced csv or tsv form writes each table under that
+// extension and skips every view that is no table.
+func TestRenderAllForcedDelimitedFormWritesTablesOnly(t *testing.T) {
+	binary := buildCLI(t)
+	for _, form := range []string{"csv", "tsv"} {
+		dir := filepath.Join(t.TempDir(), form)
+		got := runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", form)
+		if got.status != exitHolds {
+			t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+		}
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 1 || files[0].Name() != "Demo.parts."+form {
+			t.Errorf("-render-form %s wrote %v, want only Demo.parts.%s", form, files, form)
+		}
+		if !strings.Contains(got.stderr, "Demo::overview") {
+			t.Errorf("-render-form %s did not report the skipped tree:\n%s", form, got.stderr)
+		}
 	}
 }
 
@@ -120,7 +173,7 @@ func TestRenderDotForm(t *testing.T) {
 		"wrote " + filepath.Join(dir, "Demo.treeView.dot") + " (dot, ",
 		"wrote " + filepath.Join(dir, "Demo.stateView.dot") + " (dot, ",
 		"Demo::tableView: skipped:",
-		"not written as dot; ask for text or markdown",
+		"not written as dot; ask for text, markdown, csv or tsv",
 	} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
@@ -137,7 +190,7 @@ func TestRenderDotForm(t *testing.T) {
 	}
 
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "dot")
-	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text or markdown") {
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text, markdown, csv or tsv") {
 		t.Errorf("DOT of a table = %d\n%s", table.status, table.output())
 	}
 }
@@ -170,7 +223,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 		"wrote " + filepath.Join(dir, "Demo.treeView.puml") + " (plantuml, ",
 		"wrote " + filepath.Join(dir, "Demo.stateView.puml") + " (plantuml, ",
 		"Demo::tableView: skipped:",
-		"not written as plantuml; ask for text or markdown",
+		"not written as plantuml; ask for text, markdown, csv or tsv",
 	} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
@@ -194,7 +247,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "plantuml")
-	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text or markdown") {
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text, markdown, csv or tsv") {
 		t.Errorf("PlantUML of a table = %d\n%s", table.status, table.output())
 	}
 
@@ -521,7 +574,7 @@ func TestRenderAllSkipsUnsupportedKindsAndWrongForcedForms(t *testing.T) {
 	for _, want := range []string{
 		"Demo::textView: skipped: textual rendering",
 		"Demo::tableView: skipped:",
-		"ask for text or markdown",
+		"ask for text, markdown, csv or tsv",
 		"wrote " + filepath.Join(dir, "Demo.treeView.mmd"),
 	} {
 		if !strings.Contains(got.stderr, want) {

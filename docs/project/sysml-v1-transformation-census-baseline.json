@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 91
+        "files": 92
       }
     ],
     "counts": {
@@ -100,7 +100,7 @@
       },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
-        "fixtures": 17
+        "fixtures": 18
       },
       "uml:AddVariableValueAction": {
         "pssm": 0,
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 464
+        "fixtures": 468
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -152,7 +152,7 @@
       },
       "uml:Constraint": {
         "pssm": 59,
-        "fixtures": 19
+        "fixtures": 24
       },
       "uml:ControlFlow[weight]": {
         "pssm": 0,
@@ -202,10 +202,6 @@
         "pssm": 0,
         "fixtures": 54
       },
-      "uml:InteractionUse": {
-        "pssm": 0,
-        "fixtures": 0
-      },
       "uml:InterfaceRealization": {
         "pssm": 0,
         "fixtures": 8
@@ -216,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 57
+        "fixtures": 58
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -244,7 +240,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 450
+        "fixtures": 455
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -329,10 +325,6 @@
       "uml:StartObjectBehaviorAction": {
         "pssm": 832,
         "fixtures": 0
-      },
-      "uml:StateInvariant": {
-        "pssm": 0,
-        "fixtures": 2
       },
       "uml:Stereotype": {
         "pssm": 0,
@@ -16307,13 +16299,15 @@
         "type"
       ],
       "ocl": "sha256:70e0748b04d264bd059a7332fe37969b964ec41d4f95e7ab67eaa7f82efab3bf",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "an interaction use refuses the whole interaction: a scenario does not perform the referenced interaction's steps",
-      "scope": [
-        "uml:InteractionUse"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:use"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
+      ],
+      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; the perform is typed by the referenced interaction's action",
+      "scope": []
     },
     {
       "name": "InteractionUseMembership_Mapping",
@@ -16331,13 +16325,16 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "an interaction use refuses the whole interaction: a scenario does not perform the referenced interaction's steps",
-      "scope": [
-        "uml:InteractionUse"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:use",
+        "internal/translate/migrate/interaction.go:performUse"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
+      ],
+      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; the perform is an owned step of the scenario",
+      "scope": []
     },
     {
       "name": "InteractionUse_Mapping",
@@ -16354,13 +16351,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f491f382b309566c8bc5451223c0b30cd2edd056f826fb4ddc97077e081ef754",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "an interaction use refuses the whole interaction: a scenario does not perform the referenced interaction's steps; candidate erratum: the mapping creates a KerML Step; the SysML counterpart of performing another behavior is a PerformActionUsage (or ActionUsage)",
-      "scope": [
-        "uml:InteractionUse"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:use",
+        "internal/translate/migrate/interaction.go:performUse",
+        "internal/translate/migrate/interaction.go:gated"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants"
+      ],
+      "reason": "an interaction use performs the referenced interaction's scenario at its place among the messages, its arguments bound to the scenario's in parameters and a message through an actual gate carried by the performed scenario's message from the matching formal gate; candidate erratum: the mapping creates a KerML Step; the SysML counterpart of performing another behavior is a PerformActionUsage, which is written",
+      "scope": []
     },
     {
       "name": "Interaction_Mapping",
@@ -16530,13 +16531,16 @@
         "type"
       ],
       "ocl": "sha256:7c7585d8102bb246a72f753438460a266d8c99ce8da399fa26fa5585809aa67a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a state invariant on a lifeline is reported unmapped: it asserts what holds at its point in the scenario, which no step checks",
-      "scope": [
-        "uml:StateInvariant"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:invariant"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
+        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+      ],
+      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; the assertion's condition is the invariant's specification",
+      "scope": []
     },
     {
       "name": "StateInvariantMembership_Mapping",
@@ -16554,13 +16558,16 @@
         "memberFeature"
       ],
       "ocl": "sha256:bc31157fce84ffab846d8fd163536eea3ee37382a1e167f0089b27af2e26345b",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a state invariant on a lifeline is reported unmapped: it asserts what holds at its point in the scenario, which no step checks",
-      "scope": [
-        "uml:StateInvariant"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:invariant"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
+        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+      ],
+      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; the assertion is an owned step of the scenario",
+      "scope": []
     },
     {
       "name": "StateInvariant_Mapping",
@@ -16577,13 +16584,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7dd7aa85ebb22e0fde895972b2c4ec3804745cf2eddb1c313810cf6225e90842",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a state invariant on a lifeline is reported unmapped: it asserts what holds at its point in the scenario, which no step checks; candidate erratum: the mapping creates a KerML Invariant; the SysML counterpart is an AssertConstraintUsage",
-      "scope": [
-        "uml:StateInvariant"
-      ]
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/interaction.go:invariant",
+        "internal/ir/lower/action_graph.go:orderedAssertions",
+        "internal/exec/runtime/statements.go:assert"
+      ],
+      "tests": [
+        "tests/migrate/interaction_use_test.go:TestInteractionUsesAndStateInvariants",
+        "internal/exec/runtime/robustness_sequenced_assertion_test.go:TestRuntimeRobustnessSequencedAssertion"
+      ],
+      "reason": "a state invariant is an `assert constraint` the scenario orders at its place among the messages, its names read on the covered lifeline's object, so the run checks it when it reaches it and fails with the violation; candidate erratum: the mapping creates a KerML Invariant; the SysML counterpart is an AssertConstraintUsage, which is written",
+      "scope": []
     },
     {
       "name": "ElementImport_Mapping",

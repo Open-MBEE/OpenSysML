@@ -667,56 +667,69 @@ fn terminate_process(process: &mut Child, grace: Duration) -> Option<ExitStatus>
     process.wait().ok()
 }
 
-/// Resolve the service binary: explicit path, shared cache, download, then `$PATH`.
-///
-/// A download only runs when `$OPENSYSML_GRPC_VERSION` names a release, and then it
-/// precedes `$PATH`, whose binary is of no known version.
+/// Resolve the service binary: explicit path, matching cache, download, then `$PATH`.
 fn resolve_binary() -> Result<PathBuf, Error> {
-    let mut looked_in = Vec::new();
     if let Ok(path) = env::var("OPENSYSML_GRPC_BINARY") {
-        looked_in.push(path.clone());
         let candidate = PathBuf::from(path);
         if candidate.is_file() {
             return Ok(candidate);
         }
-    } else {
-        looked_in.push("$OPENSYSML_GRPC_BINARY".to_owned());
     }
 
-    let downloader = binary::Downloader::from_env();
-    let cached = binary::default_cache_dir().map(|dir| dir.join(binary::binary_file_name()));
-    looked_in.push(match &cached {
-        Ok(path) => path.display().to_string(),
-        Err(error) => format!("the shared cache ({error})"),
-    });
-    match (downloader, binary::env_release_version()) {
-        (Ok(downloader), Some(version)) => return downloader.ensure_binary(Some(&version)),
-        // A release was asked for and cannot be downloaded here, so no binary of
-        // an unknown version answers for it.
-        (Err(error), Some(_)) => return Err(error),
-        _ => {
-            // The digest-named link, so an install over the cache does not change
-            // the binary this start is about to run.
-            if let Some(path) = cached
-                .ok()
-                .as_deref()
-                .and_then(binary::stable_cached_binary)
-            {
+    let explicit_version = binary::env_release_version();
+    let implicit_version = format!("v{}", env!("CARGO_PKG_VERSION"));
+    let version = explicit_version.as_deref().unwrap_or(&implicit_version);
+
+    if explicit_version.is_some() {
+        return binary::Downloader::from_env()?.ensure_binary(Some(version));
+    }
+
+    let result = binary::Downloader::from_env()
+        .and_then(|downloader| downloader.ensure_implicit_binary(version));
+    match result {
+        Ok(path) => Ok(path),
+        Err(error) if is_availability_failure(&error) => {
+            if let Some(path) = binary_on_path() {
+                eprintln!(
+                    "opensysml: warning: could not download sysml-grpc release {version} \
+                     ({error}); using {} from $PATH",
+                    path.display(),
+                );
                 return Ok(path);
             }
+            let detail = error.to_string();
+            let unreleased = if detail.contains("404") {
+                " This may be an unreleased checkout."
+            } else {
+                ""
+            };
+            Err(Error::BinaryDownload(format!(
+                "could not download sysml-grpc release {version}: {detail}.{unreleased} \
+                 Install sysml-grpc on $PATH, set $OPENSYSML_GRPC_BINARY, or choose another \
+                 release with $OPENSYSML_GRPC_VERSION."
+            )))
         }
+        Err(error) => Err(error),
     }
+}
 
-    looked_in.push("sysml-grpc on PATH".to_owned());
+fn is_availability_failure(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::BinaryDownload(_) | Error::UnpinnedRelease(_) | Error::UnsupportedPlatform { .. }
+    )
+}
+
+fn binary_on_path() -> Option<PathBuf> {
     if let Some(path) = env::var_os("PATH") {
         for directory in env::split_paths(&path) {
             let candidate = directory.join(binary::binary_file_name());
-            if candidate.is_file() {
-                return Ok(candidate);
+            if binary::is_executable(&candidate) {
+                return Some(candidate);
             }
         }
     }
-    Err(Error::BinaryNotFound { looked_in })
+    None
 }
 
 #[cfg(test)]
@@ -751,16 +764,97 @@ mod tests {
             "OPENSYSML_GRPC_BINARY",
             "OPENSYSML_GITHUB_REPO",
             "OPENSYSML_GRPC_VERSION",
+            "PATH",
         ]);
+        let no_path =
+            env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
         env::set_var("OPENSYSML_GRPC_BINARY", "");
         env::set_var("OPENSYSML_GITHUB_REPO", "not-an-owner-repo");
         env::remove_var("OPENSYSML_GRPC_VERSION");
+        env::set_var("PATH", &no_path);
 
-        // Nothing was asked for, so resolution falls through to the cache and $PATH.
-        if let Err(error) = resolve_binary() {
-            assert!(matches!(error, Error::BinaryNotFound { .. }), "{error}");
-        }
+        let error = resolve_binary().expect_err("the built-against release cannot be downloaded");
+        assert!(
+            matches!(&error, Error::BinaryDownload(message)
+                if message.contains(&format!("v{}", env!("CARGO_PKG_VERSION")))
+                    && message.contains("owner/repo")),
+            "{error}"
+        );
         drop(restore);
+    }
+
+    #[test]
+    fn an_unavailable_implicit_release_falls_back_to_path() {
+        let _guard = ENV.lock().unwrap_or_else(PoisonError::into_inner);
+        let restore = Restore::of(&[
+            "OPENSYSML_GRPC_BINARY",
+            "OPENSYSML_GITHUB_REPO",
+            "OPENSYSML_GRPC_VERSION",
+            "PATH",
+            "HOME",
+        ]);
+        let directory = env::temp_dir().join(format!("opensysml-rust-path-{}", std::process::id()));
+        let binary = directory.join(binary::binary_file_name());
+        std::fs::create_dir_all(&directory).expect("create PATH entry");
+        std::fs::write(&binary, b"hand-installed binary").expect("place PATH binary");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700))
+                .expect("make executable");
+        }
+        env::set_var("OPENSYSML_GRPC_BINARY", "");
+        env::set_var("OPENSYSML_GITHUB_REPO", "not-an-owner-repo");
+        env::remove_var("OPENSYSML_GRPC_VERSION");
+        env::set_var("PATH", &directory);
+        env::set_var("HOME", &directory);
+
+        assert_eq!(resolve_binary().expect("fall back to PATH"), binary);
+
+        std::fs::remove_dir_all(directory).expect("remove test binaries");
+        drop(restore);
+    }
+
+    #[test]
+    fn an_unavailable_implicit_release_names_the_release_and_remedy() {
+        let _guard = ENV.lock().unwrap_or_else(PoisonError::into_inner);
+        let restore = Restore::of(&[
+            "OPENSYSML_GRPC_BINARY",
+            "OPENSYSML_GITHUB_REPO",
+            "OPENSYSML_GRPC_VERSION",
+            "PATH",
+            "HOME",
+        ]);
+        let directory =
+            env::temp_dir().join(format!("opensysml-rust-empty-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("create isolated home");
+        env::set_var("OPENSYSML_GRPC_BINARY", "");
+        env::set_var("OPENSYSML_GITHUB_REPO", "not-an-owner-repo");
+        env::remove_var("OPENSYSML_GRPC_VERSION");
+        env::set_var("PATH", "");
+        env::set_var("HOME", &directory);
+
+        let error = resolve_binary().expect_err("no release or PATH binary");
+        assert!(
+            matches!(&error, Error::BinaryDownload(message)
+                if message.contains(&format!("v{}", env!("CARGO_PKG_VERSION")))
+                    && message.contains("owner/repo")
+                    && message.contains("OPENSYSML_GRPC_BINARY")),
+            "{error}"
+        );
+
+        std::fs::remove_dir_all(directory).expect("remove isolated home");
+        drop(restore);
+    }
+
+    #[test]
+    fn checksum_mismatches_are_not_availability_failures() {
+        assert!(!is_availability_failure(&Error::ChecksumMismatch(
+            "tampered".to_owned()
+        )));
+        assert!(is_availability_failure(&Error::UnpinnedRelease(
+            "not verifiable".to_owned()
+        )));
     }
 
     #[test]
@@ -768,24 +862,26 @@ mod tests {
         let _guard = ENV.lock().unwrap_or_else(PoisonError::into_inner);
         let restore = Restore::of(&[
             "OPENSYSML_GRPC_BINARY",
+            "OPENSYSML_GITHUB_REPO",
             "OPENSYSML_GRPC_VERSION",
             "HOME",
             "USERPROFILE",
+            "PATH",
         ]);
         env::set_var("OPENSYSML_GRPC_BINARY", "");
+        env::set_var("OPENSYSML_GITHUB_REPO", binary::DEFAULT_GITHUB_REPO);
         env::remove_var("OPENSYSML_GRPC_VERSION");
         env::remove_var("HOME");
         env::remove_var("USERPROFILE");
+        let no_path =
+            env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
+        env::set_var("PATH", &no_path);
 
         assert!(binary::Downloader::from_env().is_err());
-        if let Err(Error::BinaryNotFound { looked_in }) = resolve_binary() {
-            assert!(
-                !looked_in
-                    .iter()
-                    .any(|place| place.starts_with(".opensysml")),
-                "{looked_in:?}"
-            );
-        }
+        let error = resolve_binary().expect_err("the cache needs a home");
+        assert!(error
+            .to_string()
+            .contains(&format!("v{}", env!("CARGO_PKG_VERSION"))));
         drop(restore);
     }
 

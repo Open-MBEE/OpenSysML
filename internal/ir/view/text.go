@@ -59,8 +59,8 @@ func (r *Rendering) textWith(options Options) string {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
 			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(edge.Kind), endLabel(labels, edge.To, edge.ToPort))
-			if edge.Label != "" {
-				line += ": " + edge.Label
+			if label := textEdgeLabel(edge, ports); label != "" {
+				line += ": " + label
 			}
 			if len(edge.Route) > 0 {
 				line += " via"
@@ -179,10 +179,10 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	b.WriteString(line + "\n")
-	if ports.interconnection {
+	if ports.interconnection || ports.action {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
-			b.WriteString(strings.Repeat("  ", depth+1) + "port " + ports.pinLabel(port) + "\n")
+			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
 		}
 	}
 	for _, child := range node.Children {
@@ -191,6 +191,25 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			labels[child.ID] = "start of " + labels[node.ID]
 		}
 	}
+}
+
+// pinLine is a port's line under its node: `port <label>` in an interconnection,
+// the pin's direction and name in an action (`in bread`), as declared.
+func pinLine(port Port, ports portView) string {
+	if ports.interconnection {
+		return "port " + ports.pinLabel(port)
+	}
+	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
+}
+
+// textEdgeLabel is the text after an edge's ends: its label, except that an
+// action edge attached to pins is labelled by its name, since the ends name the
+// pins already.
+func textEdgeLabel(edge Edge, ports portView) string {
+	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
+		return edge.Name
+	}
+	return edge.Label
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each

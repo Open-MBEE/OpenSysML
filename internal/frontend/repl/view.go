@@ -126,11 +126,24 @@ func (s *Session) renderLines(name string, form view.Form, opts view.Options) ([
 		return nil, err
 	}
 	opts.Width = s.renderWidth
+	return artifactLines(rendering, form, opts)
+}
+
+// artifactLines writes a rendering in form, one line per line, and under a
+// delimited form its notices after the records, which carry none.
+func artifactLines(rendering *view.Rendering, form view.Form, opts view.Options) ([]string, error) {
 	artifact, err := rendering.WriteWith(form, opts)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(strings.TrimRight(artifact, "\n"), "\n"), nil
+	lines := strings.Split(strings.TrimRight(artifact, "\n"), "\n")
+	if (form == view.FormCSV || form == view.FormTSV) && len(rendering.Notices) > 0 {
+		lines = append(lines, "", "not represented:")
+		for _, notice := range rendering.Notices {
+			lines = append(lines, "  - "+notice)
+		}
+	}
+	return lines, nil
 }
 
 // SetRenderWidth sets the width a text rendering's table is written to fit. The

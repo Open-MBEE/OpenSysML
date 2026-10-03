@@ -4,7 +4,7 @@
 > [the roadmap](roadmap.md), where each is stated in full; a reader who only wants the design can
 > ignore them.
 
-Status: **`text`, `markdown`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
+Status: **`text`, `markdown`, `csv`, `tsv`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
 `W1` and `plantuml` its `W2`, both wired into every surface `W3` names. This page records how a
 view's rendering is separated from the forms it is written in, how Mermaid, Graphviz DOT and
 PlantUML compare, and what the writers emit — the
@@ -42,6 +42,7 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | --- | --- | --- | --- |
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
+| `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
@@ -82,7 +83,9 @@ node with a single output and nothing else — a UML value specification action 
 it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
 reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
 it is set only when that flow lowers to nodes of its own, so an action whose body is a single
-statement or a bound value carries no `own flow` and no nested cluster.
+statement or a bound value carries no `own flow` and no nested cluster. The node is the nested
+flow's frame: its own pins are the ones the flow's bindings attach to, and the flow's nodes take
+the IDs after it.
 
 A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
 `behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
@@ -138,8 +141,9 @@ An edge is labelled by its own text when it has any, and by its name only when i
 [g] / act`; a succession's its guard and probability, `[g] p = 0.5`; a flow's the pins or the
 payload it carries, `out to in`, `of Water`; and a connection's the name, else the declared type,
 else the keyword. A flow between named pins also records the pins as its ends (`Edge.FromPort`,
-`Edge.ToPort`, the IDs of the nodes' `Ports`), so a writer that draws the pins on the action's
-border attaches the flow to them and leaves the `out to in` text off; a writer that does not
+`Edge.ToPort`, the IDs of the nodes' `Ports`), as does a parameter binding between two pins
+(`bread = b`), so a writer that draws the pins on the action's
+border attaches the edge to them and leaves the `out to in` text off; a writer that does not
 keeps the text. An interconnection's connector at a port records the port the same way and keeps
 its label in every form, the port naming only where it attaches. A named edge with none of that — a completion transition, a plain succession, a
 binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
@@ -279,7 +283,18 @@ digraph "VehicleViews::vehicleView" {
   `entry` and `exit` are its behaviours, drawn in its compartment.
 - **Action pins.** An action node's directed parameters and its bound result are its `Ports`
   (`actionPorts`, `inheritedPorts` in `behavior.go`: what it declares, then what its type gives
-  it, and a pin a flow names that neither declared). A boxed node's pins are nodes of their own,
+  it, and a pin a flow names that neither declared). The rendered action's own parameters
+  (`ActionGraph.Parameters`) are the `Ports` of its root node the same way, the frame's pins,
+  `in` and `inout` on the frame's input side and `out`/`return` on the output side, as the
+  specification's action-flow notation sets an action definition's parameters on its frame. A
+  parameter binding — a node's pin valued by a name (`ActionGraph.ValueBindings`: `in b =
+  bread;`, `in b = ToastBread::bread;`, `in t = heat.t;`, `out x :>> x = y;`) or an explicit
+  `bind` with an end at a pin (`ActionGraph.Bindings`: `bind pack.boxed = toast;`, `bind heat.t
+  = pack.t;`) — is an `EdgeBinding` between the two pins (`bindingEdges`), `FromPort`/`ToPort`
+  set, running the way the values go: from the frame's input or a node's output to the pin that
+  takes them. A binding whose other end is no drawn pin (`PinBinding.OtherParameter` and
+  `OtherNode` both empty: a literal, an expression, an attribute) draws nothing and raises no
+  notice; it states a value, not a wire. A boxed node's pins are nodes of their own,
   `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
   fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
   beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
@@ -295,7 +310,16 @@ digraph "VehicleViews::vehicleView" {
   row of squares above the head for the inputs and below it for the outputs, and a flow ends at
   the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
-  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
+  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside. The
+  frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
+  root cluster). The text form lists a node's pins under it by direction and name (`in bread`)
+  and names the pins an edge joins as its ends (`heat.t => pack.t`, `ToastBread.bread ==
+  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart draws the
+  pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and names the rest in a `not
+  represented` notice, `N pin(s) not drawn (…); a flowchart draws the pins an edge ends at`.
+  PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps its label
+  naming the pins (`n0 -- n1 : bread = b`) and every pin is named in a `not represented` notice,
+  `N pin(s) not drawn (…); PlantUML's state grammar has no pin, so the edges name them`.
 - **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
   definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
   `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members
@@ -826,11 +850,12 @@ every palette, and text stays black.
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
+| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
+| CLI, REPL, LSP, VS Code | A table view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each table and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml`, `%render-document <name> mermaid\|dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT or PlantUML source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
@@ -889,6 +914,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   tints; the sequential sampling; the unknown-palette error text and the silence of the text and
   Markdown forms; labels holding `&`, `<`, `>`, `"`, `'` and newlines;
   and the `interconnection.okabe-ito`, `state.okabe-ito` and `tree.viridis` goldens.
+- `internal/ir/view/delimited_test.go`: the CSV and TSV of a table read back by `encoding/csv`
+  to its header and rows; a comma, a tab, a quote and a line break quoted; a short row padded; an
+  empty table's header alone; and every other kind refusing both forms.
 - `internal/ir/view/plantuml_test.go`: a `*.plantuml.golden` beside every Mermaid golden — the
   tree, interconnection, state, state-entry, action, typed-action, typed-state, filtered, layout
   and every `sequence-*` fixture — and `interconnection.okabe-ito.plantuml.golden` beside the DOT
