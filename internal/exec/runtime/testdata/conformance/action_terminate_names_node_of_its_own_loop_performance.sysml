@@ -3,14 +3,8 @@ package test {
 	private import ISQ::*;
 	private import SI::*;
 
-	action def Nap {
-		first start;
-		then action rest accept after 10 [s];
-		then done;
-	}
-
-	// As action_terminate_names_node_of_paused_bodies, but slow naps by performing Nap:
-	// each `terminate slow;` ends its own loop body's slow, abandoning that Nap.
+	// The third loop performance's slow terminates itself while the first two nap: it names
+	// its own loop body's slow only, so the other two nap on and complete.
 	action host {
 		out attribute entered : Integer = 0;
 		out attribute napped : Integer = 0;
@@ -32,17 +26,26 @@ package test {
 		then loop {
 			action slow {
 				assign entered := entered + 1;
-				action inner {
-					first start;
-					then fork f;
-					succession first f then nap;
-					succession first f then watch;
-					action nap : Nap;
-					action watch accept after 5 [s];
-					succession first watch then stop;
-					action stop { terminate slow; }
+				if entered <= 2 {
+					action inner {
+						first start;
+						then action nap accept after 10 [s];
+						then done;
+					}
+					assign napped := napped + 1;
+				} else {
+					action guard {
+						first start;
+						then fork f;
+						succession first f then nap;
+						succession first f then watch;
+						action nap accept after 10 [s];
+						action watch accept after 5 [s];
+						succession first watch then stop;
+						action stop { terminate slow; }
+					}
+					assign napped := napped + 1;
 				}
-				assign napped := napped + 1;
 			}
 			assign passed := passed + 1;
 			assign later := later + 1;

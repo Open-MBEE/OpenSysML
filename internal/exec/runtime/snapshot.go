@@ -569,6 +569,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 	visit(e.root)
 	for _, token := range e.tokens {
 		visit(token.frame)
+		if token.body != nil {
+			if w, ok := token.body.work.(*statementWork); ok {
+				visit(w.step)
+			}
+		}
 		for _, perf := range token.performed() {
 			visit(perf)
 		}
