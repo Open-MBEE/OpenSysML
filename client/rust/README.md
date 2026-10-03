@@ -3,6 +3,9 @@
 `opensysml` is a blocking Rust client for the local `sysml-grpc` service. It
 is published to crates.io with each core release, at the core's version.
 
+For a task-oriented walkthrough, see the
+[Rust client guide](https://opensysml.org/clients/rust/).
+
 ## Installation
 
 From crates.io:

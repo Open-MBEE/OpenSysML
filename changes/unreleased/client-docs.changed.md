@@ -1,0 +1,1 @@
+- **Add task-oriented guides for each client and split the Python guide by task.** The shared client overview now compares all seven surfaces and gives each language the same working Demo model.

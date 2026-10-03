@@ -472,7 +472,7 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
-docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
+docs-check: docs-install ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
 	$(PYTHON) scripts/check-doc-links.py
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
@@ -505,7 +505,7 @@ docs-engine-assets: ## Build the in-browser engine assets into docs/assets
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
 	@echo "✓ Built docs/assets/sysml-engine.wasm.gz + wasm_exec.js"
 
-docs-serve: ## Serve the documentation site with live reload
+docs-serve: docs-install ## Serve the documentation site with live reload
 	$(PYTHON) -m mkdocs serve --strict
 
 help: ## Show this help message
