@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	goruntime "runtime"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -63,6 +65,21 @@ func TestLibraryBehaviorOrdersShippedSet(t *testing.T) {
 	}
 }
 
+func TestLibraryBehaviorOrdersSnapshotBaseMemoized(t *testing.T) {
+	base := libs.SharedBase()
+	before := libraryOrderWalks.Load()
+	libraryBehaviorOrders(base)
+	afterFirst := libraryOrderWalks.Load()
+	if walks := afterFirst - before; walks > 1 {
+		t.Fatalf("first lookup added %d library order walks, want at most one", walks)
+	}
+
+	libraryBehaviorOrders(base)
+	if got := libraryOrderWalks.Load(); got != afterFirst {
+		t.Fatalf("second lookup added %d library order walks, want zero", got-afterFirst)
+	}
+}
+
 func TestLibraryBehaviorOrdersSharedAcrossModels(t *testing.T) {
 	base, _ := libs.FrozenLibrary()
 	if !base.Frozen() {
@@ -96,6 +113,20 @@ func TestLibraryBehaviorOrdersSharedAcrossModels(t *testing.T) {
 			t.Fatalf("orders contain no non-refused user order: %+v", got)
 		}
 	}
+}
+
+func TestLibraryBehaviorOrdersReleasedWithIndex(t *testing.T) {
+	done := make(chan struct{})
+	cacheLibraryBehaviorOrdersForCleanup(t, done)
+	for range 50 {
+		goruntime.GC()
+		select {
+		case <-done:
+			return
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	t.Fatal("frozen library index remained reachable through the behavior order cache")
 }
 
 func BenchmarkBehaviorOrdersLibraryModel(b *testing.B) {
@@ -133,6 +164,14 @@ func libraryBehaviorOrderContext(t *testing.T, base *symbols.Index, registerScop
 		}
 	}
 	return NewContext(model, 10000)
+}
+
+func cacheLibraryBehaviorOrdersForCleanup(t *testing.T, done chan struct{}) {
+	t.Helper()
+	base, _ := libs.FrozenLibrary()
+	ctx := libraryBehaviorOrderContext(t, base, false)
+	ctx.behaviorOrders()
+	goruntime.AddCleanup(base, func(ch chan struct{}) { close(ch) }, done)
 }
 
 func parseLibraryBehaviorOrderDocument(t testing.TB) (*source.SourceFile, *ast.RootNamespace) {
