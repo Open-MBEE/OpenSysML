@@ -77,6 +77,7 @@ const (
 	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
 	pImportedMembership        = "importedMembership"
+	pImportedElement           = "importedElement"
 	pAliasFor                  = "aliasedElement" // an older mapping's alias target, read only
 	pMemberName                = "memberName"
 	pMemberShortName           = "memberShortName"
@@ -470,6 +471,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
@@ -491,6 +493,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 	if err := e.collect(root.Members, ""); err != nil {
 		return nil, err
 	}
+	e.indexTriggerMembers()
 	return e, nil
 }
 
@@ -523,7 +526,8 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams map[ast.Node]string
+	triggerParams  map[ast.Node]string
+	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
 	// `of T`, which states only its typing (SysML-textual-bnf PayloadFeature).
@@ -562,6 +566,19 @@ type encoder struct {
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
+}
+
+func (e *encoder) indexTriggerMembers() {
+	for node, fqn := range e.fqn {
+		transition, ok := node.(*ast.TransitionMember)
+		if !ok || transition.Trigger == nil {
+			continue
+		}
+		e.triggerMembers[transition.Trigger] = fqn
+		if event, ok := transition.Trigger.(*ast.AcceptEvent); ok && event.Payload != nil {
+			e.triggerMembers[event.Payload] = fqn
+		}
+	}
 }
 
 // membershipImport is a membership import's subject and the name it imports.

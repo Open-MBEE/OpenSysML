@@ -54,24 +54,54 @@ func firstObject(graph *rdf.Graph, subject rdf.Term, properties ...string) rdf.T
 	return rdf.Term{}
 }
 
-// originalPortDefinition is the PortDefinition a ConjugatedPortTyping's `~P`
-// names: its stated portDefinition when that is a definition (the toolkit
-// points it at the typing itself), else the conjugate's original.
-func originalPortDefinition(graph *rdf.Graph, meta func(rdf.Term) string, typing, conjugated rdf.Term) rdf.Term {
+// portDefinitionIndex keeps the graph order of definitions a conjugated type names.
+type portDefinitionIndex map[string][]portDefinitionCandidate
+
+type portDefinitionCandidate struct {
+	subject    rdf.Term
+	original   rdf.Term
+	definition bool
+}
+
+func newPortDefinitionIndex(graph *rdf.Graph, meta func(rdf.Term) string, subjects []rdf.Term) portDefinitionIndex {
+	index := portDefinitionIndex{}
+	for _, subject := range subjects {
+		conjugatedType := rdf.Term{}
+		if meta(subject) == mPortConjugation {
+			conjugatedType = firstIRI(graph, subject, pConjugatedType)
+		}
+		conjugatedDefinition := firstIRI(graph, subject, pConjugatedPortDefinition)
+		if conjugatedType.Value != "" {
+			index[conjugatedType.Value] = append(index[conjugatedType.Value], portDefinitionCandidate{
+				subject:    subject,
+				original:   firstIRI(graph, subject, pOriginalPortDefinition, pOriginalType),
+				definition: conjugatedDefinition == conjugatedType,
+			})
+		}
+		if conjugatedDefinition.Value != "" && conjugatedDefinition != conjugatedType {
+			index[conjugatedDefinition.Value] = append(index[conjugatedDefinition.Value], portDefinitionCandidate{
+				subject:    subject,
+				definition: true,
+			})
+		}
+	}
+	return index
+}
+
+// original is the PortDefinition a ConjugatedPortTyping's `~P` names.
+func (index portDefinitionIndex) original(graph *rdf.Graph, meta func(rdf.Term) string, typing, conjugated rdf.Term) rdf.Term {
 	if stated := firstIRI(graph, typing, pPortDefinition); stated.Value != "" && meta(stated) != mConjugatedPortTyping {
 		return stated
 	}
 	if conjugated.Value == "" || meta(conjugated) != mConjugatedPortDefinition {
 		return conjugated
 	}
-	for _, subject := range graph.Subjects() {
-		if meta(subject) == mPortConjugation && firstIRI(graph, subject, pConjugatedType) == conjugated {
-			if original := firstIRI(graph, subject, pOriginalPortDefinition, pOriginalType); original.Value != "" {
-				return original
-			}
+	for _, candidate := range index[conjugated.Value] {
+		if candidate.original.Value != "" {
+			return candidate.original
 		}
-		if firstIRI(graph, subject, pConjugatedPortDefinition) == conjugated {
-			return subject
+		if candidate.definition {
+			return candidate.subject
 		}
 	}
 	if ms := firstIRI(graph, conjugated, pOwningRelationship, pOwningMembership); ms.Value != "" {
@@ -249,10 +279,12 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 	if !elementForm {
 		return graph, nil
 	}
+	portDefinitions := newPortDefinitionIndex(graph, meta, graph.Subjects())
 	n := &normalizer{
 		graph:             graph,
 		meta:              meta,
 		chainIndex:        chainIndex,
+		portDefinitions:   portDefinitions,
 		elementForm:       elementForm,
 		memberOwner:       map[string]rdf.Term{},
 		memberMembership:  map[string]rdf.Term{},
@@ -293,6 +325,7 @@ type normalizer struct {
 	graph             *rdf.Graph
 	meta              func(rdf.Term) string
 	chainIndex        map[string][]rdf.Term
+	portDefinitions   portDefinitionIndex
 	elementForm       bool
 	memberOwner       map[string]rdf.Term
 	memberMembership  map[string]rdf.Term
@@ -482,7 +515,7 @@ func (n *normalizer) collapseRelationships() {
 		if m == mConjugatedPortTyping {
 			// The head writes `~P`: the original definition, the conjugate of
 			// which the typing names as its type.
-			target = originalPortDefinition(graph, meta, subject, target)
+			target = n.portDefinitions.original(graph, meta, subject, target)
 			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 		if target.Value == "" {
@@ -686,6 +719,9 @@ func (n *normalizer) deriveSuccessionEnds() {
 			if source.Value == "" {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 			}
+		case source.Value == "" && target.Value != "" && target == next:
+			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
+			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
 		case graph.HasProperty(subject, rdf.SysML+pTargetFeature):
 		case next.Value != "":
 			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
@@ -720,8 +756,22 @@ func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) 
 // feature (or `first` member) before it, which an empty source end sequences
 // from (SysML v2 1.0 § 7.17.4), and the next, which `then` ahead of it targets.
 func (n *normalizer) sequencedNeighbours(owner, subject rdf.Term) (previous, next rdf.Term) {
+	membershipMembers := map[string]bool{}
+	for _, property := range []string{pOwnedRelationship, pOwnedMembership} {
+		for _, membership := range n.graph.Objects(owner, rdf.SysML+property) {
+			if n.meta(membership) != mMembership {
+				continue
+			}
+			if member := firstIRI(n.graph, membership, pMemberElement); member.Value != "" {
+				membershipMembers[member.Value] = true
+			}
+		}
+	}
 	sequenced := func(t rdf.Term) bool {
 		m := n.meta(t)
+		if m == "" && membershipMembers[t.Value] {
+			m = mMembership
+		}
 		return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
 			(m == mMembership || !relationshipLike(m))
 	}
@@ -754,8 +804,14 @@ func (n *normalizer) sequencedNeighbours(owner, subject rdf.Term) (previous, nex
 // its trailing place is the absence of an index. An owner whose members state
 // an index keeps it: the order it states is the order it takes.
 func (n *normalizer) stateMemberIndices() {
+	subjectsByOwner := make(map[string][]rdf.Term, len(n.ownerMembers))
+	for _, subject := range n.graph.Subjects() {
+		if owner, ok := n.memberOwner[subject.Value]; ok {
+			subjectsByOwner[owner.Value] = append(subjectsByOwner[owner.Value], subject)
+		}
+	}
 	for owner, members := range n.ownerMembers {
-		all, merged, children, indexed := n.mergedMemberOrder(owner, members)
+		all, merged, children, indexed := n.mergedMemberOrder(owner, members, subjectsByOwner[owner])
 		if indexed || sameTerms(all, merged) {
 			continue
 		}
@@ -771,17 +827,14 @@ func (n *normalizer) stateMemberIndices() {
 // mergedMemberOrder is the owner's members in subject order, the same slots
 // with the positional members in their positional order, the members among
 // them, and whether one already states an index.
-func (n *normalizer) mergedMemberOrder(owner string, members []rdf.Term) (all, merged []rdf.Term, children map[string]bool, indexed bool) {
+func (n *normalizer) mergedMemberOrder(owner string, members, subjects []rdf.Term) (all, merged []rdf.Term, children map[string]bool, indexed bool) {
 	positional := map[string]bool{}
 	for _, m := range members {
 		positional[m.Value] = true
 	}
 	children = map[string]bool{}
 	next := 0
-	for _, subject := range n.graph.Subjects() {
-		if o, ok := n.memberOwner[subject.Value]; !ok || o.Value != owner {
-			continue
-		}
+	for _, subject := range subjects {
 		if n.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) {
 			return nil, nil, nil, true
 		}
@@ -859,6 +912,10 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 		// A subaction's one action and a connector's unnamed ends are written
 		// in the head, not in a body.
 		if meta(owner) == mSubaction || meta(memberMembership[member]) == mTransitionFeatureMembership {
+			continue
+		}
+		if flowMetaclasses[meta(owner)] && meta(rdf.IRI(member)) == mPayloadFeature &&
+			meta(memberMembership[member]) == mFeatureMembership {
 			continue
 		}
 		// A transition's `then` succession is its head's target, and the chain
@@ -1359,7 +1416,7 @@ func newDefaultDropper(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex 
 		membershipOwned:    membershipOwnedIn(graph, meta),
 		nodeOwned:          nodeOwnedIn(graph, meta),
 		membershipSubjects: membershipSubjectsIn(graph, meta),
-		backed:             backedIn(graph, meta),
+		backed:             backedIn(graph, meta, newPortDefinitionIndex(graph, meta, graph.Subjects())),
 		unresolvedRef:      unresolvedRef,
 		unresolvedID:       unresolvedID,
 		unresolvedTR:       unresolvedTR,
@@ -1373,6 +1430,18 @@ func newDefaultDropper(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex 
 // dropped reports whether every triple of the subject is dropped: an element
 // a membership owns, an implied one, or an unresolved-name annotation.
 func (d *defaultDropper) dropped(v string) bool {
+	subject := rdf.IRI(v)
+	if d.implied[v] && d.meta(subject) == mReferenceSubsetting {
+		referencing := firstIRI(d.graph, subject, pReferencingFeature, pOwningFeature, pOwningRelatedElement, pOwner)
+		if d.meta(referencing) == mReferenceUsage &&
+			!d.graph.HasProperty(referencing, rdf.SysML+pReferences) {
+			return d.membershipOwned[v] || d.unresolvedTR[v]
+		}
+	}
+	if d.implied[v] && d.meta(subject) == mRedefinition &&
+		d.meta(firstIRI(d.graph, subject, pOwningRelatedElement, pOwner)) == mFlowEnd {
+		return d.membershipOwned[v] || d.unresolvedTR[v]
+	}
 	return d.membershipOwned[v] || d.implied[v] || d.unresolvedTR[v]
 }
 
@@ -1396,7 +1465,9 @@ func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
 func (d *defaultDropper) iriObject(triple rdf.Triple) (object rdf.Term, unresolvedName string, keep bool) {
 	object = triple.Object
 	local := rdf.LocalName(triple.Predicate.Value)
-	if text, segment := d.chainSegment[object.Value]; segment && !structuralProps[local] {
+	flowEndReference := local == pReferencedFeature && d.meta(triple.Subject) == mReferenceSubsetting &&
+		d.meta(firstIRI(d.graph, triple.Subject, pReferencingFeature, pOwningRelatedElement, pOwner)) == mFlowEnd
+	if text, segment := d.chainSegment[object.Value]; segment && !structuralProps[local] && !flowEndReference {
 		object = rdf.TypedLiteral(text, rdf.OpenSysML+dtExpression)
 	}
 	// A reference the writer could not resolve becomes the name it wrote,
@@ -1533,7 +1604,7 @@ func (d *defaultDropper) compositeByDefault(subject rdf.Term) bool {
 	// A usage nested in a type is composite unless `ref` (SysML
 	// Usage::isComposite); only one elsewhere writes `composite`.
 	owner := firstIRI(graph, firstIRI(graph, subject, pOwningRelationship), pOwningRelatedElement, pOwner)
-	return ontology.IsAncestorOrSelf(meta(subject), "Usage") && owner.IsIRI() &&
+	return (meta(subject) == "FlowUsage" || ontology.IsAncestorOrSelf(meta(subject), "Usage")) && owner.IsIRI() &&
 		ontology.IsAncestorOrSelf(meta(owner), "Type")
 }
 
@@ -1598,7 +1669,7 @@ func membershipSubjectsIn(graph *rdf.Graph, meta func(rdf.Term) string) map[stri
 // relationship element carries is a statement. A derived edge unbacked by one
 // is dropped — the toolkit marks the elements it derives these for with
 // isImpliedIncluded.
-func backedIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]map[string]bool {
+func backedIn(graph *rdf.Graph, meta func(rdf.Term) string, portDefinitions portDefinitionIndex) map[string]map[string]bool {
 	backed := map[string]map[string]bool{}
 	for _, subject := range graph.Subjects() {
 		m := meta(subject)
@@ -1618,7 +1689,7 @@ func backedIn(graph *rdf.Graph, meta func(rdf.Term) string) map[string]map[strin
 			for _, object := range graph.Objects(subject, rdf.SysML+end) {
 				if m == mConjugatedPortTyping && object.IsIRI() {
 					// The head writes `~P`; the derived type `~P` is not what it states.
-					object = originalPortDefinition(graph, meta, subject, object)
+					object = portDefinitions.original(graph, meta, subject, object)
 				}
 				if backed[owner.Value] == nil {
 					backed[owner.Value] = map[string]bool{}

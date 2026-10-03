@@ -29,7 +29,7 @@ func TestCalleeTextChainAgreesByIdentity(t *testing.T) {
 		}
 		d := newDecoder(g, map[rdf.Term]string{
 			node: rdf.SysML + mInvocation, membership: rdf.SysML + mOwningMembership, chain: rdf.SysML + mFeature,
-		}, nil)
+		}, nil, nil)
 		for iri, qname := range map[rdf.Term]string{foo: "Service::foo", other: "Other::foo"} {
 			g.Add(iri, rdf.SysMLTerm(pQualifiedName), rdf.String(qname))
 			d.byIRI[iri.Value] = &element{iri: iri.Value, qname: qname}

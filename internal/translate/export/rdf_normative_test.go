@@ -34,6 +34,112 @@ func elmt(name string) rdf.Term { return rdf.IRI("urn:sysmlv2:element:" + name) 
 
 func meta(graph *rdf.Graph, t rdf.Term) string { return rdf.LocalName(graph.Type(t)) }
 
+func TestDropStatedDefaultsKeepsUncollapsedReferenceSubsetting(t *testing.T) {
+	graph := rdf.NewGraph()
+	end := elmt("end")
+	subsetting := elmt("end__rs")
+	target := elmt("target")
+	graph.Add(end, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mReferenceUsage))
+	graph.Add(end, rdf.SysMLTerm("isEnd"), rdf.Bool(true))
+	graph.Add(end, rdf.SysMLTerm("isImpliedIncluded"), rdf.Bool(true))
+	graph.Add(end, rdf.SysMLTerm(pOwnedReferenceSubsetting), subsetting)
+	graph.Add(subsetting, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mReferenceSubsetting))
+	graph.Add(subsetting, rdf.SysMLTerm("isImplied"), rdf.Bool(true))
+	graph.Add(subsetting, rdf.SysMLTerm("isImpliedIncluded"), rdf.Bool(true))
+	graph.Add(subsetting, rdf.SysMLTerm(pReferencingFeature), end)
+	graph.Add(subsetting, rdf.SysMLTerm(pReferencedFeature), target)
+
+	meta := func(term rdf.Term) string { return rdf.LocalName(graph.Type(term)) }
+	normalized, err := dropStatedDefaults(graph, meta, true, chainOwnerIndex(graph, meta))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := normalized.Objects(end, rdf.SysML+pOwnedReferenceSubsetting); len(got) != 1 || got[0] != subsetting {
+		t.Fatalf("reference usage owns %v, want %s", got, subsetting)
+	}
+	if got := normalized.Objects(subsetting, rdf.SysML+pReferencedFeature); len(got) != 1 || got[0] != target {
+		t.Fatalf("reference subsetting targets %v, want %s", got, target)
+	}
+}
+
+func TestSuccessionEndsUseExternalMembershipSource(t *testing.T) {
+	graph := rdf.NewGraph()
+	owner := elmt("owner")
+	start := elmt("library-start")
+	startMembership := elmt("owner__start")
+	succession := elmt("succession")
+	successionMembership := elmt("owner__succession")
+	target := elmt("target")
+	targetMembership := elmt("owner__target")
+	sourceEnd := elmt("succession__source")
+	sourceEndMembership := elmt("succession__source-membership")
+	targetEnd := elmt("succession__target")
+	targetEndMembership := elmt("succession__target-membership")
+	for subject, metaclass := range map[rdf.Term]string{
+		owner:                "ActionUsage",
+		startMembership:      mMembership,
+		succession:           mSuccession,
+		successionMembership: mFeatureMembership,
+		target:               "ActionUsage",
+		targetMembership:     mFeatureMembership,
+		sourceEnd:            mReferenceUsage,
+		sourceEndMembership:  mEndFeatureMembership,
+		targetEnd:            mReferenceUsage,
+		targetEndMembership:  mEndFeatureMembership,
+	} {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	}
+	addMembership := func(membership, parent, member rdf.Term) {
+		graph.Add(membership, rdf.SysMLTerm(pOwningRelatedElement), parent)
+		graph.Add(membership, rdf.SysMLTerm(pMemberElement), member)
+		graph.Add(parent, rdf.SysMLTerm(pOwnedRelationship), membership)
+	}
+	addMembership(startMembership, owner, start)
+	addMembership(successionMembership, owner, succession)
+	addMembership(targetMembership, owner, target)
+	addMembership(sourceEndMembership, succession, sourceEnd)
+	addMembership(targetEndMembership, succession, targetEnd)
+	graph.Add(targetEnd, rdf.SysMLTerm(pReferences), target)
+
+	meta := func(term rdf.Term) string { return rdf.LocalName(graph.Type(term)) }
+	n := &normalizer{
+		graph:             graph,
+		meta:              meta,
+		memberOwner:       map[string]rdf.Term{},
+		memberMembership:  map[string]rdf.Term{},
+		nodeMember:        map[string]bool{},
+		nodeOwner:         map[string]rdf.Term{},
+		membershipSubject: map[string]bool{},
+		ownerMembers:      map[string][]rdf.Term{},
+	}
+	n.indexMemberships()
+	n.orderMembers()
+	n.deriveSuccessionEnds()
+
+	if got, ok := graph.Object(succession, rdf.OpenSysML+xSourceMember); !ok || got != start {
+		t.Fatalf("succession source member %v, want %s", got, start)
+	}
+	if got, ok := graph.Object(succession, rdf.OpenSysML+xTargetMember); !ok || got != target {
+		t.Fatalf("succession target member %v, want %s", got, target)
+	}
+}
+
+func TestSequencesFromMatchesInitialMembershipReferent(t *testing.T) {
+	graph := rdf.NewGraph()
+	membership := elmt("initial-membership")
+	start := elmt("library-start")
+	succession := elmt("succession")
+	graph.Add(membership, rdf.SysMLTerm(pMemberElement), start)
+	graph.Add(succession, rdf.OpenSysMLTerm(xSourceMember), start)
+	d := &decoder{graph: graph}
+	from := &element{iri: membership.Value, metaclass: mMembership, membershipKeyword: "first"}
+	to := &element{iri: succession.Value, metaclass: mSuccession}
+
+	if !d.sequencesFrom(to, from) {
+		t.Fatal("succession source does not match the initial membership's referent")
+	}
+}
+
 // jsonValues flattens a single value or an array of values.
 func jsonValues(v any) []any {
 	if arr, ok := v.([]any); ok {
@@ -559,4 +665,123 @@ func TestNormativeImplicitMetadataBodyRedefinition(t *testing.T) {
 		sourceEnds: []string{"redefiningFeature", "subsettingFeature", "owningFeature"},
 		targetEnds: []string{"redefinedFeature", "subsettedFeature", "general"},
 	})
+}
+
+func TestMembershipImportUsesImportedElementWhenMembershipIsUnavailable(t *testing.T) {
+	graph := rdf.NewGraph()
+	imported := elmt("imported")
+	target := elmt("target")
+	graph.Add(imported, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mMembershipImport))
+	graph.Add(imported, rdf.SysMLTerm(pImportedElement), target)
+	graph.Add(target, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mPackage))
+	graph.Add(target, rdf.SysMLTerm(pQualifiedName), rdf.String("Base::DataValue"))
+	graph.Add(target, rdf.SysMLTerm(pDeclaredName), rdf.String("DataValue"))
+
+	metaclasses, err := checkTypes(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newDecoder(graph, metaclasses, nil, nil)
+	importElement := &element{iri: imported.Value, metaclass: mMembershipImport}
+	d.byIRI[target.Value] = &element{
+		iri: target.Value, metaclass: mPackage, qname: "Base::DataValue", elementID: "target",
+	}
+	name, err := d.importedName(importElement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "Base::DataValue" {
+		t.Fatalf("imported name = %q, want %q", name, "Base::DataValue")
+	}
+}
+
+func TestReferencesInEffectivelyNamedMembersMatchEitherQualifiedNameForm(t *testing.T) {
+	const model = `package M {
+    part def Base {
+        part spacecraft {
+            part lm {
+                part stage {
+                    attribute engineStatus : ScalarValues::String;
+                }
+            }
+        }
+    }
+    part def Derived :> Base {
+        part :>> spacecraft {
+            part :>> lm {
+                part :>> stage {
+                    attribute engineStatus : ScalarValues::String;
+                }
+            }
+        }
+    }
+}`
+	for _, test := range []struct {
+		name  string
+		qname string
+	}{
+		{name: "positional"},
+		{name: "effective", qname: "M::Derived::spacecraft::lm::stage::engineStatus"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			graph := normativeGraph(t, model)
+			var engineStatus rdf.Term
+			for _, triple := range graph.Triples() {
+				if triple.Predicate != rdf.SysMLTerm(pQualifiedName) || !strings.HasPrefix(triple.Object.Value, "M::Derived::") ||
+					!strings.HasSuffix(triple.Object.Value, "::engineStatus") {
+					continue
+				}
+				engineStatus = triple.Subject
+				break
+			}
+			if engineStatus.Value == "" {
+				t.Fatal("the derived engineStatus has no qualified name")
+			}
+			if test.qname != "" {
+				var triples []rdf.Triple
+				for _, triple := range graph.Triples() {
+					if triple.Subject == engineStatus && triple.Predicate == rdf.SysMLTerm(pQualifiedName) {
+						continue
+					}
+					triples = append(triples, triple)
+				}
+				graph = rdf.NewGraphOf(triples, graph.Prefixes)
+				graph.Add(engineStatus, rdf.SysMLTerm(pQualifiedName), rdf.String(test.qname))
+			}
+
+			notation, err := ToSysML(graph)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			p := parser.New(source.New("m.sysml", notation))
+			p.ParseFile()
+			if len(p.Diagnostics) > 0 {
+				t.Fatalf("notation does not parse: %v\n%s", p.Diagnostics, notation)
+			}
+		})
+	}
+}
+
+func TestFlowEndsRoundTripFromFeatureChains(t *testing.T) {
+	const model = `package P {
+    item def Fuel;
+    port def FuelPort {
+        in item fuel : Fuel;
+    }
+    part def Vessel {
+        port fuelPort : FuelPort;
+    }
+    part source : Vessel;
+    part target : Vessel;
+    flow of Fuel from source.fuelPort.fuel to target.fuelPort.fuel;
+}`
+	notation, err := ToSysML(normativeGraph(t, model))
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	p := parser.New(source.New("flow.sysml", notation))
+	p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("the decoded flow does not parse: %v\n%s", p.Diagnostics, notation)
+	}
 }

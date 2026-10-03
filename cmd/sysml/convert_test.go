@@ -120,6 +120,29 @@ func TestConvertToStdout(t *testing.T) {
 	}
 }
 
+func TestConvertAPIJSONLibraryFallbackWarnsOnStderr(t *testing.T) {
+	binary := buildCLI(t)
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(t.TempDir(), "library.json")
+	if err := os.WriteFile(input, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result := runCommand(t, exec.Command(binary, input, "-from", "api-json", "-convert", "sysml"))
+	if result.status != 0 {
+		t.Fatalf("conversion exited %d:\n%s%s", result.status, result.stdout, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "warning: the library element") ||
+		!strings.Contains(result.stderr, "resolved by its qualified name ScalarValues::Real") {
+		t.Errorf("the library identity warning was not written to stderr:\n%s", result.stderr)
+	}
+	if strings.Contains(result.stdout, "warning:") || !strings.Contains(result.stdout, "library package DocumentLibrary") {
+		t.Errorf("stdout contains the wrong conversion output:\n%s", result.stdout)
+	}
+}
+
 // TestConvertFlagOrder checks that the model may be named before or after the
 // flags that apply to it, since Go's flag package stops at the first file name
 // unless the arguments are reordered.
