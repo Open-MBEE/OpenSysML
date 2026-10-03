@@ -205,12 +205,32 @@ one (`p.x`) leaves the program as any value does. A record type is also refused 
 specializes another definition, declares a feature other than an `attribute` or a calc, holds a
 function value, binds a feature to its value or computes a default when the object is made, or
 holds a unique collection of records (whose uniqueness violation the interpreter reports by object
-number). A construction that leaves a single-valued feature with no argument and no default is
-refused: the interpreter then holds an `<unset>` value there, which is neither null nor a value of
-the feature's type. The C target refuses a record holding a String or a collection, which its arena would
+number). The C target refuses a record holding a String or a collection, which its arena would
 reclaim at the end of the statement making it (the Go target computes it); a C record and a
 function value carrying one are allocated outside the arena, so neither is reclaimed while held,
 and a run's records are freed when the next run begins, as its arena is.
+
+A construction that binds no argument to a single-valued feature without a default leaves it
+holding one value nothing determines: the feature's multiplicity defaults to `[1..1]`, and KerML
+1.0 §7.3.4.1 constrains its values by it, while `InstantiationExpression::argument` is
+`Expression[0..*]`, so the construction is valid and the value unknown. The interpreter
+materializes it as an `<unset>` value (`runtime.Context.HoldsNoValue`), and the compiled program
+holds the same value, a fresh identity beside the feature's type. Like the interpreter, which
+materializes it when it is first read, the program spends one step on that first read:
+
+| Use of an unset value | Compiled as the interpreter computes it |
+|---|---|
+| read as the result, `p.y`, `s.a.y` | printed `<unset>` |
+| `== null`, `isEmpty`, `notEmpty`, `size` | not null, not empty: `false`, `false`, `true`, `1` |
+| `==`, `===`, `!=`, `!==` | equal only to itself and its aliases, not to another unset value or to any value |
+| `??`, a local, an argument, an `if` branch, an assignment | the same unset value, kept |
+| arithmetic, ordering, `**`, `not`, `and`/`or`, `if` conditions, String concatenation and conversion | the interpreter's `no value for feature …` failure, naming the expression as it does |
+| bound to a `Natural` or `Positive` parameter, result, feature value or assignment | kept when the feature it was unset in has that range or a narrower one, else the interpreter's `type mismatch … typed by …` failure; an attribute declaration keeps it, as the interpreter does |
+
+A feature with a default still takes the default, and a collection-valued one is still empty. Only
+the rendering `<unset>` is the tool's own. Refused with a typed error: an unset value as an element
+of a collection (the interpreter keeps it as one element, which a compiled sequence cannot hold)
+and a feature read off an unset record.
 
 ## Step budget
 

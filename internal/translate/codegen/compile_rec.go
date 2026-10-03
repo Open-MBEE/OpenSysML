@@ -181,12 +181,20 @@ func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error)
 	for _, name := range names {
 		f := r.Fields[r.Field(name)]
 		label := fmt.Sprintf("%s: feature value %s.%s", what, r.Short, name)
-		v, err := fc.bind(payload[name], f.b, label, label)
+		b := f.b
+		lift := b.t.MayUnset() && !payload[name].Type().MayUnset()
+		if lift {
+			b.t = b.t.Concrete()
+		}
+		v, err := fc.bind(payload[name], b, label, label)
 		if err != nil {
 			return nil, err
 		}
-		if f.b.t.Scalar() && f.b.r != RangeAny {
-			v = Narrowed{X: v, R: f.b.r, Where: label}
+		if b.t.Concrete().Scalar() && b.r != RangeAny {
+			v = Narrowed{X: v, R: b.r, Where: label}
+		}
+		if lift {
+			v = Lift{X: v, T: f.b.t}
 		}
 		if pure(v) {
 			written[name] = v
@@ -212,7 +220,11 @@ func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error)
 		case f.T.Many():
 			fields[i] = NullLit{T: f.T}
 		default:
-			return nil, fc.unsupported(fmt.Sprintf("%s binds no value to %s, which has no default", what, f.Name))
+			// A required feature nothing is written to holds an unset value.
+			if !f.T.MayUnset() {
+				fc.c.widenUnset(*f.b.slot)
+			}
+			fields[i] = NewUnset{T: f.T.Unsettable(), R: f.b.r}
 		}
 	}
 	return wrapLets(lets, Steps{N: 1, X: wrapLets(writes, RecNew{Rec: r, Fields: fields})}), nil
@@ -279,6 +291,9 @@ func (fc *funcCompiler) compileChain(n *ast.FeatureChainExpr) (Expr, error) {
 // member is the feature name of the record x.
 func (fc *funcCompiler) member(x Expr, name, written string) (Expr, error) {
 	t := x.Type()
+	if t.MayUnset() && t.IsRec() {
+		return nil, fc.unsupported(fmt.Sprintf("%s: a feature chain reading %s off a %s that may be %s", written, name, t, runtime.UnsetText))
+	}
 	if !t.Scalar() || !t.IsRec() {
 		return nil, fc.unsupported(fmt.Sprintf("%s: a feature chain reading %s off a %s", written, name, t))
 	}

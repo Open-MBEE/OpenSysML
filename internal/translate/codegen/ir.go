@@ -18,9 +18,11 @@ import (
 type Type struct {
 	k    typeKind
 	many bool
-	Enum *Enum
-	Fns  *FnSet
-	Rec  *Record
+	// unset marks a scalar that may be a materialized unset value instead.
+	unset bool
+	Enum  *Enum
+	Fns   *FnSet
+	Rec   *Record
 }
 
 type typeKind uint8
@@ -143,7 +145,25 @@ func elemKind(k typeKind) bool {
 
 // Scalar reports whether t is exactly one Integer, Real, Boolean, number,
 // String, enumeration literal, function or record.
-func (t Type) Scalar() bool { return !t.many && elemKind(t.k) }
+func (t Type) Scalar() bool { return !t.many && !t.unset && elemKind(t.k) }
+
+// MayUnset reports whether t is a scalar that may instead be unset: the
+// interpreter's materialized value of a required feature nothing was written
+// to, which counts as one value, has an identity, and fails where a concrete
+// value is required.
+func (t Type) MayUnset() bool { return t.unset }
+
+// Unsettable is the scalar t admitting an unset value too.
+func (t Type) Unsettable() Type {
+	t.unset = true
+	return t
+}
+
+// Concrete is t without an unset value.
+func (t Type) Concrete() Type {
+	t.unset = false
+	return t
+}
 
 // IsEnum reports whether t's values are enumeration literals.
 func (t Type) IsEnum() bool { return t.k == kindEnum }
@@ -165,14 +185,14 @@ func (t Type) Many() bool { return t.many }
 
 // Elem is the scalar type of t's values: t itself for a scalar.
 func (t Type) Elem() Type {
-	t.many = false
+	t.many, t.unset = false, false
 	return t
 }
 
 // Seq is the collection type over t's scalar type.
 func (t Type) Seq() Type {
-	if t.Scalar() {
-		t.many = true
+	if !t.many && elemKind(t.k) {
+		t.many, t.unset = true, false
 	}
 	return t
 }
@@ -433,6 +453,68 @@ type RecGet struct {
 }
 
 func (x RecGet) Type() Type { return x.T }
+
+// NewUnset is a fresh unset value of the scalar type T, which MayUnset, of a
+// feature whose Integer values R narrows.
+type NewUnset struct {
+	T Type
+	R Range
+}
+
+func (x NewUnset) Type() Type { return x.T }
+
+// Lift is the concrete scalar X as a value of T, its type admitting unset.
+type Lift struct {
+	X Expr
+	T Type
+}
+
+func (x Lift) Type() Type { return x.T }
+
+// Need is the value X holds, failing with Fail when X is unset.
+type Need struct {
+	X    Expr
+	Fail string
+}
+
+func (x Need) Type() Type { return x.X.Type().Concrete() }
+
+// Strip is the value X holds, which the program has found is not unset.
+type Strip struct{ X Expr }
+
+func (x Strip) Type() Type { return x.X.Type().Concrete() }
+
+// Relabel is the concrete V as a value of T that is unset exactly when Of
+// is, keeping Of's identity; Of is a Var.
+type Relabel struct {
+	V, Of Expr
+	T     Type
+}
+
+func (x Relabel) Type() Type { return x.T }
+
+// IsUnset reports whether X, a Var, is unset.
+type IsUnset struct{ X Expr }
+
+func (x IsUnset) Type() Type { return TypeBool }
+
+// SameUnset reports, Neq negated, whether L and R, Vars of which one is
+// unset, are the same value.
+type SameUnset struct {
+	L, R Expr
+	Neq  bool
+}
+
+func (x SameUnset) Type() Type { return TypeBool }
+
+// Named is X, which may be unset, under the text the interpreter names its
+// expression by when it holds no value.
+type Named struct {
+	X       Expr
+	Feature string
+}
+
+func (x Named) Type() Type { return x.X.Type() }
 
 // Let evaluates Value into the temporary Name, then In, which reads it as a Var.
 type Let struct {

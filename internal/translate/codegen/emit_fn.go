@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -38,6 +39,67 @@ func sysmlNextRun() int64 {
 }
 
 func sysmlFnEq(a, b sysmlFn) bool { return a.c == b.c && a.run == b.run && a.self == b.self }
+
+// sysmlOpt is a value that may be unset: a required feature's materialized
+// value nothing was written to, identified by u (0 for a value).
+type sysmlOpt[T any] struct {
+	v T
+	u uint64
+}
+
+type sysmlHolder interface{ held() (any, bool) }
+
+func (o sysmlOpt[T]) held() (any, bool) { return o.v, o.u != 0 }
+
+var sysmlUnsets uint64
+
+// sysmlFresh marks an unset identity no read has materialized yet.
+const sysmlFresh = 1 << 63
+
+// sysmlNewUnset is a fresh identity whose low bits are 2 more than the least
+// Integer its feature's type admits (1 for any Integer).
+func sysmlNewUnset(tag uint64) uint64 {
+	sysmlUnsets++
+	return sysmlUnsets<<2 | tag | sysmlFresh
+}
+
+// sysmlReadOpt reads the record feature value f, spending the step that
+// materializes an unset one on its first read.
+func sysmlReadOpt[T any](f *any) sysmlOpt[T] {
+	o := (*f).(sysmlOpt[T])
+	if o.u&sysmlFresh != 0 {
+		o.u &^= sysmlFresh
+		*f = o
+		sysmlStep(1)
+	}
+	return o
+}
+
+// sysmlNarrowOpt checks o against the range lo of the feature it is written
+// to; an unset value conforms when its own feature's range is within it,
+// checked only where strict.
+func sysmlNarrowOpt(o sysmlOpt[sysmlInt], lo int64, typ, where string, strict bool) sysmlOpt[sysmlInt] {
+	switch {
+	case o.u == 0 && where == "":
+		o.v = sysmlAtLeast(o.v, lo, typ)
+	case o.u == 0:
+		o.v = sysmlAtLeastAt(o.v, lo, typ, where)
+	case strict && int64(o.u&3)-2 < lo:
+		msg := "type mismatch: cannot write <unset> (instance) to a feature typed by " + typ
+		if where != "" {
+			msg = where + ": " + msg
+		}
+		sysmlFail(msg)
+	}
+	return o
+}
+
+func sysmlNeed[T any](o sysmlOpt[T], msg string) T {
+	if o.u != 0 {
+		sysmlFail(msg)
+	}
+	return o.v
+}
 `
 
 // goFnTables is the printed name of every function a value may be.
@@ -81,9 +143,31 @@ func (e *goEmitter) fnExpr(x Expr) (string, bool) {
 		}
 		return fmt.Sprintf("&sysmlRec{t: %q, f: []any{%s}}", x.Rec.Short, strings.Join(values, ", ")), true
 	case RecGet:
+		if x.T.MayUnset() {
+			return fmt.Sprintf("sysmlReadOpt[%s](&%s.f[%d])", goType(x.T.Concrete()), e.expr(x.X), x.Field), true
+		}
 		return fmt.Sprintf("%s.f[%d].(%s)", e.expr(x.X), x.Field, goType(x.T)), true
 	case Narrowed:
+		if x.X.Type().MayUnset() {
+			return fmt.Sprintf("sysmlNarrowOpt(%s, %d, %q, %q, true)", e.expr(x.X), x.R.Lower(), x.R.String(), x.Where), true
+		}
 		return fmt.Sprintf("sysmlAtLeastAt(%s, %d, %q, %q)", e.expr(x.X), x.R.Lower(), x.R.String(), x.Where), true
+	case NewUnset:
+		return fmt.Sprintf("%s{u: sysmlNewUnset(%d)}", goType(x.T), unsetTag(x.R)), true
+	case Lift:
+		return fmt.Sprintf("%s{v: %s}", goType(x.T), e.expr(x.X)), true
+	case Need:
+		return fmt.Sprintf("sysmlNeed(%s, %s)", e.expr(x.X), strconv.Quote(x.Fail)), true
+	case Strip:
+		return fmt.Sprintf("(%s).v", e.expr(x.X)), true
+	case Relabel:
+		return fmt.Sprintf("%s{v: %s, u: (%s).u}", goType(x.T), e.expr(x.V), e.expr(x.Of)), true
+	case IsUnset:
+		return fmt.Sprintf("((%s).u != 0)", e.expr(x.X)), true
+	case SameUnset:
+		return fmt.Sprintf("(((%s).u == (%s).u) != %t)", e.expr(x.L), e.expr(x.R), x.Neq), true
+	case Named:
+		return e.expr(x.X), true
 	case FnDispatch:
 		h := goLocal(x.Name)
 		var b strings.Builder
@@ -114,7 +198,46 @@ func cFnRuntime(p *Program) string {
 	}
 	return fmt.Sprintf(`
 typedef struct sysml_rec sysml_rec;
-typedef union { sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec; } sysml_cap;
+/* A value that may be unset: a required feature's materialized value nothing
+   was written to, identified by u (0 for a value). */
+static uint64_t sysml_unsets;
+/* The low bits of an unset identity are 2 more than the least Integer its
+   feature's type admits (1 for any Integer). */
+/* SYSML_FRESH marks an unset identity no read has materialized yet. */
+#define SYSML_FRESH ((uint64_t)1 << 63)
+static inline uint64_t sysml_new_unset(uint64_t tag) { return ++sysml_unsets << 2 | tag | SYSML_FRESH; }
+/* sysml_read_F reads a record feature value, spending the step that
+   materializes an unset one on its first read. */
+#define SYSML_OPT(F, T) \
+	typedef struct { T v; uint64_t u; } sysml_opt_##F; \
+	static inline T sysml_need_##F(sysml_opt_##F o, const char *msg) { if (o.u) sysml_fail(msg); return o.v; } \
+	static inline sysml_opt_##F sysml_read_##F(sysml_opt_##F *o) { \
+		if (o->u & SYSML_FRESH) { o->u &= ~SYSML_FRESH; sysml_step(1); } \
+		return *o; \
+	}
+SYSML_OPT(i, sysml_int)
+/* sysml_narrow_opt checks o against the range lo of the feature it is written
+   to; an unset value conforms when its own feature's range is within it,
+   checked only where strict. */
+static inline sysml_opt_i sysml_narrow_opt(sysml_opt_i o, sysml_int lo, const char *type, const char *where, bool strict) {
+	if (!o.u) {
+		o.v = where ? sysml_at_least_at(o.v, lo, type, where) : sysml_at_least(o.v, lo, type);
+	} else if (strict && (int64_t)(o.u & 3) - 2 < lo) {
+		static char msg[512];
+		snprintf(msg, sizeof msg, "%%s%%stype mismatch: cannot write <unset> (instance) to a feature typed by %%s", where ? where : "", where ? ": " : "", type);
+		sysml_fail(msg);
+	}
+	return o;
+}
+SYSML_OPT(r, sysml_real)
+SYSML_OPT(b, sysml_bool)
+SYSML_OPT(n, sysml_num)
+SYSML_OPT(e, sysml_enum)
+SYSML_OPT(rec, sysml_rec *)
+typedef union {
+	sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
+	sysml_opt_i u_i; sysml_opt_r u_r; sysml_opt_b u_b; sysml_opt_n u_n; sysml_opt_e u_e; sysml_opt_rec u_rec;
+} sysml_cap;
 /* A data value with features, identified by its address. It outlives every
    arena release; a run owns the records it makes until the next run begins. */
 struct sysml_rec { const char *t; sysml_rec *next; sysml_cap f[1]; };
@@ -186,6 +309,9 @@ static const char *sysml_show_rec(sysml_rec *r) {
 
 // cCapField is the member of sysml_cap a captured binding of type t is held in.
 func cCapField(t Type) string {
+	if t.MayUnset() {
+		return "u_" + cCapField(t.Concrete())
+	}
 	switch {
 	case t.IsRec():
 		return "rec"
@@ -239,9 +365,31 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 		fmt.Fprintf(&b, "%s; })", r)
 		return b.String(), true
 	case RecGet:
+		if x.T.MayUnset() {
+			return fmt.Sprintf("sysml_read_%s(&(%s)->f[%d].%s)", cCapField(x.T.Concrete()), e.expr(x.X), x.Field, cCapField(x.T)), true
+		}
 		return fmt.Sprintf("(%s)->f[%d].%s", e.expr(x.X), x.Field, cCapField(x.T)), true
 	case Narrowed:
+		if x.X.Type().MayUnset() {
+			return fmt.Sprintf("sysml_narrow_opt(%s, %d, \"%s\", %s, true)", e.expr(x.X), x.R.Lower(), x.R, cWhere(x.Where)), true
+		}
 		return fmt.Sprintf("sysml_at_least_at(%s, %d, \"%s\", %s)", e.expr(x.X), x.R.Lower(), x.R, cWhere(x.Where)), true
+	case NewUnset:
+		return fmt.Sprintf("((%s){.u = sysml_new_unset(%d)})", cType(x.T), unsetTag(x.R)), true
+	case Lift:
+		return fmt.Sprintf("((%s){.v = %s})", cType(x.T), e.expr(x.X)), true
+	case Need:
+		return fmt.Sprintf("sysml_need_%s(%s, %s)", cCapField(x.Type()), e.expr(x.X), cString(x.Fail)), true
+	case Strip:
+		return fmt.Sprintf("(%s).v", e.expr(x.X)), true
+	case Relabel:
+		return fmt.Sprintf("((%s){.v = %s, .u = (%s).u})", cType(x.T), e.expr(x.V), e.expr(x.Of)), true
+	case IsUnset:
+		return fmt.Sprintf("((%s).u != 0)", e.expr(x.X)), true
+	case SameUnset:
+		return fmt.Sprintf("(((%s).u == (%s).u) != %t)", e.expr(x.L), e.expr(x.R), x.Neq), true
+	case Named:
+		return e.expr(x.X), true
 	case FnDispatch:
 		e.temps++
 		r := fmt.Sprintf("sysml_t%d", e.temps)

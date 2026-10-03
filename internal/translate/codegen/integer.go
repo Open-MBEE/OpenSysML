@@ -204,6 +204,21 @@ func unboundedIntExpr(x Expr) string {
 		return unboundedIntExprs(x.X)
 	case Narrowed:
 		return unboundedIntExprs(x.X)
+	case NewUnset:
+	case Lift:
+		return unboundedIntExprs(x.X)
+	case Need:
+		return unboundedIntExprs(x.X)
+	case Strip:
+		return unboundedIntExprs(x.X)
+	case Relabel:
+		return unboundedIntExprs(x.V, x.Of)
+	case IsUnset:
+		return unboundedIntExprs(x.X)
+	case SameUnset:
+		return unboundedIntExprs(x.L, x.R)
+	case Named:
+		return unboundedIntExprs(x.X)
 	case FnDispatch:
 		return unboundedIntExprs(append([]Expr{x.F}, x.Cases...)...)
 	default:

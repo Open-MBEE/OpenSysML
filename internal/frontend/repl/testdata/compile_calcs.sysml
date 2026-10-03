@@ -727,6 +727,55 @@ package Compiled {
 		calc def NullCmp { in a : Real; return : Boolean = new Point(a, a) == null; }
 		calc def TooMany { in a : Real; return : Real = new Point(a, (1.0, 2.0)).y; }
 		calc def Range { in n : Integer; return : Integer = new Counted(n).n; }
+		attribute def Box { attribute b : Boolean; }
+		attribute def Label { attribute s : String; }
+		calc def Id { in v : Real; return : Real = v; }
+		calc def NatId { in n : Natural; return : Integer = n; }
+		calc def UnsetRead { in a : Real; return : Real = new Point(a).y; }
+		calc def UnsetNull { in a : Real; return : Boolean = new Point(a).y == null; }
+		calc def UnsetTwo { in a : Real; return : Boolean = new Point(a).y == new Point(a).y; }
+		calc def UnsetIdent { in a : Real; return : Boolean = new Point(a).y === new Point(a).y or new Point(a).y !== new Point(a).y == false; }
+		calc def UnsetAlias { in a : Real; attribute p : Point = new Point(a); return : Boolean = p.y == p.y and p.y === p.y and not (p.y != p.y); }
+		calc def UnsetVsValue { in a : Real; return : Boolean = new Point(a).y != a and not (new Point(a).y == a) and a != new Point(a).y; }
+		calc def UnsetAdd { in a : Real; return : Real = new Point(a).y + 1.0; }
+		calc def UnsetAddRight { in a : Real; return : Real = a + new Point(a).y; }
+		calc def UnsetNeg { in a : Real; return : Real = -new Point(a).y; }
+		calc def UnsetLt { in a : Real; return : Boolean = new Point(a).y < 1.0; }
+		calc def UnsetMul { in a : Real; return : Real = new Point(a).y * 2.0; }
+		calc def UnsetPow { in a : Real; return : Real = new Point(a).y ** 2.0; }
+		calc def UnsetSize { in a : Real; return : Integer = size(new Point(a).y); }
+		calc def UnsetEmpty { in a : Real; return : Boolean = isEmpty(new Point(a).y) or not notEmpty(new Point(a).y); }
+		calc def UnsetCoalesce { in a : Real; return : Real = new Point(a).y ?? 5.0; }
+		calc def UnsetLocal { in a : Real; attribute v : Real = new Point(a).y; return : Real = v + 1.0; }
+		calc def UnsetLocalEq { in a : Real; attribute v : Real = new Point(a).y; return : Boolean = v == v; }
+		calc def UnsetAssigned { in a : Real; attribute v : Real = a; if a > 0.0 { assign v := new Point(a).y; } return : Real = v; }
+		calc def UnsetIf { in a : Real; return : Real = if a > 0.0 ? new Point(a).y else a; }
+		calc def UnsetIfInt { in a : Real; return : Real = if a > 0.0 ? new Point(a).y else 1; }
+		calc def UnsetCond { in a : Real; return : Real = if new Box().b ? 1.0 else 2.0; }
+		calc def UnsetAnd { in a : Real; return : Boolean = new Box().b and a > 0.0; }
+		calc def UnsetNot { in a : Real; return : Boolean = not new Box().b; }
+		calc def UnsetBoolRead { in a : Real; return : Boolean = new Box().b; }
+		calc def UnsetNested { in a : Real; return : Real = new Seg(new Point(a), new Point(a, a)).a.y; }
+		calc def UnsetRecord { in a : Real; return : Boolean = new Seg(new Point(a, a)).b == null; }
+		calc def UnsetInt { in a : Real; return : Integer = new Counted().n; }
+		calc def UnsetIntAdd { in a : Real; return : Integer = new Counted().n + 1; }
+		calc def UnsetPassed { in a : Real; return : Real = Id(new Point(a).y); }
+		calc def UnsetNatural { in a : Real; return : Integer = NatId(new Counted().n); }
+		calc def UnsetDefault { in a : Real; return : Real = new Def(a).y + new Def(a).x; }
+		calc def UnsetString { in a : Real; return : String = new Label().s; }
+		calc def UnsetConcat { in a : Real; return : String = new Label().s + "x"; }
+		calc def UnsetStep { in a : Real; attribute i : Real = 0.0; attribute v : Real = a; while i < 3.0 { assign v := if i == 1.0 ? new Point(a).y else a; assign i := i + 1.0; } return : Real = v; }
+		attribute def Ranged { attribute n : Natural; attribute p : Positive; attribute i : Integer; }
+		attribute def PosBox { attribute p : Positive; }
+		calc def PosId { in n : Positive; return : Integer = n; }
+		calc def UnsetIntToNat { in a : Real; return : Integer = NatId(new Ranged().i); }
+		calc def UnsetNatToPos { in a : Real; return : Integer = PosId(new Ranged().n); }
+		calc def UnsetPosToNat { in a : Real; return : Integer = NatId(new Ranged().p); }
+		calc def UnsetDeclPos { in a : Real; attribute q : Positive = new Ranged().i; return : Integer = q; }
+		calc def UnsetAssignPos { in a : Real; attribute q : Positive = 1; assign q := new Ranged().n; return : Integer = q; }
+		calc def UnsetFieldPos { in a : Real; return : Integer = new PosBox(new Ranged().n).p; }
+		calc def UnsetResultPos { in a : Real; return : Positive = new Ranged().n; }
+		calc def UnsetResultNat { in a : Real; return : Natural = new Ranged().p; }
 		calc def Steps { in a : Real; attribute s : Scaled = new Scaled(a); attribute total : Real = 0.0; attribute i : Real = 0.0; while i < 50.0 { assign total := total + s.scale(1.0) + new Point(a, total).x; assign i := i + 1.0; } return : Real = total; }
 	}
 }
