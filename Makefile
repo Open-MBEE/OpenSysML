@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -493,6 +493,16 @@ docs: ## Build the documentation site, failing on a broken link
 	@echo "Building the documentation site..."
 	$(PYTHON) -m mkdocs build --strict --site-dir $(SITE_DIR)
 	@echo "✓ Built $(SITE_DIR)/"
+
+# The cli page's in-browser REPL fetches these two assets; they are built, never
+# vendored. The Pages job runs this target before `docs`; a local `make docs` or
+# `docs-serve` preview wants the same target first or the REPL cannot load.
+docs-engine-assets: ## Build the in-browser engine assets into docs/assets
+	@mkdir -p docs/assets
+	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
+	gzip -9f docs/assets/sysml-engine.wasm
+	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
+	@echo "✓ Built docs/assets/sysml-engine.wasm.gz + wasm_exec.js"
 
 docs-serve: ## Serve the documentation site with live reload
 	$(PYTHON) -m mkdocs serve --strict
