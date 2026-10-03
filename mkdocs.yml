@@ -182,7 +182,7 @@ exclude_docs: |
 
 nav:
   - Home: README.md
-  - sysml: sysml.md
+  - CLI: cli.md
   - Documentation: documentation.md
   - Clients: clients.md
   - Community: community.md
