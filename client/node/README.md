@@ -6,7 +6,7 @@ protocol](https://connectrpc.com/docs/protocol) with protobuf bodies. No native
 addon, so an install is a plain registry fetch.
 
 ```bash
-npm install @openmbee/opensysml        # from npm, once the first release is published
+npm install @openmbee/opensysml
 ```
 
 ```ts
@@ -680,10 +680,9 @@ commands, plus the mutation checks and a stub-drift check, in both
 
 ## Release
 
-Nothing here is published yet; the procedure is in
-[docs/project/releasing.md](../../docs/project/releasing.md) under "Releasing
-@openmbee/opensysml to npm". In short: the core `v*` tag's `release` workflow
-publishes this package and its five per-platform packages at the version
+The package and its five per-platform `sysml-grpc` packages are published to npm with each core
+`v*` release. The procedure is in [docs/project/releasing.md](../../docs/project/releasing.md)
+under "Releasing @openmbee/opensysml to npm". The `release` workflow publishes at the version
 `client/python/opensysml/_version.py` declares, carrying the release's own
 `sysml-grpc` binaries. The granular npm token it needs already lives in the
 `npm` context; granular tokens expire after at most 90 days, so rotation before

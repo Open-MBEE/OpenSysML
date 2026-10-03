@@ -744,12 +744,19 @@ func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bin
 			if err != nil {
 				return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
 			}
-			for _, held := range elementsOf(fv.HeldValue()) {
+			heldValues, err := ctx.HeldElements(fv.HeldValue())
+			if err != nil {
+				return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+			}
+			for _, held := range heldValues {
 				id, isObject := held.Object()
 				if !isObject {
 					return nil, fmt.Errorf("%w %q: %s is not an object", ErrBindingEnd, path, part)
 				}
-				obj, ok := ctx.instances[id]
+				obj, ok, err := ctx.reachedObject(id)
+				if err != nil {
+					return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+				}
 				if !ok {
 					return nil, fmt.Errorf("%w %q: instance %d is not materialized", ErrBindingEnd, path, id)
 				}

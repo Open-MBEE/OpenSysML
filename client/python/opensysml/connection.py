@@ -1045,12 +1045,13 @@ class Connection:
                 named. If False, connect to the address named, or to the
                 standard port, and start nothing (default: True)
             version (str, optional): Release tag the service must report, or
-                'latest'. Defaults to $OPENSYSML_GRPC_VERSION, the same tag the
-                binary cache is checked against; without either, whatever
-                release answers is accepted. Private children are held per
-                requirement, so a connection never joins one of another release.
-                An externally managed service that is not listening yet is
-                checked at the first call instead.
+                'latest'. Defaults to $OPENSYSML_GRPC_VERSION for service
+                compatibility checks; without either, any release is accepted.
+                Binary resolution separately defaults to the release this client
+                was built against. Private children are held per requirement,
+                so a connection never joins one of another release. An externally
+                managed service that is not listening yet is checked at the first
+                call instead.
             require_capabilities (iterable, optional): Capability names the
                 service must report, checked once at connect time rather than
                 when the first call needing one is made

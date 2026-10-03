@@ -256,7 +256,7 @@ SysML v2:
 - **Constraint Solving** *(experimental)* — In addition to evaluating what holds of an object, an external SMT solver determines whether a constraint, requirement or satisfaction assertion *can* hold, which conditions conflict when it cannot, which values would satisfy it, which variants a model permits, and what optimizes an `analysis def`'s objectives. The solver is optional and discovered at runtime. [The REPL command reference](docs/reference/repl-commands.md) documents each command, and [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) describes how to obtain one. The design follows OpenMBEE's [HMF](https://github.com/hivecore-dev/hmf) (see [Acknowledgements](#acknowledgements)).
 - **Embeddable Go API** — `client/opensysml` is the public Go surface: parse, look up symbols, evaluate expressions and instantiate parts from Go code, answered in process by the engine the calling binary already links (no port, no child process and no serialization round trip), or over the Connect protocol against an externally hosted service. See [client/opensysml/README.md](client/opensysml/README.md).
 - **Python Client Library** — gRPC-based Python bindings for programmatic access: parse models, resolve symbols, evaluate expressions, instantiate parts, execute actions/state machines. Includes IPython display hooks for Jupyter notebooks and pandas DataFrame integration. Constraint, requirement, satisfaction and calc verdicts are available as RPCs (`verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`).
-- **Node/TypeScript Client Library** — `@openmbee/opensysml` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon and nothing downloaded at install time ([client/node/README.md](client/node/README.md)).
+- **Node/TypeScript Client Library** — `@openmbee/opensysml` for Node and the browser, over the Connect protocol with protobuf bodies: parse, evaluate, look up symbols and instantiate, with values as discriminated unions. No native addon; npm installs a per-platform optional dependency with the service binary ([client/node/README.md](client/node/README.md)).
 - **Java Client Library** — `org.openmbee:opensysml` for a JVM host application it does not own, on the JDK's own `java.net.http.HttpClient`, so no gRPC, Netty or `tcnative` reaches the host ([client/java/README.md](client/java/README.md)).
 - **Rust Client Library** — A blocking client for the local `sysml-grpc` service, with no asynchronous runtime in its default dependency tree, available from the [Rust crate documentation](client/rust/README.md).
 - **Julia Client Package** — `OpenSysML`, a thin JSON-over-HTTP client (`HTTP.jl` + `JSON.jl` only) for Julia 1.10+: parse, evaluate, instantiate, execute and query, with `call` reaching the whole RPC surface ([client/julia/OpenSysML/README.md](client/julia/OpenSysML/README.md)).
@@ -540,9 +540,9 @@ how to choose; [guide chapter 9](docs/guide/09-clients.md) works through each on
 |---|---|---|---|
 | Go, `client/opensysml` | in process, or Connect to a service | with the core (`v*` tags) | [Go packages](docs/reference/api.md) |
 | Python, `opensysml` | gRPC, to a private child service or a named one | PyPI, on the core `v*` tags, at the core's version | [Python API](docs/reference/python-api.md) |
-| Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | not yet | [Node API](docs/reference/node-api.md) |
-| Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not yet | [Java API](docs/reference/java-api.md) |
-| Rust, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](docs/reference/rust-api.md) |
+| Node/TypeScript, `@openmbee/opensysml` | Connect, from Node or a browser page | npm, with per-platform binary packages | [Node API](docs/reference/node-api.md) |
+| Java, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](docs/reference/java-api.md) |
+| Rust, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags | [Rust API](docs/reference/rust-api.md) |
 
 The Go and Python clients cover every RPC the service serves; Node, Java and Rust cover a v1
 subset — connection lifecycle, capability negotiation, parsing, diagnostics, symbol lookup,
@@ -600,7 +600,8 @@ const radius = await model.eval("0.3 * 2");
 ```
 
 Version 1 covers loading, evaluation, symbol lookup and instantiation, and negotiates against the
-capabilities the service advertises. It is not yet published. See the
+capabilities the service advertises. It is published on npm with per-platform packages that carry
+the service binary. See the
 [Node API](docs/reference/node-api.md) and [client/node/README.md](client/node/README.md) for the
 two lifecycle modes (a private child of the calling process, or an externally hosted service), the
 capabilities and limitations of the browser entry point, and the functionality version 1 omits.
@@ -617,9 +618,10 @@ mass, err := client.Evaluate(ctx, model, "mass", opensysml.WithSubject("Demo::se
 The Go API is documented type by type in [Go packages](docs/reference/api.md) and
 [client/opensysml/README.md](client/opensysml/README.md). The Java client is a `try`-with-resources
 `Connection` over the JDK's HTTP client ([Java API](docs/reference/java-api.md),
-[client/java/README.md](client/java/README.md)); the Rust client is blocking, with no async
-runtime in its default dependency tree ([Rust API](docs/reference/rust-api.md),
-[client/rust/README.md](client/rust/README.md)). Neither is published yet.
+[client/java/README.md](client/java/README.md)); the Rust client is published to crates.io as
+`opensysml = "0.9"` and is blocking, with no async runtime in its default dependency tree
+([Rust API](docs/reference/rust-api.md), [client/rust/README.md](client/rust/README.md)). The Java
+artifact is not on Maven Central yet; install it from a checkout.
 
 ## Documentation
 

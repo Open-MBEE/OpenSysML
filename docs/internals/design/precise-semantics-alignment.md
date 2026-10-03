@@ -1441,8 +1441,9 @@ strategy runs when a `CreateObjectAction` targets a class with a default constru
 the featuring object (`Objects.kerml` `Object::subobjects`). *Runtime:* `instance.go:Context.Instantiate`
 creates the object and `Instance.GetFeatureValue` materializes a composite feature on first read
 to its required lower bound — `part cell : Component[4]` holds four objects, an optional `[0..1]`
-holds none, a bound past `maxMaterializedLowerBound` is `ErrMultiplicityViolation` (compliance
-record, "A required lower bound is materialized eagerly", "A bracket multiplicity is the
+holds none, a large bound is held as reserved identities each made when first read, and a lower
+bound of `*` is `ErrInfiniteLowerBound` (compliance record, "A required lower bound is a count
+of values", "A bracket multiplicity is the
 population", "An optional composite feature fills to its lower bound like a collection";
 `robustness_test.go:multiplicity_infinite_lower_bound`, `:multiplicity_lower_bound_too_large`,
 `instance_test.go`). Materialization is on first read rather than at construction, which no
