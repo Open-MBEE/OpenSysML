@@ -21,7 +21,6 @@ import psutil
 import pytest
 
 import opensysml
-from opensysml.binary import ensure_binary, get_binary_path
 from opensysml.connection import _private_services
 from tests.service_gate import (
     service_binary,
@@ -96,16 +95,11 @@ def _holder(body, env=None):
 class TestBinaryIsAvailable:
     """The binary a private service is started from."""
 
-    def test_binary_exists_or_download(self):
-        """Verify binary exists or can be downloaded."""
-        binary_path = get_binary_path()
-        if os.path.exists(binary_path):
-            pytest.skip("Binary already exists - manual install detected")
-
-        try:
-            result = ensure_binary()
-        except Exception as e:
-            pytest.skip(f"Binary download not available yet: {e}")
+    def test_binary_is_available_without_downloading(self):
+        """Verify an existing binary can be found without a network request."""
+        result = service_binary()
+        if result is None:
+            skip_or_fail_without_service("no sysml-grpc binary is available")
         assert os.path.exists(result)
         assert os.access(result, os.X_OK)
 

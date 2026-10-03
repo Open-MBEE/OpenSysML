@@ -17,7 +17,8 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and so do Python, Node and Rust. Only Python and Go are published so far.
+query methods — and so do Python, Node and Rust. Python, Node and Rust are published on PyPI, npm
+and crates.io; Java is not on Maven Central, and Julia and MATLAB are source-only.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
@@ -53,13 +54,12 @@ package Demo {
 
     ```bash
     pip install opensysml
-    export OPENSYSML_GRPC_VERSION=latest   # or install sysml-grpc yourself
     ```
 
 === "Node"
 
     ```bash
-    npm install @openmbee/opensysml          # once the first release is published
+    npm install @openmbee/opensysml
     export OPENSYSML_GRPC_VERSION=latest
     ```
 
@@ -69,11 +69,12 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml</artifactId>
-      <version>0.9.0</version>
+      <version>0.9.1</version>
     </dependency>
     ```
 
-    Once the first release is published — until then, `make build && mvn -f client/java/pom.xml install` from a checkout.
+    The artifact is not on Maven Central yet. Until then, install it from a checkout with
+    `make build && mvn -f client/java/pom.xml install`.
 
 === "Rust"
 
@@ -104,12 +105,13 @@ package Demo {
     No installation step beyond the path: the package is plain `.m` files. MATLAB R2019b+ or GNU
     Octave 7+.
 
-The six service clients each need a `sysml-grpc` binary to start, and they share the cache they
-find one in — `~/.opensysml/bin/sysml-grpc`, then `$PATH`, with a release downloaded into that
-cache when `$OPENSYSML_GRPC_VERSION` asks for one. An explicit path comes first, from a variable
-that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRPC_BINARY` for Java
-and Rust. [Getting the service binary](#getting-the-service-binary) gives the five ways to provide
-one. The Go API needs none: it is the engine.
+The service clients share the cache `~/.opensysml/bin/sysml-grpc` and can use a binary on `$PATH`;
+Python and Java download and verify the release they were built against when no release is
+configured. Rust tries its built-against release but, without a pinned digest, falls back to a
+working cache or `$PATH` with a warning, or errors if neither is available. An explicit path comes
+first, from a variable that differs by client: `$OPENSYSML_BINARY` for Python and Node,
+`$OPENSYSML_GRPC_BINARY` for Java and Rust. [Getting the service binary](#getting-the-service-binary)
+gives the five ways to provide one. The Go API needs none: it is the engine.
 
 ### Author an action body
 
@@ -398,14 +400,15 @@ Those projects publish wheels for CPython 3.10 and later only, which is the rang
 
 Every call goes through `sysml-grpc`. The client starts an instance of the service, looking for
 the binary in this order: `$OPENSYSML_BINARY`, then
-`~/.opensysml/bin/sysml-grpc` (`.exe` on Windows), then a release download into that cache if
-one was requested, then `sysml-grpc` on `$PATH`. There are five ways to provide it:
+`~/.opensysml/bin/sysml-grpc` (`.exe` on Windows), then a download of the built-against release
+or the configured release into that cache, then `sysml-grpc` on `$PATH`. There are five ways to
+provide it:
 
 ```bash
 # 1. Download the release build (verified against the digest pinned in opensysml)
 python -c "from opensysml.binary import download_binary; download_binary('latest')"
 
-# 2. Have opensysml.connect() download it on first use
+# 2. Select another release instead of the built-against default
 export OPENSYSML_GRPC_VERSION=latest      # or a tag like v0.0.5
 
 # 3. Build from source
@@ -417,22 +420,22 @@ export OPENSYSML_BINARY=$PWD/bin/sysml-grpc
 # 5. Install one on $PATH, with a package manager or `go install`
 ```
 
-If none of these is in place, `connect()` raises `ConnectionError` listing everywhere it looked,
-rather than downloading anything you did not ask for. A binary from `$OPENSYSML_BINARY` or `$PATH`
-belongs to no release, so it is started as found: not copied into the cache and not verified
-against the pinned digests described below. If `$OPENSYSML_BINARY` names something that is not
-executable, that is an error, not a reason to look elsewhere. `OPENSYSML_GITHUB_REPO` overrides
-the repository releases are fetched from (default `Open-MBEE/OpenSysML`).
+If the built-against release is unavailable, `connect()` uses an executable on `$PATH` with a
+warning, or raises `ConnectionError` with the reason and remedies. A binary from
+`$OPENSYSML_BINARY` or `$PATH` belongs to no release, so it is started as found: not copied into
+the cache and not verified against the pinned digests described below. If `$OPENSYSML_BINARY`
+names something that is not executable, that is an error, not a reason to look elsewhere.
+`OPENSYSML_GITHUB_REPO` overrides the repository releases are fetched from (default
+`Open-MBEE/OpenSysML`).
 
 A download records its release tag, repository and digest beside the binary
 (`~/.opensysml/bin/sysml-grpc.json`). That way a cache left by an earlier release, or by another
 repository publishing the same tag, is replaced rather than handed to a client asking for a newer
 one. Without this check an older build would answer and the call would fail with a
-`MissingCapabilityError` naming a capability the requested release does provide. The check only
-runs when a release is requested, so when `OPENSYSML_GRPC_VERSION` is unset a manually installed
-binary (option 3) is left alone. If the requested release cannot be downloaded, because there is no
-asset for the platform or no network, the cached binary keeps serving and a warning says so rather
-than the connection failing.
+`MissingCapabilityError` naming a capability the requested release does provide. A manually
+installed cache without release metadata is left alone; a cache recorded for another release is
+replaced. If a release cannot be downloaded because there is no asset for the platform or no
+network, the cached binary keeps serving and a warning says so rather than the connection failing.
 
 A download is verified against the SHA-256 digest that `opensysml` pins for that release, not
 against the `.sha256` file served beside the binary. That sidecar comes from whoever served
@@ -1484,9 +1487,10 @@ const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");
 ```
 
-`@openmbee/opensysml` is not published yet, so build it from a checkout: `npm install && npm run build`
-in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
-a service and its parse cache) open across several models. Both a connection and a model are
+Install the published `@openmbee/opensysml` package with `npm install @openmbee/opensysml`; from a
+checkout, use `npm install && npm run build` in `client/node`. `loads` and `load` are the one-shot
+forms; `connect()` keeps a connection (and so a service and its parse cache) open across several
+models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
 is never rounded, `unset` (a feature an object holds nothing for) is distinct from `absent`
@@ -1538,9 +1542,8 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 The client is meant to live inside a JVM host application it does not own (an Eclipse-based tool,
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
-Netty out of a host that has its own. It publishes to Maven Central with each core
-release — `org.openmbee:opensysml` at the core's version — once the first
-release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
+Netty out of a host that has its own. The `org.openmbee:opensysml` artifact is not on Maven Central
+yet; until it is, `make build` followed by `mvn -f client/java/pom.xml install` from a checkout
 puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a

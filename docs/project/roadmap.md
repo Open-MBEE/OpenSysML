@@ -2292,9 +2292,9 @@ GNU Octave 7+, the Octave path over curl since an Octave built without Java (the
 CI build) cannot spawn a private child). Both drive every conformance
 scenario through the public `call`/`callRaw` and write the shared report
 format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
-a `julia-client` and a `matlab-client` job. Neither is published to its registry. The R package
-is **not started**. Publishing (CRAN, the Julia registry, File Exchange) is account-gated and goes
-with R2.
+a `julia-client` and a `matlab-client` job. Julia is not in the General registry; MATLAB is
+distributed as source files. Any future registry or File Exchange publication is account-gated
+and goes with R2. The R package is **not started**.
 
 ## I4 — a C client, and the C ABI
 
