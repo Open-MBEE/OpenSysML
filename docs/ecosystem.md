@@ -23,7 +23,7 @@ them together.
     <p>A complete SysML v2 and KerML implementation in Go — language server,
     interactive REPL, and an execution runtime that instantiates parts, evaluates
     constraints, and runs action and state behavior on a clock, not just validates
-    them. Ships with clients for Python, Node, Java, Rust, Julia and MATLAB over gRPC, and a Go API.</p>
+    them. Ships with Python, Node, Java, Rust, Julia and MATLAB clients for its service, and a Go API.</p>
     <p class="osml-eco__meta">Go · Apache-2.0</p>
     <p class="osml-eco__links">
       <a href="https://github.com/Open-MBEE/OpenSysML">GitHub</a> ·

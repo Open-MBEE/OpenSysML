@@ -11,17 +11,18 @@ covers checksum and signature verification, Gatekeeper on macOS, and the optiona
 
 | Platform | Bundle | Note |
 |---|---|---|
-| Linux x64 | [opensysml-linux-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-amd64.tar.gz) | Contains `sysml`, `sysml-lsp` and `sysml-grpc`. |
-| Linux arm64 | [opensysml-linux-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-arm64.tar.gz) | Contains `sysml`, `sysml-lsp` and `sysml-grpc`. |
-| macOS Apple Silicon | [opensysml-darwin-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-arm64.tar.gz) | Direct download; Homebrew also installs Z3. |
-| macOS Intel | [opensysml-darwin-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-amd64.tar.gz) | Direct download; Homebrew also installs Z3. |
+| Linux x64 | [opensysml-linux-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-amd64.tar.gz) | Contains `sysml` and `sysml-lsp`. |
+| Linux arm64 | [opensysml-linux-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-arm64.tar.gz) | Contains `sysml` and `sysml-lsp`. |
+| macOS Apple Silicon | [opensysml-darwin-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-arm64.tar.gz) | Contains `sysml` and `sysml-lsp`; Homebrew also installs Z3. |
+| macOS Intel | [opensysml-darwin-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-amd64.tar.gz) | Contains `sysml` and `sysml-lsp`; Homebrew also installs Z3. |
 | macOS · Homebrew | `brew install Open-MBEE/tap/opensysml` | Recommended; installs the SMT solver too. |
-| Windows x64 | [opensysml-{{release_version}}-windows-amd64.msi](https://github.com/Open-MBEE/OpenSysML/releases/download/v{{release_version}}/opensysml-{{release_version}}-windows-amd64.msi) · [portable ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-windows-amd64.zip) | The MSI bundles Z3 and adds `sysml` to `PATH`; the ZIP is portable. |
+| Windows x64 | [MSI installer on the latest release page](https://github.com/Open-MBEE/OpenSysML/releases/latest) · [portable ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-windows-amd64.zip) | The MSI bundles Z3 and adds `sysml` to `PATH`; the portable ZIP contains `sysml` and `sysml-lsp`. |
 
 ## Individual tools
 
-Each archive contains the named tool. `sysml-grpc` downloads are raw binaries; each has a
-sidecar SHA-256 file.
+Each archive contains only the named tool. The `sysml-grpc` service is a separate download;
+Python, Node, Java and Rust clients fetch it themselves. Its downloads are raw binaries, each
+with a sidecar SHA-256 file.
 
 | Tool | Linux x64 | Linux arm64 | macOS Intel | macOS Apple Silicon | Windows x64 |
 |---|---|---|---|---|---|
@@ -37,7 +38,7 @@ sidecar SHA-256 file.
 | [SHA256SUMS.txt.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt.bundle) | Signed checksum bundle. |
 | [provenance.intoto.json](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json) | Build provenance. |
 | [provenance.intoto.json.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json.bundle) | Signed provenance bundle. |
-| [SHA256SUMS-windows-msi.txt](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS-windows-msi.txt) | Windows MSI digest. |
+| Windows installer | Unsigned MSI digest: `SHA256SUMS-windows-msi.txt`; signed MSI digest: `SHA256SUMS-windows-signed.txt`. Both are on the release page. |
 
 After downloading release assets into the same directory, verify their checksums with:
 
@@ -71,7 +72,7 @@ See [all releases](https://github.com/Open-MBEE/OpenSysML/releases).
 
 ## Nightly
 
-Nightly bundles rebuild `develop`. They include the three tools but have no MSI or provenance.
+Nightly bundles rebuild `develop`. They contain `sysml` and `sysml-lsp` but have no MSI or provenance.
 
 | Platform | Bundle |
 |---|---|

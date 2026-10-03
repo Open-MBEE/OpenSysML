@@ -341,10 +341,6 @@ jobs:
           name: Check the compliance census hook
           command: python3 scripts/mkdocs_census-test.py
 
-      - run:
-          name: Check the release-version hook
-          command: python3 scripts/mkdocs_release_version-test.py
-
       # The test-suite figures are counted when the site is built, never committed.
       - run:
           name: Check the test-suite figures hook
