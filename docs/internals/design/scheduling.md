@@ -157,7 +157,9 @@ per statement, an `assign` writing when it ends. Another performance may run bet
 - **Do bodies stating a flow.** A `for`, `while` or `if` node of a do body's stated flow
   yields after each iteration and branch statement, as the same statement in a statement-list
   body does (`bodyRun.nodesYield`); the flow counts the node's yield as a move
-  (`ActionExecutor.yieldedIn`), so adding `then` takes no interleaving away.
+  (`ActionExecutor.yieldedIn`), so adding `then` takes no interleaving away. A token of a flow
+  such a node drives moves only through that node's work, never as a move of the outer flow
+  (`Token.drivenUnder`), so a replayed witness meets the same choices it recorded.
 - **Callees in executors of their own.** An action a step is typed by, or a body performs, runs
   in its own `ActionExecutor`, outside the graph `BodyDivides` reads. When the body or flow
   driving it goes one move at a time, the callee's start shot is a boundary

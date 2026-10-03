@@ -365,7 +365,9 @@ func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, 
 
 // oneMoveEligibleIn is the eligibility of a step moving one token of perf's flow.
 func oneMoveEligibleIn(perf *actionFrame) func(Token) bool {
-	return func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+	return func(t Token) bool {
+		return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+	}
 }
 
 // canAct reports whether a token of perf's flow would act were it stepped now.
@@ -398,7 +400,7 @@ func (e *ActionExecutor) silentPass(perf *actionFrame) (moved bool, err error) {
 	defer e.beginSweep()()
 	for i := 0; i < len(e.tokens); i++ {
 		t := e.tokens[i]
-		if e.moving(t) || !t.inFlowOf(perf) || !e.silentMove(t) {
+		if e.moving(t) || !t.inFlowOf(perf) || t.drivenUnder(perf) || !e.silentMove(t) {
 			continue
 		}
 		did, err := e.stepTokenNoting(i, &stepOrder{})
