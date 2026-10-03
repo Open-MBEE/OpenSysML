@@ -244,10 +244,8 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 	return ops, values, len(elements), nil
 }
 
-// importTarget is the element a row names. When the model declares it, anchor
-// is that declaration; when it is a feature reached through the types of a
-// declared element, anchor is that element and via the inherited features on
-// the way to it, which the import redefines in anchor's body, outermost first.
+// importTarget is the element a row names: anchor is the nearest declared element,
+// via the inherited features below it to redefine there, outermost first.
 type importTarget struct {
 	sym    *symbols.Symbol
 	fqn    string
