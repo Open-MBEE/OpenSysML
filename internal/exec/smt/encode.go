@@ -1105,16 +1105,25 @@ func (s *tokenStep) retire() *solve.Term {
 		eq(s.travel, s.noEdge))
 }
 
-// take says the acting token travels its p-th succession.
-func (s *tokenStep) take(p int) *solve.Term {
+// land places a token on slot at the p-th succession's target: pending when
+// the target repeats, since the interpreter's splitRepeatedStep spends the
+// token's own next move minting its siblings rather than minting them here.
+func (s *tokenStep) land(slot Slot, p int, id *solve.Term, travels bool) *solve.Term {
 	e, f := s.e, s.e.Flow
 	edge := f.Edges[s.out[p]]
-	after := s.next.Slots[s.t]
-	return and(
-		eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-		eq(solve.VarTerm(after.Via), edgeValue(e.Sorts, f, s.out[p])),
-		eq(solve.VarTerm(after.ID), s.actorID),
-		eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+	via := edgeValue(e.Sorts, f, s.out[p])
+	if f.Repeats[edge.Target] > 1 {
+		via = solve.ValueTerm(e.Sorts.Edge, Pending)
+	}
+	terms := []*solve.Term{
+		eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
+		eq(solve.VarTerm(slot.Via), via),
+		eq(solve.VarTerm(slot.ID), id),
+	}
+	if travels {
+		terms = append(terms, eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+	}
+	return and(terms...)
 }
 
 // stay says the acting token stays where it is.
@@ -1127,33 +1136,23 @@ func (s *tokenStep) stay() *solve.Term {
 		eq(s.travel, s.noEdge))
 }
 
-// fork gives each enabled succession fresh tokens, in order: as many as the
-// target performs, the first in the actor's slot, the rest in the free slots.
+// fork gives each enabled succession one fresh token, in order: the first in
+// the actor's slot, the rest in the free slots, as the interpreter's
+// stepForkNode does; a repeated target's split follows on the token's own move.
 func (s *tokenStep) fork() {
-	e, f, out, next := s.e, s.e.Flow, s.out, s.next
+	f, out, next := s.e.Flow, s.out, s.next
 	guards := s.guards.holds
-	mult := func(p int) int64 {
-		if m := f.Repeats[f.Edges[out[p]].Target]; m > 1 {
-			return m
-		}
-		return 1
-	}
 	rank := make([]*solve.Term, len(out))
 	count := solve.IntTerm(0)
 	for p := range out {
 		rank[p] = count
-		count = add(count, ite(guards[p], solve.IntTerm(mult(p)), solve.IntTerm(0)))
+		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
 	none := eq(count, solve.IntTerm(0))
 	var actor []*solve.Term
 	for p := range out {
-		edge := f.Edges[out[p]]
 		isFirst := and(guards[p], eq(rank[p], solve.IntTerm(0)))
-		actor = append(actor, implies(isFirst, and(
-			eq(solve.VarTerm(next.Slots[s.t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-			eq(solve.VarTerm(next.Slots[s.t].Via), edgeValue(e.Sorts, f, out[p])),
-			eq(solve.VarTerm(next.Slots[s.t].ID), s.base),
-			eq(s.travel, edgeValue(e.Sorts, f, out[p])))))
+		actor = append(actor, implies(isFirst, s.land(next.Slots[s.t], p, s.base, true)))
 	}
 	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
 	ranks, running := s.freeRanks()
@@ -1164,17 +1163,10 @@ func (s *tokenStep) fork() {
 		after := next.Slots[u]
 		var here []*solve.Term
 		for p := range out {
-			edge := f.Edges[out[p]]
-			for c := int64(0); c < mult(p); c++ {
-				tok := add(rank[p], solve.IntTerm(c))
-				takes := and(guards[p], ge(tok, solve.IntTerm(1)),
-					eq(ranks[u], sub(tok, solve.IntTerm(1))))
-				here = append(here, takes)
-				s.terms = append(s.terms, implies(and(s.free[u], takes), and(
-					eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-					eq(solve.VarTerm(after.Via), edgeValue(e.Sorts, f, out[p])),
-					eq(solve.VarTerm(after.ID), add(s.base, tok)))))
-			}
+			takes := and(guards[p], ge(rank[p], solve.IntTerm(1)),
+				eq(ranks[u], sub(rank[p], solve.IntTerm(1))))
+			here = append(here, takes)
+			s.terms = append(s.terms, implies(and(s.free[u], takes), s.land(after, p, add(s.base, rank[p]), false)))
 		}
 		s.placed[u] = and(s.free[u], or(here...))
 	}
@@ -1277,17 +1269,7 @@ func (s *tokenStep) freeRanks() (ranks []*solve.Term, total *solve.Term) {
 // splitRepeatedStep spends the step after arrival minting the siblings, so the
 // encoding places them on the token's next move, marked by the Pending edge.
 func (s *tokenStep) arrive(p int, taken *solve.Term) *solve.Term {
-	e, f := s.e, s.e.Flow
-	edge := f.Edges[s.out[p]]
-	if f.Repeats[edge.Target] <= 1 {
-		return s.take(p)
-	}
-	after := s.next.Slots[s.t]
-	return and(
-		eq(solve.VarTerm(after.At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
-		eq(solve.VarTerm(after.Via), solve.ValueTerm(e.Sorts.Edge, Pending)),
-		eq(solve.VarTerm(after.ID), s.actorID),
-		eq(s.travel, edgeValue(e.Sorts, f, s.out[p])))
+	return s.land(s.next.Slots[s.t], p, s.actorID, true)
 }
 
 // split is the move a token pending at a count-repeated step takes: it stays,

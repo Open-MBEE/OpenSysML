@@ -53,6 +53,7 @@ func TestEncodeRepeatedStepOutcomes(t *testing.T) {
 		{"exact", "action_step_multiplicity_exact.sysml", "test::Rep", 6, false, map[int64]bool{3: true}},
 		{"zero", "action_step_multiplicity_zero.sysml", "test::Zero", 6, false, map[int64]bool{7: true}},
 		{"fork barrier", "action_step_multiplicity_fork_barrier.sysml", "test::U", 10, false, map[int64]bool{113: true}},
+		{"fork into repeated", "action_step_multiplicity_fork_into_repeated.sysml", "test::U", 10, false, map[int64]bool{13: true}},
 		{"merge fanout", "action_step_multiplicity_merge_fanout.sysml", "test::U", 10, false, map[int64]bool{31: true}},
 		{"join per performance", "action_step_multiplicity_join_per_performance.sysml", "test::U", 11, false, map[int64]bool{3: true}},
 		{"merge per performance", "action_step_multiplicity_merge_per_performance.sysml", "test::U", 11, false, map[int64]bool{3: true}},
@@ -167,6 +168,20 @@ func TestEngineWitnessesReplayOverRepeatedSteps(t *testing.T) {
 		succession first y then m;
 		merge m;
 		succession first m then done;
+	}
+}`, "test::U", "test::U::belowFinal"},
+		{"fork into repeated", "repeated_fork_into.sysml", `package test {
+	private import ScalarValues::*;
+	action def U {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 13 }
+		first start then f;
+		fork f;
+		succession first f then a;
+		action a[3] { assign c := c + 1; }
+		succession first [*] a then [1] b;
+		action b { assign c := c + 10; }
+		succession first b then done;
 	}
 }`, "test::U", "test::U::belowFinal"},
 		{"merge fanout", "repeated_merge_fanout.sysml", `package test {
