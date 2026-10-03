@@ -26,7 +26,7 @@ func (d *decoder) collapsedTargets(el *element) []rdf.Term {
 		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
 			if el.metaclass == mConjugatedPortTyping {
 				if object.IsIRI() {
-					object = originalPortDefinition(d.graph, d.metaclass, rdf.IRI(el.iri), object)
+					object = d.portDefinitions.original(d.graph, d.metaclass, rdf.IRI(el.iri), object)
 				} else {
 					object = rdf.String(strings.TrimPrefix(object.Value, "~"))
 				}
@@ -125,6 +125,8 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 		return true, d.verifyConjugated(el, parent)
 	case parent != nil && parent.metaclass == mTransition:
 		return d.transitionImplied(el, parent)
+	case parent != nil && parent.metaclass == mFlowEnd:
+		return d.flowFeatureImplied(el, parent)
 	case d.headEnd(el, parent):
 		return true, nil
 	case el.metaclass == mReferenceUsage:
@@ -856,15 +858,24 @@ func (d *decoder) chainLinksOrSelf(term rdf.Term) ([]rdf.Term, error) {
 	return links, nil
 }
 
-// headEnd reports whether el is an unnamed end a connector owns through an
-// EndFeatureMembership: the head writes it (`connect a to b`, `first a then b`).
+// headEnd reports whether an end owned through EndFeatureMembership is written
+// in the connector or flow head.
 func (d *decoder) headEnd(el, parent *element) bool {
-	if parent == nil || !ontology.IsAncestorOrSelf(parent.metaclass, "Connector") ||
-		!d.boolOf(el, rdf.SysML+pIsEnd) || d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) {
+	if parent == nil || !d.boolOf(el, rdf.SysML+pIsEnd) {
 		return false
 	}
 	m, owned := d.owningMembership[el.iri]
-	return owned && d.metaclass(rdf.IRI(m.iri)) == mEndFeatureMembership
+	if !owned || d.metaclass(rdf.IRI(m.iri)) != mEndFeatureMembership {
+		return false
+	}
+	if el.metaclass == mFlowEnd {
+		switch parent.metaclass {
+		case "Flow", "FlowUsage", "SuccessionFlow", "SuccessionFlowUsage":
+			return true
+		}
+	}
+	return ontology.IsAncestorOrSelf(parent.metaclass, "Connector") &&
+		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName)
 }
 
 // transitionImplied classifies a child of a TransitionUsage against the head
@@ -911,11 +922,29 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		}
 		return agree(pSource, subject, "source")
 	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
-		// A parameter's direction defaults to `in`, which the element form
-		// may leave unstated.
 		direction, stated := d.stringOf(el, rdf.SysML+pDirection)
-		return (direction == "in" || !stated) && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
-			len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0, nil
+		if (direction != "in" && stated) || d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) ||
+			d.graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) {
+			return false, nil
+		}
+		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
+			return true, nil
+		}
+		if parent == nil || parent.metaclass != mTransition {
+			return false, nil
+		}
+		name, ok := d.stringOf(el, rdf.SysML+pName)
+		if !ok || name != "transitionLinkSource" || len(d.graph.Objects(subject, rdf.SysML+pOwnedAnnotation)) > 0 {
+			return false, nil
+		}
+		for _, relation := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			if !d.graph.BoolValue(relation, rdf.SysML+pIsImplied) &&
+				!impliedRelationshipMetaclasses[d.metaclass(relation)] {
+				return false, nil
+			}
+		}
+		return d.graph.HasProperty(rdf.IRI(parent.iri), rdf.SysML+pSource) ||
+			d.graph.HasProperty(rdf.IRI(parent.iri), rdf.SysML+pSourceFeature), nil
 	case el.metaclass == mAcceptAction && owning == mTransitionFeatureMembership:
 		kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
 		if kind != "trigger" {

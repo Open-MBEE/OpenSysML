@@ -364,7 +364,9 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 // convertOptions are the conversion settings -id asks for, refusing it for a
 // direction it does not apply to.
 func convertOptions(from, to convert.Format) (convert.Options, error) {
-	opts := convert.Options{}
+	opts := convert.Options{Warn: func(message string) {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", message)
+	}}
 	if idForm == "" {
 		return opts, nil
 	}

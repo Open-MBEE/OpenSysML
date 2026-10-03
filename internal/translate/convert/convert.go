@@ -191,7 +191,8 @@ func (e *SyntaxError) Error() string {
 type Options struct {
 	// ID is the form derived element ids are written in; the zero value is
 	// qualified-name-derived ids.
-	ID export.IDForm
+	ID   export.IDForm
+	Warn func(string)
 }
 
 // Convert reads data in the from format and writes it in the to format. name is
@@ -373,7 +374,7 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := FromGraph(graph, to)
+		out, err := FromGraphWith(graph, to, opts)
 		return out, nil, err
 
 	case from == FormatFMU:
@@ -393,7 +394,7 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		if err != nil {
 			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
 		}
-		out, err := FromGraph(graph, to)
+		out, err := FromGraphWith(graph, to, opts)
 		return out, nil, err
 	}
 }
@@ -401,9 +402,14 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 // FromGraph writes a graph in the to format, so a graph that did not come
 // from a Turtle file — a repository branch read as RDF — converts alike.
 func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
+	return FromGraphWith(graph, to, Options{})
+}
+
+// FromGraphWith writes a graph in the to format with conversion options.
+func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
 	switch {
 	case to == FormatSysML:
-		return export.ToSysML(graph)
+		return export.ToSysMLWarn(graph, opts.Warn)
 	case to == FormatTurtle:
 		return rdf.WriteTurtle(graph), nil
 	case to == FormatAPIJSON:
