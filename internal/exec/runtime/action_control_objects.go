@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -16,7 +17,13 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 		return nil
 	}
 	_, merge := node.(*ast.MergeNode)
-	arrived := arrivingInput(frame, graph, node, via)
+	var arrived string
+	if merge {
+		var err error
+		if arrived, err = arrivingInput(frame, graph, node, via); err != nil {
+			return err
+		}
+	}
 	inputs := make(map[string]Value)
 	for _, f := range features {
 		if f.Direction != ast.DirIn {
@@ -58,28 +65,53 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 }
 
 // arrivingInput is the input of node a token arrived for: the one the succession flow
-// it arrived along delivers to, else the one alone a flow from where it came from
-// does, else the first input holding a value; empty when none does.
-func arrivingInput(frame *actionFrame, graph *lower.ActionGraph, node ast.Node, via lower.ActionEdge) string {
+// it arrived along delivers to, else the first holding a value of those a flow from
+// where it came from delivers to. A token no flow from its source brought takes the
+// one input a plain flow left a value at; a succession flow's is its own token's.
+func arrivingInput(frame *actionFrame, graph *lower.ActionGraph, node ast.Node, via lower.ActionEdge) (string, error) {
 	var from []string
 	for _, flow := range graph.DataFlows[via.Source] {
 		if flow.Target != node {
 			continue
 		}
 		if via.Decl != nil && flow.Decl == via.Decl {
-			return flow.TargetPin
+			return flow.TargetPin, nil
 		}
 		from = append(from, flow.TargetPin)
 	}
-	if len(from) == 1 {
-		return from[0]
+	if len(from) > 0 {
+		for _, pin := range from {
+			if len(frame.pending[node][pin]) > 0 {
+				return pin, nil
+			}
+		}
+		return "", nil
 	}
+	var held []string
 	for _, f := range graph.Features[node] {
-		if f.Direction == ast.DirIn && len(frame.pending[node][f.Name]) > 0 {
-			return f.Name
+		if f.Direction == ast.DirIn && len(frame.pending[node][f.Name]) > 0 && !successionFed(graph, node, f.Name) {
+			held = append(held, f.Name)
 		}
 	}
-	return ""
+	switch len(held) {
+	case 0:
+		return "", nil
+	case 1:
+		return held[0], nil
+	}
+	return "", fmt.Errorf("%w: %s holds values at %s", ErrAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+}
+
+// successionFed reports whether a succession flow delivers to node's pin.
+func successionFed(graph *lower.ActionGraph, node ast.Node, pin string) bool {
+	for _, flows := range graph.DataFlows {
+		for _, flow := range flows {
+			if flow.Target == node && flow.TargetPin == pin && flow.Kind == lower.FlowSuccession {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // queueControlObject holds a value an object flow delivers at an input of a fork, join

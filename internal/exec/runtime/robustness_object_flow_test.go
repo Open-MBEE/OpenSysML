@@ -63,6 +63,36 @@ func TestRuntimeRobustnessObjectFlow(t *testing.T) {
 		}
 	})
 
+	t.Run("merge_reached_by_control_with_values_at_two_inputs_is_ambiguous", func(t *testing.T) {
+		err := runObjectFlowCase(t, `package test {
+			private import ScalarValues::*;
+			action run {
+				first start then split;
+				fork split;
+				first split then a;
+				first split then b;
+				action a { out y : Integer; assign y := 1; }
+				action b { out y : Integer; assign y := 2; }
+				first a then both;
+				first b then both;
+				join both;
+				first both then m;
+				merge m {
+					in ref inputObject1 : Integer;
+					in ref inputObject2 : Integer;
+					out ref outputObject1 : Integer = (inputObject1, inputObject2);
+				}
+				flow a.y to m.inputObject1;
+				flow b.y to m.inputObject2;
+				action keep { in v : Integer; }
+				succession flow of Integer from m.outputObject1 to keep.v;
+			}
+		}`)
+		if !errors.Is(err, ErrAmbiguousMergeInput) {
+			t.Fatalf("run error = %v, want ErrAmbiguousMergeInput", err)
+		}
+	})
+
 	t.Run("merge_loop_without_exit_hits_the_step_budget", func(t *testing.T) {
 		err := runObjectFlowCase(t, `package test {
 			private import ScalarValues::*;
