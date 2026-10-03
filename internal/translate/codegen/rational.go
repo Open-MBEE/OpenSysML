@@ -73,7 +73,7 @@ func (fc *funcCompiler) classify(x Expr, reached bool) exactness {
 			return exactRational
 		}
 	case Cond:
-		return join(fc.classify(x.Then, reached), fc.classify(x.Else, reached))
+		return fc.classifyBranches(reached, x.Then, x.Else)
 	case LibCall:
 		switch x.Op {
 		case LibAbsReal, LibMaxReal, LibMinReal:

@@ -84,6 +84,8 @@ package Compiled {
 		return : Integer = r;
 	}
 	calc def ExactWide { in a : Integer; return : Real = a * 2.0 + 0.5; }
+	calc def NegativePower { in a : Integer; return : Real = a ** -2; }
+	calc def NegativePowerTiny { in a : Integer; return : Real = a ** -400; }
 	// A Real parameter given an Integer meets an exact Rational at run time.
 	calc def ExactHeldInteger { in x : Real; return : Real = x * 0.1; }
 	calc def ExactHeldCompare { in x : Real; return : Boolean = x / 3 < 0.1 or x != 2.5; }
@@ -748,6 +750,7 @@ package Refused {
 	calc def ExactProduct { in a : Integer; return : Real = a * 0.1; }
 	calc def ExactPower { in a : Integer; return : Real = (a * 0.5) ** 2; }
 	calc def ExactCompare { in a : Integer; return : Boolean = a / 3 < 0.1; }
+	calc def NegativePowerExact { in a : Integer; return : Real = a ** -1 * 3; }
 	calc def BeyondCompare { in x : Real; return : Boolean = x < 1e400; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }
 	calc def CollectNull { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; null}; }

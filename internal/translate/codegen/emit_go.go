@@ -223,7 +223,10 @@ func sysmlQuot(a, b sysmlInt) float64 {
 	} else {
 		q, _ = new(big.Rat).SetFrac(a.toBig(), b.toBig()).Float64()
 	}
-	return q
+	if q == 0 && a.sign() != 0 {
+		sysmlFail("arithmetic overflow: a nonzero Rational below the least Real")
+	}
+	return sysmlFinite(q)
 }
 
 func sysmlICmp(a, b sysmlInt) int {

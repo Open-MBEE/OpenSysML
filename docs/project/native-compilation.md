@@ -151,7 +151,9 @@ arithmetic only where binary64 gives the interpreter's answer and refuses the re
 the interpreter does not. A Go Real parameter given an Integer meets an exact Rational only at run
 time, so there the refusal is a run-time failure with the same message (`unsupported: exact
 Rational arithmetic '*' over a value binary64 does not hold exactly ...` for `x * 0.1` given `3`),
-and an Integer to a negative literal power is the exact quotient `1 / x ** n`, rounded once.
+and an Integer to a negative literal power is the exact quotient `1 / x ** n`, rounded once where it
+reaches a Real (a nonzero quotient below the least Real is an overflow error, as in the interpreter)
+and refused where exact arithmetic would go on with it (`a ** -1 * 3`).
 
 ## Strings and enumerations
 
