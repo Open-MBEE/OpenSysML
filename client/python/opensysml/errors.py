@@ -78,6 +78,26 @@ class UnsignedReleaseError(UnpinnedReleaseError):
     """
 
 
+class SigstoreUnavailableError(UnsignedReleaseError):
+    """Raised when the ``sigstore`` package the manifest is verified with is absent.
+
+    Or a package it depends on; the message names which. The release may well
+    be signed; this install cannot check. An
+    :class:`UnsignedReleaseError`, since nothing was verified either way, but its
+    own class so the remedy can name the package to install rather than the
+    release. A release of opensysml ships the digests of its own core release, so
+    this only arises for another release, or for an opensysml older than the
+    release it is asked for.
+
+    Attributes:
+        install_command (str): The ``pip install`` that provides the package
+    """
+
+    #: The dependency opensysml declares, which brings its own dependencies
+    #: with it; a complete install already has them all.
+    install_command = "python -m pip install 'sigstore>=4.5.0,<5'"
+
+
 class ManifestSignatureError(ChecksumMismatchError):
     """Raised when the signature on a release's checksum manifest does not verify.
 
