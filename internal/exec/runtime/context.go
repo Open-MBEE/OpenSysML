@@ -75,6 +75,11 @@ type Context struct {
 	// occurrences holds the objects each usage carrying no value of its own denotes, in
 	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
 	occurrences map[*symbols.Symbol][]int64
+	// occurrenceTails holds, per usage whose lower bound is held lazily, the members past the recorded occurrences.
+	occurrenceTails map[*symbols.Symbol]*requiredMembers
+	// required holds the lazily held populations (required.go) by first identity, so an
+	// identity reserved for a member is reached as that member.
+	required []*requiredMembers
 	// namespaceBindings holds the value each namespace-level object usage given a value
 	// denotes, so every read of it reads the one binding rather than evaluating it anew.
 	namespaceBindings map[*symbols.Symbol]Value
@@ -350,6 +355,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
+		occurrenceTails:   make(map[*symbols.Symbol]*requiredMembers),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
 		metadataObjects:   make(map[metadataAnnotation]int64),
@@ -635,6 +641,13 @@ func (s *idSequence) release(ctx *Context, id int64) {
 // holdsIdentityFrom reports whether an object, or a connector one set aside,
 // holds an identity at or past id.
 func (ctx *Context) holdsIdentityFrom(id int64) bool {
+	for _, r := range ctx.required {
+		if r.first+r.count > id {
+			if _, live := ctx.requiredOf(r.first); live {
+				return true
+			}
+		}
+	}
 	for held, inst := range ctx.instances {
 		if held >= id {
 			return true
@@ -1078,8 +1091,15 @@ func (ctx *Context) instanceRoom() error {
 
 // getInstance retrieves an instance by ID.
 func (ctx *Context) getInstance(id int64) (*Instance, bool) {
-	inst, ok := ctx.instances[id]
-	return inst, ok
+	if inst, ok := ctx.instances[id]; ok {
+		return inst, true
+	}
+	if r, ok := ctx.requiredOf(id); ok {
+		if inst, err := ctx.requiredMember(r, id); err == nil {
+			return inst, true
+		}
+	}
+	return nil, false
 }
 
 // registerInstance stores an instance in the registry.

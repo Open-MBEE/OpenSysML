@@ -77,10 +77,12 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	case runtime.ValSequence:
 		// Recursively convert sequence elements
 		var pbElements []*pb.Value
-		if val.Sequence() != nil {
-			for _, elem := range val.Sequence().Elements() {
-				pbElements = append(pbElements, ValueToProtoIn(rt, elem, idx))
-			}
+		held, err := objref.CollectionElements(rt, val)
+		if err != nil {
+			return &pb.Value{Kind: &pb.Value_Null{Null: err.Error()}}
+		}
+		for _, elem := range held {
+			pbElements = append(pbElements, ValueToProtoIn(rt, elem, idx))
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: pbElements}}}
 	case runtime.ValSet:
@@ -1610,7 +1612,12 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 				pbValue.Value = ValueToProtoIn(rt, fv.Value, idx)
 			}
 		} else {
-			for _, elem := range objref.CollectionElements(fv.Values) {
+			elements, err := objref.CollectionElements(rt, fv.Values)
+			if err != nil {
+				failed(err)
+				pbValue.Error = err.Error()
+			}
+			for _, elem := range elements {
 				pbValue.Values = append(pbValue.Values, ValueToProtoIn(rt, elem, idx))
 			}
 		}

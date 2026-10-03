@@ -264,7 +264,11 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		}
 		return out, nil
 	}
-	for _, elem := range objref.CollectionElements(fv.Values) {
+	elements, err := objref.CollectionElements(ss.rt, fv.Values)
+	if err != nil {
+		return nil, err
+	}
+	for _, elem := range elements {
 		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached.Index))
 	}
 	return out, nil

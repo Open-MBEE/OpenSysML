@@ -706,6 +706,29 @@ func (s *stateSpeller) elements(elements []Value) string {
 	return strings.Join(parts, ", ")
 }
 
+// required spells a sequence ending in required members: each one made by its contents,
+// each run of members not made yet by its length, as they are alike until reached.
+func (s *stateSpeller) required(seq *Sequence) string {
+	var parts []string
+	if len(seq.elements) > 0 {
+		parts = append(parts, s.elements(seq.elements))
+	}
+	r := seq.required
+	next := r.first
+	unmade := func(upTo int64) {
+		if upTo > next {
+			parts = append(parts, fmt.Sprintf("%d unmade %s", upTo-next, symbolText(r.typ)))
+		}
+	}
+	for _, inst := range s.ctx.madeRequired(r) {
+		unmade(inst.ID)
+		parts = append(parts, s.object(inst.ID))
+		next = inst.ID + 1
+	}
+	unmade(r.first + r.count)
+	return strings.Join(parts, ", ")
+}
+
 // value spells a value through the trace's formatter, objects by their contents.
 func (s *stateSpeller) value(v Value) string {
 	switch v.Kind {
@@ -723,6 +746,9 @@ func (s *stateSpeller) value(v Value) string {
 	case ValSequence:
 		if v.Sequence() == nil {
 			return "()"
+		}
+		if seq := requiredTail(v); seq != nil {
+			return "(" + s.required(seq) + ")"
 		}
 		return "(" + s.elements(v.Sequence().Elements()) + ")"
 	case ValSet:
