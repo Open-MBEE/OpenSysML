@@ -332,7 +332,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		// occurrencesOf makes them, so which member is read first does not
 		// change it.
 		earliest := class.members[0]
-		count := 0
+		var count int64
 		for _, member := range class.members {
 			n, err := ctx.lowerBoundCount(ctx.featureMultiplicity(member, ctx.findOwnerType(member)), 0, symbolText(member))
 			if err != nil {
@@ -343,12 +343,12 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 		}
 		release := ctx.elementScope()
-		if err := ctx.chargeElements(int64(count)); err != nil {
+		if err := ctx.chargeElements(count); err != nil {
 			release()
 			return nil, true, err
 		}
 		mark := len(ctx.created)
-		members, err := ctx.materializeMembers(earliest, count, nil, "")
+		members, err := ctx.materializeMembers(earliest, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
 			release()
@@ -554,7 +554,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		if err != nil {
 			return fail(err)
 		}
-		if err := ctx.chargeElements(int64(count)); err != nil {
+		if err := ctx.chargeElements(count); err != nil {
 			return fail(err)
 		}
 		mark := len(ctx.created)
@@ -565,11 +565,11 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 			upper := ctx.featureMultiplicity(sub, ctx.findOwnerType(sub)).Upper
 			spare := count
-			if upper.Known && !upper.Infinite && int(upper.Value) < spare {
-				spare = int(upper.Value)
+			if upper.Known && !upper.Infinite && upper.Value < spare {
+				spare = upper.Value
 			}
 			var filled []int64
-			for i := 0; i < spare; i++ {
+			for i := int64(0); i < spare; i++ {
 				inst, err := ctx.materialize(sub, 0, nil, "")
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
@@ -583,7 +583,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				ctx.occurrences[sub] = filled
 			}
 		}
-		made, err := ctx.materializeMembers(sym, count, nil, "")
+		made, err := ctx.materializeMembers(sym, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
 			return fail(err)

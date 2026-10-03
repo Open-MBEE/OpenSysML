@@ -331,13 +331,32 @@ func (ec *EvalContext) Lookup(name string) (Value, bool) {
 // When the context is traced, the evaluation is recorded after its
 // sub-expressions, which makes sub-expression order part of the trace.
 func (ec *EvalContext) Eval(node ast.Node) (Value, error) {
+	return ec.evaluate(node, false)
+}
+
+// evalHeld is Eval leaving the required members the value ends in unmade, for an
+// operation reading only its size or one position (required.go).
+func (ec *EvalContext) evalHeld(node ast.Node) (Value, error) {
+	return ec.evaluate(node, true)
+}
+
+func (ec *EvalContext) evaluate(node ast.Node, keep bool) (Value, error) {
 	if ec.trace == nil {
-		return ec.eval(node)
+		return ec.heldValue(keep, node)
 	}
 	ec.trace.BeginEval()
-	value, err := ec.eval(node)
+	value, err := ec.heldValue(keep, node)
 	ec.trace.EndEval(TraceLabel(node), value, err)
 	return value, err
+}
+
+// heldValue evaluates node, making every required member its value ends in unless keep.
+func (ec *EvalContext) heldValue(keep bool, node ast.Node) (Value, error) {
+	value, err := ec.eval(node)
+	if err != nil || keep {
+		return value, err
+	}
+	return ec.ctx.heldInFull(value)
 }
 
 // eval dispatches one expression node, without trace bookkeeping.
@@ -1475,6 +1494,10 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	}
 	switch value.Kind {
 	case ValSequence, ValSet:
+		value, err := ec.ctx.heldInFull(value)
+		if err != nil {
+			return Value{}, err
+		}
 		return ec.chainOverElements(value, parts, from)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		// An array or vector read from an object keeps that object's members; a
@@ -2069,9 +2092,9 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, err
 	}
 	if held {
-		return ec.Eval(n.Operands[1])
+		return ec.evalHeld(n.Operands[1])
 	}
-	return ec.Eval(n.Operands[2])
+	return ec.evalHeld(n.Operands[2])
 }
 
 // evalNullCoalesce evaluates `a ?? b`, evaluating b only when a is empty.
@@ -2079,11 +2102,11 @@ func (ec *EvalContext) evalNullCoalesce(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 2 {
 		return Value{}, fmt.Errorf("'??' requires 2 operands, got %d", len(n.Operands))
 	}
-	left, err := ec.Eval(n.Operands[0])
+	left, err := ec.evalHeld(n.Operands[0])
 	if err != nil {
 		return Value{}, err
 	}
-	second := func() (Value, error) { return ec.Eval(n.Operands[1]) }
+	second := func() (Value, error) { return ec.evalHeld(n.Operands[1]) }
 	return coalesceNull(left, second, ec.declaredCount(ec.scope, n.Operands[1]))
 }
 
@@ -2112,7 +2135,7 @@ func isEmptyValue(val Value) bool {
 	case ValNull:
 		return true
 	case ValSequence, ValSet:
-		return len(elementsOf(val)) == 0
+		return elementCount(&val) == 0
 	}
 	return false
 }

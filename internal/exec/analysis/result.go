@@ -333,6 +333,9 @@ type Result struct {
 	// Reason says why, when nothing is claimed: the construct, the unknown,
 	// the budget, the disagreement.
 	Reason string
+	// Scope is the reasons the claim was observed short of the run's quiescence: it
+	// holds at that point, and its strength stands.
+	Scope []runtime.ObservationReason
 	// Values are the feature values, outputs, rows or answers the question asked for.
 	Values []Evaluation
 	// Reply is the canonical rendering of every output an external process answered when

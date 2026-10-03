@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -47,7 +46,7 @@ func TestCPrintRealMatchesFormatReal(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "print.c")
-	program := fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n", runtime.DefaultMaxCalcDepth) + cPrelude + `
+	program := cBudgetDefines() + cPrelude + `
 int main(void) {
 	char line[64];
 	while (fgets(line, sizeof line, stdin)) {
@@ -114,7 +113,7 @@ func TestCRealNotationIsLocaleIndependent(t *testing.T) {
 	}
 	dir := t.TempDir()
 	src := filepath.Join(dir, "locale.c")
-	program := fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n", runtime.DefaultMaxCalcDepth) + cPrelude + `
+	program := cBudgetDefines() + cPrelude + `
 #include <locale.h>
 /* argv[1] is the locale, argv[2] the Real to parse and print; exits 3 when the locale is not installed. */
 int main(int argc, char **argv) {

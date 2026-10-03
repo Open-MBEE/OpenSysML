@@ -306,7 +306,7 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 			texts[node.ID] = node.Name + "|" + node.Text
 		}
 	}
-	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true", "n6": "|Go", "n7": "|"}
+	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true", "n5": "|Go", "n6": "|"}
 	for id, text := range want {
 		if texts[id] != text {
 			t.Errorf("%s name|text = %q, want %q", id, texts[id], text)
@@ -316,13 +316,13 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
-	for id, label := range map[string]string{"n2": "n := n + 1", "n3": "Go", "n4": "true", "n6": "Go"} {
+	for id, label := range map[string]string{"n2": "n := n + 1", "n3": "Go", "n4": "true", "n5": "Go"} {
 		if line := dotLine(source, `"`+id+`"`); !strings.Contains(line, label) || strings.Contains(line, "action") {
 			t.Errorf("%s is not labelled by what it does alone: %q", id, line)
 		}
 	}
-	if line := dotLine(source, `"n7"`); !strings.Contains(line, "<b>action</b>") || strings.Contains(line, "Go") {
-		t.Errorf("n7, sending and assigning, is not headed by its kind: %q", line)
+	if line := dotLine(source, `"n6"`); !strings.Contains(line, "<b>action</b>") || strings.Contains(line, "Go") {
+		t.Errorf("n6, sending and assigning, is not headed by its kind: %q", line)
 	}
 }
 

@@ -48,6 +48,9 @@ type Index struct {
 	// the views Recording makes share one cache under one lock.
 	members *memberCache
 
+	// derived memoizes values computed from a frozen index (see Derived).
+	derived *derivedMemo
+
 	docRoots      *layer[string, *Scope]      // document name -> root scope
 	docOfRoot     *layer[*Scope, string]      // root scope -> document name
 	docKinds      *layer[string, source.Kind] // document name -> explicit language
@@ -233,6 +236,7 @@ func (idx *Index) Freeze() {
 		}
 	}
 	idx.takeLibraryIdentity()
+	idx.derived = &derivedMemo{}
 	idx.frozen = true
 }
 
@@ -290,8 +294,27 @@ func UsageAnnotatesOthers(u *ast.Usage) bool {
 	return false
 }
 
+type derivedValue struct {
+	once  sync.Once
+	value any
+}
+
+type derivedMemo struct{ values sync.Map }
+
 // Frozen reports whether the index has been frozen.
 func (idx *Index) Frozen() bool { return idx.frozen }
+
+// Derived returns build's value for key, computed once per frozen index and
+// released with it; on an index still writable it calls build every time.
+func (idx *Index) Derived(key any, build func() any) any {
+	if !idx.frozen || idx.derived == nil {
+		return build()
+	}
+	value, _ := idx.derived.values.LoadOrStore(key, &derivedValue{})
+	cached := value.(*derivedValue)
+	cached.once.Do(func() { cached.value = build() })
+	return cached.value
+}
 
 // Generation counts the writes the index has taken; a value read from it is
 // current while Generation is unchanged.

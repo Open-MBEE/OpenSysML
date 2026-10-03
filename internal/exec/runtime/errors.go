@@ -51,6 +51,10 @@ var (
 	// ErrMultiplicityViolation is returned when a feature value access/assignment violates multiplicity bounds.
 	ErrMultiplicityViolation = errors.New("multiplicity violation")
 
+	// ErrInfiniteLowerBound is returned when a collection is filled to a lower bound of *,
+	// which requires no finite number of values; it is a multiplicity violation.
+	ErrInfiniteLowerBound = fmt.Errorf("%w: infinite lower bound", ErrMultiplicityViolation)
+
 	// ErrUniquenessViolation is returned when a value written to a unique feature repeats one of its values.
 	ErrUniquenessViolation = errors.New("uniqueness violation")
 

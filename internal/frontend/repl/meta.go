@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -1738,10 +1738,11 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
 	values := []runtime.Value{fv.Value}
 	switch fv.Values.Kind {
-	case runtime.ValSequence:
-		values = fv.Values.Sequence().Elements()
-	case runtime.ValSet:
-		values = fv.Values.Set().Elements()
+	case runtime.ValSequence, runtime.ValSet:
+		var err error
+		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
+			return nil
+		}
 	}
 
 	var out []*runtime.Instance
@@ -1867,8 +1868,12 @@ func formatValue(ctx *runtime.Context, val runtime.Value) string {
 		if val.Sequence() == nil {
 			return "[]"
 		}
-		parts := make([]string, len(val.Sequence().Elements()))
-		for i, element := range val.Sequence().Elements() {
+		elements, err := ctx.HeldElements(val)
+		if err != nil {
+			return fmt.Sprintf("[%d values: %v]", runtime.ElementCount(val), err)
+		}
+		parts := make([]string, len(elements))
+		for i, element := range elements {
 			parts[i] = formatValue(ctx, element)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"

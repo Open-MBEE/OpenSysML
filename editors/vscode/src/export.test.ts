@@ -98,13 +98,15 @@ test("serverForms takes the forms the server advertises, else the documented fiv
 
 test("every form saves under its own extension and filter, and an unknown one as text", () => {
   assert.deepEqual(
-    DOCUMENTED_FORMS.map((form) => [form, exportFile(form).extension, exportFile(form).filter]),
+    [...DOCUMENTED_FORMS, "csv", "tsv"].map((form) => [form, exportFile(form).extension, exportFile(form).filter]),
     [
       ["text", ".txt", "Text"],
       ["mermaid", ".mmd", "Mermaid"],
       ["markdown", ".md", "Markdown"],
       ["dot", ".dot", "Graphviz DOT"],
       ["plantuml", ".puml", "PlantUML"],
+      ["csv", ".csv", "CSV"],
+      ["tsv", ".tsv", "TSV"],
     ],
   );
   assert.deepEqual(exportFile("svg"), { extension: ".txt", filter: "Text" });

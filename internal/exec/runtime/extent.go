@@ -174,10 +174,7 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *sym
 		rollback()
 		return nil, err
 	}
-	held := make(map[int64]bool)
-	for _, id := range heldObjects(fv.HeldValue()) {
-		held[id] = true
-	}
+	heldValue := fv.HeldValue()
 	var recursive, reached *Instance
 	for _, id := range ctx.created[mark:] {
 		made, live := ctx.instances[id]
@@ -186,7 +183,7 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *sym
 		}
 		if ctx.onPath(made, path) != nil {
 			recursive = made
-		} else if held[id] && ctx.mayReach(made, target) {
+		} else if holdsMember(heldValue, id) && ctx.mayReach(made, target) {
 			reached = made
 		}
 	}

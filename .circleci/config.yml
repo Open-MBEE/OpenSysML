@@ -185,6 +185,21 @@ commands:
           paths:
             - build/pssm
 
+      # The SysML v1 to v2 transformation model, one pinned file, gated by
+      # tools/census/transformation.
+      - restore_cache:
+          keys:
+            - sysml-v1tov2-v1-{{ checksum "scripts/download-sysml-v1tov2.sh" }}-{{ checksum "scripts/sysml-v1tov2-pin.sh" }}
+
+      - run:
+          name: Download the SysML v1 to v2 transformation model
+          command: ./scripts/download-sysml-v1tov2.sh
+
+      - save_cache:
+          key: sysml-v1tov2-v1-{{ checksum "scripts/download-sysml-v1tov2.sh" }}-{{ checksum "scripts/sysml-v1tov2-pin.sh" }}
+          paths:
+            - build/sysml-v1tov2
+
       # The fUML reference implementation's models and jar, gated by tools/referee/fuml;
       # the jar is never run here (docs/project/fuml-referee.md).
       - restore_cache:
@@ -303,6 +318,15 @@ jobs:
           name: Check the validation-constraint census matches its baseline
           command: go run -C tools ./cmd/validation-census -check
 
+      # Same for the transformation census; this job provisions neither input,
+      # so the model and measurement comparisons run in the gate job that does.
+      - run:
+          name: Check the transformation census matches its baseline
+          command: go run -C tools ./cmd/transformation-census -check
+          environment:
+            OPENSYSML_REQUIRE_PSSM_SUITE: ""
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: ""
+
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - run:
           name: Check changelog fragments
@@ -417,6 +441,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
@@ -452,6 +477,7 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
@@ -554,6 +580,15 @@ jobs:
             go run -C tools ./cmd/pssm-referee -check
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+
+      # The transformation census's baseline lists the mapping classes the pinned
+      # model declares; here the model is provisioned, so the baseline is
+      # compared against a fresh extraction.
+      - run:
+          name: Transformation census lists what the pinned model contains
+          command: go run -C tools ./cmd/transformation-census -check -require-xmi
+          environment:
+            OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
 
       # The migration of the PSSM suite to v2 notation alone, so its report totals
       # are legible in the log and a skip cannot hide behind a green suite
@@ -1465,6 +1500,62 @@ jobs:
           root: .
           paths:
             - client/python/dist
+
+  # Runs the built wheel against the release published by the same workflow.
+  python-zero-config-smoke:
+    executor: python-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      - attach_workspace:
+          at: .
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Install the built wheel in a fresh virtualenv
+                command: |
+                  python -m venv /tmp/verify-zero-config
+                  /tmp/verify-zero-config/bin/python -m pip install --upgrade pip
+                  /tmp/verify-zero-config/bin/python -m pip install client/python/dist/opensysml-*.whl
+
+            - run:
+                name: Load and evaluate a model without binary configuration
+                command: |
+                  set -eu
+                  home="$(mktemp -d)"
+                  trap 'rm -rf "$home"' EXIT
+                  env -u OPENSYSML_BINARY -u OPENSYSML_GRPC_VERSION \
+                    HOME="$home" PATH="/tmp/verify-zero-config/bin:/usr/bin:/bin" \
+                    /tmp/verify-zero-config/bin/python - \<<'EOF'
+                  import json
+                  import os
+                  from pathlib import Path
+
+                  import opensysml
+
+                  model_path = Path(os.environ["HOME"]) / "Demo.sysml"
+                  model_path.write_text(
+                      """package Demo {
+                        part def Vehicle { attribute mass default = 1500.0; }
+                        part sedan : Vehicle { attribute :>> mass = 1800.0; }
+                      }""",
+                      encoding="utf-8",
+                  )
+                  model = opensysml.load(str(model_path), strict=True)
+                  actual = model.eval("mass", subject="Demo::sedan")
+                  assert actual == 1800.0, actual
+                  print(actual)
+
+                  metadata = Path(os.environ["HOME"]) / ".opensysml" / "bin" / "sysml-grpc.json"
+                  cached = json.loads(metadata.read_text())
+                  expected = os.environ["CIRCLE_TAG"]
+                  assert cached["version"] == expected, (cached["version"], expected)
+                  print(f"cached release: {cached['version']}")
+                  EOF
+      - rehearsal-skip:
+          what: "the zero-config binary smoke test (the rehearsal publishes no GitHub release)"
 
   # Uploads the distribution build-python-package made. PyPI has no OIDC publishing
   # for CircleCI (pypi/warehouse#13888), so a token from the `PyPI` context is used.
@@ -2558,6 +2649,13 @@ workflows:
             - Rust client tests
           filters: *release-tags
 
+      - python-zero-config-smoke:
+          name: Python zero-config release smoke
+          requires:
+            - Publish GitHub release
+            - Build Python distribution
+          filters: *release-tags
+
       - publish-pypi:
           name: Publish opensysml to PyPI
           # Last of all: an upload cannot be undone, so it waits for the GitHub
@@ -2570,6 +2668,7 @@ workflows:
           requires:
             - Publish GitHub release
             - Python client tests
+            - Python zero-config release smoke
           filters: *release-tags
 
       - publish-npm:
