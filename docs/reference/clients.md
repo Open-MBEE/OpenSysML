@@ -3,7 +3,7 @@
 OpenSysML can be reached from a program in seven ways: the Go API, which runs in the calling
 process, and six clients of the `sysml-grpc` service. This page describes how to choose between
 them, what each covers and what each intentionally leaves out. Each client has an API reference of
-its own, and the [client guides](../clients/) walk through a task with each one.
+its own, and the [client guides](../clients.md) walk through a task with each one.
 
 | Surface | Reaches the engine by | Published | Full reference |
 |---|---|---|---|

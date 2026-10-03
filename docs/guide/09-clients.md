@@ -219,7 +219,7 @@ The [client index](../clients.md) links to the Go overview and walkthrough. The
 
 ## From Python
 
-The [Python client guide](../clients/python/) is split by task, from models and diagnostics through
+The [Python client guide](../clients/python/index.md) is split by task, from models and diagnostics through
 verification, editing, queries and service setup. See also the [Python API reference](../reference/python-api.md).
 
 ## From Node or a browser

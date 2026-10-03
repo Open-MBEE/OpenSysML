@@ -283,4 +283,4 @@ To check the installation in an editor, open a file containing
 
 ---
 
-Next: [client libraries](../clients/).
+Next: [client libraries](../clients.md).
