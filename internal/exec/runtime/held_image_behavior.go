@@ -507,7 +507,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		}
 		behavior.State = exec
 	case b.action != nil:
-		action, tool, err := dst.performanceBody(decl.member, behavior.Symbol)
+		action, tool, _, err := dst.performanceBody(decl.member, behavior.Symbol)
 		if err != nil {
 			return err
 		}

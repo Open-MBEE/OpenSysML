@@ -31,16 +31,16 @@ func PerformsSteps(decl ast.Node) bool {
 // an action body is (ToActionGraph); one stating none runs its steps in declaration
 // order. The resolver reads the flow's `@Probability` annotations; nil reads none.
 func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
-	trailing := trailingResults(body, scope)
+	trailing := trailingResults(body, scope, resolver)
 	if !statesOwnFlow(body) {
 		var results []Statement
-		graph := lowerBlockFlowWith(body, scope, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
+		graph := lowerBlockFlowWith(body, scope, resolver, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
 			if usage, ok := member.(*ast.Usage); ok {
 				if stmt, connects := lowerBlockConnector(graph, nodes, usage, scope); connects {
 					return stmt, stmt != nil
 				}
 			}
-			stmt, states := calcStep(member, scope)
+			stmt, states := calcStep(member, scope, resolver)
 			if !states {
 				return nil, false
 			}
@@ -77,7 +77,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
 		}
-		stmt, states := calcStep(member, scope)
+		stmt, states := calcStep(member, scope, resolver)
 		if !states {
 			continue
 		}
@@ -109,7 +109,7 @@ func isReturn(stmt Statement) bool {
 // trailingResults marks the members ending a body with results: the statements
 // after its last step, each returning on some path through it (IsResult). Control
 // flow returning among the steps stays a step, its effects in declared order.
-func trailingResults(body []ast.Node, scope *symbols.Scope) map[ast.Node]bool {
+func trailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) map[ast.Node]bool {
 	trailing := map[ast.Node]bool{}
 	for i := len(body) - 1; i >= 0; i-- {
 		member := body[i]
@@ -119,7 +119,7 @@ func trailingResults(body []ast.Node, scope *symbols.Scope) map[ast.Node]bool {
 		if isFlowNode(member) {
 			break
 		}
-		stmt, states := calcStep(member, scope)
+		stmt, states := calcStep(member, scope, resolver)
 		if !states {
 			continue
 		}

@@ -1,9 +1,7 @@
-// A typed action node declared in a loop or branch of a state's entry body is a
-// performance of the action it names: the `in` value it declares binds the
-// callee's parameter (a loop variable reaching it), the callee's `out` comes
-// back to the node, and the node's own body runs after the callee, reading that
-// out and writing the machine's attributes. Arguments bind the same way, so
-// total ends at 120 only if every pin, argument and body statement took effect.
+// A pin-only typed node in a loop of a state's entry body is a performance of
+// the action it names: its input binds from the loop variable and its `out` is
+// read after the node, because a typed node's own statements would be unordered
+// with the callee's steps (see the oracle section).
 package test {
     private import ScalarValues::*;
 
@@ -29,9 +27,9 @@ package test {
                 for i in 1..3 {
                     action scaled : Scale {
                         in x = i;
-                        assign total := total + y;
-                        assign runs := runs + 1;
                     }
+                    assign total := total + scaled.y;
+                    assign runs := runs + 1;
                 }
                 if total > 50 {
                     action doubled = Scale(total, 2) {

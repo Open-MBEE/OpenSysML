@@ -90,6 +90,8 @@ type ActionGraph struct {
 	// names, else its one node no succession leads to; nil where neither exists.
 	Initial ast.Node
 
+	doneMarker ast.Node
+
 	// Concurrent are the composite subactions no succession leads to, other than
 	// Initial, in declaration order: each starts when a performance of the flow
 	// does, unordered against Initial and against each other (StartFlow).
@@ -119,12 +121,33 @@ type ActionGraph struct {
 	// it gives a meaning to (Probability) from any other; nil reads none.
 	resolver *resolve.Resolver
 
+	// lowering holds the declarations whose action content is being lowered on
+	// this path.
+	lowering []ast.Node
+
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
+
+	// Performs records the inherited action type a redefining node performs
+	// when the node has no own invocation.
+	Performs map[ast.Node]PerformedType
+
+	// MergedTypedSubflows records typed action nodes whose body was merged into
+	// their subflow, so runtime does not perform the typing a second time.
+	MergedTypedSubflows map[ast.Node]PerformedType
+
+	replacedByIncompatible map[ast.Node]ast.Node
 
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
+}
+
+// PerformedType is an action invocation inherited through action-node
+// redefinition, resolved where the redefined node was declared.
+type PerformedType struct {
+	Target *ast.QualifiedName
+	Scope  *symbols.Scope
 }
 
 // Incoming returns the successions into node, in the declaration order of the
@@ -769,11 +792,25 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	typing := true
+	if usage, ok := actionDecl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+		typing, _ = mergedTypedActionBody(usage, scope)
+	}
+	return toActionGraphWithTyping(actionDecl, scope, resolver, typing)
+}
+
+func toActionGraphWithTyping(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
+	return toActionGraphWithTypingAndAncestors(actionDecl, scope, resolver, typing, nil)
+}
+
+func toActionGraphWithTypingAndAncestors(
+	actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
+) (*ActionGraph, error) {
 	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
 	}
-	graph, err := lowerActionFlow(members, scope, resolver)
+	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, ancestors)
 	if err != nil {
 		return nil, err
 	}
@@ -781,11 +818,27 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 }
 
 func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	graph, err := collectActionNodes(members, scope, resolver)
+	return lowerActionFlowWithTyping(members, scope, resolver, false)
+}
+
+func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
+	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, nil)
+}
+
+func lowerActionFlowWithTypingAndAncestors(
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
+) (*ActionGraph, error) {
+	generals, cyclic := resolve.ActionGeneralization(scope, typing)
+	if cyclic {
+		graph := newActionGraph(scope)
+		graph.resolver = resolver
+		graph.lowering = actionLoweringAncestors(scope, ancestors)
+		return graph, fmt.Errorf("%w: %s", ErrCyclicSpecialization, actionDescription(scope))
+	}
+	graph, err := collectActionNodesWithAncestors(members, scope, resolver, ancestors)
 	if err != nil {
 		return graph, err
 	}
-	lowerValueBindings(graph)
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
@@ -794,9 +847,13 @@ func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve
 			return graph, err
 		}
 	}
-	if err := lowerInheritedPinConnections(graph, scope); err != nil {
+	if err := mergeInheritedActionContent(graph, generals); err != nil {
 		return graph, err
 	}
+	if err := lowerInheritedPinConnections(graph, generals); err != nil {
+		return graph, err
+	}
+	lowerValueBindings(graph)
 	if err := checkProbabilities(graph); err != nil {
 		return graph, err
 	}
@@ -805,12 +862,33 @@ func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve
 	return graph, nil
 }
 
+func actionLoweringAncestors(scope *symbols.Scope, ancestors []ast.Node) []ast.Node {
+	out := slices.Clone(ancestors)
+	add := func(node ast.Node) {
+		if node == nil {
+			return
+		}
+		for _, existing := range out {
+			if existing == node {
+				return
+			}
+		}
+		out = append(out, node)
+	}
+	if scope != nil {
+		add(scope.Node())
+	}
+	return out
+}
+
 // actionEdgeLowerer lowers the members of an action body that connect its nodes,
 // once the nodes themselves are collected.
 type actionEdgeLowerer struct {
-	graph   *ActionGraph
-	scope   *symbols.Scope
-	weights *probabilityReader
+	graph        *ActionGraph
+	scope        *symbols.Scope
+	weights      *probabilityReader
+	nodes        nodeLookup
+	incompatible map[ast.Node]ast.Node
 }
 
 func (l *actionEdgeLowerer) member(member ast.Node) error {
@@ -847,12 +925,18 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight})
+	return l.succession(n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight})
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
-	sourceNode := resolveActionEndpointForEdge(l.graph, n.Source, n.SourceMember, true)
-	targetNode := resolveActionEndpointForEdge(l.graph, n.Target, n.TargetMember, false)
+	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	if err != nil {
+		return err
+	}
+	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	if err != nil {
+		return err
+	}
 	if sourceNode == nil {
 		return fmt.Errorf("succession edge references undefined source node %s", edgeEnd(n.Source, n.SourceMember))
 	}
@@ -863,7 +947,7 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 	if err != nil {
 		return err
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source:             sourceNode,
 		Target:             targetNode,
 		Decl:               n,
@@ -875,15 +959,21 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 }
 
 func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
-	sourceNode := resolveActionEndpointForEdge(l.graph, n.Source, n.SourceMember, true)
-	targetNode := resolveActionEndpointForEdge(l.graph, n.Target, n.TargetMember, false)
+	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	if err != nil {
+		return err
+	}
+	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	if err != nil {
+		return err
+	}
 	if sourceNode == nil {
 		return fmt.Errorf("control flow edge references undefined source %s", edgeEnd(n.Source, n.SourceMember))
 	}
 	if targetNode == nil {
 		return fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source: sourceNode,
 		Target: targetNode,
 		Guard:  n.Guard,
@@ -893,8 +983,14 @@ func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
 }
 
 func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
-	sourceNode := resolveActionEndpoint(l.graph, n.Source, true)
-	targetNode := resolveActionEndpoint(l.graph, n.Target, false)
+	sourceNode, err := l.endpoint(n.Source, nil, true)
+	if err != nil {
+		return err
+	}
+	targetNode, err := l.endpoint(n.Target, nil, false)
+	if err != nil {
+		return err
+	}
 	if sourceNode == nil {
 		return fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
 	}
@@ -905,7 +1001,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 	if err != nil {
 		return err
 	}
-	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+	l.addEdge(ActionEdge{
 		Source:      sourceNode,
 		Target:      targetNode,
 		Guard:       n.Guard,
@@ -916,9 +1012,123 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 	return nil
 }
 
+func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
+	if l.nodes != nil {
+		for _, existing := range l.graph.Edges[edge.Source] {
+			if existing.Target == edge.Target && l.graph.declaredIn[existing.Decl] == nil {
+				return
+			}
+		}
+	}
+	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
+}
+
+func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
+	if l.nodes == nil {
+		if member != nil {
+			return resolveActionEndpointForEdge(l.graph, ref, member, source), nil
+		}
+		return resolveActionEndpoint(l.graph, ref, source), nil
+	}
+	if member != nil {
+		for _, node := range l.graph.Nodes {
+			if node == member {
+				return node, nil
+			}
+		}
+		matches := inheritedNodeMatches(l.graph, l.scope, member)
+		if len(matches) > 1 {
+			return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, getNodeName(member))
+		}
+		if len(matches) == 1 {
+			return matches[0], nil
+		}
+		if replacement := l.incompatible[member]; replacement != nil {
+			return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
+				ErrIncompatibleRedefinedStep, getNodeName(member), ast.SimpleName(replacement))
+		}
+		if final, ok := member.(*ast.FinalNode); ok {
+			return ensureInheritedDone(l.graph, final, l.scope), nil
+		}
+		if name := getNodeName(member); name != "" {
+			if node := l.nodes(name); node != nil {
+				return node, nil
+			}
+			if name == "start" && source {
+				if l.graph.Initial != nil {
+					return l.graph.Initial, nil
+				}
+				return resolveActionEndpoint(l.graph, ref, true), nil
+			}
+		}
+	}
+	qn := actionEndpointQualifiedName(ref)
+	if qn != nil && len(qn.Parts) > 0 {
+		name := qn.Parts[len(qn.Parts)-1].Text
+		if node := l.nodes(name); node != nil {
+			return node, nil
+		}
+		if name == "start" && source {
+			return ensureImpliedStart(l.graph, ref), nil
+		}
+		if name == "done" && !source {
+			return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
+		}
+		decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)
+		if !found {
+			decl, found = resolve.ActionNodeOfBody(l.scope, name)
+		}
+		if found {
+			matches := inheritedNodeMatches(l.graph, l.scope, decl)
+			if len(matches) > 1 {
+				return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, name)
+			}
+			if len(matches) == 1 {
+				return matches[0], nil
+			}
+			if replacement := l.incompatible[decl]; replacement != nil {
+				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
+					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
+			}
+			return nil, nil
+		}
+		for target, replacement := range l.incompatible {
+			if getNodeName(target) == name {
+				return nil, fmt.Errorf("%w: succession end %q is replaced by %s, which is not an action step",
+					ErrIncompatibleRedefinedStep, name, ast.SimpleName(replacement))
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge ActionEdge) error {
+	sourceNode, err := l.endpoint(sourceRef, nil, true)
+	if err != nil {
+		return err
+	}
+	targetNode, err := l.endpoint(targetRef, nil, false)
+	if err != nil {
+		return err
+	}
+	if sourceNode == nil {
+		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
+	}
+	if targetNode == nil {
+		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
+	}
+	edge.Source, edge.Target = sourceNode, targetNode
+	l.addEdge(edge)
+	return nil
+}
+
 func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
-	sourceNode, sourcePin := parsePinReference(l.graph.Nodes, n.Source)
-	targetNode, targetPin := parsePinReference(l.graph.Nodes, n.Target)
+	nodes := l.nodes
+	if nodes == nil {
+		nodes = nodesNamed(l.graph.Nodes)
+	}
+	sourceNode, sourcePin := flowEnd(nodes, n.Source)
+	targetNode, targetPin := flowEnd(nodes, n.Target)
 	if sourceNode == nil {
 		return fmt.Errorf("object flow edge references undefined source %v", n.Source)
 	}
@@ -945,7 +1155,11 @@ func (l *actionEdgeLowerer) usage(n *ast.Usage) error {
 	case ast.UsageAction:
 		return l.weights.refuseStrayIn(n.Prefixes, n.Members)
 	case ast.UsageBinding:
-		bindings, err := lowerPinBindings(l.graph, nodesNamed(l.graph.Nodes), n, l.scope)
+		nodes := l.nodes
+		if nodes == nil {
+			nodes = nodesNamed(l.graph.Nodes)
+		}
+		bindings, err := lowerPinBindings(l.graph, nodes, n, l.scope)
 		if err != nil {
 			return err
 		}
@@ -958,7 +1172,11 @@ func (l *actionEdgeLowerer) usage(n *ast.Usage) error {
 		if n.FlowEnds == nil {
 			return nil
 		}
-		source, flow, err := lowerFlow(nodesNamed(l.graph.Nodes), n)
+		nodes := l.nodes
+		if nodes == nil {
+			nodes = nodesNamed(l.graph.Nodes)
+		}
+		source, flow, err := lowerFlow(nodes, n)
 		if err != nil {
 			return err
 		}
@@ -990,7 +1208,7 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
 	name, _ := ast.EffectiveName(n)
-	return lowerSuccession(l.graph, sourceRef, targetRef, ActionEdge{
+	return l.succession(sourceRef, targetRef, ActionEdge{
 		Decl:               n,
 		Probability:        weight,
 		Name:               name,
@@ -1002,7 +1220,7 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 func hasDeclaredNodeMultiplicity(graph *ActionGraph, ends []*ast.ConnectorEnd) bool {
 	for _, end := range ends {
 		node := resolveActionEndpoint(graph, connectorEndReference(end), false)
-		if graph.Multiplicities[node] != nil {
+		if graph.HasStepMultiplicity(node, nil) {
 			return true
 		}
 	}
@@ -1012,9 +1230,11 @@ func hasDeclaredNodeMultiplicity(graph *ActionGraph, ends []*ast.ConnectorEnd) b
 // lowerInheritedPinConnections lowers the bindings and flows the actions the
 // action specializes wrote at pins of its nodes, nearest general first: a node
 // the action inherits keeps the connections its declaring action stated at it.
-func lowerInheritedPinConnections(graph *ActionGraph, scope *symbols.Scope) error {
-	for _, body := range resolve.ActionGeneralBodies(scope) {
-		graph.inherited = append(graph.inherited, Inherited{Decl: body.Node(), Body: body})
+func lowerInheritedPinConnections(graph *ActionGraph, bodies []*symbols.Scope) error {
+	for _, body := range bodies {
+		if !hasInheritedBody(graph, body) {
+			graph.inherited = append(graph.inherited, Inherited{Decl: body.Node(), Body: body})
+		}
 		nodes := inheritedNodeLookup(graph, body)
 		for _, member := range ast.DeclMembers(body.Node()) {
 			u, ok := unwrapMembership(member).(*ast.Usage)
@@ -1092,19 +1312,12 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 		if !ok {
 			return nil
 		}
-		for _, node := range graph.Nodes {
-			if node == decl {
-				return node
-			}
+		if graph.replacedByIncompatible[decl] != nil {
+			return nil
 		}
-		for _, node := range graph.Nodes {
-			u, ok := node.(*ast.Usage)
-			if !ok {
-				continue
-			}
-			if nodeScope := graph.Scopes[node]; nodeScope != nil && resolve.RedefinesActionNode(nodeScope.Parent(), u, decl) {
-				return node
-			}
+		matches := inheritedNodeMatches(graph, body, decl)
+		if len(matches) == 1 {
+			return matches[0]
 		}
 		return nil
 	}
@@ -1137,22 +1350,6 @@ func resolveFirstNode(graph *ActionGraph) error {
 	graph.Nodes = slices.DeleteFunc(graph.Nodes, func(node ast.Node) bool {
 		return node == ast.Node(initial)
 	})
-	return nil
-}
-
-// lowerSuccession adds the edge a succession states between the nodes its two
-// ends resolve to; edge carries everything but the resolved Source and Target.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef ast.Node, edge ActionEdge) error {
-	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
-	if sourceNode == nil {
-		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
-	}
-	targetNode := resolveActionEndpoint(graph, targetRef, false)
-	if targetNode == nil {
-		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
-	}
-	edge.Source, edge.Target = sourceNode, targetNode
-	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], edge)
 	return nil
 }
 
@@ -1271,30 +1468,81 @@ func nodeAnswering(nodes []ast.Node, name string) ast.Node {
 // `inout` pin valued by a feature name is bound to that feature, as a feature value
 // binds the feature to its result, so what the node leaves in the pin writes back.
 func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
+	members := make([]effectiveActionMember, 0, len(node.Members))
+	for _, member := range node.Members {
+		members = append(members, effectiveActionMember{Decl: unwrapMembership(member), Scope: scope})
+	}
+	lowerEffectiveActionNodeFeatures(graph, node, scope, members)
+}
+
+func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope, members []effectiveActionMember) {
 	if graph.Features == nil {
 		graph.Features = make(map[ast.Node][]Feature)
 	}
 	recordNodeScope(graph, node, scope)
 	var features []Feature
-	for _, member := range node.Members {
-		m, ok := unwrapMembership(member).(*ast.Usage)
+	for _, member := range members {
+		m, ok := member.Decl.(*ast.Usage)
 		if !ok {
 			continue
+		}
+		featureScope := member.Scope
+		if featureScope == nil {
+			featureScope = scope
+		}
+		if m != node {
+			graph.recordDeclaredIn(m, featureScope)
 		}
 		if m.IsAccept {
 			// A message payload is the accept's output pin; `accept when/at/after` binds none.
 			if m.Value == nil && m.Ident.Name != "" {
-				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: scope})
+				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: featureScope})
 			}
 			continue
 		}
-		feature, ok := declaredFeature(m, scope)
+		feature, ok := declaredFeature(m, featureScope)
 		if !ok {
 			continue
 		}
 		features = append(features, feature)
-		if binding, ok := inoutValueBinding(node, m, feature.Name, scope); ok {
+		bindingScope := featureScope
+		if bindingScope != nil && bindingScope.Parent() != nil {
+			bindingScope = bindingScope.Parent()
+		}
+		if binding, ok := inoutValueBinding(node, m, feature.Name, bindingScope); ok {
 			graph.Bindings = append(graph.Bindings, binding)
+		}
+	}
+	if typedBody, _ := mergedTypedActionBody(node, scope); typedBody {
+		generals, _ := resolve.ActionGeneralization(scope, true)
+		seen := make(map[string]bool, len(features))
+		for _, feature := range features {
+			seen[feature.Name] = true
+		}
+		for _, general := range generals {
+			if general == nil || general.Node() == nil {
+				continue
+			}
+			for _, raw := range ast.DeclMembers(general.Node()) {
+				m, ok := unwrapMembership(raw).(*ast.Usage)
+				if !ok || !DeclaresNodeFeature(m) {
+					continue
+				}
+				name, _ := ast.EffectiveName(m)
+				if name == "" || seen[name] {
+					continue
+				}
+				seen[name] = true
+				graph.recordDeclaredIn(m, general)
+				features = append(features, Feature{
+					Name:      name,
+					Direction: m.Direction,
+					IsResult:  m.IsResult,
+					Value:     m.Value,
+					Node:      m,
+					Scope:     general,
+				})
+			}
 		}
 	}
 	graph.Features[node] = features
@@ -1524,23 +1772,13 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 	return m.Direction != ast.DirNone || m.Kind == ast.UsageAttribute
 }
 
-// lowerBody records a nested action node's statements and the message it waits
-// for, so the executor reads them from the graph rather than walking the node's
-// members again.
-func lowerBody(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	for _, member := range BodyStatementMembers(node.Members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), scope))
-	}
-	lowerAccept(graph, node, scope)
-}
-
 // lowerNodeBody records the statements the body of an action node declares, so
 // a body the notation admits on a control node or a succession executes when a
 // token reaches it rather than being dropped.
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver))
 	}
 }
 
@@ -1568,7 +1806,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
@@ -1582,17 +1820,17 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m)),
+			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver),
 			Node:       m,
 			Scope:      scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then))
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else))
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
 			lowered.Else = &block
 		}
 		return lowered
@@ -1602,7 +1840,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope)
+		return lowerUsageStatement(m, scope, resolver)
 	default:
 		return Unsupported{Description: fmt.Sprintf("%T", member), Node: member, Scope: scope}
 	}
@@ -1690,7 +1928,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if m.IsTerminate {
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
 	}
@@ -1698,7 +1936,7 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope) Statement {
 		return stmt
 	}
 	if m.Kind == ast.UsageAction && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m))
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver)
 	}
 	if m.Kind == ast.UsageAction && performsAction(m) {
 		return performEffect(m, scope)
@@ -1756,12 +1994,12 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope)
+		return lowerStatedBlock(owner, members, scope, resolver)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false)
+		graph := lowerBlockFlow(members, scope, false, resolver)
 		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
 	}
 	block := Block{Node: owner, Scope: scope}
@@ -1770,7 +2008,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block 
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver))
 	}
 	return block
 }
@@ -1780,6 +2018,9 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block 
 func isAnnotation(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+		return true
+	}
+	if usage, ok := n.(*ast.Usage); ok && usage.Kind == ast.UsageMetadata {
 		return true
 	}
 	return false
@@ -1945,23 +2186,33 @@ func resolveActionEndpoint(graph *ActionGraph, ref ast.Node, source bool) ast.No
 	if node != nil {
 		return node
 	}
+	name := ast.SimpleName(ref)
+	if impliedMarker(name, source, graph.Initial == nil) {
+		if source {
+			return ensureImpliedStart(graph, ref)
+		}
+		return ensureImpliedDone(graph, ref)
+	}
 	if node = ensureInheritedActionNode(graph, ref); node != nil {
 		return node
 	}
+	return nil
+}
 
-	name := ast.SimpleName(ref)
-	if !impliedMarker(name, source, graph.Initial == nil) {
-		return nil
+func ensureImpliedStart(graph *ActionGraph, ref ast.Node) ast.Node {
+	if graph.Initial != nil {
+		return graph.Initial
 	}
-	if source {
-		first := &ast.QualifiedName{}
-		first.NodeSpan = ref.Span()
-		first.SetSingleton(ast.NameSegment{Text: "start", Span: ref.Span()})
-		initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, First: first}
-		graph.Initial = initial
-		graph.Nodes = append(graph.Nodes, initial)
-		return initial
-	}
+	first := &ast.QualifiedName{}
+	first.NodeSpan = ref.Span()
+	first.SetSingleton(ast.NameSegment{Text: "start", Span: ref.Span()})
+	initial := &ast.InitialNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}, First: first}
+	graph.Initial = initial
+	graph.Nodes = append(graph.Nodes, initial)
+	return initial
+}
+
+func ensureImpliedDone(graph *ActionGraph, ref ast.Node) ast.Node {
 	for _, final := range graph.Finals {
 		if getNodeName(final) == "done" {
 			return final
@@ -2249,15 +2500,6 @@ func flowEndText(end ast.Node) string {
 		return edgeEndName(e.Name)
 	}
 	return "(nothing)"
-}
-
-// parsePinReference extracts node and pin name from a qualified reference.
-// Format: "nodeName.pinName" or just "nodeName" (pin = "")
-func parsePinReference(nodes []ast.Node, qname *ast.QualifiedName) (ast.Node, string) {
-	if qname == nil {
-		return nil, ""
-	}
-	return flowEnd(nodesNamed(nodes), qname)
 }
 
 // statementKeyword names a body statement for a diagnostic.

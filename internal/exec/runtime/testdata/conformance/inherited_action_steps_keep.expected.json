@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Keep",
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 33}
+	}
+}

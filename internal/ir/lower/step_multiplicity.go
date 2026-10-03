@@ -22,13 +22,14 @@ const (
 
 // StepMultiplicityError describes a step multiplicity the executor cannot honor.
 type StepMultiplicityError struct {
-	Node         ast.Node
-	Step         string
-	Multiplicity string
-	Code         string
-	Reason       string
-	Declaration  ast.Node
-	Err          error
+	Node          ast.Node
+	Step          string
+	Multiplicity  string
+	Code          string
+	Reason        string
+	Declaration   ast.Node
+	InheritedFrom string
+	Err           error
 }
 
 func (e *StepMultiplicityError) Error() string {
@@ -47,7 +48,11 @@ func (e *StepMultiplicityError) Error() string {
 	if reason == "" {
 		reason = "the action step multiplicity is unsupported"
 	}
-	return fmt.Sprintf("action step %s%s: %s", step, multiplicity, reason)
+	message := fmt.Sprintf("action step %s%s: %s", step, multiplicity, reason)
+	if e.InheritedFrom != "" {
+		message += " (inherited from " + e.InheritedFrom + ")"
+	}
+	return message
 }
 
 func (e *StepMultiplicityError) Unwrap() error {
@@ -57,25 +62,40 @@ func (e *StepMultiplicityError) Unwrap() error {
 	return e.Err
 }
 
-// StepCount returns the fixed number of performances declared for node.
-// An absent declaration preserves the historical single-performance behavior.
+// StepCount returns the fixed number of performances an owned or inherited
+// multiplicity governs; when none does, the step performs once.
 func (g *ActionGraph) StepCount(node ast.Node, model *semantics.Model) (int64, error) {
 	if g == nil || node == nil {
 		return 1, nil
 	}
-	multiplicity := g.Multiplicities[node]
-	if multiplicity == nil {
-		return 1, nil
-	}
-	if err := g.unaddressableBoundError(node, multiplicity, g.nodeScope(node), model, nil); err != nil {
-		return 0, err
-	}
 	evaluator := model
 	if evaluator == nil {
-		evaluator = semantics.NewModel(nil)
+		evaluator = semantics.NewModel(g.resolver)
 	}
-	rangeIn, ok := evaluator.RangeIn(g.nodeScope(node), multiplicity)
-	if !ok || !rangeIn.Lower.Known || !rangeIn.Upper.Known ||
+	multiplicity, scope, source, found := g.stepMultiplicity(node, evaluator)
+	if !found {
+		return 1, nil
+	}
+	if multiplicity == nil {
+		rangeIn, ok := evaluator.MultiplicityOf(source)
+		if !ok {
+			return 1, nil
+		}
+		return g.fixedStepCount(node, rangeIn, model)
+	}
+	if err := g.unaddressableBoundError(node, multiplicity, scope, evaluator, nil); err != nil {
+		return 0, err
+	}
+	rangeIn, ok := evaluator.RangeIn(scope, multiplicity)
+	if !ok {
+		return 0, g.stepError(node, model, StepMultiplicityNotFixedCode,
+			"multiplicity is not a fixed count; the executor performs a step a fixed number of times", nil)
+	}
+	return g.fixedStepCount(node, rangeIn, model)
+}
+
+func (g *ActionGraph) fixedStepCount(node ast.Node, rangeIn semantics.Range, model *semantics.Model) (int64, error) {
+	if !rangeIn.Lower.Known || !rangeIn.Upper.Known ||
 		rangeIn.Lower.Infinite || rangeIn.Upper.Infinite ||
 		rangeIn.Lower.Value != rangeIn.Upper.Value ||
 		rangeIn.Lower.Value < 0 {
@@ -85,21 +105,39 @@ func (g *ActionGraph) StepCount(node ast.Node, model *semantics.Model) (int64, e
 	return rangeIn.Lower.Value, nil
 }
 
-// MultiplicityText returns the source text of node's declared multiplicity.
+// MultiplicityText returns the source text of node's effective multiplicity.
 func (g *ActionGraph) MultiplicityText(node ast.Node, model *semantics.Model) string {
 	if g == nil || node == nil {
 		return ""
 	}
-	multiplicity := g.Multiplicities[node]
+	evaluator := model
+	if evaluator == nil {
+		evaluator = semantics.NewModel(g.resolver)
+	}
+	multiplicity, scope, source, _ := g.stepMultiplicity(node, evaluator)
 	if multiplicity == nil {
+		if source != nil {
+			if rangeIn, ok := evaluator.MultiplicityOf(source); ok {
+				return semanticsRangeText(rangeIn)
+			}
+		}
 		return ""
+	}
+	if source != nil {
+		if text := g.sourceTextAt(scope, multiplicity, model); text != "" {
+			return text
+		}
 	}
 	return g.multiplicityText(node, multiplicity, model)
 }
 
 // CheckStep classifies a declared multiplicity and its incident successions.
 func (g *ActionGraph) CheckStep(node ast.Node, model *semantics.Model) error {
-	if g == nil || node == nil || g.Multiplicities[node] == nil {
+	if g == nil || node == nil {
+		return nil
+	}
+	_, _, _, found := g.stepMultiplicity(node, model)
+	if !found {
 		return nil
 	}
 	count, err := g.StepCount(node, model)
@@ -153,6 +191,91 @@ func (g *ActionGraph) CheckStep(node ast.Node, model *semantics.Model) error {
 	return nil
 }
 
+func (g *ActionGraph) StepMultiplicity(node ast.Node, model *semantics.Model) (*ast.Multiplicity, *symbols.Scope) {
+	if g == nil || node == nil {
+		return nil, nil
+	}
+	evaluator := model
+	if evaluator == nil {
+		evaluator = semantics.NewModel(g.resolver)
+	}
+	multiplicity, scope, _, _ := g.stepMultiplicity(node, evaluator)
+	return multiplicity, scope
+}
+
+// HasStepMultiplicity reports whether a node has an owned or effective step
+// multiplicity, including recorded library facts.
+func (g *ActionGraph) HasStepMultiplicity(node ast.Node, model *semantics.Model) bool {
+	if g == nil || node == nil {
+		return false
+	}
+	evaluator := model
+	if evaluator == nil {
+		evaluator = semantics.NewModel(g.resolver)
+	}
+	_, _, _, found := g.stepMultiplicity(node, evaluator)
+	return found
+}
+
+func (g *ActionGraph) stepMultiplicity(node ast.Node, model *semantics.Model) (*ast.Multiplicity, *symbols.Scope, *symbols.Symbol, bool) {
+	if model == nil {
+		model = semantics.NewModel(g.resolver)
+	}
+	if multiplicity := g.Multiplicities[node]; multiplicity != nil {
+		return multiplicity, g.nodeScope(node), nil, true
+	}
+	usage, ok := node.(*ast.Usage)
+	if !ok || (usage.Kind != ast.UsageAction && !IsCaseNode(usage)) {
+		return nil, nil, nil, false
+	}
+	sym := actionStepSymbol(node, g.nodeScope(node))
+	if sym == nil {
+		return nil, nil, nil, false
+	}
+	source, ok := model.GoverningMultiplicitySource(sym)
+	if !ok {
+		return nil, nil, nil, false
+	}
+	multiplicity := semantics.UsageMultiplicityOf(source)
+	if multiplicity != nil {
+		return multiplicity, source.OwnerScope, source, true
+	}
+	if source.Recorded() {
+		return nil, source.OwnerScope, source, true
+	}
+	return nil, nil, nil, false
+}
+
+func semanticsRangeText(r semantics.Range) string {
+	bound := func(value semantics.Bound) string {
+		if value.Infinite {
+			return "*"
+		}
+		if value.Known {
+			return fmt.Sprint(value.Value)
+		}
+		return "?"
+	}
+	if r.Lower.Known && r.Upper.Known && r.Lower == r.Upper {
+		return "[" + bound(r.Lower) + "]"
+	}
+	return "[" + bound(r.Lower) + ".." + bound(r.Upper) + "]"
+}
+
+func actionStepSymbol(node ast.Node, scope *symbols.Scope) *symbols.Symbol {
+	if node == nil {
+		return nil
+	}
+	for current := scope; current != nil; current = current.Parent() {
+		for _, member := range current.AllMembers() {
+			if member != nil && member.Decl == node {
+				return member
+			}
+		}
+	}
+	return nil
+}
+
 func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count int64, model *semantics.Model) error {
 	other := edge.Source
 	if other == node {
@@ -184,11 +307,11 @@ func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, cou
 	if err != nil {
 		return err
 	}
-	sourceRange, err := g.crossingRange(node, edge.Source, edge.SourceMultiplicity, model)
+	sourceRange, err := g.crossingRange(node, edge.SourceMultiplicity, edge.Decl, model)
 	if err != nil {
 		return err
 	}
-	targetRange, err := g.crossingRange(node, edge.Target, edge.TargetMultiplicity, model)
+	targetRange, err := g.crossingRange(node, edge.TargetMultiplicity, edge.Decl, model)
 	if err != nil {
 		return err
 	}
@@ -205,6 +328,13 @@ func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, cou
 			t = defaultRange
 		}
 		forced := s.lower >= sourceCount || t.lower >= targetCount
+		if succession, ok := edge.Decl.(*ast.SuccessionEdge); ok &&
+			succession.SourceImplied && succession.TargetImplied &&
+			edge.SourceMultiplicity == nil && edge.TargetMultiplicity == nil {
+			forced = false
+		} else if edge.Decl == nil {
+			forced = s.lower >= sourceCount || t.lower >= targetCount
+		}
 		admitted := s.admits(sourceCount) && t.admits(targetCount)
 		if forced && !admitted {
 			return g.stepError(node, model, StepOrderUnsatisfiableCode,
@@ -250,21 +380,29 @@ func (r crossingRange) admits(count int64) bool {
 	return r.lower <= count && (r.upperInfinite || count <= r.upper)
 }
 
-func (g *ActionGraph) crossingRange(step, endpoint ast.Node, multiplicity *ast.Multiplicity, model *semantics.Model) (crossingRange, error) {
+func (g *ActionGraph) crossingRange(step ast.Node, multiplicity *ast.Multiplicity, edgeDecl ast.Node, model *semantics.Model) (crossingRange, error) {
 	if multiplicity == nil {
 		return crossingRange{}, nil
 	}
-	if err := g.unaddressableBoundError(step, multiplicity, g.Scope, model, multiplicity); err != nil {
+	scope := g.Scope
+	if g.declaredIn[edgeDecl] != nil {
+		scope = g.declaredIn[edgeDecl]
+	}
+	if err := g.unaddressableBoundError(step, multiplicity, scope, model, multiplicity); err != nil {
 		return crossingRange{}, err
 	}
 	evaluator := model
 	if evaluator == nil {
-		evaluator = semantics.NewModel(nil)
+		evaluator = semantics.NewModel(g.resolver)
 	}
-	r, ok := evaluator.RangeIn(g.Scope, multiplicity)
+	r, ok := evaluator.RangeIn(scope, multiplicity)
 	if !ok || !r.Lower.Known || r.Lower.Infinite || (!r.Upper.Known && !r.Upper.Infinite) {
+		text := g.sourceTextAt(scope, multiplicity, model)
+		if text == "" {
+			text = multiplicityBoundsText(multiplicity)
+		}
 		err := g.stepError(step, model, StepMultiplicityNotFixedCode,
-			"succession-end multiplicity "+g.multiplicityText(step, multiplicity, model)+" cannot be evaluated", multiplicity)
+			"succession-end multiplicity "+text+" cannot be evaluated", multiplicity)
 		return crossingRange{}, err
 	}
 	return crossingRange{
@@ -616,13 +754,42 @@ func (g *ActionGraph) stepError(node ast.Node, model *semantics.Model, code, rea
 	if name == "" {
 		name = fmt.Sprintf("%T", node)
 	}
+	inheritedFrom := ""
+	if g != nil {
+		evaluator := model
+		if evaluator == nil {
+			evaluator = semantics.NewModel(g.resolver)
+		}
+		multiplicity, _, source, _ := g.stepMultiplicity(node, evaluator)
+		stepSymbol := actionStepSymbol(node, g.nodeScope(node))
+		if source == nil && stepSymbol != nil {
+			source, _ = evaluator.GoverningMultiplicitySource(stepSymbol)
+		}
+		if source != nil && stepSymbol != nil && source != stepSymbol {
+			for _, redefined := range evaluator.AllRedefinedFeatures(stepSymbol) {
+				if redefined == source {
+					inheritedFrom = symbols.FQNOf(source)
+					break
+				}
+			}
+		}
+		if declaration == nil {
+			if multiplicity != nil {
+				declaration = multiplicity
+			}
+			if source != nil && declaration == nil {
+				declaration = source.Decl
+			}
+		}
+	}
 	return &StepMultiplicityError{
-		Node:         node,
-		Step:         name,
-		Multiplicity: g.MultiplicityText(node, model),
-		Code:         code,
-		Reason:       reason,
-		Declaration:  declaration,
+		Node:          node,
+		Step:          name,
+		Multiplicity:  g.MultiplicityText(node, model),
+		Code:          code,
+		Reason:        reason,
+		Declaration:   declaration,
+		InheritedFrom: inheritedFrom,
 	}
 }
 
@@ -636,6 +803,10 @@ func (g *ActionGraph) multiplicityText(node ast.Node, multiplicity *ast.Multipli
 	if text := g.sourceTextWithModel(node, multiplicity, model); text != "" {
 		return text
 	}
+	return multiplicityBoundsText(multiplicity)
+}
+
+func multiplicityBoundsText(multiplicity *ast.Multiplicity) string {
 	lower := boundText(multiplicity.Lower)
 	if !multiplicity.IsRange {
 		return "[" + lower + "]"
@@ -652,6 +823,14 @@ func (g *ActionGraph) sourceTextWithModel(node, textNode ast.Node, model *semant
 		return strings.TrimSpace(text)
 	}
 	return ""
+}
+
+func (g *ActionGraph) sourceTextAt(scope *symbols.Scope, textNode ast.Node, model *semantics.Model) string {
+	if scope == nil || textNode == nil || model == nil || model.SourceText() == nil {
+		return ""
+	}
+	text := model.SourceText()(symbols.DocNameOf(scope), textNode.Span())
+	return strings.TrimSpace(text)
 }
 
 func boundText(node ast.Node) string {

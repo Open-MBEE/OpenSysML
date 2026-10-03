@@ -2,7 +2,9 @@ package lower
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -71,43 +73,262 @@ func runsOwnFlow(members []ast.Node) bool {
 // members state (its start inferred as a whole action's is), or — where they
 // state none — the statements and accept of a leaf. scope is the node's own namespace.
 func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	lowerFeatures(graph, node, scope)
-	if node.IsTerminate {
-		lowerTerminateNode(graph, node, scope)
+	members, cycle, err := effectiveActionMembers(node, scope)
+	if err != nil {
+		recordInvalidSubflow(graph, node, err)
 		return
 	}
-	if !runsOwnFlow(node.Members) {
-		lowerBody(graph, node, scope)
+	if cycle {
+		recordInvalidSubflow(graph, node, fmt.Errorf("%w: %s", ErrCyclicSpecialization, getNodeName(node)))
+		return
+	}
+	lowerEffectiveActionNodeFeatures(graph, node, scope, members)
+	lowerEffectiveAccept(graph, node, members)
+	if node.IsTerminate {
+		lowerTerminateNode(graph, node, scope, members)
+		return
+	}
+	rawMembers := make([]ast.Node, 0, len(members))
+	for _, member := range members {
+		rawMembers = append(rawMembers, member.Decl)
+	}
+	typedBody, typedAction := mergedTypedActionBody(node, scope)
+	var typedTarget ast.Node
+	if typedBody {
+		typedTarget = resolveTypedActionTarget(graph.resolver, typedAction)
+		if typedActionTargetIsAncestor(graph, typedTarget) {
+			if typedBodyHasExecutableContent(rawMembers) {
+				recordInvalidSubflow(graph, node, fmt.Errorf("%w: %s",
+					ErrRecursiveActionTyping, ast.SimpleName(typedAction.Target)))
+				return
+			}
+			typedBody = false
+		}
+	}
+	if !runsOwnFlow(rawMembers) && !typedBody {
+		for _, member := range BodyStatementMembers(rawMembers) {
+			actual := unwrapMembership(member)
+			memberScope := effectiveMemberScope(members, actual, scope)
+			graph.recordDeclaredIn(actual, memberScope)
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+		}
 		if _, _, starts := startedBehavior(node, scope); starts {
 			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
 		}
 		return
 	}
-	lowerAccept(graph, node, scope)
 	if graph.Subflows == nil {
 		graph.Subflows = make(map[ast.Node]*Subflow)
 	}
-	sub, err := ToActionGraphWith(node, scope, graph.resolver)
+	ancestors := graph.lowering
+	if typedBody {
+		ancestors = appendLoweringAncestor(ancestors, typedTarget)
+	}
+	sub, err := toActionGraphWithTypingAndAncestors(node, scope, graph.resolver, typedBody, ancestors)
 	if err == nil {
 		sub.Enclosing, sub.EnclosingNode = graph, node
 		StartFlow(sub)
 	}
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}
+	if typedBody && typedAction.Target != nil {
+		if graph.MergedTypedSubflows == nil {
+			graph.MergedTypedSubflows = make(map[ast.Node]PerformedType)
+		}
+		graph.MergedTypedSubflows[node] = typedAction
+	}
+}
+
+func resolveTypedActionTarget(resolver *resolve.Resolver, typed PerformedType) ast.Node {
+	if typed.Target == nil || typed.Scope == nil {
+		return nil
+	}
+	if resolver != nil {
+		if decl, _, ok := resolver.TypeDecl(typed.Scope, typed.Target); ok {
+			return decl
+		}
+	}
+	decl, _, _ := resolve.TypeDeclInScope(typed.Scope, typed.Target)
+	return decl
+}
+
+func typedActionTargetIsAncestor(graph *ActionGraph, target ast.Node) bool {
+	if graph == nil {
+		return false
+	}
+	return loweringHasAncestor(graph.lowering, target)
+}
+
+func loweringHasAncestor(ancestors []ast.Node, target ast.Node) bool {
+	if target == nil {
+		return false
+	}
+	for _, ancestor := range ancestors {
+		if ancestor == target {
+			return true
+		}
+	}
+	return false
+}
+
+func appendLoweringAncestor(ancestors []ast.Node, target ast.Node) []ast.Node {
+	if target == nil || loweringHasAncestor(ancestors, target) {
+		return ancestors
+	}
+	out := append([]ast.Node(nil), ancestors...)
+	return append(out, target)
+}
+
+func typedBodyHasExecutableContent(members []ast.Node) bool {
+	for _, member := range members {
+		actual := unwrapMembership(member)
+		if actual == nil || statesNoStep(actual) || isAnnotation(actual) {
+			continue
+		}
+		switch node := actual.(type) {
+		case *ast.Usage:
+			switch node.Kind {
+			case ast.UsageAction, ast.UsageState, ast.UsageTransition, ast.UsageSuccession,
+				ast.UsageStep, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+				return true
+			default:
+				if node.IsAccept || node.IsTerminate || node.IsActionNode {
+					return true
+				}
+			}
+		case *ast.AcceptActionUsage, *ast.EntryMember, *ast.DoMember, *ast.ExitMember,
+			*ast.StateNode:
+			return true
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func mergedTypedActionBody(node *ast.Usage, scope *symbols.Scope) (bool, PerformedType) {
+	if node == nil || !node.HasBody || declaresOnlyFeatures(node.Members) {
+		return false, PerformedType{}
+	}
+	for _, rel := range node.Relationships {
+		if rel == nil || (rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences) {
+			continue
+		}
+		target, ok := rel.Target.(*ast.QualifiedName)
+		if !ok {
+			continue
+		}
+		declaringScope := scope
+		if declaringScope != nil && declaringScope.Parent() != nil {
+			declaringScope = declaringScope.Parent()
+		}
+		return true, PerformedType{Target: target, Scope: declaringScope}
+	}
+	return false, PerformedType{}
+}
+
+type effectiveActionMember struct {
+	Decl  ast.Node
+	Scope *symbols.Scope
+}
+
+func effectiveActionMembers(node *ast.Usage, scope *symbols.Scope) ([]effectiveActionMember, bool, error) {
+	var collect func(*ast.Usage, *symbols.Scope, map[ast.Node]bool) ([]effectiveActionMember, bool, error)
+	collect = func(usage *ast.Usage, bodyScope *symbols.Scope, active map[ast.Node]bool) ([]effectiveActionMember, bool, error) {
+		if active[usage] {
+			return nil, true, nil
+		}
+		active[usage] = true
+		defer delete(active, usage)
+		declaringBody := bodyScope
+		if declaringBody != nil && declaringBody.Parent() != nil {
+			declaringBody = declaringBody.Parent()
+		}
+		if missing := resolve.MissingRedefinedActionNode(declaringBody, usage); missing != "" {
+			return nil, false, fmt.Errorf("%w: %s", ErrRedefinedStepMissing, missing)
+		}
+		var out []effectiveActionMember
+		seen := make(map[ast.Node]bool)
+		for _, member := range usage.Members {
+			decl := unwrapMembership(member)
+			out = append(out, effectiveActionMember{Decl: decl, Scope: bodyScope})
+			seen[decl] = true
+		}
+		for _, target := range resolve.ActionNodeRedefinitionTargets(declaringBody, usage, true) {
+			general, ok := target.(*ast.Usage)
+			if !ok || general.Kind != ast.UsageAction {
+				continue
+			}
+			generalOwner := resolve.ActionNodeDeclaringScope(declaringBody, target)
+			if generalOwner == nil {
+				continue
+			}
+			generalScope := childScope(generalOwner, general)
+			inherited, cyclic, err := collect(general, generalScope, active)
+			if err != nil {
+				return out, false, err
+			}
+			if cyclic {
+				return out, true, nil
+			}
+			for _, member := range inherited {
+				replaced := false
+				for _, own := range usage.Members {
+					redefinition, ok := unwrapMembership(own).(*ast.Usage)
+					if ok && resolve.RedefinesActionNode(declaringBody, redefinition, member.Decl) {
+						replaced = true
+						break
+					}
+				}
+				if !replaced && !seen[member.Decl] {
+					seen[member.Decl] = true
+					out = append(out, member)
+				}
+			}
+		}
+		return out, false, nil
+	}
+	members, cycle, err := collect(node, scope, make(map[ast.Node]bool))
+	return members, cycle, err
+}
+
+func effectiveMemberScope(members []effectiveActionMember, decl ast.Node, fallback *symbols.Scope) *symbols.Scope {
+	for _, member := range members {
+		if member.Decl == decl {
+			return member.Scope
+		}
+	}
+	return fallback
+}
+
+func recordInvalidSubflow(graph *ActionGraph, node ast.Node, err error) {
+	if graph.Subflows == nil {
+		graph.Subflows = make(map[ast.Node]*Subflow)
+	}
+	graph.Subflows[node] = &Subflow{Err: err}
 }
 
 // lowerTerminateNode records what a terminate action usage runs: the statements of
 // its body as a leaf's, then the terminate it stands for. A body stating a flow of
 // its own has no place to end the performance from, so it is refused at initialize.
-func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	if statesOwnFlow(node.Members) {
+func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope, members []effectiveActionMember) {
+	rawMembers := make([]ast.Node, 0, len(members))
+	for _, member := range members {
+		rawMembers = append(rawMembers, member.Decl)
+	}
+	if statesOwnFlow(rawMembers) {
 		if graph.Subflows == nil {
 			graph.Subflows = make(map[ast.Node]*Subflow)
 		}
 		graph.Subflows[node] = &Subflow{Err: errors.New("a terminate action usage states no flow of its own")}
 		return
 	}
-	lowerBody(graph, node, scope)
-	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
+	for _, member := range BodyStatementMembers(rawMembers) {
+		actual := unwrapMembership(member)
+		memberScope := effectiveMemberScope(members, actual, scope)
+		graph.recordDeclaredIn(actual, memberScope)
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+	}
+	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver))
 }
 
 // TerminateUsage returns the terminate a terminate action usage stands for, the last of
@@ -138,13 +359,17 @@ func (g *ActionGraph) StartUsage(node ast.Node) (Effect, bool) {
 	return last, true
 }
 
-// lowerAccept records the message a nested action node waits for, which a node
-// owning a flow still does before that flow starts.
-func lowerAccept(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
-	for _, member := range node.Members {
-		m, ok := unwrapMembership(member).(*ast.Usage)
+// lowerEffectiveAccept records the message a nested action node waits for, which
+// a node owning a flow still does before that flow starts.
+func lowerEffectiveAccept(graph *ActionGraph, node *ast.Usage, members []effectiveActionMember) {
+	for _, member := range members {
+		m, ok := member.Decl.(*ast.Usage)
 		if !ok || !m.IsAccept {
 			continue
+		}
+		scope := member.Scope
+		if scope == nil {
+			scope = graph.nodeScope(node)
 		}
 		port, viaSelf := acceptPort(node)
 		graph.Accepts[node] = Accept{

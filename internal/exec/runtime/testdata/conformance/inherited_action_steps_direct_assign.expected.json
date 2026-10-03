@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Direct",
+	"outputs": {
+		"c": {"type": "Integer", "value": 5}
+	}
+}

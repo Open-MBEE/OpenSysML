@@ -266,7 +266,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 	if h.perfs != nil {
 		return h.perfs.performNode(h.perfs.root, engine, graph, node)
 	}
-	if _, performs := nestedInvocation(node); performs {
+	if _, performs := nestedInvocationInGraph(graph, node); performs {
 		return flowNext, fmt.Errorf("%w: a calculation cannot perform action %s", ErrCalcSideEffect, ActionNodeName(node))
 	}
 	if connectsPins(graph, node) {

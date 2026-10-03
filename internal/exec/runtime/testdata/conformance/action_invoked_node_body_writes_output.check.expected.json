@@ -1,0 +1,7 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"y": ["30", "31"],
+		"seen": ["30", "31"]
+	}
+}

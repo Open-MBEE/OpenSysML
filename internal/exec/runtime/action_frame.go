@@ -336,6 +336,16 @@ func (e *performances) beginPerformance(
 	perf.aliases = pins.aliases
 	perf.optional = pins.optional
 	perf.result = pins.result
+	if usage, ok := node.(*ast.Usage); ok {
+		if _, merged := mergedTypedSubflowInvocation(flow, usage); merged {
+			for name, direction := range pins.directions {
+				if direction == ast.DirOut || direction == ast.DirInOut {
+					perf.outputs = append(perf.outputs, name)
+				}
+			}
+			sort.Strings(perf.outputs)
+		}
+	}
 	// The performance is ongoing before anything seeding it streams, so a value carried
 	// back to its node reaches it rather than waiting for a later performance.
 	if parent.subactions == nil {
@@ -371,7 +381,37 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 	if err := e.bindInputPins(perf, activation); err != nil {
 		return err
 	}
-	return e.seedDeclaredValues(perf, flow.Features[node], activation)
+	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
+		return err
+	}
+	return e.checkMergedTypedInputs(perf)
+}
+
+func (e *performances) checkMergedTypedInputs(perf *actionFrame) error {
+	usage, ok := perf.node.(*ast.Usage)
+	if !ok {
+		return nil
+	}
+	inv, merged := mergedTypedSubflowInvocation(perf.flow, usage)
+	if !merged {
+		return nil
+	}
+	callee, err := resolveActionSymbol(e.ctx, nodeScope(perf.flow, usage), inv)
+	if err != nil {
+		return err
+	}
+	perf.callee = callee
+	params := e.ctx.actionParametersOf(perf.callee)
+	inputs := make(map[string]Value)
+	for _, param := range params {
+		if param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
+			continue
+		}
+		if value, held := perf.data[perf.key(param.Name)]; held {
+			inputs[param.Name] = value
+		}
+	}
+	return checkInputsBound(inv, params, inputs)
 }
 
 // bindArguments writes the arguments a node passes its callee (`F(a = 3)`) to its pins,
@@ -381,7 +421,10 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if !ok {
 		return nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(perf.flow, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(perf.flow, usage)
+	}
 	if !performs || inv.expr == nil || lower.IsCaseNode(usage) {
 		return nil
 	}
@@ -497,7 +540,10 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 	if !ok {
 		return nodePins{directions: make(map[string]ast.FeatureDirection)}, nil
 	}
-	inv, performs := nestedInvocation(usage)
+	inv, performs := nestedInvocationInGraph(graph, usage)
+	if !performs {
+		inv, performs = mergedTypedSubflowInvocation(graph, usage)
+	}
 	if !performs || lower.IsCaseNode(usage) {
 		return e.pinsOf(graph, node, inv, nil, nil)
 	}
@@ -536,7 +582,7 @@ func (e *performances) pinsOf(
 		inv.step, _ = stepSymbol(graph, node)
 	}
 	for _, callee := range callees {
-		held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
+		held, _, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
 		if err != nil {
 			return nodePins{}, err
 		}
@@ -702,25 +748,25 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 func (f *actionFrame) unsupportedRepeatedRead(node ast.Node) error {
 	var graph *lower.ActionGraph
 	multiplicities := f.multiplicities
+	var model = (*semantics.Model)(nil)
+	if f.perfs != nil && f.perfs.ctx != nil {
+		model = f.perfs.ctx.Semantics()
+	}
 	for _, candidate := range []*lower.ActionGraph{f.graph, f.flow} {
 		if candidate == nil {
 			continue
 		}
-		if _, declared := candidate.Multiplicities[node]; declared {
+		if candidate.HasStepMultiplicity(node, model) {
 			graph = candidate
 			multiplicities = candidate.Multiplicities
 			break
 		}
 	}
-	if _, declared := multiplicities[node]; !declared {
-		return nil
-	}
 	if graph == nil {
 		graph = &lower.ActionGraph{Multiplicities: multiplicities}
 	}
-	var model = (*semantics.Model)(nil)
-	if f.perfs != nil && f.perfs.ctx != nil {
-		model = f.perfs.ctx.Semantics()
+	if !graph.HasStepMultiplicity(node, model) {
+		return nil
 	}
 	count, err := graph.StepCount(node, model)
 	if err != nil {
@@ -1235,6 +1281,9 @@ func (f *actionFrame) heldFeatures(prefix string, into map[string]bool) {
 		into[prefix+name] = true
 	}
 	for name, sub := range f.latestSubactions() {
+		if sub.repetition > 0 {
+			continue
+		}
 		sub.heldFeatures(prefix+name+".", into)
 	}
 }
@@ -1392,6 +1441,12 @@ func (e *performances) writeNamedEnd(end boundEnd, value Value) error {
 	written, err := e.assignEnclosing(end.at, name, value)
 	if err != nil {
 		return err
+	}
+	if !written && end.FromValue {
+		written, err = assignPerformerFeature(e.ctx, e.self, end.Scope, name, value)
+		if err != nil {
+			return err
+		}
 	}
 	if !written && !end.FromValue {
 		return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
