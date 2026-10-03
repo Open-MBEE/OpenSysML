@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -85,6 +86,32 @@ func TestRuntimeRobustnessEntryTransitionEffect(t *testing.T) {
 		}`, "Machine")
 		if !errors.Is(err, errNoWayThrough) || errors.Is(err, ErrChoiceWithoutBranch) {
 			t.Fatalf("execution error = %v, want errNoWayThrough from junction pick", err)
+		}
+	})
+
+	t.Run("nested default-entry junction without a way through fails when its entry is taken", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			attribute def Go;
+			state Machine {
+				entry; then idle;
+				state idle;
+				state blocked {
+					entry action boot { }
+					transition boot then route;
+					junction route;
+					transition route if false then never;
+					state never;
+				}
+				transition first idle accept Go then blocked;
+			}
+		}`)
+		exec.SendSignal("Go", nil)
+		err := exec.ProcessNextEvent()
+		if !errors.Is(err, errNoWayThrough) {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want errNoWayThrough", err)
+		}
+		if !strings.Contains(err.Error(), "junction route") {
+			t.Fatalf("ProcessNextEvent(Go) = %v, want it to name junction route", err)
 		}
 	})
 

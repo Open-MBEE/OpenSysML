@@ -1,3 +1,0 @@
-exit: idle
-enter: recovered
-transition: idle -> recovered (event: accept Go)

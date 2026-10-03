@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func deadAlternativeModel(t *testing.T) *exploreModel {
@@ -17,38 +15,6 @@ func deadAlternativeModel(t *testing.T) *exploreModel {
 		t.Fatalf("read conformance model: %v", err)
 	}
 	return parseExploreModel(t, string(data))
-}
-
-func TestDefaultEntryRouteAvailableWhenAnyTargetIsViable(t *testing.T) {
-	m := deadAlternativeModel(t)
-	ctx, err := m.fresh()
-	if err != nil {
-		t.Fatal(err)
-	}
-	exec, err := newStateExecutor(ctx, m.state(t, "Machine"), nil)
-	if err != nil {
-		t.Fatalf("newStateExecutor: %v", err)
-	}
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-
-	var available bool
-	for source, transitions := range exec.graph.Transitions {
-		state, ok := source.(*ast.StateNode)
-		if !ok || state.Name != "idle" {
-			continue
-		}
-		for _, transition := range transitions {
-			target, ok := transition.Target.(*ast.StateNode)
-			if ok && target.Name == "outer" {
-				available = exec.routeAvailable(transition, nil)
-			}
-		}
-	}
-	if !available {
-		t.Fatal("transition into outer is unavailable although its default entry can reach good")
-	}
 }
 
 func TestExploreDefaultEntryRouteReachesViableAlternative(t *testing.T) {

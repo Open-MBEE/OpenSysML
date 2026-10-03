@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-10-02",
-    "develop": "b2d3b65004587bc0f7469e19ecc2e0e42c28063a"
+    "recorded": "2026-10-03",
+    "develop": "3d45ca6fb200339461594cd086004e461633e6d1"
   },
   "buckets": {
-    "differs-by-design": 5,
+    "differs-by-design": 7,
     "fail": 6,
     "not-expressible": 34,
-    "pass": 58
+    "pass": 56
   },
   "tests": [
     {
@@ -1434,13 +1434,15 @@
       "name": "Junction 002",
       "area": "Junction",
       "class": "extension",
-      "row": "SM32",
-      "rowKind": "agrees",
-      "bucket": "pass",
-      "expected": [
-        "T3(effect)"
+      "row": "SM46",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "run error: process event: fire transition out of wait: entry transition through junction S1_Junction1: no way through: junction S1_Junction1: no guard evaluated to true",
+        "admitted trace not reached: T3(effect)",
+        "reports on SM46 (Junction on a nested default entry): differs because v2 differs"
       ],
-      "reached": [
+      "expected": [
         "T3(effect)"
       ],
       "runs": 1
@@ -1464,16 +1466,18 @@
       "name": "Junction 004",
       "area": "Junction",
       "class": "extension",
-      "row": "SM32",
-      "rowKind": "agrees",
-      "bucket": "pass",
+      "row": "SM46",
+      "rowKind": "differs because v2 differs",
+      "bucket": "differs-by-design",
+      "reasons": [
+        "run error: process event: fire transition out of wait: enter state: enter starting state in region S1/Region2: entry transition through junction S1_Junction1_2: no way through: junction S1_Junction1_2: no guard evaluated to true",
+        "admitted trace not reached: T3(effect)",
+        "reports on SM46 (Junction on a nested default entry): differs because v2 differs"
+      ],
       "expected": [
         "T3(effect)"
       ],
-      "reached": [
-        "T3(effect)"
-      ],
-      "runs": 1
+      "runs": 6
     },
     {
       "name": "Junction 005",

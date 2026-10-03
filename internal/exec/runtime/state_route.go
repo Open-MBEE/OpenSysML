@@ -3,7 +3,6 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -207,14 +206,12 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		}
 		defer unbind()
 
-		resolved, err := e.resolveRoute(trans, event)
-		routeErr = err
+		_, routeErr = e.resolveRoute(trans, event)
 		if routeErr != nil {
 			return
 		}
 		hist, ok := trans.Target.(*ast.PseudostateNode)
 		if !ok || hist.Kind != ast.PseudostateShallowHistory && hist.Kind != ast.PseudostateDeepHistory {
-			routeErr = e.defaultEntryRoutesAvailable(trans, resolved)
 			return
 		}
 		owner, err := e.historyOwner(hist)
@@ -225,144 +222,9 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		if ok && (source == owner || e.nestedIn(source, owner)) {
 			return
 		}
-		fallback, err := e.followOut(hist, route{})
-		routeErr = err
-		if routeErr == nil {
-			routeErr = e.defaultEntryRoutesAvailable(trans, fallback)
-		}
+		_, routeErr = e.followOut(hist, route{})
 	})
 	return !errors.Is(routeErr, errNoWayThrough)
-}
-
-func (e *StateExecutor) defaultEntryRoutesAvailable(trans *lower.Transition, route route) error {
-	targets, stops, err := e.reachable(route)
-	if err != nil || len(stops) > 0 {
-		return err
-	}
-	current := e.moveOrigin()
-	for _, target := range targets {
-		available := true
-		seenBodies := make(map[ast.Node]bool)
-		seenStates := make(map[*ast.StateNode]bool)
-		for _, entered := range e.enteredByMove(current, trans, target) {
-			if entered == target {
-				available = e.defaultEntryBodyAvailable(entered, seenBodies, seenStates)
-				if !available {
-					break
-				}
-				continue
-			}
-			regions, composite := e.graph.CompositeStates[entered]
-			if !composite {
-				continue
-			}
-			explicitRegion := e.regionUnder(entered, target)
-			for _, region := range regions {
-				if region == explicitRegion {
-					continue
-				}
-				if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
-					available = false
-					break
-				}
-			}
-			if !available {
-				break
-			}
-		}
-		if available {
-			return nil
-		}
-	}
-	if len(targets) == 0 {
-		return nil
-	}
-	return errNoWayThrough
-}
-
-func (e *StateExecutor) defaultEntryBodyAvailable(
-	owner ast.Node,
-	seenBodies map[ast.Node]bool,
-	seenStates map[*ast.StateNode]bool,
-) bool {
-	if seenBodies[owner] {
-		return true
-	}
-	seenBodies[owner] = true
-	entries := e.graph.StartOf(owner)
-	if len(entries) == 0 || entries[0].Guard != nil {
-		return true
-	}
-	entry := entries[0]
-	var targets []*ast.StateNode
-	if entry.Via != nil {
-		var resolved route
-		var routeErr error
-		e.preview(func() {
-			resolved, routeErr = e.followOut(entry.Via, route{})
-		})
-		if errors.Is(routeErr, errNoWayThrough) {
-			return false
-		}
-		if routeErr != nil {
-			return true
-		}
-		if resolved.choice != nil {
-			return true
-		}
-		if !e.defaultEntryRouteAvailable(resolved) {
-			return false
-		}
-		var stops []*ast.Usage
-		targets, stops, routeErr = e.reachable(resolved)
-		if routeErr != nil || len(stops) > 0 {
-			return true
-		}
-	} else if entry.Target != nil {
-		targets = append(targets, entry.Target)
-	}
-	if len(targets) == 0 {
-		return true
-	}
-	for _, target := range targets {
-		if e.defaultEntryTargetAvailable(target, maps.Clone(seenBodies), maps.Clone(seenStates)) {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *StateExecutor) defaultEntryTargetAvailable(
-	target *ast.StateNode,
-	seenBodies map[ast.Node]bool,
-	seenStates map[*ast.StateNode]bool,
-) bool {
-	if seenStates[target] {
-		return true
-	}
-	seenStates[target] = true
-	regions, composite := e.graph.CompositeStates[target]
-	if !composite {
-		return e.defaultEntryBodyAvailable(target, seenBodies, seenStates)
-	}
-	for _, region := range regions {
-		if !e.defaultEntryBodyAvailable(region, seenBodies, seenStates) {
-			return false
-		}
-	}
-	return true
-}
-
-func (e *StateExecutor) defaultEntryRouteAvailable(current route) bool {
-	if current.draw != nil {
-		for _, branch := range current.draw.beyond {
-			if e.defaultEntryRouteAvailable(branch.route) {
-				return true
-			}
-		}
-		return false
-	}
-	return true
 }
 
 // settleDraws makes the draws the route is open at, in turn, once the transition
