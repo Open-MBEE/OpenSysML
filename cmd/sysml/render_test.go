@@ -16,7 +16,7 @@ import (
 // renderModel declares a view stating no rendering, one exposing nothing, and a
 // part def to ask for by mistake.
 const renderModel = `package Demo {
-    private import OpenSysMLViews::*;
+    private import OpenSysMLRenderings::*;
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
     part def Person;

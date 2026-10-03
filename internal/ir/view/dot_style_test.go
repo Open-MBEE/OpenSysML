@@ -43,8 +43,7 @@ func TestDOTStandardDefaults(t *testing.T) {
 	}
 }
 
-// Definitions are square boxes and usages are rounded by keyword, except case
-// family nodes, whose ellipse distinguishes use cases from other classifiers.
+// Definitions are square boxes and usages are rounded by keyword in interconnection views.
 func TestDOTDefinitionsSquareUsagesRounded(t *testing.T) {
 	kinds := map[string]bool{
 		"part def": true, "action def": true, "state def": true, "use case def": true, "class": true, "datatype": true,
@@ -60,12 +59,6 @@ func TestDOTDefinitionsSquareUsagesRounded(t *testing.T) {
 		dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{node}}).DOT()
 		if err != nil {
 			t.Fatalf("DOT: %v", err)
-		}
-		if strings.Contains(kind, "case") {
-			if !strings.Contains(dot, `"n" [shape=ellipse, label=`) {
-				t.Errorf("%s: case node is not an ellipse:\n%s", kind, dot)
-			}
-			continue
 		}
 		rounded := strings.Contains(dot, `"n" [style="rounded,filled", label=`)
 		if rounded == definition {

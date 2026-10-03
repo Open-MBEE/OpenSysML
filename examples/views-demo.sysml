@@ -140,7 +140,7 @@ package Lander {
 package LanderViews {
     private import Views::*;
     private import StandardViewDefinitions::*;
-    private import OpenSysMLViews::*;
+    private import OpenSysMLRenderings::*;
 
     viewpoint def MassPerspective {
         frame concern mass : Lander::MassBudget;

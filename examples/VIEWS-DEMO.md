@@ -50,7 +50,7 @@ containment tree.
 | `%render LanderViews::useCases` | case | `render asCaseDiagram` |
 | `%render LanderViews::mixedOverview` | mixed | `render asMixedDiagram` |
 
-`CaseView` and `MixedView` from `OpenSysMLViews` provide the same selections by view-definition
+`CaseView` and `MixedView` from `OpenSysMLRenderings` provide the same selections by view-definition
 specialization. Case diagrams show use, analysis and verification cases with their actors, subjects
 and documented objectives. Mixed diagrams combine package structure, interconnections, states,
 actions and cases on one canvas; `#case` and `#mixed` render loaded model content without a

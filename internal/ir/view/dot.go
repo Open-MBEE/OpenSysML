@@ -246,7 +246,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
 	w.sources = map[string]bool{}
@@ -439,6 +439,7 @@ func (w *dotWriter) stripBox(node *Node, corner Point, across float64) nodeBox {
 // dotWriter holds what one rendering's DOT form needs across nodes and edges.
 type dotWriter struct {
 	b         strings.Builder
+	kind      Kind
 	tree      bool                // containment as edges, not clusters
 	action    bool                // the pins name what a flow carries
 	sources   map[string]bool     // port IDs an edge leaves from
@@ -1106,9 +1107,9 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
 	default:
-		if caseNodeKind(node.Kind) {
+		if (w.kind == KindCase || w.kind == KindMixed) && caseNodeKind(node.Kind) {
 			attrs = append(attrs, "shape=ellipse")
-		} else {
+		} else if w.kind == KindCase || w.kind == KindMixed {
 			switch node.Kind {
 			case "objective":
 				attrs = append(attrs, "shape=note")
@@ -1119,6 +1120,8 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 					attrs = append(attrs, `style="rounded,filled"`)
 				}
 			}
+		} else if w.skin.rounded(node.Kind) {
+			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
 		switch {

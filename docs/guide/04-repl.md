@@ -313,7 +313,7 @@ view Demo::summary::detail
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
 exposed elements, what they declare, and the views nested inside the rendered view.
 
-The bundled `OpenSysMLViews` library selects cases with `render asCaseDiagram;` and mixed content
+The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
 with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
 For a model with no declared view, `%render #case` and `%render #mixed` draw the loaded content, and
 `#case:<element>` or `#mixed:<element>` draws one element directly.

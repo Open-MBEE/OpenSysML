@@ -1,7 +1,7 @@
 package CaseExamples {
 	private import Views::*;
 	private import StandardViewDefinitions::*;
-	private import OpenSysMLViews::*;
+	private import OpenSysMLRenderings::*;
 	private import DiagramLayout::*;
 
 	part def Vehicle;

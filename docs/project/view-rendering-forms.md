@@ -166,7 +166,7 @@ event feature (`accept :> shutDown`), keep their written text.
 ## Case and mixed diagrams
 
 SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
-verification cases. Import `OpenSysMLViews::*` and select a kind
+verification cases. Import `OpenSysMLRenderings::*` and select a kind
 with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`.
 The same kinds are available without a declared view as `#case`, `#mixed`, `#case:<element>` and
 `#mixed:<element>`. Case diagrams default to left-to-right; mixed diagrams default to top-to-bottom.

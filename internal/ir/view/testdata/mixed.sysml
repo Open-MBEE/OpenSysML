@@ -1,5 +1,5 @@
 package MixedExamples {
-	private import OpenSysMLViews::*;
+	private import OpenSysMLRenderings::*;
 	private import DiagramLayout::*;
 
 	port def FluidPort;

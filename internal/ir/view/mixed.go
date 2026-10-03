@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+// renderMixed combines structural, behavioral, case and tree nodes on one canvas.
 func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &mixedWalk{r: r, view: view, ids: &nodeIDs{}, out: out,
 		nodes: map[*symbols.Symbol]*Node{}, seen: map[*symbols.Symbol]bool{},
@@ -18,6 +19,7 @@ func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, 
 	w.referenceEdges()
 }
 
+// mixedWalk tracks the nodes and deferred structural work of one mixed rendering.
 type mixedWalk struct {
 	r          *Renderer
 	view       *symbols.Symbol
@@ -30,6 +32,7 @@ type mixedWalk struct {
 	structures []*mixedStructure
 }
 
+// mixedStructure records a structure queued for the interconnection builder.
 type mixedStructure struct {
 	sym    *symbols.Symbol
 	parent *Node
@@ -37,6 +40,7 @@ type mixedStructure struct {
 	placed bool
 }
 
+// render dispatches one symbol to its mixed-view node builder.
 func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	if sym == nil || w.seen[sym] {
 		return
@@ -94,6 +98,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	w.append(node, parent)
 }
 
+// packageNode creates the shared package cluster for a mixed view.
 func (w *mixedWalk) packageNode(sym *symbols.Symbol, exposed bool) *Node {
 	name := localName(sym)
 	if exposed {
@@ -107,6 +112,7 @@ func (w *mixedWalk) packageNode(sym *symbols.Symbol, exposed bool) *Node {
 	return node
 }
 
+// queueStructure defers a feature subtree to the interconnection builder.
 func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 	entry := &mixedStructure{sym: sym, parent: parent}
 	if !w.r.drawsConnector(sym) {
@@ -123,6 +129,7 @@ func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 	w.walkStructureMembers(sym, parent)
 }
 
+// walkStructureMembers collects structural descendants into the shared node map.
 func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 	for _, member := range w.r.containedMembers(sym) {
 		if w.seen[member] {
@@ -140,6 +147,7 @@ func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 	}
 }
 
+// renderStructures builds queued feature subtrees with the shared node IDs.
 func (w *mixedWalk) renderStructures() {
 	if len(w.structures) == 0 {
 		return
@@ -186,6 +194,7 @@ func (w *mixedWalk) renderStructures() {
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
 }
 
+// removeStructuralSlots replaces temporary structural placeholders with built nodes.
 func (w *mixedWalk) removeStructuralSlots() {
 	compact := func(nodes []*Node) []*Node {
 		out := nodes[:0]
@@ -209,6 +218,7 @@ func (w *mixedWalk) removeStructuralSlots() {
 	}
 }
 
+// mixedStructural reports symbols rendered through the interconnection builder.
 func mixedStructural(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
@@ -219,6 +229,7 @@ func mixedStructural(sym *symbols.Symbol) bool {
 	return false
 }
 
+// append attaches a shared node beneath its parent or to the rendering roots.
 func (w *mixedWalk) append(node, parent *Node) {
 	if parent == nil {
 		w.out.Roots = append(w.out.Roots, node)
@@ -227,6 +238,7 @@ func (w *mixedWalk) append(node, parent *Node) {
 	parent.Children = append(parent.Children, node)
 }
 
+// indexTree records symbols represented by a rendered containment subtree.
 func (w *mixedWalk) indexTree(sym *symbols.Symbol, node *Node) {
 	w.remember(sym, node)
 	members := w.r.containedMembers(sym)
@@ -237,6 +249,7 @@ func (w *mixedWalk) indexTree(sym *symbols.Symbol, node *Node) {
 	}
 }
 
+// remember indexes one semantic symbol and its shared node.
 func (w *mixedWalk) remember(sym *symbols.Symbol, node *Node) {
 	if sym == nil || node == nil || w.nodes[sym] != nil {
 		return
@@ -245,6 +258,7 @@ func (w *mixedWalk) remember(sym *symbols.Symbol, node *Node) {
 	w.order = append(w.order, sym)
 }
 
+// referenceEdges adds typing, specialization, perform and exhibit links between drawn nodes.
 func (w *mixedWalk) referenceEdges() {
 	seen := map[string]bool{}
 	add := func(from, to *symbols.Symbol, kind EdgeKind, label string, decl *symbols.Symbol) {
@@ -282,7 +296,7 @@ func (w *mixedWalk) referenceEdges() {
 				}
 			}
 		}
-		for _, rel := range semantics.RelationshipsOf(sym) {
+		for _, rel := range viewRelationshipsOf(sym) {
 			if rel == nil || rel.Kind != ast.RelSpecializes {
 				continue
 			}
@@ -296,7 +310,7 @@ func (w *mixedWalk) referenceEdges() {
 				add(sym, target, EdgeReference, specialLabel, sym)
 				continue
 			}
-			for _, rel := range semantics.RelationshipsOf(sym) {
+			for _, rel := range viewRelationshipsOf(sym) {
 				if rel == nil || rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
 					continue
 				}

@@ -30,6 +30,7 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 	}
 }
 
+// renderState builds one state machine or state node with shared IDs.
 func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
@@ -49,6 +50,7 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 // stateMachineNode renders one lowered state machine: its regions and states as
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
+// stateMachineNode lowers one state graph into nodes and transition edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
@@ -497,6 +499,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 	}
 }
 
+// renderAction builds one action graph with shared IDs.
 func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) (*Node, bool) {
 	if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {

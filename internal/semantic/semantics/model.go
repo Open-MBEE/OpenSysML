@@ -239,9 +239,6 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return nil
 	}
 	decl := sym.Decl
-	if membership, ok := decl.(*ast.Membership); ok {
-		decl = membership.Member
-	}
 	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Relationships
 	}

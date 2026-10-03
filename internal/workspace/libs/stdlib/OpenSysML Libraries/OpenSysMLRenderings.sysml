@@ -1,4 +1,4 @@
-library package OpenSysMLViews {
+library package OpenSysMLRenderings {
 	doc /*
 	 * NON-NORMATIVE rendering vocabulary for case and mixed diagrams.
 	 */

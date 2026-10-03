@@ -109,6 +109,7 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 	return false, false
 }
 
+// hasCaseOwner reports whether sym is nested beneath a case-family symbol.
 func hasCaseOwner(sym *symbols.Symbol) bool {
 	for owner := sym.Owner(); owner != nil; owner = owner.Owner() {
 		if caseFamily(owner) {
@@ -118,6 +119,7 @@ func hasCaseOwner(sym *symbols.Symbol) bool {
 	return false
 }
 
+// mixedReferenceEdge reports whether sym contributes a reference between drawn nodes.
 func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 	if sym.Kind.IsFeature() {
 		for _, target := range r.model.DeclaredTypes(sym) {
@@ -126,7 +128,7 @@ func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 			}
 		}
 	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
+	for _, rel := range viewRelationshipsOf(sym) {
 		if rel != nil && rel.Kind == ast.RelSpecializes && r.model.RelationshipTarget(sym, rel) != nil {
 			return true
 		}
@@ -135,7 +137,7 @@ func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 		if r.model.ReferencedFeature(sym) != nil {
 			return true
 		}
-		for _, rel := range semantics.RelationshipsOf(sym) {
+		for _, rel := range viewRelationshipsOf(sym) {
 			if rel == nil || rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
 				continue
 			}

@@ -21,6 +21,7 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 	r.renderInterconnectionWithIDs(view, exposed, out, &nodeIDs{}, false)
 }
 
+// renderInterconnectionWithIDs walks structural features with shared node IDs.
 func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering, ids *nodeIDs, mixed bool) map[*symbols.Symbol]*Node {
 	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{},
 		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out, mixed: mixed}
@@ -74,6 +75,7 @@ type featureWalk struct {
 	mixed      bool
 }
 
+// drawsFeature reports whether the interconnection traversal emits sym as a feature node.
 func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 	if !featureLike(sym) {
 		return false

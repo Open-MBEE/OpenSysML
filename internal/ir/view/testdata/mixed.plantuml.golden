@@ -75,20 +75,20 @@ n4 --> n3
 n6 --> n7
 n7 --> n8
 n10 -- n9
-n9 -- n11 : «subject»
+n9 -- n11 : <U+00AB>subject<U+00BB>
 n9 .. n12
 n16 --> n15
 n26 -[thickness=3]- n27 : supply
 n3 ..> n1
 n10 ..> n29
 n11 ..> n25
-n13 ..> n5 : «perform»
-n14 ..> n2 : «exhibit»
-n21 --|> n20 : «specializes»
+n13 ..> n5 : <U+00AB>perform<U+00BB>
+n14 ..> n2 : <U+00AB>exhibit<U+00BB>
+n21 --|> n20 : <U+00AB>specializes<U+00BB>
 n22 ..> n19
-n23 --|> n20 : «specializes»
+n23 --|> n20 : <U+00AB>specializes<U+00BB>
 n24 ..> n19
-n25 --|> n20 : «specializes»
+n25 --|> n20 : <U+00AB>specializes<U+00BB>
 n26 ..> n21
 n27 ..> n23
 @enduml

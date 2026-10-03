@@ -626,6 +626,7 @@ func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, ki
 
 // flowchartContext is what every node of a flowchart is written with.
 type flowchartContext struct {
+	kind       Kind
 	flow       string
 	labels     labeller
 	options    Options
@@ -653,7 +654,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
-		ctx := flowchartContext{flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
+		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
 		for _, root := range r.Roots {
 			if r.Kind == KindTree {
 				r.writeTreeNode(w, root, 1, labels, options)
@@ -668,7 +669,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(edge), to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -741,7 +742,7 @@ func (r *Rendering) flowchartNotesWithDrawnEdges() []Note {
 
 func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options) {
 	indent := strings.Repeat("  ", depth)
-	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
+	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(KindTree, node, labels, options))
 	for _, child := range node.Children {
 		r.writeTreeNode(w, child, depth+1, labels, options)
 		w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
@@ -1085,7 +1086,7 @@ func mermaidFontFamily(font string) bool {
 func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, ctx flowchartContext) {
 	indent := strings.Repeat("  ", depth)
 	if !flowchartCluster(node, ctx.ports) && !r.hasUsedPorts(node, ctx.used) {
-		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, ctx.labels, ctx.options))
+		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(ctx.kind, node, ctx.labels, ctx.options))
 		return
 	}
 	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, ctx.labels, ctx.options))
@@ -1118,15 +1119,17 @@ func flowchartPinID(node *Node, port Port, ports portView) string {
 	return port.ID
 }
 
-func mermaidNodeShape(node *Node, labels labeller, options Options) string {
-	if caseNodeKind(node.Kind) {
-		return "([" + mermaidNodeLabel(node, labels, options) + "])"
-	}
-	switch node.Kind {
-	case "actor", "subject":
-		return "[" + mermaidNodeLabel(node, labels, options) + "]"
-	case "objective":
-		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) string {
+	if kind == KindCase || kind == KindMixed {
+		if caseNodeKind(node.Kind) {
+			return "([" + mermaidNodeLabel(node, labels, options) + "])"
+		}
+		switch node.Kind {
+		case "actor", "subject":
+			return "[" + mermaidNodeLabel(node, labels, options) + "]"
+		case "objective":
+			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+		}
 	}
 	switch node.Kind {
 	case startKind, "initial":
@@ -1817,9 +1820,13 @@ func mermaidArrow(kind EdgeKind) string {
 	return "-->"
 }
 
-func mermaidEdgeLabel(edge Edge) string {
+// mermaidEdgeLabel returns an explicit label or a case/mixed edge-kind label.
+func mermaidEdgeLabel(kind Kind, edge Edge) string {
 	if edge.Label != "" {
 		return edge.Label
+	}
+	if kind != KindCase && kind != KindMixed {
+		return ""
 	}
 	switch edge.Kind {
 	case EdgeComposition:

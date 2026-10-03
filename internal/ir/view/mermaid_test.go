@@ -48,14 +48,18 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := &Node{ID: "n", Kind: tc.kind, Name: tc.kind, NameSynthesized: tc.synth}
-			got := mermaidNodeShape(node, labels, Options{Style: tc.style})
+			kind := KindAction
+			if caseNodeKind(tc.kind) || tc.kind == "actor" || tc.kind == "subject" || tc.kind == "objective" {
+				kind = KindCase
+			}
+			got := mermaidNodeShape(kind, node, labels, Options{Style: tc.style})
 			if !strings.HasPrefix(got, tc.want) {
 				t.Errorf("shape = %q, want prefix %q", got, tc.want)
 			}
 		})
 	}
 	for _, kind := range []string{"decision", "merge", "choice"} {
-		if got := mermaidNodeShape(&Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
+		if got := mermaidNodeShape(KindAction, &Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
 			t.Errorf("empty %s shape = %q, want blank diamond", kind, got)
 		}
 	}

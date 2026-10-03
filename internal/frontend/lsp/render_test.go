@@ -51,7 +51,7 @@ const renderModel = `package Kit {
 package KitViews {
 	private import Views::*;
 	private import StandardViewDefinitions::*;
-	private import OpenSysMLViews::*;
+	private import OpenSysMLRenderings::*;
 
 	view widgetTree {
 		expose Kit::Widget;

@@ -243,7 +243,7 @@ nor double-counted as two independent disagreements.
 
 The case and mixed views added to `examples/views-demo.sysml` account for the three additional
 pilot-only diagnostics in the `examples` root: the pinned pilot cannot resolve the
-tool-specific `OpenSysMLViews` package or its `asCaseDiagram` and `asMixedDiagram` members, while
+tool-specific `OpenSysMLRenderings` package or its `asCaseDiagram` and `asMixedDiagram` members, while
 OpenSysML loads them from its bundled library. This changes no other file's comparison. The two
 existing pilot syntax diagnostics for `frame concern` remain, with their line numbers shifted by
 the added view declarations.
@@ -3292,7 +3292,7 @@ notation the reference cannot parse.
 | 2 | typing-kind (`attribute`, `occurrence/item/part`) | one downstream of an unresolved type, one in a file the reference cannot parse |
 | 1 | `Must be model-level evaluable` | reported by both; a categorizer asymmetry in this harness |
 | 23 | syntax and unresolved-reference cascades | `views-demo.sysml`, `passes/import_no_visibility.sysml`, `pseudostates-demo.sysml`, `phase-c-behavioral-bodies.sysml`, `solver-demo.sysml` — retained extensions the reference has no production for, plus what its recovery reports afterwards |
-| 3 | unresolved references to `OpenSysMLViews`, `asCaseDiagram` and `asMixedDiagram` | `views-demo.sysml` — the tool-specific rendering library is bundled with OpenSysML, not the pinned pilot |
+| 3 | unresolved references to `OpenSysMLRenderings`, `asCaseDiagram` and `asMixedDiagram` | `views-demo.sysml` — the tool-specific rendering library is bundled with OpenSysML, not the pinned pilot |
 
 Every verdict here was taken from a matched pair of runs over a reduced model, not from the corpus
 row: `build/pilot-sysml-validator/validate-sysml-batch --root <dir> <file>` against

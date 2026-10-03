@@ -273,7 +273,7 @@ func TestRenderOfAnUnknownNameReports(t *testing.T) {
 func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Direct {
-    private import OpenSysMLViews::*;
+    private import OpenSysMLRenderings::*;
     port def Port;
     part def Person;
     part def Network {

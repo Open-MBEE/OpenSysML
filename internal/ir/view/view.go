@@ -137,9 +137,6 @@ type Renderer struct {
 // NewRenderer returns a renderer over the model and resolver of a loaded
 // document. text may be nil.
 func NewRenderer(model *semantics.Model, resolver *resolve.Resolver, text SourceText) *Renderer {
-	if model != nil && text != nil {
-		model.SetSourceText(text)
-	}
 	return &Renderer{model: model, resolver: resolver, text: text}
 }
 
@@ -538,7 +535,7 @@ func remedyFor(kind Kind) string {
 const (
 	renderingsPackage      = "Views::"
 	viewDefinitionsPackage = "StandardViewDefinitions::"
-	toolRenderingsPackage  = "OpenSysMLViews::"
+	toolRenderingsPackage  = "OpenSysMLRenderings::"
 )
 
 var toolRenderings = map[string]Kind{
@@ -697,7 +694,7 @@ func declKind(sym *symbols.Symbol) string {
 // `part engine : Engine`, "~Port" of `port p : ~Port`, "A, B" of
 // `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
-	return typingOf(semantics.RelationshipsOf(sym))
+	return typingOf(viewRelationshipsOf(sym))
 }
 
 // declTypings are the qualified names, as the notation writes them, of the

@@ -346,7 +346,7 @@ object's behavior failed: …`), and the next command finds `#4` held.
 `%render` also accepts `#case` and `#mixed` pseudo-views, plus `#case:<element>` and
 `#mixed:<element>` to select an element directly. A declared view can select these kinds with
 `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView` from
-the bundled `OpenSysMLViews` library. The case kind covers use, analysis and verification cases;
+the bundled `OpenSysMLRenderings` library. The case kind covers use, analysis and verification cases;
 the mixed kind combines case, structure, state and action content.
 
 ```

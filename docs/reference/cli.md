@@ -477,8 +477,8 @@ a view: `#tree` renders every file `-render` loaded (or every document loaded in
 Only the kinds this build produces are offered; newly supported kinds become pseudo-views
 automatically.
 
-Case and mixed views may also select their rendering through the bundled `OpenSysMLViews` library:
-import `OpenSysMLViews::*`, then use `render asCaseDiagram;` or `render asMixedDiagram;`, or
+Case and mixed views may also select their rendering through the bundled `OpenSysMLRenderings` library:
+import `OpenSysMLRenderings::*`, then use `render asCaseDiagram;` or `render asMixedDiagram;`, or
 specialize `CaseView` or `MixedView`. Case diagrams default to left-to-right and mixed diagrams
 to top-to-bottom; both use Mermaid as their machine-readable form.
 

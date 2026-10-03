@@ -383,6 +383,124 @@ func TestMixedDrawsCaseRolesAsNodesAndEdges(t *testing.T) {
 	}
 }
 
+func TestCaseObjectiveDocumentationUsesRendererSourceText(t *testing.T) {
+	renderer, index := loadFixture(t, "case.sysml")
+	if renderer.model.SourceText() != nil {
+		t.Fatal("NewRenderer set source text on the semantic model")
+	}
+	rendering, err := renderer.Render(lookup(t, index, "CaseExamples::caseDiagram"))
+	if err != nil {
+		t.Fatalf("Render(caseDiagram): %v", err)
+	}
+	found := false
+	var visit func(*Node)
+	visit = func(node *Node) {
+		found = found || node.Kind == "objective" && strings.Contains(node.Detail, "Transport the vehicle")
+		for _, child := range node.Children {
+			visit(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		visit(root)
+	}
+	if !found {
+		t.Fatal("objective documentation was not read from the renderer source lookup")
+	}
+	if renderer.model.SourceText() != nil {
+		t.Fatal("rendering mutated semantic model source text")
+	}
+}
+
+func TestCaseShapesAndEdgeLabelsAreKindScoped(t *testing.T) {
+	for _, nodeKind := range []string{"use case", "actor", "subject", "objective"} {
+		node := &Node{ID: "n0", Kind: nodeKind, Name: "Example"}
+		for _, kind := range []Kind{KindTree, KindInterconnection} {
+			labels := labelsOf([]*Node{node}, false, nil)
+			shape := mermaidNodeShape(kind, node, labels, Options{})
+			if strings.Contains(shape, "([") || strings.Contains(shape, "notch-rect") {
+				t.Errorf("%s Mermaid node kind %q uses a case-only shape: %s", kind, nodeKind, shape)
+			}
+			rendering := &Rendering{Kind: kind, Roots: []*Node{node}}
+			dot, err := rendering.DOT()
+			if err != nil {
+				t.Fatalf("%s DOT: %v", kind, err)
+			}
+			var nodeAttributes string
+			for _, line := range strings.Split(dot, "\n") {
+				if strings.Contains(line, `"n0" [`) {
+					nodeAttributes = line
+					break
+				}
+			}
+			for _, shape := range []string{"shape=ellipse", "shape=note", "shape=box"} {
+				if strings.Contains(nodeAttributes, shape) {
+					t.Errorf("%s DOT node kind %q uses case-only %s", kind, nodeKind, shape)
+				}
+			}
+		}
+	}
+	for _, kind := range []Kind{KindCase, KindMixed} {
+		for _, tc := range []struct {
+			nodeKind string
+			shape    string
+		}{{"use case", "shape=ellipse"}, {"actor", "shape=box"}, {"subject", "shape=box"}, {"objective", "shape=note"}} {
+			node := &Node{ID: "n0", Kind: tc.nodeKind, Name: "Example"}
+			labels := labelsOf([]*Node{node}, false, nil)
+			if shape := mermaidNodeShape(kind, node, labels, Options{}); tc.nodeKind == "use case" && !strings.HasPrefix(shape, "([") ||
+				tc.nodeKind == "objective" && !strings.Contains(shape, "notch-rect") {
+				t.Errorf("%s Mermaid node kind %q has unexpected shape %q", kind, tc.nodeKind, shape)
+			}
+			rendering := &Rendering{Kind: kind, Roots: []*Node{node}}
+			dot, err := rendering.DOT()
+			if err != nil {
+				t.Fatalf("%s DOT: %v", kind, err)
+			}
+			var nodeAttributes string
+			for _, line := range strings.Split(dot, "\n") {
+				if strings.Contains(line, `"n0" [`) {
+					nodeAttributes = line
+					break
+				}
+			}
+			if !strings.Contains(nodeAttributes, tc.shape) {
+				t.Errorf("%s DOT node kind %q attributes = %q, want %s", kind, tc.nodeKind, nodeAttributes, tc.shape)
+			}
+		}
+	}
+	if got := mermaidEdgeLabel(KindTree, Edge{Kind: EdgeComposition}); got != "" {
+		t.Errorf("tree composition label = %q, want empty", got)
+	}
+	if got := mermaidEdgeLabel(KindCase, Edge{Kind: EdgeComposition}); got != "«composition»" {
+		t.Errorf("case composition label = %q", got)
+	}
+	if got := mermaidEdgeLabel(KindTree, Edge{Kind: EdgeTransition, Label: "ready"}); got != "ready" {
+		t.Errorf("tree explicit edge label = %q, want ready", got)
+	}
+}
+
+func TestPlantUMLRelationshipGuillemetsAreEscaped(t *testing.T) {
+	for _, test := range []struct {
+		file string
+		view string
+		want []string
+	}{
+		{file: "case.sysml", view: "CaseExamples::caseDiagram", want: []string{"subject", "include"}},
+		{file: "mixed.sysml", view: "MixedExamples::mixedDiagram", want: []string{"perform", "exhibit"}},
+	} {
+		rendering := render(t, test.file, test.view)
+		plantuml, err := rendering.PlantUML()
+		if err != nil {
+			t.Fatalf("PlantUML(%s): %v", test.view, err)
+		}
+		for _, label := range test.want {
+			escaped := "<U+00AB>" + label + "<U+00BB>"
+			if !strings.Contains(plantuml, escaped) {
+				t.Errorf("%s PlantUML omits escaped label %s:\n%s", test.view, escaped, plantuml)
+			}
+		}
+	}
+}
+
 func mapNodeNames(nodes map[string][]*Node) []string {
 	names := make([]string, 0, len(nodes))
 	for name := range nodes {

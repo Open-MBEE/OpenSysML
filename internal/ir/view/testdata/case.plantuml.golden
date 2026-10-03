@@ -61,20 +61,20 @@ note "**objective**\nEstimate the fuel remaining after a journey." as n15
 usecase "<size:10>//«verification def»//</size>\n**CaseExamples::FuelVerification**" as n16 <<verification def>>
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n17 <<subject>> <<usage>>
 note "**objective**" as n18
-n0 -- n1 : «subject»
+n0 -- n1 : <U+00AB>subject<U+00BB>
 n2 -- n0
 n0 .. n3
-n4 -- n5 : «subject»
+n4 -- n5 : <U+00AB>subject<U+00BB>
 n6 -- n4
-n0 ..> n4 : «include»
-n0 ..> n7 : «include»
-n7 -- n8 : «subject»
+n0 ..> n4 : <U+00AB>include<U+00BB>
+n0 ..> n7 : <U+00AB>include<U+00BB>
+n7 -- n8 : <U+00AB>subject<U+00BB>
 n9 -- n7
 n0 *-- n10
-n10 -- n11 : «subject»
+n10 -- n11 : <U+00AB>subject<U+00BB>
 n12 -- n10
-n13 -- n14 : «subject»
+n13 -- n14 : <U+00AB>subject<U+00BB>
 n13 .. n15
-n16 -- n17 : «subject»
+n16 -- n17 : <U+00AB>subject<U+00BB>
 n16 .. n18
 @enduml
