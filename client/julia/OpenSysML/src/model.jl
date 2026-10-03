@@ -365,7 +365,9 @@ function _encoded_inputs(model::Model, inputs)
         for capability in sort!(collect(value_capabilities(value)))
             require_capability(model.connection, capability)
         end
-        encoded[String(key)] = encode_value(value)
+        wire = encode_value(value)
+        has_capability(model.connection, CAPABILITY_RATIONAL_VALUES) || rationals_as_reals!(wire)
+        encoded[String(key)] = wire
     end
     return encoded
 end

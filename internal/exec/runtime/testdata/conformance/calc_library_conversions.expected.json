@@ -19,7 +19,7 @@
     "stringFromNull": {"type": "String", "value": "null"},
     "stringFromLiteral": {"type": "String", "value": "Color::red"},
     "roundTrip": {"type": "Boolean", "value": true},
-    "realTenthIsNotTenth": {"type": "Boolean", "value": false},
+    "realTenthIsTenth": {"type": "Boolean", "value": true},
     "naturalFromInteger": {"type": "Integer", "value": 9},
     "integerFromReal": {"type": "Integer", "value": 2},
     "integerFromNegativeReal": {"type": "Integer", "value": -2},

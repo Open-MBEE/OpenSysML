@@ -15,6 +15,9 @@ function result = runDocumentQuery(model, queryId, varargin)
     end
     model.connection.require('document_query');
     wire = opensysml.buildDocumentBindings(bindings);
+    if ~model.connection.hasCapability('rational_values')
+        wire = cellfun(@opensysml.internal.bindingRationalsAsReals, wire, 'UniformOutput', false);
+    end
     if any(cellfun(@bindingHoldsBigInt, wire))
         model.connection.require('big_int_values');
     end
@@ -29,7 +32,7 @@ function result = runDocumentQuery(model, queryId, varargin)
 end
 
 function exact = bindingHoldsRational(binding)
-%BINDINGHOLDSRATIONAL Whether a wire binding sends an exact Rational no double holds.
+%BINDINGHOLDSRATIONAL Whether a wire binding sends an exact Rational.
     exact = any(cellfun(@(value) isfield(value, 'rationalValue') || ...
         (isfield(value, 'quantity') && isfield(value.quantity, 'rationalMagnitude')), ...
         binding.values));

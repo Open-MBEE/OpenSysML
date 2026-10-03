@@ -85,15 +85,35 @@ func TestRationalQuantityMagnitudeCrossesExactly(t *testing.T) {
 	}
 }
 
-// Each Rational has one encoding: a fraction not in lowest terms, over a
-// non-positive denominator, or one a double holds exactly is refused.
-func TestRationalValueReadsOnlyCanonicalTerms(t *testing.T) {
+// An inbound rational_value is in lowest terms over a positive denominator: a
+// fraction that is not is refused.
+func TestRationalValueReadsOnlyLowestTerms(t *testing.T) {
 	idx := symbols.NewIndex()
-	for _, terms := range [][2]string{{"2", "6"}, {"1", "-3"}, {"-1", "-3"}, {"1", "0"}, {"1", "2"}, {"3", "1"}, {"0", "1"}, {"1.5", "7"}, {"", "3"}, {"1", ""}} {
+	for _, terms := range [][2]string{{"2", "6"}, {"1", "-3"}, {"-1", "-3"}, {"1", "0"}, {"0", "2"}, {"4", "2"}, {"1.5", "7"}, {"", "3"}, {"1", ""}} {
 		pv := &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: &pb.Rational{Numerator: terms[0], Denominator: terms[1]}}}
-		if _, err := protoconv.ProtoToValueIn(pv, idx, nil); !errors.Is(err, protoconv.ErrRationalNotCanonical) {
-			t.Errorf("rational_value %s/%s: err = %v, want %v", terms[0], terms[1], err, protoconv.ErrRationalNotCanonical)
+		if _, err := protoconv.ProtoToValueIn(pv, idx, nil); !errors.Is(err, protoconv.ErrRationalNotLowestTerms) {
+			t.Errorf("rational_value %s/%s: err = %v, want %v", terms[0], terms[1], err, protoconv.ErrRationalNotLowestTerms)
 		}
+	}
+}
+
+// A client sends every exact Rational as rational_value, so one a double holds
+// exactly reads as that Rational, not as a Real; real_value always reads as a Real.
+func TestBinaryExactRationalValueReadsAsARational(t *testing.T) {
+	idx := symbols.NewIndex()
+	for _, terms := range [][2]string{{"1", "2"}, {"3", "1"}, {"0", "1"}, {"-3", "8"}} {
+		pv := &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: &pb.Rational{Numerator: terms[0], Denominator: terms[1]}}}
+		got, err := protoconv.ProtoToValueIn(pv, idx, nil)
+		if err != nil {
+			t.Fatalf("rational_value %s/%s: %v", terms[0], terms[1], err)
+		}
+		if want := ratConst(t, terms[0]+"/"+terms[1]); got.Const.Kind != semantics.ValRational || semantics.CompareRat(got.Const, want.Const) != 0 {
+			t.Errorf("rational_value %s/%s read as %s", terms[0], terms[1], runtime.FormatValue(got))
+		}
+	}
+	got, err := protoconv.ProtoToValueIn(&pb.Value{Kind: &pb.Value_RealValue{RealValue: 0.5}}, idx, nil)
+	if err != nil || got.Const.Kind != semantics.ValReal || got.Const.Real != 0.5 {
+		t.Errorf("real_value 0.5 read as %s (err %v), want the Real 0.5", runtime.FormatValue(got), err)
 	}
 }
 
@@ -128,6 +148,7 @@ func TestEvaluateCalcTakesAndReturnsRationals(t *testing.T) {
 	}{
 		{arg: &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: &pb.Rational{Numerator: "1", Denominator: "10"}}}, num: "1", den: "30"},
 		{arg: intValue(1), num: "1", den: "3"},
+		{arg: &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: &pb.Rational{Numerator: "1", Denominator: "2"}}}, num: "1", den: "6"},
 	} {
 		resp, err := srv.EvaluateCalc(context.Background(), &pb.EvaluateCalcRequest{
 			ModelHash: hash,

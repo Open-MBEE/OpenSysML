@@ -516,8 +516,9 @@ public interface ValueOrBuilder extends
 
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -526,8 +527,9 @@ public interface ValueOrBuilder extends
   boolean hasRationalValue();
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -536,8 +538,9 @@ public interface ValueOrBuilder extends
   org.openmbee.opensysml.proto.Rational getRationalValue();
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>

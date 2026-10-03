@@ -153,7 +153,7 @@ the elements that still refer to it.
 match value {
     Value::Integer(v) => (),
     Value::Real(v) => (),
-    Value::Rational(r) => (),          // exact, no double holds it: r.numerator(), r.denominator() as decimal text; r.to_f64() rounds once
+    Value::Rational(r) => (),          // exact; answered only when no f64 holds it, sent as rational_value always: r.numerator(), r.denominator() as decimal text; r.to_f64() rounds once
     Value::Complex(z) => (),           // z.real, z.imaginary; one value, Display as `1.5 - 2.0i`
     Value::Boolean(v) => (),
     Value::Text(v) => (),

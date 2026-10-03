@@ -2,7 +2,6 @@ package opensysml
 
 import (
 	"context"
-	"math"
 	"math/big"
 	"slices"
 	"strconv"
@@ -234,6 +233,26 @@ func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
 	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsRational)
 }
 
+// fitDocumentRationals is fitRationals for query bindings.
+func (c *client) fitDocumentRationals(ctx context.Context, bindings []*pb.DocumentQueryBinding) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, binding := range bindings {
+		for _, value := range binding.GetValues() {
+			protoconv.DocumentRationalAsReal(value)
+		}
+	}
+	if slices.ContainsFunc(bindings, bindingHoldsRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
+}
+
 func (c *client) RunDocumentQuery(
 	ctx context.Context,
 	model *Model,
@@ -262,7 +281,7 @@ func (c *client) RunDocumentQuery(
 		}
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsRational) {
-		if err := c.requireCapabilities(ctx, CapabilityRationalValues); err != nil {
+		if err := c.fitDocumentRationals(ctx, req.Bindings); err != nil {
 			return nil, err
 		}
 	}
@@ -345,9 +364,6 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		}
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: value.String()}}, nil
 	case Rational:
-		if f, exact := value.Rat().Float64(); exact && !math.IsInf(f, 0) {
-			return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: f}}, nil
-		}
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RationalValue{RationalValue: rationalToProto(value)}}, nil
 	case Real:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}, nil

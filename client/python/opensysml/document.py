@@ -31,6 +31,7 @@ from opensysml.values import (
     holds_exactly_as_double,
     integer_from_decimal,
     integer_to_decimal,
+    quantity_rational_as_real,
     rational_from_pb,
     rational_to_pb,
 )
@@ -263,8 +264,20 @@ def binding_holds_big_int(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
 
 
 def binding_holds_rational(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
-    """Whether a wire binding sends an exact Rational no double holds, which needs ``rational_values``."""
+    """Whether a wire binding sends an exact Rational, which needs ``rational_values``."""
     return any(_document_holds_rational(value) for value in binding.values)
+
+
+def binding_rationals_as_reals(binding: "sysml_pb2.DocumentQueryBinding") -> None:
+    """Rewrite each Rational a binding sends that a double holds exactly as that double, for a service without ``rational_values``."""
+    for value in binding.values:
+        if value.WhichOneof("kind") == "rational_value":
+            exact = Fraction(integer_from_decimal(value.rational_value.numerator),
+                             integer_from_decimal(value.rational_value.denominator))
+            if holds_exactly_as_double(exact):
+                value.real_value = float(exact)
+        elif value.WhichOneof("kind") == "quantity":
+            quantity_rational_as_real(value.quantity)
 
 
 def _document_holds_rational(value: "sysml_pb2.DocumentValue") -> bool:
@@ -336,8 +349,6 @@ def _bound_value(parameter, value):
     if isinstance(value, float):
         return sysml_pb2.DocumentValue(real_value=value)
     if isinstance(value, Fraction):
-        if holds_exactly_as_double(value):
-            return sysml_pb2.DocumentValue(real_value=float(value))
         return sysml_pb2.DocumentValue(rational_value=rational_to_pb(value))
     if isinstance(value, Quantity):
         return sysml_pb2.DocumentValue(quantity=_bound_quantity(parameter, value))

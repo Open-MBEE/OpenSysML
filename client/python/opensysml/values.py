@@ -101,8 +101,62 @@ def _quantity_holds_rational(quantity: "sysml_pb2.Quantity") -> bool:
     return quantity.WhichOneof("magnitude") == "rational_magnitude"
 
 
+def rationals_as_reals(value: "sysml_pb2.Value") -> None:
+    """Rewrite in place each Rational arm :func:`pb_holds_rational` reads that a double holds exactly as that double.
+
+    That is the form a service without ``rational_values`` reads; a Rational no
+    double holds is left as it is.
+    """
+    kind = value.WhichOneof("kind")
+    if kind == "rational_value":
+        exact = _double_of(value.rational_value)
+        if exact is not None:
+            value.real_value = exact
+    elif kind == "quantity":
+        quantity_rational_as_real(value.quantity)
+    elif kind == "vector":
+        for component in value.vector.components:
+            rationals_as_reals(component)
+    elif kind == "vector_quantity":
+        for quantity in value.vector_quantity.components:
+            quantity_rational_as_real(quantity)
+    elif kind == "tensor_quantity":
+        for quantity in value.tensor_quantity.components:
+            quantity_rational_as_real(quantity)
+
+
+def quantity_rational_as_real(quantity: "sysml_pb2.Quantity") -> None:
+    """Rewrite a quantity's Rational magnitude a double holds exactly as ``real_magnitude``."""
+    if quantity.WhichOneof("magnitude") == "rational_magnitude":
+        exact = _double_of(quantity.rational_magnitude)
+        if exact is not None:
+            quantity.real_magnitude = exact
+
+
+def _double_of(pb_rational: "sysml_pb2.Rational") -> Optional[float]:
+    value = Fraction(integer_from_decimal(pb_rational.numerator), integer_from_decimal(pb_rational.denominator))
+    return float(value) if holds_exactly_as_double(value) else None
+
+
+def format_rational(value: Fraction) -> str:
+    """Spell a Rational exactly, as the service prints it: a terminating decimal as ``5.4``, any other as ``1/3``."""
+    if value.denominator == 1:
+        return str(value.numerator)
+    den, twos, fives = value.denominator, 0, 0
+    while den % 2 == 0:
+        den, twos = den // 2, twos + 1
+    while den % 5 == 0:
+        den, fives = den // 5, fives + 1
+    if den != 1:
+        return f"{value.numerator}/{value.denominator}"
+    places = max(twos, fives)
+    digits = str(abs(value.numerator) * 10 ** places // value.denominator).rjust(places + 1, "0")
+    sign = "-" if value < 0 else ""
+    return f"{sign}{digits[:-places]}.{digits[-places:]}".rstrip("0")
+
+
 def holds_exactly_as_double(value: Fraction) -> bool:
-    """Whether a double holds the Rational exactly, so that it travels as ``real_value``."""
+    """Whether a double holds the Rational exactly, as the service sends it in ``real_value``."""
     try:
         f = float(value)
     except OverflowError:
@@ -121,6 +175,9 @@ def rational_to_pb(value: Fraction) -> "sysml_pb2.Rational":
 def rational_from_pb(pb_rational: "sysml_pb2.Rational") -> Fraction:
     """The exact Rational a ``Rational`` message spells.
 
+    A service sends a Rational a double holds exactly as ``real_value``, so one
+    spelled here is refused, as any other noncanonical spelling is.
+
     Raises:
         UnsupportedValueError: If it is not in lowest terms over a positive
             denominator, or a double holds it, which travels as ``real_value``.
@@ -137,9 +194,11 @@ def rational_from_pb(pb_rational: "sysml_pb2.Rational") -> Fraction:
 
 
 def rational_value_to_pb(value: Fraction) -> "sysml_pb2.Value":
-    """Encode a Rational as ``real_value`` where a double holds it, ``rational_value`` otherwise."""
-    if holds_exactly_as_double(value):
-        return sysml_pb2.Value(real_value=float(value))
+    """Encode a Rational as ``rational_value``, one a double holds exactly included.
+
+    A service reads an inbound ``real_value`` as a Real; :func:`rationals_as_reals`
+    rewrites the message for a service without ``rational_values``.
+    """
     return sysml_pb2.Value(rational_value=rational_to_pb(value))
 
 
@@ -387,7 +446,7 @@ class Quantity:
             pb_quantity.big_int_magnitude = integer_to_decimal(self.magnitude)
         elif isinstance(self.magnitude, int):
             pb_quantity.int_magnitude = self.magnitude
-        elif isinstance(self.magnitude, Fraction) and not holds_exactly_as_double(self.magnitude):
+        elif isinstance(self.magnitude, Fraction):
             pb_quantity.rational_magnitude.CopyFrom(rational_to_pb(self.magnitude))
         else:
             pb_quantity.real_magnitude = float(self.magnitude)
@@ -514,8 +573,7 @@ class Quantity:
         return Quantity(self.magnitude / other, self.unit)
 
     def __str__(self) -> str:
-        magnitude = f"{self.magnitude:g}" if isinstance(self.magnitude, float) else str(self.magnitude)
-        return f"{magnitude} [{self.unit}]"
+        return f"{_format_number(self.magnitude)} [{self.unit}]"
 
     def __repr__(self) -> str:
         return f"Quantity({self.magnitude!r}, {self.unit!r})"
@@ -719,7 +777,11 @@ def _number_to_pb(value: Magnitude) -> "sysml_pb2.Value":
 
 
 def _format_number(value: Magnitude) -> str:
-    return f"{value:g}" if isinstance(value, float) else str(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    if isinstance(value, Fraction):
+        return format_rational(value)
+    return str(value)
 
 
 @dataclass(frozen=True, eq=False)

@@ -809,10 +809,7 @@ export function encodeQuantityMagnitude(magnitude: Magnitude): Quantity["magnitu
     case "real":
       return { case: "realMagnitude", value: magnitude.value };
     case "rational": {
-      const double = rationalAsDouble(magnitude);
-      return double === undefined
-        ? { case: "rationalMagnitude", value: encodeRational(magnitude) }
-        : { case: "realMagnitude", value: double };
+      return { case: "rationalMagnitude", value: encodeRational(magnitude) };
     }
     case "int":
       return fitsInt64(magnitude.value)
@@ -826,10 +823,7 @@ function encodeMagnitude(magnitude: Magnitude): Value {
     return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
   }
   if (magnitude.kind === "rational") {
-    const double = rationalAsDouble(magnitude);
-    return double === undefined
-      ? create(ValueSchema, { kind: { case: "rationalValue", value: encodeRational(magnitude) } })
-      : create(ValueSchema, { kind: { case: "realValue", value: double } });
+    return create(ValueSchema, { kind: { case: "rationalValue", value: encodeRational(magnitude) } });
   }
   return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
@@ -850,6 +844,51 @@ export function decodeBigInteger(text: string): bigint {
     throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
   }
   return BigInt(text);
+}
+
+/**
+ * Rewrites in place each Rational arm of a wire value a double holds exactly as
+ * that double: the form a service without `rational_values` reads. A Rational
+ * no double holds is left as it is; a collection's elements are values of their own.
+ */
+export function rationalsAsReals(value: Value): void {
+  switch (value.kind.case) {
+    case "rationalValue": {
+      const double = wireRationalAsDouble(value.kind.value);
+      if (double !== undefined) {
+        value.kind = { case: "realValue", value: double };
+      }
+      return;
+    }
+    case "quantity":
+      quantityRationalAsReal(value.kind.value);
+      return;
+    case "vector":
+      value.kind.value.components.forEach(rationalsAsReals);
+      return;
+    case "vectorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    case "tensorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    default:
+      return;
+  }
+}
+
+/** Rewrites a quantity's Rational magnitude a double holds exactly as `real_magnitude`. */
+export function quantityRationalAsReal(quantity: Quantity): void {
+  if (quantity.magnitude.case === "rationalMagnitude") {
+    const double = wireRationalAsDouble(quantity.magnitude.value);
+    if (double !== undefined) {
+      quantity.magnitude = { case: "realMagnitude", value: double };
+    }
+  }
+}
+
+function wireRationalAsDouble(wire: Rational): number | undefined {
+  return rationalAsDouble({ numerator: BigInt(wire.numerator), denominator: BigInt(wire.denominator) });
 }
 
 /** The `Rational` message of an exact Rational, numerator and denominator in full. */
@@ -1479,8 +1518,13 @@ function encodeInput(value: SysMLValue, info: ServerInfo): Value {
           }),
         },
       });
-    default:
-      return encodeValue(value);
+    default: {
+      const wire = encodeValue(value);
+      if (!info.has(CAPABILITY_RATIONAL_VALUES)) {
+        rationalsAsReals(wire);
+      }
+      return wire;
+    }
   }
 }
 

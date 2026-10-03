@@ -4,6 +4,7 @@ import org.openmbee.opensysml.ActionRun;
 import org.openmbee.opensysml.Analysis;
 import org.openmbee.opensysml.AppliedEdit;
 import org.openmbee.opensysml.Calculation;
+import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
@@ -655,6 +656,150 @@ public final class Protos {
    */
   public static List<org.openmbee.opensysml.proto.Value> protos(List<Value> values) {
     return values.stream().map(Protos::proto).toList();
+  }
+
+  /**
+   * Values by name, as a request to a service advertising {@code capabilities} carries them.
+   *
+   * @param values the immutable values by name
+   * @param capabilities what the service reads
+   * @return the generated values by name
+   */
+  public static Map<String, org.openmbee.opensysml.proto.Value> protos(
+      Map<String, Value> values, Capabilities capabilities) {
+    Map<String, org.openmbee.opensysml.proto.Value> out = new LinkedHashMap<>();
+    values.forEach((name, value) -> out.put(name, fitted(proto(value), capabilities)));
+    return out;
+  }
+
+  /**
+   * Values in order, as a request to a service advertising {@code capabilities} carries them.
+   *
+   * @param values the immutable values
+   * @param capabilities what the service reads
+   * @return the generated values, in order
+   */
+  public static List<org.openmbee.opensysml.proto.Value> protos(
+      List<Value> values, Capabilities capabilities) {
+    return values.stream().map(value -> fitted(proto(value), capabilities)).toList();
+  }
+
+  private static org.openmbee.opensysml.proto.Value fitted(
+      org.openmbee.opensysml.proto.Value value, Capabilities capabilities) {
+    return capabilities.has(Capabilities.RATIONAL_VALUES) ? value : rationalsAsReals(value);
+  }
+
+  /**
+   * The value with each Rational a {@code double} holds exactly as that {@code double}: the form a
+   * service without {@code rational_values} reads.
+   *
+   * @param value the generated value
+   * @return the value, rewritten
+   */
+  public static org.openmbee.opensysml.proto.Value rationalsAsReals(
+      org.openmbee.opensysml.proto.Value value) {
+    org.openmbee.opensysml.proto.Value.Builder builder = value.toBuilder();
+    switch (value.getKindCase()) {
+      case RATIONAL_VALUE -> {
+        Rational rational = sent(value.getRationalValue());
+        if (rational.isBinary64()) {
+          builder.setRealValue(rational.doubleValue());
+        }
+      }
+      case QUANTITY -> builder.setQuantity(quantityRationalAsReal(value.getQuantity()));
+      case SEQUENCE -> {
+        ValueSequence.Builder sequence = value.getSequence().toBuilder();
+        for (int i = 0; i < sequence.getElementsCount(); i++) {
+          sequence.setElements(i, rationalsAsReals(sequence.getElements(i)));
+        }
+        builder.setSequence(sequence);
+      }
+      case SET -> {
+        ValueSet.Builder set = value.getSet().toBuilder();
+        for (int i = 0; i < set.getElementsCount(); i++) {
+          set.setElements(i, rationalsAsReals(set.getElements(i)));
+        }
+        builder.setSet(set);
+      }
+      case ARRAY -> {
+        org.openmbee.opensysml.proto.Array.Builder array = value.getArray().toBuilder();
+        for (int i = 0; i < array.getElementsCount(); i++) {
+          array.setElements(i, rationalsAsReals(array.getElements(i)));
+        }
+        builder.setArray(array);
+      }
+      case VECTOR -> {
+        org.openmbee.opensysml.proto.Vector.Builder vector = value.getVector().toBuilder();
+        for (int i = 0; i < vector.getComponentsCount(); i++) {
+          vector.setComponents(i, rationalsAsReals(vector.getComponents(i)));
+        }
+        builder.setVector(vector);
+      }
+      case VECTOR_QUANTITY -> {
+        org.openmbee.opensysml.proto.VectorQuantity.Builder vector =
+            value.getVectorQuantity().toBuilder();
+        for (int i = 0; i < vector.getComponentsCount(); i++) {
+          vector.setComponents(i, quantityRationalAsReal(vector.getComponents(i)));
+        }
+        builder.setVectorQuantity(vector);
+      }
+      case TENSOR_QUANTITY -> {
+        TensorQuantity.Builder tensor = value.getTensorQuantity().toBuilder();
+        for (int i = 0; i < tensor.getComponentsCount(); i++) {
+          tensor.setComponents(i, quantityRationalAsReal(tensor.getComponents(i)));
+        }
+        builder.setTensorQuantity(tensor);
+      }
+      case ENUM_LITERAL -> {
+        if (value.getEnumLiteral().hasValue()) {
+          builder.setEnumLiteral(
+              value.getEnumLiteral().toBuilder()
+                  .setValue(rationalsAsReals(value.getEnumLiteral().getValue())));
+        }
+      }
+      default -> {}
+    }
+    return builder.build();
+  }
+
+  /**
+   * The binding with each Rational a {@code double} holds exactly as that {@code double}, for a
+   * service without {@code rational_values}.
+   *
+   * @param binding the wire binding
+   * @return the binding, rewritten
+   */
+  public static org.openmbee.opensysml.proto.DocumentQueryBinding rationalsAsReals(
+      org.openmbee.opensysml.proto.DocumentQueryBinding binding) {
+    org.openmbee.opensysml.proto.DocumentQueryBinding.Builder builder = binding.toBuilder();
+    for (int i = 0; i < builder.getValuesCount(); i++) {
+      org.openmbee.opensysml.proto.DocumentValue value = builder.getValues(i);
+      if (value.hasRationalValue() && sent(value.getRationalValue()).isBinary64()) {
+        builder.setValues(
+            i, value.toBuilder().setRealValue(sent(value.getRationalValue()).doubleValue()));
+      } else if (value.hasQuantity()) {
+        builder.setValues(
+            i, value.toBuilder().setQuantity(quantityRationalAsReal(value.getQuantity())));
+      }
+    }
+    return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.Quantity quantityRationalAsReal(
+      org.openmbee.opensysml.proto.Quantity quantity) {
+    if (quantity.hasRationalMagnitude() && sent(quantity.getRationalMagnitude()).isBinary64()) {
+      return quantity.toBuilder()
+          .setRealMagnitude(sent(quantity.getRationalMagnitude()).doubleValue())
+          .build();
+    }
+    return quantity;
+  }
+
+  // The rational a request's own rational_value spells, which this client wrote in lowest terms.
+  private static Rational sent(org.openmbee.opensysml.proto.Rational wire) {
+    return Rational.of(
+        new java.math.BigInteger(wire.getNumerator()),
+        new java.math.BigInteger(wire.getDenominator()));
   }
 
   private static org.openmbee.opensysml.proto.Quantity proto(Quantity quantity) {
@@ -1631,8 +1776,8 @@ public final class Protos {
   }
 
   /**
-   * Whether a document-query binding sends an exact Rational no double holds, which a service
-   * reads only when it advertises {@code rational_values}.
+   * Whether a document-query binding sends an exact Rational, which a service reads only when it
+   * advertises {@code rational_values}.
    *
    * @param binding the wire binding
    * @return whether a value or a quantity magnitude is a {@code rational_value}

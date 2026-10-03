@@ -133,9 +133,10 @@ arithmetic rather than the host language's:
   might not be held; and an Integer `/` whose quotient reaches a `Real` declaration is the
   exact quotient rounded once there, as the interpreter's Real declaration rounds it (`7 / 2` is
   `3.5`, `1 / 3` is `0.3333333333333333`; C refines with `__int128`, Go uses `math/big.Rat`).
-  A comparison between a Real and a Rational literal compares exactly, through the literal's
-  nearest double and the side the Rational lies on, and an Integer quotient against a whole
-  number compares exactly (`a / 3 >= 2`). Anything else is refused, naming the
+  A comparison between a Real and a Rational literal is at Real precision, the literal rounded
+  once to its nearest double as the interpreter rounds it (`x == 0.1` holds for the Real `0.1`);
+  a literal past the binary64 range is refused (`literal 1e400 is outside the Real range`). An
+  Integer quotient against a whole number compares exactly (`a / 3 >= 2`). Anything else is refused, naming the
   construct: `exact Rational arithmetic '*' over a value binary64 does not hold exactly`,
   `'**' of an exact Rational by an Integer exponent`, `'<' of an exact Rational binary64 does
   not hold exactly`.

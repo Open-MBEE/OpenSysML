@@ -2554,13 +2554,13 @@ func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, er
 		res, _ := semantics.OrderSatisfies(op, semantics.CompareRat(left, right))
 		return res, nil
 	}
-	// An exact number orders against a Real exactly, neither rounded to the other.
+	// A Rational meets a Real at Real precision, an Integer exactly.
 	if left.IsExact() && right.Kind == semantics.ValReal && !math.IsNaN(right.Real) {
-		res, _ := semantics.OrderSatisfies(op, semantics.CompareExactReal(left, right.Real))
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareReal(left, right.Real))
 		return res, nil
 	}
 	if left.Kind == semantics.ValReal && right.IsExact() && !math.IsNaN(left.Real) {
-		res, _ := semantics.OrderSatisfies(op, -semantics.CompareExactReal(right, left.Real))
+		res, _ := semantics.OrderSatisfies(op, -semantics.CompareReal(right, left.Real))
 		return res, nil
 	}
 

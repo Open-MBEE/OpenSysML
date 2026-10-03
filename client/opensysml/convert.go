@@ -2,11 +2,11 @@ package opensysml
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // The conversions from the wire types to the public ones. Every conversion
@@ -246,9 +246,6 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: n.String()}}, nil
 	case Rational:
-		if f, exact := v.Rat().Float64(); exact && !math.IsInf(f, 0) {
-			return &pb.Value{Kind: &pb.Value_RealValue{RealValue: f}}, nil
-		}
 		return &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: rationalToProto(v)}}, nil
 	case Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}, nil
@@ -399,10 +396,6 @@ func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 			out.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: n.String()}
 		}
 	case Rational:
-		if f, exact := magnitude.Rat().Float64(); exact && !math.IsInf(f, 0) {
-			out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: f}
-			break
-		}
 		out.Magnitude = &pb.Quantity_RationalMagnitude{RationalMagnitude: rationalToProto(magnitude)}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
@@ -558,17 +551,17 @@ func migrationReportFromProto(report *pb.MigrationReport) *MigrationReport {
 	return out
 }
 
-// rationalToProto marshals a Rational that is no integer, in lowest terms.
+// rationalToProto marshals a Rational in lowest terms.
 func rationalToProto(q Rational) *pb.Rational {
 	r := q.Rat()
 	return &pb.Rational{Numerator: r.Num().String(), Denominator: r.Denom().String()}
 }
 
-// rationalFromProto is false for a Rational not in lowest terms or whole,
-// which the wire never spells.
+// rationalFromProto is false for a Rational not in lowest terms or one a double
+// holds exactly, which a service never sends.
 func rationalFromProto(pr *pb.Rational) (Rational, bool) {
-	v, err := protoconv.ProtoToRational(pr)
-	if err != nil {
+	v, ok := semantics.CanonicalRational(pr.GetNumerator(), pr.GetDenominator())
+	if !ok {
 		return Rational{}, false
 	}
 	return Rational{r: v.Rat()}, true

@@ -160,9 +160,15 @@ func TestRationalComparisonAndRounding(t *testing.T) {
 	if CompareRat(frac(t, math.MaxInt64, 3), frac(t, math.MaxInt64-1, 3)) <= 0 {
 		t.Error("order of terms whose cross products overflow int64")
 	}
-	// The double nearest 1/10 lies above it.
-	if CompareExactReal(tenth, 0.1) != -1 || CompareExactReal(frac(t, 1, 2), 0.5) != 0 || CompareExactReal(tenth, math.Inf(1)) != -1 || CompareExactReal(tenth, math.Inf(-1)) != 1 {
-		t.Error("exact order against a Real")
+	// A Rational meets a Real as its nearest binary64, ±Inf past the range; an Integer exactly.
+	huge, _ := ParseRational("1e400", 4096)
+	if CompareReal(tenth, 0.1) != 0 || CompareReal(frac(t, 1, 3), 1.0/3.0) != 0 || CompareReal(frac(t, 1, 2), 0.5) != 0 ||
+		CompareReal(tenth, math.Inf(1)) != -1 || CompareReal(tenth, math.Inf(-1)) != 1 ||
+		CompareReal(huge, math.MaxFloat64) != 1 || CompareReal(huge, math.Inf(1)) != 0 || CompareReal(RatNeg(huge), math.Inf(-1)) != 0 {
+		t.Error("order of a Rational against a Real")
+	}
+	if CompareReal(intVal(1<<53+1), 1<<53) != 1 {
+		t.Error("an Integer orders against a Real exactly")
 	}
 	for _, c := range []struct {
 		v                      Value

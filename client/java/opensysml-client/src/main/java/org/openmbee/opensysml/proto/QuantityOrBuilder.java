@@ -63,7 +63,7 @@ public interface QuantityOrBuilder extends
 
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -72,7 +72,7 @@ public interface QuantityOrBuilder extends
   boolean hasRationalMagnitude();
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -81,7 +81,7 @@ public interface QuantityOrBuilder extends
   org.openmbee.opensysml.proto.Rational getRationalMagnitude();
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>

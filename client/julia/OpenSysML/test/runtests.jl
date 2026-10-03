@@ -23,7 +23,12 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     third = decode_value(JSON.parse("""{"rationalValue":{"numerator":"-1","denominator":"3"}}"""))
     @test third isa Rational{BigInt} && third == -1//3
     @test encode_value(third) == Dict("rationalValue" => Dict("numerator" => "-1", "denominator" => "3"))
-    @test encode_value(1//4) == Dict("realValue" => 0.25)
+    @test encode_value(1//4) == Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "4"))
+    @test OpenSysML.rationals_as_reals!(encode_value(1//4)) == Dict("realValue" => 0.25)
+    @test OpenSysML.rationals_as_reals!(encode_value(Any[1//3, 1//2])) ==
+          Dict("sequence" => Dict("elements" => Any[
+              Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "3")),
+              Dict("realValue" => 0.5)]))
     @test encode_value(big(10)^400 // 1)["rationalValue"]["denominator"] == "1"
     for (n, d) in (("2", "6"), ("1", "-3"), ("1", "0"), ("1", "2"), ("3", "1"), ("0", "1"),
                    ("-0", "3"), ("01", "3"), ("+1", "3"), ("1.5", "7"), ("", "3"))

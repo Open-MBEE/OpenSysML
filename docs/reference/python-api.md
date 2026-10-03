@@ -156,7 +156,7 @@ collection property.
 | SysML | Python |
 | --- | --- |
 | `Real` | `float` |
-| `Rational` | `fractions.Fraction`, exact whichever wire arm carried it (`as_rational`); a value read untyped is a `float` where a double holds it exactly (`0.5`) and a `Fraction` otherwise (`1/3`, `0.1`) |
+| `Rational` | `fractions.Fraction`, exact whichever wire arm carried it (`as_rational`); a value read untyped is a `float` where a double holds it exactly (`0.5`) and a `Fraction` otherwise (`1/3`, `0.1`). A `Fraction` is sent as `rational_value` to a service with `rational_values`, and a `float` is always a Real |
 | `Complex` | `complex`, one number rather than two floats |
 | `Array` | `opensysml.Array`: `dimensions` and row-major `elements`, `nested()` unfolds them |
 | `CartesianVectorValue` and the other numeric vectors | `opensysml.Vector`: a tuple of `int`/`float` components, kept apart |

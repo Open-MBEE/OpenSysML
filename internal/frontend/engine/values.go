@@ -411,7 +411,7 @@ var (
 
 	errBigIntegerNotDecimal = errors.New("big Integer is not decimal")
 
-	errRationalNotCanonical = errors.New("rational is not canonical: not in lowest terms, or exactly a double")
+	errRationalNotLowestTerms = errors.New("rational is not in lowest terms over a positive denominator")
 
 	errVectorQuantityEmpty = errors.New("vector quantity has no components")
 
@@ -516,12 +516,12 @@ func rationalToProto(v semantics.Value) *JRational {
 	return &JRational{Numerator: v.RatNumer().FormatInt(), Denominator: v.RatDenom().FormatInt()}
 }
 
-// protoToRational reads a rationalValue or rationalMagnitude, refusing one not
-// in lowest terms or one a double holds exactly, which crosses as realValue.
+// protoToRational reads a rationalValue or rationalMagnitude in lowest terms over
+// a positive denominator, one a double holds exactly included.
 func protoToRational(pr *JRational) (semantics.Value, error) {
-	v, ok := semantics.CanonicalRational(pr.Numerator, pr.Denominator)
+	v, ok := semantics.LowestTermsRational(pr.Numerator, pr.Denominator)
 	if !ok {
-		return semantics.Value{}, fmt.Errorf("%w: %q/%q", errRationalNotCanonical, pr.Numerator, pr.Denominator)
+		return semantics.Value{}, fmt.Errorf("%w: %q/%q", errRationalNotLowestTerms, pr.Numerator, pr.Denominator)
 	}
 	return v, nil
 }

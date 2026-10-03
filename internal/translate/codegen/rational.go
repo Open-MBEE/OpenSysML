@@ -267,8 +267,7 @@ func exactWiden(x Expr) Expr {
 }
 
 // rationalComparison checks the comparison or equality b over Real operands.
-// A Real against a Rational literal binary64 does not hold compares exactly
-// through the literal's nearest binary64 and the side the Rational lies on.
+// A Real against a Rational literal compares with the literal's nearest binary64.
 func (fc *funcCompiler) rationalComparison(b Binary) (Expr, error) {
 	if b.L.Type() != TypeReal || b.R.Type() != TypeReal {
 		return b, nil
@@ -297,10 +296,10 @@ func (fc *funcCompiler) rationalComparison(b Binary) (Expr, error) {
 		}
 	}
 	if c, ok := constRat(b.R); ok && l == binary64 {
-		return tieBroken(b.Op, b.L, c), nil
+		return againstNearest(b.Op, b.L, c), nil
 	}
 	if c, ok := constRat(b.L); ok && r == binary64 {
-		return tieBroken(flipped(b.Op), b.R, c), nil
+		return againstNearest(flipped(b.Op), b.R, c), nil
 	}
 	return nil, fc.unsupported(fmt.Sprintf("'%s' of an exact Rational binary64 does not hold exactly (compiled code holds Rationals as binary64)", b.Op))
 }
@@ -345,33 +344,10 @@ func flipped(op ast.OperatorKind) ast.OperatorKind {
 	return op
 }
 
-// tieBroken is `x op r` for a finite binary64 x and a Rational r binary64 does
-// not hold: no binary64 lies strictly between r and its nearest d, so x orders
-// against r as against d except at x == d, where it falls on r's side of d.
-func tieBroken(op ast.OperatorKind, x Expr, r *big.Rat) Expr {
+// againstNearest is `x op r` at Real precision: x against the binary64 nearest
+// r, which is finite since a literal or fold past the range is refused.
+func againstNearest(op ast.OperatorKind, x Expr, r *big.Rat) Expr {
 	d, _ := r.Float64()
-	if math.IsInf(d, 0) {
-		d = math.Copysign(math.MaxFloat64, d)
-	}
-	above := r.Cmp(new(big.Rat).SetFloat64(d)) > 0
-	switch op {
-	case ast.OpLt, ast.OpLe:
-		if above {
-			op = ast.OpLe
-		} else {
-			op = ast.OpLt
-		}
-	case ast.OpGt, ast.OpGe:
-		if above {
-			op = ast.OpGt
-		} else {
-			op = ast.OpGe
-		}
-	case ast.OpEq:
-		op, d = ast.OpLt, -math.MaxFloat64
-	default:
-		op, d = ast.OpGe, -math.MaxFloat64
-	}
 	return Binary{Op: op, L: x, R: RealLit{Value: d}, T: TypeBool}
 }
 

@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -307,20 +308,13 @@ func smallRatArith(op ast.OperatorKind, an, ad, bn, bd int64) (Value, bool) {
 	return Value{}, false
 }
 
-// CompareExactReal orders the exact number v against the non-NaN Real r
-// exactly, neither rounded to the other.
-func CompareExactReal(v Value, r float64) int {
+// CompareReal orders the exact number v against the non-NaN Real r at Real
+// precision: an Integer exactly, a Rational as its nearest binary64 (±Inf past the range).
+func CompareReal(v Value, r float64) int {
 	if v.Kind == ValInt {
 		return CompareIntReal(v, r)
 	}
-	switch {
-	case math.IsInf(r, 1):
-		return -1
-	case math.IsInf(r, -1):
-		return 1
-	}
-	x, _ := RationalOfReal(r)
-	return CompareRat(v, x)
+	return cmp.Compare(ratToFloat(v), r)
 }
 
 // RatNeg is the negation of the exact number v, of v's kind.
@@ -634,11 +628,9 @@ func (v Value) BinaryExact() (float64, bool) {
 	return f, exact && !math.IsInf(f, 0)
 }
 
-// CanonicalRational reads the Rational a wire encoding spells as two decimals:
-// a numerator over a positive denominator sharing no factor with it, and no
-// binary64 holds exactly, which crosses as a double instead; so no Rational has
-// two spellings.
-func CanonicalRational(numerator, denominator string) (Value, bool) {
+// LowestTermsRational reads the Rational two decimals spell: a numerator over a
+// positive denominator sharing no factor with it, which every Rational has once.
+func LowestTermsRational(numerator, denominator string) (Value, bool) {
 	num, okNum := ParseInteger(numerator)
 	den, okDen := ParseInteger(denominator)
 	if !okNum || !okDen || CompareInt(den, IntValue(1)) < 0 {
@@ -648,7 +640,17 @@ func CanonicalRational(numerator, denominator string) (Value, bool) {
 	if new(big.Int).GCD(nil, nil, new(big.Int).Abs(n), d).Cmp(big.NewInt(1)) != 0 {
 		return Value{}, false
 	}
-	v := RatValue(new(big.Rat).SetFrac(n, d))
+	return RatValue(new(big.Rat).SetFrac(n, d)), true
+}
+
+// CanonicalRational is LowestTermsRational refusing a Rational a binary64 holds
+// exactly, which the canonical wire form carries as a double; so no Rational a
+// service sends has two spellings.
+func CanonicalRational(numerator, denominator string) (Value, bool) {
+	v, ok := LowestTermsRational(numerator, denominator)
+	if !ok {
+		return Value{}, false
+	}
 	if _, exact := v.BinaryExact(); exact {
 		return Value{}, false
 	}

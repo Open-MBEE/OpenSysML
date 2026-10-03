@@ -669,7 +669,7 @@ public final class Model {
         ExecuteActionRequest.newBuilder()
             .setModelHash(hash)
             .setActionSymbolId(actionSymbolId)
-            .putAllInputs(Protos.protos(inputs))
+            .putAllInputs(Protos.protos(inputs, connection.capabilities()))
             .setSchedule(schedule(options, explore));
     options.performer().ifPresent(request::setPerformerSymbolId);
     ExecuteActionResponse response =
@@ -1049,7 +1049,7 @@ public final class Model {
         EvaluateCalcRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(arguments));
+            .addAllArguments(Protos.protos(arguments, connection.capabilities()));
     engine.ifPresent(request::setEngine);
     EvaluateCalcResponse response =
         connection.call("EvaluateCalc", request.build(), EvaluateCalcResponse.getDefaultInstance());
@@ -1146,8 +1146,8 @@ public final class Model {
         RunAnalysisRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(options.arguments()))
-            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
             .setSchedule(schedule(options.schedule(), options.explores(), explore));
     options.subject().ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
@@ -1510,8 +1510,8 @@ public final class Model {
         RunSweepRequest.newBuilder()
             .setModelHash(hash)
             .setSymbolId(symbolId)
-            .addAllArguments(Protos.protos(options.arguments()))
-            .putAllNamedArguments(Protos.protos(options.namedArguments()))
+            .addAllArguments(Protos.protos(options.arguments(), connection.capabilities()))
+            .putAllNamedArguments(Protos.protos(options.namedArguments(), connection.capabilities()))
             .setSamples(options.samples())
             .setSeed(options.seed());
     options.subject().ifPresent(request::setSubjectSymbolId);
@@ -1568,6 +1568,11 @@ public final class Model {
                         values.stream().map(Protos::proto).toList())));
     if (request.getBindingsList().stream().anyMatch(Protos::holdsBigInt)) {
       connection.capabilities().require(Capabilities.BIG_INT_VALUES);
+    }
+    if (!connection.capabilities().has(Capabilities.RATIONAL_VALUES)) {
+      for (int i = 0; i < request.getBindingsCount(); i++) {
+        request.setBindings(i, Protos.rationalsAsReals(request.getBindings(i)));
+      }
     }
     if (request.getBindingsList().stream().anyMatch(Protos::holdsRational)) {
       connection.capabilities().require(Capabilities.RATIONAL_VALUES);

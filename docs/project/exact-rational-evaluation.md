@@ -74,9 +74,9 @@ nothing about KerML Rationals and were not consulted.
   Rational operands are exact; Integer `/` is the exact Rational quotient (`1 / 3` is `1/3`, which
   replaces the once-rounded `IntQuotient`); `**` and `^` with an Integer exponent are exact, a
   negative exponent inverting (`(2 / 3) ** -2` is `2.25`); `0 ** -1` is a domain error.
-- **Comparison and equality** (`semantics.CompareRat`, `CompareExactReal`) are exact between exact
-  values. Between a Rational and a binary64 Real they are currently exact, as the Integer precedent
-  `CompareIntReal` is; see [the open choice](#comparing-a-rational-with-a-binary64-real) below.
+- **Comparison and equality** (`semantics.CompareRat`, `CompareReal`) are exact between exact
+  values. Between a Rational and a binary64 Real they are at Real precision, the Rational rounded
+  once; see [the rule](#comparing-a-rational-with-a-binary64-real) below.
 - **Library functions** (`internal/exec/runtime/library_conversions.go`,
   `library_functions.go`). `rat`, `numer`, `denom`, `gcd`, `abs`, `floor`, `round`, `max`, `min`,
   `sum`, `product`, `ToString`, `ToRational`, `ToInteger` compute exactly over exact operands;
@@ -107,17 +107,17 @@ nothing about KerML Rationals and were not consulted.
 
 ### Every boundary
 
-- **gRPC** (`api/proto/sysml.proto`, `internal/frontend/protoconv`, `internal/frontend/grpc`). A
-  Rational binary64 holds exactly crosses as the existing `real_value`/`real_magnitude`, so old
-  clients see what they saw. Any other crosses as the additive `Rational` message (numerator and
-  denominator as decimal text) in `Value`, `Quantity` and `DocumentValue`, negotiated by the
-  `rational_values` capability exactly as `big_int_values` negotiates `big_int_value`: a service
-  that does not advertise it answers such a Rational as an unsupported value naming the
-  capability, refuses a request or document query carrying or answering one with `UNIMPLEMENTED`,
-  and never sends a nearest double; the bundled clients refuse to send one to it. A wire Rational
-  must be canonical (positive denominator, lowest terms, not a binary64), so no Rational has two
-  encodings, and an inbound `real_value` is a binary64 Real (see
-  [the open choice](#a-rational-a-double-holds-on-input)).
+- **gRPC** (`api/proto/sysml.proto`, `internal/frontend/protoconv`, `internal/frontend/grpc`). The
+  service answers a Rational binary64 holds exactly as the existing `real_value`/`real_magnitude`,
+  so old clients see what they saw. Any other crosses as the additive `Rational` message
+  (numerator and denominator as decimal text) in `Value`, `Quantity` and `DocumentValue`,
+  negotiated by the `rational_values` capability exactly as `big_int_values` negotiates
+  `big_int_value`: a service that does not advertise it answers such a Rational as an unsupported
+  value naming the capability, refuses a request or document query carrying or answering one with
+  `UNIMPLEMENTED`, and never sends a nearest double. An answered Rational is canonical (positive
+  denominator, lowest terms, not a binary64); an inbound one need only be in lowest terms over a
+  positive denominator, and an inbound `real_value` is a binary64 Real (see
+  [the wire rule](#a-rational-a-double-holds-on-input)).
 - **JSON** (`internal/frontend/engine`, `internal/frontend/core`): `"rationalValue": {"numerator":
   "1", "denominator": "3"}` and `"rationalMagnitude"`, with the same canonical rule
   ([wire contract](../reference/wire-contract.md)).
@@ -127,7 +127,9 @@ nothing about KerML Rationals and were not consulted.
   bigint, denominator: bigint}` with `rational()`, `formatRational()`, `rationalToNumber()` and
   `rationalOfDouble()`; generated classes declare `RationalValue` (`asRational`). Java and Rust
   carry an exact numerator/denominator pair, Julia `Rational{BigInt}`, MATLAB a struct of decimal
-  strings. Each declares `rational_values` and refuses a noncanonical encoding.
+  strings. Each sends every exact Rational as `rational_value` under `rational_values`, rewrites
+  one a double holds to `real_value` for a service without it and refuses any other, and refuses
+  an answered Rational that is not canonical.
 - **RDF** (`internal/translate/export/rdf_expr.go`). A literal is written as the exact Rational it
   denotes: a decimal token as `xsd:decimal`, an exponent token binary64 holds exactly as
   `xsd:double`, any other exponent token as its exact `xsd:decimal` (`1E-1` → `"0.1"^^xsd:decimal`).
@@ -146,34 +148,61 @@ nothing about KerML Rationals and were not consulted.
 
 ## Comparing a Rational with a binary64 Real
 
-With exact Rationals and binary64 Reals, `attribute x : Real = 0.1; x == 0.1` compares the double
-nearest 1/10 with 1/10 itself. KerML has Rational ⊂ Real and so asks for the mathematical
-comparison; but the binary64 Real is this implementation's approximation, not the text's, and
-the text does not say how an approximate Real meets an exact Rational. Two readings:
+With exact Rationals and binary64 Reals, `attribute x : Real = 0.1; x == 0.1` meets the double
+nearest 1/10 (held by `x`, since a `Real` declaration rounds) with 1/10 itself. KerML has Rational
+⊂ Real (§9.3.2.2.8) and so asks for the mathematical comparison of two reals; but the binary64
+Real is this implementation's approximation (§9.3.2.2.9 leaves precision open), not the text's,
+and the text does not say how an approximate Real meets an exact Rational. The rule is therefore
+tool-defined, and chosen so the approximation does not give a wrong answer elsewhere:
 
-- **Exact comparison** (implemented): `x == 0.1` is `false` and `x > 0.1` is `true`, as the
-  Integer precedent `CompareIntReal` compares a large Integer with a Real exactly.
-- **Round the Rational once**, as mixed arithmetic does: `x == 0.1` is `true`.
+- **A Rational meeting a binary64 Real is rounded once, to the nearest double, before it is
+  compared** (`semantics.CompareReal`): `==`, `!=`, `<`, `<=`, `>`, `>=` between them compare
+  `RealOf(rational)` with the Real. So `x == 0.1` is `true`, `x : Real = 1 / 3; x == 1 / 3` is
+  `true`, `rat(1, 3) == 1.0 / 3.0` is `true` (`1.0 / 3.0` is exact `1/3` too) and `rat(1, 4) ==
+  0.25` is `true`. A Rational whose magnitude no finite double holds compares as the infinity of
+  its sign; a NaN compares as it does with any number (unordered, `!=` true).
+- This is the rule mixed arithmetic already follows (the Rational is rounded once where a
+  binary64 Real takes part), and the one a binding needs: KerML §7.4.9 asserts that both ends of
+  a binding connector hold equal values, so a Rational bound to a `Real` feature — rounded by the
+  declaration — must equal the Rational it was bound from. Exact comparison would make that
+  binding's own equality `false`, a wrong answer rather than a choice
+  (`instance_real_binding_meets_rational`).
+- Rational with Rational stays exact (`0.1 + 0.2 == 0.3` is `true`), and so does Integer with
+  anything: an Integer keeps its kind in a `Real` feature, so `CompareIntReal` compares a large
+  Integer with a Real exactly as before.
+- Equality of values (sets, `includes`, query `==`, solver witness replay, compiled `==`) uses the
+  same rule, so a Rational and a Real that compare equal are one member of a set.
 
-The choice is recorded as open; the implementation follows the Integer precedent until it is made.
+A long `Real`-typed accumulation of a decimal literal (`x := x + 0.01` a thousand times, `x :
+Real`) is binary64 at every step and so never reaches `ErrRationalSizeLimit`
+(`action_real_accumulation_stays_binary64`, and `TestRuntimeRobustnessRationalRealComparison`
+under a lowered budget); the same accumulation over exact Rationals is exact and stays within the
+budget only while its denominators do.
 
 ## A Rational a double holds, on input
 
-A Rational binary64 holds exactly (`1/4`) crosses the wire as `real_value`, so a client cannot
-tell the service that a `0.25` it sends is the Rational rather than the Real, and the service
-reads it as a Real: `in x : Rational; x + 1 / 3` with `x` sent as `0.25` is binary64
-`0.5833333333333333`, while `x` sent as the `rational_value` `1/3` gives the exact `2/3`. KerML
-says nothing about a wire. Three readings:
+The service answers a Rational binary64 holds exactly (`1/4`) as `real_value`, so its answers
+never spell one number two ways. KerML says nothing about a wire, so how a client tells the
+service that a `0.25` it sends is the Rational rather than the Real is tool-defined:
 
-- **An inbound `real_value` is always a Real** (implemented): the encoding decides.
-- **The declaration decides**: a binary64 value held by a feature or parameter declared
-  `Rational` is the exact Rational equal to it, as a `Real` declaration already rounds. This
-  changes in-model semantics too.
-- **Wire only**: clients send every exact Rational as `rational_value` to a service with
-  `rational_values`, which then accepts a binary64-exact `rational_value` on input while
-  answering canonically.
+- **Clients send every exact Rational as `rational_value`** to a service that advertises
+  `rational_values`, one a double holds included (`Fraction(1, 4)`, `1//4`, `Rational.of(1, 4)`).
+- **The service accepts a binary64-exact `rational_value` on input** as that exact Rational
+  (`protoconv.LowestTermsRational`; still refused unless in lowest terms over a positive
+  denominator), while every answer stays canonical (`CanonicalRational`): `in x : Rational; x +
+  1 / 3` with `x` sent as the `rational_value` `1/4` is exact `7/12`.
+- **An inbound `real_value` is always a Real**: the same `x` sent as `real_value` `0.25` is
+  binary64 `0.5833333333333333`. The declaration does not reinterpret it.
+- Runtime semantics do not depend on the encoding beyond that: once read, an exact Rational is
+  the same value whether it arrived on the wire or was written in the model.
+- To a service without `rational_values`, which would read the arm as unknown, a client sends a
+  Rational a double holds exactly as that `real_value` — the only form such a service reads — and
+  refuses any other Rational before the call.
 
-The choice is recorded as open; the implementation reads the encoding until it is made.
+Both directions are covered by the gRPC conformance cases (`execute_action_rational_input_meets_
+rational`, `execute_action_real_input_meets_rational`, `evaluate_calc_rational_wire`,
+`evaluate_calc_rational_wire_canonical_answer`), `internal/frontend/grpc/convert_rational_test.go`
+and each client's tests (`client/python/tests/test_rational.py` against a live service).
 
 ## The pilot differs by design
 

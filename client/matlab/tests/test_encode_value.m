@@ -13,8 +13,11 @@ function test_encode_value()
     assert_equal(opensysml.decodeValue(opensysml.encodeValue(third)), third, 'rational round trip');
     q = opensysml.encodeValue(struct('magnitude', third, 'unit', 'kg', 'unitTerm', []));
     assert_equal(q.quantity.rationalMagnitude, third, 'quantity rationalMagnitude');
-    assert_error(@() opensysml.encodeValue(struct('numerator', '1', 'denominator', '4')), ...
-        'opensysml:encode', 'a double-exact rational is a Real');
+    quarter = struct('numerator', '1', 'denominator', '4');
+    assert_equal(opensysml.encodeValue(quarter), struct('rationalValue', quarter), ...
+        'a double-exact rational is sent exactly');
+    assert_error(@() opensysml.decodeValue(struct('rationalValue', quarter)), ...
+        'opensysml:decode', 'a service answers a double-exact rational as a Real');
     assert_equal(opensysml.encodeValue(1.5), struct('realValue', 1.5), 'real');
     assert_equal(opensysml.encodeValue('x'), struct('stringValue', 'x'), 'string');
     assert_equal(opensysml.encodeValue([]), struct('null', ''), 'null');

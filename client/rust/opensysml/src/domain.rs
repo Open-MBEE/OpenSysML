@@ -1134,7 +1134,7 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
 }
 
 pub(crate) fn rational_from_wire(v: &wire::Rational) -> Result<Rational, Error> {
-    Rational::parse(&v.numerator, &v.denominator)
+    Rational::parse_canonical(&v.numerator, &v.denominator)
 }
 
 pub(crate) fn rational_to_wire(q: &Rational) -> wire::Rational {

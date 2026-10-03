@@ -597,7 +597,7 @@ private static final long serialVersionUID = 0L;
   public static final int RATIONAL_VALUE_FIELD_NUMBER = 14;
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -609,7 +609,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -624,7 +624,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2796,7 +2796,7 @@ private static final long serialVersionUID = 0L;
         org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> rationalValueBuilder_;
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2808,7 +2808,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2830,7 +2830,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2850,7 +2850,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2868,7 +2868,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2895,7 +2895,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2918,7 +2918,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2928,7 +2928,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -2946,7 +2946,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>

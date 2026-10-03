@@ -268,6 +268,7 @@ export {
   rational,
   rationalOfDouble,
   rationalToNumber,
+  rationalsAsReals,
   requireInput,
   toValue,
   valuesEqual,

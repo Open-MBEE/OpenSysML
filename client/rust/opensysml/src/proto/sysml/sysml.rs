@@ -1919,15 +1919,16 @@ pub mod value {
         /// zeros). An Integer that fits int64 is always int_value, never this.
         #[prost(string, tag="22")]
         BigIntValue(::prost::alloc::string::String),
-        /// An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-        /// or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+        /// An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+        /// server answers one a double holds exactly as real_value; a client sends
+        /// any exact Rational here, and an inbound real_value is always a Real.
         #[prost(message, tag="23")]
         RationalValue(super::Rational),
     }
 }
 /// Rational is an exact rational number in lowest terms: numerator over a
-/// positive denominator, each written as big_int_value is. A decoder rejects one
-/// not in lowest terms or one a double holds exactly, so no number has two spellings.
+/// positive denominator, each written as big_int_value is. The server rejects one
+/// not in lowest terms; a client also rejects an answered one a double holds exactly.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Rational {
     #[prost(string, tag="1")]
@@ -2109,7 +2110,7 @@ pub mod quantity {
         /// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="5")]
         BigIntMagnitude(::prost::alloc::string::String),
-        /// An exact Rational magnitude no double holds exactly, as Value.rational_value.
+        /// An exact Rational magnitude, as Value.rational_value.
         #[prost(message, tag="6")]
         RationalMagnitude(super::Rational),
     }
@@ -2621,7 +2622,7 @@ pub mod document_value {
         /// An Integer beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="13")]
         BigIntValue(::prost::alloc::string::String),
-        /// An exact Rational no double holds exactly, as Value.rational_value.
+        /// An exact Rational, as Value.rational_value.
         #[prost(message, tag="14")]
         RationalValue(super::Rational),
     }

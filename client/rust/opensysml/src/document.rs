@@ -5,7 +5,7 @@ use std::fmt;
 use crate::domain::{
     quantity_from_wire, rational_from_wire, rational_to_wire, BigInteger, Quantity,
 };
-use crate::encode::quantity_to_wire;
+use crate::encode::{quantity_rational_as_real, quantity_to_wire, wire_exact_f64};
 use crate::error::Error;
 use crate::rational::Rational;
 use crate::wire;
@@ -176,7 +176,7 @@ pub enum DocumentValue {
     Integer(i64),
     /// An Integer beyond `i64`.
     BigInteger(BigInteger),
-    /// An exact Rational no `f64` holds.
+    /// An exact Rational; a service answers one an `f64` holds as a `Real`.
     Rational(Rational),
     /// A real number.
     Real(f64),
@@ -287,6 +287,22 @@ pub(crate) fn binding_holds_rational(binding: &wire::DocumentQueryBinding) -> bo
         ),
         _ => false,
     })
+}
+
+/// Rewrite each Rational a binding sends that an `f64` holds exactly as that `f64`, for a service without `rational_values`.
+pub(crate) fn binding_rationals_as_reals(binding: &mut wire::DocumentQueryBinding) {
+    use wire::document_value::Kind;
+    for value in &mut binding.values {
+        match &mut value.kind {
+            Some(Kind::RationalValue(terms)) => {
+                if let Some(x) = wire_exact_f64(terms) {
+                    value.kind = Some(Kind::RealValue(x));
+                }
+            }
+            Some(Kind::Quantity(quantity)) => quantity_rational_as_real(quantity),
+            _ => {}
+        }
+    }
 }
 
 /// Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`.

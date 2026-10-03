@@ -1011,8 +1011,9 @@ private static final long serialVersionUID = 0L;
   public static final int RATIONAL_VALUE_FIELD_NUMBER = 23;
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -1024,8 +1025,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -1040,8 +1042,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-   * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -4968,8 +4971,9 @@ private static final long serialVersionUID = 0L;
         org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> rationalValueBuilder_;
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -4981,8 +4985,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5004,8 +5009,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5025,8 +5031,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5044,8 +5051,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5072,8 +5080,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5096,8 +5105,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5107,8 +5117,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
@@ -5126,8 +5137,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      * </pre>
      *
      * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>

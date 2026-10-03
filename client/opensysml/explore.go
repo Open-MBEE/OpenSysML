@@ -177,6 +177,9 @@ func (c *client) ExploreAction(
 			}
 			req.Inputs[name] = sent
 		}
+		if err := c.fitRationals(ctx, slices.Collect(maps.Values(req.Inputs))...); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := c.caller.executeAction(ctx, req)
 	if err != nil {

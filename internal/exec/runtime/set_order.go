@@ -273,26 +273,27 @@ func canonicalClass(v Value) int {
 	return classOther
 }
 
-// compareNumbers orders the numeric constants exactly, infinity above every finite number.
+// compareNumbers orders the numeric constants as the comparison operators do,
+// infinity above every finite number.
 func compareNumbers(a, b semantics.Value) int {
 	switch {
 	case a.IsExact() && b.IsExact():
 		return semantics.CompareRat(a, b)
 	case a.IsExact() && b.Kind == semantics.ValReal:
-		return compareIntReal(a, b.Real)
+		return compareExactReal(a, b.Real)
 	case a.Kind == semantics.ValReal && b.IsExact():
-		return -compareIntReal(b, a.Real)
+		return -compareExactReal(b, a.Real)
 	}
 	return cmp.Compare(numberOf(a), numberOf(b))
 }
 
-// compareIntReal orders an exact number against a Real without rounding either,
-// a NaN below every number as cmp.Compare puts it.
-func compareIntReal(i semantics.Value, r float64) int {
+// compareExactReal orders an exact number against a Real as semantics.CompareReal
+// does, a NaN below every number as cmp.Compare puts it.
+func compareExactReal(i semantics.Value, r float64) int {
 	if math.IsNaN(r) {
 		return cmp.Compare(0.0, r)
 	}
-	return semantics.CompareExactReal(i, r)
+	return semantics.CompareReal(i, r)
 }
 
 func numberOf(v semantics.Value) float64 {

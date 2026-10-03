@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, HashMap};
 use crate::capabilities::*;
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, binding_holds_rational, bindings_to_wire, result_of, DocumentForm,
-    DocumentQueryResult, DocumentValue,
+    binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
+    result_of, DocumentForm, DocumentQueryResult, DocumentValue,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -361,8 +361,11 @@ impl Connection {
         query_id: &str,
         bindings: &[(K, Vec<DocumentValue>)],
     ) -> Result<DocumentQueryResult, Error> {
-        let bindings = bindings_to_wire(bindings)?;
+        let mut bindings = bindings_to_wire(bindings)?;
         self.require_all(&[CAPABILITY_DOCUMENT_QUERY])?;
+        if !self.capabilities().has(CAPABILITY_RATIONAL_VALUES) {
+            bindings.iter_mut().for_each(binding_rationals_as_reals);
+        }
         if bindings.iter().any(binding_holds_big_int) {
             self.require_all(&[CAPABILITY_BIG_INT_VALUES])?;
         }

@@ -119,23 +119,19 @@ public sealed interface DocumentValue {
   record RealValue(double value) implements DocumentValue {}
 
   /**
-   * An exact rational no {@code double} holds; one a {@code double} holds is always a {@link
+   * An exact rational. A service answers one a {@code double} holds exactly as a {@link
    * RealValue}.
    *
-   * @param value the rational, not a {@code double}
+   * @param value the rational
    */
   record RationalValue(Rational value) implements DocumentValue {
     /**
      * Creates an exact rational.
      *
      * @param value the rational, never {@code null}
-     * @throws IllegalArgumentException if a {@code double} holds the rational exactly
      */
     public RationalValue {
       Objects.requireNonNull(value, "value");
-      if (value.isBinary64()) {
-        throw new IllegalArgumentException(value + " is a double, which RealValue carries");
-      }
     }
   }
 

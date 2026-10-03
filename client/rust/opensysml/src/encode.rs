@@ -8,6 +8,7 @@ use crate::capabilities::{
 };
 use crate::domain::{rational_to_wire, Capabilities, Magnitude, Quantity, UnitTerm, Value};
 use crate::error::Error;
+use crate::rational::Rational;
 use crate::wire;
 
 /// Deepest nesting a sent value may have, so a cyclic-looking builder cannot exhaust the stack.
@@ -29,7 +30,7 @@ fn require(capabilities: &Capabilities, capability: &str) -> Result<(), Error> {
     capabilities.require(capability, upgrade_remedy(capability))
 }
 
-/// Refuse an Integer beyond int64 or an exact Rational to a service that would read its arm as null.
+/// Refuse an Integer beyond int64 or an exact Rational no `f64` holds to a service that would read its arm as null.
 fn require_magnitudes<'a>(
     capabilities: &Capabilities,
     magnitudes: impl Iterator<Item = &'a Magnitude>,
@@ -37,7 +38,10 @@ fn require_magnitudes<'a>(
     for magnitude in magnitudes {
         match magnitude {
             Magnitude::BigInteger(_) => require(capabilities, CAPABILITY_BIG_INT_VALUES)?,
-            Magnitude::Rational(_) => require(capabilities, CAPABILITY_RATIONAL_VALUES)?,
+            Magnitude::Rational(v) if v.exact_f64().is_none() => {
+                require(capabilities, CAPABILITY_RATIONAL_VALUES)?
+            }
+            Magnitude::Rational(_) => {}
             Magnitude::Integer(_) | Magnitude::Real(_) => {}
         }
     }
@@ -52,14 +56,17 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         )));
     }
     let nested = |item: &Value| encode(item, capabilities, depth + 1);
-    Ok(match value {
+    let mut sent = match value {
         Value::Integer(v) => kind(Kind::IntValue(*v)),
         Value::BigInteger(v) => {
             require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
             kind(Kind::BigIntValue(v.as_str().to_owned()))
         }
         Value::Rational(v) => {
-            require(capabilities, CAPABILITY_RATIONAL_VALUES)?;
+            require_magnitudes(
+                capabilities,
+                std::iter::once(&Magnitude::Rational(v.clone())),
+            )?;
             kind(Kind::RationalValue(rational_to_wire(v)))
         }
         Value::Real(v) => kind(Kind::RealValue(*v)),
@@ -222,7 +229,51 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                 "undetermined is an answer the model leaves open, not an argument".to_owned(),
             ))
         }
-    })
+    };
+    if !capabilities.has(CAPABILITY_RATIONAL_VALUES) {
+        rationals_as_reals(&mut sent);
+    }
+    Ok(sent)
+}
+
+// Rewrite in place each Rational arm of this value an f64 holds exactly as that f64:
+// the form a service without rational_values reads. Nested values are encoded on their own.
+fn rationals_as_reals(value: &mut wire::Value) {
+    use wire::value::Kind;
+    match &mut value.kind {
+        Some(Kind::RationalValue(terms)) => {
+            if let Some(x) = wire_exact_f64(terms) {
+                value.kind = Some(Kind::RealValue(x));
+            }
+        }
+        Some(Kind::Quantity(quantity)) => quantity_rational_as_real(quantity),
+        Some(Kind::Vector(vector)) => vector.components.iter_mut().for_each(rationals_as_reals),
+        Some(Kind::VectorQuantity(vector)) => vector
+            .components
+            .iter_mut()
+            .for_each(quantity_rational_as_real),
+        Some(Kind::TensorQuantity(tensor)) => tensor
+            .components
+            .iter_mut()
+            .for_each(quantity_rational_as_real),
+        _ => {}
+    }
+}
+
+/// Rewrite a quantity's Rational magnitude an f64 holds exactly as `real_magnitude`.
+pub(crate) fn quantity_rational_as_real(quantity: &mut wire::Quantity) {
+    use wire::quantity::Magnitude;
+    if let Some(Magnitude::RationalMagnitude(terms)) = &quantity.magnitude {
+        if let Some(x) = wire_exact_f64(terms) {
+            quantity.magnitude = Some(Magnitude::RealMagnitude(x));
+        }
+    }
+}
+
+pub(crate) fn wire_exact_f64(terms: &wire::Rational) -> Option<f64> {
+    Rational::parse(&terms.numerator, &terms.denominator)
+        .ok()
+        .and_then(|rational| rational.exact_f64())
 }
 
 fn unit_label(unit: &str) -> &str {
@@ -650,6 +701,60 @@ mod tests {
             crate::Rational::parse("1000", "3").unwrap(),
         ));
         assert!(Value::Quantity(kilometres).same_value(&Value::Quantity(metres_value)));
+    }
+
+    #[test]
+    fn a_rational_an_f64_holds_is_sent_exactly_or_as_that_f64_to_an_older_service() {
+        use wire::value::Kind;
+        let quarter = crate::Rational::parse("1", "4").unwrap();
+        let without: Vec<&str> = ALL
+            .iter()
+            .copied()
+            .filter(|name| *name != CAPABILITY_RATIONAL_VALUES)
+            .collect();
+        let value = Value::Rational(quarter.clone());
+        match value_to_wire(&value, &capabilities(ALL)).unwrap().kind {
+            Some(Kind::RationalValue(terms)) => {
+                assert_eq!(
+                    (terms.numerator.as_str(), terms.denominator.as_str()),
+                    ("1", "4")
+                )
+            }
+            other => panic!("expected rational_value, got {other:?}"),
+        }
+        assert_eq!(
+            value_to_wire(&value, &capabilities(&without)).unwrap().kind,
+            Some(Kind::RealValue(0.25))
+        );
+        let nested = Value::Sequence(vec![value.clone()]);
+        match value_to_wire(&nested, &capabilities(&without))
+            .unwrap()
+            .kind
+        {
+            Some(Kind::Sequence(sequence)) => {
+                assert_eq!(sequence.elements[0].kind, Some(Kind::RealValue(0.25)))
+            }
+            other => panic!("expected a sequence, got {other:?}"),
+        }
+        match value_to_wire(
+            &Value::Quantity(metres(Magnitude::Rational(quarter))),
+            &capabilities(&without),
+        )
+        .unwrap()
+        .kind
+        {
+            Some(Kind::Quantity(quantity)) => assert_eq!(
+                quantity.magnitude,
+                Some(wire::quantity::Magnitude::RealMagnitude(0.25))
+            ),
+            other => panic!("expected a quantity, got {other:?}"),
+        }
+        assert_eq!(
+            value_to_wire(&Value::Real(0.25), &capabilities(ALL))
+                .unwrap()
+                .kind,
+            Some(Kind::RealValue(0.25))
+        );
     }
 
     #[test]

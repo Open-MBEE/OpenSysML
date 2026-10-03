@@ -1,9 +1,10 @@
-function r = rationalOf(raw)
+function r = rationalOf(raw, canonical)
 %RATIONALOF The exact Rational a rationalValue spells, kept as its decimal terms.
-%   Terms are canonical: lowest terms over a positive denominator, of a value no
-%   double holds. Lowest terms and double exactness are checked where both terms
-%   are exact doubles; larger terms are taken as the service sent them.
+%   Terms are lowest terms over a positive denominator; a canonical one, as a
+%   service answers it, is also of a value no double holds. Both are checked where
+%   both terms are exact doubles; larger terms are taken as they were spelt.
 
+    if nargin < 2, canonical = true; end
     if ~isstruct(raw) || ~isscalar(raw) || ~isfield(raw, 'numerator') || ~isfield(raw, 'denominator')
         error('opensysml:decode', 'a rational carries a numerator and a denominator');
     end
@@ -18,7 +19,7 @@ function r = rationalOf(raw)
         if gcd(nd, dd) ~= 1
             error('opensysml:decode', '%s/%s is not in lowest terms', n, d);
         end
-        if bitand(uint64(dd), uint64(dd) - 1) == 0
+        if canonical && bitand(uint64(dd), uint64(dd) - 1) == 0
             error('opensysml:decode', '%s/%s is a double, which realValue carries', n, d);
         end
     end

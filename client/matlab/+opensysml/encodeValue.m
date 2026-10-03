@@ -53,8 +53,14 @@ function v = encodeStruct(x, conn)
         requireCapability(conn, 'big_int_values');
         v = struct('bigIntValue', char(x.bigInteger));
     elseif isRational(x)
-        requireCapability(conn, 'rational_values');
-        v = struct('rationalValue', rationalTerms(x));
+        terms = rationalTerms(x);
+        exact = opensysml.internal.rationalDouble(terms);
+        if isempty(exact) || isempty(conn) || conn.hasCapability('rational_values')
+            requireCapability(conn, 'rational_values');
+            v = struct('rationalValue', terms);
+        else
+            v = struct('realValue', exact);
+        end
     elseif isfield(x, 'instanceRef')
         id = integerValue(x.instanceRef, 'instance reference id');
         v = struct('instanceId', sprintf('%d', id));
@@ -170,8 +176,14 @@ function body = encodeQuantityBody(q, conn)
         requireCapability(conn, 'big_int_values');
         body.bigIntMagnitude = char(magnitude.bigInteger);
     elseif isRational(magnitude)
-        requireCapability(conn, 'rational_values');
-        body.rationalMagnitude = rationalTerms(magnitude);
+        terms = rationalTerms(magnitude);
+        exact = opensysml.internal.rationalDouble(terms);
+        if isempty(exact) || isempty(conn) || conn.hasCapability('rational_values')
+            requireCapability(conn, 'rational_values');
+            body.rationalMagnitude = terms;
+        else
+            body.realMagnitude = exact;
+        end
     elseif ~isnumeric(magnitude) || ~isscalar(magnitude) || ~isreal(magnitude)
         opensysml.internal.raise('opensysml:encode', 'quantity magnitude must be a real scalar');
     elseif isinteger(magnitude)
@@ -262,7 +274,7 @@ end
 
 function terms = rationalTerms(value)
     try
-        terms = opensysml.internal.rationalOf(value);
+        terms = opensysml.internal.rationalOf(value, false);
     catch e
         opensysml.internal.raise('opensysml:encode', e.message);
     end

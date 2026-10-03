@@ -457,6 +457,14 @@ connection.capabilities().require(Capabilities.FEATURE_VALUES);
 if (connection.capabilities().has(Capabilities.ENUM_VALUES)) { }
 ```
 
+An exact `Rational` sent as an input, argument or document binding crosses as
+`rationalValue` to a service advertising `RATIONAL_VALUES`, one a double holds
+(`Rational.of(1, 4)`) included, and the service reads it as that Rational; a
+`RealValue` is always a binary64 Real. To a service without the capability a
+Rational a double holds is sent as that `realValue` and any other is refused
+before the call. An answered Rational is canonical: one a double holds arrives as
+a `RealValue`.
+
 The client checks before a gated call rather than relying on the refusal, because
 a capability that only describes how a response is *populated* omits its fields
 instead of failing, and a call that relied on failure alone would read an answer

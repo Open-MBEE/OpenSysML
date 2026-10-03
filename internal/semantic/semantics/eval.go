@@ -558,9 +558,9 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 	case l.IsExact() && r.IsExact():
 		eq = CompareRat(l, r) == 0
 	case l.IsExact() && r.Kind == ValReal:
-		eq = !math.IsNaN(r.Real) && CompareExactReal(l, r.Real) == 0
+		eq = !math.IsNaN(r.Real) && CompareReal(l, r.Real) == 0
 	case l.Kind == ValReal && r.IsExact():
-		eq = !math.IsNaN(l.Real) && CompareExactReal(r, l.Real) == 0
+		eq = !math.IsNaN(l.Real) && CompareReal(r, l.Real) == 0
 	case l.IsNumeric() && r.IsNumeric():
 		eq = l.AsReal() == r.AsReal()
 	default:
@@ -596,11 +596,11 @@ func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
 		return Value{Kind: ValBool, Bool: res}, true
 	}
 	if l.IsExact() && r.Kind == ValReal && !math.IsNaN(r.Real) {
-		res, _ := OrderSatisfies(op, CompareExactReal(l, r.Real))
+		res, _ := OrderSatisfies(op, CompareReal(l, r.Real))
 		return Value{Kind: ValBool, Bool: res}, true
 	}
 	if l.Kind == ValReal && r.IsExact() && !math.IsNaN(l.Real) {
-		res, _ := OrderSatisfies(op, -CompareExactReal(r, l.Real))
+		res, _ := OrderSatisfies(op, -CompareReal(r, l.Real))
 		return Value{Kind: ValBool, Bool: res}, true
 	}
 	lf, rf := l.AsReal(), r.AsReal()

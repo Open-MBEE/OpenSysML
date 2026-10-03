@@ -78,7 +78,13 @@ from opensysml.conversion import (
     path_is_v1,
 )
 from opensysml.diagnostic import Diagnostic
-from opensysml.document import binding_holds_big_int, binding_holds_rational, build_bindings, result_of as document_result
+from opensysml.document import (
+    binding_holds_big_int,
+    binding_holds_rational,
+    binding_rationals_as_reals,
+    build_bindings,
+    result_of as document_result,
+)
 from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
@@ -117,6 +123,7 @@ from opensysml.values import (
     pb_holds_big_int,
     pb_holds_rational,
     rational_value_to_pb,
+    rationals_as_reals,
     value_to_python,
 )
 
@@ -1771,6 +1778,11 @@ class Connection:
                 CAPABILITY_BIG_INT_VALUES,
                 upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
             )
+        if any(binding_holds_rational(binding) for binding in request.bindings) and not self.server_info().has(
+            CAPABILITY_RATIONAL_VALUES
+        ):
+            for binding in request.bindings:
+                binding_rationals_as_reals(binding)
         if any(binding_holds_rational(binding) for binding in request.bindings):
             require(
                 self.server_info(),
@@ -2945,8 +2957,14 @@ class Connection:
         return value
 
     def _require_exact_values(self, value):
-        """Refuse to send a big Integer or exact Rational a service without its capability would read as null."""
+        """Refuse to send a big Integer or exact Rational a service without its capability would read as null.
+
+        Every exact Rational travels as ``rational_value``; to a service without
+        ``rational_values`` one a double holds exactly travels as that double.
+        """
         self._require_big_int_values(value)
+        if pb_holds_rational(value) and not self.server_info().has(CAPABILITY_RATIONAL_VALUES):
+            rationals_as_reals(value)
         if pb_holds_rational(value):
             require(
                 self.server_info(),

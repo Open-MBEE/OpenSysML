@@ -69,6 +69,20 @@ package Compiled {
 		in x : Real;
 		return : Boolean = 0.1 + 0.2 == 0.3 and 1 / 3 * 3 == 1 and a / 3 >= 2 and a * 1.0 + a == 2 * a and x < 0.1;
 	}
+	// A Real meets a Rational literal at Real precision, the literal rounded once.
+	calc def RealAgainstNearest {
+		in x : Real;
+		attribute r : Integer = 0;
+		if x < 0.1 { assign r := r + 1; }
+		if x <= 0.1 { assign r := r + 2; }
+		if x > 0.1 { assign r := r + 4; }
+		if x >= 0.1 { assign r := r + 8; }
+		if x == 0.1 { assign r := r + 16; }
+		if x != 0.1 { assign r := r + 32; }
+		if -0.1 < x { assign r := r + 64; }
+		if -0.1 >= x { assign r := r + 128; }
+		return : Integer = r;
+	}
 	calc def ExactWide { in a : Integer; return : Real = a * 2.0 + 0.5; }
 
 	calc def Compare {
@@ -555,6 +569,7 @@ package Refused {
 	calc def ExactProduct { in a : Integer; return : Real = a * 0.1; }
 	calc def ExactPower { in a : Integer; return : Real = (a * 0.5) ** 2; }
 	calc def ExactCompare { in a : Integer; return : Boolean = a / 3 < 0.1; }
+	calc def BeyondCompare { in x : Real; return : Boolean = x < 1e400; }
 	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
 	calc def RealIntIdentity { in x : Real; in y : Integer; return : Boolean = x === y; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }

@@ -205,7 +205,7 @@ private static final long serialVersionUID = 0L;
   public static final int RATIONAL_MAGNITUDE_FIELD_NUMBER = 6;
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -217,7 +217,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -232,7 +232,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+   * An exact Rational magnitude, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1038,7 +1038,7 @@ private static final long serialVersionUID = 0L;
         org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> rationalMagnitudeBuilder_;
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1050,7 +1050,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1072,7 +1072,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1092,7 +1092,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1110,7 +1110,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1137,7 +1137,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1160,7 +1160,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1170,7 +1170,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
@@ -1188,7 +1188,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      * </pre>
      *
      * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>

@@ -26,6 +26,7 @@ import {
   encodeRational,
   fitsInt64,
   formatValue,
+  quantityRationalAsReal,
   rationalAsDouble,
   type SysMLValue,
 } from "./values.js";
@@ -39,13 +40,28 @@ export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
   );
 }
 
-/** Whether a wire binding sends an exact Rational no double holds, which needs `rational_values`. */
+/** Whether a wire binding sends an exact Rational, which needs `rational_values`. */
 export function bindingHoldsRational(binding: DocumentQueryBinding): boolean {
   return binding.values.some(
     (value) =>
       value.kind.case === "rationalValue" ||
       (value.kind.case === "quantity" && value.kind.value.magnitude.case === "rationalMagnitude"),
   );
+}
+
+/** Rewrites each Rational a binding sends that a double holds exactly as that double, for a service without `rational_values`. */
+export function bindingRationalsAsReals(binding: DocumentQueryBinding): void {
+  for (const value of binding.values) {
+    if (value.kind.case === "rationalValue") {
+      const { numerator, denominator } = value.kind.value;
+      const double = rationalAsDouble({ numerator: BigInt(numerator), denominator: BigInt(denominator) });
+      if (double !== undefined) {
+        value.kind = { case: "realValue", value: double };
+      }
+    } else if (value.kind.case === "quantity") {
+      quantityRationalAsReal(value.kind.value);
+    }
+  }
 }
 
 /** A model element, named by qualified name. */
@@ -389,10 +405,7 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
     );
   }
   if (typeof value === "object" && "kind" in value && value.kind === "rational") {
-    const double = rationalAsDouble(value);
-    return double === undefined
-      ? create(DocumentValueSchema, { kind: { case: "rationalValue", value: encodeRational(value) } })
-      : create(DocumentValueSchema, { kind: { case: "realValue", value: double } });
+    return create(DocumentValueSchema, { kind: { case: "rationalValue", value: encodeRational(value) } });
   }
   if (typeof value === "object" && "kind" in value && value.kind === "quantity") {
     return create(DocumentValueSchema, {

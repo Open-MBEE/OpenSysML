@@ -381,11 +381,31 @@ _binary64(q::Rational) = (x = Float64(q); isfinite(x) && Rational{BigInt}(x) == 
 # A Rational as KerML holds it: lowest terms over BigInt.
 _exact_rational(q::Rational) = Rational{BigInt}(q)
 
-# A Rational on the wire: realValue when a Float64 holds it exactly, rationalValue otherwise.
-rational_arm(q::Rational, real::String, rational::String) =
-    _binary64(q) ? (real => _json_real(Float64(q))) :
-    (rational => Dict{String,Any}("numerator" => string(numerator(q)),
-                                  "denominator" => string(denominator(q))))
+# A Rational on the wire: rationalValue, one a Float64 holds exactly included, since
+# the service reads an inbound realValue as a Real.
+rational_arm(q::Rational, rational::String) =
+    rational => Dict{String,Any}("numerator" => string(numerator(q)),
+                                 "denominator" => string(denominator(q)))
+
+# Rewrite in place each Rational arm of an encoded value a Float64 holds exactly as
+# that Float64: the form a service without rational_values reads.
+function rationals_as_reals!(wire)
+    if wire isa AbstractDict
+        for (rational, real) in (("rationalValue", "realValue"), ("rationalMagnitude", "realMagnitude"))
+            terms = get(wire, rational, nothing)
+            terms isa AbstractDict || continue
+            q = parse(BigInt, terms["numerator"]) // parse(BigInt, terms["denominator"])
+            if _binary64(q)
+                delete!(wire, rational)
+                wire[real] = _json_real(Float64(q))
+            end
+        end
+        foreach(rationals_as_reals!, values(wire))
+    elseif wire isa AbstractVector
+        foreach(rationals_as_reals!, wire)
+    end
+    wire
+end
 
 # An Integer on the wire: intValue within Int64, bigIntValue beyond it.
 integer_arm(x::Integer, small::String, big::String) =
@@ -519,7 +539,7 @@ function encode_quantity(q::Quantity)
     if q.magnitude isa Integer
         push!(body, integer_arm(q.magnitude, "intMagnitude", "bigIntMagnitude"))
     elseif q.magnitude isa Rational
-        push!(body, rational_arm(q.magnitude, "realMagnitude", "rationalMagnitude"))
+        push!(body, rational_arm(q.magnitude, "rationalMagnitude"))
     else
         body["realMagnitude"] = _json_real(Float64(q.magnitude))
     end
@@ -539,7 +559,7 @@ function encode_value(x::Bool)
     Dict{String,Any}("boolValue" => x)
 end
 encode_value(x::Integer) = Dict{String,Any}(integer_arm(x, "intValue", "bigIntValue"))
-encode_value(x::Rational) = Dict{String,Any}(rational_arm(x, "realValue", "rationalValue"))
+encode_value(x::Rational) = Dict{String,Any}(rational_arm(x, "rationalValue"))
 encode_value(x::AbstractFloat) = Dict{String,Any}("realValue" => _json_real(x))
 encode_value(x::AbstractString) = Dict{String,Any}("stringValue" => String(x))
 encode_value(::Nothing) = Dict{String,Any}("null" => "")

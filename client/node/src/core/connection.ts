@@ -103,6 +103,7 @@ import {
 import {
   bindingHoldsBigInt,
   bindingHoldsRational,
+  bindingRationalsAsReals,
   buildBindings,
   documentResult,
   type BindingValues,
@@ -569,6 +570,9 @@ export class Connection {
     const wire = buildBindings(bindings);
     if (wire.some(bindingHoldsBigInt)) {
       requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
+    }
+    if (!this.info.has(CAPABILITY_RATIONAL_VALUES)) {
+      wire.forEach(bindingRationalsAsReals);
     }
     if (wire.some(bindingHoldsRational)) {
       requireCapability(this.info, CAPABILITY_RATIONAL_VALUES, upgradeRemedy(CAPABILITY_RATIONAL_VALUES));

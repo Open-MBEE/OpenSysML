@@ -23,7 +23,7 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
    * Creates a quantity.
    *
    * @param magnitude the magnitude, a {@link Long}, a {@link java.math.BigInteger} beyond {@code
-   *     long}, a {@link Rational} no {@code double} holds, or a {@link Double}
+   *     long}, a {@link Rational}, or a {@link Double}
    * @param unit the unit as written, absent when unnamed
    * @param reduction the unit's reduction to base units, absent when the service sent none
    */
@@ -36,12 +36,9 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
         throw new IllegalArgumentException(
             "a magnitude within long is a Long, not a BigInteger: " + magnitude);
       }
-    } else if (magnitude instanceof Rational rational) {
-      if (rational.isBinary64()) {
-        throw new IllegalArgumentException(
-            "a magnitude a double holds is a Double, not a Rational: " + magnitude);
-      }
-    } else if (!(magnitude instanceof Long) && !(magnitude instanceof Double)) {
+    } else if (!(magnitude instanceof Long)
+        && !(magnitude instanceof Rational)
+        && !(magnitude instanceof Double)) {
       throw new IllegalArgumentException(
           "magnitude must be a Long, a BigInteger, a Rational or a Double: " + magnitude);
     }

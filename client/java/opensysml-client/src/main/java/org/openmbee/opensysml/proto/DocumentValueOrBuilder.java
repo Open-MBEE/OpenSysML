@@ -266,7 +266,7 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -275,7 +275,7 @@ public interface DocumentValueOrBuilder extends
   boolean hasRationalValue();
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
@@ -284,7 +284,7 @@ public interface DocumentValueOrBuilder extends
   org.openmbee.opensysml.proto.Rational getRationalValue();
   /**
    * <pre>
-   * An exact Rational no double holds exactly, as Value.rational_value.
+   * An exact Rational, as Value.rational_value.
    * </pre>
    *
    * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>

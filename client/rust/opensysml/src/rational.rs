@@ -5,10 +5,9 @@ use std::fmt;
 
 use crate::error::Error;
 
-/// An exact Rational no `f64` holds, such as `1/3` or `1/10`: a numerator over a
-/// positive denominator in lowest terms, each held as its decimal digits. One an
-/// `f64` holds exactly is always a `Real`, never this, so two numbers are equal
-/// exactly when their arms and terms are.
+/// An exact Rational, such as `1/3` or `1/10`: a numerator over a positive
+/// denominator in lowest terms, each held as its decimal digits. A service answers
+/// one an `f64` holds exactly as a `Real`, so a decoded Rational is never one.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Rational {
     numerator: String,
@@ -17,9 +16,32 @@ pub struct Rational {
 
 impl Rational {
     /// The rational `numerator/denominator` spells: decimal digits with no leading
-    /// zero, a `-` only on the numerator, in lowest terms, and not a number an
-    /// `f64` holds, which a `Real` carries.
+    /// zero, a `-` only on the numerator, and in lowest terms.
     pub fn parse(numerator: &str, denominator: &str) -> Result<Self, Error> {
+        Self::terms(numerator, denominator).map(|(rational, _)| rational)
+    }
+
+    /// The rational a service answers, which is also not a number an `f64` holds.
+    pub(crate) fn parse_canonical(numerator: &str, denominator: &str) -> Result<Self, Error> {
+        match Self::terms(numerator, denominator)? {
+            (_, true) => Err(Error::Decode(format!(
+                "not a canonical rational: {numerator}/{denominator} is an f64, which real_value carries"
+            ))),
+            (rational, false) => Ok(rational),
+        }
+    }
+
+    /// The `f64` equal to this Rational, if one holds it exactly.
+    pub fn exact_f64(&self) -> Option<f64> {
+        let digits = self.numerator.strip_prefix('-').unwrap_or(&self.numerator);
+        match (Natural::parse(digits), Natural::parse(&self.denominator)) {
+            (Some(n), Some(d)) if binary64(&n, &d) => Some(self.to_f64()),
+            _ => None,
+        }
+    }
+
+    // The validated terms, and whether an f64 holds them exactly.
+    fn terms(numerator: &str, denominator: &str) -> Result<(Self, bool), Error> {
         let malformed = |why: &str| {
             Error::Decode(format!(
                 "not a canonical rational: {numerator}/{denominator} {why}"
@@ -38,13 +60,14 @@ impl Rational {
         if !Natural::gcd(&n, &d).is_one() {
             return Err(malformed("is not in lowest terms"));
         }
-        if binary64(&n, &d) {
-            return Err(malformed("is an f64, which real_value carries"));
-        }
-        Ok(Self {
-            numerator: numerator.to_owned(),
-            denominator: denominator.to_owned(),
-        })
+        let exact = binary64(&n, &d);
+        Ok((
+            Self {
+                numerator: numerator.to_owned(),
+                denominator: denominator.to_owned(),
+            },
+            exact,
+        ))
     }
 
     /// The numerator's decimal digits, `-` signed.
@@ -325,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn only_a_canonical_rational_no_f64_holds_parses() {
+    fn only_lowest_terms_parse_and_only_one_no_f64_holds_is_canonical() {
         for (n, d) in [
             ("2", "6"),
             ("1", "0"),
@@ -335,14 +358,21 @@ mod tests {
             ("+1", "3"),
             ("1.5", "7"),
             ("", "3"),
-            ("1", "2"),
-            ("3", "1"),
-            ("0", "1"),
-            ("-5", "4"),
-            ("1", "4503599627370496"),
         ] {
             assert!(Rational::parse(n, d).is_err(), "{n}/{d}");
         }
+        for (n, d, x) in [
+            ("1", "2", 0.5),
+            ("3", "1", 3.0),
+            ("0", "1", 0.0),
+            ("-5", "4", -1.25),
+            ("1", "4503599627370496", 1.0 / 4503599627370496.0),
+        ] {
+            assert_eq!(q(n, d).exact_f64(), Some(x), "{n}/{d}");
+            assert!(Rational::parse_canonical(n, d).is_err(), "{n}/{d}");
+        }
+        assert_eq!(q("1", "3").exact_f64(), None);
+        assert!(Rational::parse_canonical("1", "3").is_ok());
         let r = q("-1", "3");
         assert_eq!((r.numerator(), r.denominator()), ("-1", "3"));
         assert_eq!(r.to_string(), "-1/3");

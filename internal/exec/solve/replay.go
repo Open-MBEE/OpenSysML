@@ -423,16 +423,16 @@ func (v replayValue) asReal() float64 {
 	return v.f
 }
 
-// compareNumbers orders two numbers by exact value, a binary64 by the exact
-// value it holds, as the evaluator's mixed comparison does.
+// compareNumbers orders two numbers as the evaluator's comparison does: exact
+// values exactly, a Rational against a binary64 at Real precision.
 func compareNumbers(a, b replayValue) int {
 	switch {
 	case a.isExact() && b.isExact():
 		return semantics.CompareRat(a.i, b.i)
 	case a.isExact():
-		return semantics.CompareExactReal(a.i, b.f)
+		return semantics.CompareReal(a.i, b.f)
 	case b.isExact():
-		return -semantics.CompareExactReal(b.i, a.f)
+		return -semantics.CompareReal(b.i, a.f)
 	case a.f < b.f:
 		return -1
 	case a.f > b.f:

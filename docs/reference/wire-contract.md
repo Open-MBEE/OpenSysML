@@ -205,7 +205,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `intValue` | string | `{"result":{"intValue":"4"}}` | Integer within 64 bits; string because `int64` |
 | `bigIntValue` | string | `{"result":{"bigIntValue":"1180591620717411303424"}}` | Integer beyond 64 bits, in decimal; KerML Integers are unbounded |
 | `realValue` | number | `{"result":{"realValue":1.4142135623730951}}` | Real (IEEE-754 double), or a Rational a double holds exactly |
-| `rationalValue` | object | `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` | Rational no double holds, in lowest terms; KerML Rationals are exact |
+| `rationalValue` | object | `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` | Rational in lowest terms; KerML Rationals are exact. Answered only for one no double holds, accepted for any |
 | `boolValue` | boolean | `{"result":{"boolValue":true}}` | Boolean |
 | `stringValue` | string | `{"result":{"stringValue":"abc"}}` | String |
 | `instanceId` | string | `{"result":{"instanceId":"2"}}` | A reference to a runtime instance, by id |
@@ -350,17 +350,27 @@ to it, document-query bindings included, before the call.
 exactly: `1 / 3` answers `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` and
 `0.1 + 0.2` answers `{"numerator":"3","denominator":"10"}`. `numerator` and `denominator` are
 canonical decimal strings (no `+`, no leading zero), the fraction is in lowest terms and the
-denominator is positive. A Rational a double holds exactly (`0.5`, `2.0 ** 70`) is sent as
-`realValue`, so the two arms never spell the same number; an Integer is never sent here, though a
-whole Rational no double holds is (denominator `1`). A decoder rejects a `rationalValue` that is
-not in lowest terms or that a double holds. The service accepts `rationalValue` on input under the
-same rule, and reads a `realValue` sent to it as a binary64 Real. A value declared `Real` is IEEE 754 binary64 and always
-answers `realValue` (`rover.mass` is `{"realValue":20}`). The arm is negotiated by the
-`rational_values` capability exactly as `big_int_values` negotiates `bigIntValue`: a service
-that does not advertise it sends such a Rational (bare, nested, or as a `rationalMagnitude`) as
-an unsupported `null` naming it, refuses a document query bound to or answering one with
-`UNIMPLEMENTED` naming the capability, and the bundled clients refuse to send one to it before
-the call.
+denominator is positive. The service answers a Rational a double holds exactly (`0.5`,
+`2.0 ** 70`) as `realValue`, so its answers never spell one number two ways; an Integer is never
+answered here, though a whole Rational no double holds is (denominator `1`). A client decoder
+rejects an answered `rationalValue` that is not in lowest terms or that a double holds.
+
+On input the direction of the rule is reversed. The service accepts any `rationalValue` in lowest
+terms, one a double holds included, as that exact Rational: `{"numerator":"1","denominator":"4"}`
+bound to `in x : Rational` evaluates `x + 1/3` to `7/12`. A `realValue` sent to it is always a
+binary64 Real, never a Rational: `0.25` bound to the same parameter evaluates `x + 1/3` to
+`0.5833333333333333`. Evaluation does not depend on which arm carried a value beyond that: once
+read, an exact Rational behaves the same whether it arrived as `rationalValue` or was written in
+the model. So the bundled clients send every exact Rational (`Fraction(1, 4)`, `1//4`,
+`Rational.of(1, 4)`) as `rationalValue` to a service that advertises `rational_values`.
+
+A value declared `Real` is IEEE 754 binary64 and always answers `realValue` (`rover.mass` is
+`{"realValue":20}`). The arm is negotiated by the `rational_values` capability exactly as
+`big_int_values` negotiates `bigIntValue`: a service that does not advertise it sends such a
+Rational (bare, nested, or as a `rationalMagnitude`) as an unsupported `null` naming it, and
+refuses a document query bound to or answering one with `UNIMPLEMENTED` naming the capability.
+To such a service the bundled clients send a Rational a double holds exactly as that `realValue`,
+the only form it reads, and refuse to send any other Rational before the call.
 
 MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs

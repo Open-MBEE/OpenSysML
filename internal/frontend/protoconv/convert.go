@@ -361,12 +361,12 @@ func RationalToProto(v semantics.Value) *pb.Rational {
 	return &pb.Rational{Numerator: v.RatNumer().FormatInt(), Denominator: v.RatDenom().FormatInt()}
 }
 
-// ProtoToRational reads a Rational, refusing one not in lowest terms or one a
-// double holds exactly, which crosses as real_value.
+// ProtoToRational reads a Rational in lowest terms over a positive denominator,
+// one a double holds exactly included: a client sends every exact Rational so.
 func ProtoToRational(pr *pb.Rational) (semantics.Value, error) {
-	v, ok := semantics.CanonicalRational(pr.GetNumerator(), pr.GetDenominator())
+	v, ok := semantics.LowestTermsRational(pr.GetNumerator(), pr.GetDenominator())
 	if !ok {
-		return semantics.Value{}, fmt.Errorf("%w: %q/%q", ErrRationalNotCanonical, pr.GetNumerator(), pr.GetDenominator())
+		return semantics.Value{}, fmt.Errorf("%w: %q/%q", ErrRationalNotLowestTerms, pr.GetNumerator(), pr.GetDenominator())
 	}
 	return v, nil
 }
@@ -443,9 +443,9 @@ var (
 	// that is not an optionally signed run of decimal digits.
 	ErrBigIntegerNotDecimal = errors.New("big Integer is not decimal")
 
-	// ErrRationalNotCanonical reports a rational_value or rational_magnitude
-	// that is not in lowest terms, or that a double holds exactly.
-	ErrRationalNotCanonical = errors.New("rational is not canonical: not in lowest terms, or exactly a double")
+	// ErrRationalNotLowestTerms reports a rational_value or rational_magnitude
+	// that is not in lowest terms over a positive denominator.
+	ErrRationalNotLowestTerms = errors.New("rational is not in lowest terms over a positive denominator")
 
 	// ErrVectorQuantityEmpty reports a vector quantity of no components, whose
 	// num is Number[1..*].
@@ -649,6 +649,64 @@ func DocumentValueHoldsRational(dv *pb.DocumentValue) bool {
 		return DocumentValueHoldsRational(k.Event.GetTime())
 	}
 	return false
+}
+
+// RationalsAsReals rewrites in place each rational arm of pv, nested ones
+// included, that a double holds exactly as that double: the form a service
+// without rational_values reads. A Rational no double holds is left as it is.
+func RationalsAsReals(pv *pb.Value) {
+	switch k := pv.GetKind().(type) {
+	case *pb.Value_RationalValue:
+		if f, ok := binaryRational(k.RationalValue); ok {
+			pv.Kind = &pb.Value_RealValue{RealValue: f}
+		}
+	case *pb.Value_Quantity:
+		quantityRationalAsReal(k.Quantity)
+	case *pb.Value_VectorQuantity:
+		for _, q := range k.VectorQuantity.GetComponents() {
+			quantityRationalAsReal(q)
+		}
+	case *pb.Value_TensorQuantity:
+		for _, q := range k.TensorQuantity.GetComponents() {
+			quantityRationalAsReal(q)
+		}
+	case *pb.Value_EnumLiteral:
+		RationalsAsReals(k.EnumLiteral.GetValue())
+	}
+	for _, nested := range NestedValues(pv) {
+		RationalsAsReals(nested)
+	}
+}
+
+// DocumentRationalAsReal is RationalsAsReals for a document value.
+func DocumentRationalAsReal(dv *pb.DocumentValue) {
+	switch k := dv.GetKind().(type) {
+	case *pb.DocumentValue_RationalValue:
+		if f, ok := binaryRational(k.RationalValue); ok {
+			dv.Kind = &pb.DocumentValue_RealValue{RealValue: f}
+		}
+	case *pb.DocumentValue_Quantity:
+		quantityRationalAsReal(k.Quantity)
+	case *pb.DocumentValue_Event:
+		DocumentRationalAsReal(k.Event.GetTime())
+	}
+}
+
+func quantityRationalAsReal(q *pb.Quantity) {
+	if m, ok := q.GetMagnitude().(*pb.Quantity_RationalMagnitude); ok {
+		if f, ok := binaryRational(m.RationalMagnitude); ok {
+			q.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: f}
+		}
+	}
+}
+
+// binaryRational is the double a lowest-terms Rational is exactly, if any.
+func binaryRational(pr *pb.Rational) (float64, bool) {
+	v, ok := semantics.LowestTermsRational(pr.GetNumerator(), pr.GetDenominator())
+	if !ok {
+		return 0, false
+	}
+	return v.BinaryExact()
 }
 
 func isRationalValue(pv *pb.Value) bool {

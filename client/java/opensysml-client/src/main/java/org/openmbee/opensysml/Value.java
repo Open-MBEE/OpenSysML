@@ -46,24 +46,20 @@ public sealed interface Value {
   record RealValue(double value) implements Value {}
 
   /**
-   * An exact {@code Rational} no {@code double} holds, such as {@code 1/3}: one a {@code double}
-   * holds exactly is always a {@link RealValue}, never this, so two numbers are the same value
-   * exactly when their arms and values are.
+   * An exact {@code Rational}, such as {@code 1/3}. A service answers one a {@code double} holds
+   * exactly as a {@link RealValue}; one sent as this stays a Rational to a service advertising
+   * {@code rational_values}.
    *
-   * @param value the rational, not a {@code double}
+   * @param value the rational
    */
   record RationalValue(Rational value) implements Value {
     /**
      * Creates an exact rational value.
      *
      * @param value the rational, never {@code null}
-     * @throws IllegalArgumentException if a {@code double} holds the rational exactly
      */
     public RationalValue {
       Objects.requireNonNull(value, "value");
-      if (value.isBinary64()) {
-        throw new IllegalArgumentException(value + " is a double, which RealValue carries");
-      }
     }
   }
 
@@ -826,8 +822,10 @@ public sealed interface Value {
   }
 
   private static boolean magnitudesEqual(Number a, Number b) {
+    a = a instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : a;
+    b = b instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : b;
     if (a instanceof Rational || b instanceof Rational) {
-      // A rational is never whole and never a double, so it equals only the same rational.
+      // A rational no double holds is never whole, so it equals only the same rational.
       return a.equals(b);
     }
     if (a instanceof BigInteger x) {

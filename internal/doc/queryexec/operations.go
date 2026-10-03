@@ -1032,11 +1032,11 @@ func compareNumeric(left, right Value) int {
 	}
 	if exactKind(left.Kind()) && right.Kind() == ValueReal {
 		r, _ := right.Real()
-		return semantics.CompareExactReal(exactOperand(left), r)
+		return semantics.CompareReal(exactOperand(left), r)
 	}
 	if left.Kind() == ValueReal && exactKind(right.Kind()) {
 		l, _ := left.Real()
-		return -semantics.CompareExactReal(exactOperand(right), l)
+		return -semantics.CompareReal(exactOperand(right), l)
 	}
 	switch left.Kind() {
 	case ValueReal:

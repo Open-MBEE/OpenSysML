@@ -72,8 +72,46 @@ class RationalProtosTest {
     assertEquals(
         new Value.RationalValue(Rational.of(BigInteger.TEN.pow(400), BigInteger.ONE)),
         Protos.value(whole).orElseThrow());
-    assertThrows(
-        IllegalArgumentException.class, () -> new Value.RationalValue(Rational.of(1, 2)));
+    Value half = new Value.RationalValue(Rational.of(1, 2));
+    assertEquals(wire("1", "2"), Protos.proto(half).getRationalValue());
+    assertTrue(half.sameValue(new Value.RealValue(0.5)));
+    assertTrue(new Value.RationalValue(Rational.of(3, 1)).sameValue(new Value.IntegerValue(3)));
+  }
+
+  @Test
+  void aRationalADoubleHoldsIsThatDoubleOnlyForAServiceWithoutRationalValues() {
+    var quarter = Protos.proto(new Value.RationalValue(Rational.of(1, 4)));
+    assertEquals(0.25, Protos.rationalsAsReals(quarter).getRealValue());
+    var third = Protos.proto(new Value.RationalValue(Rational.of(1, 3)));
+    assertEquals(third, Protos.rationalsAsReals(third));
+    var nested =
+        Protos.proto(
+            new Value.Sequence(
+                List.of(
+                    new Value.RationalValue(Rational.of(1, 4)),
+                    new Value.QuantityValue(
+                        new Quantity(
+                            Rational.of(1, 2),
+                            java.util.Optional.empty(),
+                            java.util.Optional.empty())))));
+    var rewritten = Protos.rationalsAsReals(nested).getSequence();
+    assertEquals(0.25, rewritten.getElements(0).getRealValue());
+    assertEquals(0.5, rewritten.getElements(1).getQuantity().getRealMagnitude());
+    var binding =
+        DocumentQueryBinding.newBuilder()
+            .setParameter("x")
+            .addValues(Protos.proto(new DocumentValue.RationalValue(Rational.of(1, 2))))
+            .addValues(Protos.proto(new DocumentValue.RationalValue(Rational.of(1, 3))))
+            .build();
+    assertTrue(Protos.holdsRational(binding));
+    var older = Protos.rationalsAsReals(binding);
+    assertEquals(0.5, older.getValues(0).getRealValue());
+    assertEquals(wire("1", "3"), older.getValues(1).getRationalValue());
+    assertEquals(
+        0.25,
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setRealValue(0.25).build())
+            .orElseThrow()
+            .asDouble());
   }
 
   @Test
@@ -133,9 +171,14 @@ class RationalProtosTest {
             .build();
     assertTrue(
         new Value.QuantityValue(third).sameValue(new Value.QuantityValue(Protos.quantity(metres))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new Quantity(Rational.of(1, 2), java.util.Optional.empty(), java.util.Optional.empty()));
+    assertEquals(
+        wire("1", "2"),
+        Protos.proto(
+                new Value.QuantityValue(
+                    new Quantity(
+                        Rational.of(1, 2), java.util.Optional.empty(), java.util.Optional.empty())))
+            .getQuantity()
+            .getRationalMagnitude());
 
     var vector =
         org.openmbee.opensysml.proto.Value.newBuilder()

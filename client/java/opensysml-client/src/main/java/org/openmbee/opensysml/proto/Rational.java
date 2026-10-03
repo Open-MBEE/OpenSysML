@@ -8,8 +8,8 @@ package org.openmbee.opensysml.proto;
 /**
  * <pre>
  * Rational is an exact rational number in lowest terms: numerator over a
- * positive denominator, each written as big_int_value is. A decoder rejects one
- * not in lowest terms or one a double holds exactly, so no number has two spellings.
+ * positive denominator, each written as big_int_value is. The server rejects one
+ * not in lowest terms; a client also rejects an answered one a double holds exactly.
  * </pre>
  *
  * Protobuf type {@code sysml.Rational}
@@ -298,8 +298,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Rational is an exact rational number in lowest terms: numerator over a
-   * positive denominator, each written as big_int_value is. A decoder rejects one
-   * not in lowest terms or one a double holds exactly, so no number has two spellings.
+   * positive denominator, each written as big_int_value is. The server rejects one
+   * not in lowest terms; a client also rejects an answered one a double holds exactly.
    * </pre>
    *
    * Protobuf type {@code sysml.Rational}

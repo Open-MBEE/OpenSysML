@@ -4409,8 +4409,9 @@ export type Value = Message<"sysml.Value"> & {
     case: "bigIntValue";
   } | {
     /**
-     * An exact Rational (KerML 9.3.2.2.8) no double holds exactly, as `0.1`
-     * or `1 / 3` evaluates; one a double holds exactly crosses as real_value.
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
      *
      * @generated from field: sysml.Rational rational_value = 23;
      */
@@ -4428,8 +4429,8 @@ export const ValueSchema: GenMessage<Value> = /*@__PURE__*/
 
 /**
  * Rational is an exact rational number in lowest terms: numerator over a
- * positive denominator, each written as big_int_value is. A decoder rejects one
- * not in lowest terms or one a double holds exactly, so no number has two spellings.
+ * positive denominator, each written as big_int_value is. The server rejects one
+ * not in lowest terms; a client also rejects an answered one a double holds exactly.
  *
  * @generated from message sysml.Rational
  */
@@ -4816,7 +4817,7 @@ export type Quantity = Message<"sysml.Quantity"> & {
     case: "bigIntMagnitude";
   } | {
     /**
-     * An exact Rational magnitude no double holds exactly, as Value.rational_value.
+     * An exact Rational magnitude, as Value.rational_value.
      *
      * @generated from field: sysml.Rational rational_magnitude = 6;
      */
@@ -5875,7 +5876,7 @@ export type DocumentValue = Message<"sysml.DocumentValue"> & {
     case: "bigIntValue";
   } | {
     /**
-     * An exact Rational no double holds exactly, as Value.rational_value.
+     * An exact Rational, as Value.rational_value.
      *
      * @generated from field: sysml.Rational rational_value = 14;
      */
