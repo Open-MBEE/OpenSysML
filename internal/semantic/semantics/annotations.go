@@ -1596,17 +1596,6 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	if !m.isReflectiveFeature(sym) {
 		return symbols.FilterValue{}, false
 	}
-	if sym.Recorded() && !m.isKerMLDoc(sym) && m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
-		switch feature {
-		case "isVariable":
-			// Records omit the Usage::portion prefix, so mayTimeVary is not decidable without the AST.
-			return symbols.FilterValue{}, false
-		case "isConstant":
-			if sym.Facts.Modifiers.Has(symbols.ModEnd) && !sym.Facts.Modifiers.Has(symbols.ModConstant) {
-				return symbols.FilterValue{}, false
-			}
-		}
-	}
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
@@ -1647,9 +1636,6 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		mods := sym.Facts.Modifiers
 		flags.isEnd = mods.Has(symbols.ModEnd)
 		flags.isPortion = mods.Has(symbols.ModPortion)
-		flags.isConstant = mods.Has(symbols.ModConstant)
-		flags.isVariable = mods.Has(symbols.ModVariable) ||
-			(m.isKerMLDoc(sym) && flags.isConstant)
 		flags.isDerived = mods.Has(symbols.ModDerived)
 		flags.isAbstract = sym.Facts.Abstract
 		flags.isOrdered = mods.Has(symbols.ModOrdered)
@@ -1660,16 +1646,10 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isComposite = mods.Has(symbols.ModComposite)
 		}
 	} else {
-		flags.isVariable = m.FeatureIsVariable(sym)
 		switch d := sym.Decl.(type) {
 		case *ast.Usage:
 			flags.isEnd = d.IsEnd
 			flags.isPortion = d.IsPortion || d.Portion != ast.PortionNone
-			flags.isConstant = d.IsConstant
-			if !m.isKerMLDoc(sym) && d.IsEnd && m.FeatureIsVariable(sym) {
-				// Mirror the pilot's implicit constant ends.
-				flags.isConstant = true
-			}
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
 			flags.isOrdered = d.IsOrdered
@@ -1682,7 +1662,6 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		case *ast.CrossFeatureMember:
 			flags.isEnd = true
 			flags.isPortion = d.IsPortion
-			flags.isConstant = d.IsConstant
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
 			flags.isOrdered = d.IsOrdered
@@ -1696,6 +1675,9 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			}
 		}
 	}
+
+	flags.isVariable = m.FeatureIsVariable(sym)
+	flags.isConstant = m.FeatureIsConstant(sym)
 
 	owner := sym.Owner()
 	// The census records pilot silence for attribute-composite members
