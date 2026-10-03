@@ -1025,16 +1025,7 @@ def _ensure_binary_locked(force_download, versions, github_repo, binary_path, im
         try:
             return download_binary(version=candidate, github_repo=github_repo)
         except UnpinnedReleaseError as e:
-            # A release this opensysml pins nothing for contradicts nothing, so a
-            # working cache stands.
-            if cached is None:
-                raise
-            warnings.warn(
-                f"Keeping the cached sysml-grpc at {cached}: {candidate} was not "
-                f"downloaded ({e}). It may be an older release than asked for.",
-                stacklevel=3,
-            )
-            return cached
+            unavailable.append((candidate, e))
         except ChecksumMismatchError:
             # A download that may have been tampered with is never answered from
             # the cache or replaced by another candidate.

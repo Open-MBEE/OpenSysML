@@ -870,6 +870,24 @@ def test_implicit_release_retries_the_second_candidate_after_a_404(cache, monkey
     assert cached_release() == candidates[1]
 
 
+def test_implicit_release_retries_after_an_unpinned_candidate(cache, monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.0rc1')
+    candidates = built_against_releases()
+    content = b'pinned pre-release binary'
+
+    def install(version, github_repo=None):
+        if version == candidates[0]:
+            raise UnpinnedReleaseError('no trusted digest')
+        assert version == candidates[1]
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        ensure_binary()
+
+    assert [call.kwargs['version'] for call in download.call_args_list] == list(candidates)
+    assert cached_release() == candidates[1]
+
+
 def test_implicit_checksum_mismatch_does_not_try_the_second_candidate(
     cache, monkeypatch
 ):
