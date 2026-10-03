@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::copy",
+	"trace": true,
+	"outputs": {
+		"produce.y": {"type": "Real", "value": 3.0},
+		"left.v": {"type": "Real", "value": 3.0},
+		"right.v": {"type": "Real", "value": 3.0}
+	}
+}

@@ -1,9 +1,10 @@
 {
 	"type": "action",
+	"libraries": true,
 	"outputs": {
 		"total": {
-			"type": "Rational",
-			"value": "6.5"
+			"type": "Real",
+			"value": 6.5
 		}
 	}
 }

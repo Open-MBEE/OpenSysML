@@ -107,9 +107,11 @@ package Demo {
 
 The service clients share the cache `~/.opensysml/bin/sysml-grpc` and can use a binary on `$PATH`;
 Python and Java download and verify the release they were built against when no release is
-configured. Rust tries its built-against release but, without a pinned digest, falls back to a
-working cache or `$PATH` with a warning, or errors if neither is available. An explicit path comes
-first, from a variable that differs by client: `$OPENSYSML_BINARY` for Python and Node,
+configured. A Rust crate published from a release tag does too: its release's digests are stamped
+from the checksum manifest when published. A checkout build or a request for another release still
+needs a pin or `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`; Rust does not verify the manifest's Sigstore
+signature itself. An explicit path comes first, from a variable that differs by client:
+`$OPENSYSML_BINARY` for Python and Node,
 `$OPENSYSML_GRPC_BINARY` for Java and Rust. [Getting the service binary](#getting-the-service-binary)
 gives the five ways to provide one. The Go API needs none: it is the engine.
 
@@ -1588,6 +1590,13 @@ usual consumer talks to a local child that answers in milliseconds, so a private
 inside a library would cost every consumer something for little gain. Calling it from inside a
 runtime is fine, and a test pins that. It is on crates.io as `opensysml`, published with each core release; take it from a path or from
 git for a checkout. The minimum supported Rust version is 1.83.
+
+A crate published from a release tag carries that release's service digests,
+stamped from the release checksum manifest at publish time, so its
+built-against default can verify. A crate built from a Git checkout, or asked
+for another release, still needs a matching pin or
+`$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. Rust does not verify the manifest's
+Sigstore signature itself.
 
 `load`/`loads` connect and parse in one call; `Connection::private()`, `Connection::external(host,
 port)` and `Connection::connect()` (which honours `$OPENSYSML_SERVICE`) are the explicit forms.

@@ -1,0 +1,15 @@
+step 1: token 1@p
+stmt assign y
+  eval literal 2 -> 2
+step 2: token 1@m
+eval feature inputObject1 -> 2
+step 3: token 1@keep
+stmt if
+    eval feature v -> 2
+    eval literal 2 -> 2
+  eval operator == -> true
+  stmt assign twos
+      eval feature twos -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+step 4: no active tokens

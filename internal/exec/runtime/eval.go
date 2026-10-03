@@ -2147,7 +2147,8 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
 // equal magnitude, nor an enumeration's literal to the bare scalar it equals or
-// to another enumeration's literal of that value.
+// to another enumeration's literal of that value. Two sequences are identical
+// element by element.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
@@ -2158,7 +2159,29 @@ func valueIdentical(left, right Value) bool {
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {
 		return false
 	}
+	if left.Kind == ValSequence {
+		return sequenceIdentical(left.Sequence(), right.Sequence())
+	}
 	return valueEqual(left, right)
+}
+
+// sequenceIdentical is `===` extended to sequences as SequenceFunctions::same
+// is: the same size and each element identical to its counterpart.
+func sequenceIdentical(a, b *Sequence) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Size() != b.Size() {
+		return false
+	}
+	for i := 0; i < a.Size(); i++ {
+		x, _ := a.At(i)
+		y, _ := b.At(i)
+		if !valueIdentical(x, y) {
+			return false
+		}
+	}
+	return true
 }
 
 // evalArithmetic evaluates arithmetic operators (+, -, *, /, %, **).

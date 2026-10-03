@@ -855,3 +855,28 @@ func containmentEdges(node *Node) int {
 	}
 	return n
 }
+
+// A guarded succession leading to a succession flow is drawn as the succession it
+// orders, labeled with its guard and located at its own declaration, beside the flow.
+func TestActionRenderingDrawsTheSuccessionGatingAFlow(t *testing.T) {
+	rendering := render(t, "gated-flow.sysml", "GatedViews::passView")
+	sf := fixtureText(t, "gated-flow.sysml")
+	var gated, flows int
+	for _, edge := range rendering.Data().Edges {
+		switch edge.Kind {
+		case EdgeSuccession:
+			if edge.Label != "[go]" {
+				continue
+			}
+			gated++
+			if text := sf.Text(edge.Origin.Span); !strings.HasPrefix(text, "first producer if go then f") {
+				t.Errorf("the gated succession is located at %q, want its own declaration", text)
+			}
+		case EdgeFlow:
+			flows++
+		}
+	}
+	if gated != 1 || flows != 1 {
+		t.Errorf("edges: %d gated successions, %d flows; want one of each:\n%s", gated, flows, rendering.Text())
+	}
+}

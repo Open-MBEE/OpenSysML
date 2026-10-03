@@ -387,6 +387,12 @@ static sysml_bool sysml_same_num(sysml_seq_num a, sysml_seq_num b) {
 	return true;
 }
 
+/* '===' of two collections of numbers: '==' with each element '===' its counterpart. */
+static sysml_bool sysml_ident_num(sysml_seq_num a, sysml_seq_num b) {
+	if (a.len == 0 || b.len == 0) return a.len == 0 && b.len == 0;
+	return a.shape == b.shape && sysml_same_num(a, b);
+}
+
 static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const char *type) {
 	for (sysml_int i = 0; i < s.len; i++) sysml_at_least(s.data[i], lo, type);
 	return s;
@@ -612,6 +618,9 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 	case SeqEq:
 		return e.sequenced([]Expr{x.L, x.R}, func(v []string) string {
 			eq := fmt.Sprintf("sysml_eq_%s(%s, %s)", cSeqSuffix(x.L.Type()), v[0], v[1])
+			if x.Ident && x.L.Type().Elem() == TypeNum {
+				eq = fmt.Sprintf("sysml_ident_num(%s, %s)", v[0], v[1])
+			}
 			if x.Neq {
 				return "(!" + eq + ")"
 			}
