@@ -59,7 +59,7 @@ func (g *StateGraph) lowerFootprints() {
 // behaviorFootprint is what running the behavior's statements touches, and the
 // activity of the state it belongs to, which stopping it writes.
 func behaviorFootprint(graph *StateGraph, behavior StateBehavior) Footprint {
-	b := &footprintBuilder{}
+	b := &footprintBuilder{resolver: graph.resolver}
 	b.statements(behavior.Body)
 	if behavior.Owner != nil {
 		b.read(graph.activity(behavior.Owner))
@@ -80,7 +80,7 @@ func transitionFootprint(graph *StateGraph, trans *Transition) Footprint {
 // transitionBuilder projects a transition out of a state, without the do
 // behaviors of the states it enters when withoutDo is set.
 func transitionBuilder(graph *StateGraph, trans *Transition, withoutDo bool) *stateFootprintBuilder {
-	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool), withoutDo: withoutDo}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool), withoutDo: withoutDo}
 	source := trans.Source.(*ast.StateNode)
 	b.read(graph.activity(source))
 	b.trigger(trans)

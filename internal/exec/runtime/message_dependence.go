@@ -24,14 +24,78 @@ func (ctx *Context) channelsMeet(a, b *Instance) lower.ChannelsMeet {
 	return func(x lower.Channel, xSends bool, y lower.Channel, ySends bool) bool {
 		switch {
 		case xSends && ySends:
-			return true
+			return !(x.Own && y.Own && objectsApart(a, b))
 		case xSends:
-			return ctx.sendMeets(x, y)
+			return ctx.sendMeets(x, a, y, b)
 		case ySends:
-			return ctx.sendMeets(y, x)
+			return ctx.sendMeets(y, b, x, a)
 		}
 		return ctx.consumersMeet(x, a, y, b)
 	}
+}
+
+// relation is what is known of executors a and b, which two moves belong to:
+// whether they are two, run for two objects, and which message operations meet.
+func (ctx *Context) relation(a, b clockWaiter) lower.Relation {
+	sa, sb := executorSelf(a), executorSelf(b)
+	rel := lower.Relation{Channels: ctx.channelsMeet(sa, sb), Apart: a != b}
+	if rel.Apart && objectsApart(sa, sb) {
+		rel.Objects = true
+		rel.Held = func(p, q lower.Place) bool {
+			x, y := ctx.slotHolder(a, p.Sym), ctx.slotHolder(b, q.Sym)
+			return x != nil && y != nil && x != y
+		}
+	}
+	return rel
+}
+
+// objectsApart reports whether a and b are two objects.
+func objectsApart(a, b *Instance) bool {
+	return objectID(a) != 0 && objectID(b) != 0 && objectID(a) != objectID(b)
+}
+
+// ownsFeature reports whether sym is a feature of the object's own, so a name written
+// alone and resolving to it, in a behavior the object runs, names the object's slot.
+func (ctx *Context) ownsFeature(inst *Instance, sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	for _, of := range ctx.FeaturesOfObject(inst) {
+		if of.Feature.Symbol == sym {
+			return true
+		}
+	}
+	return false
+}
+
+// slotHolder is what holds the value a name resolving to sym names in a move of
+// w's: the machine's own data or performance for its attribute, the object w runs
+// for for that object's feature; nil when neither is known.
+func (ctx *Context) slotHolder(w clockWaiter, sym *symbols.Symbol) any {
+	if sym == nil {
+		return nil
+	}
+	if e, ok := w.(*StateExecutor); ok {
+		for _, attr := range e.graph.Attributes {
+			if attr.Node == sym.Decl {
+				if e.occurrence != nil {
+					return e.occurrence.ID
+				}
+				return e
+			}
+		}
+		for _, attrs := range e.graph.StateAttributes {
+			for _, attr := range attrs {
+				if attr.Node == sym.Decl {
+					return e
+				}
+			}
+		}
+	}
+	if self := executorSelf(w); ctx.ownsFeature(self, sym) {
+		return self.ID
+	}
+	return nil
 }
 
 // executorSelf is the object an executor runs for, nil for none.
@@ -45,9 +109,13 @@ func executorSelf(w clockWaiter) *Instance {
 	return nil
 }
 
-// sendMeets reports whether a send may give or take a message the consumer
-// would see: a dispatch may drop a message sent to its object, never one a port carries.
-func (ctx *Context) sendMeets(send, consumer lower.Channel) bool {
+// sendMeets reports whether a send by an executor run for from may give or take
+// a message a consumer run for at would see: a message for the sending object
+// reaches no other's, and a dispatch may drop one sent to its object, never one a port carries.
+func (ctx *Context) sendMeets(send lower.Channel, from *Instance, consumer lower.Channel, at *Instance) bool {
+	if send.Own && objectsApart(from, at) {
+		return false
+	}
 	if consumer.Drops {
 		return !send.Via
 	}

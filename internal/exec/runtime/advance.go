@@ -236,19 +236,57 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 // contended reports whether a move w may make next depends on a move another
 // executor may make before it at this instant, under a policy interleaving turns.
 func (ctx *Context) contended(w clockWaiter) bool {
+	if !ctx.gateFutures() {
+		return false
+	}
+	next := nextFootprint(w)
+	for _, other := range ctx.rivals(w) {
+		if next.DependentBy(ctx.futures.executorFuture(other), ctx.relation(w, other)) {
+			return true
+		}
+	}
+	return false
+}
+
+// gateFutures readies the futures of this instant's executors under a policy
+// interleaving turns, reporting whether one does.
+func (ctx *Context) gateFutures() bool {
 	if sched := ctx.scheduling(); !sched.interleavesTurns() && !sched.checking() {
 		return false
 	}
 	if ctx.futures == nil {
 		ctx.futures = newFutureFootprints(ctx)
 	}
-	next := nextFootprint(w)
-	for _, other := range ctx.rivals(w) {
-		if next.DependentBy(ctx.futures.executorFuture(other), ctx.channelsMeet(executorSelf(w), executorSelf(other))) {
-			return true
-		}
+	ctx.futures.gate()
+	return true
+}
+
+// endContended reports whether the driver's next move may end its run while
+// another executor may still move at this instant: an end observes every place.
+func (ctx *Context) endContended(driver clockWaiter) bool {
+	return mayEnd(driver) && ctx.gateFutures() && len(ctx.rivals(driver)) > 0
+}
+
+// mayEnd reports whether the executor's next move may end its performance: a
+// token of an action that may, or a machine that can complete or terminate.
+func mayEnd(w clockWaiter) bool {
+	switch exec := w.(type) {
+	case *ActionExecutor:
+		return exec.dynamics != nil || slices.ContainsFunc(exec.tokens, func(t Token) bool { return tokenMayEnd(exec, t) })
+	case *StateExecutor:
+		return len(exec.graph.TopRegions) > 0 || len(exec.graph.Terminates) > 0 || slices.ContainsFunc(exec.graph.States, exec.graph.Completes)
 	}
-	return false
+	return true
+}
+
+// tokenMayEnd reports whether the token's next move may end the performance: a
+// move out of a nested frame, past no unguarded succession, or reaching beyond its node.
+func tokenMayEnd(exec *ActionExecutor, t Token) bool {
+	if t.frame != nil && t.frame != exec.root || standing(exec, t).Dynamic {
+		return true
+	}
+	edges := tokenGraphOf(exec, t).Edges[t.Location]
+	return len(edges) == 0 || slices.ContainsFunc(edges, func(e lower.ActionEdge) bool { return e.Guard != nil })
 }
 
 // rivals are the executors other than w that may move at this instant before w's
@@ -280,7 +318,7 @@ func (ctx *Context) rivals(w clockWaiter) []clockWaiter {
 func (ctx *Context) wokenBy(idle clockWaiter, rivals []clockWaiter) bool {
 	future := ctx.futures.executorFuture(idle)
 	for _, rival := range rivals {
-		if ctx.futures.executorFuture(rival).DependentBy(future, ctx.channelsMeet(executorSelf(rival), executorSelf(idle))) {
+		if ctx.futures.executorFuture(rival).DependentBy(future, ctx.relation(rival, idle)) {
 			return true
 		}
 	}
@@ -321,7 +359,7 @@ func (ctx *Context) runTurn(w clockWaiter, progress *dueProgress) (bool, error) 
 // yieldTurn draws the due order again before a driver's move contended by another
 // executor, running the executors the draw falls on before the driver goes on.
 func (ctx *Context) yieldTurn(driver clockWaiter, progress *dueProgress) error {
-	if ctx.body != nil || !ctx.contended(driver) {
+	if ctx.body != nil || !ctx.contended(driver) && !ctx.endContended(driver) {
 		return nil
 	}
 	for _, w := range ctx.clock.waiters {

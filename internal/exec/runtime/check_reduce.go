@@ -109,15 +109,23 @@ func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
 	return lower.Channel{}, false
 }
 
-// doStepFootprint is what one step of the state's do behavior runs: the rest of
-// the behavior paused mid-way, covered by that behavior's, or the next one pending.
+// doStepFootprint is what one step of the state's do behavior runs: a move of a
+// token of the flow it runs, else the rest of the behavior paused mid-way, covered
+// by that behavior's, or the next one pending.
 func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
 	for _, act := range e.doActions {
 		if act.state != state {
 			continue
 		}
-		if act.run != nil {
-			return e.graph.BehaviorFootprints()[act.run.host.behavior.Node]
+		if run := act.run; run != nil {
+			if flow := runningFlow(run); flow != nil {
+				fp := lower.Footprint{Reads: []lower.Place{{Name: run.host.behavior.Owner.Name, State: run.host.behavior.Owner}}}
+				for _, t := range flow.tokens {
+					fp = unionFootprints(fp, standing(flow, t))
+				}
+				return fp
+			}
+			return e.graph.BehaviorFootprints()[run.host.behavior.Node]
 		}
 		if len(act.pending) == 0 {
 			return lower.Footprint{}
@@ -136,18 +144,20 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 		Control:    append(slices.Clone(f.Control), g.Control...),
 		Completion: f.Completion || g.Completion,
 		Dynamic:    f.Dynamic || g.Dynamic,
+		Creates:    f.Creates || g.Creates,
+		Routes:     f.Routes || g.Routes,
 	}
 }
 
 // dependent reports whether the two moves may not commute: the moves of one
 // unit never do, and otherwise their footprints decide.
 func (c *checker) dependent(a, b searchMove) bool {
-	return a.unit() == b.unit() || a.footprint.DependentBy(b.footprint, c.meet(a.Owner, b.Owner))
+	return a.unit() == b.unit() || a.footprint.DependentBy(b.footprint, c.relation(a.Owner, b.Owner))
 }
 
-// meet is which message operations of the two executors may not commute.
-func (c *checker) meet(a, b clockWaiter) lower.ChannelsMeet {
-	return c.ctx.channelsMeet(executorSelf(a), executorSelf(b))
+// relation is what is known of the two executors moves belong to.
+func (c *checker) relation(a, b clockWaiter) lower.Relation {
+	return c.ctx.relation(a, b)
 }
 
 // persistent selects the moves to explore from a state, less the moves asleep;
@@ -241,19 +251,16 @@ func newPersistentClosure(c *checker, all []searchMove) *persistentClosure {
 	return p
 }
 
-// include adds a unit: its moves when it has some, else the units whose
-// future may let it go on.
+// include adds a unit: its moves, and the units whose future may let it go on
+// or meet any move it may make next, enabled or not.
 func (p *persistentClosure) include(u tokenKey) {
 	if p.in[u] {
 		return
 	}
 	p.in[u] = true
-	if slices.ContainsFunc(p.all, func(m searchMove) bool { return m.unit() == u }) {
-		return
-	}
 	standing := p.standing[u]
 	for _, other := range p.units {
-		if !p.in[other] && p.future[other].DependentBy(standing, p.c.meet(other.owner, u.owner)) {
+		if !p.in[other] && p.future[other].DependentBy(standing, p.c.relation(other.owner, u.owner)) {
 			p.include(other)
 		}
 	}
@@ -264,7 +271,7 @@ func (p *persistentClosure) include(u tokenKey) {
 func (p *persistentClosure) futureDependsOnSet(u tokenKey) bool {
 	future := p.future[u]
 	for _, m := range p.all {
-		if p.in[m.unit()] && future.DependentBy(m.footprint, p.c.meet(u.owner, m.Owner)) {
+		if p.in[m.unit()] && future.DependentBy(m.footprint, p.c.relation(u.owner, m.Owner)) {
 			return true
 		}
 	}
@@ -289,4 +296,15 @@ func (c *checker) childSleep(f *checkFrame, m searchMove) []searchMove {
 		}
 	}
 	return sleep
+}
+
+// runningFlow is the flow a do run steps a token of at a time: that of a behavior
+// whose body states one, under way with a token and not held at a wait; nil otherwise.
+func runningFlow(run *doRun) *ActionExecutor {
+	behavior := run.host.behavior
+	graph, flow := statedFlow(behavior), run.host.flow
+	if graph == nil || flow == nil || flow.graph != graph || run.body.paused.wait.held != nil || len(flow.tokens) == 0 || behavior.Owner == nil {
+		return nil
+	}
+	return flow
 }

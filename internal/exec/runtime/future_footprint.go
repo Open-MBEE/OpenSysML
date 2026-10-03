@@ -16,12 +16,23 @@ type futureKey struct {
 // futureFootprints memoizes what executors may still touch at the clock's instant:
 // a token's by its node in its flow, a delay by whether it ends the instant; both
 // are dropped once the clock moves. A machine's whole graph is kept by graph.
+// Once gated, senders are the sends any executor may make at this instant, and
+// anySender marks an executor that may send anything.
 type futureFootprints struct {
-	ctx      *Context
-	now      float64
-	nodes    map[futureKey]lower.Footprint
-	ends     map[*ast.TimeEvent]bool
-	machines map[*lower.StateGraph]lower.Footprint
+	ctx       *Context
+	now       float64
+	nodes     map[futureKey]lower.Footprint
+	ends      map[*ast.TimeEvent]bool
+	machines  map[*lower.StateGraph]lower.Footprint
+	gated     bool
+	senders   []futureSend
+	anySender bool
+}
+
+// futureSend is a send an executor run for from may make at this instant.
+type futureSend struct {
+	channel lower.Channel
+	from    *Instance
 }
 
 // newFutureFootprints reads the clock of ctx, which bind replaces.
@@ -61,6 +72,53 @@ func (f *futureFootprints) endsInstant(trigger ast.Node, scope *symbols.Scope) b
 	}
 	f.ends[t] = ends
 	return ends
+}
+
+// gate gathers what every executor may send at this instant, from its future
+// with every message-triggered transition open, so a machine's future leaves out
+// a transition no message queued or sendable at this instant can fire.
+func (f *futureFootprints) gate() {
+	f.at()
+	f.gated, f.senders, f.anySender = false, f.senders[:0], len(f.ctx.pendingBehaviors) > 0
+	for _, w := range f.ctx.clock.waiters {
+		if f.anySender {
+			break
+		}
+		if w.finished() {
+			continue
+		}
+		future := f.executorFuture(w)
+		f.anySender = future.Dynamic
+		for _, c := range future.Sends {
+			f.senders = append(f.senders, futureSend{channel: c, from: executorSelf(w)})
+		}
+	}
+	f.gated = true
+}
+
+// cannotFire reports whether no message the transition's accept takes is queued
+// or may be sent at this instant, once gated: its trigger cannot occur before the clock moves.
+func (f *futureFootprints) cannotFire(e *StateExecutor, trans *lower.Transition) bool {
+	accept, ok := trans.Trigger.(*ast.AcceptEvent)
+	if !f.gated || f.anySender || !ok {
+		return false
+	}
+	want := ast.AsQualifiedName(accept.SignalType)
+	if want == nil {
+		return false
+	}
+	for _, m := range f.ctx.messages {
+		if f.ctx.messageMatches(m, want, trans.Scope) {
+			return false
+		}
+	}
+	consumer, _ := triggerChannel(trans)
+	for _, send := range f.senders {
+		if f.ctx.sendMeets(send.channel, send.from, consumer, e.self) {
+			return false
+		}
+	}
+	return true
 }
 
 // executorFuture is what the executor may still touch at this instant: every
@@ -217,7 +275,7 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 		}
 		seen[state] = true
 		for _, trans := range e.graph.Transitions[state] {
-			if !(active[state] && timerDue) && f.endsInstant(trans.Trigger, trans.Scope) {
+			if !(active[state] && timerDue) && f.endsInstant(trans.Trigger, trans.Scope) || f.cannotFire(e, trans) {
 				continue
 			}
 			step, ok := steps[trans]

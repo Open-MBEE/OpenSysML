@@ -302,7 +302,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 
 	got := check(t, binary, model, slices.Concat([]string{"-engine", "check"}, invocation, []string{"-check-diverge", "Plant::spare.level", "-check-witness", dir})...)
 	wantReport(t, got, 1, "divergent: Plant::spare.level ends as 1 or 2",
-		"Plant::spare.level = 1 (witness "+name(1)+")", "Plant::spare.level = 2 (witness "+name(2)+")", "witness of 6 choices replayed)")
+		"Plant::spare.level = 1 (witness "+name(1)+")", "Plant::spare.level = 2 (witness "+name(2)+")", "witness of 3 choices replayed)")
 	// The spare's fill runs first, so its step 3 is the first: `b` first leaves level 1, `a` first 2.
 	for _, c := range []struct {
 		n     int
@@ -314,7 +314,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !strings.HasPrefix(string(content), "object #1 = Plant::tank#1\nobject #2 = Plant::spare#1\n"+
-			strings.Repeat("t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\n", 2)+"step 3: "+c.took+" first of 2@a, 3@b\n") {
+			"t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\nstep 3: "+c.took+" first of 2@a, 3@b\n") {
 			t.Errorf("witness %d, spare.level = %s:\n%s", c.n, c.level, content)
 		}
 		// The run makes the spare's performance after the tank's: the spare is object #3 here.
