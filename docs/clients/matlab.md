@@ -43,6 +43,10 @@ mass = opensysml.evaluate(model, 'mass', 'subject', 'Demo::sedan');
 fprintf('%.1f\n', mass);
 ```
 
+```text
+1800.0
+```
+
 `Connection` can start a private child or connect to an external address;
 `Model` also supports symbol lookup, instances, verification, execution,
 analysis, editing, conversion and document queries.
