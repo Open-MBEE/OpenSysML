@@ -154,6 +154,45 @@ var compiledCases = []compiledCase{
 	{"Seq::UniqLocAny", []string{"(1,1)"}},
 	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
 	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
+	{"Closure::Pick", []string{"true"}}, {"Closure::Pick", []string{"false"}},
+	{"Closure::PickId", []string{"true"}}, {"Closure::PickId", []string{"false"}},
+	{"Closure::PickApply", []string{"true", "3.0"}}, {"Closure::PickApply", []string{"false", "3.0"}},
+	{"Closure::Chosen", []string{"true", "3.0"}}, {"Closure::Chosen", []string{"false", "3.0"}},
+	{"Closure::Stored", []string{"true", "3.0"}}, {"Closure::Stored", []string{"false", "3.0"}},
+	{"Closure::Reassigned", []string{"true", "3.0"}}, {"Closure::Reassigned", []string{"false", "3.0"}},
+	{"Closure::Eq", []string{"true", "true"}}, {"Closure::Eq", []string{"true", "false"}},
+	{"Closure::Ident", []string{"false", "false"}}, {"Closure::Ident", []string{"false", "true"}},
+	{"Closure::Neq", []string{"true"}}, {"Closure::Neq", []string{"false"}},
+	{"Closure::EqNum", []string{"true"}},
+	{"Closure::SameSq", []string{"true"}}, {"Closure::SameSq", []string{"false"}},
+	{"Closure::Pair", nil}, {"Closure::PairUntyped", nil}, {"Closure::PairApply", []string{"3.0"}},
+	{"Closure::MixedKind", []string{"true", "4.0"}}, {"Closure::MixedKind", []string{"false", "4.0"}}, {"Closure::MixedKind", []string{"false", "-4.0"}},
+	{"Closure::ToStr", []string{"true"}}, {"Closure::ToStr", []string{"false"}},
+	{"Closure::ReturnedApply", []string{"3.0"}},
+	{"Closure::NullF", []string{"true"}}, {"Closure::NullF", []string{"false"}},
+	{"Closure::Includes", []string{"true"}}, {"Closure::Includes", []string{"false"}},
+	{"Closure::Unique", []string{"true"}}, {"Closure::Unique", []string{"false"}},
+	{"Closure::SeqFmt", []string{"true"}}, {"Closure::SeqFmt", []string{"false"}},
+	{"Closure::Indexed", []string{"true"}}, {"Closure::Indexed", []string{"false"}},
+	{"Closure::Selected", []string{"true"}}, {"Closure::Selected", []string{"false"}},
+	{"Closure::Lt", []string{"true"}}, {"Closure::Plus", []string{"true"}}, {"Closure::Neg", []string{"true"}},
+	{"Closure::Not", []string{"true"}}, {"Closure::MulR", []string{"false"}}, {"Closure::CondF", []string{"true"}},
+	{"Closure::StmtIf", []string{"true"}},
+	{"Closure::Local", []string{"2.0", "3.0"}},
+	{"Closure::Mk", []string{"2.0"}}, {"Closure::MkApply", []string{"2.0", "3.0"}},
+	{"Closure::MkSame", []string{"1.0"}}, {"Closure::MkTwice", []string{"1.0"}}, {"Closure::MkPair", []string{"2.0"}},
+	{"Closure::Late", []string{"1.0"}},
+	{"Closure::Rec", []string{"1.0"}}, {"Closure::Rec", []string{"0.5"}},
+	{"Closure::Sib", []string{"1.0"}}, {"Closure::SibEq", []string{"1.0"}},
+	{"Closure::Inner", []string{"1.0"}},
+	{"Closure::ChooseClosure", []string{"true", "2.0"}}, {"Closure::ChooseClosure", []string{"false", "2.0"}},
+	{"Closure::IntClosure", []string{"3"}}, {"Closure::IntClosure", []string{"4611686018427387904"}},
+	{"Closure::ClosureSeq", []string{"1.0"}}, {"Closure::ClosureUnique", []string{"1.0"}},
+	{"Closure::StrClosure", []string{`"héllo"`, "3"}}, {"Closure::StrClosure", []string{`"hi"`, "2"}},
+	{"Closure::SeqClosure", []string{"1.5"}},
+	{"Closure::FnClosure", []string{"true"}}, {"Closure::FnClosure", []string{"false"}},
+	{"Closure::BoolClosure", []string{"true"}}, {"Closure::BoolClosure", []string{"false"}},
+	{"Closure::EnumClosure", []string{"Compiled::E::Color::red"}}, {"Closure::EnumClosure", []string{"Compiled::E::Color::blue"}},
 	{"Fn::ApplySq", []string{"3.0"}}, {"Fn::ApplySq", []string{"1e200"}},
 	{"Fn::ApplyUsage", []string{"3.0"}},
 	{"Fn::ApplyRecip", []string{"4.0"}}, {"Fn::ApplyRecip", []string{"0.0"}},
@@ -214,6 +253,59 @@ var compiledCases = []compiledCase{
 	{"Wide::Least", []string{"(18446744073709551616,-18446744073709551616,3)"}},
 	{"Wide::Compare", []string{"-18446744073709551616", "18446744073709551616"}}, {"Wide::Compare", []string{"18446744073709551616", "18446744073709551616"}},
 	{"Loop::Churn", []string{"7.0"}}, {"Loop::ChurnFor", []string{"9"}}, {"Loop::ChurnNest", []string{"5.0"}},
+	{"Num::Keep", []string{"3"}}, {"Num::Keep", []string{"3.0"}}, {"Num::Keep", []string{"-0.0"}},
+	{"Num::Local", []string{"3"}}, {"Num::Twice", []string{"3"}}, {"Num::Twice", []string{"9223372036854775807"}},
+	{"Num::Plus", []string{"3", "0.5"}}, {"Num::Half", []string{"3"}}, {"Num::Half", []string{"4"}},
+	{"Num::Recip", []string{"3"}}, {"Num::Recip", []string{"0"}}, {"Num::Square", []string{"3"}},
+	{"Num::Same", []string{"3"}}, {"Num::Same", []string{"4"}}, {"Num::SameReal", []string{"3"}},
+	{"Num::Equal", []string{"3"}}, {"Num::Equal", []string{"4"}},
+	{"Num::Less", []string{"3", "3.5"}}, {"Num::Less", []string{"9007199254740993", "9007199254740992.0"}},
+	{"Num::Pick", []string{"true", "3"}}, {"Num::Pick", []string{"false", "3"}},
+	{"Num::Assigned", []string{"0"}}, {"Num::Assigned", []string{"4"}},
+	{"Num::Identity", []string{"3.0", "3"}}, {"Num::Identity", []string{"3", "3"}},
+	{"Num::MixLit", []string{"1"}}, {"Num::Collect", []string{"(1,2.5)"}}, {"Num::Collect", []string{"(1.5,2.5)"}}, {"Num::Collect", []string{"null"}},
+	{"Num::Sum", []string{"1"}}, {"Num::SumInts", []string{"1"}}, {"Num::Least", []string{"1"}}, {"Num::Least", []string{"3"}},
+	{"Num::Unique", []string{"1"}}, {"Num::Unique", []string{"2"}}, {"Num::Has", []string{"3"}}, {"Num::Has", []string{"4"}},
+	{"Num::Coalesce", []string{"null"}}, {"Num::Coalesce", []string{"(4)"}},
+	{"Num::Equality", []string{"(1,2)", "(1.0,2.0)"}}, {"Num::Equality", []string{"(1,2)", "(1.0,2.5)"}}, {"Num::Equality", []string{"null", "()"}},
+	{"Num::SameSeq", []string{"(1,2)", "(2.0,1.0)"}}, {"Num::SameSeq", []string{"(1)", "(1.5)"}},
+	{"Num::Union", []string{"(1,2)", "(2.0,3.5)"}}, {"Num::Union", []string{"null", "(1.5)"}},
+	{"Num::Floor", []string{"3"}}, {"Num::Max", []string{"3"}}, {"Num::Max", []string{"1"}},
+	{"Str::Concat", []string{`"ab"`, `"cé"`}}, {"Str::Concat", []string{`""`, `"\"q\"\\\t"`}}, {"Str::Lit", nil},
+	{"Str::Len", []string{`"héllo"`}}, {"Str::Len", []string{`""`}},
+	{"Str::Sub", []string{`"héllo"`, "2", "3"}}, {"Str::Sub", []string{`"héllo"`, "0", "2"}}, {"Str::Sub", []string{`"héllo"`, "3", "2"}},
+	{"Str::Sub", []string{`"héllo"`, "2", "9"}}, {"Str::Sub", []string{`"héllo"`, "9", "8"}}, {"Str::Sub", []string{`"abc"`, "1", "3"}},
+	{"Str::Sub", []string{`""`, "1", "0"}}, {"Str::Sub", []string{`"abc"`, "-1", "-2"}},
+	{"Str::Less", []string{`"a"`, `"b"`}}, {"Str::Less", []string{`"b"`, `"a"`}}, {"Str::Less", []string{`"é"`, `"z"`}},
+	{"Str::AtMost", []string{`"a"`, `"a"`}}, {"Str::More", []string{`"ab"`, `"a"`}}, {"Str::AtLeast", []string{`""`, `"a"`}},
+	{"Str::Eq", []string{`"a"`, `"a"`}}, {"Str::Eq", []string{`"a"`, `"b"`}}, {"Str::Neq", []string{`"a"`, `"b"`}}, {"Str::Same", []string{`"a"`, `"a"`}},
+	{"Str::EqNum", []string{`"3"`}},
+	{"Str::IntStr", []string{"-42"}}, {"Str::NatStr", []string{"7"}}, {"Str::NatStr", []string{"-7"}},
+	{"Str::RealStr", []string{"2.5"}}, {"Str::RealStr", []string{"3"}}, {"Str::RealStr", []string{"1e30"}}, {"Str::RealStr", []string{"-0.0"}},
+	{"Str::BoolStr", []string{"true"}}, {"Str::StrStr", []string{`"x"`}}, {"Str::BaseStr", []string{"5"}},
+	{"Str::Pick", []string{"true"}}, {"Str::Pick", []string{"false"}}, {"Str::Local", []string{`"é"`}},
+	{"Str::Seq", []string{`"a,b"`}}, {"Str::Unique", []string{`"y"`}}, {"Str::Unique", []string{`"x"`}},
+	{"Str::Lengths", []string{`("a", "bc,d", "")`}}, {"Str::Lengths", []string{"null"}}, {"Str::Lengths", []string{`("é")`}},
+	{"Str::Has", []string{`"q"`}}, {"Str::Has", []string{`"r"`}},
+	{"Str::Build", []string{`"xy"`, "0"}}, {"Str::Build", []string{`"é,"`, "600"}},
+	{"Str::Names", []string{"3"}}, {"Str::Names", []string{"200"}}, {"Str::ForS", []string{`("a", "b,c")`}}, {"Str::ForS", []string{"null"}},
+	{"Str::Ctrl", []string{"\"\u00a0\u00ad\u200b\U0001F600\""}},
+	{"Str::Seq", []string{`"` + strings.Repeat("long ", 30) + `"`}},
+	{"Str::Joined", []string{`("a", "b", "c")`}}, {"Str::Joined", []string{"()"}},
+	{"E::Id", []string{"Compiled::E::Color::green"}}, {"E::Id", []string{"Compiled::E::Color::blue"}}, {"E::Red", nil},
+	{"E::IsRed", []string{"Compiled::E::Color::red"}}, {"E::IsRed", []string{"Compiled::E::Color::blue"}},
+	{"E::NotRed", []string{"Compiled::E::Color::red"}}, {"E::NotRed", []string{"Compiled::E::Color::green"}},
+	{"E::Same", []string{"Compiled::E::Color::red", "Compiled::E::Color::red"}}, {"E::Same", []string{"Compiled::E::Color::red", "Compiled::E::Color::blue"}},
+	{"E::Cross", []string{"Compiled::E::Color::red"}}, {"E::VsInt", []string{"Compiled::E::Color::red"}}, {"E::VsText", []string{"Compiled::E::Color::red"}},
+	{"E::Pick", []string{"true"}}, {"E::Pick", []string{"false"}},
+	{"E::Add", []string{"Compiled::E::Color::red"}}, {"E::Mul", []string{"Compiled::E::Color::red", "2.0"}},
+	{"E::Less", []string{"Compiled::E::Color::red", "Compiled::E::Color::blue"}}, {"E::AtLeast", []string{"Compiled::E::Color::green"}},
+	{"E::Neg", []string{"Compiled::E::Color::red"}}, {"E::Text", []string{"Compiled::E::Color::blue"}},
+	{"E::Seq", []string{"Compiled::E::Color::red"}}, {"E::Unique", []string{"Compiled::E::Color::blue"}}, {"E::Unique", []string{"Compiled::E::Color::red"}},
+	{"E::Has", []string{"Compiled::E::Color::blue"}}, {"E::Has", []string{"Compiled::E::Color::green"}},
+	{"E::Count", []string{"(Compiled::E::Color::red, Compiled::E::Color::red, Compiled::E::Color::blue)"}}, {"E::Count", []string{"()"}},
+	{"E::SeqEq", []string{"(Compiled::E::Color::red, Compiled::E::Color::green)"}}, {"E::SeqEq", []string{"Compiled::E::Color::red"}},
+	{"E::Reds", []string{"(Compiled::E::Color::red, Compiled::E::Color::blue, Compiled::E::Color::red)"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the
@@ -245,6 +337,11 @@ func failureClass(calc, msg string) string {
 			return class
 		}
 	}
+	// The step-limit error is compared whole, wherever in a nested call it surfaced.
+	if _, rest, ok := strings.Cut(msg, runtime.ErrStepLimitExceeded.Error()); ok {
+		line, _, _ := strings.Cut(rest, "\n")
+		return runtime.ErrStepLimitExceeded.Error() + line
+	}
 	msg = strings.TrimSpace(msg)
 	if _, rest, ok := strings.Cut(msg, "Compiled::"+calc+": "); ok {
 		msg = rest
@@ -273,6 +370,14 @@ func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure strin
 		t.Fatalf("%s%v: no value in %q", c.calc, c.args, v.Lines)
 	}
 	return "", failureClass(c.calc, strings.Join(verdictLines(v), "\n"))
+}
+
+// argumentsSpent reports whether the interpreter's run of c failed while still
+// evaluating its argument expressions.
+func argumentsSpent(t *testing.T, s *Session, c compiledCase) bool {
+	t.Helper()
+	v := s.RunCalc("Compiled::" + c.calc + "(" + strings.Join(c.args, ", ") + ")")
+	return v.Status != VerdictHolds && strings.Contains(strings.Join(v.Lines, "\n"), "evaluation of argument ")
 }
 
 // verdictLines is the verdict without its standing line, which no compiled program prints.
@@ -316,27 +421,47 @@ func beyondInt64(args []string) bool {
 	return false
 }
 
+// integerForReal reports whether an argument in Integer notation is given for
+// a Real-typed parameter of p, which a compiled C program refuses as input: the
+// interpreter keeps that argument an Integer, and a C Real holds only binary64.
+func integerForReal(p *codegen.Program, args []string) bool {
+	for i, param := range p.Entry.Params {
+		if i >= len(args) || param.Type.Elem() != codegen.TypeReal {
+			continue
+		}
+		for _, tok := range strings.FieldsFunc(args[i], func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
+			if tok != "null" && strings.Trim(strings.TrimLeft(tok, "+-"), "0123456789") == "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // buildCalc compiles calc for target into exe, reporting false when the C target
 // refuses it for Integer arithmetic that may leave int64: the Go target, which
-// computes it exactly, must accept every calc.
-func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) bool {
+// computes it exactly, must accept every calc. It returns the program built, or nil.
+func buildCalc(t *testing.T, s *Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
-	program, err := s.CompileCalc("Compiled::" + calc)
+	program, err := s.CompileCalc("Compiled::"+calc, target)
+	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
+		return nil
+	}
 	if err != nil {
 		t.Fatalf("compile %s: %v", calc, err)
 	}
 	err = codegen.Build(program, target, exe)
 	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return false
+		return nil
 	}
 	if err != nil {
 		t.Fatalf("build %s: %v", calc, err)
 	}
-	return true
+	return program
 }
 
-// loadCompileFixture loads the fixture into a session whose step budget is
-// lifted: compiled code has none, so the oracle must run each case to its end.
+// loadCompileFixture loads the fixture into a session with the default budgets,
+// which a compiled program also defaults to.
 func loadCompileFixture(t testing.TB) *Session {
 	t.Helper()
 	data, err := os.ReadFile("testdata/compile_calcs.sysml")
@@ -346,11 +471,6 @@ func loadCompileFixture(t testing.TB) *Session {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(string(data)).Diagnostics); len(errs) > 0 {
 		t.Fatalf("fixture has errors: %v", errs)
-	}
-	budgets := runtime.DefaultBudgets()
-	budgets.MaxSteps = 1 << 40
-	if err := s.SetBudgets(budgets); err != nil {
-		t.Fatal(err)
 	}
 	return s
 }
@@ -368,6 +488,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			s := loadCompileFixture(t)
 			exes := map[string]string{}
+			programs := map[string]*codegen.Program{}
 			refused := map[string]bool{}
 			dir := t.TempDir()
 			for _, c := range compiledCases {
@@ -377,7 +498,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if !buildCalc(t, s, c.calc, target, exe) {
+					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
 						refused[c.calc] = true
 						continue
 					}
@@ -391,6 +512,14 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 					}
 					continue
 				}
+				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
+					out, err := exec.Command(exe, c.args...).CombinedOutput()
+					var exit *exec.ExitError
+					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "only in Real notation") {
+						t.Errorf("%s(%s): got %v %q, want the Integer argument refused for a Real parameter with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
+					}
+					continue
+				}
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
 				if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
@@ -401,8 +530,9 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
-			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
-				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
+			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"] ||
+				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
+				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
 			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
 				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
@@ -453,7 +583,6 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			}
 			s := loadCompileFixture(t)
 			budgets := runtime.DefaultBudgets()
-			budgets.MaxSteps = 1 << 40
 			budgets.MaxElements = limit
 			if err := s.SetBudgets(budgets); err != nil {
 				t.Fatal(err)
@@ -469,7 +598,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if !buildCalc(t, s, c.calc, target, exe) {
+					if buildCalc(t, s, c.calc, target, exe) == nil {
 						refused[c.calc] = true
 						continue
 					}
@@ -492,7 +621,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			if out, err := exec.Command(exes["Seq::BigIn"], "--repeat", "3", "(1,2,3,4,5,6,7,8,9,10)").Output(); err != nil || strings.TrimSpace(string(out)) != "10" {
 				t.Errorf("--repeat within budget: got %q, %v", out, err)
 			}
-			program, err := s.CompileCalc("Compiled::Seq::BigW")
+			program, err := s.CompileCalc("Compiled::Seq::BigW", target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -513,6 +642,107 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 	}
 }
 
+// stepsTaken is the least step budget under which the interpreter answers c
+// without exceeding it, or false when that is above limit.
+func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, bool) {
+	t.Helper()
+	over := func(n int64) bool {
+		budgets := runtime.DefaultBudgets()
+		budgets.MaxSteps = n
+		if err := s.SetBudgets(budgets); err != nil {
+			t.Fatal(err)
+		}
+		_, failure := interpreted(t, s, c)
+		return strings.Contains(failure, runtime.ErrStepLimitExceeded.Error())
+	}
+	lo, hi := int64(0), int64(1)
+	for over(hi) {
+		if hi >= limit {
+			return 0, false
+		}
+		lo, hi = hi, min(2*hi, limit)
+	}
+	for hi-lo > 1 {
+		if mid := lo + (hi-lo)/2; over(mid) {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	return hi, true
+}
+
+// A compiled program spends the interpreter's steps: with OPENSYSML_MAX_STEPS
+// at the least budget the interpreter needs it answers as the interpreter
+// does, and one step fewer it fails with the interpreter's step-limit error.
+func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
+	const limit = 1 << 20
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := loadCompileFixture(t)
+			dir := t.TempDir()
+			exes := map[string]string{}
+			programs := map[string]*codegen.Program{}
+			refused := map[string]bool{}
+			checked := 0
+			for _, c := range compiledCases {
+				if refused[c.calc] || (target == codegen.TargetC && beyondInt64(c.args)) {
+					continue
+				}
+				exe, built := exes[c.calc]
+				if !built {
+					exe = filepath.Join(dir, c.calc)
+					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
+						refused[c.calc] = true
+						continue
+					}
+					exes[c.calc] = exe
+				}
+				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
+					continue
+				}
+				steps, ok := stepsTaken(t, s, c, limit)
+				if !ok {
+					continue
+				}
+				checked++
+				for _, budget := range []int64{steps, steps - 1} {
+					if budget == 0 {
+						continue
+					}
+					budgets := runtime.DefaultBudgets()
+					budgets.MaxSteps = budget
+					if err := s.SetBudgets(budgets); err != nil {
+						t.Fatal(err)
+					}
+					t.Setenv(runtime.MaxStepsEnvVar, strconv.FormatInt(budget, 10))
+					wantValue, wantFailure := interpreted(t, s, c)
+					if argumentsSpent(t, s, c) {
+						// A compiled program is given values, not argument expressions to evaluate.
+						continue
+					}
+					gotValue, gotFailure := compiledRun(t, exe, c)
+					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
+						continue
+					}
+					if gotValue != wantValue || gotFailure != wantFailure {
+						t.Errorf("%s(%s) with %d steps: compiled = (%q, %q), interpreted = (%q, %q)",
+							c.calc, strings.Join(c.args, ", "), budget, gotValue, gotFailure, wantValue, wantFailure)
+					}
+				}
+			}
+			if checked < len(compiledCases)/2 {
+				t.Errorf("only %d cases were checked against the step budget", checked)
+			}
+		})
+	}
+}
+
 // A C loop's memory is bounded by what it keeps live, not by how many passes
 // it makes: gigabytes of dead temporaries complete under a 64 MB limit.
 func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
@@ -525,7 +755,7 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	s := loadCompileFixture(t)
 	dir := t.TempDir()
 	for calc, arg := range map[string]string{"Churn": "50000.0", "ChurnFor": "50000", "ChurnNest": "10000.0"} {
-		program, err := s.CompileCalc("Compiled::Loop::" + calc)
+		program, err := s.CompileCalc("Compiled::Loop::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -533,7 +763,10 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 		if err := codegen.Build(program, codegen.TargetC, exe); err != nil {
 			t.Fatal(err)
 		}
-		out, err := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" "$1"`, exe, arg).CombinedOutput()
+		// The loops outrun the default step budget, which is not what is measured here.
+		cmd := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" "$1"`, exe, arg)
+		cmd.Env = append(os.Environ(), runtime.MaxStepsEnvVar+"=1000000000000")
+		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Errorf("%s(%s) under a 64 MB limit: %v\n%s", calc, arg, err, out)
 		}
@@ -544,30 +777,20 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 	s := loadCompileFixture(t)
 	for _, tc := range []struct{ calc, reason string }{
-		{"StringResult", "String"},
 		{"Defaulted", "default value"},
 		{"OutOnly", "`out`"},
 		{"RealToNatural", "requires Integer arguments"},
 		{"Refined", "members of its own"},
 		{"DynamicIntPow", "non-literal Integer exponent"},
 		{"Narrowed", "a Real bound to x, which is Integer"},
-		{"RecordParam", "type Refused::Point is not Integer, Real or Boolean"},
-		{"EnumParam", "type Refused::Color is not Integer, Real or Boolean"},
+		{"RecordParam", "type Refused::Point is not Integer, Real, Boolean, String or an enumeration"},
 		{"Extent", "operator 'all'"},
-		{"RealIntIdentity", "'===' between Real and Integer"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
-		{"CoalesceWidened", "a Real at the right operand of '??', which holds Integer[0..*]"},
-		{"MixedEquality", "a Integer[0..*] at the left operand of '==', which holds Real[0..*]"},
-		{"MixedSame", "same over Integer and Real collections"},
-		{"MixedUnion", "union over Integer and Real collections"},
 		{"CalcParam", "parameter f binds a function value, which a program cannot take on its command line"},
-		{"EscapingParam", "the function value f escaping as the result"},
-		{"ReturnedFunction", "an invocation where a function value is expected"},
-		{"FunctionEquality", "the function value f where a value is expected"},
-		{"FunctionAsValue", "the function value Refused::Sq where a value is expected"},
+		{"FunctionAsValue", "a function bound at argument for parameter \"a\", which holds Real"},
 		{"ValueAsFunction", "a, a Real, where a function value is expected"},
-		{"ChosenFunction", "an `if` choosing a function value at run time"},
+		{"MixedArity", "a Real bound at argument for parameter \"n\", which holds Integer"},
 		{"WrongArity", "Refused::Add2 takes 2 arguments, 1 given"},
 		{"WrongName", "Refused::Sq2 has no parameter v"},
 		{"UnrelatedTyped", `in calc Refused::UnrelatedTyped: argument for parameter "f": cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq`},
@@ -575,25 +798,24 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"GeneralForSub", "cannot bind the function value Compiled::Fn::Sq to a parameter typed by Compiled::Fn::SubSq"},
 		{"ForwardedUnrelated", "cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq"},
 		{"IntegerNullRange", "a Real[0..*] at result, which holds Integer[0..*]"},
-		{"BodyClosure", "a body-local calc usage"},
-		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, whose function value closes over that run's bindings"},
+		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, read from the body of Refused::OuterClosure"},
 		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
 		{"ObjectCalc", "a calc owned by Refused::Scaler, whose function value closes over that object"},
 		{"ReceiverQualified", "an invocation of a function value with a receiver (`x->f()`)"},
 		{"ForeignQualified", "in calc Compiled::Fn::ApplyQual::f: an `in calc` parameter invoked outside the body of the calc declaring it"},
 		{"SampleArity", "Sample of Refused::Add2, which does not take one value argument"},
 		{"SampledValue", "s, a SampledFunction, where a value is expected"},
-		{"SampledEscapes", "type SampledFunctions::SampledFunction is not Integer, Real or Boolean"},
+		{"SampledEscapes", "type SampledFunctions::SampledFunction is not Integer, Real, Boolean, String or an enumeration"},
 		{"UnevaluatedFunction", "ControlFunctions::collect binds its arguments unevaluated and cannot be read as a value"},
-		{"SetParam", "type Collections::Set is not Integer, Real or Boolean"},
-		{"SetElements", "type Collections::Set is not Integer, Real or Boolean"},
-		{"SetLocal", "type Collections::Set is not Integer, Real or Boolean"},
+		{"SetParam", "type Collections::Set is not Integer, Real, Boolean, String or an enumeration"},
+		{"SetElements", "type Collections::Set is not Integer, Real, Boolean, String or an enumeration"},
+		{"SetLocal", "type Collections::Set is not Integer, Real, Boolean, String or an enumeration"},
 		{"SubsetLocal", "attribute ys redefines or subsets a feature, inheriting a shape it does not state"},
-		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
-		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
+		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real, Boolean, String or an enumeration"},
+		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real, Boolean, String or an enumeration"},
 		{"MetaCast", "a `meta` cast, whose metaobject reflects a model element and has no native representation"},
 	} {
-		_, err := s.CompileCalc("Refused::" + tc.calc)
+		_, err := s.CompileCalc("Refused::"+tc.calc, codegen.TargetGo)
 		if err == nil {
 			t.Errorf("%s: compiled, want a refusal mentioning %q", tc.calc, tc.reason)
 			continue
@@ -605,7 +827,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 			t.Errorf("%s: %v does not mention %q", tc.calc, err, tc.reason)
 		}
 	}
-	if _, err := s.CompileCalc("Compiled::Nowhere"); err == nil {
+	if _, err := s.CompileCalc("Compiled::Nowhere", codegen.TargetGo); err == nil {
 		t.Error("an unknown calc compiled")
 	}
 }
@@ -622,7 +844,7 @@ func TestCompileRefusesAmbiguousCall(t *testing.T) {
 		private import B::*;
 		calc def Pick { in n : Integer; return : Integer = pick(n); }
 	}`)
-	_, err := s.CompileCalc("Amb::Pick")
+	_, err := s.CompileCalc("Amb::Pick", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) {
 		t.Fatalf("got %v, want an ErrUnsupported refusal", err)
 	}
@@ -646,7 +868,7 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, `Add binds parameter "a" twice`) {
 		t.Fatalf("diagnostics = %v, want Add binds parameter \"a\" twice", errs)
 	}
-	_, err := s.CompileCalc("Twice::Dup")
+	_, err := s.CompileCalc("Twice::Dup", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), "binds parameter a twice") {
 		t.Fatalf("CompileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
 	}
@@ -668,7 +890,7 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		{"Wide::Product", "the Integer product"},
 		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
 	} {
-		program, err := s.CompileCalc("Compiled::" + tc.calc)
+		program, err := s.CompileCalc("Compiled::"+tc.calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", tc.calc, err)
 		}
@@ -676,12 +898,16 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
 			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
 		}
+		program, err = s.CompileCalc("Compiled::"+tc.calc, codegen.TargetGo)
+		if err != nil {
+			t.Fatalf("compile %s: %v", tc.calc, err)
+		}
 		if _, err := codegen.Source(program, codegen.TargetGo); err != nil {
 			t.Errorf("Go source of %s: %v", tc.calc, err)
 		}
 	}
 	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
-		program, err := s.CompileCalc("Compiled::" + calc)
+		program, err := s.CompileCalc("Compiled::"+calc, codegen.TargetC)
 		if err != nil {
 			t.Fatalf("compile %s: %v", calc, err)
 		}
@@ -694,11 +920,11 @@ func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
 // The generated source is deterministic and names the calc it came from.
 func TestCompiledSourceNamesTheCalc(t *testing.T) {
 	s := loadCompileFixture(t)
-	program, err := s.CompileCalc("Compiled::Hypot")
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, target := range codegen.Targets() {
+		program, err := s.CompileCalc("Compiled::Hypot", target)
+		if err != nil {
+			t.Fatal(err)
+		}
 		src, err := codegen.Source(program, target)
 		if err != nil {
 			t.Fatal(err)
