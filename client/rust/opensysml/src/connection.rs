@@ -687,7 +687,7 @@ fn resolve_binary() -> Result<PathBuf, Error> {
     let result = binary::Downloader::from_env()
         .and_then(|downloader| downloader.ensure_implicit_binary(version));
     match result {
-        Ok(path) => return Ok(path),
+        Ok(path) => Ok(path),
         Err(error) if is_availability_failure(&error) => {
             if let Some(path) = binary_on_path() {
                 eprintln!(
@@ -703,13 +703,13 @@ fn resolve_binary() -> Result<PathBuf, Error> {
             } else {
                 ""
             };
-            return Err(Error::BinaryDownload(format!(
+            Err(Error::BinaryDownload(format!(
                 "could not download sysml-grpc release {version}: {detail}.{unreleased} \
                  Install sysml-grpc on $PATH, set $OPENSYSML_GRPC_BINARY, or choose another \
                  release with $OPENSYSML_GRPC_VERSION."
-            )));
+            )))
         }
-        Err(error) => return Err(error),
+        Err(error) => Err(error),
     }
 }
 
