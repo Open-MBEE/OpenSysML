@@ -816,10 +816,7 @@ impl Downloader {
         let binary_path = self.binary_path();
         let mut cached = None;
         if binary_path.is_file() {
-            if implicit
-                && !self.metadata_path().exists()
-                && is_executable(&binary_path)
-            {
+            if implicit && !self.metadata_path().exists() && is_executable(&binary_path) {
                 return Ok(binary_path);
             }
             match self.stale_cache_reason(version) {
@@ -1454,8 +1451,7 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-                .expect("make executable");
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).expect("make executable");
         }
 
         let resolved = harness
@@ -1502,7 +1498,10 @@ mod tests {
             .expect("replace old release");
 
         assert_eq!(fs::read(path).expect("read binary"), body);
-        assert_eq!(downloader.cached_release().as_deref(), Some(version.as_str()));
+        assert_eq!(
+            downloader.cached_release().as_deref(),
+            Some(version.as_str())
+        );
         assert!(downloader
             .warnings()
             .iter()
@@ -1531,11 +1530,8 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(
-                downloader.binary_path(),
-                fs::Permissions::from_mode(0o700),
-            )
-            .expect("make executable");
+            fs::set_permissions(downloader.binary_path(), fs::Permissions::from_mode(0o700))
+                .expect("make executable");
         }
 
         let path = downloader

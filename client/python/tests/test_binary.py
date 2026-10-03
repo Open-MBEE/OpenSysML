@@ -233,7 +233,7 @@ def test_ensure_binary_downloads():
             mock_download.assert_called_once_with(version='v0.1.0', github_repo=None)
 
 
-def test_ensure_binary_raises_without_version():
+def test_ensure_binary_raises_without_version(cache):
     """An unavailable implicit release names what was tried and how to fix it."""
     with patch('opensysml.binary.download_binary',
                side_effect=OpenSysMLConnectionError('404 Not Found')):

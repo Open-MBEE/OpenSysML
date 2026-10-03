@@ -766,7 +766,8 @@ mod tests {
             "OPENSYSML_GRPC_VERSION",
             "PATH",
         ]);
-        let no_path = env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
+        let no_path =
+            env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
         env::set_var("OPENSYSML_GRPC_BINARY", "");
         env::set_var("OPENSYSML_GITHUB_REPO", "not-an-owner-repo");
         env::remove_var("OPENSYSML_GRPC_VERSION");
@@ -824,7 +825,8 @@ mod tests {
             "PATH",
             "HOME",
         ]);
-        let directory = env::temp_dir().join(format!("opensysml-rust-empty-{}", std::process::id()));
+        let directory =
+            env::temp_dir().join(format!("opensysml-rust-empty-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("create isolated home");
         env::set_var("OPENSYSML_GRPC_BINARY", "");
         env::set_var("OPENSYSML_GITHUB_REPO", "not-an-owner-repo");
@@ -871,15 +873,15 @@ mod tests {
         env::remove_var("OPENSYSML_GRPC_VERSION");
         env::remove_var("HOME");
         env::remove_var("USERPROFILE");
-        let no_path = env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
+        let no_path =
+            env::temp_dir().join(format!("opensysml-rust-no-path-{}", std::process::id()));
         env::set_var("PATH", &no_path);
 
         assert!(binary::Downloader::from_env().is_err());
         let error = resolve_binary().expect_err("the cache needs a home");
-        assert!(error.to_string().contains(&format!(
-            "v{}",
-            env!("CARGO_PKG_VERSION")
-        )));
+        assert!(error
+            .to_string()
+            .contains(&format!("v{}", env!("CARGO_PKG_VERSION"))));
         drop(restore);
     }
 
