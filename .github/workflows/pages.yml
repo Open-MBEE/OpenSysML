@@ -1,12 +1,12 @@
 name: Pages
 
-# The site is docs/ rendered by MkDocs, republished on every push to main: the
+# The site is docs/ rendered by MkDocs, republished on every push to develop: the
 # test-suite figures are counted from the whole tree as it builds, so any
 # fixture or test landing in a release moves them. --strict: a broken link
 # fails the deployment.
 on:
   push:
-    branches: [main]
+    branches: [develop]
   workflow_dispatch:
 
 # One deployment at a time; cancelling one in flight would leave the site behind.
