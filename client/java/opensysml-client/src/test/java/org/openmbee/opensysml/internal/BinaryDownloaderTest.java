@@ -391,7 +391,8 @@ class BinaryDownloaderTest {
     assertEquals(
         Optional.of("v1.2.3"), BinaryDownloader.versionAskedFor(asked, environment::get));
     assertEquals(
-        Optional.empty(), BinaryDownloader.versionAskedFor(OPTIONS, environment::get));
+        Optional.of(BinaryDownloader.builtAgainstRelease()),
+        BinaryDownloader.versionAskedFor(OPTIONS, environment::get));
 
     environment.put(ConnectionOptions.VERSION_ENV, "v0.3.0");
     assertEquals(

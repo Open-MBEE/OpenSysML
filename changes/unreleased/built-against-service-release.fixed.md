@@ -1,0 +1,1 @@
+- **Clients download the service release they were built against by default.** Python, Java and Rust need no version override to resolve their matching `sysml-grpc` release.

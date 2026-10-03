@@ -82,17 +82,16 @@ Resolution is, in order:
 1. `$OPENSYSML_GRPC_BINARY`, the explicit path;
 2. `~/.opensysml/bin/sysml-grpc` (`sysml-grpc.exe` on Windows), the cache shared
    with the Python client;
-3. a download of the release `$OPENSYSML_GRPC_VERSION` asks for, into that cache;
+3. a download into that cache of the release `$OPENSYSML_GRPC_VERSION` names,
+   or the release this client was built against;
 4. `sysml-grpc` on `$PATH`.
 
-A download only happens when `$OPENSYSML_GRPC_VERSION` names a release
-(`latest` resolves through the GitHub releases API), so a caller that never asks
-for one still resolves a locally built binary from `$PATH`. When a release *is*
-asked for, the download precedes `$PATH`, because a binary on `$PATH` is of no
-known version and so does not answer for that release. A cached binary that is
-another release is replaced with a warning, never used silently; a replacement
-that cannot be downloaded leaves the working cache in place, unless the refusal
-was about integrity.
+`$OPENSYSML_GRPC_VERSION` overrides the built-against default, and `latest`
+resolves through the GitHub releases API. An executable cache without release
+metadata is treated as a hand-installed binary and kept. When a requested
+release cannot be downloaded, a working cache is kept with a warning, or a
+binary on `$PATH` is used with a warning; checksum mismatches are never
+answered from either.
 
 The download goes to a temporary file, is verified, and only then atomically
 replaces the cache with mode `0700` (POSIX). Requests time out after 15 seconds.

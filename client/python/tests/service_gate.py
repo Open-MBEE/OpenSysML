@@ -94,13 +94,16 @@ def service_binary():
     Returns:
         str or None: An executable binary, from the cache or a local build
     """
-    from opensysml.binary import get_binary_path
+    from opensysml.binary import binary_on_path, get_binary_path, named_binary
 
+    named = named_binary()
     repo_build = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
         'bin', 'sysml-grpc',
     )
-    for path in (get_binary_path(), repo_build):
+    for path in (named, get_binary_path(), repo_build, binary_on_path()):
+        if path is None:
+            continue
         if os.path.exists(path) and os.access(path, os.X_OK):
             return path
     return None

@@ -15,6 +15,7 @@ from opensysml.errors import (
     UnpinnedReleaseError,
     UnsignedReleaseError,
 )
+from opensysml._version import VERSION
 from opensysml.signing import (
     BUNDLE_ASSET,
     MANIFEST_ASSET,
@@ -119,6 +120,11 @@ ALLOW_UNPINNED_ENV = 'OPENSYSML_ALLOW_UNPINNED_DOWNLOAD'
 #: Names a build to start in place of the cache, a download or one on $PATH,
 #: under the name the Node client reads for the same purpose.
 BINARY_ENV = 'OPENSYSML_BINARY'
+
+
+def built_against_release():
+    """The sysml-grpc release this opensysml distribution was built against."""
+    return f'v{VERSION}'
 
 
 def default_github_repo():
@@ -883,17 +889,15 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     """Ensure sysml-grpc binary is available, downloading if necessary.
 
     Resolution is the order every client shares: $OPENSYSML_BINARY, then the
-    shared cache at ~/.opensysml/bin, then a release download when one is asked
-    for, then a sysml-grpc on $PATH.
+    shared cache at ~/.opensysml/bin, then a release download, then a
+    sysml-grpc on $PATH.
 
-    A cached binary is reused only when it is the release asked for; when no
-    version is asked for, whatever is cached stands, locally built included. A
-    replacement that cannot be downloaded leaves the working cache in place, and
-    a download that was asked for and failed is an error rather than a fall
-    through to $PATH, whose binary is of no known release. The whole cache
-    decision is made holding the shared cache lock, so a concurrent installer -
-    in another process or in the Java client - cannot install between the check
-    and the replacement.
+    An explicit version comes from ``version`` or $OPENSYSML_GRPC_VERSION.
+    Without one, the client downloads the release it was built against, except
+    that an unrecorded hand-installed cache remains in use. A failed replacement
+    leaves the working cache in place; an unavailable implicit download may use
+    $PATH, but integrity failures are never bypassed. The whole cache decision
+    is made holding the shared cache lock.
 
     What is returned for the shared cache is a link to it under its own digest,
     not the cache path itself: the cache is replaced in place, so starting it
@@ -906,10 +910,8 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
         force_download (bool): If True, download even if binary exists
         version (str, optional): Specific version tag to download (e.g. 'v0.1.0'),
                                  or 'latest' for the newest release. If None,
-                                 $OPENSYSML_GRPC_VERSION is used; without it
-                                 auto-download is disabled and the binary must be
-                                 pre-installed via `make build`, named by
-                                 $OPENSYSML_BINARY, or found on $PATH.
+                                 $OPENSYSML_GRPC_VERSION is used, then the
+                                 built-against release when neither is set.
     
     Returns:
         str: Path to binary, digest-named when it is the shared cache
@@ -920,45 +922,75 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     binary_path = get_binary_path()
     if version is None:
         version = os.environ.get('OPENSYSML_GRPC_VERSION') or None
+    implicit = version is None
+    if implicit:
+        version = built_against_release()
 
     # Neither of these touches the cache, so neither takes the lock over it.
     named = named_binary()
     if named is not None:
         return named
 
-    with cache_lock():
-        chosen = _ensure_binary_locked(
-            force_download, version, github_repo, binary_path
-        )
-        if chosen is not None:
-            return stable_binary() if chosen == binary_path else chosen
+    download_error = None
+    try:
+        with cache_lock():
+            chosen = _ensure_binary_locked(
+                force_download, version, github_repo, binary_path, implicit
+            )
+            if chosen is not None:
+                return stable_binary() if chosen == binary_path else chosen
+    except UnpinnedReleaseError as e:
+        if not implicit:
+            raise
+        download_error = e
+    except ChecksumMismatchError:
+        raise
+    except ConnectionError as e:
+        if not implicit:
+            raise
+        download_error = e
 
     on_path = binary_on_path()
-    if on_path is not None:
+    if on_path is not None and download_error is None:
+        return on_path
+    if download_error is not None and on_path is not None:
+        warnings.warn(
+            f"Could not download sysml-grpc release {version} ({download_error}); "
+            f"using {on_path} from $PATH instead.",
+            stacklevel=2,
+        )
         return on_path
 
+    detail = (
+        f"Could not download the sysml-grpc release {version}: {download_error}."
+        if download_error is not None
+        else f"Could not find sysml-grpc on $PATH after checking {binary_path}."
+    )
+    if download_error is not None and '404' in str(download_error):
+        detail += " This may be an unreleased checkout."
     raise ConnectionError(
-        f"Binary not found at {binary_path}, named by ${BINARY_ENV} or on $PATH, and "
-        f"auto-download disabled. Looked at: ${BINARY_ENV}, {binary_path}, $PATH.\n"
+        f"{detail} Looked at: ${BINARY_ENV}, {binary_path}, $PATH.\n"
         f"  fix: build it (`make build-grpc`) and set ${BINARY_ENV} to the result, or\n"
-        f"       ask for a release to download by setting $OPENSYSML_GRPC_VERSION "
+        f"       ask for another release by setting $OPENSYSML_GRPC_VERSION "
         f"(e.g. latest), or passing version= here, or\n"
         f"       install a sysml-grpc on $PATH, or\n"
         f"       start a service yourself and pass its address to connect()."
     )
 
 
-def _ensure_binary_locked(force_download, version, github_repo, binary_path):
+def _ensure_binary_locked(force_download, version, github_repo, binary_path, implicit=False):
     """The cache or a download of the release asked for, with the shared cache held.
 
     Returns:
         str or None: The binary chosen, or None when nothing is cached and no
             release was asked for, which leaves $PATH to answer
     """
-    # Check if binary already exists and is executable
+    # An unrecorded executable may be a developer's hand-installed build.
     cached = None
     if not force_download and os.path.exists(binary_path):
         if os.access(binary_path, os.X_OK):
+            if implicit and not os.path.exists(metadata_path()):
+                return binary_path
             stale = stale_cache_reason(version, github_repo)
             if stale is None:
                 return binary_path
@@ -968,18 +1000,7 @@ def _ensure_binary_locked(force_download, version, github_repo, binary_path):
                 stacklevel=3,
             )
     
-    # Nothing cached and no release asked for, so $PATH is next, outside the lock.
-    if version is None:
-        # A download asked for with nothing to download is an error, as one that
-        # fails is: neither is answered by a $PATH binary of unknown release.
-        if force_download:
-            raise ConnectionError(
-                "A download was asked for without a release to download. Set "
-                "$OPENSYSML_GRPC_VERSION, or pass version= here."
-            )
-        return None
-    
-    # Download binary with explicit version
+    # Download the explicit or built-against release.
     try:
         return download_binary(version=version, github_repo=github_repo)
     except UnpinnedReleaseError as e:
