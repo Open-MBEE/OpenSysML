@@ -316,10 +316,11 @@ Three limits of the current language and runtime shape the fleet form:
   fleet asserts each requirement on the block's configuration, which stands
   for every occurrence inheriting the block's values, and on each diverging
   unit.
-- A collection whose lower bound exceeds 1 000 (`maxMaterializedLowerBound`)
-  is not materialized: a plane of `Spacecraft[1600]` validates, but checking
-  a unit of it reports `multiplicity violation: lower bound too large or
-  infinite`. The 12 800-satellite fleet is therefore 32 planes of 400.
+- At the time of this measurement a collection whose lower bound exceeded
+  1 000 was not materialized, so the 12 800-satellite fleet is 32 planes of
+  400. The runtime now holds such a population as reserved identities and
+  makes a unit when it is first read, so a plane of `Spacecraft[1600]` is
+  checked like one of 400; the figures below are for the 32-plane fleet.
 
 Before the runtime shared derived defaults, instantiating a fleet and
 reading a summed attribute over its occurrences cost, warm, **about 2 ms and

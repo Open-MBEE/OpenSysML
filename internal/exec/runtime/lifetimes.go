@@ -229,7 +229,7 @@ func (ctx *Context) portionsOf(inst *Instance) []*Instance {
 		var owned []*Instance
 		for _, fv := range portions[i].FeatureValues {
 			composite := ctx.ownsHeld(fv.Feature)
-			for _, element := range elementsOf(fv.HeldValue()) {
+			for _, element := range standingElements(fv.HeldValue()) {
 				id, ok := element.Object()
 				if !ok || listed[id] {
 					continue
