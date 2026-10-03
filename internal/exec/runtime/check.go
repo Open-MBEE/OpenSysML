@@ -202,6 +202,9 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
+	// Notes are the distinct reasons the searched runs' coverage is narrower than
+	// their schedules, so a clean report observed rather than bounded the result.
+	Notes []string
 	// MassBounded reports the violations' masses are lower bounds: they are when a
 	// bound kept schedules out, moves left an interleaving out, a state was reached
 	// again, or the reduction left a move unexplored at a state.
@@ -323,6 +326,12 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
+	for _, note := range ctx.coverageReasons() {
+		if !slices.Contains(c.notes, note) {
+			c.notes = append(c.notes, note)
+		}
+	}
+	slices.Sort(c.notes)
 	return more, nil
 }
 
@@ -360,6 +369,8 @@ type checker struct {
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
+	// notes are the coverage reasons the searched runs left on their contexts.
+	notes []string
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
@@ -1307,6 +1318,7 @@ func (c *checker) result() *CheckReport {
 		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
+		Notes:      c.notes,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)

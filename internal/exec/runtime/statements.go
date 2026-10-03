@@ -612,6 +612,9 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 			if err != nil {
 				return flowNext, err
 			}
+			if count > 1 {
+				e.ctx.noteCoverage(ReasonBlockBodyRepetition)
+			}
 			f.reps = count
 		}
 		for ; f.reps > 0; f.reps-- {

@@ -130,6 +130,10 @@ type Context struct {
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool
 
+	// coverageNotes holds the distinct reasons this run's coverage is narrower
+	// than its schedules, recorded once each (coverage_note.go).
+	coverageNotes map[string]bool
+
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
 	heldBehaviors map[*ObjectBehavior]bool

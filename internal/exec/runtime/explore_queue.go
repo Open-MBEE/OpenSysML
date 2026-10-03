@@ -92,7 +92,8 @@ type explorePrefix struct {
 	replay   *exploreRun // nil when fresh failed
 	outcome  Outcome
 	identity string
-	err      error // fresh failed, or the run diverged
+	notes    []string // the coverage reasons the run left on its context
+	err      error    // fresh failed, or the run diverged
 }
 
 // exploreQueue coordinates the jobs over the prefixes discovered within the runs cut.
@@ -142,6 +143,7 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 			}
 			outcome = Outcome{Err: runErr, ctx: ctx}
 		}
+		p.notes = ctx.coverageReasons()
 		q.finish(p, replay, outcome, nil)
 	}
 }
@@ -305,6 +307,12 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
+		for _, note := range p.notes {
+			if !slices.Contains(q.result.Notes, note) {
+				q.result.Notes = append(q.result.Notes, note)
+			}
+		}
+		slices.Sort(q.result.Notes)
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{

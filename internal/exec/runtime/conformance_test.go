@@ -177,6 +177,10 @@ type ExpectedOutcome struct {
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
+	// ExploreNotes are the coverage notes exploring the case must record, each
+	// matched exactly and in canonical order; stated, the case is explored even
+	// without an admissible set.
+	ExploreNotes []string `json:"exploreNotes,omitempty"`
 
 	// Satisfy fields: the verdict expected of each satisfaction assertion the
 	// case states, keyed by the assertion as written ("satisfy r by p"), since
@@ -564,7 +568,7 @@ func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) S
 // outcomes within budget, naming any unlisted one with a witness.
 func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	t.Helper()
-	if len(expected.Outcomes) == 0 {
+	if len(expected.Outcomes) == 0 && len(expected.ExploreNotes) == 0 {
 		return
 	}
 	policy, err := ExplorePolicy(expected.ExploreBudget.budget())
@@ -574,6 +578,20 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	exploration, err := Explore(context.Background(), policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
 	if err != nil {
 		t.Fatalf("explore: %v", err)
+	}
+	if expected.ExploreNotes != nil {
+		notes := slices.Clone(expected.ExploreNotes)
+		slices.Sort(notes)
+		if !slices.Equal(exploration.Notes, notes) {
+			t.Errorf("exploration notes = %v, want %v", exploration.Notes, notes)
+		}
+	}
+	if len(expected.Outcomes) == 0 {
+		if !exploration.Complete() {
+			t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
+				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
+		}
+		return
 	}
 	ctx := fresh()
 	reached := make([]int, len(expected.Outcomes))
@@ -747,7 +765,7 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil && !checked {
+		if expected.ExploreBudget != nil && !checked && len(expected.ExploreNotes) == 0 {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
 		}
 		return problems
@@ -2455,6 +2473,7 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1, false},
 		{"explore budget without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 1, false},
 		{"explore budget on a checked case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, true},
+		{"explore budget on a noted case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreNotes: []string{"a note"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -247,22 +247,171 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
-	// A fork performs once, so it cannot drive a repeated step's count however
-	// the edge's ends are written.
+	// A fork's outgoing succession fixes its count to the repeated step's, so a
+	// predecessor performing once cannot order every crossing at the fork.
 	t.Run("fork-drives-repeated-step", func(t *testing.T) {
 		_, err := executeActionSource(t, "A", `package test {
 			private import ScalarValues::*;
 			action def A {
-				first start then f;
+				first start then b;
+				action b;
+				then f;
 				fork f;
 				action a[3];
 				succession first f then a;
-				then done;
+				succession first [*] a then [1] done;
 			}
 		}`)
 		var stepErr *lower.StepMultiplicityError
 		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
 			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
+		}
+	})
+
+	// A control node adjacent to a repeated step and fixed by nothing is the
+	// open order the undetermined-count reason reports.
+	t.Run("control-node-count-undetermined", func(t *testing.T) {
+		for _, test := range []struct {
+			name  string
+			model string
+			want  string
+		}{
+			{"into-fork", `first start then a;
+				action a[3];
+				succession first [*] a then f;
+				fork f;
+				then done;`, "the fork node's performance count is not determined"},
+			{"into-decision", `first start then a;
+				action a[3];
+				succession first [*] a then d;
+				decide d;
+				if true then done;`, "the decision node's performance count is not determined"},
+			{"out-of-merge", `first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;`, "the merge node's performance count is not determined"},
+			{"out-of-join", `first start then p;
+				action p;
+				join j;
+				first p then j;
+				action a[3];
+				succession first j then [*] a;
+				succession first [*] a then [1] done;`, "the join node's performance count is not determined"},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				_, err := executeActionSource(t, "A", `package test {
+					private import ScalarValues::*;
+					action def A {
+						`+test.model+`
+					}
+				}`)
+				var stepErr *lower.StepMultiplicityError
+				if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderOpenCode {
+					t.Fatalf("execution error = %v, want %s", err, lower.StepOrderOpenCode)
+				}
+				if !strings.Contains(err.Error(), test.want) {
+					t.Errorf("execution error = %v, want %q", err, test.want)
+				}
+			})
+		}
+	})
+
+	// A body's declaration order is the executor's own, not a stated order:
+	// lone statements beside a repeated step are the open order it reports.
+	t.Run("loop-body-declaration-order", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				attribute i : Integer = 0;
+				first start then worker;
+				action worker {
+					while i < 1 {
+						action a[2] { assign i := i + 1; }
+						assign i := i + 10;
+					}
+				}
+				then done;
+			}
+		}`)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderOpenCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderOpenCode)
+		}
+		const reason = "the body states no succession, so its declaration order is the executor's and does not order every performance"
+		if !strings.Contains(err.Error(), reason) {
+			t.Errorf("execution error = %v, want reason %q", err, reason)
+		}
+	})
+
+	// A repeated step inside a loop or if body is each run as one move, so the
+	// orders between its performances are the ones exploration never varies:
+	// explore and check record the note rather than claim the orders covered.
+	t.Run("block-body-repetition-is-observed", func(t *testing.T) {
+		m := parseLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			action def LoopRace {
+				attribute c : Integer = 0;
+				attribute passes : Integer = 0;
+				first start then worker;
+				action worker {
+					while passes < 1 {
+						first start then a;
+						action a[2] {
+							attribute t : Integer := c;
+							assign c := t + 1;
+						}
+						succession first [*] a then [1] tally;
+						action tally { assign passes := passes + 1; }
+					}
+				}
+				then done;
+			}
+			action def LoneOnly {
+				attribute c : Integer = 0;
+				first start then worker;
+				action worker {
+					if true {
+						action a[2] {
+							attribute t : Integer := c;
+							assign c := t + 1;
+						}
+					}
+				}
+				then done;
+			}
+			action def FlatAlone {
+				attribute c : Integer = 0;
+				first start then a;
+				action a[2] { assign c := c + 1; }
+				succession first [*] a then [1] done;
+			}
+		}`)
+		notes := func(name string) []string {
+			x := m.exploreAction(t, "explore", name)
+			if !x.Complete() {
+				t.Fatalf("exploration incomplete: %s", x.Status())
+			}
+			return x.Notes
+		}
+		for _, name := range []string{"LoopRace", "LoneOnly"} {
+			if got := notes(name); len(got) != 1 || got[0] != ReasonBlockBodyRepetition {
+				t.Errorf("%s notes = %v, want [%q]", name, got, ReasonBlockBodyRepetition)
+			}
+		}
+		// Check records the same note where it searches the body at all.
+		report := checkStart(t, m, starterOf(m.action(t, "LoneOnly")), unreduced())
+		if len(report.Notes) != 1 || report.Notes[0] != ReasonBlockBodyRepetition {
+			t.Errorf("LoneOnly check notes = %v, want [%q]", report.Notes, ReasonBlockBodyRepetition)
+		}
+		if got := notes("FlatAlone"); len(got) != 0 {
+			t.Errorf("FlatAlone notes = %v, want none", got)
+		}
+		flatReport := checkStart(t, m, starterOf(m.action(t, "FlatAlone")), unreduced())
+		if len(flatReport.Notes) != 0 {
+			t.Errorf("FlatAlone check notes = %v, want none", flatReport.Notes)
 		}
 	})
 

@@ -161,11 +161,19 @@ type Exploration struct {
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
 	// `depth`; none when it is complete.
 	BudgetsHit []string
-	weighted   bool
+	// Notes are the distinct reasons the runs' coverage is narrower than their
+	// schedules, so a complete outcome set is observed rather than proved.
+	Notes    []string
+	weighted bool
 }
 
 // Complete reports whether every linearization was run.
 func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 }
+
+// Covered reports whether a complete exploration saw every schedule: a note the
+// runs left, like a repeated step's performances run one move apiece, says it
+// did not.
+func (x *Exploration) Covered() bool { return x.Complete() && len(x.Notes) == 0 }
 
 // Weighted reports whether a committed run made a weighted choice.
 func (x *Exploration) Weighted() bool { return x.weighted }
