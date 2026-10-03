@@ -26,6 +26,7 @@ type imagedBehavior struct {
 	onClock   bool
 	err       error
 	typeBound bool
+	deferred  *classifierBehaviorDecl
 	action    *imagedAction
 	state     *imagedState
 }
@@ -142,18 +143,16 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	img := imagedBehavior{
 		object: b.Object.ID, attached: slices.Index(t.ctx.objectBehaviors, b),
 		member: b.member, binding: b.binding, name: b.Name, kind: b.Kind,
-		err: b.Err, typeBound: b.typeBound,
+		err: b.Err, typeBound: b.typeBound, deferred: b.deferred,
 	}
 	t.declared[b.Symbol] = true
 	for _, bound := range b.bindings {
 		t.declared[bound] = true
 	}
-	if b.Kind == lower.PerformedAction {
-		for _, earlier := range t.img.behaviors {
-			if earlier.member == b.member && earlier.object == b.Object.ID {
-				img.index++
-			}
-		}
+	img.index = b.performance
+	if b.deferred != nil {
+		t.img.behaviors = append(t.img.behaviors, img)
+		return nil
 	}
 	var err error
 	switch {
@@ -491,6 +490,21 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	if !ok {
 		return fmt.Errorf("%w: the type binds no such behavior", ErrImageBound)
 	}
+	if b.deferred != nil {
+		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding, b.index)
+		if err != nil {
+			return err
+		}
+		behavior.Err = b.err
+		behavior.typeBound = b.typeBound
+		behavior.Name = b.name
+		behavior.Kind = b.kind
+		inst.behaviors = append(inst.behaviors, behavior)
+		dst.behaviorsAttached++
+		dst.objectBehaviors = append(dst.objectBehaviors, behavior)
+		dst.workChanged()
+		return nil
+	}
 	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl, b.index)
 	if err != nil {
 		return err
@@ -498,6 +512,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	behavior.binding = b.binding
 	behavior.Err = b.err
 	behavior.typeBound = b.typeBound
+	behavior.performance = b.index
 	switch {
 	case b.state != nil:
 		exec := newStateExecutorOn(dst, behavior.Symbol, inst, occurrence, b.state.graph)

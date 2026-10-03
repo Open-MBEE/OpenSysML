@@ -315,15 +315,16 @@ func (e *executor) objectFeatureValues(row Value, property string) ([]Value, boo
 	return values, true, err
 }
 
-// collectionElements returns the elements of a collection feature value.
-func collectionElements(value runtime.Value) []runtime.Value {
+// collectionElements returns the elements of a collection feature value, within rt's
+// element budget.
+func collectionElements(rt *runtime.Context, value runtime.Value) ([]runtime.Value, error) {
 	switch {
 	case value.Kind == runtime.ValSequence && value.Sequence() != nil:
-		return value.Sequence().Elements()
+		return rt.HeldElements(value)
 	case value.Kind == runtime.ValSet && value.Set() != nil:
-		return value.Set().Elements()
+		return value.Set().Elements(), nil
 	}
-	return nil
+	return nil, nil
 }
 
 // objectFeatureName finds the feature of an object a property names, by its
@@ -356,8 +357,12 @@ func (e *executor) objectCellValues(row Value, property string, value runtime.Va
 	if value.Kind != runtime.ValSequence && value.Kind != runtime.ValSet {
 		return e.cellValues(value, property, row)
 	}
+	elements, err := collectionElements(e.context.Runtime, value)
+	if err != nil {
+		return nil, e.unevaluable(queryplan.Expression{}, property, row, err)
+	}
 	var result []Value
-	for i, element := range collectionElements(value) {
+	for i, element := range elements {
 		values, err := e.objectCellValues(row, property, element, label+"["+strconv.Itoa(i+1)+"]")
 		if err != nil {
 			return nil, err

@@ -3,6 +3,7 @@ package repl
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -418,11 +419,20 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 		if fv := heldFeatureValue(shape.inst, seg.Name); fv != nil {
 			val := fv.Value
 			if seg.Index > 0 {
-				elements := objref.CollectionElements(fv.Values)
-				if seg.Index > len(elements) {
+				if int64(seg.Index) > runtime.ElementCount(fv.Values) || fv.Values.Kind == runtime.ValNull {
 					return objectShape{}, false
 				}
-				val = elements[seg.Index-1]
+				made, ok := s.madeElementAt(fv.Values, seg.Index-1)
+				if !ok {
+					// A required member not made yet is followed by type, not made to complete.
+					typ := s.objectTypeOf(feat)
+					if typ == nil {
+						return objectShape{}, false
+					}
+					shape = objectShape{typ: typ}
+					continue
+				}
+				val = made
 			}
 			id, isObject := val.Object()
 			if !isObject {
@@ -444,6 +454,16 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 	return shape, true
 }
 
+// madeElementAt is the value at the 0-based index of a collection when it is already
+// there; false for a required member not made yet.
+func (s *Session) madeElementAt(val runtime.Value, index int) (runtime.Value, bool) {
+	positions, values := s.rtCtx.MadeElements(val)
+	if i, found := slices.BinarySearch(positions, index); found {
+		return values[i], true
+	}
+	return runtime.Value{}, false
+}
+
 // holdsObjects reports whether a feature is a path segment of the object holding
 // it: once materialized, whether it holds an object (a selected variation's
 // object as much as a part's); before that, whether reading it would.
@@ -456,12 +476,10 @@ func (s *Session) holdsObjects(shape objectShape, feat *runtime.EffectiveFeature
 		_, isObject := fv.Value.Object()
 		return isObject
 	}
-	for _, el := range objref.CollectionElements(fv.Values) {
-		if _, isObject := el.Object(); isObject {
-			return true
-		}
+	if runtime.ElementCount(fv.Values) == 0 || fv.Values.Kind == runtime.ValNull {
+		return false
 	}
-	return false
+	return s.rtCtx.HoldsObject(fv.Values)
 }
 
 // objectTypeOf is the type of the object a feature holds once read, as the
@@ -567,7 +585,10 @@ func (s *Session) elementsToHold(shape objectShape, feat *runtime.EffectiveFeatu
 			}
 			return 0
 		}
-		return len(objref.CollectionElements(fv.Values))
+		if fv.Values.Kind == runtime.ValNull || fv.Values.Kind == runtime.ValInvalid {
+			return 0
+		}
+		return int(runtime.ElementCount(fv.Values))
 	}
 	if reading[feat.Name] || s.objectTypeOf(feat) == nil {
 		return 0

@@ -1211,3 +1211,23 @@ func TestRefusalFollowsNewExhibitingTypes(t *testing.T) {
 		t.Errorf("got types %q after a submission, want M::A,N::B", got)
 	}
 }
+
+// Completing a path through a required member not made yet follows it by type: the
+// completion offers its features and makes no object.
+func TestCompletionThroughUnmadeRequiredMemberMakesNone(t *testing.T) {
+	s := loadSource(t, `package Demo {
+		part def W;
+		part def C { part w : W; }
+		part def Holder { part p : C[5000]; }
+	}`)
+	wants(t, run(t, s, "%instantiate Demo::Holder"), "ID: 1")
+	wants(t, run(t, s, "%features #1"), "p")
+	before := s.rtCtx.InstanceCount()
+	line := "%features #1.p[4000]."
+	if got := s.Complete(line, len(line)).Candidates; !slices.Contains(got, "#1.p[4000].w") {
+		t.Errorf("completion offered %v, want #1.p[4000].w", got)
+	}
+	if after := s.rtCtx.InstanceCount(); after != before {
+		t.Errorf("completion made %d objects", after-before)
+	}
+}

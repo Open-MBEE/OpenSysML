@@ -79,6 +79,7 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 			{Name: "runs", Limit: int64(x.Budget.Runs), Reached: slices.Contains(x.BudgetsHit, "runs")},
 			{Name: "depth", Limit: int64(x.Budget.Depth), Reached: slices.Contains(x.BudgetsHit, "depth")},
 		},
+		Scope:   x.Scope,
 		Values:  []Evaluation{{Name: q.Subject, Explored: x}},
 		Elapsed: time.Since(started),
 	}

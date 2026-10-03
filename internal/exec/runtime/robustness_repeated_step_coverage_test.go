@@ -603,6 +603,108 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Errorf("total = %d, want 10", got)
 		}
 	})
+
+	// `perform action run[2]` as a succession's later end cannot pair under
+	// KERML-29: a behavior-order finding notes it, and both performances run.
+	t.Run("namespace-succession-later-end-repeated", func(t *testing.T) {
+		file := parseAndBuild(t, `package test {
+			private import ScalarValues::*;
+			part def Host {
+				attribute n : Integer = 0;
+				perform action prep {
+					first start;
+					then action one { assign n := n + 10; }
+					then done;
+				}
+				perform action run[2] {
+					first start;
+					then action one { assign n := n + 1; }
+					then done;
+				}
+				first prep then run;
+			}
+		}`)
+		index, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+		host := findSymbolByName(index.DocumentRoot("<test>"), "Host", ast.DefPart)
+		inst, err := ctx.Instantiate(host)
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		notes := ctx.Notes()
+		run := resolveSymbol(t, host.Scope, "run")
+		performed := inst.PerformedActionsOf(run)
+		if len(performed) != 2 {
+			t.Fatalf("PerformedActionsOf(run) = %d behaviors, want 2", len(performed))
+		}
+		for i, behavior := range performed {
+			if behavior.deferred != nil {
+				t.Errorf("run performance %d remains held", i)
+			}
+		}
+		if got := featureIntValue(t, ctx, inst, "n"); got != 12 {
+			t.Errorf("n = %d, want 12 (prep once and both run performances)", got)
+		}
+		var findings int
+		for _, note := range notes {
+			if finding, ok := note.(SuccessionOrdersNothing); ok &&
+				strings.Contains(finding.Reason, "2 later-end performances") {
+				findings++
+			}
+		}
+		if findings != 1 {
+			t.Errorf("later-end findings = %d, want one KERML-29 pairing note", findings)
+		}
+	})
+
+	// `perform action run[2]` as a succession's earlier end cannot pair either:
+	// the later end releases with a finding, and both performances still run.
+	t.Run("namespace-succession-earlier-end-repeated", func(t *testing.T) {
+		file := parseAndBuild(t, `package test {
+			private import ScalarValues::*;
+			part def Host {
+				attribute n : Integer = 0;
+				attribute m : Integer = 0;
+				perform action run[2] {
+					first start;
+					then action one { assign n := n + 1; }
+					then done;
+				}
+				perform action prep {
+					first start;
+					then action one { assign m := m + 1; }
+					then done;
+				}
+				first run then prep;
+			}
+		}`)
+		index, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+		host := findSymbolByName(index.DocumentRoot("<test>"), "Host", ast.DefPart)
+		inst, err := ctx.Instantiate(host)
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		notes := ctx.Notes()
+		run := resolveSymbol(t, host.Scope, "run")
+		if performed := inst.PerformedActionsOf(run); len(performed) != 2 {
+			t.Fatalf("PerformedActionsOf(run) = %d behaviors, want 2", len(performed))
+		}
+		if got := featureIntValue(t, ctx, inst, "n"); got != 2 {
+			t.Errorf("n = %d, want 2 (both run performances)", got)
+		}
+		if got := featureIntValue(t, ctx, inst, "m"); got != 1 {
+			t.Errorf("m = %d, want 1 (prep released and ran)", got)
+		}
+		var findings int
+		for _, note := range notes {
+			if finding, ok := note.(SuccessionOrdersNothing); ok &&
+				strings.Contains(finding.Reason, "2 earlier-end performances") {
+				findings++
+			}
+		}
+		if findings != 1 {
+			t.Errorf("earlier-end findings = %d, want one KERML-29 pairing note", findings)
+		}
+	})
 }
 
 // assertDistinctRunOccurrences checks a `perform action run[n]`'s part gives

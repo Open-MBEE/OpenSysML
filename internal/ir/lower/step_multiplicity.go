@@ -399,6 +399,24 @@ func (g *ActionGraph) checkEdgeOrder(node ast.Node, edge ActionEdge, count int64
 	return nil
 }
 
+// CheckBehaviorOrderMultiplicity applies the action-step succession rule at one performance per end.
+func CheckBehaviorOrderMultiplicity(scope *symbols.Scope, earlier, later ast.Node, earlierMultiplicity, laterMultiplicity *ast.Multiplicity, decl ast.Node, model *semantics.Model) error {
+	if earlierMultiplicity == nil && laterMultiplicity == nil {
+		return nil
+	}
+	graph := &ActionGraph{
+		Scope:          scope,
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+	}
+	return graph.checkRepeatedEdgeOrder(later, ActionEdge{
+		Source:             earlier,
+		Target:             later,
+		Decl:               decl,
+		SourceMultiplicity: earlierMultiplicity,
+		TargetMultiplicity: laterMultiplicity,
+	}, 1, model)
+}
+
 type crossingRange struct {
 	lower         int64
 	upper         int64

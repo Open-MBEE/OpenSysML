@@ -205,6 +205,8 @@ type CheckReport struct {
 	// Notes are the distinct reasons the searched runs' coverage is narrower than
 	// their schedules, so a clean report observed rather than bounded the result.
 	Notes []string
+	// Scope is the distinct reasons the finals were observed short of quiescence.
+	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
 	// bound kept schedules out, moves left an interleaving out, a state was reached
 	// again, or the reduction left a move unexplored at a state.
@@ -367,6 +369,8 @@ type checker struct {
 	nested, untold map[string]bool
 	// notes are the coverage reasons the searched runs left on their contexts.
 	notes []string
+	// scope is the reasons the finals so far were observed short of quiescence.
+	scope []ObservationReason
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
@@ -884,10 +888,22 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	return p.Holds(c.ctx, c.inv)
 }
 
+// scopeWith is scope with the reasons of more it lacks, sorted.
+func scopeWith(scope, more []ObservationReason) []ObservationReason {
+	for _, reason := range more {
+		if !slices.Contains(scope, reason) {
+			scope = append(scope, reason)
+		}
+	}
+	slices.Sort(scope)
+	return scope
+}
+
 // final records the outcome of a complete schedule, the first schedule
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
-	values, spelled, identity := c.spellFinal()
+	values, spelled, identity, scope := c.spellFinal()
+	c.scope = scopeWith(c.scope, scope)
 	if _, seen := c.finals[identity]; seen {
 		return
 	}
@@ -902,11 +918,11 @@ func (c *checker) final() {
 
 // spellFinal renders the completed state's outcome and divergence values under a probe;
 // a selected performer feature the outcome leaves out (an item, one unset or in error) joins both.
-func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
+func (c *checker) spellFinal() (values map[string]string, spelled, identity string, scope []ObservationReason) {
 	defer c.ctx.beginProbe()()
 	outcome := c.inv.Outcome()
 	values = c.divergenceValues()
-	spelled, identity = outcome.String(), outcome.identity()
+	spelled, identity, scope = outcome.String(), outcome.identity(), outcome.Scope
 	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		if _, carried := outcome.Outputs[name]; carried {
@@ -918,7 +934,7 @@ func (c *checker) spellFinal() (values map[string]string, spelled, identity stri
 		spelled += "; " + name + " = " + values[name]
 		identity += "; " + name + " = " + strconv.Quote(values[name])
 	}
-	return values, spelled, identity
+	return values, spelled, identity, scope
 }
 
 // divergenceValues spells the observables divergence is reported over as the
@@ -1327,6 +1343,7 @@ func (c *checker) result() *CheckReport {
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
 		Notes:      c.notes,
+		Scope:      c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)

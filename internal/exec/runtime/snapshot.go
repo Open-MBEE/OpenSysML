@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -40,6 +41,18 @@ type executorCaptures struct {
 	actions   []actionCapture
 	states    []stateCapture
 	runStates []runStateCapture
+	behaviors []behaviorCapture
+}
+
+type behaviorCapture struct {
+	behavior *ObjectBehavior
+	symbol   *symbols.Symbol
+	bindings []*symbols.Symbol
+	kinds    []*symbols.Symbol
+	action   *ActionExecutor
+	state    *StateExecutor
+	err      error
+	deferred *classifierBehaviorDecl
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -56,20 +69,21 @@ type journalMark struct {
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
 type runCapture struct {
-	ids               *idSequence
-	nextID            int64
-	activations, runs int64
-	coverageNotes     mapState[string, bool]
-	run               *runState
-	trace             *TraceRecorder
-	traced            traceCapture
-	choices           []ChoiceTaken
-	draws             []DrawTaken
-	evaluations       *evaluationLog
-	pendingBehaviors  []*ObjectBehavior
-	heldBehaviors     mapState[*ObjectBehavior, bool]
-	holdingDriven     bool
-	clockRun          *runState
+	ids                  *idSequence
+	nextID               int64
+	activations, runs    int64
+	coverageNotes        mapState[string, bool]
+	run                  *runState
+	trace                *TraceRecorder
+	traced               traceCapture
+	choices              []ChoiceTaken
+	draws                []DrawTaken
+	evaluations          *evaluationLog
+	pendingBehaviors     []*ObjectBehavior
+	heldBehaviors        mapState[*ObjectBehavior, bool]
+	successionOrderNotes mapState[successionOrderNoteKey, bool]
+	holdingDriven        bool
+	clockRun             *runState
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -175,6 +189,9 @@ func (ctx *Context) snapshotWith(actions []*ActionExecutor, states []*StateExecu
 	for _, exec := range states {
 		s.captureState(exec)
 	}
+	for _, behavior := range ctx.objectBehaviors {
+		s.captureBehavior(behavior)
+	}
 	for _, capture := range s.actions {
 		s.captureRunState(capture.driven)
 	}
@@ -235,6 +252,22 @@ func (s *executorCaptures) captureState(e *StateExecutor) {
 	}
 }
 
+func (s *executorCaptures) captureBehavior(behavior *ObjectBehavior) {
+	if slices.ContainsFunc(s.behaviors, func(c behaviorCapture) bool { return c.behavior == behavior }) {
+		return
+	}
+	s.behaviors = append(s.behaviors, behaviorCapture{
+		behavior: behavior,
+		symbol:   behavior.Symbol,
+		bindings: behavior.bindings,
+		kinds:    behavior.kinds,
+		action:   behavior.Action,
+		state:    behavior.State,
+		err:      behavior.Err,
+		deferred: behavior.deferred,
+	})
+}
+
 func (s *executorCaptures) restore() {
 	for _, capture := range s.runStates {
 		capture.restore()
@@ -244,6 +277,15 @@ func (s *executorCaptures) restore() {
 	}
 	for _, capture := range s.states {
 		capture.restore()
+	}
+	for _, capture := range s.behaviors {
+		capture.behavior.Symbol = capture.symbol
+		capture.behavior.bindings = capture.bindings
+		capture.behavior.kinds = capture.kinds
+		capture.behavior.Action = capture.action
+		capture.behavior.State = capture.state
+		capture.behavior.Err = capture.err
+		capture.behavior.deferred = capture.deferred
 	}
 }
 
@@ -344,17 +386,18 @@ func (ctx *Context) captureRun() runCapture {
 	c := runCapture{
 		ids: ctx.ids, nextID: ctx.ids.next,
 		activations: ctx.activations, runs: ctx.runs,
-		run:              ctx.run,
-		trace:            ctx.trace,
-		traced:           captureTrace(ctx.trace),
-		choices:          ctx.choices,
-		draws:            ctx.draws,
-		evaluations:      ctx.evaluations,
-		coverageNotes:    captureMap(ctx.coverageNotes),
-		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
-		heldBehaviors:    captureMap(ctx.heldBehaviors),
-		holdingDriven:    ctx.holdingDriven,
-		clockRun:         ctx.clockRun.state,
+		run:                  ctx.run,
+		trace:                ctx.trace,
+		traced:               captureTrace(ctx.trace),
+		choices:              ctx.choices,
+		draws:                ctx.draws,
+		evaluations:          ctx.evaluations,
+		coverageNotes:        captureMap(ctx.coverageNotes),
+		pendingBehaviors:     slices.Clone(ctx.pendingBehaviors),
+		heldBehaviors:        captureMap(ctx.heldBehaviors),
+		successionOrderNotes: captureMap(ctx.successionOrderNotes),
+		holdingDriven:        ctx.holdingDriven,
+		clockRun:             ctx.clockRun.state,
 	}
 	return c
 }
@@ -375,6 +418,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.coverageNotes = c.coverageNotes.restore()
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
+	ctx.successionOrderNotes = c.successionOrderNotes.restore()
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
 	ctx.workChanged()

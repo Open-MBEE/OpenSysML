@@ -154,6 +154,7 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		return Result{}, err
 	}
 	result.Bounds = checkBounds(report, budget)
+	result.Scope = report.Scope
 	result.Values = []Evaluation{{Name: q.Subject, Checked: checked}}
 	result.Elapsed = time.Since(started)
 	switch {

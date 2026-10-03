@@ -163,7 +163,9 @@ type Exploration struct {
 	BudgetsHit []string
 	// Notes are the distinct reasons the runs' coverage is narrower than their
 	// schedules, so a complete outcome set is observed rather than proved.
-	Notes    []string
+	Notes []string
+	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
+	Scope    []ObservationReason
 	weighted bool
 }
 

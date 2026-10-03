@@ -31,6 +31,9 @@ func (r Result) Standing() string {
 	if r.Reason != "" && r.Strength == Observed {
 		evidence += "; " + r.Reason
 	}
+	for _, scope := range r.Scope {
+		evidence += "; " + string(scope)
+	}
 	return fmt.Sprintf("%s (%s: %s)", r.Claim, strength, evidence)
 }
 

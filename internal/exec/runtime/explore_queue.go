@@ -313,6 +313,7 @@ func (q *exploreQueue) fold() {
 			}
 		}
 		slices.Sort(q.result.Notes)
+		q.result.Scope = scopeWith(q.result.Scope, p.outcome.Scope)
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
