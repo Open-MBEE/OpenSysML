@@ -362,9 +362,6 @@ func (e *StateExecutor) defaultEntryRouteAvailable(current route) bool {
 		}
 		return false
 	}
-	if current.choice != nil {
-		return true
-	}
 	return true
 }
 
