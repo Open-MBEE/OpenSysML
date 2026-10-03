@@ -128,9 +128,6 @@ func (g *ActionGraph) CheckStep(node ast.Node, model *semantics.Model) error {
 	if err := g.checkRepeatedPins(node, model); err != nil {
 		return err
 	}
-	if err := g.checkRepeatedFeatureReads(node, model); err != nil {
-		return err
-	}
 	if isFixedMultiplicityStateBehavior(node) {
 		return g.stepError(node, model, StepMultiplicityUnsupportedCode,
 			"the state entry, do, and exit performances have multiplicity [1]", nil)
@@ -158,17 +155,173 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 	if other == node {
 		other = edge.Target
 	}
-	if edge.Guard != nil || isControlNode(other) {
-		reason := "control-node successions require a single crossing at the repeated step"
-		if edge.Guard != nil {
-			reason = "guarded successions cannot order every performance of the repeated step"
+	if edge.Guard != nil {
+		// A guard runs at the edge's source, which a written end on an edge out
+		// of the repeated step cannot constrain; into one it needs its written
+		// target end to count every performance.
+		if edge.Target != node || edge.TargetMultiplicity == nil {
+			return g.stepError(node, model, StepMultiplicityUnsupportedCode,
+				"guarded successions cannot order every performance of the repeated step", edge.Decl)
 		}
-		return g.stepError(node, model, StepMultiplicityUnsupportedCode, reason, edge.Decl)
+		// The guard's grammar writes no source end, but the one performance it
+		// leaves crosses once: order the edge with that end fixed at one.
+		sourceEnd := &crossingRange{lower: 1, upper: 1, written: true}
+		return g.checkEdgeOrder(node, edge, count, nil, sourceEnd, nil, model)
+	}
+	if edge.DeclaredOrder && count > 1 {
+		return g.stepError(node, model, StepOrderOpenCode,
+			"the body states no succession, so its declaration order is the executor's and does not order every performance", nil)
+	}
+	if isControlNode(other) {
+		return g.checkControlEdge(node, edge, other, count, model)
 	}
 	return g.checkRepeatedEdgeOrder(node, edge, count, model)
 }
 
+// checkControlEdge orders an edge between a repeated step and a control node.
+// An unwritten node runs once, unless its ends force the repeated step's
+// count: a bijective crossing — every performance into a join, or the lone
+// incoming edge of a merge — or the one performance a fork or the lone
+// outgoing edge of a decision leaves.
+func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control ast.Node, count int64, model *semantics.Model) error {
+	into := edge.Target == control
+	sourceEnd, targetEnd := mandatedControlEnds(control, into)
+	if err := g.checkMandatedEnd(node, edge.SourceMultiplicity, sourceEnd, control, model, edge.Decl); err != nil {
+		return err
+	}
+	if err := g.checkMandatedEnd(node, edge.TargetMultiplicity, targetEnd, control, model, edge.Decl); err != nil {
+		return err
+	}
+	var derived bool
+	switch control.(type) {
+	case *ast.JoinNode:
+		// The join-in ends are mandated one each, so the crossing is bijective.
+		derived = into
+	case *ast.MergeNode:
+		// One incoming edge plus the one incoming link every merge performance
+		// owns make the crossing bijective.
+		derived = into && len(g.Incoming(control)) == 1
+	case *ast.ForkNode:
+		// The fork-out ends are mandated one each, so the crossing is bijective.
+		derived = !into
+	case *ast.DecisionNode:
+		// One outgoing edge plus the one outgoing link every decision performance
+		// owns make the crossing bijective.
+		derived = !into && len(g.Edges[control]) == 1
+	}
+	if !derived {
+		counts := map[ast.Node]int64{control: 1}
+		return g.checkEdgeOrder(node, edge, count, counts, sourceEnd, targetEnd, model)
+	}
+	// The control node performs once per performance of the repeated step, so
+	// every other edge at it must still order under that count.
+	counts := map[ast.Node]int64{control: count}
+	check := func(other ActionEdge) error {
+		if other == edge {
+			return nil
+		}
+		s, t := mandatedControlEnds(control, other.Target == control)
+		return g.checkEdgeOrder(node, other, count, counts, s, t, model)
+	}
+	for _, other := range g.Incoming(control) {
+		if err := check(other); err != nil {
+			return err
+		}
+	}
+	for _, other := range g.Edges[control] {
+		if err := check(other); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkMandatedEnd refuses a written end that contradicts the range SysML
+// mandates at a control node, which no default may rescue.
+func (g *ActionGraph) checkMandatedEnd(node ast.Node, written *ast.Multiplicity, mandated *crossingRange, control ast.Node, model *semantics.Model, declaration ast.Node) error {
+	if written == nil || mandated == nil {
+		return nil
+	}
+	rangeIn, err := g.crossingRange(node, node, written, model)
+	if err != nil {
+		return err
+	}
+	if rangeIn.lower != mandated.lower || rangeIn.upper != mandated.upper || rangeIn.upperInfinite != mandated.upperInfinite {
+		return g.stepError(node, model, StepOrderUnsatisfiableCode,
+			"the succession's written end multiplicity contradicts the one SysML requires at a "+controlKindName(control)+" node", declaration)
+	}
+	return nil
+}
+
+// mandatedControlEnds returns the range SysML mandates at the source and target
+// ends of an edge incident to a control node: `into` means the edge leads into
+// the node. A nil end has no mandate and keeps the usual defaults.
+func mandatedControlEnds(control ast.Node, into bool) (sourceEnd, targetEnd *crossingRange) {
+	exactOne := &crossingRange{lower: 1, upper: 1, written: true}
+	zeroOrOne := &crossingRange{lower: 0, upper: 1, written: true}
+	if into {
+		targetEnd = exactOne
+		switch control.(type) {
+		case *ast.JoinNode:
+			sourceEnd = exactOne
+		case *ast.MergeNode:
+			sourceEnd = zeroOrOne
+		}
+		return sourceEnd, targetEnd
+	}
+	sourceEnd = exactOne
+	switch control.(type) {
+	case *ast.ForkNode:
+		targetEnd = exactOne
+	case *ast.DecisionNode:
+		targetEnd = zeroOrOne
+	}
+	return sourceEnd, targetEnd
+}
+
+func controlKindName(node ast.Node) string {
+	switch node.(type) {
+	case *ast.ForkNode:
+		return "fork"
+	case *ast.JoinNode:
+		return "join"
+	case *ast.MergeNode:
+		return "merge"
+	case *ast.DecisionNode:
+		return "decision"
+	}
+	return "control"
+}
+
+// CrossesPerPerformance reports whether node, a step performed n times, leads
+// its every performance into a join or merge: the edge is bijective, so the
+// control node fires once per performance rather than behind a barrier.
+func (g *ActionGraph) CrossesPerPerformance(node ast.Node, model *semantics.Model) bool {
+	if g == nil || node == nil {
+		return false
+	}
+	for _, edge := range g.Edges[node] {
+		if edge.Guard != nil {
+			continue
+		}
+		switch edge.Target.(type) {
+		case *ast.JoinNode, *ast.MergeNode:
+			return true
+		}
+	}
+	return false
+}
+
 func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, count int64, model *semantics.Model) error {
+	return g.checkEdgeOrder(node, edge, count, nil, nil, nil, model)
+}
+
+// checkEdgeOrder is the order check of checkRepeatedEdgeOrder with explicit
+// counts and mandated ranges substituted: counts overrides the step count an
+// endpoint reports (a control node performing per performance), and each
+// mandated end stands in for an unwritten one — a written end that differs
+// contradicts it and is unsatisfiable.
+func (g *ActionGraph) checkEdgeOrder(node ast.Node, edge ActionEdge, count int64, counts map[ast.Node]int64, mandatedSource, mandatedTarget *crossingRange, model *semantics.Model) error {
 	if isStartNode(edge.Source) || isDoneNode(edge.Target) {
 		return nil
 	}
@@ -176,19 +329,44 @@ func (g *ActionGraph) checkRepeatedEdgeOrder(node ast.Node, edge ActionEdge, cou
 		return nil
 	}
 
-	sourceCount, err := g.StepCount(edge.Source, model)
+	countOf := func(endpoint ast.Node) (int64, error) {
+		if counts != nil {
+			if c, ok := counts[endpoint]; ok {
+				return c, nil
+			}
+		}
+		return g.StepCount(endpoint, model)
+	}
+	sourceCount, err := countOf(edge.Source)
 	if err != nil {
 		return err
 	}
-	targetCount, err := g.StepCount(edge.Target, model)
+	targetCount, err := countOf(edge.Target)
 	if err != nil {
 		return err
 	}
-	sourceRange, err := g.crossingRange(node, edge.Source, edge.SourceMultiplicity, model)
+	endRange := func(endpoint ast.Node, written *ast.Multiplicity, mandated *crossingRange) (crossingRange, error) {
+		rangeIn, err := g.crossingRange(node, endpoint, written, model)
+		if err != nil {
+			return crossingRange{}, err
+		}
+		if mandated == nil {
+			return rangeIn, nil
+		}
+		if !rangeIn.written {
+			return *mandated, nil
+		}
+		if rangeIn.lower != mandated.lower || rangeIn.upper != mandated.upper || rangeIn.upperInfinite != mandated.upperInfinite {
+			return crossingRange{}, g.stepError(node, model, StepOrderUnsatisfiableCode,
+				"the succession's written end multiplicity contradicts the one SysML requires at a "+controlKindName(endpoint)+" node", edge.Decl)
+		}
+		return rangeIn, nil
+	}
+	sourceRange, err := endRange(edge.Source, edge.SourceMultiplicity, mandatedSource)
 	if err != nil {
 		return err
 	}
-	targetRange, err := g.crossingRange(node, edge.Target, edge.TargetMultiplicity, model)
+	targetRange, err := endRange(edge.Target, edge.TargetMultiplicity, mandatedTarget)
 	if err != nil {
 		return err
 	}
@@ -305,9 +483,15 @@ func (g *ActionGraph) checkRepeatedPins(node ast.Node, model *semantics.Model) e
 			}
 		}
 		for _, binding := range graph.Bindings {
-			if bindingTouchesNode(binding, node) {
+			if !bindingTouchesNode(binding, node) {
+				continue
+			}
+			if !g.supportedRepeatedBinding(node, binding, model) {
 				return g.stepError(node, model, StepMultiplicityUnsupportedCode,
 					"bindings at pins of a repeated action step are unsupported", binding.Decl)
+			}
+			if err := g.checkRepeatedBindingEnd(node, binding, model); err != nil {
+				return err
 			}
 		}
 		for _, connection := range graph.Connections {
@@ -339,6 +523,52 @@ func bindingTouchesNode(binding PinBinding, node ast.Node) bool {
 	return false
 }
 
+// supportedRepeatedBinding reports whether the binding at a pin of node is one the
+// executor honors per performance: `pin = e` written at the node itself with the
+// other end an expression rather than another node's pin.
+func (g *ActionGraph) supportedRepeatedBinding(node ast.Node, binding PinBinding, model *semantics.Model) bool {
+	if binding.Node != node || len(binding.Path) != 0 || binding.OtherNode != nil {
+		return false
+	}
+	for _, step := range binding.OtherPath {
+		if step == node {
+			return false
+		}
+	}
+	return true
+}
+
+// checkRepeatedBindingEnd refuses a binding whose other end is statically known
+// to hold more than one value, which a `bind pin = e` cannot distribute over the
+// performances; ends of unknown width are decided at run time.
+func (g *ActionGraph) checkRepeatedBindingEnd(node ast.Node, binding PinBinding, model *semantics.Model) error {
+	if binding.FromValue || binding.Other == nil || g.resolver == nil {
+		return nil
+	}
+	scope := binding.Scope
+	if scope == nil {
+		scope = g.nodeScope(node)
+	}
+	sym, ok := g.resolver.ResolveTarget(scope, binding.Other)
+	if !ok || sym == nil {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Multiplicity == nil {
+		return nil
+	}
+	evaluator := model
+	if evaluator == nil {
+		evaluator = semantics.NewModel(nil)
+	}
+	r, ok := evaluator.RangeIn(sym.OwnerScope, usage.Multiplicity)
+	if !ok || !r.Lower.Known || r.Lower.Infinite || r.Lower.Value <= 1 {
+		return nil
+	}
+	return g.stepError(node, model, StepMultiplicityUnsupportedCode,
+		"a binding distributes a multi-valued end over the performances in an assignment the model leaves open", binding.Decl)
+}
+
 func connectionEndStartsAt(end string, path []string) bool {
 	segments := strings.Split(end, ".")
 	if len(segments) <= len(path) {
@@ -350,241 +580,6 @@ func connectionEndStartsAt(end string, path []string) bool {
 		}
 	}
 	return true
-}
-
-// checkRepeatedFeatureReads refuses an expression outside the repeated step
-// node that reads a feature of the step through a chain naming it.
-func (g *ActionGraph) checkRepeatedFeatureReads(node ast.Node, model *semantics.Model) error {
-	outermost := g
-	for outermost.Enclosing != nil {
-		outermost = outermost.Enclosing
-	}
-	scan := &repeatedReadScanner{graph: g, node: node, model: model, outermost: outermost, visited: map[*ActionGraph]bool{}}
-	return scan.scanGraph(outermost)
-}
-
-// repeatedReadScanner walks every graph of a flow but the repeated step's own,
-// checking each expression for a read of the step's features.
-type repeatedReadScanner struct {
-	graph     *ActionGraph
-	node      ast.Node
-	model     *semantics.Model
-	outermost *ActionGraph
-	visited   map[*ActionGraph]bool
-}
-
-// check reports a chain in expression that names a feature of the repeated step.
-func (r *repeatedReadScanner) check(expression ast.Node, scope *symbols.Scope) error {
-	var found *ast.FeatureChainExpr
-	ast.Inspect(expression, func(candidate ast.Node) bool {
-		chain, ok := candidate.(*ast.FeatureChainExpr)
-		if !ok {
-			return true
-		}
-		base, segments := flattenChain(chain)
-		if len(segments) == 0 {
-			return true
-		}
-		if r.graph.chainNamesNode(base, segments, r.node, scope) {
-			found = chain
-			return false
-		}
-		return true
-	})
-	if found == nil {
-		return nil
-	}
-	return r.graph.stepError(r.node, r.model, StepMultiplicityUnsupportedCode,
-		"features of a repeated action step cannot be read from outside the step", found)
-}
-
-// scanStatement scans the graphs nested in a body statement.
-func (r *repeatedReadScanner) scanStatement(statement Statement) error {
-	switch s := statement.(type) {
-	case Block:
-		if err := r.scanGraph(s.Graph); err != nil {
-			return err
-		}
-		for _, nested := range s.Statements {
-			if err := r.scanStatement(nested); err != nil {
-				return err
-			}
-		}
-	case Loop:
-		return r.scanStatement(s.Body)
-	case If:
-		if err := r.scanStatement(s.Then); err != nil {
-			return err
-		}
-		if s.Else != nil {
-			return r.scanStatement(*s.Else)
-		}
-	}
-	return nil
-}
-
-// isInsideRepeatedStep tells whether graph is nested in the repeated step itself,
-// where its features are read freely.
-func (r *repeatedReadScanner) isInsideRepeatedStep(graph *ActionGraph) bool {
-	for current := graph; current != nil && current != r.outermost; current = current.Enclosing {
-		if current.EnclosingNode == r.node {
-			return true
-		}
-	}
-	return false
-}
-
-// scanGraph checks every expression of graph and the graphs nested in it.
-func (r *repeatedReadScanner) scanGraph(graph *ActionGraph) error {
-	if graph == nil || r.visited[graph] || r.isInsideRepeatedStep(graph) {
-		return nil
-	}
-	r.visited[graph] = true
-	if err := r.scanValues(graph); err != nil {
-		return err
-	}
-	for owner, accept := range graph.Accepts {
-		if owner != r.node {
-			if err := r.check(accept.Trigger, accept.Scope); err != nil {
-				return err
-			}
-		}
-	}
-	for source, edges := range graph.Edges {
-		for _, edge := range edges {
-			if err := r.check(edge.Guard, graph.nodeScope(source)); err != nil {
-				return err
-			}
-		}
-	}
-	if err := r.scanBodies(graph); err != nil {
-		return err
-	}
-	for owner, subflow := range graph.Subflows {
-		if owner == r.node || subflow == nil {
-			continue
-		}
-		if err := r.scanGraph(subflow.Graph); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// scanValues checks the attribute and feature values of graph.
-func (r *repeatedReadScanner) scanValues(graph *ActionGraph) error {
-	for _, attribute := range graph.Attributes {
-		scope := attribute.Scope
-		if scope == nil {
-			scope = graph.Scope
-		}
-		if err := r.check(attribute.Value, scope); err != nil {
-			return err
-		}
-	}
-	for owner, features := range graph.Features {
-		if owner == r.node {
-			continue
-		}
-		for _, feature := range features {
-			scope := feature.Scope
-			if scope == nil {
-				scope = graph.nodeScope(owner)
-			}
-			if err := r.check(feature.Value, scope); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// scanBodies checks the statements of every node body of graph but the step's own.
-func (r *repeatedReadScanner) scanBodies(graph *ActionGraph) error {
-	for owner, statements := range graph.Bodies {
-		if owner == r.node {
-			continue
-		}
-		for _, statement := range statements {
-			for _, expression := range statementExpressions(statement) {
-				if err := r.check(expression, graph.nodeScope(owner)); err != nil {
-					return err
-				}
-			}
-			if err := r.scanStatement(statement); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (g *ActionGraph) chainNamesNode(base ast.Node, segments []string, node ast.Node, scope *symbols.Scope) bool {
-	if g.resolver != nil {
-		if scope == nil {
-			scope = g.Scope
-		}
-		if symbol, ok := g.resolver.ResolveTarget(scope, base); ok && symbol != nil && symbol.Decl == node {
-			return true
-		}
-	}
-	path := FeaturePath(base)
-	if cut := strings.LastIndex(path, "::"); cut >= 0 {
-		path = path[cut+2:]
-	}
-	names := strings.Split(path, ".")
-	names = append(names, segments...)
-	nodePath := []string{getNodeName(node)}
-	for graph := g; graph != nil && graph.Enclosing != nil; graph = graph.Enclosing {
-		nodePath = append([]string{getNodeName(graph.EnclosingNode)}, nodePath...)
-	}
-	if len(names) <= len(nodePath) {
-		return false
-	}
-	for i, name := range nodePath {
-		if names[i] != name {
-			return false
-		}
-	}
-	return true
-}
-
-func statementExpressions(statement Statement) []ast.Node {
-	switch s := statement.(type) {
-	case Send:
-		return []ast.Node{s.Message, s.TargetExpr, s.ReceiverExpr}
-	case Assign:
-		expressions := []ast.Node{s.Value}
-		if s.Chain != nil {
-			expressions = append(expressions, s.Chain.Base)
-		}
-		return expressions
-	case Declare:
-		return []ast.Node{s.Value}
-	case Block:
-		return blockStatementExpressions(s.Statements)
-	case Loop:
-		return append([]ast.Node{s.Condition, s.Until, s.Collection}, blockStatementExpressions(s.Body.Statements)...)
-	case If:
-		expressions := append([]ast.Node{s.Condition}, blockStatementExpressions(s.Then.Statements)...)
-		if s.Else != nil {
-			expressions = append(expressions, blockStatementExpressions(s.Else.Statements)...)
-		}
-		return expressions
-	case Return:
-		return []ast.Node{s.Value}
-	case Effect:
-		return []ast.Node{s.TargetExpr}
-	}
-	return nil
-}
-
-func blockStatementExpressions(statements []Statement) []ast.Node {
-	var expressions []ast.Node
-	for _, statement := range statements {
-		expressions = append(expressions, statementExpressions(statement)...)
-	}
-	return expressions
 }
 
 func (g *ActionGraph) hasOpenZeroStepOrder(node ast.Node) bool {

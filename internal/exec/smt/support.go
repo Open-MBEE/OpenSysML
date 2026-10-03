@@ -54,6 +54,15 @@ type Flow struct {
 	// Delivers is set when an object flow delivers to a node performing in a
 	// frame of its own, whose pin queues the deliveries it has yet to take.
 	Delivers bool
+	// Repeats is how many times each step is performed when that is not once,
+	// RepeatText its declared multiplicity for diagnostics, and Crosses those
+	// whose tokens each succeed to their join or merge on their own.
+	Repeats    map[ast.Node]int64
+	RepeatText map[ast.Node]string
+	Crosses    map[ast.Node]bool
+	// Repeated is set when any step is performed other than once, so a state
+	// records a slot the extra tokens needed but did not find.
+	Repeated bool
 	// Sends lists the send statements the bodies run; Bus is how many messages
 	// may sit on the bus at once within k moves: the bound M.
 	Sends []SendSite
@@ -145,33 +154,77 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 	for _, node := range f.Nodes {
 		if frame := f.FrameOf[node]; frame != nil && frame.Graph.Multiplicities[node] != nil {
 			count, err := frame.Graph.StepCount(node, model)
-			if err != nil || count != 1 {
+			if err != nil {
 				multiplicity := frame.Graph.MultiplicityText(node, model)
-				reason := "the SMT engine does not encode a step performed " + fmt.Sprint(count) + " times"
-				if err != nil {
-					var stepErr *lower.StepMultiplicityError
-					if errors.As(err, &stepErr) {
-						multiplicity = stepErr.Multiplicity
-					}
-					reason = "the SMT engine requires a fixed single-performance step"
+				var stepErr *lower.StepMultiplicityError
+				if errors.As(err, &stepErr) {
+					multiplicity = stepErr.Multiplicity
 				}
 				unsupported := &UnsupportedError{
 					Node:      nodeLabel(node),
 					Construct: "action step multiplicity " + multiplicity,
-					Reason:    reason,
+					Reason:    "the SMT engine requires a fixed single-performance step",
 				}
 				if errors.Is(err, semantics.ErrIntegerUnaddressable) {
 					return nil, fmt.Errorf("%w: %w", unsupported, err)
 				}
 				return nil, unsupported
 			}
+			// CheckStep's refusals (a plain `then`, a contradicting control end,
+			// a guarded edge it does not admit) are the engine's refusals too.
+			if stepErr := frame.Graph.CheckStep(node, model); stepErr != nil {
+				unsupported := &UnsupportedError{
+					Node:      nodeLabel(node),
+					Construct: "action step multiplicity " + frame.Graph.MultiplicityText(node, model),
+					Reason:    stepErr.Error(),
+				}
+				var multErr *lower.StepMultiplicityError
+				if errors.As(stepErr, &multErr) {
+					unsupported.Construct = "action step multiplicity " + multErr.Multiplicity
+					unsupported.Reason = multErr.Reason
+				}
+				return nil, fmt.Errorf("%w: %w", unsupported, stepErr)
+			}
+			if count != 1 {
+				if f.Repeats == nil {
+					f.Repeats = make(map[ast.Node]int64)
+					f.RepeatText = make(map[ast.Node]string)
+					f.Crosses = make(map[ast.Node]bool)
+				}
+				f.Repeats[node] = count
+				f.RepeatText[node] = frame.Graph.MultiplicityText(node, model)
+				f.Repeated = true
+			}
 		}
 		if err := f.checkNode(node); err != nil {
 			return nil, err
 		}
 	}
+	// A step performed n times holds each performance's pin values and flows,
+	// which one feature per state does not encode; refuse one with any.
+	for _, node := range f.Nodes {
+		if f.Repeats[node] < 2 {
+			continue
+		}
+		graph := f.FrameOf[node].Graph
+		if len(graph.Features[node]) > 0 || len(graph.DataFlows[node]) > 0 {
+			return nil, &UnsupportedError{Node: nodeLabel(node), Construct: "features of a repeated step",
+				Reason: "each performance holds its own values, which one feature variable per state does not encode"}
+		}
+		f.Crosses[node] = graph.CrossesPerPerformance(node, model)
+	}
+	for _, node := range f.Nodes {
+		for _, flow := range f.FrameOf[node].Graph.DataFlows[node] {
+			if f.Repeats[flow.Target] >= 2 {
+				return nil, &UnsupportedError{Node: nodeLabel(flow.Target), Construct: "features of a repeated step",
+					Reason: "each performance holds its own values, which one feature variable per state does not encode"}
+			}
+		}
+	}
 	for _, fr := range f.Frames {
-		f.sizeSlots(fr, k)
+		if err := f.sizeSlots(fr, k); err != nil {
+			return nil, err
+		}
 		f.Slots += fr.Slots
 	}
 	f.Bus = min(len(f.Sends), k)
@@ -445,27 +498,35 @@ func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error 
 }
 
 // sizeSlots decides how many tokens the frame's flow may hold at once within k
-// moves: one, plus what each fork adds per time a token reaches it, at most k times.
-func (f *Flow) sizeSlots(fr *Frame, k int) {
+// moves: one, plus what each fork and each split into a repeated step adds per
+// time a token reaches it, at most k times. A repeated step a token may reach
+// again while its performances are live is refused: two groups could be at it.
+func (f *Flow) sizeSlots(fr *Frame, k int) error {
 	arrivals := f.arrivals(fr, k)
 	slots, widest := 1, 0
 	for _, node := range fr.Nodes {
-		fork, ok := node.(*ast.ForkNode)
-		if !ok {
-			continue
+		if fork, ok := node.(*ast.ForkNode); ok {
+			extra := len(f.Outgoing[fork]) - 1
+			if extra > 0 {
+				if f.reaches(fork, fork) {
+					f.Cyclic = true
+				}
+				widest = max(widest, extra)
+				slots += min(arrivals[fork], k) * extra
+			}
 		}
-		extra := len(f.Outgoing[fork]) - 1
-		if extra <= 0 {
-			continue
+		if count := f.Repeats[node]; count > 1 {
+			if f.reaches(node, node) || arrivals[node] > 1 {
+				return &UnsupportedError{Node: f.label(node), Construct: "action step multiplicity " + f.RepeatText[node],
+					Reason: "a repeated step a token may reach again while its performances are live is not encoded"}
+			}
+			widest = max(widest, int(count-1))
+			slots += min(arrivals[node], k) * int(count-1)
 		}
-		if f.reaches(fork, fork) {
-			f.Cyclic = true
-		}
-		widest = max(widest, extra)
-		slots += min(arrivals[fork], k) * extra
 	}
-	// Each of the k moves performs at most one fork.
+	// Each of the k moves performs at most one fork or split.
 	fr.Slots = min(slots, 1+k*widest)
+	return nil
 }
 
 // arrivals bounds how often a token may reach each node of the frame within k

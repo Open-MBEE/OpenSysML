@@ -263,7 +263,12 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `_unordered_beside_ordered`, `_unordered_zero`,
 `_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
 `_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
-`action_step_multiplicity_shared_writers` states the open outcome set.
+`action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
+`_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
+`_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
+`_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
+`_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
+`_guard_false_single`.
 
 Derived constraints:
 
@@ -272,15 +277,14 @@ Derived constraints:
   including unordered subactions that start concurrently without an incoming succession; `[0]`
   performs no body, trace event, flow or data transfer. Other ranges and bounds the model cannot
   evaluate do not identify a fixed number and are refused.
-- An action usage in a loop or conditional block flow is performed once per pass. Repetition in
-  those statement-engine flows is out of scope: exact counts other than `[1]`, including `[0]`,
-  are refused with `action-step-multiplicity-unsupported` rather than being expanded.
+- An action usage in a loop or conditional block flow without a multiplicity is performed once
+  per pass; one declared `[n]` is performed `n` times per pass and `[0]` none (see below).
 - `Occurrences.kerml` `HappensBefore` orders whole source performances before whole target
   performances. A repeated node therefore needs every incident edge to admit and force its
   complete count. The accepted fixtures use explicitly written end multiplicities: `[1] p` to
   `[*] a[3]`, a written target `[3] a[3]`, `[*] a[3]` to `[1] q`, and `[2] a[2]` to `[3] b[3]`.
-  A start source and done target constrain no repeated endpoint; guards, control-node adjacency,
-  pins of repeated nodes and external reads of their features exceed the supported subset.
+  A start source and done target constrain no repeated endpoint. Control nodes, guards, pins,
+  external reads, block flows and part-level performs are derived below.
 - KerML leaves succession-end defaults unresolved ([OMG KERML-29](https://issues.omg.org/issues/KERML-29),
   deferred). The checker evaluates unwritten ends both as unconstrained `[0..*]` and as `[1..1]`,
   accepting only an edge whose counts are forced and admitted under each reading. If a reading
@@ -301,7 +305,8 @@ Derived constraints:
 Open: the order among sibling repeated performances is not established by their count. The
 runtime represents them as sibling tokens, each with an independent performance frame; their
 owner-frame writes share the same feature space. The last completion is a barrier: only after
-every performance at that node finishes can the token carry its succession and data flows on.
+every performance at that node finishes can the token carry its succession and data flows on,
+except into a join or merge, which each performance's token crosses on its own.
 Exploration therefore finds each admitted shared-write result without merging states that differ
 in the live repetition set.
 
@@ -310,6 +315,97 @@ schedules; explore reaches one distinct outcome. In `action_step_multiplicity_ze
 the initial `c` unchanged and its `q` successor still runs, setting `c = 7`. The local-frame
 fixture reaches `c = 3`: each fresh `l` starts at zero, becomes one, and contributes one to the
 shared `c`.
+
+#### Repeated steps at control nodes, guards, pins, reads, block flows and parts
+
+KerML 1.0 §7.3.2 makes a feature's cardinality "the number of values of the feature for a specific
+instance of its featuring types", so `a[n]` is `n` performances per performance of whatever
+features `a`: the owning action, a loop or `if` body performance, or a part. What each further
+shape means follows from the clauses below; where they leave the meaning open the shape stays
+refused. UML, fUML and PSSM were not used to settle any of these.
+
+- **Control nodes** (SysML v2.0 §8.3.17.6–§8.3.17.13, §8.4.13.4; enforced "even if not shown").
+  An incoming succession to any control node has target multiplicity `1..1` and an outgoing one
+  source multiplicity `1..1`; a join's incoming successions have source `1..1`, a merge's `0..1`;
+  a fork's outgoing successions have target `1..1`, a decision's `0..1`. The checker substitutes
+  these ends for unwritten ones (they are not subject to the KERML-29 dual reading) and refuses a
+  written end that differs from one as `action-step-order-unsatisfiable`. A control node declares
+  no multiplicity of its own: §7.6.3 leaves a usage that declares none at the most general
+  `[0..*]` when nothing subsets or redefines it (the implicit `[1..1]` reaches only owned
+  attribute, item, part and port usages), and `Actions.sysml` declares
+  `controls : ControlAction[0..*] :> subactions` and `merges : MergeAction[0..*]` while
+  `decisions`, `joins` and `forks` declare none and so inherit `[0..*]`. The executor's reading
+  therefore runs any node that declares no multiplicity, ordinary or control, once per arrival —
+  unless its incident ends force another count, which they do in exactly four cases, each giving
+  the node `n` performances:
+  - `a[n]` into a join, with both ends mandated `1..1`: the crossing is a bijection
+    (`_join_per_performance`: three join traversals).
+  - `a[n]` into a merge as the merge's only incoming succession: target `1..1` plus
+    `MergePerformance::incomingHBLink : HappensBefore[1]` (`ControlPerformances.kerml`) gives
+    one link per performance (`_merge_per_performance`).
+  - a fork out into `a[n]`, both ends mandated `1..1`.
+  - a decision out into `a[n]` as the decision's only outgoing succession: source `1..1` plus
+    `DecisionPerformance::outgoingHBLink : HappensBefore[1]`.
+
+  In a forced case every other edge at the node is checked under count `n`, so a predecessor of a
+  fork or decision that must order `n` crossings while performing once is unsatisfiable. Every
+  other adjacency takes the one-performance reading: `succession first [*] a then f;` runs `f`
+  once behind the written end's barrier (`_fork_barrier`, `_decision_barrier`), and `then [*] a`
+  out of a join or merge fans `a`'s performances out of its single performance (`_merge_fanout`) —
+  what separates the control node's barrier from an ordinary `tally`'s is only the mandated ends,
+  not a second default; a merge or decision carrying another succession beside the repeated
+  step's still checks each under count one, which its mandated `0..1` ends make unsatisfiable.
+  A written control-node multiplicity (`fork f[1]`, which the `ControlNode` → `UsageDeclaration`
+  production would admit) is refused by the parser today.
+- **Guarded successions** (SysML §8.4.13.3, `TransitionPerformances.kerml`). A guarded succession
+  is a `TransitionUsage` whose guard is evaluated after its one source performance
+  (`transitionLinkSource[1]`, `transitionLink : HappensBefore[0..1]`). `GuardedSuccession` admits
+  no source-end multiplicity, so the end at a repeated *source* can never be written and is
+  KERML-29 open: refused (`action-step-multiplicity-unsupported`). Into a repeated target, its
+  `ConnectorEnd` admits a written end (`first p if g then [*] a;`): a true guard orders every
+  performance of `a` after `p` (`_guard_true`). A false guard asserts no order, yet `a`'s exact
+  count still requires its `n` performances, now unordered with respect to `p`; the token flow
+  performs none, so the run refuses with `action-step-order-open` (`_guard_false`), and validation
+  warns where the guard is the literal `false`. A false guard into a single performance prunes the
+  edge instead: one performance needs no ordering among repetitions, so `a` simply does not perform
+  (`_guard_false_single`). An unwritten target end stays refused.
+- **Pins and bindings** (KerML §8.4.4.6.2, binding connectors as `SelfLink`; §7.4.11 feature
+  values). A feature value in the step's body (`action a : Inc[2] { in x = c; }`) is featured by
+  the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
+  enclosing action equates the values of `a.x` over all `n` performances with those of `e`: a
+  single-valued `e` into an in-pin gives every performance that value (`_bind_input`); an out-pin
+  into a single-valued `e` requires all `n` outputs to coincide, else `ErrBindingConflict`
+  (`_bind_output`). A multi-valued `e` into in-pins leaves the assignment of its values to the
+  performances open: refused.
+- **Flows** (KerML §9.2.7, `Transfers.kerml`). A flow end has no multiplicity in the grammar, a
+  flow defaults to `[0..*]` (§7.6.3), and each transfer has one source and one target occurrence.
+  How many transfers `flow from a.out to b.in` with `a[3]` makes, and from which performances, is
+  not determined: refused. Connections at a repeated pin are refused for the same reason.
+- **External reads** (`ControlFunctions.kerml` `'.'`, source and result `[0..*]` nonunique;
+  KerML §7.3.4.6 chains). `a.x` read outside `a` is the values of every performance's `x`,
+  duplicates kept, listed in repetition-index order (a tool-chosen stable order where `a` is not
+  ordered); before all `n` performances end it is not yet performed (`ErrNodeNotPerformed`), as for
+  one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
+- **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
+  own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
+  repetition as one move, so the orders between the repetitions are the ones exploration never
+  varies: explore and check report the result as observed rather than proved or bounded, with the
+  note "the performances of a repeated step in a loop or if body are each run as one move, so
+  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
+  `{c = 1, c = 2}` of which only `c = 2` is observed).
+- **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
+  `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
+  performances enacted within the part's lifetime, unordered with respect to each other: `run`
+  holds two occurrences and each behaviour runs on its own (`_part_perform`); `[0]` enacts none.
+- **SMT** (`sysml -check`). The bounded encoding represents the `n` performances as the runtime does: a
+  token entering `a[n]` places `n - 1` sibling tokens in free slots (sized by `sizeSlots`), each
+  performs the body, and every token but the last retires behind the barrier, or each crosses on
+  its own into a join or merge; `[0]` passes its token on, and a false guard into a written target
+  end is a failing move. Refused, each with a named reason: a repeated step a token may reach again
+  while its performances are live (two groups could be at it), a repeated step with its own
+  features or flows (one feature variable per state cannot hold each performance's values), and
+  every shape the checker refuses.
 
 ### Concurrent branches writing one feature: the value is open, the writes are not
 

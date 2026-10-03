@@ -215,6 +215,9 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		if f.perf, err = e.beginPerformance(parent, graph, node, slices.Clone(engine.env.frames)); err != nil {
 			return flowNext, err
 		}
+		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
+			e.recordRepetition(parent, node, f.perf)
+		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in
 	// its leaf body still runs (runSubflow drops a flow of its own); the node completes.

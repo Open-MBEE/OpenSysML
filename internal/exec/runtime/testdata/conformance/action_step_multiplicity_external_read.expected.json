@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 3},
+		"total": {"type": "Integer", "value": 6},
+		"n": {"type": "Integer", "value": 3}
+	}
+}

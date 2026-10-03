@@ -14,12 +14,15 @@ import (
 // The lowered graph is kept as is: lowered IR is derived from the shared, frozen
 // declarations and never written once lowered, so every context reads one copy.
 type imagedBehavior struct {
-	object    int64
-	attached  int // position among the behaviors of the context imaged
-	member    *symbols.Symbol
-	binding   int
-	name      string
-	kind      lower.ClassifierBehaviorKind
+	object   int64
+	attached int // position among the behaviors of the context imaged
+	member   *symbols.Symbol
+	binding  int
+	name     string
+	kind     lower.ClassifierBehaviorKind
+	// index is the performance's place among those the member enacts, naming the
+	// occurrence of a performed action declared [n].
+	index     int64
 	onClock   bool
 	err       error
 	typeBound bool
@@ -58,16 +61,17 @@ type imagedAction struct {
 
 // imagedFrame is one performance's state by value, the frames it points at by position.
 type imagedFrame struct {
-	saved      actionFrame
-	parent     int
-	locals     []map[string]Value
-	data       map[string]Value
-	outer      []imagedOuter
-	subactions map[ast.Node]int
-	repeats    map[repetitionGroupID]imagedRepetition
-	pending    map[ast.Node]map[string][]Value
-	staged     map[ast.Node]map[string][]imagedStaged
-	nested     map[ast.Node][]nestedDelivery
+	saved         actionFrame
+	parent        int
+	locals        []map[string]Value
+	data          map[string]Value
+	outer         []imagedOuter
+	subactions    map[ast.Node]int
+	repeats       map[repetitionGroupID]imagedRepetition
+	repeatedPerfs map[ast.Node][]int
+	pending       map[ast.Node]map[string][]Value
+	staged        map[ast.Node]map[string][]imagedStaged
+	nested        map[ast.Node][]nestedDelivery
 }
 
 type imagedRepetition struct {
@@ -145,6 +149,7 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	for _, bound := range b.bindings {
 		t.declared[bound] = true
 	}
+	img.index = b.performance
 	if b.deferred != nil {
 		t.img.behaviors = append(t.img.behaviors, img)
 		return nil
@@ -232,7 +237,8 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil
+	f.saved.subactions, f.saved.repeats, f.saved.repeatedPerfs = nil, nil, nil
+	f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -269,6 +275,16 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 				repeated.live = append(repeated.live, at(live))
 			}
 			f.repeats[group] = repeated
+		}
+	}
+	if perf.repeatedPerfs != nil {
+		f.repeatedPerfs = make(map[ast.Node][]int, len(perf.repeatedPerfs))
+		for node, perfs := range perf.repeatedPerfs {
+			indexed := make([]int, len(perfs))
+			for i, repeated := range perfs {
+				indexed[i] = at(repeated)
+			}
+			f.repeatedPerfs[node] = indexed
 		}
 	}
 	if err := t.nestedValues(perf.pending); err != nil {
@@ -475,7 +491,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		return fmt.Errorf("%w: the type binds no such behavior", ErrImageBound)
 	}
 	if b.deferred != nil {
-		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding)
+		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding, b.index)
 		if err != nil {
 			return err
 		}
@@ -489,13 +505,14 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		dst.workChanged()
 		return nil
 	}
-	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl)
+	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl, b.index)
 	if err != nil {
 		return err
 	}
 	behavior.binding = b.binding
 	behavior.Err = b.err
 	behavior.typeBound = b.typeBound
+	behavior.performance = b.index
 	switch {
 	case b.state != nil:
 		exec := newStateExecutorOn(dst, behavior.Symbol, inst, occurrence, b.state.graph)
@@ -656,6 +673,16 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 				state.live = append(state.live, frameAt(at))
 			}
 			perf.repeats[group] = state
+		}
+	}
+	if img.repeatedPerfs != nil {
+		perf.repeatedPerfs = make(map[ast.Node][]*actionFrame, len(img.repeatedPerfs))
+		for node, indexed := range img.repeatedPerfs {
+			perfs := make([]*actionFrame, len(indexed))
+			for i, at := range indexed {
+				perfs[i] = frameAt(at)
+			}
+			perf.repeatedPerfs[node] = perfs
 		}
 	}
 	if err := m.pending(perf, img.pending); err != nil {

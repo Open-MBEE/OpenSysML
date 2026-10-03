@@ -1909,9 +1909,32 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 		}
 		if holds {
 			enabled = append(enabled, edge)
+			continue
+		}
+		if err := e.falseGuardLeavesRepeated(graph, edge); err != nil {
+			return nil, err
 		}
 	}
 	return enabled, nil
+}
+
+// falseGuardLeavesRepeated reports the error a pruned succession into a
+// repeated step gives: its written target end counted every performance, which
+// a false guard leaves unordered with respect to the source.
+func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge lower.ActionEdge) error {
+	if edge.TargetMultiplicity == nil || graph.Multiplicities[edge.Target] == nil {
+		return nil
+	}
+	count, err := graph.StepCount(edge.Target, e.ctx.Semantics())
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+	}
+	if count <= 1 {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(edge.Target, e.ctx.Semantics(),
+		lower.StepOrderOpenCode,
+		"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 }
 
 // guardHolds evaluates the guard a succession out of node carries; a succession
@@ -2595,12 +2618,17 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		}
 		state.remaining--
 		state.live = slices.DeleteFunc(state.live, func(live *actionFrame) bool { return live == perf })
-		if state.remaining > 0 {
+		// A repeated step whose succession crosses into a join or merge crosses
+		// it per performance: each completing token carries on to the node and
+		// performs it, the group standing until the last one completes.
+		if state.remaining > 0 && !frame.graph.CrossesPerPerformance(node, e.ctx.Semantics()) {
 			e.tokens[tokenIdx].repetition = 0
 			e.tokens[tokenIdx].repetitionGroup = 0
 			return e.retireToken(tokenIdx)
 		}
-		delete(frame.repeats, group)
+		if state.remaining == 0 {
+			delete(frame.repeats, group)
+		}
 		e.tokens[tokenIdx].repetition = 0
 		e.tokens[tokenIdx].repetitionGroup = 0
 	}

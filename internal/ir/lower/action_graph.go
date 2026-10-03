@@ -200,6 +200,9 @@ type ActionEdge struct {
 	Name               string
 	SourceMultiplicity *ast.Multiplicity
 	TargetMultiplicity *ast.Multiplicity
+	// DeclaredOrder marks the succession a block's declaration order synthesizes
+	// rather than the model states: the executor's order, not a written one.
+	DeclaredOrder bool
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -847,7 +850,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight})
+	return lowerSuccession(l.graph, n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight, TargetMultiplicity: n.TargetMultiplicity})
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -906,12 +909,13 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		return err
 	}
 	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
-		Source:      sourceNode,
-		Target:      targetNode,
-		Guard:       n.Guard,
-		Decl:        n,
-		Probability: weight,
-		Name:        n.Name,
+		Source:             sourceNode,
+		Target:             targetNode,
+		Guard:              n.Guard,
+		Decl:               n,
+		Probability:        weight,
+		Name:               n.Name,
+		TargetMultiplicity: n.TargetMultiplicity,
 	})
 	return nil
 }

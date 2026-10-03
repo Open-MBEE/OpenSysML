@@ -16,6 +16,9 @@ type InitialNode struct {
 	First     *QualifiedName
 	Successor *QualifiedName // the target of `first X then Y`, nil for the one-ended form
 	Guard     Node           // optional guard condition for succession
+	// TargetMultiplicity is the written target end of `first X then [m] Y`,
+	// nil where none is written.
+	TargetMultiplicity *Multiplicity
 	// Members are the members of the body the succession was written with
 	// (`first start then continue { … }`), and HasBody that it was written with
 	// one rather than ended by ';'.
@@ -763,6 +766,10 @@ type TransitionMember struct {
 	// Via is the port the trigger's message must arrive at
 	// (`accept :> ping via commPort`), nil when the trigger named none.
 	Via *QualifiedName
+	// TargetMultiplicity is the written target end of `then [m] target`,
+	// admitted on a guarded succession in an action body; nil where none is
+	// written.
+	TargetMultiplicity *Multiplicity
 	// Members and HasBody carry the body a transition may declare, since both
 	// TransitionUsage and TargetTransitionUsage end in ActionBody
 	// (`then starting { … }`).
