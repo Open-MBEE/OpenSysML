@@ -113,21 +113,6 @@ var (
 	bc  = []string{"b", "c"}
 )
 
-// joined is the verdict of a call fed by the chains building its pins: two
-// chains reach it through a join, which the migration notes as approximated.
-func joined(pins []seqPin, v migrate.Verdict) migrate.Verdict {
-	chains := 0
-	for _, p := range pins {
-		if p.elements != nil {
-			chains++
-		}
-	}
-	if chains > 1 && v == migrate.Mapped {
-		return migrate.Approximated
-	}
-	return v
-}
-
 func seq(name string, elements ...string) seqPin { return seqPin{name: name, elements: elements} }
 func str(name, value string) seqPin              { return seqPin{name: name, value: value} }
 func num(name, value string) seqPin              { return seqPin{name: name, typ: integerType, value: value} }
@@ -182,7 +167,7 @@ func TestAlfSequenceFunctionsCompute(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := migrateDocument(t, libraryCall(alfSeq+c.fragment, c.pins, c.result, c.many, c.optional), recorderBlock)
 			wantClean(t, "t.sysml", r)
-			wantNote(t, r, "_call", joined(c.pins, c.verdict), c.note)
+			wantNote(t, r, "_call", c.verdict, c.note)
 			s := session(t, r)
 			meta(t, s, "%instantiate Recorder")
 			wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"call.result": c.want})
@@ -213,7 +198,7 @@ func TestAlfCollectionFunctionsCompute(t *testing.T) {
 		t.Run(c.fragment, func(t *testing.T) {
 			r := migrateDocument(t, libraryCall(alfColl+c.fragment, c.pins, stringType, true, false), recorderBlock)
 			wantClean(t, "t.sysml", r)
-			wantNote(t, r, "_call", joined(c.pins, c.verdict), c.note)
+			wantNote(t, r, "_call", c.verdict, c.note)
 			s := session(t, r)
 			meta(t, s, "%instantiate Recorder")
 			wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"call.result": c.want})
@@ -337,7 +322,7 @@ func TestFUMLListFunctionsCompute(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := migrateDocument(t, libraryCall(fuml+"ListFunctions-"+c.fragment, c.pins, c.result, c.many, false), recorderBlock)
 			wantClean(t, "t.sysml", r)
-			wantNote(t, r, "_call", joined(c.pins, c.verdict), c.note)
+			wantNote(t, r, "_call", c.verdict, c.note)
 			s := session(t, r)
 			meta(t, s, "%instantiate Recorder")
 			wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"call.result": c.want})
