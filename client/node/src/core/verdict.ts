@@ -28,7 +28,6 @@ import {
   type SysMLValue,
   type SysMLVerdict,
   type VerificationVerdict,
-  type WitnessAssignment,
 } from "./values.js";
 
 /** Verdict kinds, as the service reports them. */
@@ -57,7 +56,19 @@ export const STATUS_UNDECIDED = "undecided";
 export const STATUS_SATISFIABLE = "satisfiable";
 export const STATUS_UNSATISFIABLE = "unsatisfiable";
 
-export type { SysMLVerdict, VerificationVerdict, WitnessAssignment };
+export type { SysMLVerdict, VerificationVerdict };
+export type { WitnessAssignment } from "./values.js";
+
+/** A value, or the error decoding it raised. */
+export type ValueOrError = SysMLValue | UnsupportedValueError;
+
+/** The mark a verification verdict's line opens with. */
+function verificationMark(kind: string): string {
+  if (kind === VERDICT_PASS) {
+    return "✓";
+  }
+  return kind === VERDICT_FAIL ? "✗" : "?";
+}
 
 /** Whether a verdict's condition holds: the arm it decoded to. */
 export function verdictHolds(verdict: SysMLVerdict): boolean {
@@ -118,17 +129,18 @@ function explainVerdictStanding(standing: Standing): string {
   if (standing.engine !== "") {
     line += ` by ${standing.engine}`;
   }
-  const reached = standing.bounds.filter((bound) => bound.reached);
+  const reached = standing.bounds
+    .filter((bound) => bound.reached)
+    .map((b) => `${b.name} ${b.limit.toString()} reached`);
   if (reached.length > 0) {
-    line += ` (${reached.map((b) => `${b.name} ${b.limit.toString()} reached`).join(", ")})`;
+    line += ` (${reached.join(", ")})`;
   }
   return line;
 }
 
 /** One line saying what a verification case's body answered and why. */
 export function explainVerificationVerdict(verdict: VerificationVerdict): string {
-  const mark = verdict.kind === VERDICT_PASS ? "✓" : verdict.kind === VERDICT_FAIL ? "✗" : "?";
-  let line = `${mark} verification ${verdict.caseId} verdict: ${verdict.kind}`;
+  let line = `${verificationMark(verdict.kind)} verification ${verdict.caseId} verdict: ${verdict.kind}`;
   if (verdict.subcase) {
     line += " (subcase)";
   }
@@ -203,18 +215,13 @@ export function raiseFailure(
 /** Read the error-or-result of an outputs map: undecodable values stay errors in place. */
 export function valuesMap(
   entries: Iterable<[string, Value | undefined]>,
-): Map<string, SysMLValue | UnsupportedValueError> {
-  const out = new Map<string, SysMLValue | UnsupportedValueError>();
+): Map<string, ValueOrError> {
+  const out = new Map<string, ValueOrError>();
   for (const [name, pb] of entries) {
     try {
       out.set(name, decodeValue(pb));
     } catch (error) {
-      out.set(
-        name,
-        error instanceof UnsupportedValueError
-          ? error
-          : new UnsupportedValueError(error instanceof Error ? error.message : String(error)),
-      );
+      out.set(name, asUnsupported(error));
     }
   }
   return out;
@@ -254,15 +261,15 @@ export function verdictOf(
 /** The outputs an invocation computed, or the features a calc usage wrote. */
 export class CalcResult {
   /** The value an invocation returned; undefined when `outputs` carries the answer. */
-  readonly value: SysMLValue | UnsupportedValueError | undefined;
+  readonly value: ValueOrError | undefined;
   /** Output features a calc usage computed. */
-  readonly outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+  readonly outputs: ReadonlyMap<string, ValueOrError>;
   readonly diagnostics: readonly ModelDiagnostic[];
   readonly standing: Standing;
 
   constructor(init: {
-    value?: SysMLValue | UnsupportedValueError;
-    outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    value?: ValueOrError;
+    outputs: ReadonlyMap<string, ValueOrError>;
     diagnostics?: readonly ModelDiagnostic[];
     standing?: Standing;
   }) {
@@ -296,7 +303,7 @@ export class CalcResult {
   }
 }
 
-function render(value: SysMLValue | UnsupportedValueError | undefined): string {
+function render(value: ValueOrError | undefined): string {
   if (value === undefined) {
     return "undefined";
   }
@@ -308,9 +315,9 @@ export class CaseEvaluation {
   /** FQN of the calc applied. */
   readonly functionId: string;
   /** What it was applied to; an alternative is the instance it is. */
-  readonly arguments: readonly (SysMLValue | UnsupportedValueError)[];
+  readonly arguments: readonly ValueOrError[];
   /** What it computed; undefined when `error` says why nothing was. */
-  readonly result: SysMLValue | UnsupportedValueError | undefined;
+  readonly result: ValueOrError | undefined;
   /** Why the evaluation computed nothing; empty when it did. */
   readonly error: string;
   /** Whether the case returned this evaluation's argument: a trade study's selection. */
@@ -320,8 +327,8 @@ export class CaseEvaluation {
 
   constructor(init: {
     functionId: string;
-    arguments: readonly (SysMLValue | UnsupportedValueError)[];
-    result?: SysMLValue | UnsupportedValueError;
+    arguments: readonly ValueOrError[];
+    result?: ValueOrError;
     error?: string;
     selected?: boolean;
     tied?: boolean;
@@ -359,7 +366,7 @@ export class CaseEvaluation {
 /** What an analysis case computed and decided. */
 export class AnalysisResult {
   /** Output features the case computed, by name. */
-  readonly outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+  readonly outputs: ReadonlyMap<string, ValueOrError>;
   /** The objective and assertion verdicts, in the order the case states them. */
   readonly verdicts: readonly Verdict[];
   /** The subject the case ran on and the objects reachable from it. */
@@ -372,7 +379,7 @@ export class AnalysisResult {
   readonly standing: Standing;
 
   constructor(init: {
-    outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    outputs: ReadonlyMap<string, ValueOrError>;
     verdicts: readonly Verdict[];
     instances?: readonly Instance[];
     diagnostics?: readonly ModelDiagnostic[];
@@ -414,10 +421,12 @@ export class AnalysisResult {
   }
 
   toString(): string {
-    const lines = [...this.outputs.entries()].map(([name, val]) => `${name} = ${render(val)}`);
-    lines.push(...this.verdicts.map((verdict) => explainVerdict(verdict.verdict)));
-    lines.push(...this.verifications.map(explainVerificationVerdict));
-    lines.push(...this.evaluations.map((evaluation) => evaluation.explain()));
+    const lines = [
+      ...[...this.outputs.entries()].map(([name, val]) => `${name} = ${render(val)}`),
+      ...this.verdicts.map((verdict) => explainVerdict(verdict.verdict)),
+      ...this.verifications.map(explainVerificationVerdict),
+      ...this.evaluations.map((evaluation) => evaluation.explain()),
+    ];
     return lines.join("\n");
   }
 }
@@ -473,11 +482,7 @@ export class Validation {
 
   /** Whether the object is shown valid: at least one assertion, every one holding, all reached. */
   get valid(): boolean {
-    return (
-      this.summary !== undefined &&
-      this.summary.verdict.kind === "holds" &&
-      !this.bounded
-    );
+    return this.summary?.verdict.kind === "holds" && !this.bounded;
   }
 
   /** The verdicts the model answered false, as opposed to undecided ones. */
@@ -518,9 +523,9 @@ export class Validation {
 /** One run of a sweep: what it bound, what it produced, and how long it took. */
 export class SweepRow {
   /** The swept parameters as this run bound them, by name. */
-  readonly inputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+  readonly inputs: ReadonlyMap<string, ValueOrError>;
   /** What the run produced, by name; a calc's return is named "result". */
-  readonly outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+  readonly outputs: ReadonlyMap<string, ValueOrError>;
   /** The objective and assertion verdicts of an analysis case; empty for a calc. */
   readonly verdicts: readonly Verdict[];
   /** Wall time of this run, in seconds. */
@@ -531,8 +536,8 @@ export class SweepRow {
   readonly evaluations: readonly CaseEvaluation[];
 
   constructor(init: {
-    inputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
-    outputs: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
+    inputs: ReadonlyMap<string, ValueOrError>;
+    outputs: ReadonlyMap<string, ValueOrError>;
     verdicts: readonly Verdict[];
     seconds: number;
     error?: string;
@@ -656,14 +661,20 @@ export function evaluationsOf(evals: readonly PbCaseEvaluation[]): CaseEvaluatio
 }
 
 /** Decode one wire `Value`, keeping a decode failure as the error it raised. */
-export function valueOrError(pb: Value | undefined): SysMLValue | UnsupportedValueError {
+export function valueOrError(pb: Value | undefined): ValueOrError {
   try {
     return decodeValue(pb);
   } catch (error) {
-    return error instanceof UnsupportedValueError
-      ? error
-      : new UnsupportedValueError(error instanceof Error ? error.message : String(error));
+    return asUnsupported(error);
   }
+}
+
+/** A decode failure as the UnsupportedValueError it is, or one carrying its message. */
+function asUnsupported(error: unknown): UnsupportedValueError {
+  if (error instanceof UnsupportedValueError) {
+    return error;
+  }
+  return new UnsupportedValueError(error instanceof Error ? error.message : String(error));
 }
 
 /** Read the verdicts a validation response carries, and its summary. */
@@ -695,7 +706,7 @@ export function analysisResultOf(
   diagnostics: readonly ModelDiagnostic[],
 ): AnalysisResult {
   const verifications = response.verificationVerdicts.map(decodeVerificationVerdict);
-  const outputs = new Map<string, SysMLValue | UnsupportedValueError>();
+  const outputs = new Map<string, ValueOrError>();
   for (const output of response.outputs) {
     outputs.set(output.name, valueOrError(output.value));
   }
@@ -739,8 +750,8 @@ function sweepRowOf(
   instances: readonly Instance[],
   diagnostics: readonly ModelDiagnostic[],
 ): SweepRow {
-  const inputs = new Map<string, SysMLValue | UnsupportedValueError>();
-  const outputs = new Map<string, SysMLValue | UnsupportedValueError>();
+  const inputs = new Map<string, ValueOrError>();
+  const outputs = new Map<string, ValueOrError>();
   for (const entry of row.inputs) {
     inputs.set(entry.name, valueOrError(entry.value));
   }

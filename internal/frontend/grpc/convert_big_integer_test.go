@@ -131,7 +131,7 @@ func TestEvaluateCalcTakesAndReturnsBigIntegers(t *testing.T) {
 		if resp.Error != "" {
 			t.Fatalf("EvaluateCalc reported %q", resp.Error)
 		}
-		if got := resp.Result.GetBigIntValue(); got != tc.want {
+		if resp.Result.GetBigIntValue() != tc.want {
 			t.Errorf("square(%v) = %v, want big_int_value %s", tc.arg, resp.Result, tc.want)
 		}
 	}

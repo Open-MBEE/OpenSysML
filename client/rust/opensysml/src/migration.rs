@@ -2,7 +2,7 @@
 //! `.mdzip` archive — to SysML v2, accounting for every element.
 
 use std::collections::BTreeMap;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
 use std::io::{self, Write};
@@ -47,7 +47,7 @@ pub fn is_v1(from_format: &str) -> bool {
 pub fn path_is_v1(path: impl AsRef<Path>) -> bool {
     path.as_ref()
         .extension()
-        .and_then(|extension| extension.to_str())
+        .and_then(OsStr::to_str)
         .is_some_and(|extension| V1_FORMATS.contains(&extension.to_ascii_lowercase().as_str()))
 }
 

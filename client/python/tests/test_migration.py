@@ -115,11 +115,11 @@ def fake_service():
 
 
 def test_v1_is_named_by_format_or_extension():
-    assert is_v1("xmi") and is_v1("uml") and is_v1("mdzip")
-    assert is_v1("XMI") and is_v1(" mdzip ") and not is_v1(None)
-    assert not is_v1("sysml") and not is_v1("ttl") and not is_v1("")
-    assert path_is_v1("Model.mdzip") and path_is_v1("Model.XMI") and path_is_v1("/tmp/m.uml")
-    assert not path_is_v1("Model.sysml") and not path_is_v1("Model.json")
+    assert all(is_v1(name) for name in ("xmi", "uml", "mdzip"))
+    assert all(is_v1(name) for name in ("XMI", " mdzip "))
+    assert not any(is_v1(name) for name in (None, "sysml", "ttl", ""))
+    assert all(path_is_v1(path) for path in ("Model.mdzip", "Model.XMI", "/tmp/m.uml"))
+    assert not any(path_is_v1(path) for path in ("Model.sysml", "Model.json"))
 
 
 def test_migrate_sends_the_source_and_options(fake_service):
@@ -140,7 +140,8 @@ def test_migrate_sends_the_source_and_options(fake_service):
     assert request.layout_content == "<mtip/>"
     assert request.image_base_url == "https://img/"
     assert request.strict is True
-    assert request.report is False and request.results is False
+    assert request.report is False
+    assert request.results is False
 
     assert isinstance(result, Migration)
     assert str(result) == "part def A;\n"
@@ -152,9 +153,11 @@ def test_migrate_sends_the_source_and_options(fake_service):
     assert (report.mapped, report.approximated, report.unmapped, report.skipped) == (1, 1, 1, 1)
     assert report.summary.startswith("migrated 3 element(s)")
     assert report.exporter == "Fake Tool"
-    assert report.entries == [] and report.text == ""
+    assert report.entries == []
+    assert report.text == ""
     assert str(report) == report.summary
-    assert result.results == "" and result.files == {}
+    assert result.results == ""
+    assert result.files == {}
 
 
 def test_migrate_asks_for_the_report_results_and_layout_file(fake_service, tmp_path):
@@ -169,7 +172,8 @@ def test_migrate_asks_for_the_report_results_and_layout_file(fake_service, tmp_p
     assert request.WhichOneof("source") == "file_path"
     assert request.file_path == "Model.mdzip"
     assert request.from_format == ""
-    assert request.report is True and request.results is True
+    assert request.report is True
+    assert request.results is True
     assert request.WhichOneof("layout") == "layout_path"
     assert request.layout_path == "Model_mtip.xml"
 
@@ -240,24 +244,23 @@ def test_a_missing_file_and_a_refused_model_are_typed(fake_service):
     with Connection(port=port, auto_start=False) as conn:
         # Warned before the error is raised: the refusal is the experimental
         # behavior, not a reason to say nothing about it.
-        with pytest.warns(ExperimentalFeatureWarning):
-            with pytest.raises(MigrationError, match="no uml:Model"):
-                conn.migrate("sysml", file_path="Model.mdzip")
+        with pytest.warns(ExperimentalFeatureWarning), pytest.raises(MigrationError, match="no uml:Model"):
+            conn.migrate("sysml", file_path="Model.mdzip")
 
 
 def test_module_level_migrate_forwards_every_option(fake_service, monkeypatch):
     port, service = fake_service()
-    opensysml._default_connection = None
+    monkeypatch.setattr(opensysml, "_default_connection", None)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ExperimentalFeatureWarning)
         result = opensysml.migrate(
             "sysml", file_path="Model.xmi", report=True, strict=True, port=port,
         )
     opensysml._default_connection.close()
-    opensysml._default_connection = None
     (request,) = service.requests
     assert request.file_path == "Model.xmi"
-    assert request.report is True and request.strict is True
+    assert request.report is True
+    assert request.strict is True
     assert isinstance(result, Migration)
 
 
@@ -307,7 +310,9 @@ class TestMigrationAgainstRealService:
         assert (by_path.from_format, by_path.to_format) == ("xmi", "sysml")
         summary = by_path.report
         assert summary.summary.startswith("migrated ")
-        assert summary.mapped > 0 and summary.entries == [] and summary.text == ""
+        assert summary.mapped > 0
+        assert summary.entries == []
+        assert summary.text == ""
 
         report = by_content.report
         assert report.entries, "the report was asked for"
@@ -332,14 +337,17 @@ class TestMigrationAgainstRealService:
         assert "laid out" in laid_out.report.summary
         assert str(laid_out) == str(inline)
         assert isinstance(json.loads(laid_out.results), dict)
-        assert as_turtle.to_format == "ttl" and "@prefix" in str(as_turtle)
+        assert as_turtle.to_format == "ttl"
+        assert "@prefix" in str(as_turtle)
         assert strict.report.mapped > 0
 
     def test_convert_refuses_v1_and_migrate_refuses_v2(self, real_service):
+        v2_model = os.path.join(REPO_ROOT, "examples", "action-executor-demo.sysml")
+        nonexistent = os.path.join(FIXTURES, "nonexistent.xmi")
         with Connection(port=real_service, auto_start=False) as conn:
             with pytest.raises(InvalidRequestError, match="migrated, not converted"):
                 conn.convert("sysml", file_path=VEHICLE)
             with pytest.raises(InvalidRequestError, match="converted, not migrated"):
-                conn.migrate("sysml", file_path=os.path.join(REPO_ROOT, "examples", "action-executor-demo.sysml"))
+                conn.migrate("sysml", file_path=v2_model)
             with pytest.raises(ModelFileNotFoundError):
-                conn.migrate("sysml", file_path=os.path.join(FIXTURES, "nonexistent.xmi"))
+                conn.migrate("sysml", file_path=nonexistent)

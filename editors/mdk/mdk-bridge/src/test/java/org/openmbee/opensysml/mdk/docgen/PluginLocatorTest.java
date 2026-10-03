@@ -31,16 +31,18 @@ class PluginLocatorTest {
   @Test
   void explainsAnOutdatedPluginWithoutTheEntryPoint() {
     PluginLocator locator = new PluginLocator(() -> List.of(new Outdated()));
+    FakeElement element = new FakeElement("A");
     IllegalStateException failure = assertThrows(IllegalStateException.class,
-        () -> locator.run(new FakeElement("A"), "VERIFY", ""));
+        () -> locator.run(element, "VERIFY", ""));
     assertTrue(failure.getMessage().contains("no docGen entry point"), failure.getMessage());
   }
 
   @Test
   void unwrapsRuntimeFailuresOfThePlugin() {
     PluginLocator locator = new PluginLocator(() -> List.of(new Failing()));
+    FakeElement element = new FakeElement("A");
     IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
-        () -> locator.run(new FakeElement("A"), "BOGUS", ""));
+        () -> locator.run(element, "BOGUS", ""));
     assertEquals("unknown OpenSysML operation: BOGUS", failure.getMessage());
   }
 
@@ -52,7 +54,9 @@ class PluginLocatorTest {
     }
 
     @Override
-    public void init() {}
+    public void init() {
+      // A test plugin has nothing to set up.
+    }
 
     @Override
     public boolean close() { return true; }

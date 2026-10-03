@@ -16,6 +16,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 )
 
+// msgFileNotFound is the NotFound message for a source path that does not read.
+const msgFileNotFound = "file not found: %v"
+
 // Convert writes a model in another representation, so a client can save a model
 // it read rather than only inspect it. Argument faults fail the call; a model
 // the converter refuses is reported in the response's error and diagnostics.
@@ -204,7 +207,7 @@ func migrateSource(req *pb.MigrateRequest) (string, []byte, error) {
 		// and the service runs with the caller's own privileges.
 		data, err := os.ReadFile(src.FilePath)
 		if err != nil {
-			return "", nil, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+			return "", nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
 		}
 		return src.FilePath, data, nil
 	default:
@@ -261,7 +264,7 @@ func migrateOptions(req *pb.MigrateRequest) (convert.MigrateOptions, error) {
 		// and the service runs with the caller's own privileges.
 		read, err := os.ReadFile(layout.LayoutPath)
 		if err != nil {
-			return opts, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+			return opts, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
 		}
 		data = read
 		opts.LayoutSource = layout.LayoutPath
@@ -328,7 +331,7 @@ func (s *Service) convertSource(req *pb.ConvertRequest) (string, []byte, error) 
 		// and the service runs with the caller's own privileges.
 		data, err := os.ReadFile(src.FilePath)
 		if err != nil {
-			return "", nil, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
+			return "", nil, statusErrorf(connect.CodeNotFound, msgFileNotFound, err)
 		}
 		return src.FilePath, data, nil
 	default:
