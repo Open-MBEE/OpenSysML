@@ -1794,7 +1794,7 @@ func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
 }
 
 // starvedPin reports whether a required input pin of node is fed only by succession flows,
-// none of which delivered or may still deliver: the node waits for the pin's value.
+// none of which queued, delivered or may still deliver a value: the node waits for one.
 func (e *ActionExecutor) starvedPin(frame *actionFrame, node ast.Node) bool {
 	graph := e.graphOf(frame)
 	feeds := make(map[string][]lower.ActionEdge)
@@ -1821,7 +1821,7 @@ func (e *ActionExecutor) starvedPin(frame *actionFrame, node ast.Node) bool {
 	var live map[ast.Node]bool
 	for _, feature := range graph.Features[node] {
 		edges := feeds[feature.Name]
-		if feature.Direction != ast.DirIn || len(edges) == 0 {
+		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[node][feature.Name]) > 0 {
 			continue
 		}
 		if sym := memberSymbol(feature.Scope, feature.Node); sym != nil && e.ctx.admitsNoValue(sym) {
