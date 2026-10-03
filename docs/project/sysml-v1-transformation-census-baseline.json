@@ -6796,16 +6796,21 @@
         "internal/translate/migrate/activity.go:callBehavior",
         "internal/translate/migrate/activity.go:callTyped",
         "internal/translate/migrate/activity.go:callPrimitive",
-        "internal/translate/migrate/context.go:performUsage"
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/context.go:contextBinding"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
         "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
         "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/states_test.go:TestSwimlaneCallsRunOnTheirRepresentedObjects",
+        "tests/migrate/context_test.go:TestCalleeContextBindsTheCallersOnePartOfItsType",
+        "tests/migrate/context_test.go:TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt",
+        "tests/migrate/owner_reads_test.go:TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst",
         "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior is computed through the v2 library instead, since v2 has no type for it (see the behaviours with no OMG mapping), and a block-owned behavior reading its block is performed as the block's usage (`perform action n ::> obj.b;`), since a def nested in a part def reaches none of the block's features; the ledger's approximations belong to other mappings or to the v1 model: edge notes such as no edge leading to the node, a call of another block's behavior, which v1 runs on the caller's object and which is bound to the caller's one part of that block or, with none, performed as an empty step, and calls omitting a required argument (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
+            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -7333,16 +7338,21 @@
         "internal/translate/migrate/activity.go:callBehavior",
         "internal/translate/migrate/activity.go:callTyped",
         "internal/translate/migrate/activity.go:callPrimitive",
-        "internal/translate/migrate/context.go:performUsage"
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/context.go:contextBinding"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
         "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
         "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/states_test.go:TestSwimlaneCallsRunOnTheirRepresentedObjects",
+        "tests/migrate/context_test.go:TestCalleeContextBindsTheCallersOnePartOfItsType",
+        "tests/migrate/context_test.go:TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt",
+        "tests/migrate/owner_reads_test.go:TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst",
         "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior is computed through the v2 library instead, since v2 has no type for it (see the behaviours with no OMG mapping), and a block-owned behavior reading its block is performed as the block's usage (`perform action n ::> obj.b;`), since a def nested in a part def reaches none of the block's features; the ledger's approximations belong to other mappings or to the v1 model: edge notes such as no edge leading to the node, a call of another block's behavior, which v1 runs on the caller's object and which is bound to the caller's one part of that block or, with none, performed as an empty step, and calls omitting a required argument (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
+            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
