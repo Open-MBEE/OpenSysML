@@ -913,6 +913,7 @@ type actionEdgeLowerer struct {
 type pendingGate struct {
 	edge   ActionEdge
 	target ast.Node
+	scope  *symbols.Scope
 }
 
 func (l *actionEdgeLowerer) member(member ast.Node) error {
@@ -1031,7 +1032,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 	}
 	if targetNode == nil {
 		if n.Target != nil && ast.SimpleName(n.Target) != "" {
-			l.gates = append(l.gates, pendingGate{edge: edge, target: n.Target})
+			l.gates = append(l.gates, pendingGate{edge: edge, target: n.Target, scope: l.scope})
 			return nil
 		}
 		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
@@ -1146,7 +1147,7 @@ func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge Actio
 	if targetNode == nil {
 		if ast.AsQualifiedName(targetRef) != nil && ast.SimpleName(targetRef) != "" {
 			edge.Source = sourceNode
-			l.gates = append(l.gates, pendingGate{edge: edge, target: targetRef})
+			l.gates = append(l.gates, pendingGate{edge: edge, target: targetRef, scope: l.scope})
 			return nil
 		}
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
@@ -1394,7 +1395,25 @@ func resolveFirstNode(graph *ActionGraph) error {
 func (l *actionEdgeLowerer) resolveGates() error {
 	for _, gate := range l.gates {
 		source, name := gate.edge.Source, ast.SimpleName(gate.target)
-		at := slices.IndexFunc(l.graph.DataFlows[source], func(flow ObjectFlow) bool { return flow.Name == name })
+		at := -1
+		lookupFound := false
+		if qn := ast.AsQualifiedName(gate.target); qn != nil {
+			segments := make([]string, len(qn.Parts))
+			for i, part := range qn.Parts {
+				segments[i] = part.Text
+			}
+			if symbol, ok := resolve.FeatureSymbolInScope(gate.scope, segments); ok {
+				lookupFound = true
+				if symbol != nil {
+					at = slices.IndexFunc(l.graph.DataFlows[source], func(flow ObjectFlow) bool {
+						return flow.Decl == symbol.Decl
+					})
+				}
+			}
+		}
+		if !lookupFound {
+			at = slices.IndexFunc(l.graph.DataFlows[source], func(flow ObjectFlow) bool { return flow.Name == name })
+		}
 		if at < 0 {
 			if from := flowSourceNamed(l.graph, name); from != nil {
 				return fmt.Errorf("action succession leads to flow %s, which leaves %s, not %s",

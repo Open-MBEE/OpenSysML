@@ -52,6 +52,48 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("inherited_gate_resolves_same_named_flow_in_declaring_scope", func(t *testing.T) {
+		for _, tc := range []struct {
+			guard string
+			wantB bool
+		}{
+			{guard: "false"},
+			{guard: "true", wantB: true},
+		} {
+			t.Run(tc.guard, func(t *testing.T) {
+				outputs, err := executeInheritedAction(t, `package test {
+					private import ScalarValues::*;
+					action def G {
+						attribute go : Boolean = `+tc.guard+`;
+						action a { out y : Integer; assign y := 7; }
+						action b { in v : Integer; }
+						first start then a;
+						first a if go then f;
+						succession flow f of Integer from a.y to b.v;
+					}
+					action def S :> G {
+						action c { in v : Integer; }
+						succession flow f of Integer from a.y to c.v;
+					}
+				}`, "S")
+				if err != nil {
+					t.Fatalf("ExecuteAction(S): %v", err)
+				}
+				if got, ok := outputs["c.v"]; !ok || got.Kind != ValConst || got.Const.Int != 7 {
+					t.Fatalf("S c.v = %v, want 7", got)
+				}
+				b, hasB := outputs["b.v"]
+				if tc.wantB {
+					if !hasB || b.Kind != ValConst || b.Const.Int != 7 {
+						t.Fatalf("S b.v = %v, want 7", b)
+					}
+				} else if hasB && b.Kind == ValConst && b.Const.Int == 7 {
+					t.Fatalf("S b.v = %v, want no value from a.y", b)
+				}
+			})
+		}
+	})
+
 	t.Run("inherited_gated_succession_flow", func(t *testing.T) {
 		for _, tc := range []struct {
 			guard string

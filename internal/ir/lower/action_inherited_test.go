@@ -460,6 +460,77 @@ func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
 	}
 }
 
+func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			attribute go : Boolean = false;
+			action a { out y : Integer; assign y := 7; }
+			action b { in v : Integer; }
+			first start then a;
+			first a if go then f;
+			succession flow f of Integer from a.y to b.v;
+		}
+		action def S :> G {
+			action c { in v : Integer; }
+			succession flow f of Integer from a.y to c.v;
+		}
+	`
+	decl, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a := namedNode(graph, "a")
+	if a == nil {
+		t.Fatal("S graph has no inherited action a")
+	}
+	generalFlowDecl := actionMember(t, root, "G", "f")
+	specializedFlowDecl := actionMember(t, root, "S", "f")
+	var generalFlow, specializedFlow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		flow := &graph.DataFlows[a][i]
+		switch flow.Decl {
+		case generalFlowDecl:
+			generalFlow = flow
+		case specializedFlowDecl:
+			specializedFlow = flow
+		}
+	}
+	b, c := namedNode(graph, "b"), namedNode(graph, "c")
+	if generalFlow == nil || generalFlow.Target != b || generalFlow.Gate == nil {
+		t.Fatalf("G's flow = %+v, want gated flow to b", generalFlow)
+	}
+	if specializedFlow == nil || specializedFlow.Target != c {
+		t.Fatalf("S's flow = %+v, want flow to c", specializedFlow)
+	}
+	if specializedFlow.Gate != nil {
+		t.Fatalf("S's flow gate = %v, want nil", specializedFlow.Gate)
+	}
+
+	var gatedEdge, ownEdge *ActionEdge
+	for i := range graph.Edges[a] {
+		edge := &graph.Edges[a][i]
+		switch edge.Decl {
+		case generalFlowDecl:
+			if edge.Carries {
+				gatedEdge = edge
+			}
+		case specializedFlowDecl:
+			if edge.Carries {
+				ownEdge = edge
+			}
+		}
+	}
+	if gatedEdge == nil || gatedEdge.Guard == nil || gatedEdge.Gate != generalFlow.Gate {
+		t.Fatalf("G's carrying edge = %+v, want its gate and guard", gatedEdge)
+	}
+	if ownEdge == nil || ownEdge.Guard != nil || ownEdge.Gate != nil {
+		t.Fatalf("S's carrying edge = %+v, want ungated", ownEdge)
+	}
+}
+
 func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
 	src := `
 		action def B1 {
