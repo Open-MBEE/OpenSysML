@@ -1,4 +1,4 @@
-step 1: token 1@*ast.WhileLoopActionNode
+step 1: token 1@loop until
 stmt loop until
   iteration 1
     stmt action body
