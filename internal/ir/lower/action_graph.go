@@ -1882,7 +1882,7 @@ func orderedAssertions(members []ast.Node) map[*ast.Usage]bool {
 	ordered := make(map[*ast.Usage]bool)
 	for _, member := range members {
 		u, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || u.Kind != ast.UsageConstraint || u.PrefixKeyword != "assert" {
+		if !ok || !resolve.IsAssertion(u) {
 			continue
 		}
 		if sequenced[u] || named[getNodeName(u)] || named[u.Ident.ShortName] {

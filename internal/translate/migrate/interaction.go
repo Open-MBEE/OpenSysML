@@ -382,7 +382,7 @@ func (s *scenario) returnValue(step *scenarioStep) {
 // gates: the performed scenario's message leaving the matching formal gate carries it.
 func (s *scenario) gated(step *scenarioStep, gate *sysmlv1.Element) (*scenarioStep, string) {
 	use := gate.Parent
-	if use.Type != "InteractionUse" || use.Parent == nil {
+	if use.Type != "InteractionUse" || !within(use, s.e) {
 		return nil, "is received on the gate " + describe(gate) + " of " + describe(use) + ", which is not an interaction use of the interaction"
 	}
 	ref := s.m.model.Ref(use, "refersTo")

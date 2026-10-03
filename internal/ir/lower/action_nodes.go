@@ -187,6 +187,10 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
+		if resolve.IsAssertion(n) {
+			graph.Bodies[n] = []Statement{Assert{Node: n, Sym: declaringScope.MemberDeclaring(n), Scope: declaringScope}}
+			break
+		}
 		recordNodeMultiplicity(graph, n)
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:

@@ -1,7 +1,9 @@
 package migrate_test
 
 import (
+	"bytes"
 	stderrors "errors"
+	"os"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -135,4 +137,26 @@ func migratedContext(t *testing.T, notation []byte) (*runtime.Context, *symbols.
 	idx.ExpandWildcardImports()
 	res := resolve.New(idx)
 	return runtime.NewContext(runtime.NewModel(passes.NewTypedModel(res), res), 10_000_000), idx
+}
+
+// A message received on the actual gate of an interaction use another interaction
+// owns refuses its own interaction rather than writing a gate it cannot reach.
+func TestMessageThroughAnotherInteractionsGate(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/interaction_use.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := bytes.Replace(data, []byte(`sendEvent="_oS" receiveEvent="_oR"`), []byte(`sendEvent="_oS" receiveEvent="_ryGate"`), 1)
+	if bytes.Equal(foreign, data) {
+		t.Fatal("the fixture no longer has the message to redirect")
+	}
+	r, err := migrate.Migrate("interaction_use.xmi", foreign)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantNote(t, r, "_overrun", migrate.Unmapped, "is received on the gate 'cmd' of 'kick', which is not an interaction use of the interaction")
+	wantNote(t, r, "_ryUse", migrate.Mapped, "written as the perform kick of the scenario of 'Kick'")
+	for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
 }
