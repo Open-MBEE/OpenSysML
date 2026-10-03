@@ -653,15 +653,15 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:d3c23c0a9962875100836923962361f3b5941deb72e53380530a7ce9d8264e9e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced); candidate erratum: the mapping creates a ReturnParameterMembership whose owner is an ActionDefinition, which validateReturnParameterMembershipOwningType rejects; an `out` ParameterMembership is the valid form for an action def's result",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -681,15 +681,15 @@
         "type"
       ],
       "ocl": "sha256:43a60f7b4611ab3ffb5f83846c17557353dbeb83cd088b020906c1674e85cfb3",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -709,15 +709,15 @@
         "direction"
       ],
       "ocl": "sha256:5fffed7c1a7497a40c4a426d15855b961fb30ed60601f01f05f85e95503d5b7e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -737,15 +737,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4531890002603f03eecf16e927f6867d15a96699dc0f30e7b9dd6328d80a1256",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -765,15 +765,15 @@
         "type"
       ],
       "ocl": "sha256:7ef7df4028e2a72eb03abc1ceaaa640805546e7530ae9a3366fd911430ffc845",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -793,15 +793,15 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:bcb170495746f321564425a298fe9f04d1affa6a0615109d2ee4470f2849747a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced); candidate erratum: the mapping creates a ReturnParameterMembership whose owner is an ActionDefinition, which validateReturnParameterMembershipOwningType rejects; an `out` ParameterMembership is the valid form for an action def's result",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -821,15 +821,15 @@
         "direction"
       ],
       "ocl": "sha256:5fffed7c1a7497a40c4a426d15855b961fb30ed60601f01f05f85e95503d5b7e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -849,15 +849,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:06d67011ce78b2ff76810552273665447d3387de835243f148f504552e38422d",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -6791,15 +6791,21 @@
         "type"
       ],
       "ocl": "sha256:b095346cfa3bbb32c47b77ed489c11b40ef3342c98c7e8ab0a794c8e87989b61",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callBehavior"
+        "internal/translate/migrate/activity.go:callBehavior",
+        "internal/translate/migrate/activity.go:callTyped",
+        "internal/translate/migrate/activity.go:callPrimitive",
+        "internal/translate/migrate/context.go:performUsage"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
+        "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
+        "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior; calls whose context or arguments cannot be bound are approximated or unmapped (PSSM: 1108 approximated, 6 unmapped of 1159)",
+      "reason": "an action typed by the called behavior, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior is computed through the v2 library instead, since v2 has no type for it (see the behaviours with no OMG mapping), and a block-owned behavior reading its block is performed as the block's usage (`perform action n ::> obj.b;`), since a def nested in a part def reaches none of the block's features; the ledger's approximations belong to other mappings or to the v1 model: edge notes such as no edge leading to the node, a call of another block's behavior, which v1 runs on the caller's object and which is bound to the caller's one part of that block or, with none, performed as an empty step, and calls omitting a required argument (PSSM: 45 mapped, 1108 approximated, 6 unmapped of 1159; of the approximated, 1090 carry edge notes and 222 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -7322,15 +7328,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e2c441b499925dc184297802680a30a8e0bdb8eaea6bb156a61e008ed9ef9289",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callBehavior"
+        "internal/translate/migrate/activity.go:callBehavior",
+        "internal/translate/migrate/activity.go:callTyped",
+        "internal/translate/migrate/activity.go:callPrimitive",
+        "internal/translate/migrate/context.go:performUsage"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
+        "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
+        "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior; calls whose context or arguments cannot be bound are approximated or unmapped (PSSM: 1108 approximated, 6 unmapped of 1159)",
+      "reason": "an action typed by the called behavior, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior is computed through the v2 library instead, since v2 has no type for it (see the behaviours with no OMG mapping), and a block-owned behavior reading its block is performed as the block's usage (`perform action n ::> obj.b;`), since a def nested in a part def reaches none of the block's features; the ledger's approximations belong to other mappings or to the v1 model: edge notes such as no edge leading to the node, a call of another block's behavior, which v1 runs on the caller's object and which is bound to the caller's one part of that block or, with none, performed as an empty step, and calls omitting a required argument (PSSM: 45 mapped, 1108 approximated, 6 unmapped of 1159; of the approximated, 1090 carry edge notes and 222 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
