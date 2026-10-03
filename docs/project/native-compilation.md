@@ -205,9 +205,12 @@ one (`p.x`) leaves the program as any value does. A record type is also refused 
 specializes another definition, declares a feature other than an `attribute` or a calc, holds a
 function value, binds a feature to its value or computes a default when the object is made, or
 holds a unique collection of records (whose uniqueness violation the interpreter reports by object
-number). The C target refuses a record holding a String or a collection, which its arena would
+number). A construction that leaves a single-valued feature with no argument and no default is
+refused: the interpreter then holds an `<unset>` value there, which is neither null nor a value of
+the feature's type. The C target refuses a record holding a String or a collection, which its arena would
 reclaim at the end of the statement making it (the Go target computes it); a C record and a
-function value carrying one are allocated outside the arena, so neither is reclaimed while held.
+function value carrying one are allocated outside the arena, so neither is reclaimed while held,
+and a run's records are freed when the next run begins, as its arena is.
 
 ## Step budget
 

@@ -818,6 +818,30 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	}
 }
 
+// A C program frees a run's records when the next run begins, so repeated
+// runs that each make a record complete under a 64 MB limit.
+func TestCompiledCRecordsAreReleasedBetweenRuns(t *testing.T) {
+	if _, err := exec.LookPath("cc"); err != nil {
+		t.Skip("no C compiler on PATH")
+	}
+	if out, err := exec.Command("sh", "-c", "ulimit -v 65536").CombinedOutput(); err != nil {
+		t.Skipf("no address-space limit here: %v %s", err, out)
+	}
+	s := loadCompileFixture(t)
+	program, err := s.CompileCalc("Compiled::Rec::Read", codegen.TargetC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(t.TempDir(), "Read")
+	if err := codegen.Build(program, codegen.TargetC, exe); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" --repeat 3000000 1.5`, exe).CombinedOutput()
+	if err != nil || strings.TrimSpace(string(out)) != "1.5" {
+		t.Errorf("Read(1.5) repeated 3000000 times under a 64 MB limit: %v\n%s", err, out)
+	}
+}
+
 // A calc outside the subset is refused with the reason, never compiled wrong.
 func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 	s := loadCompileFixture(t)

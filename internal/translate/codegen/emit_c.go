@@ -530,6 +530,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
+	e.records = len(p.Records) > 0
 	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
 	e.raw(cEnumRuntime(p))
@@ -562,6 +563,8 @@ type cEmitter struct {
 	temps       int
 	// collections brackets every statement with the element budget's release.
 	collections bool
+	// records frees the previous run's records when a run begins.
+	records bool
 }
 
 // pure is an operand whose evaluation cannot fail, so its order is immaterial.
@@ -1144,6 +1147,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("sysml_steps = 0;")
 	if e.collections {
 		e.linef("sysml_run_begin();")
+	}
+	if e.records {
+		e.linef("sysml_recs_release();")
 	}
 	e.linef("if (setjmp(sysml_escape)) return 1;")
 	args := make([]string, len(fn.Params))

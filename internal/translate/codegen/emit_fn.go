@@ -115,14 +115,24 @@ func cFnRuntime(p *Program) string {
 	return fmt.Sprintf(`
 typedef struct sysml_rec sysml_rec;
 typedef union { sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec; } sysml_cap;
-/* A data value with features, identified by its address; it is never freed,
-   so it outlives every arena release. */
-struct sysml_rec { const char *t; sysml_cap f[1]; };
+/* A data value with features, identified by its address. It outlives every
+   arena release; a run owns the records it makes until the next run begins. */
+struct sysml_rec { const char *t; sysml_rec *next; sysml_cap f[1]; };
+static sysml_rec *sysml_recs;
 static sysml_rec *sysml_rec_new(const char *t, size_t n) {
 	sysml_rec *r = calloc(1, sizeof(sysml_rec) + (n ? n - 1 : 0) * sizeof(sysml_cap));
 	if (!r) sysml_fail("out of memory");
 	r->t = t;
+	r->next = sysml_recs;
+	sysml_recs = r;
 	return r;
+}
+static void sysml_recs_release(void) {
+	while (sysml_recs) {
+		sysml_rec *r = sysml_recs;
+		sysml_recs = r->next;
+		free(r);
+	}
 }
 /* A function value: the function it is, an index into sysml_fn_names, for a
    closure the run of the body declaring it and what it captures, and for a
