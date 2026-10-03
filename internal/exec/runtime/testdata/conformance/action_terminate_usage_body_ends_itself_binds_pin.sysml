@@ -18,8 +18,8 @@ package test {
 			out code : Integer;
 			out other : Integer;
 			assign code := 42;
-			terminate;
-			assign other := 7;
+			then terminate;
+			then assign other := 7;
 		}
 		then action a2 { assign x := 2; }
 		then done;

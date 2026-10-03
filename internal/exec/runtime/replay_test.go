@@ -485,7 +485,7 @@ func dueOrderModel(t *testing.T) (func() (*Context, error), func(*Context) (Outc
 				state waiting;
 				accept after 5 [s] then took;
 				state took {
-					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
+					entry action take { assign seen := cell.mark; then assign cell.mark := cell.mark + 1; }
 				}
 			}
 			state a : Ticker;
@@ -655,11 +655,14 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}
 	x := m.exploreAction(t, "explore", "route")
 	good := x.Outcomes[0].Witness
-	const wantGood = "step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c; step 7: decision select -> 1->warn"
+	const wantGood = "step 3: 4@c first of 2@a, 3@b, 4@c; step 4: 3@b first of 2@a, 3@b, 4@c; step 5: 2@a first of 2@a, 3@b, 4@c; step 6: 2@a first of 2@a, 3@b, 4@c; step 7: 3@b first of 3@b, 4@c; step 10: decision select -> 1->warn"
 	if FormatChoices(good) != wantGood {
 		t.Fatalf("witness %s, want %s", FormatChoices(good), wantGood)
 	}
-	orders := good[0].String() + "\n" + good[1].String() + "\n"
+	var orders string
+	for _, move := range good[:len(good)-1] {
+		orders += move.String() + "\n"
+	}
 	cases := []struct {
 		name  string
 		lines string
@@ -670,11 +673,11 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
 		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
-		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
-		{"branch at the wrong place", orders + "step 7: decision elsewhere -> 1->warn", 3, "the run faced"},
-		{"branch at the wrong step", orders + "step 6: decision select -> 1->warn", 3, "step 6 had no such move"},
+		{"branch not holding", orders + "step 10: decision select -> 3->nowhere", 6, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
+		{"branch at the wrong place", orders + "step 10: decision elsewhere -> 1->warn", 6, "the run faced"},
+		{"branch at the wrong step", orders + "step 9: decision select -> 1->warn", 6, "step 9 had no such move"},
 		{"branch where a token order is faced", "step 3: decision select -> 1->warn", 1, "must pick a token (able to act: 2@a, 3@b, 4@c)"},
-		{"move left over", wantGood + "; step 99: 1@a first of 1@a, 2@b", 4, "the run ended"},
+		{"move left over", wantGood + "; step 99: 1@a first of 1@a, 2@b", 7, "the run ended"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -1714,7 +1717,11 @@ func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
 	m := parseExploreModel(t, choiceModel)
 	sym := m.action(t, "route")
 	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
-	witness, err := ParseChoices(good[0].String() + "\n" + good[1].String() + "\nstep 7: decision select -> 3->nowhere\n")
+	var orders string
+	for _, move := range good[:len(good)-1] {
+		orders += move.String() + "\n"
+	}
+	witness, err := ParseChoices(orders + "step 10: decision select -> 3->nowhere\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1731,8 +1738,8 @@ func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
 		err = exec.Step()
 	}
 	var refused *ReplayError
-	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(refused.Faced, "3->nowhere is not enabled") {
-		t.Fatalf("error %v, want move 3 refused as not enabled", err)
+	if !errors.As(err, &refused) || refused.Move != len(good) || !strings.Contains(refused.Faced, "3->nowhere is not enabled") {
+		t.Fatalf("error %v, want move %d refused as not enabled", err, len(good))
 	}
 	tokens := exec.Tokens()
 	if len(tokens) != 1 {

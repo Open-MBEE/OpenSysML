@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"evaluate": "test::OwnCallees",
+	"libraries": true,
+	"outputs": {"sum": {"type": "Integer", "value": 5}}
+}

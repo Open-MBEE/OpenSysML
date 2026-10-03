@@ -47,6 +47,8 @@ type ActionExecutor struct {
 	occurrence *Instance
 	graph      *lower.ActionGraph // Execution IR
 	stepCounts map[stepMultiplicityKey]stepMultiplicityResult
+	// divides caches, by node, whether a body's moves may interleave with another's (lower.BodyDivides).
+	divides map[bodyDivision]bool
 	// features are the attributes and parameters the performance holds: those the
 	// graph declares, then the inherited ones none of them redefines.
 	features         []lower.Attribute
@@ -390,7 +392,10 @@ func (e *ActionExecutor) Step() error {
 	if acted {
 		e.moved = true
 	}
-	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
+	// A one-move step ends at its move with the other tokens untried, so the move is
+	// progress even when the work it resumed parks again where it was.
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore) ||
+		acted && e.ctx.scheduling().oneMove()
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -743,10 +748,10 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // pauseAfterMove pauses the body performing this action after one token move where
 // its run goes one move at a time and another move is open now; nil else.
 func (e *ActionExecutor) pauseAfterMove() error {
-	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+	if !e.ctx.stepsTokens() && !e.ctx.drawsTokenSteps() || e.state != StateRunning || !e.canAct(nil) {
 		return nil
 	}
-	return e.ctx.tokenStepBody()
+	return e.ctx.tokenStepBody(e.graph)
 }
 
 // StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
@@ -1257,6 +1262,11 @@ func (e *ActionExecutor) NodeNames() []string {
 		names = append(names, ActionNodeNames(node)...)
 	}
 	return append(names, e.subflowNodeNames(e.graph)...)
+}
+
+// readsAtStart reports whether the performance evaluated an initial value at its start shot.
+func (e *ActionExecutor) readsAtStart() bool {
+	return slices.ContainsFunc(e.features, func(attr lower.Attribute) bool { return attr.Value != nil })
 }
 
 // initializeAttributes fills the features no supplied input holds: from the occurrence's

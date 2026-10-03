@@ -202,6 +202,11 @@ func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) er
 
 // acceptReturn takes the value a `return` yields, which the result parameter
 // then holds, so it answers to that parameter's declaration.
+// statementOrder keeps declaration order: a calculation's body is no action's.
+func (h *calcStmtHost) statementOrder([]lower.Statement) *lower.StatementOrder { return nil }
+
+func (h *calcStmtHost) orderStep() int { return 0 }
+
 func (h *calcStmtHost) acceptReturn(value Value, _ lower.Return) error {
 	if out := h.shape.resultOutput(); out != nil {
 		if err := out.Decl.check(h.ctx, &value, func() string { return "result" }); err != nil {
