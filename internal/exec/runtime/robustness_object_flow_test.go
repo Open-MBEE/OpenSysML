@@ -93,6 +93,35 @@ func TestRuntimeRobustnessObjectFlow(t *testing.T) {
 		}
 	})
 
+	t.Run("empty_succession_flow_beside_plain_flows_into_two_merge_inputs_is_ambiguous", func(t *testing.T) {
+		err := runObjectFlowCase(t, `package test {
+			private import ScalarValues::*;
+			action run {
+				first start then p;
+				action p {
+					out x : Integer [0..1];
+					out y : Integer;
+					out z : Integer;
+					assign y := 1;
+					assign z := 2;
+				}
+				merge m {
+					in ref inputObject1 : Integer;
+					in ref inputObject2 : Integer;
+					out ref outputObject1 : Integer = (inputObject1, inputObject2);
+				}
+				succession flow of Integer from p.x to m.inputObject1;
+				flow p.y to m.inputObject1;
+				flow p.z to m.inputObject2;
+				action keep { in v : Integer; }
+				succession flow of Integer from m.outputObject1 to keep.v;
+			}
+		}`)
+		if !errors.Is(err, ErrAmbiguousMergeInput) {
+			t.Fatalf("run error = %v, want ErrAmbiguousMergeInput", err)
+		}
+	})
+
 	t.Run("merge_loop_without_exit_hits_the_step_budget", func(t *testing.T) {
 		err := runObjectFlowCase(t, `package test {
 			private import ScalarValues::*;

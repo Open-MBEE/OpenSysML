@@ -74,8 +74,8 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 }
 
 // arrivingObject locates the value a token arriving at merge node along via takes: the
-// one its succession flow brought, else the oldest a plain flow from its source brought,
-// else, for a token no flow came with, the one input plain flows left values at.
+// one its succession flow brought, else the oldest at the one input plain flows from its source
+// left values at, else, for a token no flow came with, the one input any plain flow left values at.
 // at is -1 where there is none.
 func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node, via lower.ActionEdge) (pin string, at int, err error) {
 	var from []lower.ObjectFlow
@@ -93,15 +93,28 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 			from = append(from, flow)
 		}
 	}
+	var held []string
+	first := make(map[string]int)
 	for _, flow := range from {
-		if at := frame.heldFrom(node, flow.TargetPin, flow.Decl); at >= 0 {
-			return flow.TargetPin, at, nil
+		at := frame.heldFrom(node, flow.TargetPin, flow.Decl)
+		if at < 0 {
+			continue
+		}
+		if was, seen := first[flow.TargetPin]; !seen {
+			held = append(held, flow.TargetPin)
+			first[flow.TargetPin] = at
+		} else if at < was {
+			first[flow.TargetPin] = at
 		}
 	}
-	if len(from) > 0 || via.Carries {
+	switch {
+	case len(held) == 1:
+		return held[0], first[held[0]], nil
+	case len(held) > 1:
+		return "", -1, fmt.Errorf("%w: %s holds values at %s", ErrAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+	case len(from) > 0 || via.Carries:
 		return "", -1, nil
 	}
-	var held []string
 	for _, f := range graph.Features[node] {
 		if f.Direction == ast.DirIn && slices.ContainsFunc(frame.held[node][f.Name], func(h nodeObject) bool { return !h.carried }) {
 			held = append(held, f.Name)
