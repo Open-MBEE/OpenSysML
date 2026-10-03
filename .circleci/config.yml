@@ -2300,6 +2300,8 @@ jobs:
     executor: rust-executor
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - rehearsal-tag
 
       - run:
@@ -2324,6 +2326,15 @@ jobs:
             # when asked for explicitly.
             echo "export RUST_VERSION=${version}" >> "$BASH_ENV"
             echo "Publishing opensysml ${version} to crates.io"
+
+      - run:
+          name: Stamp this release's service digests into the crate
+          command: |
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-manifest dist/SHA256SUMS.txt \
+              --table client/rust/opensysml/release-digests.json
+            git diff --stat
 
       - run:
           name: Require the publishing credential
@@ -2355,7 +2366,45 @@ jobs:
       - run:
           name: Package the crate
           command: |
-            cargo package -p opensysml --manifest-path client/rust/Cargo.toml --locked
+            # The crate's embedded table is its only trust anchor.
+            cargo package -p opensysml --manifest-path client/rust/Cargo.toml --allow-dirty --locked
+            crate="client/rust/target/package/opensysml-${RUST_VERSION}.crate"
+            if [ ! -f "${crate}" ]; then
+              echo "Error: cargo package did not create ${crate}."
+              exit 1
+            fi
+            python3 - "${crate}" "${CIRCLE_TAG}" <<'PY'
+            import json
+            import sys
+            import tarfile
+
+            crate_path, tag = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with tarfile.open(crate_path, "r:gz") as crate:
+                member_name = next(
+                    (name for name in crate.getnames() if name.endswith("/release-digests.json")),
+                    None,
+                )
+                if member_name is None:
+                    raise SystemExit("Error: packaged crate has no release-digests.json.")
+                with crate.extractfile(member_name) as member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packaged crate has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            print(f"Verified the packaged crate embeds all five service digests for {tag}.")
+            PY
 
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
@@ -2366,7 +2415,7 @@ jobs:
                 name: Publish opensysml to crates.io
                 command: |
                   cargo publish -p opensysml --manifest-path client/rust/Cargo.toml \
-                    --locked --no-verify
+                    --locked --no-verify --allow-dirty
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:

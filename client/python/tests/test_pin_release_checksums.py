@@ -218,6 +218,125 @@ def test_checking_passes_when_every_pin_still_holds(monkeypatch):
     assert pin.check(table) == []
 
 
+RUST_SERVICE_ASSETS = (
+    "sysml-grpc-darwin-amd64",
+    "sysml-grpc-darwin-arm64",
+    "sysml-grpc-linux-amd64",
+    "sysml-grpc-linux-arm64",
+    "sysml-grpc-windows-amd64.exe",
+)
+
+
+def _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS, digest_overrides=None):
+    digests = {asset: f"{index + 1:064x}" for index, asset in enumerate(assets)}
+    digests.update(digest_overrides or {})
+    lines = [f"{digest}  {asset}" for asset, digest in digests.items()]
+    lines.extend(
+        (
+            f"{'a' * 64}  opensysml-0.9.1-linux-amd64.tar.gz",
+            f"{'b' * 64}  opensysml-0.9.1-py3-none-any.whl",
+            f"{'c' * 64}  sysml-grpc-linux-amd64.sha256",
+        )
+    )
+    manifest = tmp_path / "SHA256SUMS.txt"
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return manifest, digests
+
+
+def _temporary_table(tmp_path):
+    table = tmp_path / "release-digests.json"
+    table.write_text(pin.render_table(pin.pinned_table()), encoding="utf-8")
+    return table
+
+
+def _client_digest_snapshot():
+    paths = (sync.SOURCE,) + tuple(
+        os.path.join(sync.REPO_ROOT, relative) for relative in sync.COPIES
+    )
+    snapshot = {}
+    for path in paths:
+        with open(path, "rb") as table:
+            snapshot[path] = table.read()
+    return snapshot
+
+
+def test_manifest_stamps_only_service_assets_and_uses_rendered_table(tmp_path):
+    manifest, digests = _release_manifest(tmp_path)
+    table_path = _temporary_table(tmp_path)
+    before_copies = _client_digest_snapshot()
+    table = pin.pinned_table(str(table_path))
+    table.setdefault(pin.DEFAULT_REPO, {})["v0.9.1"] = digests
+
+    assert pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+
+    assert pin.pinned_table(str(table_path))[pin.DEFAULT_REPO]["v0.9.1"] == digests
+    assert table_path.read_text(encoding="utf-8") == pin.render_table(table)
+    assert _client_digest_snapshot() == before_copies
+
+
+def test_manifest_stamping_requires_every_service_platform(tmp_path):
+    manifest, _ = _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS[:-1])
+    table_path = _temporary_table(tmp_path)
+
+    with pytest.raises(pin.PinError, match="sysml-grpc-windows-amd64.exe"):
+        pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+
+
+def test_manifest_stamping_rejects_malformed_service_digest(tmp_path):
+    asset = "sysml-grpc-linux-amd64"
+    manifest, _ = _release_manifest(tmp_path, digest_overrides={asset: "A" * 64})
+    table_path = _temporary_table(tmp_path)
+
+    with pytest.raises(pin.PinError, match=f"malformed SHA-256 digest for {asset}"):
+        pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+
+
+def test_manifest_restamp_is_byte_identical(tmp_path):
+    manifest, _ = _release_manifest(tmp_path)
+    table_path = _temporary_table(tmp_path)
+    assert pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+    stamped = table_path.read_bytes()
+
+    assert not pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+    assert table_path.read_bytes() == stamped
+
+
+def test_manifest_stamping_refuses_conflicting_pin_without_writing(tmp_path):
+    manifest, _ = _release_manifest(tmp_path)
+    table_path = _temporary_table(tmp_path)
+    table = pin.pinned_table(str(table_path))
+    table.setdefault(pin.DEFAULT_REPO, {})["v0.9.1"] = {
+        asset: "f" * 64 for asset in RUST_SERVICE_ASSETS
+    }
+    table_path.write_text(pin.render_table(table), encoding="utf-8")
+    original = table_path.read_bytes()
+
+    with pytest.raises(pin.PinError, match="different digest pin already exists"):
+        pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+
+    assert table_path.read_bytes() == original
+
+
+def test_manifest_cli_needs_no_token_and_uses_the_selected_table(tmp_path, monkeypatch):
+    manifest, digests = _release_manifest(tmp_path)
+    table_path = _temporary_table(tmp_path)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+    assert pin.main(
+        [
+            "--version",
+            "v0.9.1",
+            "--from-manifest",
+            str(manifest),
+            "--table",
+            str(table_path),
+        ]
+    ) == 0
+
+    assert pin.pinned_table(str(table_path))[pin.DEFAULT_REPO]["v0.9.1"] == digests
+
+
 class TestGitHubToken:
     """The release API is read authenticated, and says so when it cannot be."""
 
