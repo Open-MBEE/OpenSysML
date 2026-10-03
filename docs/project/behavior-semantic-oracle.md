@@ -1824,6 +1824,124 @@ which is drawn against the branches' remaining target entries, six outcomes.
 `state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
 begins before its top regions are entered: six outcomes.
 
+### A succession outside a behavior body orders the performances it relates, wherever they run
+
+Fixtures: `namespace_succession_chain_ends` (golden), `type_succession_performed_actions`
+(golden), `namespace_succession_qualified_ends`, `namespace_succession_explicit_start_violated`,
+`namespace_succession_requirement_end`.
+
+```
+package D {
+    part def Bot { perform action m { … n := n + 1 … }  perform action g { … n := n * 10 … } }
+    part b : Bot;
+    first b.g then b.m;                  -- owned by the package
+}
+part def Robot { perform action move; perform action grip; first grip then move; }   -- owned by the part def
+first r::move then r::grip;              -- package-owned, ends named by qualified name
+```
+
+Derived constraints:
+
+- A succession is a Connector typed by `HappensBefore`: KerML 1.0 §7.4.6.4 gives a succession
+  with no explicit subsetting "a default subsetting to the feature happensBeforeLinks … it will
+  implicitly have the type HappensBefore", and §8.3.4.5.4 `checkSuccessionSpecialization` (semantics, §8.4.4.6.3)
+  requires it. SysML v2 §8.4.9.4 carries this to `SuccessionAsUsage`, "asserting that the Occurrence
+  identified by its first end happens temporally before the one identified by its second end".
+  `Occurrences.kerml` `HappensBefore` makes that "completely before": no snapshot of the earlier
+  occurrence is at the same time as any snapshot of the later one, so the earlier one *ends*
+  before the later one *starts*. Nothing in this depends on where the succession is owned.
+- The links of a connector relate values of its related features in the context of each instance
+  of its featuring type. KerML §8.3.4.5.3 `checkConnectorTypeFeaturing`: "Each relatedFeature of
+  a Connector must have each featuringType of the Connector as a direct or indirect featuringType
+  (where a Feature with no featuringType is treated as if the Classifier Base::Anything was its
+  featuringType)".
+- A succession owned by a type (`first grip then move` in `Robot`) has that type as its featuring
+  type, so it constrains every `Robot`: on each, its `grip` performance ends before its `move`
+  performance starts.
+- A succession owned by a package has no owning type. KerML §8.3.4.5.3
+  `deriveConnectorDefaultFeaturingType` makes its `defaultFeaturingType` "the innermost common
+  direct or indirect featuringType of the relatedFeatures", and Table 11 note 2 (§8.4.4.1), with
+  the prose of §8.4.4.6.1, lets an implied TypeFeaturing to that type be added "only if the Connector
+  has no explicit owningType or ownedTypeFeaturings, and the defaultFeaturingType of the
+  Connector is not null". So:
+  - `first r::move then r::grip` relates `Robot::move` and `Robot::grip` (a qualified name names
+    the member, not `r`'s value of it), whose innermost common featuring type is `Robot`: the
+    succession is featured by `Robot` and constrains every `Robot`, not only `r`.
+  - `first part1::action1 then requirement1` relates `part1::action1`, featured by `part1`, and
+    `requirement1`, featured by nothing and so (per `isFeaturedWithin`, §8.3.3.3.4) within every
+    type; the succession is featured by `part1`.
+  - `first b.g then b.m` relates two feature chains whose first chaining feature `b` is a package
+    member; their featuring type is `Base::Anything`, and the one link relates the `g` and `m`
+    performances of the object `b` denotes.
+  - Ends with no common featuring type (`first p1::a then p2::b` with `p1`, `p2` two package-level
+    parts) leave `defaultFeaturingType` null, no implied TypeFeaturing may be added, and
+    `checkConnectorTypeFeaturing` fails: the model is ill-formed.
+- An object's performed actions and exhibited states are its `Parts::performedActions` and
+  `exhibitedStates` (`ref action performedActions: Action[0..*] :> actions,
+  enactedPerformances`). These are the occurrences a succession between them orders.
+- When an end has more than one performance per featuring instance, or none, how many links the
+  succession requires is the multiplicity of its ends, which is unresolved where unwritten
+  (OMG issue [KERML-29](https://issues.omg.org/issues/KERML-29), deferred). The rule this record
+  already applies to action steps applies here too: an unwritten end is read both as `[0..*]` and
+  as `[1..1]`. The order is enforced only when both readings force it: exactly one performance of
+  each end per featuring instance. Otherwise it is refused as open.
+
+Where the specification is silent: neither KerML nor SysML defines an executor. A succession is a
+necessary condition on a run's occurrences. Nothing in either specification says when an
+object's performed actions start, or whether a tool must realize a succession or only check it.
+`Parts::performedActions` is a referential `[0..*]` feature and fixes no start. UML, fUML and
+PSSM say nothing about successions between the classifier behaviors of distinct objects either,
+and are advisory only.
+
+Policy this implementation takes where the specification is silent:
+
+- **Realized where the tool chooses the start.** The executor itself starts the behaviors an
+  object's type performs or exhibits, when the object is materialized. Where it chooses the start
+  time, it must choose a conforming schedule rather than produce a violation. A behavior that is
+  the later end of an applicable succession is held, not started, until every earlier-end
+  performance in the same featuring instance has ended. Holding constrains the scheduler and
+  fixes no single order. Performances no succession relates keep every interleaving the executor
+  admitted before, and `-schedule explore` and the check still enumerate them. A held behavior,
+  and what it waits for, is part of the run's state, so a snapshot, a held image and the checked
+  state key all carry it.
+- **Checked where the model fixes the start.** An explicit `perform x.beh.start`, or an
+  `-action` performance by an object of a behavior its type declares, starts when the model says.
+  If that start would put an earlier-end performance that has not ended before, or overlapping,
+  a later-end performance in the same featuring instance, the run fails with a typed
+  `succession-order-violated` error. It is never silently reordered.
+- **Typed errors for what no schedule satisfies.** A cycle of successions among the behaviors of
+  one featuring instance (`first a then b; first b then a;`) has no conforming run. The run fails
+  with `succession-order-cycle`, and validation warns with the same code.
+- **Reported when it constrains nothing.** A succession one of whose ends is a behavior an object
+  performs, but which orders nothing in a run, is reported with `succession-orders-nothing` and
+  the reason. It is never dropped silently:
+  - its other end is not a behavior an object performs, such as `requirement1`, whose
+    evaluations the runtime checks as verdicts and does not place in the run's occurrence order;
+  - an end's performance is absent when the other starts, so whether one is required is open
+    under KERML-29;
+  - an end has more than one performance in one featuring instance, so the pairing is open.
+
+  Validation reports the reasons it can see statically, with the same code. The run reports
+  them as notes. A succession neither of whose ends is such a behavior gets neither, because
+  execution has nothing to order. Examples are the successions between events, flows and
+  messages of an interaction, and those the library's `Flows::Message` declares between
+  `sourceEvent`, `self` and `targetEvent`. They are constraints on occurrences the run does not
+  enact as object behaviors.
+
+Pinned outcome: in `namespace_succession_chain_ends`, `b.n = 1`: `g` (`n := n * 10` over 0)
+ends before `m` (`n := n + 1`) starts. Before this, the run started `m` first and ended with
+`n = 10`. In `type_succession_performed_actions` and `namespace_succession_qualified_ends`,
+every `Robot` performs `grip` before `move`, including a `Robot` the succession does not name.
+In `namespace_succession_explicit_start_violated`, the explicit start of the later end before
+the earlier end has ended fails with `succession-order-violated`.
+
+Not covered: a requirement, constraint or calculation end. Its evaluation is a model-level
+verdict, not an occurrence of the run, so the succession is reported as ordering nothing. Also
+not covered: the package-level `connect q::a to q::b;` form. Validation rejects it with
+`Must be an accessible feature (use dot notation for nesting)`, although
+`deriveConnectorDefaultFeaturingType` makes it well-formed. That is a separate validation gap,
+and this change does not touch it.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

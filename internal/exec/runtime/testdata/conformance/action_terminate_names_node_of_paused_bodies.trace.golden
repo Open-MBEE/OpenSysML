@@ -1,7 +1,7 @@
 step 1: token 1@split
 step 2: token 2@gate, token 3@pre, token 4@pre1
 choice step 3: tokens 2@gate, 3@pre, 4@pre1 (unordered; took 4@pre1 first)
-step 3: token 2@*ast.WhileLoopActionNode, token 3@gate, token 4@pre2
+step 3: token 2@loop until, token 3@gate, token 4@pre2
 stmt loop until
   iteration 1
     stmt node slow
@@ -17,8 +17,8 @@ stmt loop until
 enter action node: inner
             eval literal 10 -> 10
           eval index -> 10 [s]
-choice step 4: tokens 2@*ast.WhileLoopActionNode, 3@gate, 4@pre2 (unordered; took 4@pre2 first)
-step 4: token 2@*ast.WhileLoopActionNode, token 3@*ast.WhileLoopActionNode, token 4@gate, token 5@nap
+choice step 4: tokens 2@loop until, 3@gate, 4@pre2 (unordered; took 4@pre2 first)
+step 4: token 2@loop until, token 3@loop until, token 4@gate, token 5@nap
 stmt loop until
   iteration 1
     stmt node slow
@@ -34,8 +34,8 @@ stmt loop until
 enter action node: inner
             eval literal 10 -> 10
           eval index -> 10 [s]
-choice step 5: tokens 2@*ast.WhileLoopActionNode, 3@*ast.WhileLoopActionNode, 4@gate (unordered; took 4@gate first)
-step 5: token 2@*ast.WhileLoopActionNode, token 3@*ast.WhileLoopActionNode, token 4@*ast.WhileLoopActionNode, token 5@nap, token 6@nap
+choice step 5: tokens 2@loop until, 3@loop until, 4@gate (unordered; took 4@gate first)
+step 5: token 2@loop until, token 3@loop until, token 4@loop until, token 5@nap, token 6@nap
 stmt loop until
   iteration 1
     stmt node slow
@@ -91,7 +91,7 @@ terminate action node slow: dropped token 6@nap
     eval literal true -> true
 choice step 6: writes passed := 3 by token 2, passed := 2 by token 3, passed := 1 by token 4 (unordered; passed := 3 by token 2 stood)
 choice step 6: writes later := 3 by token 2, later := 2 by token 3, later := 1 by token 4 (unordered; later := 3 by token 2 stood)
-choice step 6: tokens 2@*ast.WhileLoopActionNode, 3@*ast.WhileLoopActionNode, 4@*ast.WhileLoopActionNode (unordered; took 4@*ast.WhileLoopActionNode first)
+choice step 6: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
 step 6: token 2@done, token 3@done, token 4@done
 choice step 7: tokens 2@done, 3@done, 4@done (unordered; took 4@done first)
 step 7: no active tokens

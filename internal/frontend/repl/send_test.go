@@ -688,6 +688,57 @@ func TestSendIsDispatchedToTheDebuggedActionAtItsAccept(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "Action completed", "total = 7")
 }
 
+func TestSendWakesAnAcceptParkedInACallChain(t *testing.T) {
+	s := NewSession()
+	src := `package Q {
+		private import ScalarValues::*;
+		attribute def Go { attribute n : Integer; }
+		action def Reader {
+			out total : Integer[1] = 0;
+			first start;
+			then action receive accept g : Go;
+			then action keep { assign total := g.n; }
+			then done;
+		}
+		action def Mid {
+			out total : Integer[1] = 0;
+			first start;
+			then perform action reader : Reader;
+			then action keep { assign total := reader.total; }
+			then done;
+		}
+		action def Main {
+			out total : Integer[1] = 0;
+			first start;
+			then perform action mid : Mid;
+			then action keep { assign total := mid.total; }
+			then done;
+		}
+		part def Host { }
+		part host : Host;
+	}`
+	if result := s.Submit(src); len(result.Diagnostics) > 0 {
+		t.Fatalf("chain fixture has diagnostics: %v", result.Diagnostics)
+	}
+	run(t, s, "%instantiate Q::host")
+	run(t, s, "%action Q::Main Q::host")
+	var waiting string
+	for step := 0; step < 8; step++ {
+		out := run(t, s, "%step")
+		if strings.Contains(out, "State: Waiting") {
+			waiting = out
+			break
+		}
+	}
+	if waiting == "" {
+		t.Fatal("debugged action did not park at the nested accept")
+	}
+
+	out := run(t, s, "%send Q::Go(n=7)")
+	wants(t, out, `✓ Sent Go(n=7) to object #1 of "Q::host"`, `Accepted by performed action "Main" waiting at accept g`)
+	wants(t, run(t, s, "%continue"), "Action completed", "total = 7")
+}
+
 // TestSendAfterARebuildLeavesTheStaleDebuggerOut: a declaration that rebuilds the
 // runtime carries an object-bound %action session over on the earlier one, so a
 // %send posted on the object's new bus is not reported as taken by it, nor is a
