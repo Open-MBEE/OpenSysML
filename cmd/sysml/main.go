@@ -473,6 +473,13 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
 		return 2
 	}
+	if message := importMisuse(); message != "" {
+		fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+		return 2
+	}
+	if importDryRun {
+		return runImportDryRun(args)
+	}
 	if flagGiven("record-into") && len(modelChecks.records) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
 		return 2
