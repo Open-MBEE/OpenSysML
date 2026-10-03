@@ -742,8 +742,17 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil {
+		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
+		if expected.ExploreBudget != nil && !hasSingleOutcome {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
+		}
+		if expected.ExploreBudget != nil && hasSingleOutcome {
+			if expected.Type != "action" && expected.Type != "state" {
+				problems = append(problems, fmt.Sprintf("exploreBudget applies to action and state cases, not %q", expected.Type))
+			}
+			if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+				problems = append(problems, "exploreBudget: "+err.Error())
+			}
 		}
 		return problems
 	}
@@ -2432,12 +2441,16 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
+	runs := 65536
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
 	}{
 		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome explore budget", ExpectedOutcome{
+			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
+		}, 0},
 		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
 		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
 		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},

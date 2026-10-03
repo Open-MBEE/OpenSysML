@@ -409,7 +409,10 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
-			held, bound := e.root.data[e.root.key(name)]
+			held, bound, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(name))
+			if err != nil {
+				return nil, err
+			}
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
 					ErrUnboundParameter, symbolText(e.performed), name)

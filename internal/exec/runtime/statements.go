@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -11,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// stmtEnv is the environment a body's statements execute in: the behavior's own
-// data, plus one frame per body-local block entered. A frame is discarded when
-// its block exits, so a name it declares never leaks outward.
+// stmtEnv is the environment a body's statements execute in: behavior data, root
+// locals, and one frame per body-local block entered.
 type stmtEnv struct {
 	data frame
 	// enclosing are the frames the behavior's data shadows but its statements
@@ -21,27 +21,47 @@ type stmtEnv struct {
 	enclosing []frame
 	// outer are value maps the body reads but does not declare into, innermost
 	// last: the attributes the states enclosing the behavior own.
-	outer []map[string]Value
+	outer []frame
 	// perf is the performance the body runs as where data is not its frame — a state
 	// behavior's — whose nodes a read of `p.v` names. nil where data is the frame.
-	perf   *actionFrame
-	frames []map[string]Value
+	perf          *actionFrame
+	locals        map[string]Value
+	localCells    *bodyCells
+	unvaluedLocal map[string]bool
+	frames        []map[string]Value
+	cells         []*bodyCells
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
 }
 
 // enter pushes a frame for a block about to run and returns it.
-func (env *stmtEnv) enter() map[string]Value {
+func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
+	env.cells = append(env.cells, nil)
 	env.unvalued = append(env.unvalued, nil)
 	return frame
 }
 
+// ensureLocalCells lazily creates dependency cells for an entered block.
+func (e *stmtEngine) ensureLocalCells(index int) *bodyCells {
+	if e.env.cells[index] == nil {
+		depth := index + 1
+		e.env.cells[index] = newBodyCells(e.env.frames[index], func(scope *symbols.Scope) *EvalContext {
+			return e.evalInDepth(scope, depth)
+		})
+	}
+	return e.env.cells[index]
+}
+
 // leave discards the frame the innermost entered block declares into.
-func (env *stmtEnv) leave() {
+func (env *stmtEnv) leave(ctx *Context, forget bool) {
 	if len(env.frames) > 0 {
+		if forget {
+			ctx.forgetBodyCells(env.cells[len(env.cells)-1])
+		}
+		env.cells = env.cells[:len(env.cells)-1]
 		env.frames = env.frames[:len(env.frames)-1]
 		env.unvalued = env.unvalued[:len(env.unvalued)-1]
 	}
@@ -51,6 +71,10 @@ func (env *stmtEnv) leave() {
 func (env *stmtEnv) declareUnvalued(name string) {
 	depth := len(env.frames)
 	if depth == 0 {
+		if env.unvaluedLocal == nil {
+			env.unvaluedLocal = make(map[string]bool)
+		}
+		env.unvaluedLocal[name] = true
 		return
 	}
 	if env.unvalued[depth-1] == nil {
@@ -69,12 +93,64 @@ func (env *stmtEnv) frameDeclares(i int, name string) bool {
 
 // declare binds a name the innermost entered block declares, or a name of the
 // behavior's own data when no block is entered.
-func (env *stmtEnv) declare(name string, value Value) {
+func (env *stmtEnv) declare(ctx *Context, name string, value Value) {
 	if depth := len(env.frames); depth > 0 {
-		env.frames[depth-1][name] = value
+		if cells := env.cells[depth-1]; cells != nil {
+			ctx.writeBodyCell(cells, name, value)
+		} else {
+			env.frames[depth-1][name] = value
+		}
 		return
 	}
-	env.data.set(name, value)
+	if env.localCells != nil {
+		ctx.writeBodyCell(env.localCells, name, value)
+	} else {
+		env.locals[name] = value
+	}
+}
+
+// ensureRootCells lazily creates dependency cells for behavior-local declarations.
+func (e *stmtEngine) ensureRootCells() *bodyCells {
+	if e.env.localCells == nil {
+		e.env.localCells = newBodyCells(e.env.locals, func(scope *symbols.Scope) *EvalContext {
+			return e.evalInDepth(scope, 0)
+		})
+	}
+	return e.env.localCells
+}
+
+// rootDeclares reports whether the behavior's root scope declares name.
+func (env *stmtEnv) rootDeclares(name string) bool {
+	if _, ok := env.locals[name]; ok {
+		return true
+	}
+	return env.unvaluedLocal[name]
+}
+
+// rootLocal reports whether name belongs to the behavior root rather than a block.
+func (env *stmtEnv) rootLocal(name string) bool {
+	if !env.rootDeclares(name) {
+		return false
+	}
+	for i := len(env.frames) - 1; i >= 0; i-- {
+		if env.frameDeclares(i, name) {
+			return false
+		}
+	}
+	return true
+}
+
+// assignRootLocal writes a name declared in the behavior's root scope.
+func (env *stmtEnv) assignRootLocal(ctx *Context, name string, value Value) bool {
+	if !env.rootDeclares(name) {
+		return false
+	}
+	if env.localCells != nil {
+		ctx.writeBodyCell(env.localCells, name, value)
+	} else {
+		env.locals[name] = value
+	}
+	return true
 }
 
 // holdsLocal reports whether an entered block declares name.
@@ -84,45 +160,84 @@ func (env *stmtEnv) holdsLocal(name string) bool {
 			return true
 		}
 	}
-	return false
+	return env.rootDeclares(name)
 }
 
-// assignLocal writes to the innermost entered block that declares name and
-// reports whether one did: a block-local declaration shadows a name of the
-// behavior's own, including one of its output features.
-func (env *stmtEnv) assignLocal(name string, value Value) bool {
+// assignLocal writes to the innermost local declaration of name and reports
+// whether one did: a local shadows a name of the behavior's own.
+func (env *stmtEnv) assignLocal(ctx *Context, name string, value Value) bool {
 	for i := len(env.frames) - 1; i >= 0; i-- {
 		if env.frameDeclares(i, name) {
-			env.frames[i][name] = value
+			if cells := env.cells[i]; cells != nil {
+				ctx.writeBodyCell(cells, name, value)
+			} else {
+				env.frames[i][name] = value
+			}
 			return true
 		}
 	}
+	if env.rootDeclares(name) {
+		if env.localCells != nil {
+			ctx.writeBodyCell(env.localCells, name, value)
+		} else {
+			env.locals[name] = value
+		}
+		return true
+	}
 	return false
 }
 
-// values is the values a statement reads: the enclosing frames, overridden by the
-// behavior's own, overridden by the blocks entered around it, innermost last.
-func (env *stmtEnv) values() map[string]Value {
+// values is the values a statement reads, with locals overriding behavior data.
+func (env *stmtEnv) values(ctx *Context) (map[string]Value, error) {
 	merged := make(map[string]Value, env.data.width())
 	for _, f := range env.enclosing {
-		f.each(func(name string, value Value) { merged[name] = value })
+		if err := f.eachCurrent(ctx, func(name string, value Value) { merged[name] = value }); err != nil {
+			return nil, err
+		}
 	}
-	env.data.each(func(name string, value Value) { merged[name] = value })
-	for _, frame := range env.frames {
+	if err := env.data.eachCurrent(ctx, func(name string, value Value) { merged[name] = value }); err != nil {
+		return nil, err
+	}
+	if err := ctx.deriveBodyCells(env.localCells); err != nil {
+		return nil, err
+	}
+	maps.Copy(merged, env.locals)
+	for i, frame := range env.frames {
+		if err := ctx.deriveBodyCells(env.cells[i]); err != nil {
+			return nil, err
+		}
 		maps.Copy(merged, frame)
 	}
-	return merged
+	return merged, nil
+}
+
+// localFrames returns the entered block maps and their dependency-cell stores.
+func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
+	locals := make([]map[string]Value, 0, len(env.frames)+1)
+	cells := make([]*bodyCells, 0, len(env.frames)+1)
+	locals = append(locals, env.locals)
+	cells = append(cells, env.localCells)
+	locals = append(locals, env.frames...)
+	cells = append(cells, env.cells...)
+	return locals, cells
+}
+
+// localFrame exposes the behavior's root locals as an evaluation frame.
+func (env *stmtEnv) localFrame() frame {
+	local := mapFrame(env.locals)
+	local.cells = env.localCells
+	return local
 }
 
 // assign writes to the innermost entered block that declares name, or to the
 // behavior's data when that holds the name, and reports whether it found one.
 // A name neither declares is the host's to decide on.
-func (env *stmtEnv) assign(name string, value Value) bool {
-	if env.assignLocal(name, value) {
+func (env *stmtEnv) assign(ctx *Context, name string, value Value) bool {
+	if env.assignLocal(ctx, name, value) {
 		return true
 	}
 	if env.data.has(name) {
-		env.data.set(name, value)
+		env.data.setBody(ctx, name, value)
 		return true
 	}
 	return false
@@ -136,6 +251,16 @@ const (
 	flowNext stmtFlow = iota
 	flowReturn
 )
+
+// bodyBindingMirror lets a statement host mirror tracked local bindings.
+type bodyBindingMirror interface {
+	mirrorBodyBinding(name string, cell *bodyCell, value *Value) error
+}
+
+// rootLocalMirror lets a statement host mirror root-local values.
+type rootLocalMirror interface {
+	mirrorRootLocal(name string, value Value) error
+}
 
 // stmtHost is the behavior a statement engine runs statements for: it names
 // itself in diagnostics and decides the statements only it can state — sends,
@@ -205,11 +330,11 @@ type stmtEngine struct {
 
 // newStmtEngineOver returns an engine running statements against data, which also
 // read outer value maps — the attributes of the enclosing states — innermost last.
-func newStmtEngineOver(ctx *Context, host stmtHost, data frame, outer []map[string]Value) *stmtEngine {
+func newStmtEngineOver(ctx *Context, host stmtHost, data frame, outer []frame) *stmtEngine {
 	return &stmtEngine{
 		ctx:            ctx,
 		host:           host,
-		env:            &stmtEnv{data: data, outer: outer},
+		env:            &stmtEnv{data: data, outer: outer, locals: make(map[string]Value)},
 		activation:     ctx.newActivation(),
 		thisOccurrence: host.materializeOccurrence,
 	}
@@ -221,7 +346,7 @@ func newStmtEngineIn(ctx *Context, host stmtHost, data frame, enclosing []frame)
 	return &stmtEngine{
 		ctx:            ctx,
 		host:           host,
-		env:            &stmtEnv{data: data, enclosing: enclosing},
+		env:            &stmtEnv{data: data, enclosing: enclosing, locals: make(map[string]Value)},
 		activation:     ctx.newActivation(),
 		thisOccurrence: host.materializeOccurrence,
 	}
@@ -230,7 +355,15 @@ func newStmtEngineIn(ctx *Context, host stmtHost, data frame, enclosing []frame)
 // finish ends the activation the engine's statements ran in, discarding what the
 // calc usages read in them computed.
 func (e *stmtEngine) finish() {
+	e.ctx.forgetBodyCells(e.env.localCells)
 	e.ctx.endActivation(e.activation)
+}
+
+// complete freezes the behavior's remaining bindings and ends its activation.
+func (e *stmtEngine) complete() error {
+	err := e.ctx.freezeBodyCells(e.env.localCells)
+	e.ctx.endActivation(e.activation)
+	return err
 }
 
 // evalIn returns an evaluation context resolving names in the scope the
@@ -239,14 +372,22 @@ func (e *stmtEngine) finish() {
 func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	frames := append(e.frameBuf[:0], e.env.enclosing...)
 	frames = append(frames, e.env.data)
-	for _, outer := range e.env.outer {
-		frames = append(frames, mapFrame(outer))
-	}
+	frames = append(frames, e.env.outer...)
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
+	root := mapFrame(e.env.locals)
+	root.cells = e.env.localCells
+	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
+	frames = append(frames, root)
 	for _, local := range e.env.frames {
 		frames = append(frames, mapFrame(local))
+	}
+	for i := range e.env.frames {
+		fr := len(frames) - len(e.env.frames) + i
+		frames[fr].cells = e.env.cells[i]
+		index := i
+		frames[fr].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
 	e.frameBuf = frames
 	ec := &e.scratch
@@ -264,6 +405,36 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	return ec
 }
 
+// evalInDepth resolves a declaration with only the lexical frames visible at depth.
+func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
+	frames := make([]frame, 0, len(e.env.enclosing)+1+len(e.env.outer)+depth+1)
+	frames = append(frames, e.env.enclosing...)
+	frames = append(frames, e.env.data)
+	frames = append(frames, e.env.outer...)
+	if e.env.perf != nil {
+		frames = append(frames, performanceFrame(e.env.perf))
+	}
+	root := mapFrame(e.env.locals)
+	root.cells = e.env.localCells
+	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
+	frames = append(frames, root)
+	if depth > len(e.env.frames) {
+		depth = len(e.env.frames)
+	}
+	for i, local := range e.env.frames[:depth] {
+		fr := mapFrame(local)
+		fr.cells = e.env.cells[i]
+		index := i
+		fr.ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
+		frames = append(frames, fr)
+	}
+	return &EvalContext{
+		ctx: e.ctx, scope: scope, self: e.host.performer(),
+		occurrence: e.host.occurrence(), thisOccurrence: e.thisOccurrence,
+		frames: frames, trace: e.ctx.trace, inBehaviorBody: true, activation: e.activation,
+	}
+}
+
 // engineFrame is the engine of a body that paused, kept with the values and
 // activation it runs in until the body is resumed and ends.
 type engineFrame struct{ engine *stmtEngine }
@@ -272,7 +443,8 @@ func (f *engineFrame) abandon(*Context) { f.engine.finish() }
 
 func (f *engineFrame) clone() bodyFrame {
 	engine, env := *f.engine, *f.engine.env
-	env.frames, env.unvalued = slices.Clone(env.frames), slices.Clone(env.unvalued)
+	env.frames, env.cells, env.unvalued = slices.Clone(env.frames), slices.Clone(env.cells), slices.Clone(env.unvalued)
+	env.unvaluedLocal = maps.Clone(env.unvaluedLocal)
 	engine.env, engine.scratch, engine.frameBuf = &env, EvalContext{}, nil
 	return &engineFrame{engine: &engine}
 }
@@ -293,8 +465,11 @@ func (ctx *Context) runStatements(build func() *stmtEngine, stmts []lower.Statem
 		ctx.pushPaused(f)
 		return flow, err
 	}
-	f.engine.finish()
-	return flow, err
+	if err != nil {
+		f.engine.finish()
+		return flow, err
+	}
+	return flow, f.engine.complete()
 }
 
 // stmtListFrame is where a statement list paused: at its i-th statement, which
@@ -388,6 +563,9 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			// The qualifier denoting this body's own run makes the write the
 			// unqualified one: the host writes and streams it as `assign n := 3`.
 			if e.env.data.runs(ec.ctx, s.Owner) {
+				if !e.host.declaredOutput(s.Target) && e.env.rootDeclares(s.Target) {
+					return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
+				}
 				if !e.host.declaredOutput(s.Target) && e.env.data.has(s.Target) {
 					return flowNext, e.host.assignData(e.env, s.Target, value, s)
 				}
@@ -401,7 +579,13 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err := e.ctx.checkBodyWrite(e.host, s, &value); err != nil {
 				return flowNext, err
 			}
-			e.env.assignLocal(s.Target, value)
+			rootLocal := e.env.rootLocal(s.Target)
+			e.env.assignLocal(e.ctx, s.Target, value)
+			if rootLocal {
+				if mirror, ok := e.host.(rootLocalMirror); ok {
+					return flowNext, mirror.mirrorRootLocal(s.Target, value)
+				}
+			}
 			return flowNext, nil
 		}
 		if !e.host.declaredOutput(s.Target) {
@@ -411,6 +595,73 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
 	case lower.Declare:
+		if s.Binding && s.Value != nil {
+			var cells *bodyCells
+			name := s.Name
+			if depth := len(e.env.frames); depth > 0 {
+				cells = e.ensureLocalCells(depth - 1)
+			} else {
+				cells = e.ensureRootCells()
+			}
+			check := func(value *Value) error {
+				return e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), name, value)
+			}
+			bindingContext := e.evalIn(s.Scope)
+			visible := make([]map[string]bool, len(bindingContext.frames))
+			for i, frame := range bindingContext.frames {
+				visible[i] = frame.visibleNames()
+			}
+			var cell *bodyCell
+			var onDerived func(*Value) error
+			if len(e.env.frames) == 0 {
+				if mirror, ok := e.host.(bodyBindingMirror); ok {
+					onDerived = func(value *Value) error {
+						return mirror.mirrorBodyBinding(name, cell, value)
+					}
+				}
+			}
+			cell = e.ctx.registerBodyBinding(cells, name, s.Value, s.Scope, check, onDerived)
+			cell.binding.visible = visible
+			cell.binding.limitFrames = true
+			if _, err := e.ctx.deriveBodyCell(cells, name, cell); err != nil {
+				var checkErr bodyBindingCheckError
+				if errors.As(err, &checkErr) {
+					return flowNext, checkErr.err
+				}
+				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
+			}
+			return flowNext, nil
+		}
+		if s.BodyData {
+			value := Value{Kind: ValNull}
+			if s.Value != nil {
+				evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+				if err != nil {
+					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
+				}
+				if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
+					return flowNext, err
+				}
+				value = evaluated
+			}
+			e.env.data.setBody(e.ctx, s.Name, value)
+			return flowNext, nil
+		}
+		if e.host.declaredOutput(s.Name) {
+			value := Value{Kind: ValNull}
+			if s.Value != nil {
+				evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+				if err != nil {
+					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
+				}
+				if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
+					return flowNext, err
+				}
+				value = evaluated
+			}
+			e.env.data.setBody(e.ctx, s.Name, value)
+			return flowNext, nil
+		}
 		value := Value{Kind: ValNull}
 		if s.Value != nil {
 			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
@@ -422,7 +673,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			}
 			value = evaluated
 		}
-		e.env.declare(s.Name, value)
+		e.env.declare(e.ctx, s.Name, value)
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -482,6 +733,7 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 // this execution of the body reads starts here, so an evaluation of the same
 // usage from before the declaration was reached is discarded.
 func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
+	// Known limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
 	sym, err := e.ctx.bodyUsageSymbol(stmt)
 	if err != nil {
 		return fmt.Errorf("%s: %w", e.host.describe(), err)
@@ -528,33 +780,44 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 // its activation, and the one around it.
 type blockFrame struct {
 	locals     map[string]Value
+	cells      *bodyCells
 	unvalued   map[string]bool
 	activation int64
 	outer      int64
 }
 
-func (f *blockFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+// abandon releases dependencies and activation state for a discarded block.
+func (f *blockFrame) abandon(ctx *Context) {
+	ctx.forgetBodyCells(f.cells)
+	ctx.endActivation(f.activation)
+}
 
 func (f *blockFrame) clone() bodyFrame {
 	c := *f
-	c.locals, c.unvalued = maps.Clone(f.locals), maps.Clone(f.unvalued)
+	if f.cells == nil {
+		c.locals = maps.Clone(f.locals)
+	}
+	c.unvalued = maps.Clone(f.unvalued)
 	return &c
 }
 
 // enterBlock enters a frame and an activation for a block about to run, or the
 // ones a paused block ran in; leave restores what was around them.
-func (e *stmtEngine) enterBlock(f *blockFrame) (leave func()) {
+func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter()
+		f.locals = e.env.enter(e)
+		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.activation, f.outer = e.ctx.newActivation(), e.activation
 	} else {
 		e.env.frames = append(e.env.frames, f.locals)
+		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
 	}
 	e.activation = f.activation
-	return func() {
+	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
-		e.env.leave()
+		f.cells = e.env.cells[len(e.env.cells)-1]
+		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
 }
@@ -571,11 +834,12 @@ func (e *stmtEngine) block(block lower.Block) (stmtFlow, error) {
 	}
 	leave := e.enterBlock(f)
 	flow, err := e.runBlock(block)
-	leave()
 	if paused(err) {
+		leave(false)
 		e.ctx.pushPaused(f)
 		return flow, err
 	}
+	leave(true)
 	e.ctx.endActivation(f.activation)
 	return flow, err
 }
@@ -713,6 +977,7 @@ func (e *stmtEngine) enterActivation() func() {
 // iteration under way with its activation, and the activation around the loop.
 type loopFrame struct {
 	locals     map[string]Value
+	cells      *bodyCells
 	unvalued   map[string]bool
 	iteration  int
 	activation int64
@@ -721,27 +986,37 @@ type loopFrame struct {
 	elements []Value
 }
 
-func (f *loopFrame) abandon(ctx *Context) { ctx.endActivation(f.activation) }
+// abandon releases dependencies and activation state for a discarded loop.
+func (f *loopFrame) abandon(ctx *Context) {
+	ctx.forgetBodyCells(f.cells)
+	ctx.endActivation(f.activation)
+}
 
 func (f *loopFrame) clone() bodyFrame {
 	c := *f
-	c.locals, c.unvalued = maps.Clone(f.locals), maps.Clone(f.unvalued)
+	if f.cells == nil {
+		c.locals = maps.Clone(f.locals)
+	}
+	c.unvalued = maps.Clone(f.unvalued)
 	return &c
 }
 
 // enterLoop enters the frame the loop's body declares into, or re-enters the one a
 // paused loop ran in; leave restores what was around it.
-func (e *stmtEngine) enterLoop(f *loopFrame) (leave func()) {
+func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter()
+		f.locals = e.env.enter(e)
+		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.outer = e.activation
 	} else {
 		e.env.frames = append(e.env.frames, f.locals)
+		e.env.cells = append(e.env.cells, f.cells)
 		e.env.unvalued = append(e.env.unvalued, f.unvalued)
 	}
-	return func() {
+	return func(forget bool) {
 		f.unvalued = e.env.unvalued[len(e.env.unvalued)-1]
-		e.env.leave()
+		f.cells = e.env.cells[len(e.env.cells)-1]
+		e.env.leave(e.ctx, forget)
 		e.activation = f.outer
 	}
 }
@@ -789,10 +1064,12 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
-	defer leave()
+	preserve := false
+	defer func() { leave(!preserve) }()
 
 	for {
 		if err := e.ctx.yieldBody(); err != nil {
+			preserve = true
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		if !resumed {
@@ -803,6 +1080,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		flow, done, err := e.iteration(stmt, f, resumed)
 		resumed = false
 		if err != nil || done || flow == flowReturn {
+			preserve = paused(err)
 			return flow, e.ctx.pausing(f, err)
 		}
 		e.ctx.bodyPerformed()
@@ -826,6 +1104,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 			}
 		}
 		clear(f.locals)
+		e.ctx.resetBodyCells(f.cells)
 	}
 	flow, err = e.runBlock(stmt.Body)
 	if err != nil || flow == flowReturn {
@@ -876,10 +1155,12 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
 	leave := e.enterLoop(f)
-	defer leave()
+	preserve := false
+	defer func() { leave(!preserve) }()
 
 	for f.iteration < len(f.elements) || resumed {
 		if err := e.ctx.yieldBody(); err != nil {
+			preserve = true
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		if !resumed {
@@ -890,6 +1171,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		flow, err := e.forIteration(stmt, f, resumed)
 		resumed = false
 		if err != nil || flow == flowReturn {
+			preserve = paused(err)
 			return flow, e.ctx.pausing(f, err)
 		}
 		e.ctx.bodyPerformed()
@@ -904,6 +1186,7 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 	defer func() { e.endIteration(f, err) }()
 	if !resumed {
 		clear(f.locals)
+		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
 	}
 	return e.runBlock(stmt.Body)

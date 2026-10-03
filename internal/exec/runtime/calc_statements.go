@@ -71,7 +71,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		subactions: make(map[ast.Node]*actionFrame),
 		nodes:      h.shape.Nodes,
 		label:      h.shape.Label,
-		outer:      append(append([]frame{}, engine.env.enclosing...), engine.env.data),
+		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
@@ -130,6 +130,13 @@ func (h *calcStmtHost) declaredOutput(name string) bool {
 // assignOuter binds an output this calculation declares, and rejects any other
 // undeclared name: writing that would be an effect outside the calculation.
 func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	if env.rootDeclares(name) {
+		if err := h.ctx.checkBodyWrite(h, s, &value); err != nil {
+			return err
+		}
+		env.assignRootLocal(h.ctx, name, value)
+		return h.mirrorOccurrence(name, value)
+	}
 	if !h.declaredOutput(name) {
 		return fmt.Errorf("%w: %s is not declared by the calculation", ErrCalcExternalAssignment, name)
 	}
@@ -187,6 +194,24 @@ func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	return nil
 }
 
+// mirrorRootLocal mirrors a calc's root local into its performance occurrence.
+func (h *calcStmtHost) mirrorRootLocal(name string, value Value) error {
+	return h.mirrorOccurrence(name, value)
+}
+
+// mirrorBodyBinding keeps an occurrence feature linked to a calc body binding.
+func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Value) error {
+	if h.occ == nil || h.occ.inst == nil {
+		return nil
+	}
+	mirrored, err := h.ctx.mirrorBodyCell(h.occ.inst, name, cell, *value)
+	if err != nil {
+		return err
+	}
+	*value = mirrored
+	return nil
+}
+
 // assignChain rejects a chained target: writing a feature of another object is
 // an effect outside the calculation, as writing an undeclared name is.
 func (h *calcStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
@@ -241,7 +266,11 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	if !ok {
 		return fmt.Errorf("%s: 'perform' names no action to perform", h.describe())
 	}
-	_, outputs, err := invokeAction(h.ctx, s.Scope, inv, h.env.values(), h.self)
+	values, err := h.env.values(h.ctx)
+	if err != nil {
+		return fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	_, outputs, err := invokeAction(h.ctx, s.Scope, inv, values, h.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -251,8 +280,8 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if !h.env.assign(name, outputs[name]) {
-			h.env.data.set(name, outputs[name])
+		if !h.env.assign(h.ctx, name, outputs[name]) {
+			h.env.data.setBody(h.ctx, name, outputs[name])
 		}
 	}
 	return nil
@@ -277,8 +306,8 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
 			h.describe(), nodeDescription(node))
 	}
-	engine.env.enter()
-	defer engine.env.leave()
+	engine.env.enter(engine)
+	defer engine.env.leave(engine.ctx, true)
 	defer engine.enterActivation()()
 	for _, feature := range graph.Features[node] {
 		if feature.Value == nil {
@@ -289,7 +318,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		if err != nil {
 			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(node), err)
 		}
-		engine.env.declare(feature.Name, value)
+		engine.env.declare(engine.ctx, feature.Name, value)
 	}
 	return engine.run(graph.Bodies[node])
 }
@@ -314,14 +343,14 @@ func (h *calcStmtHost) setFeature(name string, value Value) error {
 // assignAround writes what a step's performance returns to the same-named value
 // of the body: an output the case declares, or a parameter or local it holds.
 func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
-	if h.env.assignLocal(name, value) {
+	if h.env.assignLocal(h.ctx, name, value) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
 		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
-		h.env.data.set(name, value)
+		h.env.data.setBody(h.ctx, name, value)
 		return true, h.mirrorOccurrence(name, value)
 	}
 	return false, nil

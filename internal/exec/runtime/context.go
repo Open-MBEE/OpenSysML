@@ -1553,7 +1553,7 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 		return nil, err
 	}
 	// Return the values the action's features hold once it completed
-	return exec.Results(), nil
+	return exec.ResultsWithError()
 }
 
 // ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
@@ -1573,7 +1573,11 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	if err != nil {
 		return nil, nil, err
 	}
-	return exec.Results(), (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -1754,7 +1758,11 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	return exec.StateData(), exec.GetStateVisits(), nil
+	data, err := exec.StateDataWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, exec.GetStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1768,6 +1776,9 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil

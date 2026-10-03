@@ -160,7 +160,9 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 		return Value{}, false, nil
 	}
 	name := qn.Parts[0].Text
-	if val, ok := ec.Lookup(name); ok {
+	if val, ok, err := ec.Lookup(name); err != nil {
+		return Value{}, false, err
+	} else if ok {
 		return val, true, nil
 	}
 	// A calc-typed feature the element being evaluated binds (`in calc :>> f = g`)
@@ -208,7 +210,9 @@ func (ec *EvalContext) declaredFunction(callee *symbols.Symbol) (Value, bool, er
 // else the calc the callee's own value names.
 func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
 	if qualifier, ok := ec.ctx.readQualified(ec.scope, qn).Part(len(qn.Parts) - 2); ok {
-		if val, ok := ec.frameFeatureValue(qualifier, callee); ok {
+		if val, ok, err := ec.frameFeatureValue(qualifier, callee); err != nil {
+			return Value{}, true, err
+		} else if ok {
 			return val, true, nil
 		}
 	}

@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "libraries": true,
+  "finalState": "done",
+  "stateVisits": ["active", "active", "done"],
+  "outputs": {
+    "source": {"type": "Integer", "value": 5},
+    "seen1": {"type": "Integer", "value": 2},
+    "seen2": {"type": "Integer", "value": 10},
+    "visits": {"type": "Integer", "value": 2}
+  }
+}

@@ -215,7 +215,7 @@ func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, valu
 	if err := ctx.checkBodyWrite(host, s, &value); err != nil {
 		return err
 	}
-	env.data.set(name, value)
+	env.data.setBody(ctx, name, value)
 	return nil
 }
 

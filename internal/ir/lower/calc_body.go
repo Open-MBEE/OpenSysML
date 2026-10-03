@@ -90,12 +90,12 @@ func usageStatement(u *ast.Usage, scope *symbols.Scope) (Statement, bool) {
 		// An initial value (`:=`) is what the output holds when the body starts,
 		// for its assignments to replace; a binding (`=`) is the value it returns.
 		if u.ValueIsInitial && name != "" {
-			return Declare{Name: name, Value: u.Value, Node: u, Scope: scope}, true
+			return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope}, true
 		}
 		return Return{Value: u.Value, Node: u, Scope: scope}, true
 	}
 	if u.Kind == ast.UsageAttribute && name != "" {
-		return Declare{Name: name, Value: u.Value, Node: u, Scope: scope}, true
+		return Declare{Name: name, Value: u.Value, Binding: valueIsBinding(u.Value, u.ValueIsInitial, u.ValueIsDefault), Node: u, Scope: scope}, true
 	}
 	if (u.Kind == ast.UsageCalc || u.Kind == ast.UsageAnalysisCase || u.Kind == ast.UsageVerificationCase) && name != "" {
 		return DeclareUsage{Name: name, Node: u, Scope: scope}, true

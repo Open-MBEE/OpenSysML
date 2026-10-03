@@ -100,21 +100,21 @@ func (shape *calcShape) subjectParameter() (*calcParameter, bool) {
 // enclosingSubject is the subject of the case whose body declares shape's usage,
 // which a nested case binding no subject of its own takes (SysML v2 §7.21.2):
 // read from the environment of the evaluation reading the usage.
-func (ctx *Context) enclosingSubject(shape *calcShape, enclosing *EvalContext) (Value, bool) {
+func (ctx *Context) enclosingSubject(shape *calcShape, enclosing *EvalContext) (Value, bool, error) {
 	if enclosing == nil {
-		return Value{}, false
+		return Value{}, false, nil
 	}
 	owner := enclosingBehavior(shape.Sym)
 	if owner == nil || !isCalcSymbol(owner) {
-		return Value{}, false
+		return Value{}, false, nil
 	}
 	outer, err := ctx.calcShapeOf(owner)
 	if err != nil {
-		return Value{}, false
+		return Value{}, false, err
 	}
 	subject, ok := outer.subjectParameter()
 	if !ok {
-		return Value{}, false
+		return Value{}, false, nil
 	}
 	return enclosing.Lookup(subject.Name)
 }
