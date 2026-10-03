@@ -60,16 +60,17 @@ static sysml_int sysml_max_steps = SYSML_DEFAULT_MAX_STEPS;
 static void sysml_step_fail(void) __attribute__((noreturn));
 static void sysml_step_fail(void) {
 	static char msg[128];
-	sysml_steps = sysml_max_steps + 1;
+	sysml_steps = sysml_max_steps < INT64_MAX ? sysml_max_steps + 1 : sysml_max_steps;
 	snprintf(msg, sizeof msg, "evaluation step limit exceeded (%lld steps; raise OPENSYSML_MAX_STEPS to allow more)", (long long)sysml_max_steps);
 	sysml_fail(msg);
 	__builtin_unreachable();
 }
 
-/* Spends n evaluation steps of the run's budget. */
+/* Spends n evaluation steps of the run's budget, checking the room left
+   before spending it so the counter never overflows. */
 static inline void sysml_step(sysml_int n) {
+	if (__builtin_expect(n > sysml_max_steps - sysml_steps, 0)) sysml_step_fail();
 	sysml_steps += n;
-	if (__builtin_expect(sysml_steps > sysml_max_steps, 0)) sysml_step_fail();
 }
 
 /* The positive budget the variable env sets, def when it is unset or blank. */

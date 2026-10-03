@@ -200,7 +200,10 @@ program carries the same counter, reads `OPENSYSML_MAX_STEPS` at start-up, charg
 node the steps the interpreter spends on its source node (a constant the interpreter folds spends
 one, a function value read by name one, a call its frame and argument reads), at the point the
 interpreter spends them relative to anything that can fail, and fails with the interpreter's
-message and status 1 at the same count. Each `--repeat` run starts from zero.
+message and status 1 at the same count. Each `--repeat` run starts from zero. Both check a charge
+against the steps left before spending it and stop a spent counter one past the limit, saturating
+at the int64 maximum, so a budget of the int64 maximum binds without the counter overflowing; `TestCompiledStepBudgetAtTheInt64Limit`
+builds the C program with the signed-overflow sanitizer to hold it to that.
 `TestCompiledStepBudgetMatchesInterpreter` finds, for every differential case, the least budget
 the interpreter needs and requires the compiled program to succeed with exactly that budget and
 fail with the interpreter's error one step below it.
