@@ -11,7 +11,8 @@ import (
 )
 
 // TestRuntimeRobustnessStepBudget: a budget at the int64 limit still binds, and
-// a spent budget stays spent, however the steps are charged.
+// a spent budget stays spent with the counter saturated, however the steps are
+// charged.
 func TestRuntimeRobustnessStepBudget(t *testing.T) {
 	limitContext := func(t *testing.T, spent int64) *Context {
 		t.Helper()
@@ -26,7 +27,7 @@ func TestRuntimeRobustnessStepBudget(t *testing.T) {
 			t.Fatalf("want ErrStepLimitExceeded, got %v", err)
 		}
 		if ctx.run.steps != math.MaxInt64 {
-			t.Fatalf("counter = %d after the budget was spent, want the limit %d", ctx.run.steps, int64(math.MaxInt64))
+			t.Fatalf("counter = %d after the budget was spent, want it saturated at %d", ctx.run.steps, int64(math.MaxInt64))
 		}
 	}
 

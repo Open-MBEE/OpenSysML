@@ -61,9 +61,12 @@ func sysmlStep(n int64) struct{} {
 	return struct{}{}
 }
 
-// sysmlStepFail leaves the counter at the limit, so it never overflows.
+// sysmlStepFail leaves the counter one past the limit, saturating at the int64 maximum.
 func sysmlStepFail() {
 	sysmlSteps = sysmlMaxSteps
+	if sysmlSteps < math.MaxInt64 {
+		sysmlSteps++
+	}
 	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
 }
 

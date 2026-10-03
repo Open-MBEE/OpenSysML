@@ -104,6 +104,9 @@ type compiledExpr func(ctx *Context, args []scalar) (scalar, error)
 func (ctx *Context) chargeSteps(n int64) error {
 	if n > ctx.maxSteps-ctx.run.steps {
 		ctx.run.steps = ctx.maxSteps
+		if ctx.run.steps < math.MaxInt64 {
+			ctx.run.steps++
+		}
 		return ctx.stepLimitExceeded()
 	}
 	ctx.run.steps += n
