@@ -12,7 +12,7 @@ enter action node: state behavior <anonymous>
 choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
 do: lwork
   stmt terminate
-terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+terminate state behavior <anonymous>: dropped token 1@terminate
 leave action node: state behavior <anonymous>
 do: rwork
   stmt assign b

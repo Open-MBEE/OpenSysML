@@ -9,11 +9,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// maxMaterializedLowerBound bounds the anonymous objects a collection feature value is
-// filled with: a lower bound past it is a model that cannot be materialized
-// rather than a run that is merely slow.
-const maxMaterializedLowerBound int64 = 1000
-
 // maxBehaviorBindingDepth bounds the chain of names an `exhibit`/`perform`
 // declaration is followed through to the element stating the body, so a binding
 // that names itself is reported rather than followed forever.
@@ -443,15 +438,19 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	made, lazy := count, ctx.holdsLazily(sym, count)
+	if lazy {
+		made = 0
+	}
 	// The whole collection is recorded before any of its objects starts, so a behavior
 	// reading the usage back reads the objects it denotes; a failure leaves none behind.
 	release := ctx.elementScope()
-	if err := ctx.chargeElements(int64(count)); err != nil {
+	if err := ctx.chargeElements(made); err != nil {
 		release()
 		return nil, err
 	}
 	mark := len(ctx.created)
-	members, err := ctx.materializeMembers(sym, count, nil, "")
+	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
 		ctx.abandonInstancesSince(mark)
 		release()
@@ -461,12 +460,69 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	for i, inst := range members {
 		ids[i] = inst.ID
 	}
+	if lazy {
+		seq, err := ctx.withRequired(nil, sym, nil, "", count-made)
+		if err != nil {
+			ctx.abandonInstancesSince(mark)
+			release()
+			return nil, err
+		}
+		ctx.recordOccurrenceTail(sym, seq.required)
+	}
 	ctx.occurrences[sym] = ids
 	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
 		release()
 		return nil, err
 	}
 	return members, nil
+}
+
+// recordOccurrenceTail records r as the members sym denotes past its recorded occurrences.
+func (ctx *Context) recordOccurrenceTail(sym *symbols.Symbol, r *requiredMembers) {
+	prior, had := ctx.occurrenceTails[sym]
+	ctx.occurrenceTails[sym] = r
+	ctx.noteProbeUndo(func() {
+		if had {
+			ctx.occurrenceTails[sym] = prior
+		} else {
+			delete(ctx.occurrenceTails, sym)
+		}
+	})
+}
+
+// occurrenceTail is the members sym denotes past the occurrences recorded for it, when its
+// lower bound is held lazily.
+func (ctx *Context) occurrenceTail(sym *symbols.Symbol) *requiredMembers {
+	r, ok := ctx.occurrenceTails[sym]
+	if !ok {
+		return nil
+	}
+	if live, ok := ctx.requiredOf(r.first); !ok || live != r {
+		return nil
+	}
+	return r
+}
+
+// everyOccurrence is occurrencesOf with every member a lazily held lower bound denotes made,
+// the work of reaching every one, charged to the element budget.
+func (ctx *Context) everyOccurrence(sym *symbols.Symbol) ([]*Instance, error) {
+	members, err := ctx.occurrencesOf(sym)
+	if err != nil {
+		return nil, err
+	}
+	r := ctx.occurrenceTail(sym)
+	if r == nil {
+		return members, nil
+	}
+	seq := &Sequence{elements: make([]Value, len(members)), required: r}
+	if err := ctx.makeRequired(seq); err != nil {
+		return nil, err
+	}
+	out := slices.Clone(members)
+	for i := int64(0); i < r.count; i++ {
+		out = append(out, ctx.instances[r.first+i])
+	}
+	return out, nil
 }
 
 // denotedObjects is the objects a namespace usage carrying no value denotes for the run: one
@@ -480,7 +536,7 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		}
 		return []*Instance{inst}, nil
 	case ctx.namesObjects(sym):
-		members, err := ctx.occurrencesOf(sym)
+		members, err := ctx.everyOccurrence(sym)
 		if err != nil {
 			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
 		}
@@ -512,7 +568,12 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(int64(len(members))) && !symbols.IsAbstract(sym) {
+	tail := ctx.occurrenceTail(sym)
+	held := int64(len(members))
+	if tail != nil {
+		held += tail.count
+	}
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(held) && !symbols.IsAbstract(sym) {
 		spelled := ctx.qualifiedSymbolName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
@@ -523,6 +584,9 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 			return Value{}, err
 		}
 		elements = append(elements, val)
+	}
+	if tail != nil {
+		return NewSequenceValue(&Sequence{elements: elements, required: tail}), nil
 	}
 	return ctx.declaredCollection(sym, sequenceOf(elements)), nil
 }
@@ -546,6 +610,9 @@ func (ctx *Context) liveOccurrences(sym *symbols.Symbol) ([]*Instance, bool) {
 
 // denotesOccurrence reports whether inst is one of the objects its usage denotes.
 func (ctx *Context) denotesOccurrence(inst *Instance) bool {
+	if r := ctx.occurrenceTail(inst.Type); r != nil && r.holds(inst.ID) {
+		return true
+	}
 	return slices.Contains(ctx.occurrences[inst.Type], inst.ID)
 }
 
@@ -1071,15 +1138,22 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 		release()
 		return err
 	}
+	// Past eagerLowerBound, the anonymous members beyond the first are held as required
+	// members, made when reached, unless the optional subsetters could hold them all.
+	lazy := !fv.Feature.HoldsSet && ctx.holdsLazily(composite, count) && ctx.subsetterRoom(inst, name) < count
+	fill := count
+	if lazy {
+		fill = min(count, ctx.subsetterRoom(inst, name)+1)
+	}
 
 	// The whole collection is held before any of its objects starts, so a
 	// behavior reading the feature back reads the objects held in it.
-	if err := ctx.chargeElements(int64(count)); err != nil {
+	if err := ctx.chargeElements(fill); err != nil {
 		release()
 		return err
 	}
 	mark := len(ctx.created)
-	children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
+	children, unfill, err := ctx.fillOptionalSubsetters(inst, name, int(fill))
 	fail := func(err error) error {
 		fv.Values, fv.Materialized, fv.intrinsic = Value{}, false, false
 		ctx.abandonInstancesSince(mark)
@@ -1090,21 +1164,27 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 	if err != nil {
 		return fail(err)
 	}
-	made, err := ctx.materializeMembers(composite, count-len(children), inst, name)
+	made, err := ctx.materializeMembers(composite, int(fill)-len(children), inst, name)
 	if err != nil {
 		return fail(err)
 	}
 	children = append(children, made...)
-	seq := NewSequence()
-	for _, val := range contributed {
-		seq.Append(val)
-	}
+	elements := make([]Value, 0, len(contributed)+len(children))
+	elements = append(elements, contributed...)
 	for _, child := range children {
-		seq.Append(Value{Kind: ValInstance, Instance: child.ID})
+		elements = append(elements, Value{Kind: ValInstance, Instance: child.ID})
 	}
-	fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
+	if lazy {
+		seq, err := ctx.withRequired(elements, composite, inst, name, count-fill)
+		if err != nil {
+			return fail(err)
+		}
+		fv.Values = NewSequenceValue(seq)
+	} else {
+		fv.Values = ctx.collectionOf(fv.Feature, elements)
+	}
 	fv.Materialized = true
-	fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
+	fv.Assumed = mult.AdmitsMore(int64(len(contributed)) + count)
 	fv.intrinsic = ctx.subsettersDeclared(inst, name)
 	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 		return fail(err)
@@ -1112,20 +1192,27 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 	return nil
 }
 
+// holdsLazily reports whether count objects of typ making up a lower bound are held as
+// required members: more than eagerLowerBound of a type whose objects start no behavior,
+// so making one when it is first reached is indistinguishable from making it now.
+func (ctx *Context) holdsLazily(typ *symbols.Symbol, count int64) bool {
+	if count <= eagerLowerBound {
+		return false
+	}
+	return ctx.declarative || !ctx.runsBehaviors(typ, make(map[*symbols.Symbol]bool))
+}
+
 // lowerBoundCount is how many anonymous objects fill a collection to its lower bound
-// beyond the held objects already counted; a bound too large to materialize is refused.
-func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string) (int, error) {
+// beyond the held objects already counted. An unknown bound fixes no count, and an
+// infinite one no finite number of values (KerML 1.0 §7.4.12), so neither is filled.
+func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string) (int64, error) {
 	if !mult.Upper.Known || !mult.Lower.Known {
 		return 0, fmt.Errorf("cannot materialize %s with unknown multiplicity", what)
 	}
-	if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
-		return 0, fmt.Errorf("%w: lower bound too large or infinite for %s", ErrMultiplicityViolation, what)
+	if mult.Lower.Infinite {
+		return 0, fmt.Errorf("%w for %s: a lower bound of * requires no finite number of values (KerML 1.0 §7.4.12 Multiplicities)", ErrInfiniteLowerBound, what)
 	}
-	count := int(mult.Lower.Value) - held
-	if count < 0 {
-		count = 0
-	}
-	return count, nil
+	return max(mult.Lower.Value-int64(held), 0), nil
 }
 
 // materializeMembers makes count objects of sym in order, the members a collection

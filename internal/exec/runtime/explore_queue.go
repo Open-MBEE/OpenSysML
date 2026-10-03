@@ -309,6 +309,7 @@ func (q *exploreQueue) fold() {
 			!slices.Contains(q.result.BudgetsHit, BoundStatementOrders) {
 			q.result.BudgetsHit = append(q.result.BudgetsHit, BoundStatementOrders)
 		}
+		q.result.Scope = scopeWith(q.result.Scope, p.outcome.Scope)
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{

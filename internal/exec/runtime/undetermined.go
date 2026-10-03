@@ -460,7 +460,7 @@ func countOf(val Value) semantics.Range {
 	if u := val.Undetermined(); u != nil {
 		return u.Count()
 	}
-	return semantics.CountRange(int64(len(elementsOf(val))))
+	return semantics.CountRange(elementCount(&val))
 }
 
 // heldCountOf is countOf without materializing a scalar's one-element sequence.
@@ -574,7 +574,7 @@ func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPo
 // unset: an object of a value type standing in for a value nothing gave.
 func (ctx *Context) holdsOnlyUnset(fv *FeatureValue) bool {
 	held := fv.HeldValue()
-	if held.Kind == ValInvalid {
+	if held.Kind == ValInvalid || requiredTail(held) != nil {
 		return false
 	}
 	elements := elementsOf(held)

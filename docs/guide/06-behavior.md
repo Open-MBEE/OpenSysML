@@ -772,12 +772,17 @@ of several nodes can run ahead of, or be overtaken by, a concurrent one at each 
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
 unordered. Where another performance's moves can change what a leaf body computes, the body
 yields after its initial values are read and after each statement, so a concurrent branch may
-run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`. A calc
-or constraint body is performed whole inside the step that evaluates it: no other performance
-runs between its statements, but the statements no `then` relates are unordered among
-themselves, so `explore` and `-engine check` reach every order of them (a calc whose `y := y * 10`
-and `y := y + 2` are unordered returns `12` or `30`), and its result expression or condition is
-evaluated after them. A run that
+run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
+statements of a nested body run first to last, and an action definition's own statements in
+the token order each policy gives them (`reverse` last to first). A calc or constraint body is
+performed whole inside the step that evaluates it: no other performance runs between its
+statements, but the statements no `then` relates are unordered among themselves, so `explore`
+and `-engine check` reach every order of them (a calc whose `y := y * 10` and `y := y + 2` are
+unordered returns `12` or `30`), and its result expression or condition is evaluated after
+them; `declared` and `reverse` run calc and constraint bodies in declaration order. A case body
+stating no succession likewise leaves its steps unordered under `explore`, `-engine check`,
+replay and seeded schedules, while `declared` and `reverse` perform them in declaration order.
+A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the

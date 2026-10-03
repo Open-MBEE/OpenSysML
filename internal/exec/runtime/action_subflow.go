@@ -106,8 +106,8 @@ func (f *subflowFrame) clone() bodyFrame {
 // runSubflow performs the flow perf owns to completion where a body statement,
 // not a token of the enclosing flow, performs its node: the tokens of that flow
 // alone are stepped until its last one retires, pausing where a breakpoint is
-// met as RunToCompletion does. Nothing outside can post a message meanwhile, so
-// a token parked at an accept for one is a deadlock, as under RunToCompletion;
+// met as RunToCompletion does. A body around the run can pause for a message,
+// while an unowned run with a token parked at an accept is a deadlock;
 // one parked on the clock pauses the body until the clock is advanced to its
 // instant; a run with no body to pause (a case body's) advances the clock itself.
 func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
@@ -288,7 +288,7 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 			return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
 		}
 	}
-	candidates := e.stepCandidates(&order, eligible)
+	candidates := e.stepCandidates(&order, eligible, perf)
 	schedule := e.scheduleSubflowStep(perf, candidates)
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
@@ -350,7 +350,7 @@ func (e *ActionExecutor) stepSubflowMove(perf *actionFrame) (acted, performed bo
 func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
-	schedule := e.scheduleSubflowStep(perf, e.stepCandidates(&order, oneMoveEligibleIn(perf)))
+	schedule := e.scheduleSubflowStep(perf, e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {

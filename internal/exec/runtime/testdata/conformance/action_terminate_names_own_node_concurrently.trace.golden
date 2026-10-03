@@ -27,7 +27,7 @@ stmt if
 enter action node: branch body of action node slow
   stmt terminate
 terminate action node slow: dropped token 4@nap
-terminate branch body of action node slow: dropped token 5@*ast.TerminateStatement
+terminate branch body of action node slow: dropped token 5@terminate slow
 terminate action node slow: no token dropped
 stmt assign y
     eval feature y -> 0

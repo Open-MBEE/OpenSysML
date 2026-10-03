@@ -24,6 +24,7 @@ func TestRuntimeRobustnessExploreBodyInterleavings(t *testing.T) {
 	t.Run("callee_executors_interleave", testBodyInterleavingsCallees)
 	t.Run("callees_touching_only_their_own_features_run_whole", testBodyInterleavingsOwnCallees)
 	t.Run("callee_output_writes_are_observed_one_at_a_time", testBodyInterleavingsCalleeOutputs)
+	t.Run("a_sibling_starts_its_timer_before_a_callee_moves_the_clock", testBodyInterleavingsSiblingTimer)
 }
 
 // caseRun runs the case's one action under ctx and reports its outcome.
@@ -299,5 +300,64 @@ func testBodyInterleavingsCalleeOutputs(t *testing.T) {
 	slices.Sort(got)
 	if !slices.Equal(got, []string{"0", "1", "2"}) || errs != 1 {
 		t.Fatalf("seen over every schedule = %v with %d error outcomes, want [0 1 2] and the read before producer is performed", got, errs)
+	}
+}
+
+// A performed chain parking on a timer is a move: the step ends there, and the
+// sibling not yet stepped starts its own timer before the clock moves.
+func testBodyInterleavingsSiblingTimer(t *testing.T) {
+	text, err := os.ReadFile(filepath.Join("testdata", "robustness", "action_explore_body_sibling_timer.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := parseLibraryModel(t, string(text))
+	sym := m.action(t, "SiblingTimer")
+	clocks := map[float64]bool{}
+	run := func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		clocks[ctx.Clock().Now()] = true
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() {
+		t.Fatalf("exploration %s, want complete", x.Status())
+	}
+	if got := slices.Compact(featureValues(t, x, "gated")); !slices.Equal(got, []string{"1"}) {
+		t.Errorf("explore: gated over every schedule = %v, want [1]", got)
+	}
+	for seed := 1; seed <= 8; seed++ {
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, mustPolicy(t, fmt.Sprintf("seed:%d", seed)))
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("seed:%d: %v", seed, err)
+		}
+		if got := outcomeValue(t, outcome, "gated"); got != "1" {
+			t.Errorf("seed:%d gave gated = %s, want 1", seed, got)
+		}
+	}
+	if len(clocks) != 1 || !clocks[10] {
+		t.Errorf("runs ended at clocks %v, want only 10", clocks)
+	}
+	report, err := Check(context.Background(), m.fresh, starterOf(sym), CheckBudget{}, reduced(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.BoundsHit) != 0 {
+		t.Fatalf("check: bounds hit %v, want exhaustive", report.BoundsHit)
+	}
+	for _, f := range report.Finals {
+		if f.Values["gated"] != "1" {
+			t.Errorf("check final %s, want gated = 1", f.Outcome)
+		}
 	}
 }

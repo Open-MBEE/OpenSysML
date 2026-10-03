@@ -380,8 +380,8 @@ type Block struct {
 	// Own marks the flow a case body states of its own (case_body.go), which runs
 	// in the body's frame rather than a block's so its results read what it left.
 	Own bool
-	// Stated marks Graph as the token flow the body's successions and control
-	// nodes state; unset, Graph runs the body's steps in declaration order.
+	// Stated marks Graph as the token flow the body's successions, control nodes
+	// or accepts state; unset, Graph runs the body's steps in declaration order.
 	Stated bool
 }
 
@@ -1586,11 +1586,12 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.AssignmentActionNode:
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
+		variable, _ := m.Variable.DeclaredName()
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
-			Variable:   m.Variable.Name,
+			Variable:   variable,
 			Collection: m.Collection,
 			Body:       lowerBlock(m, m.Body, childScope(scope, m)),
 			Node:       m,
@@ -1772,7 +1773,8 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block 
 		return lowerStatedBlock(owner, members, scope)
 	}
 	if blockNeedsFlow(members) {
-		return Block{Node: owner, Scope: scope, Graph: lowerBlockFlow(members, scope, false)}
+		graph := lowerBlockFlow(members, scope, false)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
 	}
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {

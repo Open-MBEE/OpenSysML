@@ -5,7 +5,7 @@ enter action node: state behavior <anonymous>
     eval literal 1 -> 1
 do: s
   stmt terminate
-terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+terminate state behavior <anonymous>: dropped token 1@terminate
 leave action node: state behavior <anonymous>
 exit: s (exit action)
 stmt action body
@@ -13,14 +13,14 @@ enter action node: state behavior <anonymous>
   stmt assign x
     eval literal 1 -> 1
   stmt terminate
-terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+terminate state behavior <anonymous>: dropped token 1@terminate
 leave action node: state behavior <anonymous>
 stmt action body
 enter action node: state behavior <anonymous>
   stmt assign n
     eval literal 1 -> 1
   stmt terminate
-terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+terminate state behavior <anonymous>: dropped token 1@terminate
 leave action node: state behavior <anonymous>
 enter: t
 transition: s -> t (event: time)

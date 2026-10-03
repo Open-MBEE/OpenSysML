@@ -142,7 +142,7 @@ func (r *Replayed) Outcome() string {
 	c := &checker{ctx: r.Ctx, inv: r.Inv}
 	var spelled string
 	if err := r.withFinalStatementOrders(func() error {
-		_, spelled, _ = c.spellFinalOnce()
+		_, spelled, _, _ = c.spellFinalOnce()
 		return nil
 	}); err != nil {
 		return "error: " + err.Error()
@@ -166,7 +166,7 @@ func (r *Replayed) FinalValue(feature string) (string, error) {
 	}
 	var values map[string]string
 	if err := r.withFinalStatementOrders(func() error {
-		values, _, _ = c.spellFinal()
+		values, _, _, _ = c.spellFinal()
 		return nil
 	}); err != nil {
 		return "", err

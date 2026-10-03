@@ -346,8 +346,8 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 
 // RunStateMachine starts a state machine outside the prompt, taking only its
 // initial transition, which is `%state` alone. The values are the configuration
-// the machine settled in. Under the check engine the machine's whole run is
-// searched instead, its timers advanced until nothing more is due.
+// the machine settled in. Under the check engine every schedule of that initial
+// transition is searched instead.
 func (s *Session) RunStateMachine(name string, performer ...string) Verdict {
 	defer s.enter()()
 	if s.checking() {

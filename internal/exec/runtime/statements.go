@@ -1207,14 +1207,7 @@ func stmtLabel(stmt lower.Statement) string {
 	case lower.If:
 		return "if"
 	case lower.Loop:
-		switch s.Kind {
-		case ast.LoopFor:
-			return "for " + s.Variable
-		case ast.LoopUntil:
-			return "loop until"
-		default:
-			return "while"
-		}
+		return loopLabel(s.Kind, s.Variable, s.Condition != nil)
 	case lower.Effect:
 		return s.Kind.String()
 	case lower.Assert:

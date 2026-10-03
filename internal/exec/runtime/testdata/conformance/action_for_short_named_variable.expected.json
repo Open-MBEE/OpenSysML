@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"outputs": {
+		"total": {
+			"type": "Real",
+			"value": 6.5
+		}
+	}
+}

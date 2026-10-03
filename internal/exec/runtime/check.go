@@ -202,6 +202,8 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
+	// Scope is the distinct reasons the finals were observed short of quiescence.
+	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
 	// bound kept schedules out, moves left an interleaving out, a state was reached
 	// again, or the reduction left a move unexplored at a state.
@@ -360,6 +362,8 @@ type checker struct {
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
+	// scope is the reasons the finals so far were observed short of quiescence.
+	scope []ObservationReason
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
@@ -871,6 +875,17 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	return holds, err
 }
 
+// scopeWith is scope with the reasons of more it lacks, sorted.
+func scopeWith(scope, more []ObservationReason) []ObservationReason {
+	for _, reason := range more {
+		if !slices.Contains(scope, reason) {
+			scope = append(scope, reason)
+		}
+	}
+	slices.Sort(scope)
+	return scope
+}
+
 // final records the outcome of a complete schedule, the first schedule
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
@@ -879,6 +894,7 @@ func (c *checker) final() {
 		c.hit(BoundStatementOrders)
 	}
 	for _, final := range finals {
+		c.scope = scopeWith(c.scope, final.scope)
 		if _, seen := c.finals[final.identity]; seen {
 			continue
 		}
@@ -899,37 +915,38 @@ func (c *checker) final() {
 
 // spellFinal renders the completed state's outcome and divergence values under a probe;
 // a selected performer feature the outcome leaves out (an item, one unset or in error) joins both.
-func (c *checker) spellFinal() (values map[string]string, spelled, identity string) {
+func (c *checker) spellFinal() (values map[string]string, spelled, identity string, scope []ObservationReason) {
 	finals, _ := c.spellFinalVariants()
 	if len(finals) == 0 {
-		return nil, "", ""
+		return nil, "", "", nil
 	}
-	return finals[0].values, finals[0].spelled, finals[0].identity
+	return finals[0].values, finals[0].spelled, finals[0].identity, finals[0].scope
 }
 
 type spelledCheckFinal struct {
 	values   map[string]string
 	spelled  string
 	identity string
+	scope    []ObservationReason
 	choices  []ChoiceTaken
 }
 
 func (c *checker) spellFinalVariants() ([]spelledCheckFinal, error) {
 	var finals []spelledCheckFinal
 	err := c.ctx.sweepStatementOrderVariants(func(sweep *statementOrderSweep) error {
-		values, spelled, identity := c.spellFinalOnce()
+		values, spelled, identity, scope := c.spellFinalOnce()
 		finals = append(finals, spelledCheckFinal{
-			values: values, spelled: spelled, identity: identity, choices: slices.Clone(sweep.choices),
+			values: values, spelled: spelled, identity: identity, scope: scope, choices: slices.Clone(sweep.choices),
 		})
 		return nil
 	})
 	return finals, err
 }
 
-func (c *checker) spellFinalOnce() (values map[string]string, spelled, identity string) {
+func (c *checker) spellFinalOnce() (values map[string]string, spelled, identity string, scope []ObservationReason) {
 	outcome := c.inv.Outcome()
 	values = c.divergenceValues()
-	spelled, identity = outcome.String(), outcome.identity()
+	spelled, identity, scope = outcome.String(), outcome.identity(), outcome.Scope
 	prefixes := c.inv.performerPrefixes()
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		if _, carried := outcome.Outputs[name]; carried {
@@ -941,7 +958,7 @@ func (c *checker) spellFinalOnce() (values map[string]string, spelled, identity 
 		spelled += "; " + name + " = " + values[name]
 		identity += "; " + name + " = " + strconv.Quote(values[name])
 	}
-	return values, spelled, identity
+	return values, spelled, identity, scope
 }
 
 // divergenceValues spells the observables divergence is reported over as the
@@ -1349,6 +1366,7 @@ func (c *checker) result() *CheckReport {
 		Horizon:    c.horizon(),
 		Violations: c.violations,
 		Finals:     slices.Clone(c.results),
+		Scope:      c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })
 	r.Divergent = divergences(r.Finals)

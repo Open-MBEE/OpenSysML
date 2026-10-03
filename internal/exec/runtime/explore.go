@@ -171,7 +171,9 @@ type Exploration struct {
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
 	// `depth`; none when it is complete.
 	BudgetsHit []string
-	weighted   bool
+	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
+	Scope    []ObservationReason
+	weighted bool
 }
 
 // Complete reports whether every linearization was run.

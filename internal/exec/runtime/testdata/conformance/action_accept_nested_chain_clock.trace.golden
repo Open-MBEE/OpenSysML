@@ -1,0 +1,25 @@
+step 1: token 1@m
+step 1: token 1@reader
+step 1: token 1@r
+  eval literal 5 -> 5
+eval index -> 5 [s]
+step 2: token 1@keep
+stmt assign got
+  eval literal 1 -> 1
+step 3: token 1@done
+step 4: no active tokens
+step 2: token 1@keep
+stmt assign got
+  eval chain got -> 1
+step 3: token 1@done
+step 4: no active tokens
+stmt assign received
+  eval chain got -> 1
+step 2: token 1@record
+stmt assign instant
+materialize: universalClock #1
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 5.0
+step 3: token 1@done
+step 4: no active tokens

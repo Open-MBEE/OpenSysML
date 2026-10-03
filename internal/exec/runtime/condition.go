@@ -917,7 +917,14 @@ func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, Object
 			continue
 		}
 		read[fv] = true
-		for _, id := range heldObjects(fv.HeldValue()) {
+		held, err := ctx.heldInFull(fv.HeldValue())
+		if err != nil {
+			if everyObject {
+				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+			}
+			held = NewSequenceValue(&Sequence{elements: standingElements(fv.HeldValue())})
+		}
+		for _, id := range heldObjects(held) {
 			if child, ok := ctx.instances[id]; ok {
 				out = append(out, heldObject{feature: of.Name, instance: child})
 			}
@@ -957,7 +964,7 @@ func heldObjects(val Value) []int64 {
 	var elements []Value
 	switch {
 	case val.Kind == ValSequence && val.Sequence() != nil:
-		elements = val.Sequence().Elements()
+		elements = standingElements(val)
 	case val.Kind == ValSet && val.Set() != nil:
 		elements = val.Set().Elements()
 	}

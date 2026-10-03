@@ -8,7 +8,7 @@ leave action node: wait
     eval literal 1 -> 1
 do: s
   stmt terminate
-terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+terminate state behavior <anonymous>: dropped token 1@terminate
 leave action node: state behavior <anonymous>
 exit: s
 enter: t
