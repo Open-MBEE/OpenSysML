@@ -84,18 +84,21 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 			continue
 		}
 		if via.Carries && flow.Kind == lower.FlowSuccession && flow.Decl == via.Decl {
-			return flow.TargetPin, frame.heldFrom(node, flow.TargetPin, flow.Decl), nil
+			if at := frame.heldFrom(node, flow.TargetPin, flow.Decl); at >= 0 {
+				return flow.TargetPin, at, nil
+			}
+			continue
 		}
 		if flow.Kind != lower.FlowSuccession {
 			from = append(from, flow)
 		}
 	}
-	if len(from) > 0 {
-		for _, flow := range from {
-			if at := frame.heldFrom(node, flow.TargetPin, flow.Decl); at >= 0 {
-				return flow.TargetPin, at, nil
-			}
+	for _, flow := range from {
+		if at := frame.heldFrom(node, flow.TargetPin, flow.Decl); at >= 0 {
+			return flow.TargetPin, at, nil
 		}
+	}
+	if len(from) > 0 || via.Carries {
 		return "", -1, nil
 	}
 	var held []string
