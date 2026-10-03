@@ -227,39 +227,10 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		}
 	}
 	if e.IsProxy() {
-		s := m.model.StereotypeRef(e.ID)
-		if s.Name != "" && isStandardNamespace(s.Namespace) {
-			if t, ok := stereotypeTypes[s.Name]; ok {
-				return fromTypes("«"+s.Name+"»", t)
-			}
-			return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
-		}
-		customization := isCustomizationHref(e.Href) || isMagicDrawCustomization(s.Namespace)
-		name := e.Name
-		if name == "" && customization {
-			// The tool's stereotype table names what the href alone does not.
-			name = s.Name
-		}
-		if name == "" {
-			return typeFilter{label: e.Href, refused: elementTypeSubject + e.Href + " is in a module the archive does not describe"}
-		}
-		if t, ok := stereotypeTypes[name]; ok && customization {
-			return fromTypes("«"+name+"»", t)
-		}
-		if subs := m.specializers(e); len(subs) > 0 {
-			return typeFilter{classifiers: subs, label: qualifiedName(e),
-				note: elementTypeSubject + qualifiedName(e) + " is outside the document; rows are filtered by the document's classifiers specializing it"}
-		}
-		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + qualifiedName(e) + " is outside the document, and not a UML metaclass or a SysML stereotype"}
+		return m.proxyTypeFilter(e)
 	}
 	if e.Type == "Stereotype" {
-		if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
-			return fromTypes("«"+e.Name+"»", t)
-		}
-		if m.userStereotype(e) && m.written(e) {
-			return typeFilter{label: "«" + e.Name + "»", metadata: m.plainName(e)}
-		}
-		return typeFilter{label: "«" + e.Name + "»", refused: "«" + e.Name + "» is not written as a metadata def rows could be filtered by"}
+		return m.stereotypeTypeFilter(e)
 	}
 	if !m.written(e) {
 		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + kindOf(e) + " " + qualifiedName(e) + " is not migrated"}
@@ -269,6 +240,46 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + kindOf(e) + " " + qualifiedName(e) + " is not a classifier rows can be typed by"}
 	}
 	return typeFilter{classifiers: []*sysmlv1.Element{e}, label: qualifiedName(e)}
+}
+
+// proxyTypeFilter decides how a type outside the document filters rows: by
+// the stereotype or metaclass it stands for, or by its specializers inside.
+func (m *migration) proxyTypeFilter(e *sysmlv1.Element) typeFilter {
+	s := m.model.StereotypeRef(e.ID)
+	if s.Name != "" && isStandardNamespace(s.Namespace) {
+		if t, ok := stereotypeTypes[s.Name]; ok {
+			return fromTypes("«"+s.Name+"»", t)
+		}
+		return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
+	}
+	customization := isCustomizationHref(e.Href) || isMagicDrawCustomization(s.Namespace)
+	name := e.Name
+	if name == "" && customization {
+		// The tool's stereotype table names what the href alone does not.
+		name = s.Name
+	}
+	if name == "" {
+		return typeFilter{label: e.Href, refused: elementTypeSubject + e.Href + " is in a module the archive does not describe"}
+	}
+	if t, ok := stereotypeTypes[name]; ok && customization {
+		return fromTypes("«"+name+"»", t)
+	}
+	if subs := m.specializers(e); len(subs) > 0 {
+		return typeFilter{classifiers: subs, label: qualifiedName(e),
+			note: elementTypeSubject + qualifiedName(e) + " is outside the document; rows are filtered by the document's classifiers specializing it"}
+	}
+	return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + qualifiedName(e) + " is outside the document, and not a UML metaclass or a SysML stereotype"}
+}
+
+// stereotypeTypeFilter decides how a stereotype of the document filters rows.
+func (m *migration) stereotypeTypeFilter(e *sysmlv1.Element) typeFilter {
+	if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
+		return fromTypes("«"+e.Name+"»", t)
+	}
+	if m.userStereotype(e) && m.written(e) {
+		return typeFilter{label: "«" + e.Name + "»", metadata: m.plainName(e)}
+	}
+	return typeFilter{label: "«" + e.Name + "»", refused: "«" + e.Name + "» is not written as a metadata def rows could be filtered by"}
 }
 
 // specializers lists the written classifiers of the document that specialize

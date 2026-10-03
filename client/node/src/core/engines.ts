@@ -2,8 +2,7 @@
 // The standing a verdict or response carries is the `VerdictStanding` of
 // values.ts; the helpers here read it.
 
-import type { EngineInfo as PbEngineInfo } from "../generated/sysml_pb.js";
-import type { Bound as PbBound } from "../generated/sysml_pb.js";
+import type { Bound as PbBound, EngineInfo as PbEngineInfo } from "../generated/sysml_pb.js";
 import { decodeStanding, type VerdictBound, type VerdictStanding } from "./values.js";
 
 /** Strengths, weakest first, as the service spells them. */
@@ -52,9 +51,9 @@ export function explainStanding(standing: Standing): string {
   if (standing.engine !== "") {
     line += ` by ${standing.engine}`;
   }
-  const reached = standingReached(standing);
+  const reached = standingReached(standing).map((b) => `${b.name} ${b.limit.toString()} reached`);
   if (reached.length > 0) {
-    line += ` (${reached.map((b) => `${b.name} ${b.limit.toString()} reached`).join(", ")})`;
+    line += ` (${reached.join(", ")})`;
   }
   return line;
 }
