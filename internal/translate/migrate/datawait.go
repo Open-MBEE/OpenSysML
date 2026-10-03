@@ -6,14 +6,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// awaitData turns the object flows into a control-flow-driven action that are no
-// succession flows into successions where v1's implicit join can be kept: the value has one producer in
+// awaitData turns the object flows into a control-flow-driven action into
+// successions where v1's implicit join can be kept: the value has one producer in
 // the activity, and the action lies on no loop that leaves the producer out, so
 // the producer runs before the action on every pass. The other flows keep
 // carrying their value only, with the reason recorded for the report.
 func (a *activity) awaitData() {
 	for _, e := range a.edges {
-		if !a.dataOnly[e] || a.edgeSelf[e] || a.dryFlow(e) || a.successionFlow(e) {
+		if !a.dataOnly[e] || a.edgeSelf[e] || a.dryFlow(e) {
 			continue
 		}
 		tgt := a.m.model.Ref(e, "target")

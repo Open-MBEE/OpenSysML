@@ -43,7 +43,7 @@ part def Rig {
         first record then final;
         action final terminate;
         succession flow of ScalarValues::Real from gain.result to measure.gain;
-        flow of ScalarValues::Real from measure.reading to record.value;
+        flow measure.reading to record.value;
         bind sample = measure.reading;
         metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
         metadata MigrationMetadata::StandIn about 'fork', 'join';

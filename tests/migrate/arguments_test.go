@@ -653,7 +653,7 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
 		"in target : Coords[0..1];",
 		"perform action aim ::> Sky::aim;",
-		"flow of Coords from zero.result to aim.target;",
+		"flow zero.result to aim.target;",
 		"first zero then aim;",
 		"first aim then final;",
 	} {

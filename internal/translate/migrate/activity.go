@@ -1787,23 +1787,11 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	if a.edgeSelf[e] {
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
-	if a.dataOnly[e] && !a.dryFlow(e) && !a.successionFlow(e) {
-		note := "the flow carries its value only: the control flow into " + describe(tgt.Parent) + " starts the action, so the action does not wait for the value on each pass"
-		if a.streams(src) || a.streams(tgt) {
-			note = joinNotes(note, "a streaming parameter takes values while its behavior runs")
-		}
-		a.m.add(e, Approximated, "", joinNotes(note, a.dataWhy[e]))
+	if a.dataOnly[e] && !a.dryFlow(e) {
+		a.m.add(e, Approximated, "", joinNotes("the flow carries its value only: the control flow into "+describe(tgt.Parent)+" starts the action, so the action does not wait for the value on each pass", a.dataWhy[e]))
 	}
 	if a.awaited[e] {
 		a.m.add(e, Mapped, "", "the action waits for the value as well as for the control flow into it, as its pin did")
-	}
-	if a.dataOnly[e] && a.successionFlow(e) {
-		from, to := src.Parent, tgt.Parent
-		if a.starvesWaiting(to, from) {
-			a.m.add(e, Approximated, "", "the action lies on a loop that leaves "+describe(from)+" out, so a later pass follows the control flow into "+describe(to)+" alone and finds no value, where v1 would wait for one that never comes")
-		} else {
-			a.m.add(e, Mapped, "", "the action waits for the value as well as for the control flow into it, as its pin did")
-		}
 	}
 	if receiver, ok := a.receivers[tgt]; ok {
 		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
@@ -1941,12 +1929,12 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	decl := "bind " + to + " = " + from
 	switch {
 	case kw == "flow":
-		decl = "flow " + a.flowHead(name, s, tgt) + from + " to " + to
+		decl = "flow " + a.flowHead(name, nil) + from + " to " + to
 		switch {
 		case a.successionFlow(e) && a.inert[s.Parent]:
 			defer a.keepOrder(e)
 		case a.successionFlow(e):
-			decl = "succession " + decl
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
 		}
 	case name != "":
 		decl = kw + " " + writeName(name) + " " + decl
@@ -1955,24 +1943,29 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
 }
 
-// flowHead writes what a flow declares before its ends: its name and the type of
-// the item it carries, then from; nothing when it declares neither.
-func (a *activity) flowHead(name string, s, tgt *sysmlv1.Element) string {
+// flowHead writes what a flow declares before its ends: its name and the type
+// item of what it carries, then from; nothing when it declares neither.
+func (a *activity) flowHead(name string, item *sysmlv1.Element) string {
 	var head []string
 	if name != "" {
 		head = append(head, writeName(name))
 	}
-	t := a.endType(s)
-	if t == nil {
-		t = a.endType(tgt)
-	}
-	if typ, _ := a.m.typeRef(t, a.def); typ != "" {
+	if typ, _ := a.m.typeRef(item, a.def); typ != "" {
 		head = append(head, "of "+typ)
 	}
 	if len(head) == 0 {
 		return ""
 	}
 	return strings.Join(head, " ") + " from "
+}
+
+// itemType is the classifier what travels from s to tgt is typed by: the source's,
+// else the target's.
+func (a *activity) itemType(s, tgt *sysmlv1.Element) *sysmlv1.Element {
+	if t := a.endType(s); t != nil {
+		return t
+	}
+	return a.endType(tgt)
 }
 
 // namer is the edge naming the member written once for what s carries to tgt: a

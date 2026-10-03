@@ -9,12 +9,13 @@ import (
 // successionFlow reports whether the object flow e is written as a succession flow,
 // which orders its target action after its source as well as carrying the value:
 // it joins pins of two actions of the activity that fire, under no guard but true,
-// from no streaming parameter to none, and a value travels it.
+// from no streaming parameter to none, a value travels it, and it is the succession
+// its target waits on. Settled once the data waits are, as it reads the successions.
 func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	if v, ok := a.succFlow[e]; ok {
 		return v
 	}
-	v := a.joinsActions(e) && !realGuard(e) && a.carriesValue(e)
+	v := a.joinsActions(e) && !realGuard(e) && slices.Contains(a.succ[a.m.model.Ref(e, "source").Parent], e) && a.carriesValue(e)
 	a.succFlow[e] = v
 	return v
 }

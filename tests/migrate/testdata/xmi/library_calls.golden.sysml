@@ -58,13 +58,13 @@ part def Recorder {
         }
         first print then final;
         action final terminate;
-        succession flow of ScalarValues::Integer from count.result to toString.x;
-        succession flow of ScalarValues::String from toString.result to concat.y;
-        succession flow of ScalarValues::String from concat.result to 'first'.element;
-        succession flow of ScalarValues::String from 'first'.result to second.seq;
-        succession flow of ScalarValues::String from second.result to size.seq;
+        flow count.result to toString.x;
+        flow toString.result to concat.y;
+        flow concat.result to 'first'.element;
+        flow 'first'.result to second.seq;
+        flow second.result to size.seq;
         succession flow of ScalarValues::String from second.result to position.seq;
-        flow of ScalarValues::Integer from position.result to 'after'.x;
+        flow position.result to 'after'.x;
         succession flow of ScalarValues::String from concat.result to print.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }

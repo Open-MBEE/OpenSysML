@@ -33,11 +33,11 @@ part def Recorder {
         }
         first print then final;
         action final terminate;
-        succession flow of ScalarValues::Integer from count.result to toString.x;
-        succession flow of ScalarValues::String from toString.result to label.y;
-        succession flow of ScalarValues::String from label.result to size.list;
+        flow count.result to toString.x;
+        flow toString.result to label.y;
+        flow label.result to size.list;
         succession flow of ScalarValues::String from label.result to get.list;
-        succession flow of ScalarValues::String from get.result to print.value;
+        flow get.result to print.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
 }
