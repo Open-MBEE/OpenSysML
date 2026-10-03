@@ -1,11 +1,9 @@
 {
 	"type": "action",
 	"evaluate": "test::Act",
-	"schedule": "reverse",
 	"outputs": {
 		"a": {"type": "Integer", "value": 4},
 		"r": {"type": "Integer", "value": 1},
-		"w": {"type": "Integer", "value": 1},
 		"calcResult": {"type": "Integer", "value": 1}
 	}
 }
