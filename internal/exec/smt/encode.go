@@ -1006,11 +1006,13 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	switch node.(type) {
 	case *ast.FinalNode:
 		s.terms = append(s.terms, s.retire())
+	case *ast.ForkNode:
+		s.fork(false)
 	case *ast.DecisionNode:
 		s.decide()
 	default:
 		if e.Flow.fansOut(node) {
-			s.fork()
+			s.fork(true)
 		} else {
 			s.succeed()
 		}
@@ -1098,8 +1100,8 @@ func (s *tokenStep) stay() *solve.Term {
 }
 
 // fork gives each enabled succession a fresh token, in order: the first in the
-// actor's slot, the rest in the free slots in order.
-func (s *tokenStep) fork() {
+// actor's slot, the rest in the free slots in order. keepsOne moves a lone token on.
+func (s *tokenStep) fork(keepsOne bool) {
 	e, f, out, prev, next := s.e, s.e.Flow, s.out, s.prev, s.next
 	guards := s.guards.holds
 	rank := make([]*solve.Term, len(out))
@@ -1109,6 +1111,11 @@ func (s *tokenStep) fork() {
 		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
 	none := eq(count, solve.IntTerm(0))
+	// An ordinary node moves its token on when one succession is enabled; a fork always replaces it.
+	moves := solve.BoolTerm(false)
+	if keepsOne {
+		moves = eq(count, solve.IntTerm(1))
+	}
 	var actor []*solve.Term
 	for p := range out {
 		edge := f.Edges[out[p]]
@@ -1116,7 +1123,7 @@ func (s *tokenStep) fork() {
 		actor = append(actor, implies(isFirst, and(
 			eq(solve.VarTerm(next.Slots[s.t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
 			eq(solve.VarTerm(next.Slots[s.t].Via), edgeValue(e.Sorts, f, out[p])),
-			eq(solve.VarTerm(next.Slots[s.t].ID), s.base),
+			eq(solve.VarTerm(next.Slots[s.t].ID), ite(moves, s.actorID, s.base)),
 			eq(s.travel, edgeValue(e.Sorts, f, out[p])))))
 	}
 	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
@@ -1145,7 +1152,7 @@ func (s *tokenStep) fork() {
 		}
 		s.placed[u] = and(s.free[u], or(here...))
 	}
-	s.nextID = add(s.base, count)
+	s.nextID = ite(moves, s.base, add(s.base, count))
 	s.fails = or(undefinedGuards(s.guards.defined)...)
 	if f.Cyclic {
 		s.full = gt(count, add(running, solve.IntTerm(1)))

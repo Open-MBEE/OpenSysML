@@ -1,0 +1,9 @@
+{
+	"libraries": true,
+	"type": "action",
+	"outcomes": [
+		{"outputs": {"armed": {"type": "Boolean", "value": false}, "x": {"type": "Integer", "value": 1}}},
+		{"outputs": {"armed": {"type": "Boolean", "value": false}, "x": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "Several successions out of an ordinary action node: every target follows, in which order is open"
+}
