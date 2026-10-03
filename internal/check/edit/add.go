@@ -156,29 +156,50 @@ func mapKeys[V any](m map[string]V) []string {
 	return out
 }
 
+type addMemberDetails struct {
+	splice          splice
+	owner           ast.Node
+	ownerPath       []string
+	insertion       insertion
+	memberText      string
+	indent          string
+	takenName       string
+	introducedNames []string
+}
+
 func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
+	details, err := m.addMemberSpliceDetails(i, op)
+	return details.splice, err
+}
+
+// addMemberSpliceDetails resolves an insertion and its segment-analysis metadata.
+func (m Model) addMemberSpliceDetails(i int, op Operation) (addMemberDetails, error) {
 	kind, err := m.addMemberKind(i, op)
 	if err != nil {
-		return splice{}, err
+		return addMemberDetails{}, err
 	}
 	referenceName, assertReference, err := checkMemberName(i, op)
 	if err != nil {
-		return splice{}, err
+		return addMemberDetails{}, err
 	}
 	if err := m.checkMemberValue(i, op, kind); err != nil {
-		return splice{}, err
+		return addMemberDetails{}, err
 	}
 	if err := checkMemberPrefixes(i, op, kind); err != nil {
-		return splice{}, err
+		return addMemberDetails{}, err
 	}
 	owner, ownerScope, err := m.addOwner(op.Owner)
 	if err != nil {
 		e := err.(*Error)
 		e.OperationIndex = i
-		return splice{}, e
+		return addMemberDetails{}, e
 	}
 	if err := checkMemberOwner(i, op, owner); err != nil {
-		return splice{}, err
+		return addMemberDetails{}, err
+	}
+	ownerPath := []string(nil)
+	if ownerScope != nil && ownerScope.Owner() != nil {
+		ownerPath = symbols.NameChain(ownerScope.Owner())
 	}
 	takenName := op.MemberName
 	if assertReference {
@@ -187,7 +208,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		takenName = referenceName
 	}
 	if takenName != "" && nameTaken(ownerScope, takenName) {
-		return splice{}, &Error{
+		return addMemberDetails{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
 			Message:        fmt.Sprintf("%s already declares %q", op.Owner, takenName),
@@ -200,11 +221,25 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	if op.Doc != "" {
 		doc, err = documentationText(i, "", "", op.Doc, docIndent)
 		if err != nil {
-			return splice{}, err
+			return addMemberDetails{}, err
 		}
 	}
-	ins := m.memberInsertion(owner, writeMember(op, kind, indent, unit, doc, docIndent))
-	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+	memberText := writeMember(op, kind, indent, unit, doc, docIndent)
+	ins := m.memberInsertion(owner, memberText)
+	sp := splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}
+	introduced := []string{}
+	if takenName != "" {
+		introduced = append(introduced, symbolName(takenName))
+	}
+	for _, target := range op.Redefines {
+		if names, ok := source.QualifiedNameSegments(target); ok && len(names) > 0 {
+			introduced = append(introduced, names[len(names)-1])
+		}
+	}
+	return addMemberDetails{
+		splice: sp, owner: owner, ownerPath: ownerPath, insertion: ins, memberText: memberText,
+		indent: indent, takenName: takenName, introducedNames: introduced,
+	}, nil
 }
 
 func illegalKind(i int, message string) *Error {
@@ -646,7 +681,7 @@ func (m Model) memberIndentUnit(owner ast.Node) string {
 	if strings.HasPrefix(memberIndent, ownerIndent) && len(memberIndent) > len(ownerIndent) {
 		return memberIndent[len(ownerIndent):]
 	}
-	return memberIndentStyle(m.Source.Bytes())
+	return m.memberIndentStyle()
 }
 
 // insertion is the splice adding a member to an owner: text replaces span, and
@@ -686,7 +721,7 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 				return m.memberInsertionBeforeResult(members[len(members)-1], text)
 			}
 		}
-		rbrace := lastToken(m.Source, body, lexer.RBrace)
+		rbrace := m.lastToken(body, lexer.RBrace)
 		closeOffset := rbrace.Span.Offset
 		lineStart := closeOffset
 		for lineStart > 0 && m.Source.Bytes()[lineStart-1] != '\n' {
@@ -710,7 +745,7 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 			at:   len(prefix) + len(indent),
 		}
 	}
-	semi := lastToken(m.Source, owner.Span(), lexer.Semicolon)
+	semi := m.lastToken(owner.Span(), lexer.Semicolon)
 	open := " {\n" + indent
 	return insertion{
 		span: source.Span{Offset: semi.Span.Offset, Len: semi.Span.Len},
@@ -873,20 +908,6 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 	}
 }
 
-func lastToken(sf *source.SourceFile, span source.Span, kind lexer.Kind) lexer.Token {
-	var found lexer.Token
-	lx := lexer.New(sf)
-	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
-		if tok.Span.Offset >= span.End() {
-			break
-		}
-		if tok.Kind == kind {
-			found = tok
-		}
-	}
-	return found
-}
-
 func lineIndent(content []byte, offset int) string {
 	start := offset
 	for start > 0 && content[start-1] != '\n' {
@@ -902,6 +923,7 @@ func lineIndent(content []byte, offset int) string {
 func (m Model) memberIndent(owner source.Span) string {
 	content := m.Source.Bytes()
 	base := lineIndent(content, owner.Offset)
+	indent := ""
 	start := owner.Offset
 	for start < owner.End() {
 		end := start
@@ -915,7 +937,8 @@ func (m Model) memberIndent(owner source.Span) string {
 		if i < end && i > start {
 			prefix := string(content[start:i])
 			if len(prefix) > len(base) {
-				return prefix
+				indent = prefix
+				break
 			}
 		}
 		if end == owner.End() {
@@ -923,11 +946,14 @@ func (m Model) memberIndent(owner source.Span) string {
 		}
 		start = end + 1
 	}
-	return base + memberIndentStyle(content)
+	if indent == "" {
+		indent = base + m.memberIndentStyle()
+	}
+	return indent
 }
 
-func memberIndentStyle(content []byte) string {
-	if strings.Contains(string(content), "\t") {
+func (m Model) memberIndentStyle() string {
+	if m.tokenData().hasTabs {
 		return "\t"
 	}
 	return "    "

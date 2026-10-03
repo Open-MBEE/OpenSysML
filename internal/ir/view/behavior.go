@@ -581,11 +581,15 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 					nameText(behaviorNodeName(src)), name))
 				continue
 			}
-			edgeDoc := docOf(graph, edge.Decl, doc)
-			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, edge.Decl))
+			decl := edge.Decl
+			if edge.Gate != nil {
+				decl = edge.Gate
+			}
+			edgeDoc := docOf(graph, decl, doc)
+			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
-				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out),
-				Style: r.declaredEdgeDress(subject.view, subject.elem, edge.Decl, nodes[src].ID, to.ID, out)})
+				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, decl), Route: r.declaredRouteOf(subject.view, subject.elem, decl, out),
+				Style: r.declaredEdgeDress(subject.view, subject.elem, decl, nodes[src].ID, to.ID, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]

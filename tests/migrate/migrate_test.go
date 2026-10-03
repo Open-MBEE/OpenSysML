@@ -366,6 +366,7 @@ var constructFixtures = []string{
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
+	"object_flows",
 	"refused_vertex_layout",
 	"operation_context_out",
 	"viewpoint_context",
