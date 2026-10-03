@@ -333,9 +333,10 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   `[0..*]` when nothing subsets or redefines it (the implicit `[1..1]` reaches only owned
   attribute, item, part and port usages), and `Actions.sysml` declares
   `controls : ControlAction[0..*] :> subactions` and `merges : MergeAction[0..*]` while
-  `decisions`, `joins` and `forks` declare none and so inherit `[0..*]`. An unwritten node's
-  count is therefore `[0..*]`, never an assumed one: only its incident successions fix it, and
-  only in these derived cases, each giving the node `n` performances:
+  `decisions`, `joins` and `forks` declare none and so inherit `[0..*]`. The executor's reading
+  therefore runs any node that declares no multiplicity, ordinary or control, once per arrival —
+  unless its incident ends force another count, which they do in exactly four cases, each giving
+  the node `n` performances:
   - `a[n]` into a join, with both ends mandated `1..1`: the crossing is a bijection
     (`_join_per_performance`: three join traversals).
   - `a[n]` into a merge as the merge's only incoming succession: target `1..1` plus
@@ -345,17 +346,16 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   - a decision out into `a[n]` as the decision's only outgoing succession: source `1..1` plus
     `DecisionPerformance::outgoingHBLink : HappensBefore[1]`.
 
-  In a derived case every other edge at the node is checked under count `n`, so a predecessor of
-  a fork or decision that must order `n` crossings while performing once is unsatisfiable. Every
-  other adjacency leaves the node's count undetermined and is refused `action-step-order-open`
-  ("the <kind> node's performance count is not determined: an action usage declares no default
-  multiplicity and its successions do not fix it"): `first [*] a then f` into a fork or decision
-  (`_fork_barrier`, `_decision_barrier`), `then [*] a` out of a join, merge, fork or decision
-  (`_merge_fanout`), and a merge or decision carrying another succession beside the repeated
-  step's. A written control-node multiplicity (`fork f[1]`, which the `ControlNode` →
-  `UsageDeclaration` production would admit) is refused by the parser today, so a barrier shape
-  has no determinate spelling yet; an ordinary step still takes `succession first [*] a then
-  [1] tally` behind one barrier.
+  In a forced case every other edge at the node is checked under count `n`, so a predecessor of a
+  fork or decision that must order `n` crossings while performing once is unsatisfiable. Every
+  other adjacency takes the one-performance reading: `succession first [*] a then f;` runs `f`
+  once behind the written end's barrier (`_fork_barrier`, `_decision_barrier`), and `then [*] a`
+  out of a join or merge fans `a`'s performances out of its single performance (`_merge_fanout`) —
+  what separates the control node's barrier from an ordinary `tally`'s is only the mandated ends,
+  not a second default; a merge or decision carrying another succession beside the repeated
+  step's still checks each under count one, which its mandated `0..1` ends make unsatisfiable.
+  A written control-node multiplicity (`fork f[1]`, which the `ControlNode` → `UsageDeclaration`
+  production would admit) is refused by the parser today.
 - **Guarded successions** (SysML §8.4.13.3, `TransitionPerformances.kerml`). A guarded succession
   is a `TransitionUsage` whose guard is evaluated after its one source performance
   (`transitionLinkSource[1]`, `transitionLink : HappensBefore[0..1]`). `GuardedSuccession` admits

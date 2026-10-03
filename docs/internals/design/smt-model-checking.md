@@ -113,8 +113,8 @@ on — unless `ActionGraph.CrossesPerPerformance` holds, when each succeeds into
 lone-incoming merge.
 `[0]` passes its token on without performing, and a false guard on a succession into a written
 target end of `a[n]` is a failing move, matching the executor's `action-step-order-open` error.
-Refused with a named reason: every shape `ActionGraph.CheckStep` refuses (the undetermined
-control-node crossings among them, the reason carried through); a repeated step a token may reach
+Refused with a named reason: every shape `ActionGraph.CheckStep` refuses, the reason carried
+through; a repeated step a token may reach
 again while its performances are live (on a cycle, or more than one bounded arrival), since the
 barrier would mix two groups' tokens; and a repeated step with features or flows of its own, since
 one feature variable per state cannot hold each performance's values.
