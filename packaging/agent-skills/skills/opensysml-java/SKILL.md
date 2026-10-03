@@ -29,8 +29,10 @@ mvn -f client/java/pom.xml install
 ```
 
 Binary resolution is `ConnectionOptions.binaryPath(...)`, then `$OPENSYSML_GRPC_BINARY`, then
-`~/.opensysml/bin/sysml-grpc` (shared with the other clients), then a pinned, verified release
-download. `$OPENSYSML_SERVICE=host:port`, or `ConnectionOptions.builder().service(host, port)`,
+`~/.opensysml/bin/sysml-grpc` (shared with the other clients), then `PATH`. With none installed
+the client downloads and verifies a release into that cache: the one
+`ConnectionOptions.builder().downloadVersion(...)` or `$OPENSYSML_GRPC_VERSION` names, else the
+release the client was built against. `$OPENSYSML_SERVICE=host:port`, or `ConnectionOptions.builder().service(host, port)`,
 uses a running service instead; closing that connection never stops it.
 
 ## Load, and require a clean model
@@ -40,10 +42,10 @@ import org.openmbee.opensysml.*;
 
 try (Connection connection = Connection.open()) {      // private child, shared per classloader
   Model model = connection.load(Path.of("model.sysml"));
-  model.requireNoErrors();                             // ModelException naming the parse errors
   for (Diagnostic d : model.errors()) {                // (severity, message, code, span)
     System.err.println(d.code() + ": " + d.message());
   }
+  model.requireNoErrors();                             // ModelException naming the parse errors
 }
 ```
 

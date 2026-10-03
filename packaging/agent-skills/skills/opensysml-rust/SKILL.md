@@ -31,10 +31,10 @@ use opensysml::{Connection, Error, ParseOptions};
 
 let connection = Connection::connect()?;    // $OPENSYSML_SERVICE, else a private child
 let model = connection.parse_file("model.sysml", &ParseOptions::default())?;
-model.require_ok()?;                        // Error::ModelErrors carrying the diagnostics
 for d in model.errors() {                   // Diagnostic: severity, message, code, span
     eprintln!("{}: {}", d.code, d.message);
 }
+model.require_ok()?;                        // Error::ModelErrors carrying the diagnostics
 ```
 
 A model with syntax errors still parses; branch on `d.code` (`"syntax"`, `"unresolved"`, ...),
@@ -102,7 +102,8 @@ verdict. `v.require_evaluated()?` turns an undecided verdict into an `Err`.
 ## Pitfalls
 
 - Reuse one `Connection`; clones share the private child and its parse cache.
-- `find`/`get` return `Option`; `symbol` and `lookup` return `Err`.
+- `find`/`get` return `Result<Option<Symbol>, Error>`: `Ok(None)` for an unknown name, `Err` when
+  the lookup itself fails. `symbol` and `lookup` return `Err` for an unknown name too.
 - Use qualified names (`Package::Def::feature`) wherever a symbol is named.
 - Every domain type has `wire()` for a protobuf field the typed surface does not expose yet.
 - Write models with the `sysml-v2-modeling` skill; `sysml -validate` reports the same diagnostics as

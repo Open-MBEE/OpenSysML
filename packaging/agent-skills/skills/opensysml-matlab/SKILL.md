@@ -33,6 +33,8 @@ not shared across connections.
 ## Load, and require a clean model
 
 ```matlab
+conn = opensysml.connect();
+cleanup = onCleanup(@() conn.close());       % stops a private child on any exit
 model = opensysml.parseFile(conn, 'model.sysml');
 if ~model.ok()
     errs = model.errors();                   % cell of diagnostic records

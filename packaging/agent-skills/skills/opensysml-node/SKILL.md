@@ -17,8 +17,9 @@ npm install @openmbee/opensysml        # ESM; types included
 
 The client looks for `sysml-grpc` at `$OPENSYSML_BINARY`, then in the optional per-platform npm
 package npm installs alongside, then `~/.opensysml/bin/sysml-grpc` (shared with the other clients),
-then on `PATH`; `resolveBinary()` downloads a pinned, verified release into that cache when none
-resolved. `$OPENSYSML_SERVICE=host:port`, or `connect({ address })`, uses a running service instead;
+then on `PATH`. Nothing is downloaded unless a release is asked for: set
+`$OPENSYSML_GRPC_VERSION` (a tag, or `latest`) and the client downloads that release, verified,
+into the cache. Without a binary or a requested release, `connect()` throws `BinaryNotFoundError`. `$OPENSYSML_SERVICE=host:port`, or `connect({ address })`, uses a running service instead;
 closing that connection never stops it.
 
 ## Load, and require a clean model
