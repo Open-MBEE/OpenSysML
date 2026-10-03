@@ -17,7 +17,8 @@ import (
 // host wired up, without history, completion or an interrupt to catch. The session
 // is passed for the signature it has on every build and is not consulted. The
 // returned function closes the reader, which is nothing to do over standard input.
-func newLineInput(_ *repl.Session) (repl.LineReader, func() error, error) {
+func newLineInput(sess *repl.Session) (repl.LineReader, func() error, error) {
+	exposeCompletion(sess)
 	return &plainReader{in: bufio.NewReader(os.Stdin), out: os.Stdout}, func() error { return nil }, nil
 }
 
