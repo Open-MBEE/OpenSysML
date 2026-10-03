@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::waitsForClock",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"received": {"type": "Integer", "value": 1},
+		"instant": {"type": "Real", "value": 5.0}
+	}
+}

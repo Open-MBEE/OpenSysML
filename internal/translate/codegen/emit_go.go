@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type sysmlError struct{ msg string }
@@ -45,6 +46,45 @@ func sysmlEnter() {
 }
 
 func sysmlLeave() { sysmlDepth-- }
+
+var (
+	sysmlSteps    int64
+	sysmlMaxSteps int64 = sysmlDefaultMaxSteps
+)
+
+// sysmlStep spends n evaluation steps of the run's budget.
+func sysmlStep(n int64) struct{} {
+	if sysmlSteps += n; sysmlSteps > sysmlMaxSteps {
+		sysmlStepFail()
+	}
+	return struct{}{}
+}
+
+func sysmlStepFail() {
+	sysmlSteps = sysmlMaxSteps + 1
+	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
+}
+
+// sysmlAfter is x, evaluated after the call giving its first argument.
+func sysmlAfter[T any](_ struct{}, x T) T { return x }
+
+// sysmlReadBudget is the positive budget the variable env sets, def when unset.
+func sysmlReadBudget(env, counts string, def int64) int64 {
+	raw, ok := os.LookupEnv(env)
+	if !ok || strings.TrimSpace(raw) == "" {
+		return def
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s=%q is not an integer: set it to a positive number of %s (default %d)\n", env, raw, counts, def)
+		os.Exit(2)
+	}
+	if n <= 0 {
+		fmt.Fprintf(os.Stderr, "%s=%q must be greater than zero: the budget is what stops a runaway run (default %d)\n", env, raw, def)
+		os.Exit(2)
+	}
+	return n
+}
 
 // sysmlInt is an Integer, unbounded as KerML's are: small holds one within
 // int64 and big is nil, else big holds it. A result within int64 is always
@@ -263,6 +303,50 @@ func sysmlToReal(a sysmlInt) float64 {
 	return f
 }
 
+// sysmlNum is a value of a Real-typed feature: an Integer unless real is set.
+type sysmlNum struct {
+	i    sysmlInt
+	r    float64
+	real bool
+}
+
+func sysmlNI(i sysmlInt) sysmlNum { return sysmlNum{i: i} }
+func sysmlNR(r float64) sysmlNum  { return sysmlNum{r: r, real: true} }
+
+func (n sysmlNum) toReal() float64 {
+	if n.real {
+		return n.r
+	}
+	return sysmlToReal(n.i)
+}
+
+// sysmlNCmp orders two numbers exactly, whatever their kinds.
+func sysmlNCmp(a, b sysmlNum) int {
+	switch {
+	case !a.real && !b.real:
+		return sysmlICmp(a.i, b.i)
+	case !a.real:
+		return sysmlCmpIR(a.i, b.r)
+	case !b.real:
+		return -sysmlCmpIR(b.i, a.r)
+	case a.r < b.r:
+		return -1
+	case a.r > b.r:
+		return 1
+	}
+	return 0
+}
+
+// sysmlNSame is '===' of two numbers: the same kind and value.
+func sysmlNSame(a, b sysmlNum) bool { return a.real == b.real && sysmlNCmp(a, b) == 0 }
+
+func sysmlParseNum(s, name string) sysmlNum {
+	if digits := strings.TrimLeft(s, "+-"); len(s)-len(digits) <= 1 && digits != "" && strings.Trim(digits, "0123456789") == "" {
+		return sysmlNI(sysmlParseInt(s, name))
+	}
+	return sysmlNR(sysmlParseReal(s, name))
+}
+
 func sysmlAtLeast(v sysmlInt, lo int64, typ string) sysmlInt {
 	if sysmlICmp(v, sysmlI(lo)) < 0 {
 		sysmlFail(fmt.Sprintf("type mismatch: cannot write %s (an Integer) to a feature typed by %s", v, typ))
@@ -326,6 +410,40 @@ func sysmlNaturalArg(v sysmlInt) sysmlInt {
 		sysmlFail("type mismatch: requires Natural arguments")
 	}
 	return v
+}
+
+func sysmlNaturalString(v sysmlInt) string {
+	if v.sign() < 0 {
+		sysmlFailf("type mismatch: function NaturalFunctions::ToString parameter \"x\" requires a Natural value, got %s", v)
+	}
+	return v.String()
+}
+
+func sysmlLength(x string) sysmlInt { return sysmlI(int64(utf8.RuneCountInString(x))) }
+
+// sysmlPosition is a Substring position as an int64, which any Integer naming a character is.
+func sysmlPosition(v sysmlInt, param string) int64 {
+	if v.big != nil {
+		sysmlFailf("integer beyond the addressable range: StringFunctions::Substring parameter %q is %s", param, v)
+	}
+	return v.small
+}
+
+// sysmlSubstring is StringFunctions::Substring: characters lower to upper,
+// counting code points from 1; empty when lower > upper.
+func sysmlSubstring(x string, lower, upper sysmlInt) string {
+	chars := []rune(x)
+	lo, hi := sysmlPosition(lower, "lower"), sysmlPosition(upper, "upper")
+	if lo < 1 {
+		sysmlFailf("index out of range: function StringFunctions::Substring lower character %d is outside 1..%d", lo, len(chars))
+	}
+	if lo > hi {
+		return ""
+	}
+	if hi > int64(len(chars)) {
+		sysmlFailf("index out of range: function StringFunctions::Substring upper character %d is outside 1..%d", hi, len(chars))
+	}
+	return string(chars[lo-1 : hi])
 }
 
 func sysmlTan(t float64) float64 { return sysmlLibReal(math.Sin(t) / math.Cos(t)) }
@@ -539,7 +657,67 @@ func sysmlParseBool(s, name string) bool {
 	return false
 }
 
+// sysmlParseString reads a String argument written as a KerML string literal.
+func sysmlParseString(s, name string) string {
+	bad := func() string {
+		fmt.Fprintf(os.Stderr, "argument %s: %s is not a String literal\n", name, s)
+		os.Exit(2)
+		return ""
+	}
+	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' || !utf8.ValidString(s) {
+		return bad()
+	}
+	body := s[1 : len(s)-1]
+	var b strings.Builder
+	for i := 0; i < len(body); i++ {
+		c := body[i]
+		if c == '"' {
+			return bad()
+		}
+		if c != '\\' {
+			b.WriteByte(c)
+			continue
+		}
+		if i++; i == len(body) {
+			return bad()
+		}
+		switch body[i] {
+		case 'b':
+			b.WriteByte('\b')
+		case 't':
+			b.WriteByte('\t')
+		case 'n':
+			b.WriteByte('\n')
+		case 'f':
+			b.WriteByte('\f')
+		case 'r':
+			b.WriteByte('\r')
+		case '"', '\'', '\\':
+			b.WriteByte(body[i])
+		default:
+			return bad()
+		}
+	}
+	return b.String()
+}
+
 func sysmlFormat(v any) string {
+	if t, ok := v.(string); ok {
+		return strconv.Quote(t)
+	}
+	if l, ok := v.(sysmlEnum); ok {
+		return sysmlLiterals[l]
+	}
+	if f, ok := v.(sysmlFn); ok {
+		return sysmlFnNames[f.c]
+	}
+	if n, ok := v.(sysmlNum); ok {
+		if n.real {
+			v = n.r
+		} else {
+			v = n.i
+		}
+	}
 	if i, ok := v.(sysmlInt); ok {
 		return i.String()
 	}
@@ -559,7 +737,7 @@ func sysmlFormat(v any) string {
 
 // sysmlRun invokes fn, converting a failed check into an error.
 func sysmlRun(fn func()) (err error) {
-	sysmlDepth = 0
+	sysmlDepth, sysmlSteps = 0, 0
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(sysmlError); ok {
@@ -579,7 +757,11 @@ func sysmlRun(fn func()) (err error) {
 func EmitGo(w io.Writer, p *Program) error {
 	e := &goEmitter{w: w, collections: p.Collections}
 	e.raw(goPrelude)
-	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\n", runtime.DefaultMaxCalcDepth))
+	e.raw(goEnumPrelude)
+	e.raw(goEnumTables(p))
+	e.raw(goFnPrelude)
+	e.raw(goFnTables(p))
+	e.raw(fmt.Sprintf("const sysmlMaxCalcDepth = %d\n\nconst sysmlDefaultMaxSteps = %d\n\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps))
 	e.raw(fmt.Sprintf("const sysmlDefaultMaxIntegerBits = %d\n\nconst sysmlMinMaxIntegerBits = %d\n\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
 	if p.Collections {
 		e.raw(fmt.Sprintf("const sysmlDefaultMaxElements = %d\n", runtime.DefaultMaxElements))
@@ -619,6 +801,18 @@ func (e *goEmitter) linef(format string, args ...any) {
 }
 
 func goType(t Type) string {
+	if t.IsEnum() || t.IsFn() {
+		if t.Many() {
+			return goSeqType(t)
+		}
+		if t.IsFn() {
+			return "sysmlFn"
+		}
+		return "sysmlEnum"
+	}
+	if t == TypeRun {
+		return "int64"
+	}
 	switch t {
 	case TypeInt:
 		return "sysmlInt"
@@ -626,7 +820,11 @@ func goType(t Type) string {
 		return "float64"
 	case TypeBool:
 		return "bool"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool:
+	case TypeNum:
+		return "sysmlNum"
+	case TypeString:
+		return "string"
+	case TypeSeqInt, TypeSeqReal, TypeSeqBool, TypeSeqNum, TypeSeqString:
 		return goSeqType(t)
 	}
 	return "struct{}"
@@ -656,6 +854,10 @@ func (e *goEmitter) function(fn *Func) {
 	e.indent++
 	e.linef("sysmlEnter()")
 	e.linef("defer sysmlLeave()")
+	if fn.Run != "" {
+		e.linef("%s := sysmlNextRun()", goLocal(fn.Run))
+		e.linef("_ = %s", goLocal(fn.Run))
+	}
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
@@ -721,7 +923,7 @@ func (e *goEmitter) stmt(s Stmt) {
 		}
 		e.linef("}")
 	case While:
-		e.linef("for %s {", e.expr(s.Cond))
+		e.linef("for sysmlAfter(sysmlStep(1), %s) {", e.expr(s.Cond))
 		e.indent++
 		e.block(s.Body)
 		if s.Until != nil {
@@ -757,16 +959,43 @@ func (e *goEmitter) expr(x Expr) string {
 		return "float64(" + cReal(x.Value) + ")"
 	case BoolLit:
 		return strconv.FormatBool(x.Value)
+	case StrLit:
+		return strconv.Quote(x.Value)
+	case EnumLit:
+		return fmt.Sprintf("sysmlEnum(%d)", x.T.Enum.Base+x.I)
+	case EnumText:
+		return "sysmlLiterals[" + e.expr(x.X) + "]"
+	case Refusal:
+		return e.refusal(x)
 	case Var:
 		return goLocal(x.Name)
 	case ToReal:
 		if x.X.Type().Many() {
 			return "sysmlWiden(" + e.expr(x.X) + ")"
 		}
+		if x.X.Type() == TypeNum {
+			return e.expr(x.X) + ".toReal()"
+		}
 		if x.Exact {
 			return "sysmlToRealExact(" + e.expr(x.X) + ")"
 		}
 		return "sysmlToReal(" + e.expr(x.X) + ")"
+	case ToNum:
+		switch x.X.Type() {
+		case TypeInt:
+			return "sysmlNI(" + e.expr(x.X) + ")"
+		case TypeReal:
+			return "sysmlNR(" + e.expr(x.X) + ")"
+		}
+		return "sysmlNums(" + e.expr(x.X) + ")"
+	case AsInt:
+		return e.expr(x.X) + ".i"
+	case NumSplit:
+		ints := make([]string, len(x.Nums))
+		for i, v := range x.Nums {
+			ints[i] = "!" + goLocal(v.Name) + ".real"
+		}
+		return fmt.Sprintf("func() %s { if %s { return %s }; return %s }()", goType(x.T), strings.Join(ints, " && "), e.expr(x.Int), e.expr(x.Real))
 	case Unary:
 		operand := e.expr(x.X)
 		switch x.Op {
@@ -793,8 +1022,13 @@ func (e *goEmitter) expr(x Expr) string {
 		})
 	case LibCall:
 		return e.call(x.Args, len(x.Op.Operands()), goType(x.Op.Result()), x.Op.goExpr)
+	case Steps:
+		return fmt.Sprintf("sysmlAfter(sysmlStep(%d), %s)", x.N, e.expr(x.X))
 	}
 	if s, ok := e.seqExpr(x); ok {
+		return s
+	}
+	if s, ok := e.fnExpr(x); ok {
 		return s
 	}
 	e.err = fmt.Errorf("codegen: Go emitter has no case for %T", x)
@@ -826,6 +1060,24 @@ func (e *goEmitter) binary(x Binary) string {
 		return c
 	}
 	l, r := e.expr(x.L), e.expr(x.R)
+	if x.L.Type().IsFn() {
+		if x.Op == ast.OpNeq {
+			return fmt.Sprintf("(!sysmlFnEq(%s, %s))", l, r)
+		}
+		return fmt.Sprintf("sysmlFnEq(%s, %s)", l, r)
+	}
+	if x.L.Type() == TypeNum {
+		switch x.Op {
+		case ast.OpEqEqEq:
+			return fmt.Sprintf("sysmlNSame(%s, %s)", l, r)
+		case ast.OpNeqEqEq:
+			return fmt.Sprintf("(!sysmlNSame(%s, %s))", l, r)
+		}
+		return fmt.Sprintf("(sysmlNCmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+	}
+	if x.L.Type() == TypeString {
+		return fmt.Sprintf("(%s %s %s)", l, cOperator(x.Op), r)
+	}
 	ints := x.L.Type() == TypeInt
 	switch x.Op {
 	case ast.OpAdd, ast.OpSub:
@@ -925,12 +1177,16 @@ func (e *goEmitter) main(fn *Func) {
 	e.linef("\tos.Exit(2)")
 	e.linef("}")
 	e.linef("sysmlReadMaxIntegerBits()")
+	e.linef("sysmlMaxSteps = sysmlReadBudget(\"OPENSYSML_MAX_STEPS\", \"evaluation steps\", sysmlDefaultMaxSteps)")
 	if e.collections {
-		e.linef("sysmlReadMaxElements()")
+		e.linef("sysmlMaxElements = sysmlReadBudget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", sysmlDefaultMaxElements)")
 	}
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
-		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool"}[p.Type.Elem()]
+		parser := map[Type]string{TypeInt: "sysmlParseInt", TypeReal: "sysmlParseReal", TypeBool: "sysmlParseBool", TypeNum: "sysmlParseNum", TypeString: "sysmlParseString"}[p.Type.Elem()]
+		if p.Type.IsEnum() {
+			parser = goEnumParser(p.Type)
+		}
 		if p.Type.Many() {
 			parser = fmt.Sprintf("sysmlParseSeq[%s](args[%d], %q, %s)", goElem(p.Type), i, p.Name, parser)
 		} else {
@@ -942,12 +1198,12 @@ func (e *goEmitter) main(fn *Func) {
 	e.linef("var result %s", goType(fn.Result))
 	reset := ""
 	if e.collections {
-		// A run holds its collection arguments throughout, as the interpreter
-		// holds the literals it evaluated them from.
+		// A run holds its sequence arguments throughout, as the interpreter
+		// holds the sequence literals it evaluated them from.
 		reset = "sysmlElements = 0; "
 		for i, p := range fn.Params {
 			if p.Type.Many() {
-				reset += fmt.Sprintf("sysmlCharge(int64(len(%s.data))); ", args[i])
+				reset += fmt.Sprintf("if %s.shape == sysmlMany { sysmlCharge(int64(len(%s.data))) }; ", args[i], args[i])
 			}
 		}
 	}

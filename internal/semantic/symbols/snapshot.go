@@ -979,6 +979,7 @@ func (d *sectionReader) readTables() *Index {
 		idx.aboutUsages[doc] = d.symbols()
 	}
 	idx.takeLibraryIdentity()
+	idx.derived = &derivedMemo{}
 	idx.frozen = true
 	return idx
 }

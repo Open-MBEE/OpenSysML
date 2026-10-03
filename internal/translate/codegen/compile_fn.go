@@ -10,17 +10,23 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// funcValue is a function value the compiler fixes statically: the calc it is
-// a value of, and for a library function the compiler implements its qualified
-// name. A calc binding an `in calc` parameter is compiled once per distinct
-// value it is applied to (monomorphization), so no function value exists at run time.
+// funcValue is a function value: one the compiler fixes statically, the calc
+// it is a value of and for a library function the compiler implements its
+// qualified name, or one chosen at run time (dyn, read by read). A calc binding
+// an `in calc` parameter is compiled once per distinct static value, or per
+// function type of a value chosen at run time.
 type funcValue struct {
-	sym *symbols.Symbol
-	lib string
+	sym  *symbols.Symbol
+	lib  string
+	dyn  Type
+	read Expr
 }
 
 // ident is the identifier a specialization over v carries; injective, as identOf is.
 func (v funcValue) ident() string {
+	if v.dyn.IsFn() {
+		return fmt.Sprintf("dyn%d", v.dyn.Fns.ID)
+	}
 	if v.lib == "" {
 		return identOf(v.sym)
 	}
@@ -173,25 +179,34 @@ func (fc *funcCompiler) boundFunction(qn *ast.QualifiedName) (*funcValue, bool) 
 func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, error) {
 	ref, ok := node.(*ast.FeatureReference)
 	if !ok {
-		if op, isOp := node.(*ast.OperatorExpr); isOp && op.Operator == ast.OpConditional {
-			return funcValue{}, fc.unsupported(where + ": an `if` choosing a function value at run time; a function value must name a calc directly")
-		}
-		if _, isCall := node.(*ast.InvocationExpr); isCall {
-			return funcValue{}, fc.unsupported(where + ": an invocation where a function value is expected; a function value must name a calc directly")
-		}
 		if _, isChain := node.(*ast.FeatureChainExpr); isChain {
 			return funcValue{}, fc.unsupported(where + ": a calc read off an object through a feature chain, whose function value closes over that object")
 		}
-		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: expression %T where a function value is expected; a function value must name a calc directly", where, node))
+		// Any other expression computes the function value at run time.
+		v, err := fc.compileExpr(node)
+		if err != nil {
+			return funcValue{}, err
+		}
+		if !v.Type().Scalar() || !v.Type().IsFn() {
+			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: a %s where a function value is expected", where, v.Type()))
+		}
+		return funcValue{dyn: v.Type(), read: v}, nil
 	}
 	qn := ref.Name
 	if f, ok := fc.boundFunction(qn); ok {
-		return *f, nil
+		return referenced(*f), nil
 	}
 	if qn != nil && len(qn.Parts) == 1 && !qn.Global {
 		if b, ok := fc.env.lookup(qn.Parts[0].Text); ok {
 			if b.sampled != nil {
 				return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a SampledFunction, where a function value is expected", where, qn.Parts[0].Text))
+			}
+			if b.t.Scalar() && b.t.IsFn() {
+				v, err := fc.compileExpr(node)
+				if err != nil {
+					return funcValue{}, err
+				}
+				return funcValue{dyn: v.Type(), read: v}, nil
 			}
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a %s, where a function value is expected", where, qn.Parts[0].Text, b.t))
 		}
@@ -200,7 +215,17 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 	if !ok {
 		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s does not resolve", where, qnText(qn)))
 	}
-	return fc.functionValueOf(sym, where)
+	f, err := fc.functionValueOf(sym, where)
+	return referenced(f), err
+}
+
+// referenced is f read by a feature reference: one step, as the interpreter
+// spends it, charged where a value chosen at run time is passed on.
+func referenced(f funcValue) funcValue {
+	if f.dyn.IsFn() {
+		f.read = charged(1, f.read)
+	}
+	return f
 }
 
 // functionValueOf is the declaration sym read as a function value, as the
@@ -239,6 +264,9 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 		case symbols.SymbolPackage, symbols.SymbolNamespace:
 			continue
 		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage:
+			if owner == sym.Owner() {
+				return fc.closureValue(sym)
+			}
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a calc declared in the body of %s, whose function value closes over that run's bindings", where, name, fc.c.name(owner)))
 		}
 		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a calc owned by %s, whose function value closes over that object", where, name, fc.c.name(owner)))
@@ -249,54 +277,64 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 // checkFuncArgType refuses the function value f bound to the typed `in calc`
 // parameter p unless f's calc, model or library, conforms to the calc p is
 // typed by: the relation the interpreter binds the value under.
+// A value chosen at run time is checked for each function it may be.
 func (fc *funcCompiler) checkFuncArgType(p paramDecl, f funcValue) error {
-	if p.typ == nil || fc.c.model.Conforms(f.sym, p.typ) {
+	if p.typ == nil {
 		return nil
 	}
-	return fc.unsupported(fmt.Sprintf("%s: cannot bind the function value %s to a parameter typed by %s", paramWhere(p.name), fc.c.name(f.sym), fc.c.name(p.typ)))
-}
-
-// functionValueRead is the description of node when it names a function value
-// where a plain value is expected; false when it is anything else.
-func (fc *funcCompiler) functionValueRead(node ast.Node) (string, bool) {
-	ref, ok := node.(*ast.FeatureReference)
-	if !ok {
-		return "", false
+	syms := []*symbols.Symbol{f.sym}
+	if f.dyn.IsFn() {
+		syms = syms[:0]
+		for _, k := range f.dyn.Fns.Cases {
+			syms = append(syms, k.val.sym)
+		}
 	}
-	return fc.functionValueName(ref.Name)
+	for _, sym := range syms {
+		if !fc.c.model.Conforms(sym, p.typ) {
+			return fc.unsupported(fmt.Sprintf("%s: cannot bind the function value %s to a parameter typed by %s", paramWhere(p.name), fc.c.name(sym), fc.c.name(p.typ)))
+		}
+	}
+	return nil
 }
 
-// functionValueName is the description of qn when it names a function value
-// the interpreter would read: an `in calc` parameter, a calc def, or a calc
-// usage with an unsupplied input; false when it names anything else.
-func (fc *funcCompiler) functionValueName(qn *ast.QualifiedName) (string, bool) {
+// functionValueName is the calc qn names when the interpreter reads it as a
+// function value: a calc def, or a calc usage with an unsupplied input,
+// declared in the model; false when it names anything else.
+func (fc *funcCompiler) functionValueName(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 	if qn == nil {
-		return "", false
-	}
-	if _, ok := fc.boundFunction(qn); ok {
-		return fmt.Sprintf("the function value %s", qnText(qn)), true
+		return nil, false
 	}
 	if len(qn.Parts) == 1 && !qn.Global {
 		if _, ok := fc.env.lookup(qn.Parts[0].Text); ok {
-			return "", false
+			return nil, false
 		}
 	}
 	sym, ok := fc.c.resolver.ResolveQualified(fc.scope, qn)
 	if !ok || !isCalc(sym.Decl) {
-		return "", false
+		return nil, false
 	}
 	if fc.c.resolver.Index().Library(sym) {
-		return "", false
+		return nil, false
 	}
 	if u, isUsage := sym.Decl.(*ast.Usage); isUsage {
 		if u.Direction != ast.DirNone {
-			return "", false
+			return nil, false
 		}
 		if unsupplied, err := fc.hasUnsuppliedInput(sym); err != nil || !unsupplied {
-			return "", false
+			return nil, false
 		}
 	}
-	return fmt.Sprintf("the function value %s", fc.c.name(sym)), true
+	return sym, true
+}
+
+// libraryFunction reports a library function the interpreter can read as a value.
+func (fc *funcCompiler) libraryFunction(sym *symbols.Symbol) bool {
+	name := fc.c.name(sym)
+	if _, _, ok := seqOpByName(name); ok {
+		return true
+	}
+	_, ok := runtime.LibraryFunctionParams(name)
+	return ok
 }
 
 // applyFunction compiles an invocation of the function value f with n's arguments.
@@ -336,6 +374,9 @@ func (fc *funcCompiler) sampledLibParams(f funcValue) ([]string, error) {
 
 // sampledCalc compiles the calc f, which Sample applies to one value argument.
 func (fc *funcCompiler) sampledCalc(f funcValue) (*Func, error) {
+	if f.dyn.IsFn() {
+		return nil, fc.unsupported("Sample of a function value chosen at run time")
+	}
 	params, err := fc.c.calcParams(f.sym)
 	if err != nil {
 		return nil, err
@@ -349,6 +390,9 @@ func (fc *funcCompiler) sampledCalc(f funcValue) (*Func, error) {
 // sampledElemType is the element type of a domain sampled over f whose values fix none:
 // f's declared parameter type, Real for a library function over any NumericalValue.
 func (fc *funcCompiler) sampledElemType(f funcValue) (Type, error) {
+	if f.dyn.IsFn() {
+		return TypeInvalid, fc.unsupported("Sample of a function value chosen at run time")
+	}
 	if f.lib != "" {
 		if _, err := fc.sampledLibParams(f); err != nil {
 			return TypeInvalid, err
@@ -401,20 +445,26 @@ type sampledFn struct {
 	onDemand   *Sample
 }
 
-// sampledRead is `Domain(s)` or `Range(s)` of the SampledFunction s holds.
-func (fc *funcCompiler) sampledRead(s *sampledFn, rangeRead bool) Expr {
+// sampledRead is `Domain(s)` or `Range(s)` of the SampledFunction s holds,
+// spending the step reading s where an attribute holds it.
+func (fc *funcCompiler) sampledRead(s *sampledFn, rangeRead, held bool) Expr {
 	read := Var{Name: s.dom, T: s.domT}
 	if rangeRead {
 		read = Var{Name: s.rng, T: s.rngT}
 	}
+	var x Expr = fc.projection(read)
 	if s.onDemand != nil {
-		return Sampled{S: *s.onDemand, In: fc.projection(read)}
+		x = Sampled{S: *s.onDemand, In: x}
 	}
-	return fc.projection(read)
+	if held {
+		return charged(1, x)
+	}
+	return x
 }
 
 const (
 	sampledFunctionType = "SampledFunctions::SampledFunction"
+	anythingType        = "Base::Anything"
 	sampleCalc          = "SampledFunctions::Sample"
 	sampleDomain        = "SampledFunctions::Domain"
 	sampleRange         = "SampledFunctions::Range"
@@ -438,9 +488,12 @@ func (fc *funcCompiler) sampleCall(node ast.Node) (*ast.InvocationExpr, bool) {
 // samples to `[]`, as the library's collect does) and the range the
 // calculation at each, in order, failing at the first element that fails.
 func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
-	args, fargs, err := fc.bindArgs(n, sampleCalc, []paramDecl{{name: "calculation", fn: true}, {name: "domainValues"}})
+	args, fargs, trailing, err := fc.bindArgs(n, sampleCalc, []paramDecl{{name: "calculation", fn: true}, {name: "domainValues"}})
 	if err != nil {
 		return Sample{}, err
+	}
+	if trailing > 0 {
+		args[0].Value = fc.then(args[0].Value, trailing)
 	}
 	dom := args[0].Value
 	if dom.Type() == TypeNull {
@@ -465,8 +518,17 @@ func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
 		return Sample{}, fc.unsupported(fmt.Sprintf("Sample of a calc whose result is a %s, not a scalar", at.Type()))
 	}
 	fc.c.collections = true
-	return Sample{Dom: fc.temp(dom.Type()).Name, Rng: fc.temp(at.Type().Seq()).Name, Seq: dom, Body: Lambda{Params: []Param{x}, Body: at}}, nil
+	return Sample{Dom: fc.temp(dom.Type()).Name, Rng: fc.temp(at.Type().Seq()).Name, Seq: charged(1, dom), Body: Lambda{Params: []Param{x}, Body: at}, Steps: sampleSteps}, nil
 }
+
+// sampleSteps are the steps SampledFunctions::Sample's body spends: `new
+// SampledFunction(samples = domainValues->collect { in x; … })` on entry, `new
+// SamplePair(x, calculation(x))` before the calculation's own, each pair's
+// materialization after it, and the SampledFunction's once all are collected.
+var sampleSteps = SampleSteps{Enter: 4, Before: 4, After: 1, Done: 1}
+
+// projectionSteps are the steps Domain or Range spends reading `fn.samples.domainValue`.
+const projectionSteps = 3
 
 // temp is a fresh hidden local of type t.
 func (fc *funcCompiler) temp(t Type) Param {
@@ -478,7 +540,7 @@ func (fc *funcCompiler) temp(t Type) Param {
 // in seq: the library calc collects them into a fresh sequence, one frame deeper.
 func (fc *funcCompiler) projection(seq Var) Expr {
 	x := fc.temp(seq.T.Elem())
-	return Framed{X: Fold{Op: SeqCollect, Seq: seq, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: seq.T}}
+	return Framed{X: charged(projectionSteps, Fold{Op: SeqCollect, Seq: seq, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: seq.T})}
 }
 
 // compileSampledDeclare declares an attribute holding a SampledFunction, which
@@ -527,7 +589,7 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 			if b.sampled == nil {
 				return nil, fc.unsupported(fmt.Sprintf("%s of %s, which is not a SampledFunction", fqn, ref.Name.Parts[0].Text))
 			}
-			return fc.sampledRead(b.sampled, rangeRead), nil
+			return fc.sampledRead(b.sampled, rangeRead, true), nil
 		}
 	}
 	n, ok := fc.sampleCall(arg)
@@ -538,7 +600,7 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 	if err != nil {
 		return nil, err
 	}
-	return fc.sampledRead(sampledFnOf(sample, true), rangeRead), nil
+	return fc.sampledRead(sampledFnOf(sample, true), rangeRead, false), nil
 }
 
 // sampledFnOf is the SampledFunction the sample holds, taken once where declared or at each read.

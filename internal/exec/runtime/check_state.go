@@ -113,6 +113,7 @@ func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) stri
 	for i, msg := range s.ctx.messages {
 		fmt.Fprintf(&s.out, "message %d: %s\n", i+1, s.message(msg))
 	}
+	s.deferredBehaviors()
 	// Every root object a run made is observable by name, whether or not a frame holds it.
 	for _, id := range s.ctx.created {
 		if inst, live := s.ctx.instances[id]; live {
@@ -123,6 +124,26 @@ func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) stri
 	}
 	s.objects()
 	return s.out.String()
+}
+
+func (s *stateSpeller) deferredBehaviors() {
+	for _, behavior := range s.ctx.objectBehaviors {
+		if behavior.deferred == nil || s.ctx.lifeEnded(behavior.Object) {
+			continue
+		}
+		var waits []string
+		for _, block := range s.ctx.behaviorOrderBlocks(behavior) {
+			object := s.objectPath(block.predecessor.Object.ID)
+			waits = append(waits, fmt.Sprintf("%s on %s for %s", symbolText(endFeature(block.order.Earlier)), object, behaviorOrderName(block.order)))
+		}
+		sort.Strings(waits)
+		if len(waits) == 0 {
+			fmt.Fprintf(&s.out, "held behavior %s on %s: ready\n", behavior.Describe(), s.objectPath(behavior.Object.ID))
+			continue
+		}
+		fmt.Fprintf(&s.out, "held behavior %s on %s waits for %s\n", behavior.Describe(),
+			s.objectPath(behavior.Object.ID), strings.Join(waits, ", "))
+	}
 }
 
 // nameExecutors names every executor by its kind, its behavior and the object it
@@ -706,6 +727,29 @@ func (s *stateSpeller) elements(elements []Value) string {
 	return strings.Join(parts, ", ")
 }
 
+// required spells a sequence ending in required members: each one made by its contents,
+// each run of members not made yet by its length, as they are alike until reached.
+func (s *stateSpeller) required(seq *Sequence) string {
+	var parts []string
+	if len(seq.elements) > 0 {
+		parts = append(parts, s.elements(seq.elements))
+	}
+	r := seq.required
+	next := r.first
+	unmade := func(upTo int64) {
+		if upTo > next {
+			parts = append(parts, fmt.Sprintf("%d unmade %s", upTo-next, symbolText(r.typ)))
+		}
+	}
+	for _, inst := range s.ctx.madeRequired(r) {
+		unmade(inst.ID)
+		parts = append(parts, s.object(inst.ID))
+		next = inst.ID + 1
+	}
+	unmade(r.first + r.count)
+	return strings.Join(parts, ", ")
+}
+
 // value spells a value through the trace's formatter, objects by their contents.
 func (s *stateSpeller) value(v Value) string {
 	switch v.Kind {
@@ -723,6 +767,9 @@ func (s *stateSpeller) value(v Value) string {
 	case ValSequence:
 		if v.Sequence() == nil {
 			return "()"
+		}
+		if seq := requiredTail(v); seq != nil {
+			return "(" + s.required(seq) + ")"
 		}
 		return "(" + s.elements(v.Sequence().Elements()) + ")"
 	case ValSet:

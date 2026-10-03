@@ -11,45 +11,116 @@ import (
 // Type is a type of the compiled subset: a scalar, or a collection of scalars.
 // A collection value is the interpreter's dynamic view of a multi-valued
 // feature: null, one bare scalar, or a sequence of any length (its shape).
-type Type int
+// An enumeration-literal type names its enumeration in Enum, a function
+// type the functions its values range over in Fns.
+type Type struct {
+	k    typeKind
+	Enum *Enum
+	Fns  *FnSet
+}
+
+type typeKind uint8
 
 const (
-	TypeInvalid Type = iota
-	TypeInt          // Integer and its subtypes, unbounded (int64 until a result leaves it)
-	TypeReal         // Real and Rational, IEEE 754 binary64
-	TypeBool
-	TypeNull    // `null` before context fixes its collection type
-	TypeSeqInt  // collection of Integers
-	TypeSeqReal // collection of Reals
-	TypeSeqBool // collection of Booleans
+	kindInvalid typeKind = iota
+	kindInt
+	kindReal
+	kindBool
+	kindNum
+	kindString
+	kindEnum
+	kindFunc
+	kindNull
+	kindRun
+	kindSeqInt
+	kindSeqReal
+	kindSeqBool
+	kindSeqNum
+	kindSeqString
+	kindSeqEnum
+	kindSeqFunc
 )
 
+var (
+	TypeInvalid   = Type{}
+	TypeInt       = Type{k: kindInt}       // Integer and its subtypes, unbounded (int64 until a result leaves it)
+	TypeReal      = Type{k: kindReal}      // Real and Rational, IEEE 754 binary64
+	TypeBool      = Type{k: kindBool}      // Boolean
+	TypeNum       = Type{k: kindNum}       // a Real-typed value, an Integer or a Real by run-time kind
+	TypeString    = Type{k: kindString}    // a String, its characters Unicode code points held as UTF-8
+	TypeNull      = Type{k: kindNull}      // `null` before context fixes its collection type
+	TypeRun       = Type{k: kindRun}       // the identity of one run of a calc body, which its closures carry
+	TypeSeqInt    = Type{k: kindSeqInt}    // collection of Integers
+	TypeSeqReal   = Type{k: kindSeqReal}   // collection of Reals
+	TypeSeqBool   = Type{k: kindSeqBool}   // collection of Booleans
+	TypeSeqNum    = Type{k: kindSeqNum}    // collection of numbers, each element of its own kind
+	TypeSeqString = Type{k: kindSeqString} // collection of Strings
+)
+
+// EnumType is the type of e's literals.
+func EnumType(e *Enum) Type { return Type{k: kindEnum, Enum: e} }
+
+// Enum is an enumeration definition whose literals are identified by
+// themselves: literal i is the value Base+i of the program's literal table.
+type Enum struct {
+	Name     string   // qualified name
+	Short    string   // the enumeration's own name, which a literal prints under
+	Literals []string // literal names in declaration order
+	Base     int
+	ID       int // position in Program.Enums
+}
+
+// Literal is the text the interpreter prints literal i as: `Color::red`.
+func (e *Enum) Literal(i int) string { return e.Short + "::" + e.Literals[i] }
+
 func (t Type) String() string {
-	switch t {
-	case TypeInt:
+	switch t.k {
+	case kindInt:
 		return "Integer"
-	case TypeReal:
+	case kindReal, kindNum:
 		return "Real"
-	case TypeBool:
+	case kindBool:
 		return "Boolean"
-	case TypeNull:
+	case kindString:
+		return "String"
+	case kindEnum:
+		return t.Enum.Name
+	case kindFunc:
+		return "function"
+	case kindNull:
 		return "null"
-	case TypeSeqInt, TypeSeqReal, TypeSeqBool:
+	case kindRun:
+		return "run"
+	}
+	if t.Many() {
 		return t.Elem().String() + "[0..*]"
 	}
 	return "invalid"
 }
 
-// Scalar reports whether t is exactly one Integer, Real or Boolean.
-func (t Type) Scalar() bool { return t >= TypeInt && t <= TypeBool }
+// Scalar reports whether t is exactly one Integer, Real, Boolean, number,
+// String, enumeration literal or function.
+func (t Type) Scalar() bool { return t.k >= kindInt && t.k <= kindFunc }
+
+// IsEnum reports whether t's values are enumeration literals.
+func (t Type) IsEnum() bool { return t.Elem().k == kindEnum }
+
+// IsFn reports whether t's values are functions.
+func (t Type) IsFn() bool { return t.Elem().k == kindFunc }
+
+// numeric reports whether t's values are Integers, Reals or numbers.
+func numeric(t Type) bool {
+	e := t.Elem()
+	return e == TypeInt || e == TypeReal || e == TypeNum
+}
 
 // Many reports whether t is a collection type.
-func (t Type) Many() bool { return t >= TypeSeqInt }
+func (t Type) Many() bool { return t.k >= kindSeqInt }
 
 // Elem is the scalar type of t's values: t itself for a scalar.
 func (t Type) Elem() Type {
 	if t.Many() {
-		return t - TypeSeqInt + TypeInt
+		return Type{k: t.k - kindSeqInt + kindInt, Enum: t.Enum, Fns: t.Fns}
 	}
 	return t
 }
@@ -59,7 +130,7 @@ func (t Type) Seq() Type {
 	if !t.Scalar() {
 		return t
 	}
-	return t - TypeInt + TypeSeqInt
+	return Type{k: t.k - kindInt + kindSeqInt, Enum: t.Enum, Fns: t.Fns}
 }
 
 // Mult is a declared multiplicity, checked on the count of values a collection
@@ -113,8 +184,12 @@ func (r Range) Lower() int64 {
 // budget and per-statement release then track.
 type Program struct {
 	Funcs       []*Func
+	Enums       []*Enum
+	FnCases     []*FnCase
 	Entry       *Func
 	Collections bool
+	// Target is the backend the program was compiled for.
+	Target Target
 }
 
 // Func is one compiled calculation.
@@ -127,6 +202,12 @@ type Func struct {
 	// multiplicity is checked by the Checked the return wraps.
 	ResultRange Range
 	Body        []Stmt
+	// Captured is the count of trailing Params a closure's value carries, the
+	// bindings of its enclosing body it reads.
+	Captured int
+	// Run names the variable holding this run's identity, which the closures
+	// the body declares carry; empty when none is read.
+	Run string
 }
 
 // Param is one input parameter; Range and, for a collection, Mult and Unique
@@ -156,6 +237,9 @@ type RealLit struct {
 	Rat *big.Rat
 }
 type BoolLit struct{ Value bool }
+
+// StrLit is a String literal, Value its characters as UTF-8.
+type StrLit struct{ Value string }
 
 // Var reads a parameter or a body-local variable.
 type Var struct {
@@ -194,6 +278,25 @@ type Cond struct {
 	T             Type
 }
 
+// EnumLit is literal I of the enumeration T names, identified by itself.
+type EnumLit struct {
+	T Type
+	I int
+}
+
+// EnumText is the qualified name an enumeration literal prints as, the String
+// BaseFunctions::ToString gives of it.
+type EnumText struct{ X Expr }
+
+// Refusal evaluates Operands in order, then fails. Its message is Parts, joined
+// by the interpreter's description of each operand when Describe is set.
+type Refusal struct {
+	Operands []Expr
+	Parts    []string
+	Describe bool
+	T        Type
+}
+
 // Call invokes another compiled function, arguments coerced to parameter types.
 // Call invokes Fn. Args are evaluated in source order, each binding the
 // parameter at Param; a parameter named twice takes the later value.
@@ -215,11 +318,27 @@ type LibCall struct {
 	Args []Arg
 }
 
-// ToReal widens an Integer to a Real; over a collection, every element.
+// ToReal widens an Integer, or a number of either kind, to a Real; over a
+// collection, every element.
 type ToReal struct {
 	X Expr
 	// Exact requires the Integer to be one binary64 holds exactly.
 	Exact bool
+}
+
+// ToNum views an Integer or a Real as a number keeping its kind; over a
+// collection, every element.
+type ToNum struct{ X Expr }
+
+// AsInt is the Integer a number holds, read where NumSplit has found one.
+type AsInt struct{ X Expr }
+
+// NumSplit is Int when every number in Nums holds an Integer, else Real; both
+// branches are of type T and read only Vars already evaluated.
+type NumSplit struct {
+	Nums      []Var
+	Int, Real Expr
+	T         Type
 }
 
 // NullLit is `null`, the empty value of collection type T (or TypeNull).
@@ -283,7 +402,8 @@ type Index struct {
 	Seq, I Expr
 }
 
-// RangeExpr is `Lo..Hi`, the Integers from Lo to Hi, empty when Lo > Hi.
+// RangeExpr is `Lo..Hi`, the Integers from Lo to Hi, empty when Lo > Hi; each
+// element spends a step, then is charged to the element budget.
 type RangeExpr struct{ Lo, Hi Expr }
 
 // SeqCall applies a collection operation (seqops.go) to operands in
@@ -302,18 +422,25 @@ type Lambda struct {
 	Body   Expr
 }
 
-// Fold applies a body operation (seqops.go) over the elements of Seq; T is
-// its result type.
+// Fold applies a body operation (seqops.go) over the elements of Seq, spending
+// Steps once Seq is evaluated; T is its result type.
 type Fold struct {
-	Op   SeqOp
-	Seq  Expr
-	Body Lambda
-	T    Type
+	Op    SeqOp
+	Seq   Expr
+	Steps int64
+	Body  Lambda
+	T     Type
 }
 
 // Framed evaluates X as the inlined body of a library calc: one frame
 // deeper against the recursion budget, left once X has answered.
 type Framed struct{ X Expr }
+
+// Steps spends N evaluation steps of the run's step budget, then evaluates X.
+type Steps struct {
+	N int64
+	X Expr
+}
 
 // Sampled takes the sample S for the duration of In, which reads S.Dom and
 // S.Rng as Vars.
@@ -325,7 +452,11 @@ type Sampled struct {
 func (IntLit) Type() Type    { return TypeInt }
 func (RealLit) Type() Type   { return TypeReal }
 func (BoolLit) Type() Type   { return TypeBool }
+func (StrLit) Type() Type    { return TypeString }
 func (v Var) Type() Type     { return v.T }
+func (e EnumLit) Type() Type { return e.T }
+func (EnumText) Type() Type  { return TypeString }
+func (r Refusal) Type() Type { return r.T }
 func (b Binary) Type() Type  { return b.T }
 func (u Unary) Type() Type   { return u.T }
 func (c Cond) Type() Type    { return c.T }
@@ -337,6 +468,14 @@ func (t ToReal) Type() Type {
 	}
 	return TypeReal
 }
+func (t ToNum) Type() Type {
+	if t.X.Type().Many() {
+		return TypeSeqNum
+	}
+	return TypeNum
+}
+func (AsInt) Type() Type      { return TypeInt }
+func (n NumSplit) Type() Type { return n.T }
 func (n NullLit) Type() Type  { return n.T }
 func (s SeqLit) Type() Type   { return s.T }
 func (t ToMany) Type() Type   { return t.X.Type().Seq() }
@@ -351,6 +490,7 @@ func (s SeqCall) Type() Type  { return s.T }
 func (f Fold) Type() Type     { return f.T }
 func (f Framed) Type() Type   { return f.X.Type() }
 func (s Sampled) Type() Type  { return s.In.Type() }
+func (s Steps) Type() Type    { return s.X.Type() }
 
 // Stmt is a statement of a function body.
 type Stmt interface{ stmt() }
@@ -381,15 +521,15 @@ type If struct {
 }
 
 // While runs Body while Cond holds; Until, if set, is tested after each pass
-// and stops the loop when it holds.
+// and stops the loop when it holds. Each pass spends a step before Cond.
 type While struct {
 	Cond  Expr
 	Until Expr
 	Body  []Stmt
 }
 
-// ForEach runs Body once per element of Seq, bound to Var; a bare scalar
-// is not iterable and fails, as the interpreter's `for` does.
+// ForEach runs Body once per element of Seq, bound to Var, each pass spending
+// a step; a bare scalar is not iterable and fails, as the interpreter's `for` does.
 type ForEach struct {
 	Var  string
 	Seq  Expr
@@ -398,10 +538,18 @@ type ForEach struct {
 
 // Sample takes `Sample(f, Seq)` one frame deeper: Dom gets the domain values,
 // Rng Body at each in order, every sample charged as the interpreter's pair is.
+// Steps are spent on entering the frame, before and after Body at each
+// element, and once all are taken.
 type Sample struct {
 	Dom, Rng string
 	Seq      Expr
 	Body     Lambda
+	Steps    SampleSteps
+}
+
+// SampleSteps are the steps a Sample spends at each point of its library body.
+type SampleSteps struct {
+	Enter, Before, After, Done int64
 }
 
 // DomType and RngType are the collection types of Dom and Rng.

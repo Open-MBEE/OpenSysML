@@ -1,14 +1,22 @@
 {#-
-  The theme's main.html only extends base.html. This one also puts the header menu's
-  links above the footer, shown where the header is too narrow for a second menu button.
+  The theme's main.html only extends base.html. This one also supplies Open Graph and
+  Twitter metadata for the site.
 -#}
 {% extends "base.html" %}
 
-{% block footer %}
-  <nav class="osml-footer-menu" aria-label="Menu">
-    <div class="osml-footer-menu__inner md-grid">
-      {% include "partials/menu-links.html" %}
-    </div>
-  </nav>
+{% block extrahead %}
   {{ super() }}
+  <meta property="og:type" content="website">
+  {% if page and page.title and not page.is_homepage %}
+  <meta property="og:title" content="{{ page.title }} - {{ config.site_name }}">
+  {% else %}
+  <meta property="og:title" content="{{ config.site_name }}">
+  {% endif %}
+  <meta property="og:description" content="{{ (page.meta.description if page and page.meta else None) or config.site_description }}">
+  {% if page and page.canonical_url %}<meta property="og:url" content="{{ page.canonical_url }}">{% endif %}
+  <meta property="og:image" content="{{ config.site_url }}assets/og-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% if page and page.title and not page.is_homepage %}{{ page.title }} - {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}">
+  <meta name="twitter:description" content="{{ (page.meta.description if page and page.meta else None) or config.site_description }}">
+  <meta name="twitter:image" content="{{ config.site_url }}assets/og-card.png">
 {% endblock %}

@@ -16,6 +16,7 @@ from unittest.mock import patch, Mock, mock_open
 from opensysml.binary import (
     PINNED_SHA256,
     binary_on_path,
+    built_against_releases,
     cache_lock,
     cached_release,
     default_github_repo,
@@ -232,11 +233,14 @@ def test_ensure_binary_downloads():
             mock_download.assert_called_once_with(version='v0.1.0', github_repo=None)
 
 
-def test_ensure_binary_raises_without_version():
-    """Test ensure_binary raises ConnectionError when binary missing and no version."""
-    from opensysml.errors import ConnectionError
-    with patch('os.path.exists', return_value=False):
-        with pytest.raises(ConnectionError, match="Binary not found.*auto-download disabled"):
+def test_ensure_binary_raises_without_version(cache):
+    """An unavailable implicit release names what was tried and how to fix it."""
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('404 Not Found')):
+        with pytest.raises(
+            OpenSysMLConnectionError,
+            match=f"{built_against_releases()[0]}.*404.*unreleased checkout",
+        ):
             ensure_binary()
 
 
@@ -294,8 +298,11 @@ def test_ensure_binary_starts_a_service_installed_on_path(cache, tmp_path, monke
     on_path = executable(directory / 'sysml-grpc')
     monkeypatch.setenv('PATH', str(directory))
 
-    # As it is found: its own path, not a digest-named link into the cache.
-    assert ensure_binary() == on_path
+    # An unavailable default release falls back to the unverified PATH build.
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('offline')):
+        with pytest.warns(UserWarning, match='using .* from \\$PATH'):
+            assert ensure_binary() == on_path
 
 
 def test_path_is_scanned_in_order_past_what_cannot_be_executed(tmp_path, monkeypatch):
@@ -314,7 +321,7 @@ def test_path_is_scanned_in_order_past_what_cannot_be_executed(tmp_path, monkeyp
 
 def test_the_cache_beats_a_service_on_path(cache, tmp_path, monkeypatch):
     """Test the cache, whose release is known, is preferred to an unknown one on $PATH."""
-    cache(version='v0.0.7')
+    cache()  # A hand-installed binary is not replaced by the implicit default.
     directory = tmp_path / 'usr-local-bin'
     directory.mkdir()
     executable(directory / 'sysml-grpc')
@@ -339,14 +346,15 @@ def test_a_download_that_fails_is_not_answered_from_path(cache, tmp_path, monkey
 def test_a_download_with_no_release_to_download_is_not_answered_from_path(
     cache, tmp_path, monkeypatch
 ):
-    """Test asking for a download without a release is an error, not a $PATH binary."""
+    """A forced download without an explicit release requests the built-against release."""
     directory = tmp_path / 'usr-local-bin'
     directory.mkdir()
     executable(directory / 'sysml-grpc')
     monkeypatch.setenv('PATH', str(directory))
 
-    with pytest.raises(OpenSysMLConnectionError, match='without a release'):
-        ensure_binary(force_download=True)
+    with patch('opensysml.binary.download_binary', return_value='/downloaded/sysml-grpc') as download:
+        assert ensure_binary(force_download=True) == '/downloaded/sysml-grpc'
+    download.assert_called_once_with(version=built_against_releases()[0], github_repo=None)
 
 
 def test_a_local_build_answers_on_a_platform_no_release_is_published_for(
@@ -358,7 +366,10 @@ def test_a_local_build_answers_on_a_platform_no_release_is_published_for(
     directory.mkdir()
     on_path = executable(directory / 'sysml-grpc')
     monkeypatch.setenv('PATH', str(directory))
-    assert ensure_binary() == on_path
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('offline')):
+        with pytest.warns(UserWarning, match='using .* from \\$PATH'):
+            assert ensure_binary() == on_path
 
     named = executable(tmp_path / 'my-build')
     monkeypatch.setenv('OPENSYSML_BINARY', named)
@@ -369,8 +380,10 @@ def test_ensure_binary_reports_everywhere_it_looked(cache):
     """Test the refusal names each place a binary could have come from."""
     import opensysml.binary
 
-    with pytest.raises(OpenSysMLConnectionError) as raised:
-        ensure_binary()
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('offline')):
+        with pytest.raises(OpenSysMLConnectionError) as raised:
+            ensure_binary()
     message = str(raised.value)
     assert '$OPENSYSML_BINARY' in message
     assert opensysml.binary.get_binary_path() in message
@@ -675,7 +688,7 @@ def test_ensure_binary_replaces_a_cache_from_another_release(cache):
 
 
 def test_ensure_binary_keeps_a_cache_when_no_version_is_asked_for(cache):
-    """Test a locally built binary is left alone when nothing names a release."""
+    """An executable cache without release metadata is a hand-installed build."""
     cache()
     with patch('opensysml.binary.download_binary') as mock_download:
         assert ensure_binary() == linked()
@@ -723,6 +736,170 @@ def test_a_cache_survives_a_replacement_that_cannot_be_downloaded(cache):
 
     assert kept == linked()
     assert cached_release() == 'v0.0.5'
+
+
+def test_implicit_release_download_records_the_built_against_release(cache):
+    content = b'implicit release binary'
+    expected = built_against_releases()[0]
+
+    def install(version, github_repo=None):
+        assert version == expected
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        ensure_binary()
+
+    download.assert_called_once_with(version=expected, github_repo=None)
+    assert cached_release() == expected
+
+
+def test_implicit_release_keeps_a_hand_installed_cache(cache):
+    binary_path = cache()
+    with patch('opensysml.binary.download_binary') as download:
+        assert ensure_binary() == linked()
+    download.assert_not_called()
+    assert cached_release() is None
+    with open(binary_path, 'rb') as cached_file:
+        assert cached_file.read() == b'cached binary'
+
+
+def test_implicit_release_replaces_a_cache_from_another_release(cache):
+    content = b'implicit replacement'
+    cache(b'old release', version='v0.0.5')
+    expected = built_against_releases()[0]
+
+    def install(version, github_repo=None):
+        assert version == expected
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        with pytest.warns(UserWarning, match='v0.0.5'):
+            ensure_binary()
+
+    download.assert_called_once_with(version=expected, github_repo=None)
+    assert cached_release() == expected
+
+
+def test_unavailable_implicit_release_falls_back_to_path_with_warning(
+    cache, tmp_path, monkeypatch
+):
+    directory = tmp_path / 'usr-local-bin'
+    directory.mkdir()
+    on_path = executable(directory / 'sysml-grpc')
+    monkeypatch.setenv('PATH', str(directory))
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('offline')) as download:
+        with pytest.warns(UserWarning, match='using .* from \\$PATH'):
+            assert ensure_binary() == on_path
+    download.assert_called_once_with(version=built_against_releases()[0], github_repo=None)
+
+
+def test_unavailable_implicit_release_without_path_names_the_release(cache):
+    with patch('opensysml.binary.download_binary',
+               side_effect=OpenSysMLConnectionError('release not found')):
+        with pytest.raises(OpenSysMLConnectionError) as raised:
+            ensure_binary()
+    for candidate in built_against_releases():
+        assert candidate in str(raised.value)
+    assert 'release not found' in str(raised.value)
+
+
+def test_implicit_checksum_mismatch_never_falls_back_to_path(
+    cache, tmp_path, monkeypatch
+):
+    directory = tmp_path / 'usr-local-bin'
+    directory.mkdir()
+    executable(directory / 'sysml-grpc')
+    monkeypatch.setenv('PATH', str(directory))
+    with patch('opensysml.binary.download_binary',
+               side_effect=ChecksumMismatchError('tampered')) as download:
+        with pytest.raises(ChecksumMismatchError, match='tampered'):
+            ensure_binary()
+    download.assert_called_once_with(version=built_against_releases()[0], github_repo=None)
+
+
+def test_explicit_environment_release_precedes_the_built_against_default(monkeypatch):
+    monkeypatch.setenv('OPENSYSML_GRPC_VERSION', 'v0.0.7')
+    with patch('opensysml.binary.download_binary', return_value='/downloaded/sysml-grpc') as download:
+        assert ensure_binary() == '/downloaded/sysml-grpc'
+    download.assert_called_once_with(version='v0.0.7', github_repo=None)
+
+
+@pytest.mark.parametrize(
+    ('version', 'expected'),
+    [
+        ('0.9.1', ('v0.9.1',)),
+        ('0.9.0rc1', ('v0.9.0-rc1', 'v0.9.0-rc.1')),
+        ('0.9.0a2', ('v0.9.0-alpha2', 'v0.9.0-alpha.2')),
+        ('0.9.0b3', ('v0.9.0-beta3', 'v0.9.0-beta.3')),
+    ],
+)
+def test_built_against_release_candidates_follow_the_pep440_version(
+    version, expected, monkeypatch
+):
+    monkeypatch.setattr('opensysml.binary.VERSION', version)
+    assert built_against_releases() == expected
+
+
+def test_implicit_release_accepts_a_cache_with_the_second_candidate(cache, monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.0rc1')
+    candidates = built_against_releases()
+    cache(version=candidates[1])
+
+    with patch('opensysml.binary.download_binary') as download:
+        assert ensure_binary() == linked()
+
+    download.assert_not_called()
+
+
+def test_implicit_release_retries_the_second_candidate_after_a_404(cache, monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.0rc1')
+    candidates = built_against_releases()
+    content = b'pre-release release binary'
+
+    def install(version, github_repo=None):
+        if version == candidates[0]:
+            raise OpenSysMLConnectionError('404 Not Found')
+        assert version == candidates[1]
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        ensure_binary()
+
+    assert [call.kwargs['version'] for call in download.call_args_list] == list(candidates)
+    assert cached_release() == candidates[1]
+
+
+def test_implicit_release_retries_after_an_unpinned_candidate(cache, monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.0rc1')
+    candidates = built_against_releases()
+    content = b'pinned pre-release binary'
+
+    def install(version, github_repo=None):
+        if version == candidates[0]:
+            raise UnpinnedReleaseError('no trusted digest')
+        assert version == candidates[1]
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        ensure_binary()
+
+    assert [call.kwargs['version'] for call in download.call_args_list] == list(candidates)
+    assert cached_release() == candidates[1]
+
+
+def test_implicit_checksum_mismatch_does_not_try_the_second_candidate(
+    cache, monkeypatch
+):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.0rc1')
+    first = built_against_releases()[0]
+    with patch(
+        'opensysml.binary.download_binary',
+        side_effect=ChecksumMismatchError('tampered'),
+    ) as download:
+        with pytest.raises(ChecksumMismatchError, match='tampered'):
+            ensure_binary()
+    download.assert_called_once_with(version=first, github_repo=None)
 
 
 def test_a_tampered_download_is_not_answered_from_the_cache(cache):

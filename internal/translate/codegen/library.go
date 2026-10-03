@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -37,6 +38,13 @@ const (
 	LibLn
 	LibLog
 	LibAtan2
+	LibLength
+	LibSubstring
+	LibIntToString
+	LibNaturalToString
+	LibRealToString
+	LibBoolToString
+	LibStringToString
 )
 
 // libSpec is how one operation types and spells itself in each target. Operand
@@ -75,6 +83,14 @@ var libSpecs = map[LibOp]libSpec{
 	LibLn:         {"ln", []Type{TypeReal}, TypeReal, "sysml_ln(%s)", "sysmlLn(%s)"},
 	LibLog:        {"log", []Type{TypeReal, TypeReal}, TypeReal, "sysml_log(%s, %s)", "sysmlLog(%s, %s)"},
 	LibAtan2:      {"atan2", []Type{TypeReal, TypeReal}, TypeReal, "sysml_atan2(%s, %s)", "sysmlAtan2(%s, %s)"},
+
+	LibLength:          {"Length", []Type{TypeString}, TypeInt, "sysml_str_length(%s)", "sysmlLength(%s)"},
+	LibSubstring:       {"Substring", []Type{TypeString, TypeInt, TypeInt}, TypeString, "sysml_substring(%s, %s, %s)", "sysmlSubstring(%s, %s, %s)"},
+	LibIntToString:     {"ToString", []Type{TypeInt}, TypeString, "sysml_int_string(%s)", "(%s).String()"},
+	LibNaturalToString: {"ToString", []Type{TypeInt}, TypeString, "sysml_natural_string(%s)", "sysmlNaturalString(%s)"},
+	LibRealToString:    {"ToString", []Type{TypeReal}, TypeString, "sysml_real_string(%s)", "sysmlFormat(%s)"},
+	LibBoolToString:    {"ToString", []Type{TypeBool}, TypeString, "sysml_bool_string(%s)", "strconv.FormatBool(%s)"},
+	LibStringToString:  {"ToString", []Type{TypeString}, TypeString, "%s", "%s"},
 }
 
 func (op LibOp) String() string { return libSpecs[op].name }
@@ -100,6 +116,9 @@ func spell(template string, args []string) string {
 // operands of the given types, or why no compiled operation does. Kind-preserving
 // functions pick the Integer form for Integer operands, as the interpreter does.
 func libOpFor(fqn string, args []Type) (LibOp, string) {
+	if op, why, ok := stringLibOp(fqn, args); ok {
+		return op, why
+	}
 	for _, t := range args {
 		if t != TypeInt && t != TypeReal {
 			return 0, fmt.Sprintf("%s requires numeric arguments", fqn)
@@ -170,6 +189,66 @@ func libOpFor(fqn string, args []Type) (LibOp, string) {
 		}
 	}
 	return 0, fmt.Sprintf("library function %s is not compiled", fqn)
+}
+
+// stringLibOp is the operation a call of a String function or a conversion to
+// String denotes; ok is false for any other function.
+func stringLibOp(fqn string, args []Type) (op LibOp, why string, ok bool) {
+	toString := map[Type]LibOp{TypeInt: LibIntToString, TypeReal: LibRealToString, TypeBool: LibBoolToString, TypeString: LibStringToString}
+	var want []Type
+	switch fqn {
+	case "StringFunctions::Length":
+		op, want = LibLength, []Type{TypeString}
+	case "StringFunctions::Substring":
+		op, want = LibSubstring, []Type{TypeString, TypeInt, TypeInt}
+	case "StringFunctions::ToString":
+		op, want = LibStringToString, []Type{TypeString}
+	case "BooleanFunctions::ToString":
+		op, want = LibBoolToString, []Type{TypeBool}
+	case "IntegerFunctions::ToString":
+		op, want = LibIntToString, []Type{TypeInt}
+	case "NaturalFunctions::ToString":
+		op, want = LibNaturalToString, []Type{TypeInt}
+	case "RealFunctions::ToString":
+		if len(args) == 1 && args[0] == TypeInt {
+			return LibIntToString, "", true
+		}
+		op, want = LibRealToString, []Type{TypeReal}
+	case "BaseFunctions::ToString":
+		if len(args) == 1 {
+			if op, found := toString[args[0]]; found {
+				return op, "", true
+			}
+		}
+		return 0, fmt.Sprintf("%s of a %v", fqn, args), true
+	default:
+		return 0, "", false
+	}
+	if !slices.Equal(args, want) {
+		return 0, fmt.Sprintf("%s requires arguments of type %v, got %v", fqn, want, args), true
+	}
+	return op, "", true
+}
+
+// stringLibParam is the kind of value a String function or conversion to String
+// requires of param, as its failure names it; empty for any other function.
+func stringLibParam(fqn, param string) string {
+	switch fqn {
+	case "StringFunctions::Length", "StringFunctions::ToString":
+		return "a string"
+	case "StringFunctions::Substring":
+		if param == "x" {
+			return "a string"
+		}
+		return "an Integer"
+	case "BooleanFunctions::ToString":
+		return "a Boolean"
+	case "IntegerFunctions::ToString", "NaturalFunctions::ToString":
+		return "an Integer"
+	case "RealFunctions::ToString":
+		return "a numeric"
+	}
+	return ""
 }
 
 // libFeatureValue is the value of a library feature the compiled subset knows.

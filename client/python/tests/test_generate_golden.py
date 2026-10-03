@@ -315,6 +315,7 @@ def test_generated_classes_read_a_live_instance(tmp_path):
     assert vehicle.engine.power == 300.0
 
 
+@pytest.mark.integration
 def test_generated_class_reads_an_enum_typed_slot(tmp_path):
     """An enum-typed feature is generated as the literal it holds, not as a class."""
     from opensysml import Connection, EnumLiteral

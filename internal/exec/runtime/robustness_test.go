@@ -2148,8 +2148,8 @@ func testMultiplicityInfiniteLowerBound(t *testing.T) {
 	}
 }
 
-// testMultiplicityLowerBoundTooLarge: a lower bound past the materialization
-// bound is reported instead of eagerly allocating that many objects.
+// testMultiplicityLowerBoundTooLarge: a lower bound of thousands holds that many values
+// without making that many objects up front.
 func testMultiplicityLowerBoundTooLarge(t *testing.T) {
 	inst, ctx := instantiateHolder(t, `
 		package test {
@@ -2158,15 +2158,15 @@ func testMultiplicityLowerBoundTooLarge(t *testing.T) {
 			part def Holder { part p : C[5000]; }
 		}
 	`)
-	_, err := inst.GetFeatureValue(ctx, "p")
-	if err == nil {
-		t.Fatal("want a multiplicity violation, got a materialized feature value")
+	fv, err := inst.GetFeatureValue(ctx, "p")
+	if err != nil {
+		t.Fatalf("p: %v; want 5000 values", err)
 	}
-	if !errors.Is(err, ErrMultiplicityViolation) {
-		t.Errorf("expected ErrMultiplicityViolation, got: %v", err)
+	if got := ElementCount(fv.Values); got != 5000 {
+		t.Errorf("p holds %d values, want 5000", got)
 	}
 	if len(ctx.instances) > 100 {
-		t.Errorf("materialized %d instances before reporting the bound", len(ctx.instances))
+		t.Errorf("materialized %d instances to hold a lower bound of 5000", len(ctx.instances))
 	}
 }
 
@@ -5256,10 +5256,10 @@ func testChainedWriteThroughANamespaceCollection(t *testing.T) {
 	}
 }
 
-// testNamespaceCollectionOverBudget: a namespace-level usage of more occurrences than a run
-// may materialize — past the element budget, or past the bound on a collection's lower bound —
-// is refused with the typed limit naming the usage and leaves no partial extent, while an
-// extent it cannot contribute to is answered.
+// testNamespaceCollectionOverBudget: a namespace-level usage whose extent takes more work than
+// a run may do — past the element budget, or past the step budget — is refused with the typed
+// limit naming the usage and leaves no partial extent, while its size and an extent it cannot
+// contribute to are answered without making its occurrences.
 func testNamespaceCollectionOverBudget(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -5281,16 +5281,21 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(typedModel(model, resolver), 1000)
-	for _, calc := range []string{"wheelCount", "manyCount"} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
-		if !errors.Is(err, ErrMultiplicityViolation) || !strings.Contains(err.Error(), "many") {
-			t.Fatalf("%s = %s, %v; want %v naming many", calc, FormatValue(got), err, ErrMultiplicityViolation)
-		}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrStepLimitExceeded) || !strings.Contains(err.Error(), "many") {
+		t.Fatalf("wheelCount = %s, %v; want %v naming many", FormatValue(got), err, ErrStepLimitExceeded)
 	}
 	if got := len(ctx.instances); got != 0 {
-		t.Fatalf("a refused collection of 10000 left %d objects standing", got)
+		t.Fatalf("a refused extent over 10000 left %d objects standing", got)
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "manyCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "10000" {
+		t.Fatalf("size(many) = %s, %v; want 10000", FormatValue(got), err)
+	}
+	if got := len(ctx.instances); got != 0 {
+		t.Fatalf("the size of a collection of 10000 made %d of its objects", got)
+	}
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Seat) = %s, %v; want 2: the wheels hold no Seat and are not read", FormatValue(got), err)
 	}
@@ -5893,9 +5898,8 @@ func testAcceptDeadlockReportsEveryWaitingAccept(t *testing.T) {
 	}
 }
 
-// testAcceptStatementDeadlockInALoop: an accept node written in a loop body would
-// have to suspend a flow that has no token to park, so it is reported when reached
-// rather than passed over or looped on forever.
+// testAcceptStatementDeadlockInALoop: a loop accept with no possible sender
+// deadlocks with the parked accept named in the error.
 func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
@@ -5922,11 +5926,11 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 		t.Fatal("a loop waiting for a message that cannot arrive did not terminate")
 	}
 
-	if err == nil {
-		t.Fatal("expected an error, the accept in the loop body was passed over")
+	if !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 	}
-	if !strings.Contains(err.Error(), "'accept' in a loop or branch body") {
-		t.Errorf("expected the accept in a loop body to be reported, got: %v", err)
+	if !strings.Contains(err.Error(), "accept n") {
+		t.Errorf("expected the parked accept in the error, got: %v", err)
 	}
 }
 

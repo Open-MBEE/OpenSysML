@@ -357,7 +357,7 @@ func (s *Session) carrierObject(label string) (*runtime.Instance, string) {
 // materializes it.
 func nestedObjectsIn(ctx *runtime.Context) func(carrier) []carrier {
 	return func(of carrier) []carrier {
-		return nestedObjects(ctx, of, func(name string) (*runtime.FeatureValue, bool) {
+		return nestedObjects(ctx, of, false, func(name string) (*runtime.FeatureValue, bool) {
 			fv, err := of.inst.GetFeatureValue(ctx, name)
 			return fv, err == nil && fv != nil
 		})
@@ -413,7 +413,7 @@ func (s *Session) heldIDs() []int64 {
 // shown them, reachable by id alone — so a walk leaves the runtime as it found it.
 func materializedObjectsIn(ctx *runtime.Context) func(carrier) []carrier {
 	return func(of carrier) []carrier {
-		out := nestedObjects(ctx, of, func(name string) (*runtime.FeatureValue, bool) {
+		out := nestedObjects(ctx, of, true, func(name string) (*runtime.FeatureValue, bool) {
 			fv := of.inst.FeatureValues[name]
 			return fv, fv != nil && fv.Materialized
 		})
@@ -427,8 +427,9 @@ func materializedObjectsIn(ctx *runtime.Context) func(carrier) []carrier {
 // nestedObjects returns the objects held in the feature values read yields, each
 // once, in feature-value-name order, under the label it is reached by: the first
 // single-valued feature holding it, else its 1-based place in a multi-valued
-// one, `.wheels[2]`.
-func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime.FeatureValue, bool)) []carrier {
+// one, `.wheels[2]`. With made, only the objects already made are yielded; else at
+// most carrierLimit of a collection's, the objects past it never reached by a walk.
+func nestedObjects(ctx *runtime.Context, of carrier, made bool, read func(string) (*runtime.FeatureValue, bool)) []carrier {
 	fvs := make([]string, 0, len(of.inst.FeatureValues))
 	for name := range of.inst.FeatureValues {
 		fvs = append(fvs, name)
@@ -482,8 +483,20 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 			reach(fv.Value, source.NameText(name), false)
 			continue
 		}
-		for i, val := range objref.CollectionElements(fv.Values) {
-			reach(val, fmt.Sprintf("%s[%d]", source.NameText(name), i+1), true)
+		if fv.Values.Kind != runtime.ValSequence && fv.Values.Kind != runtime.ValSet {
+			continue
+		}
+		if made {
+			positions, elements := ctx.MadeElements(fv.Values)
+			for i, val := range elements {
+				reach(val, fmt.Sprintf("%s[%d]", source.NameText(name), positions[i]+1), true)
+			}
+			continue
+		}
+		for i := range int(min(runtime.ElementCount(fv.Values), carrierLimit)) {
+			if val, err := ctx.ElementAt(fv.Values, i); err == nil {
+				reach(val, fmt.Sprintf("%s[%d]", source.NameText(name), i+1), true)
+			}
 		}
 	}
 	out := make([]carrier, 0, len(order))

@@ -3,7 +3,10 @@ FlowViews::driveView - action rendering (render asInterconnectionDiagram, view d
 action def Flows::Drive
   initial start
   action provide : Provide
+    in fuel
+    out torque
   action monitor (own flow)
+    in reading
     initial begin
     action record
   action tally
@@ -17,7 +20,7 @@ flow:
   begin -> record
   start -> split
   provide -> sync
-  provide => monitor: torque to reading
+  provide.torque => monitor.reading
   monitor -> sync
   tally -> sync
   split -> provide

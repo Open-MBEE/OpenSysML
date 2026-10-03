@@ -388,14 +388,22 @@ class BinaryDownloaderTest {
   @Test
   void readsWhereADownloadIsAskedForFrom() {
     ConnectionOptions asked = ConnectionOptions.builder().downloadVersion("v1.2.3").build();
+    assertEquals(Optional.empty(), BinaryDownloader.explicitVersion(OPTIONS, environment::get));
+    assertEquals(
+        Optional.of("v1.2.3"), BinaryDownloader.explicitVersion(asked, environment::get));
     assertEquals(
         Optional.of("v1.2.3"), BinaryDownloader.versionAskedFor(asked, environment::get));
     assertEquals(
-        Optional.empty(), BinaryDownloader.versionAskedFor(OPTIONS, environment::get));
+        Optional.of(BinaryDownloader.builtAgainstRelease()),
+        BinaryDownloader.versionAskedFor(OPTIONS, environment::get));
+    assertFalse(BinaryDownloader.versionWasExplicit(OPTIONS, environment::get));
 
-    environment.put(ConnectionOptions.VERSION_ENV, "v0.3.0");
+    environment.put(ConnectionOptions.VERSION_ENV, " v0.3.0 ");
+    assertEquals(
+        Optional.of("v0.3.0"), BinaryDownloader.explicitVersion(OPTIONS, environment::get));
     assertEquals(
         Optional.of("v0.3.0"), BinaryDownloader.versionAskedFor(OPTIONS, environment::get));
+    assertTrue(BinaryDownloader.versionWasExplicit(OPTIONS, environment::get));
     assertEquals(
         Optional.of("v1.2.3"),
         BinaryDownloader.versionAskedFor(asked, environment::get),

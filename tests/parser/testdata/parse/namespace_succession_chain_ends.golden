@@ -1,0 +1,17 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="part" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="action" name="g" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (ConnectorEnd target="*ast.FeatureChainExpr"
+            (FeatureChainExpr member="g"
+              (FeatureReference name="b")))
+          (ConnectorEnd target="*ast.FeatureChainExpr"
+            (FeatureChainExpr member="m"
+              (FeatureReference name="b"))))))))

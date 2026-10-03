@@ -320,15 +320,8 @@ func lowerFlowNode(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 	case *ast.PerformActionNode:
 		graph.Bodies[node] = []Statement{performEffect(n, scope)}
 	case *ast.Usage:
-		// An accept node suspends the action it is a node of, which a block's flow
-		// has no token to park; it is lowered as unsupported so that reaching it is
-		// reported rather than passed over.
 		if acceptsMessage(n) {
-			graph.Bodies[node] = []Statement{Unsupported{
-				Description: "'accept' in a loop or branch body",
-				Node:        n,
-				Scope:       scope,
-			}}
+			lowerActionNode(graph, n, childScope(scope, n))
 			return
 		}
 		if IsCaseNode(n) {
@@ -362,10 +355,12 @@ func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	lowerFeatures(graph, node, scope)
 	if blockNeedsFlow(node.Members) {
+		flow := lowerBlockFlow(node.Members, scope, true)
 		graph.Bodies[node] = []Statement{Block{
-			Node:  node,
-			Scope: scope,
-			Graph: lowerBlockFlow(node.Members, scope, true),
+			Node:   node,
+			Scope:  scope,
+			Graph:  flow,
+			Stated: len(flow.Accepts) > 0,
 		}}
 		return
 	}

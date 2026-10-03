@@ -9,11 +9,11 @@ its own, and [guide chapter 9](../guide/09-clients.md) walks through a task with
 |---|---|---|---|
 | **Go**, `client/opensysml` | in process; or Connect, to a service someone else runs | with the core (`v*` tags) | [Go packages](api.md) |
 | **Python**, `opensysml` | gRPC, to a private child service or a named service | PyPI, on the core `v*` tags, at the core's version | [Python API](python-api.md) |
-| **Node/TypeScript**, `@openmbee/opensysml` | Connect, to a private child service, a named service, or one a browser page addresses | not yet | [Node API](node-api.md) |
-| **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not yet | [Java API](java-api.md) |
-| **Rust**, `opensysml` | Connect, blocking, no async runtime | not yet | [Rust API](rust-api.md) |
-| **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not yet | [Julia API](julia-api.md) |
-| **MATLAB**, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | not yet | [MATLAB API](matlab-api.md) |
+| **Node/TypeScript**, `@openmbee/opensysml` | Connect, to a private child service, a named service, or one a browser page addresses | npm, on core `v*` tags, with per-platform binary packages | [Node API](node-api.md) |
+| **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](java-api.md) |
+| **Rust**, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags, at the core version | [Rust API](rust-api.md) |
+| **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](julia-api.md) |
+| **MATLAB**, `+opensysml` | Connect-JSON, over `matlab.net.http` or, under GNU Octave, a `curl` subprocess | source files; add to the MATLAB path | [MATLAB API](matlab-api.md) |
 
 The protocols and what the service serves on a single port are described in
 [service transports](service-transports.md); the release process for each client is described in
