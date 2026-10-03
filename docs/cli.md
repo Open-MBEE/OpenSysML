@@ -714,6 +714,14 @@ then evaluate, instantiate and execute against it.</p>
 
   load.addEventListener('click', function () {
     load.disabled = true;
+    // The landing page's diagram may already have started this page's engine.
+    if (globalThis.sysmlEngine) {
+      println('<span class="osml-ok">✓ engine loaded</span> — ' + esc(globalThis.sysmlEngine.version || 'unknown'));
+      parse();
+      input.disabled = false;
+      input.focus();
+      return;
+    }
     println('<span class="osml-dim">loading sysml-engine.wasm (~7 MB)…</span>');
     var s = document.createElement('script');
     s.src = '/assets/wasm_exec.js';
