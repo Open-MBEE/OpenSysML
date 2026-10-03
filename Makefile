@@ -417,6 +417,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_release_version-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
@@ -478,6 +479,7 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
+	$(PYTHON) scripts/mkdocs_release_version-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script

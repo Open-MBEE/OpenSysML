@@ -1103,8 +1103,8 @@ The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
 by the `release` workflow's `publish-npm` job, from the same core `v<version>`
 tag that publishes the binaries and `opensysml` — at that version. No other tag
 publishes it; the `client-node-v*` path never ran and is no longer matched.
-**Nothing has been published yet** — the next core release is the first
-publish, and the `npm` context it needs is already in place (see
+The npm packages are published with core releases at the client's version, and
+the `npm` context they need is already in place (see
 [What the job needs](#what-the-job-needs-1)).
 
 ### Six packages, one tag
@@ -1263,7 +1263,7 @@ The Java client in `client/java/` is published to Maven Central as
 — by the `release` workflow's `publish-maven` job, from the same core
 `v<version>` tag that publishes the binaries, `opensysml` and
 `@openmbee/opensysml`, at that version. The `opensysml-java-v*` path was never
-tagged and is no longer used. **Nothing has been published yet.**
+tagged and is no longer used. **The Java artifacts are not on Maven Central yet.**
 
 ### What a maintainer must obtain first
 
@@ -1415,11 +1415,10 @@ next core patch release.
 
 ## Releasing the Rust client to crates.io
 
-The `opensysml` crate is published by the `release` workflow's `publish-crates`
+The `opensysml` crate is published on crates.io by the `release` workflow's `publish-crates`
 job from the core `v<version>` tag, at the version `Cargo.toml` declares, after
 the suite and the GitHub release. `opensysml-rust-v*` was never tagged and is no
-longer used; nothing has been published yet — the name `opensysml` is free on
-crates.io. The maintainer-run `cargo publish` and the bump-then-tag procedure
+longer used. The maintainer-run `cargo publish` and the bump-then-tag procedure
 it followed are gone.
 
 ### What a maintainer must obtain first

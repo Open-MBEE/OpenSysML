@@ -23,7 +23,7 @@ them together.
     <p>A complete SysML v2 and KerML implementation in Go — language server,
     interactive REPL, and an execution runtime that instantiates parts, evaluates
     constraints, and runs action and state behavior on a clock, not just validates
-    them. Ships with a Python client over gRPC.</p>
+    them. Ships with clients for Python, Node, Java, Rust, Julia and MATLAB over gRPC, and a Go API.</p>
     <p class="osml-eco__meta">Go · Apache-2.0</p>
     <p class="osml-eco__links">
       <a href="https://github.com/Open-MBEE/OpenSysML">GitHub</a> ·
@@ -79,16 +79,6 @@ growing library ecosystem around it.
 
 <div class="osml-eco__grid">
   <div class="osml-eco__card">
-    <span class="osml-eco__tag">Docs · CC BY 4.0</span>
-    <h3>OpenSysML Wiki</h3>
-    <p>Guides, decisions, and working notes for the project — the place to read up
-    before digging into any one tool in the stack. Content is CC BY 4.0, separate from
-    the code licenses above.</p>
-    <p class="osml-eco__links">
-      <a href="https://github.com/Open-MBEE/opensysml.github.io/wiki">Read the wiki</a>
-    </p>
-  </div>
-  <div class="osml-eco__card">
     <span class="osml-eco__tag">Standards body</span>
     <h3>OMG SysML</h3>
     <p>The Object Management Group's home for the SysML specification itself — the
@@ -126,17 +116,10 @@ growing library ecosystem around it.
       <a href="https://github.com/Open-MBEE/opensysml.github.io/wiki">What's listed so far</a>
     </p>
   </div>
-  <div class="osml-eco__card">
-    <span class="osml-eco__tag">Community</span>
-    <h3>Join in</h3>
-    <p>OpenSysML is community-run under OpenMBEE — code, models, docs and review are
-    all welcome.</p>
-    <p class="osml-eco__links">
-      <a href="https://github.com/Open-MBEE/open-mbee.github.io/wiki/Participate-in-OpenMBEE-and-OpenSysML">Participate</a> ·
-      <a href="https://numfocus.org/donate-to-openmbee">Sponsor</a>
-    </p>
-  </div>
 </div>
+
+For community chat, discussion, events, and ways to participate or sponsor, see
+[Community](community.md).
 
 ## Licensing
 

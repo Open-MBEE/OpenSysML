@@ -93,6 +93,7 @@ not_in_nav: |
 hooks:
   - scripts/mkdocs_repo_links.py
   - scripts/mkdocs_landing.py
+  - scripts/mkdocs_release_version.py
   - scripts/mkdocs_header_menu.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
