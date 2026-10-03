@@ -105,16 +105,19 @@ non-fixed count returns typed `ErrNotEncoded` as an `UnsupportedError` naming th
 declared multiplicity, with the reason that the SMT engine requires a fixed step count; a bound
 beyond 64 bits also wraps `semantics.ErrIntegerUnaddressable`. An exact count `n` other than one is
 encoded as the executor performs it (`Flow.Repeats`): the move taking a succession into `a[n]`
-places `n - 1` sibling tokens at `a` in free slots, as a fork places its branches, and `sizeSlots`
-adds `n - 1` slots per bounded arrival. Each token at `a` performs the body in its own move; while
+leaves the token pending there, and the next move splits it into `n - 1` sibling tokens at `a` in
+free slots, mirroring `splitRepeatedStep`'s own step; `sizeSlots` adds `n - 1` slots per bounded
+arrival. Each token at `a` performs the body in its own move; while
 a sibling is still at `a` it retires (`tokenStep.gate`), so the last one carries the succession
-on — unless `ActionGraph.CrossesPerPerformance` holds, when each succeeds into its join or merge.
+on — unless `ActionGraph.CrossesPerPerformance` holds, when each succeeds into its join or its
+lone-incoming merge.
 `[0]` passes its token on without performing, and a false guard on a succession into a written
 target end of `a[n]` is a failing move, matching the executor's `action-step-order-open` error.
-Two shapes are refused with a named reason: a repeated step a token may reach again while its
-performances are live (on a cycle, or more than one bounded arrival), since the barrier would mix
-two groups' tokens; and a repeated step with features or flows of its own, since one feature
-variable per state cannot hold each performance's values.
+Refused with a named reason: every shape `ActionGraph.CheckStep` refuses (the undetermined
+control-node crossings among them, the reason carried through); a repeated step a token may reach
+again while its performances are live (on a cycle, or more than one bounded arrival), since the
+barrier would mix two groups' tokens; and a repeated step with features or flows of its own, since
+one feature variable per state cannot hold each performance's values.
 `Analyze` also refuses graphs with unordered starts through `unorderedStart`; that separate
 restriction remains in force alongside multiplicity refusal, and is checked first when both apply.
 

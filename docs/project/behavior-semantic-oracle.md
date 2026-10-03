@@ -266,7 +266,8 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
 `_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
 `_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
-`_merge_fanout`, `_join_per_performance` (trace goldens), `_guard_true` and `_guard_false`.
+`_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`
+(trace goldens where carried), `_guard_true` and `_guard_false`.
 
 Derived constraints:
 
@@ -327,19 +328,34 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   source multiplicity `1..1`; a join's incoming successions have source `1..1`, a merge's `0..1`;
   a fork's outgoing successions have target `1..1`, a decision's `0..1`. The checker substitutes
   these ends for unwritten ones (they are not subject to the KERML-29 dual reading) and refuses a
-  written end that differs from one as `action-step-order-unsatisfiable`. A control node's own
-  count is not fixed (an action usage defaults to `[0..*]`, §7.6.3), so it is what the edges force:
-  - `a[n]` into a join or merge: both ends fixed, the crossing is a bijection, the node performs
-    once per performance of `a` and every other edge at it is checked under that count: a join's
-    other incoming source performing once is unsatisfiable; the node's outgoing succession is
-    ordered only into `done` (`_join_per_performance`: three join traversals).
-  - `a[n]` into a fork or decision: the `a` end is not mandated, so it is as for any step:
-    `succession first [*] a then f;` is a barrier and `f` performs once (`_fork_barrier`,
-    `_decision_barrier`); plain `then` stays refused under the project's plain-`then` policy.
-  - out of a join or merge into `a[n]`: written `then [*] a` fans out after one control
-    performance (`_merge_fanout`); plain `then` stays refused.
-  - out of a fork or decision into `a[n]`: target `1..1` / `0..1` with source `1..1` needs `n`
-    control performances, which a control node reached once cannot give: unsatisfiable.
+  written end that differs from one as `action-step-order-unsatisfiable`. A control node declares
+  no multiplicity of its own: §7.6.3 leaves a usage that declares none at the most general
+  `[0..*]` when nothing subsets or redefines it (the implicit `[1..1]` reaches only owned
+  attribute, item, part and port usages), and `Actions.sysml` declares
+  `controls : ControlAction[0..*] :> subactions` and `merges : MergeAction[0..*]` while
+  `decisions`, `joins` and `forks` declare none and so inherit `[0..*]`. An unwritten node's
+  count is therefore `[0..*]`, never an assumed one: only its incident successions fix it, and
+  only in these derived cases, each giving the node `n` performances:
+  - `a[n]` into a join, with both ends mandated `1..1`: the crossing is a bijection
+    (`_join_per_performance`: three join traversals).
+  - `a[n]` into a merge as the merge's only incoming succession: target `1..1` plus
+    `MergePerformance::incomingHBLink : HappensBefore[1]` (`ControlPerformances.kerml`) gives
+    one link per performance (`_merge_per_performance`).
+  - a fork out into `a[n]`, both ends mandated `1..1`.
+  - a decision out into `a[n]` as the decision's only outgoing succession: source `1..1` plus
+    `DecisionPerformance::outgoingHBLink : HappensBefore[1]`.
+
+  In a derived case every other edge at the node is checked under count `n`, so a predecessor of
+  a fork or decision that must order `n` crossings while performing once is unsatisfiable. Every
+  other adjacency leaves the node's count undetermined and is refused `action-step-order-open`
+  ("the <kind> node's performance count is not determined: an action usage declares no default
+  multiplicity and its successions do not fix it"): `first [*] a then f` into a fork or decision
+  (`_fork_barrier`, `_decision_barrier`), `then [*] a` out of a join, merge, fork or decision
+  (`_merge_fanout`), and a merge or decision carrying another succession beside the repeated
+  step's. A written control-node multiplicity (`fork f[1]`, which the `ControlNode` →
+  `UsageDeclaration` production would admit) is refused by the parser today, so a barrier shape
+  has no determinate spelling yet; an ordinary step still takes `succession first [*] a then
+  [1] tally` behind one barrier.
 - **Guarded successions** (SysML §8.4.13.3, `TransitionPerformances.kerml`). A guarded succession
   is a `TransitionUsage` whose guard is evaluated after its one source performance
   (`transitionLinkSource[1]`, `transitionLink : HappensBefore[0..1]`). `GuardedSuccession` admits
@@ -369,9 +385,12 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
 - **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
   own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
-  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). A body's flow runs as one
-  atomic path, so its repetitions are performed in sequence, one admissible order of performances
-  the model leaves unordered.
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
+  repetition as one move, so the orders between the repetitions are the ones exploration never
+  varies: explore and check report the result as observed rather than proved or bounded, with the
+  note "the performances of a repeated step in a loop or if body are each run as one move, so
+  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
+  `{c = 1, c = 2}` of which only `c = 2` is observed).
 - **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
   `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
   performances enacted within the part's lifetime, unordered with respect to each other: `run`
