@@ -310,6 +310,10 @@ var (
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
 
+	// ErrAmbiguousMergeInput is returned when a token that no flow brought reaches a
+	// merge holding values plain flows left at more than one of its inputs.
+	ErrAmbiguousMergeInput = errors.New("merge input is ambiguous")
+
 	// ErrFlowSource is returned when a flow's source completes with its pin holding
 	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
 	ErrFlowSource = errors.New("flow source produced no value")

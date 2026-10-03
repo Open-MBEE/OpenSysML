@@ -223,6 +223,12 @@ type ActionEdge struct {
 	Name               string
 	SourceMultiplicity *ast.Multiplicity
 	TargetMultiplicity *ast.Multiplicity
+	// Carries marks the succession of a succession flow, which delivers a value
+	// as well as ordering its ends.
+	Carries bool
+	// Gate is the succession that leads to a succession flow, whose guard and name the
+	// edge takes; nil when the flow follows its source unconditionally.
+	Gate ast.Node
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -776,6 +782,9 @@ type ObjectFlow struct {
 	// Decl is the declaration the flow was written as, for a consumer that
 	// reports where it comes from.
 	Decl ast.Node
+	// Gate is the succession whose target is this succession flow
+	// (`first a if g then f;`): the flow moves its value only when that succession is taken.
+	Gate ast.Node
 }
 
 // ToActionGraph converts an action AST (Usage or Definition) to an ActionGraph.
@@ -854,6 +863,9 @@ func lowerActionFlowWithTypingAndAncestors(
 		return graph, err
 	}
 	lowerValueBindings(graph)
+	if err := edges.resolveGates(); err != nil {
+		return graph, err
+	}
 	if err := checkProbabilities(graph); err != nil {
 		return graph, err
 	}
@@ -889,6 +901,16 @@ type actionEdgeLowerer struct {
 	weights      *probabilityReader
 	nodes        nodeLookup
 	incompatible map[ast.Node]ast.Node
+	// gates are the successions leading to a name no node answers to, resolved
+	// against the succession flows once every flow is lowered.
+	gates []pendingGate
+}
+
+// pendingGate is a succession whose target names no node: the edge it states,
+// its source resolved, and the reference its target end wrote.
+type pendingGate struct {
+	edge   ActionEdge
+	target ast.Node
 }
 
 func (l *actionEdgeLowerer) member(member ast.Node) error {
@@ -994,21 +1016,26 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 	if sourceNode == nil {
 		return fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
 	}
-	if targetNode == nil {
-		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
-	}
 	weight, err := l.weights.read(n.Members)
 	if err != nil {
 		return err
 	}
-	l.addEdge(ActionEdge{
+	edge := ActionEdge{
 		Source:      sourceNode,
-		Target:      targetNode,
 		Guard:       n.Guard,
 		Decl:        n,
 		Probability: weight,
 		Name:        n.Name,
-	})
+	}
+	if targetNode == nil {
+		if n.Target != nil && ast.SimpleName(n.Target) != "" {
+			l.gates = append(l.gates, pendingGate{edge: edge, target: n.Target})
+			return nil
+		}
+		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
+	}
+	edge.Target = targetNode
+	l.addEdge(edge)
 	return nil
 }
 
@@ -1115,6 +1142,11 @@ func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge Actio
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
 	}
 	if targetNode == nil {
+		if ast.AsQualifiedName(targetRef) != nil && ast.SimpleName(targetRef) != "" {
+			edge.Source = sourceNode
+			l.gates = append(l.gates, pendingGate{edge: edge, target: targetRef})
+			return nil
+		}
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
 	edge.Source, edge.Target = sourceNode, targetNode
@@ -1350,6 +1382,53 @@ func resolveFirstNode(graph *ActionGraph) error {
 	graph.Nodes = slices.DeleteFunc(graph.Nodes, func(node ast.Node) bool {
 		return node == ast.Node(initial)
 	})
+	return nil
+}
+
+// resolveGates reads each succession whose target named no node as leading to the
+// succession flow of that name out of its source (`first a if g then f;`): the flow's
+// own succession takes the gate's guard, name and weight, and its value moves only
+// along it.
+func (l *actionEdgeLowerer) resolveGates() error {
+	for _, gate := range l.gates {
+		source, name := gate.edge.Source, ast.SimpleName(gate.target)
+		at := slices.IndexFunc(l.graph.DataFlows[source], func(flow ObjectFlow) bool { return flow.Name == name })
+		if at < 0 {
+			if from := flowSourceNamed(l.graph, name); from != nil {
+				return fmt.Errorf("action succession leads to flow %s, which leaves %s, not %s",
+					name, getNodeName(from), getNodeName(source))
+			}
+			return fmt.Errorf("action succession references undefined target node %s", successionEndText(gate.target))
+		}
+		flow := &l.graph.DataFlows[source][at]
+		switch {
+		case flow.Kind != FlowSuccession:
+			return fmt.Errorf("action succession leads to flow %s, which is no succession flow", name)
+		case flow.Gate != nil:
+			return fmt.Errorf("succession flow %s follows more than one succession", name)
+		}
+		flow.Gate = gate.edge.Decl
+		edges := l.graph.Edges[source]
+		i := slices.IndexFunc(edges, func(e ActionEdge) bool { return e.Carries && e.Decl == flow.Decl })
+		if i < 0 {
+			return fmt.Errorf("succession flow %s states no succession to gate", name)
+		}
+		gated := gate.edge
+		gated.Target, gated.Decl, gated.Carries, gated.Gate = flow.Target, flow.Decl, true, gate.edge.Decl
+		edges[i] = gated
+	}
+	return nil
+}
+
+// flowSourceNamed returns the node the flow of that name leaves, nil for none.
+func flowSourceNamed(graph *ActionGraph, name string) ast.Node {
+	for _, node := range graph.Nodes {
+		for _, flow := range graph.DataFlows[node] {
+			if flow.Name == name {
+				return node
+			}
+		}
+	}
 	return nil
 }
 
@@ -1780,6 +1859,44 @@ func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope 
 	for _, member := range BodyStatementMembers(members) {
 		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver))
 	}
+}
+
+// lowerControlFeatures records the directed features a fork, join or merge declares
+// (`in ref inputObject1; out ref outputObject1 = inputObject1;`): the values the
+// object flows through it carry in and out.
+func lowerControlFeatures(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
+	if !CarriesObjects(node) {
+		return
+	}
+	body := childScope(scope, node)
+	var features []Feature
+	for _, member := range ast.NodeBodyMembers(node) {
+		m, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || m.Direction != ast.DirIn && m.Direction != ast.DirOut {
+			continue
+		}
+		if feature, ok := declaredFeature(m, body); ok {
+			features = append(features, feature)
+		}
+	}
+	if len(features) == 0 {
+		return
+	}
+	if graph.Features == nil {
+		graph.Features = make(map[ast.Node][]Feature)
+	}
+	recordNodeScope(graph, node, body)
+	graph.Features[node] = features
+}
+
+// CarriesObjects reports whether node is a control node object flows pass
+// through, by the features it declares: a fork, a join or a merge.
+func CarriesObjects(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode:
+		return true
+	}
+	return false
 }
 
 // BodyStatementMembers returns the members of a node body that state work to
@@ -2449,7 +2566,7 @@ func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
 	if flow.Kind != FlowSuccession {
 		return
 	}
-	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl})
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl, Carries: true})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

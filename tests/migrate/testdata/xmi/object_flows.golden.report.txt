@@ -1,0 +1,132 @@
+# SysML v1 to v2 migration report: object_flows.xmi
+# migrated 126 element(s): 124 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+OpaqueAction	Pipeline::Count::step	_cs	-> 'step'	(the JavaScript body is translated to v2; several edges leave the node, which a fork fork carries)
+OpaqueAction	Pipeline::Pair::keep	_pc	-> keep	(the body is kept as a comment: the body is empty)
+
+## mapped (124)
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Pipeline	_pipe	-> Pipeline
+Activity	Pipeline::Count	_count	-> Pipeline::count	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Count::<ActivityFinalNode>	_cf	-> final
+ControlFlow	Pipeline::Count::<ControlFlow>	_ce2
+ControlFlow	Pipeline::Count::<ControlFlow>	_ce3	(the JavaScript body is translated to v2)
+ControlFlow	Pipeline::Count::<ControlFlow>	_ce4
+FlowFinalNode	Pipeline::Count::<FlowFinalNode>	_cff	-> done	(a flow final ends the token, as done does)
+InitialNode	Pipeline::Count::<InitialNode>	_ci	-> start
+ObjectFlow	Pipeline::Count::<ObjectFlow>	_co3	(the JavaScript body is translated to v2)
+ObjectFlow	Pipeline::Count::<ObjectFlow>	_co1
+ObjectFlow	Pipeline::Count::<ObjectFlow>	_co2
+MergeNode	Pipeline::Count::again	_cmerge	-> again
+DecisionNode	Pipeline::Count::done yet	_cdec	-> 'done yet'
+InputPin	Pipeline::Count::step::x	_csx	-> Pipeline::count::'step'.x
+OutputPin	Pipeline::Count::step::y	_csy	-> Pipeline::count::'step'.y
+OpaqueAction	Pipeline::Count::zero	_cz	-> zero	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Count::zero::y	_czy	-> Pipeline::count::zero.y
+Activity	Pipeline::Either	_either	-> Pipeline::either	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Either::<ActivityFinalNode>	_ef	-> final
+ControlFlow	Pipeline::Either::<ControlFlow>	_ee2	(the JavaScript body is translated to v2)
+ControlFlow	Pipeline::Either::<ControlFlow>	_ee3	(the JavaScript body is translated to v2)
+ControlFlow	Pipeline::Either::<ControlFlow>	_ee4
+InitialNode	Pipeline::Either::<InitialNode>	_ei	-> start
+ObjectFlow	Pipeline::Either::<ObjectFlow>	_eo1
+ObjectFlow	Pipeline::Either::<ObjectFlow>	_eo2
+ObjectFlow	Pipeline::Either::<ObjectFlow>	_eo3
+OpaqueAction	Pipeline::Either::consume	_ec	-> consume	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Either::consume::v	_ecv	-> Pipeline::either::consume.v
+OpaqueAction	Pipeline::Either::high	_ehi	-> high	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Either::high::y	_ehiy	-> Pipeline::either::high.y
+OpaqueAction	Pipeline::Either::low	_elo	-> low	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Either::low::y	_eloy	-> Pipeline::either::low.y
+MergeNode	Pipeline::Either::pick	_emerge	-> pick
+DecisionNode	Pipeline::Either::which	_edec	-> which
+Activity	Pipeline::Fan	_fan	-> Pipeline::fan	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+InitialNode	Pipeline::Fan::<InitialNode>	_fi	-> start
+ObjectFlow	Pipeline::Fan::<ObjectFlow>	_fo1
+ObjectFlow	Pipeline::Fan::<ObjectFlow>	_fo2
+OpaqueAction	Pipeline::Fan::left	_fa	-> left	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Fan::left::v	_fav	-> Pipeline::fan::left.v
+OpaqueAction	Pipeline::Fan::produce	_fp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Fan::produce::y	_fpy	-> Pipeline::fan::produce.y
+OpaqueAction	Pipeline::Fan::right	_fb	-> right	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Fan::right::v	_fbv	-> Pipeline::fan::right.v
+Activity	Pipeline::Gate	_gate	-> Pipeline::gate	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Gate::<ActivityFinalNode>	_gf	-> final
+ControlFlow	Pipeline::Gate::<ControlFlow>	_ge2
+InitialNode	Pipeline::Gate::<InitialNode>	_gi	-> start
+ObjectFlow	Pipeline::Gate::<ObjectFlow>	_go1	-> Pipeline::gate::'produce.y to consume.v'	(the JavaScript body is translated to v2)
+OpaqueAction	Pipeline::Gate::consume	_gc	-> consume	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Gate::consume::v	_gcv	-> Pipeline::gate::consume.v
+OpaqueAction	Pipeline::Gate::produce	_gp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Gate::produce::y	_gpy	-> Pipeline::gate::produce.y
+Activity	Pipeline::Hold	_hold	-> Pipeline::hold	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Hold::<ActivityFinalNode>	_hf	-> final
+ControlFlow	Pipeline::Hold::<ControlFlow>	_he2
+ControlFlow	Pipeline::Hold::<ControlFlow>	_he3
+ControlFlow	Pipeline::Hold::<ControlFlow>	_he4
+ControlFlow	Pipeline::Hold::<ControlFlow>	_he5
+InitialNode	Pipeline::Hold::<InitialNode>	_hi	-> start
+ObjectFlow	Pipeline::Hold::<ObjectFlow>	_ho1
+ObjectFlow	Pipeline::Hold::<ObjectFlow>	_ho2
+OpaqueAction	Pipeline::Hold::consume	_hc	-> consume	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Hold::consume::v	_hcv	-> Pipeline::hold::consume.v
+OpaqueAction	Pipeline::Hold::produce	_hp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Hold::produce::y	_hpy	-> Pipeline::hold::produce.y
+JoinNode	Pipeline::Hold::ready	_hjoin	-> ready
+ForkNode	Pipeline::Hold::start both	_hfork	-> 'start both'
+OpaqueAction	Pipeline::Hold::warm	_hw	-> warm	(the JavaScript body is translated to v2)
+Activity	Pipeline::Pair	_pair	-> Pipeline::Pair
+ControlFlow	Pipeline::Pair::<ControlFlow>	_pe2
+ControlFlow	Pipeline::Pair::<ControlFlow>	_pe3
+InitialNode	Pipeline::Pair::<InitialNode>	_pi	-> start
+ObjectFlow	Pipeline::Pair::<ObjectFlow>	_po1
+ObjectFlow	Pipeline::Pair::<ObjectFlow>	_po2
+ObjectFlow	Pipeline::Pair::<ObjectFlow>	_po3
+ForkNode	Pipeline::Pair::both	_pfk	-> both
+JoinNode	Pipeline::Pair::gather	_pj	-> gather
+OpaqueAction	Pipeline::Pair::high	_ph	-> high	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Pair::high::y	_phy	-> Pipeline::Pair::high.y
+InputPin	Pipeline::Pair::keep::v	_pcv	-> Pipeline::Pair::keep.v
+OpaqueAction	Pipeline::Pair::low	_pl	-> low	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Pair::low::y	_ply	-> Pipeline::Pair::low.y
+Activity	Pipeline::Relay	_relay	-> Pipeline::relay	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Relay::<ActivityFinalNode>	_rf	-> final
+ControlFlow	Pipeline::Relay::<ControlFlow>	_re2
+InitialNode	Pipeline::Relay::<InitialNode>	_ri	-> start
+ObjectFlow	Pipeline::Relay::<ObjectFlow>	_ro1
+OpaqueAction	Pipeline::Relay::consume	_rc	-> consume	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Relay::consume::v	_rcv	-> Pipeline::relay::consume.v
+OpaqueAction	Pipeline::Relay::produce	_rp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Relay::produce::y	_rpy	-> Pipeline::relay::produce.y
+Activity	Pipeline::Sink	_sink	-> Pipeline::Sink
+Parameter	Pipeline::Sink::v	_sinkp	-> Pipeline::Sink::v
+Activity	Pipeline::Spread	_spread	-> Pipeline::spread	(written as an action usage of Pipeline, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityFinalNode	Pipeline::Spread::<ActivityFinalNode>	_sf	-> final
+ControlFlow	Pipeline::Spread::<ControlFlow>	_se2
+ControlFlow	Pipeline::Spread::<ControlFlow>	_se3
+ControlFlow	Pipeline::Spread::<ControlFlow>	_se4
+InitialNode	Pipeline::Spread::<InitialNode>	_si	-> start
+ObjectFlow	Pipeline::Spread::<ObjectFlow>	_so1
+ObjectFlow	Pipeline::Spread::<ObjectFlow>	_so2
+ObjectFlow	Pipeline::Spread::<ObjectFlow>	_so3
+JoinNode	Pipeline::Spread::both	_sjoin	-> both
+ForkNode	Pipeline::Spread::copy	_sfork	-> copy
+OpaqueAction	Pipeline::Spread::left	_sa	-> left	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Spread::left::v	_sav	-> Pipeline::spread::left.v
+OpaqueAction	Pipeline::Spread::produce	_sp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Spread::produce::y	_spy	-> Pipeline::spread::produce.y
+OpaqueAction	Pipeline::Spread::right	_sb	-> right	(the JavaScript body is translated to v2)
+InputPin	Pipeline::Spread::right::v	_sbv	-> Pipeline::spread::right.v
+Activity	Pipeline::Stream	_stream	-> Pipeline::Stream	(acts on its owner Pipeline, which it takes as its parameter context, since its this is the def's own occurrence)
+ControlFlow	Pipeline::Stream::<ControlFlow>	_te2
+InitialNode	Pipeline::Stream::<InitialNode>	_ti	-> start
+ObjectFlow	Pipeline::Stream::<ObjectFlow>	_to1	(the action waits for the value as well as for the control flow into it, as its pin did)
+CallBehaviorAction	Pipeline::Stream::feed	_tc	-> feed
+InputPin	Pipeline::Stream::feed::v	_tcv	-> Pipeline::Stream::feed.v	(the pin stands for the parameter v of the definition, which the flows name)
+OpaqueAction	Pipeline::Stream::produce	_tp	-> produce	(the JavaScript body is translated to v2)
+OutputPin	Pipeline::Stream::produce::y	_tpy	-> Pipeline::Stream::produce.y
+Property	Pipeline::a	_a	-> Pipeline::a
+Property	Pipeline::b	_b	-> Pipeline::b
+Property	Pipeline::n	_n	-> Pipeline::n
+Property	Pipeline::on	_on	-> Pipeline::on

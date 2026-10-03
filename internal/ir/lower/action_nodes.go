@@ -31,6 +31,17 @@ func ActionEndpointAccepted(nodes []ast.Node, hasInitial bool, ref ast.Node, sou
 	return impliedMarker(ast.SimpleName(ref), source, !hasInitial)
 }
 
+// GatedFlowAccepted reports whether a succession from sourceRef may lead to flow: a
+// succession flow leaving the node sourceRef names, whose delivery the succession gates.
+func GatedFlowAccepted(nodes []ast.Node, sourceRef ast.Node, flow *ast.Usage) bool {
+	if flow == nil || !flow.IsSuccessionFlow() || flow.FlowEnds == nil {
+		return false
+	}
+	source := findNodeByReference(nodes, sourceRef)
+	segments := endSegments(flow.FlowEnds.From)
+	return source != nil && len(segments) > 0 && nodeAnswering(nodes, segments[0]) == source
+}
+
 func impliedMarker(name string, source, noInitial bool) bool {
 	return (source && noInitial && name == "start") || (!source && name == "done")
 }
@@ -107,6 +118,7 @@ func collectActionNodesWithAncestors(
 		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 			graph.Nodes = append(graph.Nodes, n)
 			lowerNodeBody(graph, n, ast.NodeBodyMembers(n), scope)
+			lowerControlFeatures(graph, n, scope)
 		case *ast.Usage:
 			switch {
 			case n.Kind == ast.UsageAction:
@@ -218,6 +230,7 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
+		lowerControlFeatures(graph, n, declaringScope)
 	case *ast.PerformActionNode:
 		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
