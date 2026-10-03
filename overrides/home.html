@@ -5,6 +5,28 @@
 
 {% block extrahead %}
   {{ super() }}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "OpenSysML",
+    "url": "https://opensysml.org/",
+    "description": "A SysML v2 and KerML implementation in Go — language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients",
+    "publisher": {
+      "@type": "Organization",
+      "name": "OpenMBEE",
+      "url": "https://www.openmbee.org"
+    },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://opensysml.org/?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
   <style>
     :root {
       --osml-hero-from: #1a237e;
