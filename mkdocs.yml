@@ -66,6 +66,7 @@ plugins:
   - redirects:
       redirect_maps:
         guide/09-python.md: guide/09-clients.md
+        ecosystem.md: README.md
 
 not_in_nav: |
   guide/09-python.md
@@ -191,7 +192,6 @@ nav:
   - Clients: clients.md
   - Community: community.md
   - Downloads: downloads.md
-  - Ecosystem: ecosystem.md
   - Guide:
       - guide/README.md
       - guide/01-install.md
