@@ -302,7 +302,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 
 	got := check(t, binary, model, slices.Concat([]string{"-engine", "check"}, invocation, []string{"-check-diverge", "Plant::spare.level", "-check-witness", dir})...)
 	wantReport(t, got, 1, "divergent: Plant::spare.level ends as 1 or 2",
-		"Plant::spare.level = 1 (witness "+name(1)+")", "Plant::spare.level = 2 (witness "+name(2)+")", "witness of 3 choices replayed)")
+		"Plant::spare.level = 1 (witness "+name(1)+")", "Plant::spare.level = 2 (witness "+name(2)+")", "witness of 6 choices replayed)")
 	// The spare's fill runs first, so its step 3 is the first: `b` first leaves level 1, `a` first 2.
 	for _, c := range []struct {
 		n     int
@@ -314,7 +314,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !strings.HasPrefix(string(content), "object #1 = Plant::tank#1\nobject #2 = Plant::spare#1\n"+
-			"t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\nstep 3: "+c.took+" first of 2@a, 3@b\n") {
+			strings.Repeat("t=0.0: action fill of object #2 first of action fill of object #1, action fill of object #2\n", 2)+"step 3: "+c.took+" first of 2@a, 3@b\n") {
 			t.Errorf("witness %d, spare.level = %s:\n%s", c.n, c.level, content)
 		}
 		// The run makes the spare's performance after the tank's: the spare is object #3 here.
@@ -505,13 +505,13 @@ func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
 
 	// Named apart, each behavior is its own search; the action's clock runs to its end.
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow),
-		1, "✗ Action Shine::Lamp::peek: divergent (10 states, 9 moves, depth 5)", "divergent: saw ends as false or true",
+		1, "✗ Action Shine::Lamp::peek: divergent (9 states, 8 moves, depth 5)", "divergent: saw ends as false or true",
 		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)")
 
 	// With -advance they are one invocation: the machine's timer and the action's
 	// wait are due together, and the order the search draws decides what peek saw.
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
-	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
 		"divergent: Shine::Lamp::peek.saw ends as false or true",
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`)
@@ -556,7 +556,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3", "-check-witness", dir)
 	wantReport(t, got, 1, "divergent: Shine::Lamp::peek.saw ends as false or true",
 		"Shine::Lamp::peek.saw = false (witness "+name(1)+")", "Shine::Lamp::peek.saw = true (witness "+name(2)+")",
-		"standing: sensitive (witnessed: 10 states, 9 moves searched, witness of 1 choice replayed)")
+		"standing: sensitive (witnessed: 9 states, 8 moves searched, witness of 2 choices replayed)")
 
 	for _, c := range []struct {
 		n     int
@@ -570,7 +570,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
+		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: action peek of object #1 first of action peek of object #1, state machine glow of object #1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
 			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}

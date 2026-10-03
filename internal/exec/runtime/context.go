@@ -271,6 +271,9 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// futures memoizes what each executor on the clock may still touch, for
+	// telling the turns whose moves interleave.
+	futures *futureFootprints
 	// work counts the changes that can leave an attached behavior holding work;
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64

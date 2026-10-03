@@ -146,6 +146,8 @@ type Model struct {
 	// machine judges every message in flight against every trigger it holds each step.
 	triggerTypes  map[triggerTypeKey]*symbols.Symbol
 	signalMatches map[signalMatchKey]bool
+	// conformers memoizes, by an accept type's declaration, what may carry it.
+	conformers map[ast.Node]*signalConformers
 
 	// sources holds the text of the files the model was read from, by name, so an
 	// error about a declaration can say where it was written. A file no caller
@@ -277,6 +279,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.scopes = append(m.scopes, scope)
 	m.declared = nil
 	m.census = nil
+	m.conformers = nil
 }
 
 // declaredSymbol is the symbol a registered scope tree declares for the

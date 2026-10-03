@@ -32,7 +32,7 @@ func TestEngineCheckSearchesStateMachines(t *testing.T) {
 	if len(verdicts) != 1 {
 		t.Fatalf("verdicts = %+v, want one for the invocation", verdicts)
 	}
-	wantVerdict(t, verdicts[0], VerdictFails, "✗ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+	wantVerdict(t, verdicts[0], VerdictFails, "✗ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
 		"divergent: Shared::Lamp::peek.saw ends as false or true",
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false`,
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true`)
@@ -82,7 +82,7 @@ func TestReplayStepsBehaviorsOnOneClock(t *testing.T) {
 		run(t, s, "%instantiate Shared::Lamp")
 		wants(t, run(t, s, "%action Shared::Lamp::peek Shared::Lamp"), "Started action executor")
 		wants(t, run(t, s, "%state Shared::Lamp::glow Shared::Lamp"), "Current state: off")
-		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "1 choice point")
+		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "2 choice points")
 	}
 }
 
