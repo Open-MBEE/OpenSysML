@@ -183,7 +183,7 @@ func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {
 func lowerableActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || IsCaseNode(n)
+		return n.Kind == ast.UsageAction || IsCaseNode(n) || resolve.IsAssertion(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode,
 		*ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
 		*ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,

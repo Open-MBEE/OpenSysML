@@ -94,13 +94,17 @@ func TestActionFramePinsDeclared(t *testing.T) {
 	}
 }
 
-// A usage takes its frame pins from its type, as a nested node takes its pins
-// from the action it performs, and its own nodes bind to them.
+// A typed usage's inherited nodes keep their bindings to its frame pins, beside
+// bindings from nodes the usage declares itself.
 func TestActionFramePinsInheritedByUsage(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::toaster")
 	wantNoNotices(t, rendering)
 	wantEqual(t, "frame pins", pinTexts(rendering.Roots[0]), []string{"in bread", "out toast"})
-	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{"Pins::toaster.bread == heat2.b", "pack.boxed == Pins::toaster.toast"})
+	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{
+		"Pins::toaster.bread == heat2.b", "Pins::toaster.bread == heat.b", "pack.boxed == Pins::toaster.toast",
+	})
+	wantEqual(t, "flows", edgeTexts(rendering, EdgeFlow), []string{"heat.t => pack.t"})
+	wantEdgeEndsDrawn(t, rendering)
 }
 
 // The other spellings bind the same way: a qualified value (`in b =
@@ -160,13 +164,16 @@ func TestActionBindingShadowedParameterDrawsNothing(t *testing.T) {
 	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), nil)
 }
 
-// A specializing action definition takes its frame pins from its general, as
-// a usage does from its type, and its own node binds to one.
+// A specialization keeps its general's inherited node bindings to frame pins
+// and adds bindings from nodes it declares itself.
 func TestActionFramePinsInheritedBySpecialization(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::Specialized")
 	wantNoNotices(t, rendering)
 	wantEqual(t, "frame pins", pinTexts(rendering.Roots[0]), []string{"in bread", "out toast"})
-	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{"Pins::Specialized.bread == heat2.b", "pack.boxed == Pins::Specialized.toast"})
+	wantEqual(t, "bindings", edgeTexts(rendering, EdgeBinding), []string{
+		"Pins::Specialized.bread == heat2.b", "Pins::Specialized.bread == heat.b", "pack.boxed == Pins::Specialized.toast",
+	})
+	wantEqual(t, "flows", edgeTexts(rendering, EdgeFlow), []string{"heat.t => pack.t"})
 	wantEdgeEndsDrawn(t, rendering)
 }
 

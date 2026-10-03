@@ -29,6 +29,31 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("inherited_sequenced_assertion_violation", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def G {
+				attribute level : Integer = 0;
+				action raise { assign level := 3; }
+				assert constraint raised { level == 4 }
+				action lower { assign level := 1; }
+				first start then raise;
+				first raise then raised;
+				first raised then lower;
+				first lower then done;
+			}
+			action def S :> G;
+		}`, "S")
+		var violation *ViolationError
+		if !errors.As(err, &violation) || violation.Element != "raised" ||
+			violation.Condition != "level == 4" || !errors.Is(err, ErrViolated) {
+			t.Fatalf("ExecuteAction error = %v, want inherited assertion raised violated", err)
+		}
+		if outputs != nil {
+			t.Fatalf("outputs = %v, want none from a failed run", outputs)
+		}
+	})
+
 	t.Run("recursive_typed_action_body", func(t *testing.T) {
 		_, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

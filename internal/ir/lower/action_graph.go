@@ -839,7 +839,6 @@ func lowerActionFlowWithTypingAndAncestors(
 	if err != nil {
 		return graph, err
 	}
-	lowerValueBindings(graph)
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
@@ -854,6 +853,7 @@ func lowerActionFlowWithTypingAndAncestors(
 	if err := lowerInheritedPinConnections(graph, generals); err != nil {
 		return graph, err
 	}
+	lowerValueBindings(graph)
 	if err := checkProbabilities(graph); err != nil {
 		return graph, err
 	}
