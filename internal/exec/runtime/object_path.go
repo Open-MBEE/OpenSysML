@@ -48,6 +48,9 @@ func (ctx *Context) rankedRootPath(inst *Instance) string {
 // collection does not hold it.
 func (ctx *Context) memberIndex(collection Value, id int64) int {
 	holds := func(v Value) bool { return v.Kind == ValInstance && v.Instance == id }
+	if seq := requiredTail(collection); seq != nil {
+		return memberPosition(seq, id)
+	}
 	if collection.Kind != ValSet {
 		return slices.IndexFunc(elementsOf(collection), holds)
 	}
@@ -158,11 +161,14 @@ func (ctx *Context) heldAt(holder *Instance, segment string) (*Instance, error) 
 		return nil, fmt.Errorf("%s holds a collection; index it", feature)
 	}
 	if fv.Values.Kind != ValSet {
-		elements := elementsOf(fv.Values)
-		if index >= len(elements) {
-			return nil, fmt.Errorf("%s holds %d values", feature, len(elements))
+		if n := ElementCount(fv.Values); int64(index) >= n {
+			return nil, fmt.Errorf("%s holds %d values", feature, n)
 		}
-		return ctx.heldObject(elements[index])
+		element, err := ctx.ElementAt(fv.Values, index)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.heldObject(element)
 	}
 	members := setMembers(fv.Values)
 	inst := ctx.rankedAmong(index, func(other *Instance) bool { return members[other.ID] })

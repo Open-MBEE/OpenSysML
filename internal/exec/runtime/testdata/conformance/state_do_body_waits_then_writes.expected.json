@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "libraries": true,
+  "finalState": "s",
+  "stateVisits": [
+    "s"
+  ],
+  "outputs": {
+    "c": {
+      "type": "Integer",
+      "value": 2
+    }
+  },
+  "trace": true
+}

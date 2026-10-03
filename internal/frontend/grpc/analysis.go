@@ -266,8 +266,8 @@ func (v *verifyContext) namedInstances(val runtime.Value) []*runtime.Instance {
 	var elements []runtime.Value
 	switch val.Kind {
 	case runtime.ValSequence:
-		if seq := val.Sequence(); seq != nil {
-			elements = seq.Elements()
+		if val.Sequence() != nil {
+			_, elements = v.runtime.MadeElements(val)
 		}
 	case runtime.ValSet:
 		if set := val.Set(); set != nil {
