@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -353,7 +354,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				lazy = false
 				break
 			}
-			if member != earliest && ctx.extractType(member) != ctx.extractType(earliest) {
+			if member != earliest && !ctx.classifiesAlike(member, earliest) {
 				lazy = false
 				break
 			}
@@ -469,16 +470,35 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if len(class.bindings) > 0 {
 			text = ctx.bindingText(class.bindings[0])
 		}
+		// A value the class took can end in required members its source holds
+		// lazily: each member shares them through the tail recorded for it, so
+		// its occurrences see every object the value denotes. The tail belongs
+		// to the source's population, so a failure only undoes these records.
+		var recorded []*symbols.Symbol
+		fail := func(err error) ([]*Instance, bool, error) {
+			for _, member := range recorded {
+				delete(ctx.occurrenceTails, member)
+			}
+			return nil, true, err
+		}
 		for _, member := range class.members {
 			if seen[member] {
+				if seq := requiredTail(val); seq != nil && ctx.occurrenceTails[member] == nil {
+					ctx.recordOccurrenceTail(member, seq.required)
+					recorded = append(recorded, member)
+				}
 				continue
 			}
 			ec := NewEvalContext(ctx, member.OwnerScope)
 			v, err := ec.conformDeclared(member, val)
 			if err != nil {
-				return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err)
+				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
 			}
 			ctx.occurrences[member] = boundPrefixObjects(v)
+			if seq := requiredTail(v); seq != nil {
+				ctx.recordOccurrenceTail(member, seq.required)
+				recorded = append(recorded, member)
+			}
 			ctx.bindNamespace(member, v)
 		}
 	}
@@ -489,6 +509,25 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		return live, true, nil
 	}
 	return nil, true, nil
+}
+
+// classifiesAlike reports whether member classifies the class's shared objects as
+// earliest does: the same type, no members of its own to confer, and no
+// relationship but typing — anything else the eager path classifies objects by.
+func (ctx *Context) classifiesAlike(member, earliest *symbols.Symbol) bool {
+	if ctx.extractType(member) != ctx.extractType(earliest) {
+		return false
+	}
+	if member.Scope != nil && len(member.Scope.Members()) > 0 {
+		return false
+	}
+	for _, rel := range semantics.RelationshipsOf(member) {
+		if rel == nil || rel.Kind == ast.RelTyping {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // boundPrefixObjects is the made objects a binding's value denotes as the positions

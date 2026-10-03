@@ -898,4 +898,67 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("a member declaring its own features keeps the class eager", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			private import BaseFunctions::*;
+			part def Car;
+			part a : Car[2000];
+			part b : Car[2000] { attribute label : String = "ready"; }
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		for _, src := range []string{`b#(1).label == "ready"`, `a#(1).label == "ready"`} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(got), err)
+			}
+		}
+	})
+
+	t.Run("a tailed source value shares its population with every member", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			private import BaseFunctions::*;
+			part def Car;
+			part c : Car[2000];
+			part a : Car[2000] = c;
+			part b : Car[2000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		first, err := evalIn(t, ctx, pkg.Scope, "c#(1)")
+		if err != nil {
+			t.Fatalf("c#(1): %v", err)
+		}
+		for _, src := range []string{"size(a)", "size(b)"} {
+			v, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(v) != "2000" {
+				t.Fatalf("%s = %s, %v; want 2000", src, FormatValue(v), err)
+			}
+		}
+		for _, src := range []string{"b#(1) === c#(1)", "a#(1) === c#(1)"} {
+			v, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(v) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(v), err)
+			}
+		}
+		bSym := resolveSymbol(t, pkg.Scope, "b")
+		objs, err := ctx.denotedObjects(bSym)
+		if err != nil {
+			t.Fatalf("denotedObjects(b): %v", err)
+		}
+		if len(objs) != 2000 {
+			t.Fatalf("denotedObjects(b) = %d objects, want 2000", len(objs))
+		}
+		if !containsInstance(objs, first.Instance) {
+			t.Fatalf("denotedObjects(b) misses object #%d (c#(1))", first.Instance)
+		}
+	})
 }
