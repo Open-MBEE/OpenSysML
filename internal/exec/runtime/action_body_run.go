@@ -343,7 +343,9 @@ type statementWork struct {
 	token int64
 	frame *actionFrame
 	node  ast.Node
-	done  bool
+	// step is the node's performance, owning the nodes its body performs.
+	step *actionFrame
+	done bool
 }
 
 func (w *statementWork) clone() bodyWork { c := *w; return &c }
@@ -351,9 +353,10 @@ func (w *statementWork) clone() bodyWork { c := *w; return &c }
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
-		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
+		if err := e.executeStatementBody(w.step, w.frame.graph); err != nil {
 			return err
 		}
+		w.step.ended = true
 		w.done = true
 	}
 	idx, err := e.workToken(w.token)
