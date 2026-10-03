@@ -178,13 +178,14 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 			return nil, 0, 0, fmt.Errorf("%s: %s is a library element, which an import does not change", row.Where, row.Element)
 		}
 		elements[t.fqn] = true
-		owner := idx.GetFQN(t.anchor)
+		owner := source.QualifiedNameOf(symbols.NameChain(t.anchor))
+		path := idx.GetFQN(t.anchor)
 		for _, via := range t.via {
-			path := owner + "::" + via.Name
+			path += "::" + via.Name
 			if !redefined[path] {
 				kind, ok := redefinitionKeyword(via.Kind)
 				if !ok {
-					return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, owner, via.Name, via.Kind)
+					return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, strings.TrimSuffix(path, "::"+via.Name), via.Name, via.Kind)
 				}
 				op := sedit.AddMember(owner, kind, "")
 				op.Redefines = []string{source.NameText(via.Name)}
@@ -195,14 +196,14 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 				})
 				redefined[path] = true
 			}
-			owner = path
+			owner += "::" + source.NameText(via.Name)
 		}
 		for _, cell := range row.Cells {
 			if first, ok := assigned[[2]string{t.fqn, cell.Feature}]; ok {
 				return nil, 0, 0, fmt.Errorf("%s: %s::%s is already set at %s", cell.Where, t.fqn, cell.Feature, first)
 			}
 			assigned[[2]string{t.fqn, cell.Feature}] = cell.Where
-			feat, declared := importFeature(sem, t.sym, cell.Feature)
+			feat, declared := importFeature(sem, resolver, t.sym, cell.Feature)
 			if feat == nil {
 				return nil, 0, 0, fmt.Errorf("%s: %s has no feature named %s", cell.Where, t.fqn, cell.Feature)
 			}
@@ -212,7 +213,7 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 			if err != nil {
 				return nil, 0, 0, fmt.Errorf("%s: %w", cell.Where, err)
 			}
-			if class == ingest.ClassEnum && len(idx.LookupQualified(value)) == 0 {
+			if class == ingest.ClassEnum && !importEnumValue(idx, enum, value) {
 				return nil, 0, 0, fmt.Errorf("%s: %s is not a value of %s", cell.Where, strings.TrimSpace(cell.Text), enum)
 			}
 			if err := importDimension(sem, t.sym, feat, cell, value); err != nil {
@@ -222,7 +223,7 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 			if declared {
 				target := idx.GetFQN(feat)
 				ops = append(ops, importOp{
-					op: sedit.SetValue(target, value), where: cell.Where,
+					op: sedit.SetValue(source.QualifiedNameOf(symbols.NameChain(feat)), value), where: cell.Where,
 					desc: target + " = " + value, doc: feat.DocName, at: feat.DeclSpan.Offset,
 				})
 				continue
@@ -270,7 +271,7 @@ func importTargetOf(idx *symbols.Index, resolver *resolve.Resolver, sem *semanti
 		sym := resolver.AliasedElement(syms[0])
 		t := importTarget{sym: sym, fqn: idx.GetFQN(sym), anchor: sym}
 		for _, seg := range segs[n:] {
-			feat, declared := importFeature(sem, t.sym, seg)
+			feat, declared := importFeature(sem, resolver, t.sym, seg)
 			switch {
 			case feat == nil:
 				return importTarget{}, fmt.Errorf("no element named %s: %s has no member named %s", name, t.fqn, seg)
@@ -308,13 +309,9 @@ func importDimension(sem *semantics.Model, elem, feat *symbols.Symbol, cell inge
 }
 
 // importFeature is the feature named name that elem declares, else the one it
-// inherits from its types and supertypes; declared reports which.
-func importFeature(sem *semantics.Model, elem *symbols.Symbol, name string) (feat *symbols.Symbol, declared bool) {
-	if elem.Scope != nil {
-		if m, ok := elem.Scope.LookupLocal(name); ok && m.IsFeature() && m.OwnerScope == elem.Scope {
-			return m, true
-		}
-	}
+// inherits from its types and supertypes; declared reports which. An alias
+// there stands for the feature it names, when that is one of elem's own.
+func importFeature(sem *semantics.Model, resolver *resolve.Resolver, elem *symbols.Symbol, name string) (feat *symbols.Symbol, declared bool) {
 	supers := sem.AllSupertypes(elem)
 	if elem.IsFeature() {
 		for _, t := range sem.FeatureTypes(elem) {
@@ -322,15 +319,60 @@ func importFeature(sem *semantics.Model, elem *symbols.Symbol, name string) (fea
 			supers = append(supers, sem.AllSupertypes(t)...)
 		}
 	}
+	member := func(scope *symbols.Scope, local bool) (*symbols.Symbol, bool) {
+		m, ok := scope.LookupLocal(name)
+		if !ok {
+			return nil, false
+		}
+		if m.Kind == symbols.SymbolAlias {
+			m = resolver.AliasedElement(m)
+			if !m.IsFeature() {
+				return nil, false
+			}
+			if m.OwnerScope == elem.Scope {
+				return m, true
+			}
+			for _, sup := range supers {
+				if sup.Scope != nil && m.OwnerScope == sup.Scope {
+					return m, false
+				}
+			}
+			return nil, false
+		}
+		if !m.IsFeature() || (local && m.OwnerScope != elem.Scope) {
+			return nil, false
+		}
+		return m, local
+	}
+	if elem.Scope != nil {
+		if m, local := member(elem.Scope, true); m != nil {
+			return m, local
+		}
+	}
 	for _, sup := range supers {
 		if sup.Scope == nil {
 			continue
 		}
-		if m, ok := sup.Scope.LookupLocal(name); ok && m.IsFeature() {
+		if m, _ := member(sup.Scope, false); m != nil {
 			return m, false
 		}
 	}
 	return nil, false
+}
+
+// importEnumValue reports whether value, an enumeration literal as notation
+// spells it, is one of enum's.
+func importEnumValue(idx *symbols.Index, enum, value string) bool {
+	names, ok := source.QualifiedNameSegments(value)
+	if !ok {
+		return false
+	}
+	for _, sym := range idx.LookupQualified(strings.Join(names, "::")) {
+		if sym.OwnerScope != nil && idx.GetFQN(sym.OwnerScope.Owner()) == enum {
+			return true
+		}
+	}
+	return false
 }
 
 // importClass is the kind of value feat's types admit, and the enumeration

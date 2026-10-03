@@ -139,3 +139,34 @@ func TestImportReachesInheritedFeatures(t *testing.T) {
 		t.Errorf("a refused import changed the model:\n%s", s.text())
 	}
 }
+
+func TestImportReachesInheritedAliasesAndQuotedNames(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package 'Fleet A' {
+	private import ScalarValues::*;
+	enum def Health { enum healthy; enum degraded; }
+	part def Motor { attribute power : Real; attribute health : Health; }
+	part def Car {
+		part engine : Motor;
+		part 'drive::motor' : Motor;
+		alias motor for engine;
+	}
+	part car : Car;
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	path := writeData(t, "cars.csv", "element,power,health\n"+
+		"'Fleet A'::car::motor,90,healthy\n"+
+		"'Fleet A'::car::'drive::motor',45,degraded\n")
+	wants(t, run(t, s, "%import "+path), "✓ imported 4 values into 2 elements")
+	wants(t, s.text(), "part :>> engine {", "attribute :>> power = 90;",
+		"part :>> 'drive::motor' {", "attribute :>> health = 'Fleet A'::Health::degraded;")
+	wants(t, run(t, s, "%eval 'Fleet A'::car::engine::power"), "90")
+	wants(t, run(t, s, "%eval 'Fleet A'::car::'drive::motor'::power"), "45")
+	before := s.text()
+	path = writeData(t, "bad.csv", "element,health\n'Fleet A'::car::motor,broken\n")
+	wants(t, run(t, s, "%import "+path), "broken is not a value of Fleet A::Health")
+	if s.text() != before {
+		t.Errorf("a refused import changed the model:\n%s", s.text())
+	}
+}
