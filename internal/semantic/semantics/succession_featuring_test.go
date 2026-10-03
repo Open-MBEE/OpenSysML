@@ -64,6 +64,46 @@ func TestBehaviorSuccessionFeaturingType(t *testing.T) {
 	}
 }
 
+func TestTypeOwnedBehaviorSuccessionFeaturingType(t *testing.T) {
+	model, root := buildModel(t, `part def A { action a; }
+		part def B { action b; }
+		part def C { first A::a then B::b; }
+		part def D :> A { action d; first a then d; }`)
+	tests := []struct {
+		owner, earlier, later string
+		wantOK                bool
+	}{
+		{owner: "C", earlier: "A::a", later: "B::b"},
+		{owner: "D", earlier: "a", later: "d", wantOK: true},
+	}
+	for _, test := range tests {
+		t.Run(test.owner, func(t *testing.T) {
+			owner := sym(t, root, test.owner)
+			members := owner.Decl.(*ast.Definition).Members
+			decls := model.DeclaredSuccessions(owner.Scope, owner, members)
+			var found *ActionSuccession
+			for i := range decls {
+				if successionEndText(decls[i].Decl, 0) == test.earlier &&
+					successionEndText(decls[i].Decl, 1) == test.later {
+					found = &decls[i]
+					break
+				}
+			}
+			if found == nil {
+				t.Fatalf("succession %q then %q not found", test.earlier, test.later)
+			}
+			left := model.SuccessionEndPath(owner.Scope, owner, successionSyntaxEnd(found.Decl, 0))
+			right := model.SuccessionEndPath(owner.Scope, owner, successionSyntaxEnd(found.Decl, 1))
+			featuring, ok := model.BehaviorSuccessionFeaturingType(
+				owner, [][]*symbols.Symbol{left, right},
+				successionSyntaxEnd(found.Decl, 0), successionSyntaxEnd(found.Decl, 1))
+			if ok != test.wantOK || ok && featuring != owner {
+				t.Fatalf("featuring type = %v, %t; want %v, %t", featuring, ok, owner, test.wantOK)
+			}
+		})
+	}
+}
+
 func successionSyntaxEnd(decl ast.Node, index int) ast.Node {
 	usage := decl.(*ast.Usage)
 	return usage.ConnectorEnds[index]

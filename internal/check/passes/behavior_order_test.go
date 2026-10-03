@@ -35,6 +35,18 @@ func TestBehaviorOrderFeaturingDiagnostics(t *testing.T) {
 	}
 }
 
+func TestBehaviorOrderTypeOwnedFeaturingDiagnostics(t *testing.T) {
+	diags := constraintDiags(t, `part def A { action a; }
+		part def B { action b; }
+		part def C { first A::a then B::b; }
+		part def D :> A { action d; first a then d; }`)
+	featuring := only(diags, "connector-type-featuring")
+	if len(featuring) != 1 || featuring[0].Severity != diag.SeverityError ||
+		featuring[0].Message != msgConnectorTypeFeaturing {
+		t.Fatalf("connector-type-featuring diagnostics = %+v, want only the exact error for C's unrelated end types", featuring)
+	}
+}
+
 func TestBehaviorOrderPartsOnlyHasNoDiagnostic(t *testing.T) {
 	diags := constraintDiags(t, `package P {
 		part a;

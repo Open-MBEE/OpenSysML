@@ -38,10 +38,27 @@ func (m *Model) BehaviorSuccessionOwner(owner *symbols.Symbol) bool {
 // BehaviorSuccessionFeaturingType derives the featuring type of an outside-body succession.
 func (m *Model) BehaviorSuccessionFeaturingType(owner *symbols.Symbol, paths [][]*symbols.Symbol, ends ...ast.Node) (*symbols.Symbol, bool) {
 	if owner != nil && owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace {
-		if m.BehaviorSuccessionOwner(owner) {
-			return owner, true
+		if !m.BehaviorSuccessionOwner(owner) {
+			return nil, false
 		}
-		return nil, false
+		for i, path := range paths {
+			if len(path) == 0 {
+				continue
+			}
+			target := ast.Node(nil)
+			if i < len(ends) {
+				target = ends[i]
+			}
+			featuring := successionEndFeaturingType(path, target)
+			if featuring == nil || featuring.Kind == symbols.SymbolPackage ||
+				featuring.Kind == symbols.SymbolNamespace || IsAnything(featuring) {
+				continue
+			}
+			if !m.Conforms(owner, featuring) {
+				return nil, false
+			}
+		}
+		return owner, true
 	}
 
 	var endTypes []*symbols.Symbol

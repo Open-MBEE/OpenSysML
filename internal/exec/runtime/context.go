@@ -123,7 +123,7 @@ type Context struct {
 	// re-scans its types and must not attach the same member again.
 	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
 
-	// successionOrderNotes deduplicates refused-order notes per order and object.
+	// successionOrderNotes deduplicates succession notes per order and featuring object.
 	successionOrderNotes map[successionOrderNoteKey]bool
 
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
@@ -1844,7 +1844,7 @@ func behaviorUsages(behaviors []*ObjectBehavior) []string {
 
 // exhibitedBy is the machine self exhibits under stateMachine's declaration, to
 // run in place of a second performance of it; nil when self exhibits none.
-func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
+func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior, error) {
 	if self == nil {
 		return nil, nil
 	}
@@ -1852,10 +1852,42 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, 
 	case 0:
 		return nil, nil
 	case 1:
-		return exhibited[0].State, nil
+		return exhibited[0], nil
 	default:
 		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
+}
+
+func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, top bool) (*StateExecutor, bool, error) {
+	behavior, err := exhibitedBy(stateMachine, self)
+	if err != nil {
+		return nil, false, err
+	}
+	if behavior != nil && behavior.State != nil {
+		return behavior.State, true, nil
+	}
+	if behavior != nil && behavior.deferred != nil {
+		if self != nil && !ctx.declarative {
+			if err := ctx.checkSuccessionOrderViolation(self, behavior.member); err != nil {
+				return nil, true, err
+			}
+		}
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return behavior.State, true, err
+		}
+		return behavior.State, true, nil
+	}
+	member := ctx.classifierBehaviorMemberForState(stateMachine, self)
+	if behavior != nil && behavior.member != nil {
+		member = behavior.member
+	}
+	if self != nil && !ctx.declarative && member != nil {
+		if err := ctx.checkSuccessionOrderViolation(self, member); err != nil {
+			return nil, false, err
+		}
+	}
+	exec, err := ctx.startStateRun(stateMachine, self, top)
+	return exec, false, err
 }
 
 // performState runs a state machine performed by self to completion or
@@ -1865,17 +1897,14 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := exhibitedBy(stateMachine, self)
+	exec, reused, err := ctx.stateRunFor(stateMachine, self, top)
 	if err != nil {
+		if exec != nil && !reused {
+			ctx.clock.detach(exec)
+		}
 		return nil, err
 	}
-	if exec == nil {
-		if exec, err = ctx.startStateRun(stateMachine, self, top); err != nil {
-			if exec != nil {
-				ctx.clock.detach(exec)
-			}
-			return nil, err
-		}
+	if !reused {
 		defer ctx.clock.detach(exec)
 	}
 
@@ -1964,9 +1993,9 @@ func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExe
 // CreateStateExecutorFor creates a state executor for a machine performed by
 // self, without starting execution.
 func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
-	exec, err := ctx.startStateRun(stateMachine, self, true)
+	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
 	if err != nil {
-		if exec != nil {
+		if exec != nil && !reused {
 			exec.Release()
 		}
 		return nil, err

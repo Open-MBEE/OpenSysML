@@ -346,6 +346,30 @@ func (ctx *Context) classifierBehaviorMemberForAction(action *symbols.Symbol, se
 	return nil
 }
 
+func (ctx *Context) classifierBehaviorMemberForState(stateMachine *symbols.Symbol, self *Instance) *symbols.Symbol {
+	if stateMachine == nil || self == nil {
+		return nil
+	}
+	for _, typ := range self.types() {
+		for _, decl := range ctx.classifierBehaviorsOf(typ) {
+			if decl.behavior.Kind == lower.ExhibitedState && ctx.ExhibitsState(decl.member, stateMachine) {
+				return decl.member
+			}
+		}
+		for _, member := range ctx.model.semantics.MembersOf(typ) {
+			if member.Decl == nil {
+				continue
+			}
+			behavior, ok := lower.StartableBehaviorOf(member.Decl)
+			if ok && behavior.Kind == lower.ExhibitedState &&
+				(stateMachine == member || ctx.sameFeature(stateMachine, member, typ)) {
+				return member
+			}
+		}
+	}
+	return nil
+}
+
 func (ctx *Context) behaviorOrderBlocks(behavior *ObjectBehavior) []successionOrderBlock {
 	if behavior == nil || behavior.member == nil || ctx.lifeEnded(behavior.Object) {
 		return nil
@@ -361,20 +385,10 @@ func (ctx *Context) behaviorOrderBlocks(behavior *ObjectBehavior) []successionOr
 			continue
 		}
 		for _, instance := range featuring {
-			var predecessors []*ObjectBehavior
-			targets := ctx.orderEndTargetsForOrder(order, order.Earlier, instance)
-			for _, candidate := range ctx.objectBehaviors {
-				if candidate == behavior || candidate.member == nil {
-					continue
-				}
-				if !ctx.behaviorOrderFeatureMatches(candidate.Object, candidate.member, endFeature(order.Earlier)) {
-					continue
-				}
-				if !slices.Contains(targets, candidate.Object) {
-					continue
-				}
-				predecessors = append(predecessors, candidate)
+			if !ctx.laterEndIsUnique(order, instance, nil, nil) {
+				continue
 			}
+			predecessors := ctx.behaviorOrderEndPerformances(order, order.Earlier, instance)
 			key := fmt.Sprintf("%p:%p", order.Decl, instance)
 			if seen[key] {
 				continue
@@ -388,6 +402,51 @@ func (ctx *Context) behaviorOrderBlocks(behavior *ObjectBehavior) []successionOr
 		}
 	}
 	return blocks
+}
+
+func (ctx *Context) behaviorOrderEndPerformances(order lower.BehaviorOrder, end lower.BehaviorOrderEnd, featuring *Instance) []*ObjectBehavior {
+	targets := ctx.orderEndTargetsForOrder(order, end, featuring)
+	var performances []*ObjectBehavior
+	for _, candidate := range ctx.objectBehaviors {
+		if candidate == nil || candidate.member == nil ||
+			!ctx.behaviorOrderFeatureMatches(candidate.Object, candidate.member, endFeature(end)) ||
+			!slices.Contains(targets, candidate.Object) {
+			continue
+		}
+		performances = append(performances, candidate)
+	}
+	return performances
+}
+
+func (ctx *Context) behaviorOrderEndPerformanceCount(
+	order lower.BehaviorOrder, end lower.BehaviorOrderEnd, featuring, starting *Instance, member *symbols.Symbol,
+) int {
+	performances := ctx.behaviorOrderEndPerformances(order, end, featuring)
+	count := len(performances)
+	if starting == nil || member == nil ||
+		!ctx.behaviorOrderFeatureMatches(starting, member, endFeature(end)) {
+		return count
+	}
+	targets := ctx.orderEndTargetsForOrder(order, end, featuring)
+	if !slices.Contains(targets, starting) {
+		return count
+	}
+	for _, behavior := range performances {
+		if behavior.Object == starting && behavior.deferred != nil {
+			return count
+		}
+	}
+	return count + 1
+}
+
+func (ctx *Context) laterEndIsUnique(order lower.BehaviorOrder, featuring, starting *Instance, member *symbols.Symbol) bool {
+	count := ctx.behaviorOrderEndPerformanceCount(order, order.Later, featuring, starting, member)
+	if count == 1 {
+		return true
+	}
+	reason := fmt.Sprintf("%d later-end performances are present in one featuring instance; their pairing is open under KERML-29", count)
+	ctx.noteBehaviorOrderFinding(order, featuring, reason)
+	return false
 }
 
 func endFeature(end lower.BehaviorOrderEnd) *symbols.Symbol {
@@ -429,23 +488,15 @@ func (ctx *Context) noteBehaviorOrderFindings(behavior *ObjectBehavior) {
 	if behavior == nil || behavior.deferred == nil {
 		return
 	}
-	seen := make(map[string]bool)
 	for _, order := range ctx.behaviorOrdersFor(behavior.member, behavior.Object, true) {
 		if order.Refusal != nil {
 			continue
 		}
 		for _, featuring := range ctx.behaviorOrderMatches(behavior.Object, behavior.member, order, order.Later) {
-			var predecessors []*ObjectBehavior
-			targets := ctx.orderEndTargetsForOrder(order, order.Earlier, featuring)
-			for _, candidate := range ctx.objectBehaviors {
-				if candidate == behavior || candidate.member == nil ||
-					!ctx.behaviorOrderFeatureMatches(candidate.Object, candidate.member, endFeature(order.Earlier)) {
-					continue
-				}
-				if slices.Contains(targets, candidate.Object) {
-					predecessors = append(predecessors, candidate)
-				}
+			if !ctx.laterEndIsUnique(order, featuring, nil, nil) {
+				continue
 			}
+			predecessors := ctx.behaviorOrderEndPerformances(order, order.Earlier, featuring)
 			reason := ""
 			switch len(predecessors) {
 			case 0:
@@ -455,18 +506,25 @@ func (ctx *Context) noteBehaviorOrderFindings(behavior *ObjectBehavior) {
 			default:
 				reason = fmt.Sprintf("%d earlier-end performances are present in one featuring instance; their pairing is open under KERML-29", len(predecessors))
 			}
-			key := fmt.Sprintf("%p:%p", order.Decl, featuring)
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			name := symbolText(endFeature(order.Later))
-			ctx.note(SuccessionOrdersNothing{
-				Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), name, reason),
-				Span:   order.Span,
-			})
+			ctx.noteBehaviorOrderFinding(order, featuring, reason)
 		}
 	}
+}
+
+func (ctx *Context) noteBehaviorOrderFinding(order lower.BehaviorOrder, featuring *Instance, reason string) {
+	if featuring == nil {
+		return
+	}
+	key := successionOrderNoteKey{order: order.Decl, object: featuring.ID}
+	if ctx.successionOrderNotes[key] {
+		return
+	}
+	ctx.successionOrderNotes[key] = true
+	ctx.note(SuccessionOrdersNothing{
+		Reason: fmt.Sprintf("succession %s releases %s: %s", behaviorOrderName(order), symbolText(endFeature(order.Later)), reason),
+		File:   order.File,
+		Span:   order.Span,
+	})
 }
 
 func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
@@ -554,6 +612,9 @@ func (ctx *Context) checkSuccessionOrderViolation(inst *Instance, member *symbol
 			continue
 		}
 		for _, featuring := range ctx.behaviorOrderMatches(inst, member, order, order.Later) {
+			if !ctx.laterEndIsUnique(order, featuring, inst, member) {
+				continue
+			}
 			targets := ctx.orderEndTargetsForOrder(order, order.Earlier, featuring)
 			for _, candidate := range ctx.objectBehaviors {
 				if candidate == nil || candidate.member == nil ||
@@ -571,6 +632,9 @@ func (ctx *Context) checkSuccessionOrderViolation(inst *Instance, member *symbol
 			continue
 		}
 		for _, featuring := range ctx.behaviorOrderMatches(inst, member, order, order.Earlier) {
+			if !ctx.laterEndIsUnique(order, featuring, inst, member) {
+				continue
+			}
 			targets := ctx.orderEndTargetsForOrder(order, order.Later, featuring)
 			for _, candidate := range ctx.objectBehaviors {
 				if candidate == nil || candidate.member == nil ||
@@ -657,6 +721,7 @@ func (ctx *Context) noteRefusedBehaviorOrders(inst *Instance) {
 		ctx.successionOrderNotes[key] = true
 		ctx.note(SuccessionOrdersNothing{
 			Reason: order.Refusal.Reason,
+			File:   order.File,
 			Span:   order.Refusal.Span,
 		})
 	}

@@ -13,6 +13,7 @@ import (
 type BehaviorOrder struct {
 	Decl      ast.Node
 	Name      string
+	File      string
 	Span      source.Span
 	Featuring *symbols.Symbol
 	Earlier   BehaviorOrderEnd
@@ -77,9 +78,14 @@ func BehaviorOrders(model *semantics.Model, roots ...*symbols.Scope) []BehaviorO
 
 			featuring, wellFormed := model.BehaviorSuccessionFeaturingType(
 				owner, [][]*symbols.Symbol{leftPath, rightPath}, left.node, right.node)
+			file := scope.DocName()
+			if owner != nil && owner.DocName != "" {
+				file = owner.DocName
+			}
 			order := BehaviorOrder{
 				Decl:      succession.Decl,
 				Name:      behaviorOrderName(succession.Decl),
+				File:      file,
 				Span:      succession.Decl.Span(),
 				Featuring: featuring,
 				Earlier: BehaviorOrderEnd{

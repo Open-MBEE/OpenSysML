@@ -106,17 +106,29 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 	for {
 		// One executor at a time, so a halt is seen before the next due one runs.
 		for {
+			ranAtInstant := false
 			ran, _, err := ctx.stepDue(nil, &progress)
-			if err != nil {
+			for {
+				if err != nil {
+					report.To = ctx.clock.now
+					return report.counting(progress, ctx.run.notes[noted:]), err
+				}
+				if halted != nil && halted() {
+					report.To = ctx.clock.now
+					return report.counting(progress, ctx.run.notes[noted:]), nil
+				}
+				if !ran {
+					break
+				}
+				ranAtInstant = true
+				ran, _, err = ctx.stepDue(nil, &progress)
+			}
+			if !ranAtInstant || !ctx.hasReadyDeferredBehavior() {
+				break
+			}
+			if err := ctx.runAttachedBehaviors(); err != nil {
 				report.To = ctx.clock.now
 				return report.counting(progress, ctx.run.notes[noted:]), err
-			}
-			if halted != nil && halted() {
-				report.To = ctx.clock.now
-				return report.counting(progress, ctx.run.notes[noted:]), nil
-			}
-			if !ran {
-				break
 			}
 		}
 		next, ok := ctx.clock.NextDue()
@@ -129,6 +141,15 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 	ctx.setClock(deadline)
 	report.To = deadline
 	return report.counting(progress, ctx.run.notes[noted:]), ctx.advanceEnded()
+}
+
+func (ctx *Context) hasReadyDeferredBehavior() bool {
+	for _, behavior := range ctx.objectBehaviors {
+		if behavior.deferred != nil && behavior.hasPendingWork() {
+			return true
+		}
+	}
+	return false
 }
 
 // advanceEnded is the refusal of an advance of its own that finished every executor
