@@ -83,7 +83,30 @@ func (ctx *Context) behaviorOrders() []lower.BehaviorOrder {
 			roots = append(roots, index.DocumentRoot(document))
 		}
 	}
-	ctx.model.behaviorOrders = lower.BehaviorOrders(ctx.model.semantics, roots...)
+	var base *symbols.Index
+	if ctx.model.resolver != nil {
+		if index := ctx.model.resolver.Index(); index != nil {
+			if index.Frozen() {
+				base = index
+			} else if candidate := index.Base(); candidate != nil && candidate.Frozen() {
+				base = candidate
+			}
+		}
+	}
+	var orders []lower.BehaviorOrder
+	if base == nil {
+		orders = lower.BehaviorOrders(ctx.model.semantics, roots...)
+	} else {
+		cached := libraryBehaviorOrders(base)
+		for _, root := range roots {
+			if cachedOrders, ok := cached[root]; ok {
+				orders = append(orders, cachedOrders...)
+				continue
+			}
+			orders = append(orders, lower.BehaviorOrders(ctx.model.semantics, root)...)
+		}
+	}
+	ctx.model.behaviorOrders = orders
 	ctx.model.behaviorOrdersByEnd = make(map[*symbols.Symbol][]lower.BehaviorOrder)
 	for _, order := range ctx.model.behaviorOrders {
 		if len(order.Earlier.Path) > 0 {
