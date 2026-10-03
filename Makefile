@@ -472,7 +472,7 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
-docs-check: docs-install ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
+docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
 	$(PYTHON) scripts/check-doc-links.py
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
