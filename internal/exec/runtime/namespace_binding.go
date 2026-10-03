@@ -638,7 +638,6 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 		}
 		mark := len(ctx.created)
-		before := count
 		var newObjs []*Instance
 		for _, sub := range optional {
 			if count == 0 {
@@ -648,6 +647,14 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			spare := count
 			if upper.Known && !upper.Infinite && upper.Value < spare {
 				spare = upper.Value
+			}
+			// A lazily held fill is uncharged until now, so its optional subsetters
+			// charge what they are about to make — an open upper bound refuses whole.
+			if lazy {
+				if err := ctx.chargeElements(spare); err != nil {
+					ctx.abandonInstancesSince(mark)
+					return fail(err)
+				}
 			}
 			var filled []int64
 			for i := int64(0); i < spare; i++ {
@@ -665,10 +672,6 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 		}
 		if lazy {
-			if err := ctx.chargeElements(before - count); err != nil {
-				ctx.abandonInstancesSince(mark)
-				return fail(err)
-			}
 			if count > 0 {
 				seq, err := ctx.withRequired(nil, sym, nil, "", count)
 				if err != nil {

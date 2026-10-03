@@ -833,6 +833,25 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		}
 	})
 
+	t.Run("an open-ended optional subsetter of a lazy collection is refused whole", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import SequenceFunctions::*;
+			part def Car;
+			part vs : Car[1000000000];
+			part o : Car[0..*] :> vs;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if !errors.Is(err, ErrElementLimitExceeded) {
+			t.Fatalf("size(vs) = %v, want %v", err, ErrElementLimitExceeded)
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("the refused fill made %d objects", n)
+		}
+	})
+
 	t.Run("a bound class of differing collections stays eager", func(t *testing.T) {
 		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
 			private import BaseFunctions::*;
