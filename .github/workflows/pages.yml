@@ -51,19 +51,13 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      # /cli/ runs the engine in the browser; the same target a local preview uses
+      # compiles it into docs/assets (never vendored) for mkdocs to copy into site/.
+      - name: Build the in-browser engine
+        run: make docs-engine-assets
+
       - name: Build documentation site
         run: make docs
-
-      # /cli/ runs the engine in the browser; building it from the same commit the site
-      # publishes keeps it at the latest develop build without vendoring a binary in git.
-      - name: Build the in-browser engine
-        run: |
-          mkdir -p site/assets
-          CGO_ENABLED=0 GOOS=js GOARCH=wasm go build \
-            -ldflags "-s -w -X main.Version=$(git describe --tags --always --dirty --match 'v[0-9]*' 2>/dev/null || echo dev) -X main.Commit=$(git rev-parse --short HEAD) -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GoVersion=$(go version | awk '{print $3}')" \
-            -o site/assets/sysml-engine.wasm ./cmd/sysml-engine
-          gzip -9 site/assets/sysml-engine.wasm
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" site/assets/
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
