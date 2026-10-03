@@ -74,3 +74,58 @@ func TestExploreInterleavesExecutorsMoveByMove(t *testing.T) {
 		}
 	}
 }
+
+// heldEntryModel has a machine whose timer transition holds work's entry cascade
+// while the Go it sends is still to be dispatched, and an action due at the same
+// instant that reads what the cascade writes.
+const heldEntryModel = `package Held {
+    private import ScalarValues::*;
+    item def Go;
+    part def P {
+        attribute order : Integer = 0;
+        attribute seen : Integer = 0;
+        state m parallel {
+            state left {
+                entry; then prep;
+                state prep;
+                state work {
+                    ref :>> runToCompletionScope = self;
+                    state inner { entry action { assign order := order * 10 + 1; } }
+                    entry action { send new Go() to m; } then inner;
+                }
+                transition first prep accept after 1 [SI::s] then work;
+            }
+            state right {
+                entry; then a;
+                state a;
+                state b { entry action { assign order := order * 10 + 2; } }
+                transition first a accept Go then b;
+            }
+        }
+        action peek {
+            first start;
+            then action wait accept after 1 [SI::s];
+            then action read assign seen := order;
+            then done;
+        }
+    }
+    part p : P;
+}
+`
+
+// TestExploreRunsAHeldEntryAsAMove checks that resuming a held entry counts as the
+// machine's move, so the Go queued behind it is still dispatched at the instant.
+func TestExploreRunsAHeldEntryAsAMove(t *testing.T) {
+	binary := buildCLI(t)
+	invocation := []string{"-instantiate", "Held::p", "-state", "Held::P::m Held::p", "-action", "Held::P::peek Held::p", "-advance", "1"}
+
+	explored := check(t, binary, heldEntryModel, append([]string{"-schedule", "explore"}, invocation...)...)
+	wantReport(t, explored, 0, "✓ explored Held::P::peek, Held::P::m: 10 outcomes", "this.order = 12; this.seen = 1", "complete (")
+	if strings.Contains(explored.output(), `finalState = "inner+a"`) {
+		t.Errorf("an explored run left Go undispatched at the instant it was sent:\n%s", explored.output())
+	}
+	for seed := 1; seed <= 8; seed++ {
+		got := check(t, binary, heldEntryModel, append([]string{"-schedule", fmt.Sprintf("seed:%d", seed)}, invocation...)...)
+		wantReport(t, got, 0, "Current state: inner | b")
+	}
+}

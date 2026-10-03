@@ -3457,10 +3457,11 @@ func (e *StateExecutor) RunToQuiescence() error {
 // once nothing is due it advances to the earliest wait, running whatever is due there.
 func (e *StateExecutor) run(atCurrentTime bool) error {
 	var progress dueProgress
-	return e.runCounting(atCurrentTime, false, &progress)
+	_, err := e.runCounting(atCurrentTime, false, &progress)
+	return err
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *dueProgress) (err error) {
+func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *dueProgress) (moved bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	wasRunning := e.inRun
@@ -3476,26 +3477,27 @@ func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *duePro
 	for e.state == StateRunning {
 		stepped, err := e.runUnit(progress)
 		if err != nil {
-			return err
+			return moved, err
 		}
 		if stepped {
+			moved = true
 			progress.unsettle()
 			if e.callReleased() {
-				return nil
+				return moved, nil
 			}
 			if single {
-				return nil
+				return moved, nil
 			}
 			if !atCurrentTime {
 				if err := e.ctx.yieldTurn(e, progress); err != nil {
-					return err
+					return moved, err
 				}
 			}
 			continue
 		}
 		if atCurrentTime {
 			e.state = StateSuspended
-			return nil
+			return moved, nil
 		}
 		// Nothing left at this instant: the others due run, then the clock moves to the
 		// earliest wait. Only a machine with a timer of its own running moves the clock.
@@ -3503,7 +3505,7 @@ func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *duePro
 		for {
 			picked, err := e.ctx.runDue(e, progress)
 			if err != nil {
-				return err
+				return moved, err
 			}
 			// Its turn: work is due, or a change condition it watches is to be polled.
 			if picked || e.dueWork() {
@@ -3511,11 +3513,11 @@ func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *duePro
 			}
 			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue(progress) {
 				e.state = StateSuspended
-				return nil
+				return moved, nil
 			}
 		}
 	}
-	return nil
+	return moved, nil
 }
 
 // dueLabel names the machine in a due-order choice.
@@ -3604,7 +3606,10 @@ func (e *StateExecutor) runMove(progress *dueProgress) (bool, error) {
 
 func (e *StateExecutor) runDueUnits(progress *dueProgress, single bool) (bool, error) {
 	before := *progress
-	err := e.runCounting(true, single, progress)
+	stepped, err := e.runCounting(true, single, progress)
+	if single {
+		return stepped, err
+	}
 	return progress.events > before.events || progress.doSteps > before.doSteps, err
 }
 
