@@ -219,6 +219,12 @@ func (s *objectSpeller) value(v Value, depth int) string {
 		if v.Sequence() == nil {
 			return "[]"
 		}
+		if seq := requiredTail(v); seq != nil {
+			if len(seq.elements) == 0 {
+				return "[" + formatRequired(seq) + "]"
+			}
+			return "[" + s.elements(seq.elements, depth) + ", " + formatRequired(seq) + "]"
+		}
 		return "[" + s.elements(v.Sequence().Elements(), depth) + "]"
 	case ValSet:
 		if v.Set() == nil {

@@ -62,6 +62,7 @@ type HeldImage struct {
 	clock             float64
 
 	occurrences      map[*symbols.Symbol][]int64
+	occurrenceTails  map[*symbols.Symbol]*requiredMembers
 	metadataObjects  map[metadataAnnotation]int64
 	variantObjects   map[variantObject]int64
 	selectedVariants map[variantSelection]string
@@ -164,6 +165,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
 		occurrences:      make(map[*symbols.Symbol][]int64),
+		occurrenceTails:  make(map[*symbols.Symbol]*requiredMembers),
 		metadataObjects:  make(map[metadataAnnotation]int64),
 		variantObjects:   make(map[variantObject]int64),
 		selectedVariants: make(map[variantSelection]string),
@@ -284,6 +286,11 @@ func (t *imaging) widen() error {
 		for _, id := range ids {
 			if _, live := ctx.instances[id]; live {
 				t.reach(id)
+			}
+		}
+		if r := ctx.occurrenceTail(sym); r != nil {
+			for _, inst := range ctx.madeRequired(r) {
+				t.reach(inst.ID)
 			}
 		}
 	}
@@ -498,6 +505,10 @@ func (t *imaging) finish() {
 	for sym, ids := range ctx.occurrences {
 		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
 			img.occurrences[sym] = ids
+			if r := ctx.occurrenceTail(sym); r != nil &&
+				!slices.ContainsFunc(ctx.madeRequired(r), func(inst *Instance) bool { return !img.held[inst.ID] }) {
+				img.occurrenceTails[sym] = r
+			}
 		}
 	}
 	for key, id := range ctx.metadataObjects {
@@ -648,6 +659,7 @@ type materializeMark struct {
 	clock             float64
 	clockRun          *runState
 	readLives         []*FeatureValue
+	required          []*requiredMembers
 }
 
 func (ctx *Context) materializeMark() materializeMark {
@@ -657,6 +669,7 @@ func (ctx *Context) materializeMark() materializeMark {
 		activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 		readLives: slices.Clone(ctx.lifetimes.dependents),
+		required:  slices.Clone(ctx.required),
 	}
 }
 
@@ -665,6 +678,7 @@ func (ctx *Context) materializeMark() materializeMark {
 func (mark materializeMark) rollBack(ctx *Context) {
 	ctx.forgetBehaviorsFrom(mark.attached)
 	ctx.abandonInstancesSince(mark.created)
+	ctx.required = mark.required
 	ctx.took.high = mark.tookHigh
 	if ctx.ids == mark.ids {
 		ctx.ids.release(ctx, mark.nextID)
@@ -765,12 +779,27 @@ func (m *materializing) run() error {
 		}
 		messages = append(messages, carried)
 	}
+	tails := make(map[*symbols.Symbol]*requiredMembers, len(img.occurrenceTails))
+	for sym, r := range img.occurrenceTails {
+		keep := make(map[int64]bool)
+		for id := range m.made {
+			keep[id] = r.holds(id)
+		}
+		carried, err := dst.carriedRequired(r, r.typ, keep)
+		if err != nil {
+			return &HeldImageError{What: "materialize the members " + symbolText(sym) + " denotes", Err: err}
+		}
+		tails[sym] = carried
+	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
 	dst.bus.posts += uint64(len(messages))
 	dst.workChanged()
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
+	}
+	for sym, r := range tails {
+		dst.recordOccurrenceTail(sym, r)
 	}
 	for key, id := range img.metadataObjects {
 		dst.metadataObjects[key] = id

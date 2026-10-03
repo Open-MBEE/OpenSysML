@@ -78,10 +78,11 @@ func (e *executor) cellValues(value runtime.Value, property string, row Value) (
 	switch value.Kind {
 	case runtime.ValNull:
 		return nil, nil
-	case runtime.ValSequence:
-		elements = value.Sequence().Elements()
-	case runtime.ValSet:
-		elements = value.Set().Elements()
+	case runtime.ValSequence, runtime.ValSet:
+		var err error
+		if elements, err = collectionElements(e.context.Runtime, value); err != nil {
+			return nil, e.unevaluable(queryplan.Expression{}, property, row, err)
+		}
 	case runtime.ValConst:
 		converted, ok := constValue(value.Const)
 		if !ok {

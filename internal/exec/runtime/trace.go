@@ -579,9 +579,12 @@ func FormatTraceValue(v Value) string {
 		if v.Sequence() == nil {
 			return "()"
 		}
-		parts := make([]string, 0, v.Sequence().Size())
-		for _, elem := range v.Sequence().Elements() {
+		var parts []string
+		for _, elem := range listedElements(v) {
 			parts = append(parts, FormatTraceValue(elem))
+		}
+		if seq := requiredTail(v); seq != nil {
+			parts = append(parts, formatRequired(seq))
 		}
 		return "(" + strings.Join(parts, ", ") + ")"
 	case ValSet:

@@ -79,10 +79,12 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *J
 		return &JValue{InstanceId: i64(val.Instance)}
 	case runtime.ValSequence:
 		var elements []*JValue
-		if val.Sequence() != nil {
-			for _, elem := range val.Sequence().Elements() {
-				elements = append(elements, valueToProto(rt, elem, idx))
-			}
+		held, err := objref.CollectionElements(rt, val)
+		if err != nil {
+			return &JValue{Null: text(err.Error())}
+		}
+		for _, elem := range held {
+			elements = append(elements, valueToProto(rt, elem, idx))
 		}
 		return &JValue{Sequence: &JValueSequence{Elements: elements}}
 	case runtime.ValSet:
@@ -1425,7 +1427,12 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 				pbValue.Value = valueToProto(rt, fv.Value, idx)
 			}
 		} else {
-			for _, elem := range objref.CollectionElements(fv.Values) {
+			elements, err := objref.CollectionElements(rt, fv.Values)
+			if err != nil {
+				failed(err)
+				pbValue.Error = err.Error()
+			}
+			for _, elem := range elements {
 				pbValue.Values = append(pbValue.Values, valueToProto(rt, elem, idx))
 			}
 		}
