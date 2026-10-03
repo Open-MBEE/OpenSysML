@@ -79,6 +79,7 @@ plugins:
             docstring_style: google
             docstring_options:
               warn_missing_types: false
+            extensions: [scripts/griffe_sphinx_roles.py]
             show_source: false
             members_order: source
             filters: ["!^_"]
