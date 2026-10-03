@@ -497,11 +497,42 @@ func (b *footprintBuilder) statement(stmt Statement) {
 				b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
 			}
 		}
+	case Assert:
+		b.assertion(s)
 	case Effect:
 		// Performing, accepting or terminating inside a body reaches beyond it.
 		b.footprint.Dynamic = true
 	case Unsupported:
 		// Reaching it fails the run; it reads nothing first.
+	}
+}
+
+// assertion adds what checking an assertion reads: the conditions its own body
+// states; one whose conditions come from elsewhere reads what lowering cannot see.
+func (b *footprintBuilder) assertion(s Assert) {
+	if s.Sym == nil {
+		return
+	}
+	if len(s.Node.Relationships) > 0 || s.Node.Value != nil || s.Sym.Scope == nil {
+		b.footprint.Dynamic = true
+		return
+	}
+	b.conditions(s.Sym.Scope, s.Node.Members)
+}
+
+// conditions adds the reads of the condition members of a constraint body;
+// any other member makes the move dynamic.
+func (b *footprintBuilder) conditions(scope *symbols.Scope, members []ast.Node) {
+	for _, member := range members {
+		switch m := unwrapMembership(member).(type) {
+		case *ast.ConstraintMember:
+			b.reads(scope, m.Expression)
+			if len(m.Body) > 0 {
+				b.conditions(symbols.ConstraintBodyScope(scope, m), m.Body)
+			}
+		default:
+			b.footprint.Dynamic = true
+		}
 	}
 }
 

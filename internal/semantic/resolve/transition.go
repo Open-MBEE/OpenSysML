@@ -641,7 +641,8 @@ func lookupScopePartsText(scope *symbols.Scope, parts []string) (*symbols.Symbol
 func isActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || n.Kind == ast.UsageAnalysisCase || n.Kind == ast.UsageVerificationCase
+		return n.Kind == ast.UsageAction || n.Kind == ast.UsageAnalysisCase ||
+			n.Kind == ast.UsageVerificationCase || IsAssertion(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode,
 		*ast.DecisionNode, *ast.ActionExecutionNode, *ast.PerformActionNode,
 		*ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
@@ -649,6 +650,12 @@ func isActionNode(decl ast.Node) bool {
 		return true
 	}
 	return false
+}
+
+// IsAssertion reports whether u is an `assert constraint`, which a succession
+// may order between an action's steps.
+func IsAssertion(u *ast.Usage) bool {
+	return u.Kind == ast.UsageConstraint && u.PrefixKeyword == "assert"
 }
 
 // lookupEndpoint finds what an endpoint names: the declaration ordinary lookup

@@ -1603,6 +1603,9 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
+		if node.Kind == ast.UsageConstraint {
+			return e.stepStatementNode(tokenIdx)
+		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
@@ -2794,6 +2797,8 @@ func statementNodeKeyword(node ast.Node) string {
 		return "a 'send'"
 	case *ast.TerminateStatement:
 		return "a 'terminate'"
+	case *ast.Usage:
+		return "the assertion " + ActionNodeName(n)
 	default:
 		return fmt.Sprintf("a %T", node)
 	}

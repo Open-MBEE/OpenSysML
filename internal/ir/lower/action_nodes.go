@@ -83,6 +83,7 @@ func collectActionNodesWithAncestors(
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
 	graph.lowering = actionLoweringAncestors(scope, ancestors)
+	asserted := orderedAssertions(members)
 
 	// First pass: collect nodes.
 	for _, member := range members {
@@ -116,6 +117,9 @@ func collectActionNodesWithAncestors(
 				graph.Nodes = append(graph.Nodes, n)
 				recordNodeMultiplicity(graph, n)
 				recordNodeScope(graph, n, childScope(scope, n))
+			case asserted[n]:
+				graph.Nodes = append(graph.Nodes, n)
+				graph.Bodies[n] = []Statement{Assert{Node: n, Sym: scope.MemberDeclaring(n), Scope: scope}}
 			}
 		case *ast.PerformActionNode:
 			graph.Nodes = append(graph.Nodes, n)
@@ -206,6 +210,10 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
+		if resolve.IsAssertion(n) {
+			graph.Bodies[n] = []Statement{Assert{Node: n, Sym: declaringScope.MemberDeclaring(n), Scope: declaringScope}}
+			break
+		}
 		recordNodeMultiplicity(graph, n)
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
