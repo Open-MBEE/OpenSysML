@@ -2,9 +2,11 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -182,7 +184,7 @@ func (ctx *Context) namespaceEndUsage(binding lower.Binding, end int) (*symbols.
 // binding denotes. bound reports whether a binding governs the usage at all.
 func (ctx *Context) namespaceBoundObjects(sym *symbols.Symbol) (objs []*Instance, bound bool, err error) {
 	if val, ok := ctx.namespaceBindings[sym]; ok {
-		return ctx.liveInstances(heldObjects(val)), true, nil
+		return ctx.liveInstances(boundPrefixObjects(val)), true, nil
 	}
 	class, member := ctx.namespaceClassMember(sym)
 	if class == nil {
@@ -332,7 +334,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		// occurrencesOf makes them, so which member is read first does not
 		// change it.
 		earliest := class.members[0]
-		count := 0
+		var count int64
 		for _, member := range class.members {
 			n, err := ctx.lowerBoundCount(ctx.featureMultiplicity(member, ctx.findOwnerType(member)), 0, symbolText(member))
 			if err != nil {
@@ -342,13 +344,64 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				count = n
 			}
 		}
+		// A class of collections bigger than eagerLowerBound shares one required
+		// population rather than materializing its count, as occurrencesOf does —
+		// only while every member names objects of the earliest's type held
+		// lazily, so no member classifies the shared objects another way.
+		lazy := true
+		for _, member := range class.members {
+			if !ctx.namesObjects(member) || !ctx.holdsLazily(member, count) {
+				lazy = false
+				break
+			}
+			if member != earliest && !ctx.classifiesAlike(member, earliest) {
+				lazy = false
+				break
+			}
+		}
+		if lazy {
+			seq, err := ctx.withRequired(nil, earliest, nil, "", count)
+			if err != nil {
+				return nil, true, err
+			}
+			r := seq.required
+			val := NewSequenceValue(seq)
+			text := symbolText(earliest)
+			if len(class.bindings) > 0 {
+				text = ctx.bindingText(class.bindings[0])
+			}
+			fail := func(err error) ([]*Instance, bool, error) {
+				for _, member := range class.members {
+					delete(ctx.occurrences, member)
+					ctx.unbindNamespace(member)
+					delete(ctx.occurrenceTails, member)
+				}
+				ctx.required = slices.DeleteFunc(ctx.required, func(e *requiredMembers) bool { return e == r })
+				return nil, true, err
+			}
+			for _, member := range class.members {
+				if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(int64(seq.Size())); msg != "" {
+					return fail(fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg))
+				}
+				ctx.occurrences[member] = []int64{}
+				ctx.bindNamespace(member, val)
+				ctx.recordOccurrenceTail(member, r)
+			}
+			if val, ok := ctx.namespaceBindings[want]; ok {
+				return ctx.liveInstances(boundPrefixObjects(val)), true, nil
+			}
+			if live, ok := ctx.liveOccurrences(want); ok {
+				return live, true, nil
+			}
+			return nil, true, nil
+		}
 		release := ctx.elementScope()
-		if err := ctx.chargeElements(int64(count)); err != nil {
+		if err := ctx.chargeElements(count); err != nil {
 			release()
 			return nil, true, err
 		}
 		mark := len(ctx.created)
-		members, err := ctx.materializeMembers(earliest, count, nil, "")
+		members, err := ctx.materializeMembers(earliest, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
 			release()
@@ -376,7 +429,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		// behaviors of the shared objects: one of them reading a member reaches
 		// the objects the class already names rather than materializing another.
 		for _, member := range class.members {
-			ctx.occurrences[member] = heldObjects(val)
+			ctx.occurrences[member] = boundPrefixObjects(val)
 			ctx.bindNamespace(member, val)
 		}
 		fail := func(err error) ([]*Instance, bool, error) {
@@ -393,16 +446,18 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			if msg := ctx.featureMultiplicity(member, ctx.findOwnerType(member)).CountViolation(count64); msg != "" {
 				return fail(fmt.Errorf("%w: `%s`: %s", ErrBindingConflict, text, msg))
 			}
-			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
-			if err != nil {
-				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
-			}
+			// A member typed another way classifies the shared objects first,
+			// so its declared-value check admits them.
 			if member != earliest {
 				if err := ctx.classifyHeld(member, val); err != nil {
 					return fail(err)
 				}
 			}
-			ctx.occurrences[member] = heldObjects(v)
+			v, err := NewEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
+			if err != nil {
+				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
+			}
+			ctx.occurrences[member] = boundPrefixObjects(v)
 			ctx.bindNamespace(member, v)
 		}
 		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
@@ -415,26 +470,80 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if len(class.bindings) > 0 {
 			text = ctx.bindingText(class.bindings[0])
 		}
+		// A value the class took can end in required members its source holds
+		// lazily: each member shares them through the tail recorded for it, so
+		// its occurrences see every object the value denotes. The tail belongs
+		// to the source's population, so a failure only undoes these records.
+		var recorded []*symbols.Symbol
+		fail := func(err error) ([]*Instance, bool, error) {
+			for _, member := range recorded {
+				delete(ctx.occurrenceTails, member)
+			}
+			return nil, true, err
+		}
 		for _, member := range class.members {
 			if seen[member] {
+				if seq := requiredTail(val); seq != nil && ctx.occurrenceTails[member] == nil {
+					ctx.recordOccurrenceTail(member, seq.required)
+					recorded = append(recorded, member)
+				}
 				continue
 			}
 			ec := NewEvalContext(ctx, member.OwnerScope)
 			v, err := ec.conformDeclared(member, val)
 			if err != nil {
-				return nil, true, fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err)
+				return fail(fmt.Errorf("%w: `%s`: %v", ErrBindingConflict, text, err))
 			}
-			ctx.occurrences[member] = heldObjects(v)
+			ctx.occurrences[member] = boundPrefixObjects(v)
+			if seq := requiredTail(v); seq != nil {
+				ctx.recordOccurrenceTail(member, seq.required)
+				recorded = append(recorded, member)
+			}
 			ctx.bindNamespace(member, v)
 		}
 	}
 	if val, ok := ctx.namespaceBindings[want]; ok {
-		return ctx.liveInstances(heldObjects(val)), true, nil
+		return ctx.liveInstances(boundPrefixObjects(val)), true, nil
 	}
 	if live, ok := ctx.liveOccurrences(want); ok {
 		return live, true, nil
 	}
 	return nil, true, nil
+}
+
+// classifiesAlike reports whether member classifies the class's shared objects as
+// earliest does: the same type, no members of its own to confer, and no
+// relationship but typing — anything else the eager path classifies objects by.
+func (ctx *Context) classifiesAlike(member, earliest *symbols.Symbol) bool {
+	if ctx.extractType(member) != ctx.extractType(earliest) {
+		return false
+	}
+	if member.Scope != nil && len(member.Scope.Members()) > 0 {
+		return false
+	}
+	for _, rel := range semantics.RelationshipsOf(member) {
+		if rel == nil || rel.Kind == ast.RelTyping {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// boundPrefixObjects is the made objects a binding's value denotes as the positions
+// before any required members it ends in: a made required member is reached at its
+// reserved position through the tail, not as the next denoted object.
+func boundPrefixObjects(val Value) []int64 {
+	if seq := requiredTail(val); seq != nil {
+		var out []int64
+		for _, element := range seq.elements {
+			if id, ok := element.Object(); ok {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	return heldObjects(val)
 }
 
 // namespaceBoundValue is the value a usage a binding connector governs reads as:
@@ -523,7 +632,12 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 
 	release := ctx.elementScope()
 	var ids []int64
+	var tail *requiredMembers
 	fail := func(err error) ([]*Instance, bool, error) {
+		if tail != nil {
+			delete(ctx.occurrenceTails, sym)
+			ctx.required = slices.DeleteFunc(ctx.required, func(e *requiredMembers) bool { return e == tail })
+		}
 		release()
 		return nil, true, err
 	}
@@ -554,8 +668,13 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		if err != nil {
 			return fail(err)
 		}
-		if err := ctx.chargeElements(int64(count)); err != nil {
-			return fail(err)
+		// The collection's own fill is charged and made eagerly, or held as
+		// required members past eagerLowerBound, as occurrencesOf holds them.
+		lazy := ctx.holdsLazily(sym, count)
+		if !lazy {
+			if err := ctx.chargeElements(count); err != nil {
+				return fail(err)
+			}
 		}
 		mark := len(ctx.created)
 		var newObjs []*Instance
@@ -565,11 +684,19 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 			upper := ctx.featureMultiplicity(sub, ctx.findOwnerType(sub)).Upper
 			spare := count
-			if upper.Known && !upper.Infinite && int(upper.Value) < spare {
-				spare = int(upper.Value)
+			if upper.Known && !upper.Infinite && upper.Value < spare {
+				spare = upper.Value
+			}
+			// A lazily held fill is uncharged until now, so its optional subsetters
+			// charge what they are about to make — an open upper bound refuses whole.
+			if lazy {
+				if err := ctx.chargeElements(spare); err != nil {
+					ctx.abandonInstancesSince(mark)
+					return fail(err)
+				}
 			}
 			var filled []int64
-			for i := 0; i < spare; i++ {
+			for i := int64(0); i < spare; i++ {
 				inst, err := ctx.materialize(sub, 0, nil, "")
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
@@ -583,7 +710,19 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				ctx.occurrences[sub] = filled
 			}
 		}
-		made, err := ctx.materializeMembers(sym, count, nil, "")
+		if lazy {
+			if count > 0 {
+				seq, err := ctx.withRequired(nil, sym, nil, "", count)
+				if err != nil {
+					ctx.abandonInstancesSince(mark)
+					return fail(err)
+				}
+				tail = seq.required
+				ctx.recordOccurrenceTail(sym, tail)
+				count = 0
+			}
+		}
+		made, err := ctx.materializeMembers(sym, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
 			return fail(err)
@@ -598,7 +737,11 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			return fail(err)
 		}
 	}
-	if msg := mult.CountViolation(int64(len(contributed))); msg != "" {
+	var tailCount int64
+	if tail != nil {
+		tailCount = tail.count
+	}
+	if msg := mult.CountViolation(int64(len(contributed)) + tailCount); msg != "" {
 		return fail(fmt.Errorf("usage %s: %w: %s", symbolText(sym), ErrMultiplicityViolation, msg))
 	}
 	ctx.occurrences[sym] = ids

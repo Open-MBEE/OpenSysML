@@ -775,4 +775,190 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 			t.Fatalf("a === b after undo = %s, want true", FormatValue(same))
 		}
 	})
+
+	t.Run("a bound collection class holds its lower bound lazily", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car;
+			part a : Car[1000000000];
+			part b : Car[1000000000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		for _, src := range []string{"size(a)", "size(b)"} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "1000000000" {
+				t.Fatalf("%s = %s, %v; want 1000000000", src, FormatValue(got), err)
+			}
+		}
+		for _, src := range []string{"a#(5) === b#(5)", "a#(999999999) === b#(999999999)"} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(got), err)
+			}
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("a billion bound values made %d objects", n)
+		}
+	})
+
+	t.Run("a subsetting member of a lazy namespace collection is among its values", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car;
+			part vs : Car[1000000000];
+			part c : Car :> vs;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		got, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if err != nil || FormatValue(got) != "1000000000" {
+			t.Fatalf("size(vs) = %s, %v; want 1000000000", FormatValue(got), err)
+		}
+		same, err := evalIn(t, ctx, pkg.Scope, "vs#(1) === c")
+		if err != nil || FormatValue(same) != "true" {
+			t.Fatalf("vs#(1) === c = %s, %v; want the subsetter first", FormatValue(same), err)
+		}
+		again, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if err != nil || FormatValue(again) != "1000000000" {
+			t.Fatalf("size(vs) read again = %s, %v; want 1000000000", FormatValue(again), err)
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("a billion subsetted values made %d objects", n)
+		}
+	})
+
+	t.Run("an open-ended optional subsetter of a lazy collection is refused whole", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import SequenceFunctions::*;
+			part def Car;
+			part vs : Car[1000000000];
+			part o : Car[0..*] :> vs;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		_, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if !errors.Is(err, ErrElementLimitExceeded) {
+			t.Fatalf("size(vs) = %v, want %v", err, ErrElementLimitExceeded)
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("the refused fill made %d objects", n)
+		}
+	})
+
+	t.Run("a bound class of differing collections stays eager", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			part def A;
+			part def B;
+			part a : A[2000];
+			part b : B[2000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		got, err := evalIn(t, ctx, pkg.Scope, "a#(1500) istype test::B")
+		if err != nil || FormatValue(got) != "true" {
+			t.Fatalf("a#(1500) istype B = %s, %v; want true", FormatValue(got), err)
+		}
+	})
+
+	t.Run("the extent of a bound collection is refused like an unbound one", func(t *testing.T) {
+		for _, bound := range []bool{false, true} {
+			src := `package test {
+				private import SequenceFunctions::*;
+				part def Car;
+				part a : Car[1000000000];
+			}`
+			if bound {
+				src = `package test {
+					private import SequenceFunctions::*;
+					part def Car;
+					part a : Car[1000000000];
+					part b : Car[1000000000];
+					bind a = b;
+				}`
+			}
+			model, resolver, root := parseAndBuildLibraryModel(t, src)
+			ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+			pkg := resolveSymbol(t, root, "test")
+			if _, err := evalIn(t, ctx, pkg.Scope, "size(a)"); err != nil {
+				t.Fatalf("bound=%v size(a): %v", bound, err)
+			}
+			_, err := evalIn(t, ctx, pkg.Scope, "size(all test::Car)")
+			if !errors.Is(err, ErrElementLimitExceeded) {
+				t.Fatalf("bound=%v size(all Car) = %v, want %v", bound, err, ErrElementLimitExceeded)
+			}
+		}
+	})
+
+	t.Run("a member declaring its own features keeps the class eager", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			private import BaseFunctions::*;
+			part def Car;
+			part a : Car[2000];
+			part b : Car[2000] { attribute label : String = "ready"; }
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		for _, src := range []string{`b#(1).label == "ready"`, `a#(1).label == "ready"`} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(got), err)
+			}
+		}
+	})
+
+	t.Run("a tailed source value shares its population with every member", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			private import BaseFunctions::*;
+			part def Car;
+			part c : Car[2000];
+			part a : Car[2000] = c;
+			part b : Car[2000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		first, err := evalIn(t, ctx, pkg.Scope, "c#(1)")
+		if err != nil {
+			t.Fatalf("c#(1): %v", err)
+		}
+		for _, src := range []string{"size(a)", "size(b)"} {
+			v, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(v) != "2000" {
+				t.Fatalf("%s = %s, %v; want 2000", src, FormatValue(v), err)
+			}
+		}
+		for _, src := range []string{"b#(1) === c#(1)", "a#(1) === c#(1)"} {
+			v, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(v) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(v), err)
+			}
+		}
+		bSym := resolveSymbol(t, pkg.Scope, "b")
+		objs, err := ctx.denotedObjects(bSym)
+		if err != nil {
+			t.Fatalf("denotedObjects(b): %v", err)
+		}
+		if len(objs) != 2000 {
+			t.Fatalf("denotedObjects(b) = %d objects, want 2000", len(objs))
+		}
+		if !containsInstance(objs, first.Instance) {
+			t.Fatalf("denotedObjects(b) misses object #%d (c#(1))", first.Instance)
+		}
+	})
 }
