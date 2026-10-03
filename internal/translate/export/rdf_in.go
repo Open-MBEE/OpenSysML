@@ -4059,7 +4059,7 @@ func notAName(term rdf.Term) string {
 // keeps as text: the last segment of a name, or of the member a chain reaches.
 func literalTargetName(term rdf.Term) (string, bool) {
 	if term.Datatype != rdf.OpenSysML+dtExpression {
-		return lastSegment(term.Value), true
+		return lastName(term.Value), true
 	}
 	name, _ := ast.TargetName(literalTarget(term))
 	return name, name != ""
@@ -4071,11 +4071,6 @@ func literalTarget(term rdf.Term) ast.Node {
 		return nil
 	}
 	return parser.New(source.New("<naming>", []byte(term.Value))).ParseExpression()
-}
-
-func lastSegment(qname string) string {
-	segments := identitySegments(qname)
-	return identityName(segments[len(segments)-1])
 }
 
 func (d *decoder) stringOf(el *element, property string) (string, bool) {

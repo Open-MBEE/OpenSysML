@@ -1062,7 +1062,7 @@ class ApiIntegrationTest {
   }
 
   @Test
-  void aSysMLv1ModelIsMigratedNotConverted() throws Exception {
+  void aSysMLv1ModelIsMigratedNotConverted() {
     Path vehicle = v1Fixture("vehicle.xmi");
     ServiceException byExtension =
         assertThrows(ServiceException.class, () -> connection.convertFile(vehicle, "sysml"));
@@ -1156,29 +1156,27 @@ class ApiIntegrationTest {
     assertTrue(byExtension.serviceMessage().contains("converted, not migrated"));
 
     MigrationOptions asNotation = MigrationOptions.defaults().withFromFormat("sysml");
+    byte[] notation = "package P;".getBytes();
     ServiceException byFormat =
         assertThrows(
-            ServiceException.class,
-            () -> connection.migrate("package P;".getBytes(), "sysml", asNotation));
+            ServiceException.class, () -> connection.migrate(notation, "sysml", asNotation));
     assertEquals(StatusCode.INVALID_ARGUMENT, byFormat.status());
     assertTrue(byFormat.serviceMessage().contains("call convert"));
 
+    byte[] xmi = "<xmi/>".getBytes();
+    MigrationOptions unspecified = MigrationOptions.defaults();
     ServiceException unnamed =
-        assertThrows(
-            ServiceException.class,
-            () -> connection.migrate("<xmi/>".getBytes(), "sysml", MigrationOptions.defaults()));
+        assertThrows(ServiceException.class, () -> connection.migrate(xmi, "sysml", unspecified));
     assertEquals(StatusCode.INVALID_ARGUMENT, unnamed.status());
 
     MigrationOptions asXmi = MigrationOptions.defaults().withFromFormat("xmi");
     MigrationException unreadable =
-        assertThrows(
-            MigrationException.class,
-            () -> connection.migrate("<xmi/>".getBytes(), "sysml", asXmi));
+        assertThrows(MigrationException.class, () -> connection.migrate(xmi, "sysml", asXmi));
     assertFalse(unreadable.getMessage().isEmpty());
 
+    Path nonexistent = v1Fixture("nonexistent.xmi");
     ServiceException missing =
-        assertThrows(
-            ServiceException.class, () -> connection.migrateFile(v1Fixture("nonexistent.xmi"), "sysml"));
+        assertThrows(ServiceException.class, () -> connection.migrateFile(nonexistent, "sysml"));
     assertEquals(StatusCode.NOT_FOUND, missing.status());
   }
 
@@ -1310,10 +1308,10 @@ class ApiIntegrationTest {
         connection
             .convert(source, "api-json", options.withIdForm(ConversionOptions.ID_FORM_QUALIFIED))
             .content());
+    ConversionOptions shortIds = options.withIdForm("short");
     ServiceException refused =
         assertThrows(
-            ServiceException.class,
-            () -> connection.convert(source, "api-json", options.withIdForm("short")));
+            ServiceException.class, () -> connection.convert(source, "api-json", shortIds));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
   }
 
@@ -1403,7 +1401,8 @@ class ApiIntegrationTest {
   @Test
   void anEmptyEditorIsRefusedByTheService() {
     Model model = connection.load(fixture("editable.sysml"));
-    EditException refused = assertThrows(EditException.class, () -> model.edit().apply());
+    Editor empty = model.edit();
+    EditException refused = assertThrows(EditException.class, empty::apply);
     assertEquals(EditFailure.NO_OPERATIONS, refused.failure());
   }
 
@@ -1452,12 +1451,11 @@ class ApiIntegrationTest {
         assertThrows(ModelNotFoundException.class, () -> evicted.eval("1 + 1"));
     assertEquals(StatusCode.NOT_FOUND, model.status());
     assertThrows(ModelNotFoundException.class, () -> evicted.convert("sysml"));
-    assertThrows(
-        ModelNotFoundException.class, () -> evicted.edit().addPart("A", "b").apply());
+    Editor edit = evicted.edit().addPart("A", "b");
+    assertThrows(ModelNotFoundException.class, edit::apply);
+    Path noSuchModel = Path.of("/no/such/model.sysml");
     ModelFileNotFoundException file =
-        assertThrows(
-            ModelFileNotFoundException.class,
-            () -> connection.load(Path.of("/no/such/model.sysml")));
+        assertThrows(ModelFileNotFoundException.class, () -> connection.load(noSuchModel));
     assertEquals(StatusCode.NOT_FOUND, file.status());
   }
 
