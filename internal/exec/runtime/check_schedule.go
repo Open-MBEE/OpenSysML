@@ -113,7 +113,9 @@ type checkMove struct {
 	run      *checkRun
 	step     int
 	selected bool
-	nested   bool // a step of a run within the move, resolved in declared order
+	nested   bool       // a step of a run within the move, resolved in declared order
+	outer    *checkMove // the step whose token's move runs this one, restored once it ends
+	within   bool       // a step of a flow the outer token's body performs, a choice of its move
 	order    []int64
 	next     int
 	moved    bool
@@ -125,10 +127,15 @@ type checkMove struct {
 // beginStep resolves the step as a replayed one resolves a witness move: the
 // selected token alone when two or more are able to act, else — one at most
 // able to act — that one first and the rest after, as a settling step tries them.
-// A step of a do flow within the machine's move picks its token as a choice point
-// of the move (ChoiceTokenOrder); any other nested step goes in declared order.
+// A step of a do flow within the machine's move, or of a flow a token's body performs
+// within its move, picks its token as a choice point of the move (ChoiceTokenOrder);
+// any other nested step goes in declared order.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
+	if outer := r.move; outer != nil && outer.trying() {
+		m.outer = outer
+		m.within = tokens.owner == r.script.owner
+	}
 	if tokens.owner != r.script.owner {
 		m.nested, m.selected = !tokens.stepped, false
 	}
@@ -155,7 +162,7 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 			m.taken = i
 		}
 	}
-	if tokens.stepped && tokens.owner != r.script.owner {
+	if m.within || tokens.stepped && tokens.owner != r.script.owner {
 		if len(enabled) >= 2 {
 			m.taken = r.choose(ChoicePoint{Kind: ChoiceTokenOrder, Step: tokens.step, Alternatives: m.enabled}, nil)
 			m.selected = true
@@ -194,11 +201,14 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	return m
 }
 
+// trying reports whether a token the step tried is still making its move.
+func (m *checkMove) trying() bool { return m.next > 0 && !m.moved }
+
 // nextToken is the token to try next; false once one acted or none is left, which ends the step.
 func (m *checkMove) nextToken() (int64, bool) {
 	if m.moved || m.next >= len(m.order) {
 		if m.run.move == m {
-			m.run.move = nil
+			m.run.move = m.outer
 		}
 		return 0, false
 	}

@@ -255,6 +255,8 @@ type footprintBuilder struct {
 	scope     *symbols.Scope
 	declared  map[ast.Node]bool
 	footprint Footprint
+	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
+	expanding map[*ast.Usage]bool
 }
 
 func (b *footprintBuilder) read(p Place) {
@@ -295,6 +297,35 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 			if redefined != name {
 				each(Place{Sym: sym, Name: redefined, Local: local})
 			}
+		}
+		b.calcUsage(sym, usage)
+	}
+}
+
+// calcUsage adds what reading a calc usage evaluates: the values its members
+// bind, and its body, which reads beyond them.
+func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
+	switch usage.Kind {
+	case ast.UsageCalc, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+	default:
+		return
+	}
+	b.footprint.Dynamic = true
+	if b.expanding[usage] {
+		return
+	}
+	if b.expanding == nil {
+		b.expanding = make(map[*ast.Usage]bool)
+	}
+	b.expanding[usage] = true
+	defer delete(b.expanding, usage)
+	scope := sym.Scope
+	if scope == nil {
+		scope = b.scope
+	}
+	for _, member := range usage.Members {
+		if u, ok := unwrapMembership(member).(*ast.Usage); ok {
+			b.reads(scope, u.Value)
 		}
 	}
 }

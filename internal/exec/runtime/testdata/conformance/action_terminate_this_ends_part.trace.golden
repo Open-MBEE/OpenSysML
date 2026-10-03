@@ -11,11 +11,14 @@ enter action node: state behavior beat
   stmt assign beats
     eval literal 1 -> 1
 run: performed action selfDestruct of #1
+enter action node: step
+step 1: token 1@*ast.AssignmentActionNode
 stmt assign seen
   eval literal 1 -> 1
+step 2: token 1@*ast.TerminateStatement
 stmt terminate
   eval feature this -> instance#1
 terminate: Probe #1
 terminated with occurrence: life (do behavior abandoned: alive)
-terminate action: dropped token 1@step
-step 1: no active tokens
+terminate action: dropped token 1@*ast.TerminateStatement
+step 3: no active tokens

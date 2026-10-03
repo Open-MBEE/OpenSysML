@@ -160,6 +160,12 @@ type stmtHost interface {
 	// assignment binds that output for this activation rather than writing a value
 	// the body merely holds.
 	declaredOutput(name string) bool
+	// statementOrder is how stmts, the host's body or a block in it, may be
+	// ordered under the run's schedule; nil keeps declaration order.
+	statementOrder(stmts []lower.Statement) *lower.StatementOrder
+	// orderStep is the step a statement order is chosen in, as the run's other
+	// choices of the step name it.
+	orderStep() int
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
 	// effect states an effect on the world outside the body, over engine's values.
@@ -303,11 +309,75 @@ type stmtListFrame struct {
 	i        int
 	run      *runState
 	elements int64
+	// done and blocked track an unordered list's statements (lower.StatementOrder);
+	// i is -1 between two of them. divided is whether another performance may run between.
+	done, blocked []bool
+	divided       bool
+	// strands holds, by position, each statement started and set aside at an inner
+	// boundary so a statement it does not commute with runs meanwhile; switched is
+	// the one just set aside, -1 for none, and levels the trace levels i opened under.
+	strands  []*stmtStrand
+	switched int
+	levels   int
 }
 
-func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+// stmtStrand is a statement of an unordered list set aside mid-way: the frames it
+// paused at, innermost first, the trace levels and elements it holds, and why it paused.
+type stmtStrand struct {
+	cursor []bodyFrame
+	levels int
+	run    *runState
+	held   int64
+	paused bodyPause
+}
 
-func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
+func (s *stmtStrand) clone() *stmtStrand {
+	c := *s
+	c.cursor = make([]bodyFrame, len(s.cursor))
+	for i, f := range s.cursor {
+		c.cursor[i] = f.clone()
+	}
+	return &c
+}
+
+// abandon gives back the elements the paused statement held; one yielded before
+// its next statement has none open. The statements set aside are abandoned too.
+func (f *stmtListFrame) abandon(ctx *Context) {
+	if f.run != nil && (f.i >= 0 || f.strands == nil) {
+		f.run.elements = f.elements
+	}
+	f.abandonStrands(ctx)
+}
+
+// abandonStrands ends what the statements set aside hold open, innermost first.
+func (f *stmtListFrame) abandonStrands(ctx *Context) {
+	for i, s := range f.strands {
+		if s == nil {
+			continue
+		}
+		for _, inner := range s.cursor {
+			inner.abandon(ctx)
+		}
+		if s.run != nil {
+			s.run.elements -= s.held
+		}
+		f.strands[i] = nil
+	}
+}
+
+func (f *stmtListFrame) clone() bodyFrame {
+	c := *f
+	c.done, c.blocked = slices.Clone(f.done), slices.Clone(f.blocked)
+	if f.strands != nil {
+		c.strands = make([]*stmtStrand, len(f.strands))
+		for i, s := range f.strands {
+			if s != nil {
+				c.strands[i] = s.clone()
+			}
+		}
+	}
+	return &c
+}
 
 // run executes statements in declaration order, stopping at a `return`; a body
 // pausing in one is re-entered at that statement, one yielding between two at
@@ -319,8 +389,16 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 	}
 	if !resumed {
 		f = &stmtListFrame{}
+		divided := e.ctx.body != nil && e.ctx.body.yields
+		if order := e.host.statementOrder(stmts); order != nil && order.Reorders(divided) {
+			f.i, f.done, f.blocked = -1, make([]bool, len(stmts)), make([]bool, len(stmts))
+			f.divided, f.switched = divided, -1
+		}
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
+	if f.done != nil {
+		return e.runUnordered(stmts, f, resumed)
+	}
 	for ; f.i < len(stmts); f.i++ {
 		if err := e.ctx.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
@@ -333,6 +411,133 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 		e.ctx.bodyPerformed()
 	}
 	return flowNext, nil
+}
+
+// runUnordered executes statements no succession orders, each next one as the
+// run's schedule picks among those lower.StatementOrder lets run next. A statement
+// started is set aside at an inner boundary where one it does not commute with may
+// run between its moves, so that one's moves may fall between them.
+func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, resumed bool) (flow stmtFlow, err error) {
+	order := e.host.statementOrder(stmts)
+	level := e.ctx.enterList(f, order)
+	defer e.ctx.leaveList(level)
+	defer func() {
+		if err != nil && !paused(err) {
+			f.abandonStrands(e.ctx)
+		}
+	}()
+	for {
+		if f.i < 0 {
+			next := f.candidates(order)
+			if len(next) == 0 {
+				return flowNext, nil
+			}
+			if err := e.ctx.yieldBody(); err != nil {
+				return flowNext, e.ctx.pausing(f, err)
+			}
+			f.i, f.switched = e.pickStatement(stmts, next), -1
+			resumed = e.ctx.resumeStrand(f)
+			if level != nil {
+				level.moved = false
+			}
+		}
+		flow, err := e.statement(stmts[f.i], f, resumed)
+		resumed = false
+		if paused(err) && e.ctx.body.paused.strand == f {
+			e.ctx.setAside(f)
+			continue
+		}
+		if err != nil || flow == flowReturn {
+			return flow, e.ctx.pausing(f, err)
+		}
+		order.Ran(f.i, f.done, f.blocked, f.divided)
+		f.i = -1
+		e.ctx.bodyPerformed()
+	}
+}
+
+// candidates lists, ascending, the statements the list may run or go on with next:
+// after one was set aside, it or those it does not commute with; else those
+// lower.StatementOrder lets start next, with every one set aside.
+func (f *stmtListFrame) candidates(order *lower.StatementOrder) []int {
+	var next []int
+	if f.switched >= 0 {
+		next = append(order.Rivals(f.switched, f.done, f.divided), f.switched)
+	} else {
+		next = order.Next(f.done, f.blocked, f.divided)
+		for i, s := range f.strands {
+			if s != nil {
+				next = append(next, i)
+			}
+		}
+	}
+	slices.Sort(next)
+	return slices.Compact(next)
+}
+
+// setAside keeps the frames of f's statement, paused at an inner boundary, as a
+// strand of f, closing the trace levels it holds while the list goes on.
+func (ctx *Context) setAside(f *stmtListFrame) {
+	run := ctx.body
+	if f.strands == nil {
+		f.strands = make([]*stmtStrand, len(f.done))
+	}
+	s := &stmtStrand{
+		cursor: run.cursor,
+		levels: ctx.bodyLevels() - f.levels,
+		run:    f.run,
+		paused: bodyPause{yielded: true},
+	}
+	if f.run != nil {
+		s.held = f.run.elements - f.elements
+	}
+	f.strands[f.i] = s
+	run.cursor, run.paused = nil, bodyPause{}
+	ctx.trace.setNesting(run.traceBase + f.levels)
+	f.switched, f.i = f.i, -1
+}
+
+// resumeStrand readies f's statement i to go on where it was set aside, reporting
+// whether it was: its frames resume and its trace levels reopen.
+func (ctx *Context) resumeStrand(f *stmtListFrame) bool {
+	f.levels = ctx.bodyLevels()
+	if f.strands == nil || f.strands[f.i] == nil {
+		return false
+	}
+	s := f.strands[f.i]
+	f.strands[f.i] = nil
+	run := ctx.body
+	run.resuming, run.paused = s.cursor, s.paused
+	f.run = s.run
+	if s.run != nil {
+		f.elements = s.run.elements - s.held
+	}
+	ctx.trace.setNesting(run.traceBase + f.levels + s.levels)
+	return true
+}
+
+// statementsWherePrefix opens where a statement order names the body it was made in.
+const statementsWherePrefix = "statements in "
+
+// pickStatement picks the statement to run next among next, two or more a
+// choice point of the run's schedule.
+func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
+	if len(next) == 1 {
+		return next[0]
+	}
+	alts := make([]string, len(next))
+	for k, i := range next {
+		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
+	}
+	choice := ChoicePoint{
+		Kind:         ChoiceStatementOrder,
+		Step:         e.host.orderStep(),
+		Where:        statementsWherePrefix + e.host.describe(),
+		Alternatives: alts,
+	}
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	e.ctx.noteChoice(choice)
+	return next[choice.Taken]
 }
 
 // statement executes one lowered statement, recording it in the trace with the
@@ -515,6 +720,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
+		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
 	if f.elseBranch {
