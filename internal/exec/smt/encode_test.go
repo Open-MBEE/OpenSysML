@@ -167,6 +167,82 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 	}
 }
 
+// TestEncodeFanOutJoinCompletes: two successions out of an ordinary node are
+// encoded as a fork's are, so both branches run and the join completes.
+func TestEncodeFanOutJoinCompletes(t *testing.T) {
+	solver := requireSolver(t)
+	src := `package test {
+	private import ScalarValues::*;
+	action clash {
+		attribute leftRan : Boolean = false;
+		attribute rightRan : Boolean = false;
+		first start;
+		action split;
+		action left { assign leftRan := true; }
+		action right { assign rightRan := true; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then left;
+		succession first split then right;
+		succession first left then sync;
+		succession first right then sync;
+		succession first sync then done;
+	}
+}`
+	ctx, action, graph, held := loweredAction(t, src, "test::clash")
+	const k = 7
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	fans := false
+	for _, node := range graph.Nodes {
+		fans = fans || (nodeLabel(node) == "split" && enc.Flow.fansOut(node))
+	}
+	if !fans {
+		t.Fatal("split is not encoded as a fan-out")
+	}
+	q := *enc.Query
+	q.Assertions = append(q.Assertions, solve.Assertion{Term: enc.Completed[k]})
+	result, err := solver.Solve(context.Background(), &q)
+	if err != nil {
+		t.Fatalf("solve: %v\n%s", err, solve.Script(&q))
+	}
+	if result.Status != solve.StatusSat {
+		t.Fatalf("status %v, want sat\n%s", result.Status, solve.Script(&q))
+	}
+	last := enc.States[k]
+	for _, base := range enc.Features {
+		v := last.value(base)
+		if assigned(t, result, v.Name) != "true" {
+			t.Errorf("%s = %s at move %d, want true", v.Name, assigned(t, result, v.Name), k)
+		}
+	}
+}
+
+// TestEncodeFanOutPlainRejoinRefused: a plain node both branches of a fan-out
+// reach synchronizes as the interpreter does, which the encoding does not cover.
+func TestEncodeFanOutPlainRejoinRefused(t *testing.T) {
+	src := `package test {
+	action fan {
+		first start;
+		then action a;
+		action b; action c; action d;
+		succession first a then b;
+		succession first a then c;
+		succession first b then d;
+		succession first c then d;
+	}
+}`
+	ctx, action, graph, held := loweredAction(t, src, "test::fan")
+	_, err := Encode(ctx, action, graph, held, nil, 8, DefaultUnroll)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || unsupported.Construct != "implicit join" {
+		t.Fatalf("encode err = %v, want the implicit join refused", err)
+	}
+}
+
 // status solves enc's query with the completion at k and extra asserted.
 func status(t *testing.T, solver *solve.Solver, enc *Encoding, k int, extra *solve.Term) solve.Status {
 	t.Helper()

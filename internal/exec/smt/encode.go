@@ -1006,12 +1006,14 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	switch node.(type) {
 	case *ast.FinalNode:
 		s.terms = append(s.terms, s.retire())
-	case *ast.ForkNode:
-		s.fork()
 	case *ast.DecisionNode:
 		s.decide()
 	default:
-		s.succeed()
+		if e.Flow.fansOut(node) {
+			s.fork()
+		} else {
+			s.succeed()
+		}
 	}
 	s.others()
 	s.terms = append(s.terms, eq(solve.VarTerm(next.NextID), s.nextID))
@@ -1191,25 +1193,16 @@ func (s *tokenStep) decide() {
 	s.fails = or(undefined...)
 }
 
-// succeed takes the one enabled succession; none retires the token; several
-// out of a node other than the initial one is an error.
+// succeed takes the node's one succession where its guard holds and retires the
+// token otherwise; a node with several fans out instead.
 func (s *tokenStep) succeed() {
-	guards := s.guards.holds
-	_, initial := s.node.(*ast.InitialNode)
-	count := solve.IntTerm(0)
 	taken := solve.BoolTerm(false)
 	for p := range s.out {
-		isFirst := and(guards[p], not(taken))
-		s.terms = append(s.terms, implies(isFirst, s.take(p)))
-		taken = or(taken, guards[p])
-		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
+		s.terms = append(s.terms, implies(s.guards.holds[p], s.take(p)))
+		taken = s.guards.holds[p]
 	}
 	s.terms = append(s.terms, implies(not(taken), s.retire()))
-	failures := undefinedGuards(s.guards.defined)
-	if !initial && len(s.out) > 1 {
-		failures = append(failures, gt(count, solve.IntTerm(1)))
-	}
-	if len(failures) > 0 {
+	if failures := undefinedGuards(s.guards.defined); len(failures) > 0 {
 		s.fails = or(failures...)
 	}
 }

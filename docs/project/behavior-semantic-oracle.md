@@ -355,6 +355,80 @@ that wrote it and the one that stood: three branches are one choice of three
 (`TestThreeWritersAreOneChoice`), and a token writing twice contributes only its last write, the
 one that would stand had it gone last (`TestRepeatedWritesByOneTokenListItsLast`).
 
+### Several successions out of an ordinary action node: every target follows, in which order is open
+
+Fixture: `action_succession_fan_out_writes_one_feature` (golden, with `.declared` and `.seed-1`
+goldens); companions `action_succession_fan_out_rejoin`,
+`action_succession_fan_out_guard_pruned_rejoin`, `action_succession_fan_out_data_flows`,
+`action_succession_fan_out_statement_node`, `action_succession_fan_out_from_start`,
+`action_succession_guard_two_hold`, `action_step_multiplicity_fan_out`,
+`action_step_multiplicity_fan_out_plain` and `action_step_multiplicity_zero_fan_out`.
+
+```
+start → split ─→ left  { x := 1; leftRan := true  } ─┐
+              ─→ right { x := 2; rightRan := true } ─┤→ sync → done
+```
+
+`split` is a plain action node, not a fork.
+
+Derived constraints:
+
+- Each of `first split then left` and `first split then right` is a connector typed by
+  `HappensBefore`: it orders the one performance of `split` completely before its target's
+  performance and says nothing else. Neither link selects or excludes the other, and `left` and
+  `right` each declare no multiplicity, so each is one performance after `split`. The library
+  makes outgoing successions exclusive only for a decision (`DecisionPerformance`: "exactly one
+  of the Successions"); a fork adds only the `1..1` target multiplicity an ordinary node's
+  successions leave unwritten, which for an unrepeated target is the one performance it has
+  anyway. So `leftRan` and `rightRan` both end `true`, and `x` is `1` or `2`.
+- A guarded succession out of a non-decision node is a `NonStateTransitionPerformance` whose
+  guard constrains its own `transitionLink : HappensBefore[0..1]`; nothing relates the guards of
+  two such links. Every succession whose guard holds is followed (`action_succession_guard_two_hold`:
+  `low = 1`, `high = 1`), and a false guard leaves out only its own link
+  (`action_succession_fan_out_guard_pruned_rejoin`: `bRan = false`, `cRan = true`).
+- A node both branches reach declares no multiplicity, so it is one performance after every
+  succession that delivers to it (`action_succession_fan_out_rejoin`: `hits = 1`). Behind a
+  pruned link it awaits only what can still reach it, exactly as behind a fork branch a guard
+  pruned (`action_succession_guard_fork_branch_pruned`) or a decision branch not taken; see
+  [A node without multiplicity reached over two successions is performed once, after
+  both](#a-node-without-multiplicity-reached-over-two-successions-is-performed-once-after-both).
+  A join is the exception it always was: it awaits every incoming succession, so a pruned
+  branch into a join deadlocks.
+- `split` is one performance, so the flows out of it are its one set of outputs: they are moved
+  once, before its successors start, and each reaches its own target's pin
+  (`action_succession_fan_out_data_flows`: `runs = 1`, `got = 21`, `doubled = 42`).
+- A repeated step keeps its count rule: each edge out of `a[3]` must state its ends
+  (`succession first [*] a then [1] q;`), and fanning out to two targets is two such edges
+  (`action_step_multiplicity_fan_out`). A plain `then` out of it stays refused
+  (`action_step_multiplicity_fan_out_plain`). A `[0]` step is no performance and both of its
+  successors run (`action_step_multiplicity_zero_fan_out`).
+
+Two control nodes keep a bound on their outgoing side that the static rules state:
+`validateJoinNodeOutgoingSuccessions` and `validateMergeNodeOutgoingSuccessions` each allow at
+most one outgoing succession, so a join or a merge with two is an ill-formed model, reported by
+`join-outgoing-successions` and `merge-outgoing-successions` and refused by the executor
+(`ErrInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
+the outgoing bound is the validation constraint's, not the library's.
+
+Open: the order of `left` against `right`, and so which write of `x` stands — the same openness
+as [Concurrent branches writing one feature: the value is open, the writes are
+not](#concurrent-branches-writing-one-feature-the-value-is-open-the-writes-are-not).
+
+Pinned outcome: the admissible set `{x = 1, x = 2}`, with `leftRan = true` and `rightRan = true`
+in both, stated as `outcomes` citing this section; the `.trace.order` constraints are
+`split < left`, `split < right`, `left < sync`, `right < sync`. Exploration reaches both outcomes
+and no other, one linearization each (2 runs, 2 outcomes, complete), and the exhaustive checker
+finds `x` divergent between `1` and `2`.
+
+Executor: a token leaving an ordinary node, a statement node or the start node along several
+enabled successions splits as a fork's does — one fresh token per succession, appended in
+succession-declaration order — so the scheduling conventions above carry over unchanged: under
+`declared` the last-declared branch is appended last and `right` writes last (`x = 2`); the
+default `reverse` policy steps it first (`x = 1`). The guards out of the node are all evaluated
+before the token leaves, so a guard that cannot be evaluated fails the step before any branch
+starts. The SMT encoding gives the node the fork's encoding (one slot per enabled succession);
+a plain node several tokens may reach together stays refused there as an implicit join.
+
 ### A decision with several holding guards: exactly one branch follows, which one is open
 
 Fixture: `action_choice_decision_overlapping_guards` (golden).

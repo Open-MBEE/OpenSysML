@@ -48,8 +48,8 @@ type Flow struct {
 	// Slots is how many tokens may be in flight at once within k moves, over
 	// every frame: the bound T.
 	Slots int
-	// Cyclic is set when a fork lies on a cycle, so the tokens in flight are
-	// bounded by k rather than by the graph, and the state records a full fork.
+	// Cyclic is set when a fan-out lies on a cycle, so the tokens in flight are
+	// bounded by k rather than by the graph, and the state records a full fan-out.
 	Cyclic bool
 	// Delivers is set when an object flow delivers to a node performing in a
 	// frame of its own, whose pin queues the deliveries it has yet to take.
@@ -339,9 +339,6 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if n.ActionRef != nil {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
-		}
 	case *ast.Usage:
 		if lower.IsCaseNode(n) {
 			return &UnsupportedError{Node: label, Construct: "case", Reason: "a nested case is not encoded"}
@@ -349,13 +346,7 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if performsAction(n) {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
-		}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode:
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the statement node has multiple successors"}
-		}
 	case *ast.SendStatement:
 		return &UnsupportedError{Node: label, Construct: "send", Reason: "messages are encoded by a later stage"}
 	case *ast.TerminateStatement:
@@ -445,27 +436,30 @@ func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error 
 }
 
 // sizeSlots decides how many tokens the frame's flow may hold at once within k
-// moves: one, plus what each fork adds per time a token reaches it, at most k times.
+// moves: one, plus what each fan-out adds per time a token reaches it, at most k times.
 func (f *Flow) sizeSlots(fr *Frame, k int) {
 	arrivals := f.arrivals(fr, k)
 	slots, widest := 1, 0
 	for _, node := range fr.Nodes {
-		fork, ok := node.(*ast.ForkNode)
-		if !ok {
+		if !f.fansOut(node) {
 			continue
 		}
-		extra := len(f.Outgoing[fork]) - 1
-		if extra <= 0 {
-			continue
-		}
-		if f.reaches(fork, fork) {
+		extra := len(f.Outgoing[node]) - 1
+		if f.reaches(node, node) {
 			f.Cyclic = true
 		}
 		widest = max(widest, extra)
-		slots += min(arrivals[fork], k) * extra
+		slots += min(arrivals[node], k) * extra
 	}
-	// Each of the k moves performs at most one fork.
+	// Each of the k moves performs at most one fan-out.
 	fr.Slots = min(slots, 1+k*widest)
+}
+
+// fansOut reports a node a token leaves along every enabled succession of
+// several: any node but a decision, which takes one.
+func (f *Flow) fansOut(node ast.Node) bool {
+	_, decision := node.(*ast.DecisionNode)
+	return !decision && len(f.Outgoing[node]) > 1
 }
 
 // arrivals bounds how often a token may reach each node of the frame within k
@@ -518,7 +512,7 @@ func (f *Flow) entering(fr *Frame, comp []ast.Node, cyclic bool, leaving map[ast
 				entering += leaving[source]
 			}
 		}
-		if _, ok := node.(*ast.ForkNode); ok && cyclic && len(f.Outgoing[node]) > 1 {
+		if cyclic && f.fansOut(node) {
 			multiplies = true
 		}
 	}

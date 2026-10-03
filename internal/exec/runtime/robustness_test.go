@@ -1397,14 +1397,16 @@ func testBindingNestedContainerIsNotACycle(t *testing.T) {
 }
 
 // testSuccessionGuardFailureModes: a guard on a succession leaving an ordinary
-// action node is evaluated, so its failure modes — a value that is not Boolean,
-// a guard nothing supplies a name for, and two guards holding at once — are each
-// reported as a typed error rather than a panic, a hang or a chosen branch.
+// action node is evaluated, so its failure modes — a value that is not Boolean and
+// a guard nothing supplies a name for — are each reported as a typed error rather
+// than a panic or a hang. Two guards holding at once are no failure: each
+// succession is its own HappensBefore link, so both targets are performed.
 func testSuccessionGuardFailureModes(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		body string
-		want error
+		name    string
+		body    string
+		want    error
+		results map[string]int64
 	}{
 		{
 			name: "guard is not a boolean",
@@ -1440,7 +1442,7 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 				succession first check if level > 10 then alert;
 				succession first check if level > 5 then idle;
 			`,
-			want: ErrAmbiguousSuccession,
+			results: map[string]int64{"high": 1, "low": 1},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1458,7 +1460,12 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 						done <- fmt.Errorf("panic: %v", r)
 					}
 				}()
-				_, err := ctx.ExecuteAction(sym)
+				results, err := ctx.ExecuteAction(sym)
+				for name, want := range tc.results {
+					if got, ok := results[name]; err == nil && (!ok || got.Const.Int != want) {
+						err = fmt.Errorf("%s = %v, want %d", name, got, want)
+					}
+				}
 				done <- err
 			}()
 			select {
@@ -6863,20 +6870,24 @@ func testActionWhoseLastNodeHasNoSuccession(t *testing.T) {
 }
 
 // testFirstNodeWithASecondSuccession: `first s1 then s2;` is a succession out of
-// s1, so a second succession out of that node is ambiguous.
+// s1, so a second succession out of that node is a second HappensBefore link
+// from it, and both s2 and s3 are performed after s1.
 func testFirstNodeWithASecondSuccession(t *testing.T) {
 	src := `
 		package test {
+			private import ScalarValues::*;
 			action seq {
+				attribute two : Integer = 0;
+				attribute three : Integer = 0;
 				action s1;
-				action s2;
-				action s3;
+				action s2 { assign two := 2; }
+				action s3 { assign three := 3; }
 				first s1 then s2;
 				succession first s1 then s3;
 			}
 		}
 	`
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "seq", ast.DefAction)
 	if sym == nil {
@@ -6888,12 +6899,12 @@ func testFirstNodeWithASecondSuccession(t *testing.T) {
 		t.Fatalf("create action executor: %v", err)
 	}
 
-	err = exec.RunToCompletion()
-	if err == nil {
-		t.Fatal("a first node with two successions ran to completion")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("a first node with two successions: %v", err)
 	}
-	if !strings.Contains(err.Error(), "multiple successors") {
-		t.Fatalf("error = %q, want it to report multiple successors", err)
+	results := exec.Results()
+	if results["two"].Const.Int != 2 || results["three"].Const.Int != 3 {
+		t.Fatalf("two = %v, three = %v, want both successors performed", results["two"], results["three"])
 	}
 }
 

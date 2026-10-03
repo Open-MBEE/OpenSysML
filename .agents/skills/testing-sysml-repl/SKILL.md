@@ -4068,10 +4068,10 @@ Traps and recipes:
 - Error wordings to assert: non-Boolean guard →
   `error: execution failed: type mismatch: node s1: guard must evaluate to boolean, got constant`;
   unresolvable name in a guard → `error: execution failed: eval guard of node s1: unresolved
-  reference: nosuch`. Two guards out of one action node that both hold →
-  `error: execution failed: more than one succession is enabled: action node check has multiple
-  successors` (wraps the `ErrAmbiguousSuccession` sentinel; the run stops with the token still on the
-  node and neither branch's attribute written — assert that with `%tokens`, not just the message).
+  reference: nosuch`. Two guards out of one ordinary action node that both hold are no error: each
+  succession is its own `HappensBefore` link, so the token splits as a fork's does and both branch
+  attributes are written (assert both in `Results:`). Only a `decide` node picks one of several
+  holding guards; a `join` or `merge` with two outgoing successions is still refused.
 - Places a guard could still be silently ignored, all worth a one-liner fixture: succession out of a
   real initial node (`then start s1 if …;`), out of a `merge`, out of a `join` (must not deadlock —
   the branch tokens are consumed either way), and one whose target is `done`.
