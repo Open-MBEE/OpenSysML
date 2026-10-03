@@ -1515,7 +1515,7 @@ jobs:
 
                   metadata = Path(os.environ["HOME"]) / ".opensysml" / "bin" / "sysml-grpc.json"
                   cached = json.loads(metadata.read_text())
-                  expected = f"v{opensysml.__version__}"
+                  expected = os.environ["CIRCLE_TAG"]
                   assert cached["version"] == expected, (cached["version"], expected)
                   print(f"cached release: {cached['version']}")
                   EOF

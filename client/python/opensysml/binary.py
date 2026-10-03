@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import threading
@@ -122,9 +123,24 @@ ALLOW_UNPINNED_ENV = 'OPENSYSML_ALLOW_UNPINNED_DOWNLOAD'
 BINARY_ENV = 'OPENSYSML_BINARY'
 
 
-def built_against_release():
-    """The sysml-grpc release this opensysml distribution was built against."""
-    return f'v{VERSION}'
+_BUILT_AGAINST_VERSION = re.compile(
+    r'^(?P<release>\d+\.\d+\.\d+)(?:(?P<phase>a|b|rc)(?P<number>\d+))?$'
+)
+_SEMVER_PHASE = {'a': 'alpha', 'b': 'beta', 'rc': 'rc'}
+
+
+def built_against_releases():
+    """The SemVer tags corresponding to this opensysml distribution's version."""
+    match = _BUILT_AGAINST_VERSION.fullmatch(VERSION)
+    if match is None:
+        return (f'v{VERSION}',)
+    phase = match['phase']
+    if phase is None:
+        return (f"v{match['release']}",)
+    release = match['release']
+    suffix = _SEMVER_PHASE[phase]
+    number = match['number']
+    return (f'v{release}-{suffix}{number}', f'v{release}-{suffix}.{number}')
 
 
 def default_github_repo():
@@ -893,11 +909,11 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     sysml-grpc on $PATH.
 
     An explicit version comes from ``version`` or $OPENSYSML_GRPC_VERSION.
-    Without one, the client downloads the release it was built against, except
-    that an unrecorded hand-installed cache remains in use. A failed replacement
-    leaves the working cache in place; an unavailable implicit download may use
-    $PATH, but integrity failures are never bypassed. The whole cache decision
-    is made holding the shared cache lock.
+    Without one, the client tries the SemVer tag or tags corresponding to its
+    built-against version, except that an unrecorded hand-installed cache remains
+    in use. A failed replacement leaves the working cache in place; an unavailable
+    implicit download may use $PATH, but integrity failures are never bypassed.
+    The whole cache decision is made holding the shared cache lock.
 
     What is returned for the shared cache is a link to it under its own digest,
     not the cache path itself: the cache is replaced in place, so starting it
@@ -911,7 +927,7 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
         version (str, optional): Specific version tag to download (e.g. 'v0.1.0'),
                                  or 'latest' for the newest release. If None,
                                  $OPENSYSML_GRPC_VERSION is used, then the
-                                 built-against release when neither is set.
+                                 built-against release tags when neither is set.
     
     Returns:
         str: Path to binary, digest-named when it is the shared cache
@@ -923,8 +939,8 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     if version is None:
         version = os.environ.get('OPENSYSML_GRPC_VERSION') or None
     implicit = version is None
-    if implicit:
-        version = built_against_release()
+    versions = built_against_releases() if implicit else (version,)
+    requested_versions = ', '.join(versions)
 
     # Neither of these touches the cache, so neither takes the lock over it.
     named = named_binary()
@@ -934,19 +950,19 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     try:
         with cache_lock():
             chosen = _ensure_binary_locked(
-                force_download, version, github_repo, binary_path, implicit
+                force_download, versions, github_repo, binary_path, implicit
             )
             return stable_binary() if chosen == binary_path else chosen
     except UnpinnedReleaseError as e:
         if not implicit:
             raise
-        return _fallback_to_path_or_raise(version, binary_path, e)
+        return _fallback_to_path_or_raise(requested_versions, binary_path, e)
     except ChecksumMismatchError:
         raise
     except ConnectionError as e:
         if not implicit:
             raise
-        return _fallback_to_path_or_raise(version, binary_path, e)
+        return _fallback_to_path_or_raise(requested_versions, binary_path, e)
 
 
 def _fallback_to_path_or_raise(version, binary_path, download_error):
@@ -972,52 +988,86 @@ def _fallback_to_path_or_raise(version, binary_path, download_error):
     )
 
 
-def _ensure_binary_locked(force_download, version, github_repo, binary_path, implicit=False):
-    """The cache or a download of the release asked for, with the shared cache held.
+def _ensure_binary_locked(force_download, versions, github_repo, binary_path, implicit=False):
+    """The cache or a download of the release tags asked for, with the cache held.
 
     Returns:
         str: The executable path chosen from the cache or release download
     """
+    version = versions[0]
+    requested_versions = ', '.join(versions)
     # An unrecorded executable may be a developer's hand-installed build.
     cached = None
     if not force_download and os.path.exists(binary_path):
         if os.access(binary_path, os.X_OK):
             if implicit and not os.path.exists(metadata_path()):
                 return binary_path
-            stale = stale_cache_reason(version, github_repo)
+            if implicit and cached_release(github_repo) in versions:
+                stale = None
+            else:
+                stale = stale_cache_reason(version, github_repo)
             if stale is None:
                 return binary_path
             cached = binary_path
+            download_target = (
+                f'one of {requested_versions}'
+                if implicit and len(versions) > 1
+                else version
+            )
             warnings.warn(
-                f"Replacing the cached sysml-grpc: {stale}. Downloading {version}.",
+                f"Replacing the cached sysml-grpc: {stale}. Downloading "
+                f"{download_target}.",
                 stacklevel=3,
             )
     
-    # Download the explicit or built-against release.
-    try:
-        return download_binary(version=version, github_repo=github_repo)
-    except UnpinnedReleaseError as e:
-        # A release this opensysml pins nothing for contradicts nothing, so a
-        # working cache stands.
-        if cached is None:
+    unavailable = []
+    for candidate in versions:
+        try:
+            return download_binary(version=candidate, github_repo=github_repo)
+        except UnpinnedReleaseError as e:
+            # A release this opensysml pins nothing for contradicts nothing, so a
+            # working cache stands.
+            if cached is None:
+                raise
+            warnings.warn(
+                f"Keeping the cached sysml-grpc at {cached}: {candidate} was not "
+                f"downloaded ({e}). It may be an older release than asked for.",
+                stacklevel=3,
+            )
+            return cached
+        except ChecksumMismatchError:
+            # A download that may have been tampered with is never answered from
+            # the cache or replaced by another candidate.
             raise
-        warnings.warn(
-            f"Keeping the cached sysml-grpc at {cached}: {version} was not downloaded "
-            f"({e}). It may be an older release than asked for.",
-            stacklevel=3,
-        )
+        except ConnectionError as e:
+            unavailable.append((candidate, e))
+
+    if cached is not None:
+        if len(unavailable) == 1:
+            candidate, error = unavailable[0]
+            warnings.warn(
+                f"Keeping the cached sysml-grpc at {cached}: {candidate} could not "
+                f"be downloaded ({error}). It may be an older release than asked for.",
+                stacklevel=3,
+            )
+        else:
+            details = '; '.join(
+                f'{candidate}: {error}' for candidate, error in unavailable
+            )
+            warnings.warn(
+                f"Keeping the cached sysml-grpc at {cached}: none of the built-against "
+                f"releases {requested_versions} could be downloaded ({details}). It may "
+                "be an older release than asked for.",
+                stacklevel=3,
+            )
         return cached
-    except ChecksumMismatchError:
-        # A download that may have been tampered with is never answered from the
-        # cache, so it must not reach the ConnectionError fallback below.
-        raise
-    except ConnectionError as e:
-        if cached is None:
-            raise
-        # A release with no binary to fetch is no reason to lose a working one.
-        warnings.warn(
-            f"Keeping the cached sysml-grpc at {cached}: {version} could not be "
-            f"downloaded ({e}). It may be an older release than asked for.",
-            stacklevel=3,
-        )
-        return cached
+
+    if len(unavailable) == 1:
+        raise unavailable[0][1]
+    details = '; '.join(
+        f'{candidate}: {error}' for candidate, error in unavailable
+    )
+    raise ConnectionError(
+        f"Could not download any of the built-against releases "
+        f"({requested_versions}): {details}"
+    )
