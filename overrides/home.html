@@ -759,13 +759,17 @@
       font-weight: 700;
     }
 
-    /* The sponsor button floats over the bottom-right corner of the landing page only,
-       clear of the theme's back-to-top button, which appears at the top centre. */
-    .osml-sponsor {
-      position: fixed;
-      right: 1.2rem;
+    /* The sticky dock follows the page and rests above the footer. */
+    .osml-sponsor-dock {
+      position: sticky;
       bottom: 1.2rem;
       z-index: 3;
+      display: flex;
+      justify-content: flex-end;
+      padding: 0 1.2rem;
+      pointer-events: none;
+    }
+    .osml-sponsor {
       display: inline-flex;
       align-items: center;
       gap: .45rem;
@@ -779,6 +783,7 @@
       box-shadow: 0 .35rem 1.1rem rgba(194, 24, 91, .45), 0 .1rem .3rem rgba(0, 0, 0, .2);
       transition: transform .2s, box-shadow .2s;
       animation: osml-sponsor-in .5s .6s both;
+      pointer-events: auto;
     }
     .osml-sponsor:hover,
     .osml-sponsor:focus-visible {
@@ -825,7 +830,8 @@
     }
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
-      .osml-sponsor { right: .8rem; bottom: .8rem; padding: .7rem; }
+      .osml-sponsor-dock { bottom: .8rem; padding: 0 .8rem; }
+      .osml-sponsor { padding: .7rem; }
       .osml-sponsor__label {
         position: absolute;
         width: 1px;
@@ -839,11 +845,6 @@
 {% endblock %}
 
 {% block hero %}
-<a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
-   title="Sponsor OpenMBEE through NumFOCUS">
-  <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
-  <span class="osml-sponsor__label">Sponsor</span>
-</a>
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
@@ -1487,7 +1488,7 @@
       <p>A complete SysML v2 and KerML implementation in Go — language server,
       interactive REPL, and an execution runtime that instantiates parts, evaluates
       constraints, and runs action and state behavior on a clock, not just validates
-      them. Ships with a Python client over gRPC.</p>
+      them. Ships with Python, Node, Java, Rust, Julia and MATLAB clients for its service, and a Go API.</p>
       <p class="osml-spec__meta">Go &middot; Apache-2.0</p>
       <p class="osml-card__links">
         <a href="{{ config.repo_url }}">GitHub</a>
@@ -1614,6 +1615,13 @@
   </ul>
 </section>
 
+<div class="osml-sponsor-dock">
+  <a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
+     title="Sponsor OpenMBEE through NumFOCUS">
+    <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
+    <span class="osml-sponsor__label">Sponsor</span>
+  </a>
+</div>
 
 {% endblock %}
 

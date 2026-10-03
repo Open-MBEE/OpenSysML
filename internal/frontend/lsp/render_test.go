@@ -552,11 +552,11 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
-	// A table is the one kind written in Markdown; the tree view has every other form.
-	viewFor := map[string]string{"markdown": "KitViews::widgetTable"}
+	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
+	viewFor := map[string]string{"markdown": "KitViews::widgetTable", "csv": "KitViews::widgetTable", "tsv": "KitViews::widgetTable"}
 	for _, form := range advertised {
 		name := viewFor[form]
 		if name == "" {

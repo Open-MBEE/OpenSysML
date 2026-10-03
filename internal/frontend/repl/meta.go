@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {

@@ -10,7 +10,7 @@ result:
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
-    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml"],
+    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
 ```
 
@@ -123,7 +123,7 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar. |
+| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `csv` and `tsv` write a `table` rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
 | `palette` | Optional. A palette the `dot`, `mermaid` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |

@@ -108,7 +108,8 @@ tree, interconnection, state and action diagrams, which read the annotations bac
 the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
 `%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
 `// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
-visualizer's style, Markdown (`.md`) for a table, or the text form (`.txt`). The list is the
+visualizer's style, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
+for a table, or the text form (`.txt`). The list is the
 one the connected server advertises, so it matches what that server writes; the pick is sent
 as the request's `form`, the server writes that form, and the save dialog opens on the matching
 extension and filter. A form the drawn kind has no grammar for — DOT for a sequence, Mermaid for

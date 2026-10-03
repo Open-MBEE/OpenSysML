@@ -1,6 +1,5 @@
-/* The ecosystem page (docs/ecosystem.md): stack and ecosystem cards rendered from
-   raw HTML inside the markdown. Every selector carries the .osml-eco__ prefix so
-   the rules cannot leak onto other pages. */
+/* Cards rendered from raw HTML inside Markdown. Every selector carries the
+   .osml-eco__ prefix so the rules cannot leak onto other pages. */
 
 .osml-eco__lede {
   max-width: 44rem;
