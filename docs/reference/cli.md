@@ -593,6 +593,22 @@ in each form:
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 
+An action rendering draws the action's own directed parameters as pins on its frame — `in` and
+`inout` on the frame's input side, `out` and `return` on the output side; a usage's are the ones its
+type gives it — the way it draws each nested node's parameters as pins on the node, and draws a
+parameter binding between the frame and a node's pin, or between two nodes' pins, as a binding edge
+between the pins: a nested parameter's value naming the action's parameter (`in b = bread;`,
+`in bread = ToastBread::bread;`, `out x :>> x = y;`), or an explicit `bind pack.boxed = toast;`. A
+name the node declares or inherits itself (`action child { in x; in y = x; }` under a frame with its
+own `x`) is the node's, not the frame's, and binds no frame pin; a node whose flow is drawn inside it
+binds its own parameters to its nodes' pins as the frame does. A binding one end of which is no pin —
+a literal, an expression, an attribute — draws nothing. `dot`
+sets the frame's pins on the cluster's border as squares, the way it sets a node's; `text` lists
+each pin under its node (`in bread`) and names the pins an edge joins (`heat.t => pack.t`,
+`ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and names the
+rest in a `%% not represented:` notice; `plantuml`'s state grammar has no pin, so it names the edge's
+pins in the edge's label (`n0 -- n1 : bread = b`) and the pins in a `' not represented:` notice.
+
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
 flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.

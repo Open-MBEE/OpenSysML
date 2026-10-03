@@ -44,6 +44,7 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 	}
 	graph := newActionGraph(scope)
 	graph.Attributes = lowerAttributes(members)
+	graph.Parameters = lowerParameters(members, scope)
 	return graph, nil
 }
 
@@ -122,6 +123,7 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 	collectInheritedActionNodes(graph, members)
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = lowerAttributes(members)
+	graph.Parameters = lowerParameters(members, scope)
 	// `first a;` names the node the flow starts at rather than declaring one.
 	if err := resolveFirstNode(graph); err != nil {
 		return nil, err
