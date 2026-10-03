@@ -130,8 +130,8 @@ Renders one view of a document.
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
 The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
-and PlantUML SVG, but the pinned Mermaid CLI 11.17.2's default strict-mode renderer strips them
-because their scheme is not HTTP(S).
+and PlantUML SVG, but Mermaid CLI 11.16.0's default strict-mode renderer strips them because
+their scheme is not HTTP(S).
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them

@@ -242,10 +242,11 @@ in Markdown.
 An optional source-link template is applied to the nodes and edges that can be located in the
 diagram's source model. HTML documents do not create element-anchored sections, so links back into
 the document are not available as a substitute for source links. This backend leaves Mermaid's
-`securityLevel` unset. The pinned Mermaid CLI 11.17.2 defaults to `strict`, which strips links
-with every non-HTTP(S) scheme, including `vscode://` and `file:///`, and percent-decodes hrefs:
-`https://example.com/c%5D%22%23#L3` becomes `https://example.com/c]%22##L3`.
-`{"securityLevel":"loose"}` preserves those schemes and the encoded href intact.
+`securityLevel` unset. Mermaid CLI 11.16.0 defaults to `strict`, which strips links with
+non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under both
+`strict` and `loose`: `https://example.com/c%5D%22%23#L3` becomes `https://example.com/c]%22#`,
+losing its fragment. `{"securityLevel":"loose"}` preserves non-HTTP(S) schemes, but not the URL
+rewriting or fragment loss.
 
 Supplying the images stays out of `docrender`: rendering them means running `mmdc` as a
 subprocess, which is `docpdf`'s job and must not become a dependency of a pure renderer. So

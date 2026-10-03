@@ -718,10 +718,11 @@ source locations and bundled library declarations are left unlinked. DOT writes 
 `tooltip` attributes; PlantUML writes `[[url]]` on nodes and edges (not ports or initial
 pseudostate arrows); Mermaid writes `click` statements for non-composite flowchart and simple state
 nodes and `link` statements for sequence participants, but not edges, subgraphs or composite
-states. The pinned Mermaid CLI 11.17.2 defaults to `securityLevel: strict`, which strips links
-with every non-HTTP(S) scheme, including `vscode://` and `file:///`, and percent-decodes hrefs:
-`https://example.com/c%5D%22%23#L3` becomes `https://example.com/c]%22##L3`.
-`{"securityLevel":"loose"}` preserves those schemes and the encoded href intact. In document
+states. The pinned Mermaid CLI 11.16.0 defaults to `securityLevel: strict`, which strips links
+with non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under
+both `strict` and `loose`: `https://example.com/c%5D%22%23#L3` becomes
+`https://example.com/c]%22#`, losing its fragment. `{"securityLevel":"loose"}` preserves those
+schemes, but not the URL rewriting or fragment loss. In document
 output, source links are supported for diagram elements; HTML does not create element-anchored
 sections. The option requires `-render`, `-render-all`,
 `-render-document` or `-render-documents`.

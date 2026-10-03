@@ -412,8 +412,10 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if pseudostate := plantumlPseudostates[node.Kind]; pseudostate != "" {
 		// PlantUML draws a pseudostate only when its stereotype stands alone.
 		fmt.Fprintf(&out, " <<%s>>", pseudostate)
-		if url, ok := w.links.URL(node.Origin); ok {
-			fmt.Fprintf(&out, " [[%s]]", url)
+		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked {
+			if url, ok := w.links.URL(node.Origin); ok {
+				fmt.Fprintf(&out, " [[%s]]", url)
+			}
 		}
 		return out.String()
 	}
@@ -449,6 +451,11 @@ var plantumlPseudostates = map[string]string{
 	"initial": "start", "final": "end", "fork": "fork", "join": "join",
 	"decision": "choice", "choice": "choice", "merge": "choice", "junction": "choice",
 	"shallow history": "history", "deep history": "history*",
+}
+
+// PlantUML does not retain links on these pseudostate stereotypes in SVG.
+var plantumlUnlinkedPseudostates = map[string]struct{}{
+	"start": {}, "fork": {}, "join": {}, "end": {}, "choice": {}, "history": {}, "history*": {},
 }
 
 // plantumlShapeStereotype is the stereotype the style block shapes a node by:

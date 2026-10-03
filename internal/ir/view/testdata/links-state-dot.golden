@@ -10,14 +10,18 @@ digraph "MachineViews::vehicleStates" {
     label=<<font point-size="10"><i>«state def»</i></font><br/><b>VehicleStates</b>>;
     color=black;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label="", URL="https://example.test/src/state.sysml#L8", tooltip="Machines::VehicleStates"];
+    URL="https://example.test/src/state.sysml#L8";
+    tooltip="Machines::VehicleStates";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n5" [shape=point, fillcolor=black, label=""];
     "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>, URL="https://example.test/src/state.sysml#L13", tooltip="Machines::VehicleStates::off"];
     subgraph "cluster_n2" {
       label=<<font point-size="10"><i>«state»</i></font><br/><b>operating</b>>;
       color=black;
       penwidth=0.5;
-      "n2" [shape=point, style=invis, width=0, height=0, label="", URL="https://example.test/src/state.sysml#L14", tooltip="Machines::VehicleStates::operating"];
+      URL="https://example.test/src/state.sysml#L14";
+      tooltip="Machines::VehicleStates::operating";
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n6" [shape=point, fillcolor=black, label=""];
       "n3" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b><br/>initial>, URL="https://example.test/src/state.sysml#L17", tooltip="Machines::VehicleStates::operating::idle"];
       "n4" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>moving</b>>, URL="https://example.test/src/state.sysml#L18", tooltip="Machines::VehicleStates::operating::moving"];

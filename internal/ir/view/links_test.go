@@ -1,10 +1,13 @@
 package view
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -353,6 +356,37 @@ func TestPlantUMLLinksPrecedeColorsAndExcludePorts(t *testing.T) {
 	}
 }
 
+func TestPlantUMLPseudostateLinksAreOmittedWhenSVGDropsThem(t *testing.T) {
+	origin := Origin{Doc: "model.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	writer := plantumlWriter{links: Links{
+		Template: "https://example.test/{file}",
+		Sites: func(Origin) (Site, bool) {
+			return Site{File: "model.sysml", Line: 1, Col: 1}, true
+		},
+	}}
+	for _, tc := range []struct {
+		kind, stereotype string
+	}{
+		{"initial", "start"},
+		{"fork", "fork"},
+		{"join", "join"},
+		{"final", "end"},
+		{"decision", "choice"},
+		{"choice", "choice"},
+		{"merge", "choice"},
+		{"junction", "choice"},
+		{"shallow history", "history"},
+		{"deep history", "history*"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			got := writer.decoration(&Node{Kind: tc.kind, Origin: origin})
+			if want := " <<" + tc.stereotype + ">>"; got != want {
+				t.Errorf("decoration = %q, want unlinked pseudostate %q", got, want)
+			}
+		})
+	}
+}
+
 func TestLinkWritersDoNotLinkZeroOrigins(t *testing.T) {
 	renderer, index := loadFixtures(t, "interconnection.sysml")
 	rendering, err := renderer.Render(lookup(t, index, "PlantViews::loopView"))
@@ -411,6 +445,40 @@ func TestLinkedFormsRenderAsSVG(t *testing.T) {
 	}
 }
 
+func TestDOTCompositeLinkRendersAsVisibleClusterAnchor(t *testing.T) {
+	renderer, index := loadFixtures(t, "interconnection.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "PlantViews::loopView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cluster := rendering.Roots[0]
+	if len(cluster.Children) == 0 {
+		t.Fatal("fixture root is not a composite cluster")
+	}
+	lineIndex := fixtureText(t, "interconnection.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "interconnection.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	clusterURL, ok := links.URL(cluster.Origin)
+	if !ok {
+		t.Fatal("composite cluster has no source URL")
+	}
+	input, err := rendering.WriteWith(FormDot, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := renderLinkedSVG(t, FormDot, input)
+	if !svgAnchorContainsElement(svg, clusterURL, "polygon") {
+		t.Errorf("composite URL %q is not an SVG anchor around visible cluster content:\n%s", clusterURL, svg)
+	}
+}
+
 func TestPlantUMLLinkedArrowFormsRenderAsSVG(t *testing.T) {
 	for _, tc := range []struct {
 		file, name string
@@ -426,11 +494,15 @@ func TestPlantUMLLinkedArrowFormsRenderAsSVG(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			lineIndex := fixtureText(t, tc.file).Lines()
 			links := Links{
 				Template: "https://example.test/src/{file}#L{line}",
-				Sites: renderer.Sites(func(origin Origin) (string, source.Pos, bool) {
-					return origin.Doc, source.Pos{Line: 2, Col: 1}, origin.Located()
-				}),
+				Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+					if doc != tc.file {
+						return nil
+					}
+					return lineIndex
+				})),
 			}
 			input, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
 			if err != nil {
@@ -441,7 +513,144 @@ func TestPlantUMLLinkedArrowFormsRenderAsSVG(t *testing.T) {
 			if !strings.Contains(svgText, "xlink:href=") || strings.Contains(svgText, "Syntax Error") {
 				t.Errorf("PlantUML SVG has no linked anchor:\nsource:\n%s\nsvg:\n%s", input, svg)
 			}
+			if tc.file == "state.sysml" || tc.file == "action.sysml" {
+				for _, url := range plantUMLLinkURLs(input, false) {
+					if !svgAnchorHasHref(svg, url) {
+						t.Errorf("PlantUML SVG has no anchor for emitted link %q", url)
+					}
+				}
+				for _, url := range plantUMLLinkURLs(input, true) {
+					if !svgAnchorHasHref(svg, url) {
+						t.Errorf("PlantUML SVG swallowed a child's own link %q inside a linked composite", url)
+					}
+				}
+			}
 		})
+	}
+}
+
+func TestMermaidSequenceLinkFragmentsAreDroppedInSVG(t *testing.T) {
+	renderer, index := loadFixtures(t, "sequence.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "SequenceViews::pubSubView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineIndex := fixtureText(t, "sequence.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "sequence.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	sourceURL, ok := links.URL(rendering.Roots[0].Origin)
+	if !ok || !strings.Contains(sourceURL, "#L") {
+		t.Fatalf("sequence participant source URL = %q, %t; want URL with a line fragment", sourceURL, ok)
+	}
+	input, err := rendering.WriteWith(FormMermaid, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := renderLinkedSVG(t, FormMermaid, input)
+	expected := strings.SplitN(sourceURL, "#", 2)[0]
+	hrefs := svgAnchorHrefs(svg)
+	found := false
+	for _, href := range hrefs {
+		if href == expected {
+			found = true
+		}
+		if strings.HasPrefix(href, expected+"#L") {
+			t.Errorf("Mermaid sequence SVG retained the fragment unexpectedly: %q", href)
+		}
+	}
+	if !found {
+		t.Errorf("Mermaid sequence SVG does not contain fragmentless href %q; got %q", expected, hrefs)
+	}
+}
+
+func plantUMLLinkURLs(input string, nodesOnly bool) []string {
+	pattern := regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+	var urls []string
+	for _, line := range strings.Split(input, "\n") {
+		if nodesOnly && !strings.HasPrefix(strings.TrimSpace(line), "state ") {
+			continue
+		}
+		for _, match := range pattern.FindAllStringSubmatch(line, -1) {
+			urls = append(urls, match[1])
+		}
+	}
+	return urls
+}
+
+func svgAnchorHrefs(svg []byte) []string {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	var hrefs []string
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return hrefs
+		}
+		element, ok := token.(xml.StartElement)
+		if !ok || element.Name.Local != "a" {
+			continue
+		}
+		for _, attr := range element.Attr {
+			if attr.Name.Local == "href" {
+				hrefs = append(hrefs, attr.Value)
+			}
+		}
+	}
+}
+
+func svgAnchorHasHref(svg []byte, href string) bool {
+	for _, got := range svgAnchorHrefs(svg) {
+		if got == href {
+			return true
+		}
+	}
+	return false
+}
+
+func svgAnchorContainsElement(svg []byte, href, child string) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	anchorDepth := 0
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if inTargetAnchor {
+				if element.Name.Local == child {
+					return true
+				}
+				if element.Name.Local == "a" {
+					anchorDepth++
+				}
+				continue
+			}
+			if element.Name.Local != "a" {
+				continue
+			}
+			for _, attr := range element.Attr {
+				if attr.Name.Local == "href" && attr.Value == href {
+					inTargetAnchor = true
+					anchorDepth = 1
+					break
+				}
+			}
+		case xml.EndElement:
+			if inTargetAnchor && element.Name.Local == "a" {
+				anchorDepth--
+				if anchorDepth == 0 {
+					inTargetAnchor = false
+				}
+			}
+		}
 	}
 }
 

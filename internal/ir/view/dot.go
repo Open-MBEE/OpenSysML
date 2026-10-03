@@ -1676,7 +1676,6 @@ func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	if box, ok := w.boxes[node.ID]; ok {
 		attrs = append(attrs, w.dotPin(box.centre()))
 	}
-	attrs = append(attrs, w.dotLinkAttributes(node.Origin)...)
 	return attrs
 }
 
@@ -1719,6 +1718,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	if g := node.Geometry; g != nil && g.Collapsed {
 		attrs = append(attrs, `comment="collapsed"`)
 	}
+	attrs = append(attrs, w.dotLinkAttributes(node.Origin)...)
 	return attrs
 }
 
