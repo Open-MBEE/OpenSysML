@@ -1858,6 +1858,20 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	}
 }
 
+func (ctx *Context) checkStateSuccessionOrder(stateMachine *symbols.Symbol, self *Instance, behavior *ObjectBehavior) error {
+	if self == nil || ctx.declarative {
+		return nil
+	}
+	member := ctx.classifierBehaviorMemberForState(stateMachine, self)
+	if behavior != nil && behavior.member != nil {
+		member = behavior.member
+	}
+	if member == nil {
+		return nil
+	}
+	return ctx.checkSuccessionOrderViolation(self, member)
+}
+
 func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, top bool) (*StateExecutor, bool, error) {
 	behavior, err := exhibitedBy(stateMachine, self)
 	if err != nil {
@@ -1867,24 +1881,16 @@ func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, to
 		return behavior.State, true, nil
 	}
 	if behavior != nil && behavior.deferred != nil {
-		if self != nil && !ctx.declarative {
-			if err := ctx.checkSuccessionOrderViolation(self, behavior.member); err != nil {
-				return nil, true, err
-			}
+		if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+			return nil, true, err
 		}
 		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
 			return behavior.State, true, err
 		}
 		return behavior.State, true, nil
 	}
-	member := ctx.classifierBehaviorMemberForState(stateMachine, self)
-	if behavior != nil && behavior.member != nil {
-		member = behavior.member
-	}
-	if self != nil && !ctx.declarative && member != nil {
-		if err := ctx.checkSuccessionOrderViolation(self, member); err != nil {
-			return nil, false, err
-		}
+	if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		return nil, false, err
 	}
 	exec, err := ctx.startStateRun(stateMachine, self, top)
 	return exec, false, err
@@ -1998,9 +2004,16 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 			return nil, err
 		}
 	}
-	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
+	behavior, err := exhibitedBy(stateMachine, self)
 	if err != nil {
-		if exec != nil && !reused {
+		return nil, err
+	}
+	if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		return nil, err
+	}
+	exec, err := ctx.startStateRun(stateMachine, self, true)
+	if err != nil {
+		if exec != nil {
 			exec.Release()
 		}
 		return nil, err

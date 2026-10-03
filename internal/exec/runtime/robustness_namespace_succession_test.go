@@ -274,13 +274,17 @@ func testNamespaceSuccessionExplicitStateStart(t *testing.T) {
 	}
 	state, err := ctx.CreateStateExecutorFor(laterSymbol, inst)
 	if err != nil {
-		t.Fatalf("create executor for released later exhibit: %v", err)
+		t.Fatalf("create a fresh executor for later: %v", err)
 	}
-	if state == nil || later.State != state || later.deferred != nil {
-		t.Fatal("explicit start did not reuse the released later exhibit")
+	if state == nil || later.State != nil || later.deferred == nil {
+		t.Fatal("explicit start changed the held later exhibit")
 	}
+	state.Release()
 	if _, _, err := ctx.ExecuteStatePerformedBy(laterSymbol, inst, nil); err != nil {
-		t.Fatalf("perform the already-running later exhibit: %v", err)
+		t.Fatalf("perform and release the held later exhibit: %v", err)
+	}
+	if later.State == nil || later.deferred != nil {
+		t.Fatal("performState did not release the held later exhibit")
 	}
 	count := 0
 	for _, behavior := range inst.behaviors {
