@@ -9,7 +9,7 @@ import (
 // formatVersion is the on-disk record format version. Bump it whenever the
 // persisted shape changes; a change to what a record captures needs no bump,
 // since the build ID in the cache key already invalidates records (see buildid.go).
-const formatVersion = 29
+const formatVersion = 31
 
 // factRecord is the derived analysis persisted for one library symbol, named by
 // the fully-qualified name it is declared under. It holds no declaration and no
@@ -21,6 +21,7 @@ type factRecord struct {
 	Unit      *unitFacts           // for measurement units: their reduction to base units
 	Dimension *dimensionFacts      // for measurement units: the dimension they measure in
 	Abstract  bool                 // the declaration is abstract (KerML 7.3.2.2)
+	Portion   ast.PortionKind      // the usage's `snapshot` or `timeslice` prefix
 }
 
 // unitFacts is the gob-encodable projection of a measurement unit reduced to
@@ -92,6 +93,9 @@ func collectScope(scope *symbols.Scope, prefix string, rec *IndexRecord, model *
 			Dimension: dimensionFactsOf(sym, model, idx),
 			Abstract:  symbols.IsAbstract(sym),
 		}
+		if usage, ok := sym.Decl.(*ast.Usage); ok {
+			facts.Portion = usage.Portion
+		}
 		if !facts.isEmpty() {
 			rec.Facts = append(rec.Facts, facts)
 		}
@@ -105,7 +109,8 @@ func collectScope(scope *symbols.Scope, prefix string, rec *IndexRecord, model *
 // isEmpty reports whether a record memoizes nothing, in which case persisting it
 // would only cost the space: every fact of it derives from the declaration.
 func (f factRecord) isEmpty() bool {
-	return len(f.Supers) == 0 && f.Unit == nil && f.Dimension == nil && !f.Abstract
+	return len(f.Supers) == 0 && f.Unit == nil && f.Dimension == nil &&
+		!f.Abstract && f.Portion == ast.PortionNone
 }
 
 // unitFactsOf reduces a measurement unit to base units, the dominant cost of a
@@ -214,6 +219,7 @@ func libraryFacts(rec *IndexRecord) map[string]*symbols.LibraryFacts {
 			Unit:      unitFactsEntry(f.Unit),
 			Dimension: dimensionFactsEntry(f.Dimension),
 			Abstract:  f.Abstract,
+			Portion:   f.Portion,
 		}
 	}
 	return out

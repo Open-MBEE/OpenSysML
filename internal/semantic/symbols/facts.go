@@ -51,6 +51,10 @@ type LibraryFacts struct {
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
+	// Portion is the `snapshot` or `timeslice` prefix of a usage, or
+	// PortionNone when the declaration has no portion keyword.
+	Portion ast.PortionKind
+
 	// Modifiers are the declaration's boolean modifiers (`end`, `derived`, ...).
 	Modifiers Modifiers
 
@@ -72,6 +76,14 @@ type LibraryFacts struct {
 	// its `connect` clause, then its body's `end` features. A zero entry is
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
+
+	// RelatedFeatures are the features a connector's ends reference, in end
+	// order, as derived from the declaration.
+	RelatedFeatures []ElementRef
+
+	// MetadataType is the type named by a prefix metadata usage, zero when it
+	// does not resolve.
+	MetadataType ElementRef
 
 	// Node is the class of declaration the symbol was made from.
 	Node NodeKind
@@ -178,9 +190,11 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
+	f.RelatedFeatures = cloneRefs(f.RelatedFeatures)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
 	f.BaseType = f.BaseType.Clone()
+	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
 	for i := range f.Relationships {
 		f.Relationships[i].Target = f.Relationships[i].Target.Clone()
