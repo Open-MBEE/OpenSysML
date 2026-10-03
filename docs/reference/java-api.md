@@ -11,14 +11,13 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 
-The version is the core release's — a `v*` tag publishes
-`org.openmbee:opensysml` to Maven Central at that version — once the
-first release is out. Until then a checkout installs it: `make build` for the service
-binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
+The Java artifact is not on Maven Central yet. Until then, a checkout installs it:
+`make build` for the service binary the tests start, then
+`mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
 IntelliJ 2023.2, Spring Boot 3 — can offer. The only compile-scope dependency is
 `protobuf-java`; there is no gRPC and no Netty, because the transport is the JDK's

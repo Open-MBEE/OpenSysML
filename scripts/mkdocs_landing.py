@@ -30,11 +30,12 @@ RECORD = re.compile(r"""\{\{\s*record\(\s*['"]([^'"]+)['"]""")
 
 
 def _source_candidates(target: str) -> list[str]:
-    """The docs/ paths that would publish at `target`, under use_directory_urls."""
+    """The docs/ paths that would publish at `target`: a page under use_directory_urls,
+    or a file such as an asset that publishes as itself."""
     path = target.strip("/")
     if not path:
         return ["index.md", LANDING]
-    return [f"{path}.md", f"{path}/index.md", f"{path}/{LANDING}"]
+    return [path, f"{path}.md", f"{path}/index.md", f"{path}/{LANDING}"]
 
 
 def on_files(files, config):

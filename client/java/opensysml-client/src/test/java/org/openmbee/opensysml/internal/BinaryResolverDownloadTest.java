@@ -81,6 +81,115 @@ class BinaryResolverDownloadTest {
   }
 
   @Test
+  void downloadsTheBuiltAgainstReleaseWithoutAnOverride() throws IOException {
+    String version = BinaryDownloader.builtAgainstRelease();
+    releases.publish(REPO, version, ASSET, BINARY);
+    ConnectionOptions options = ConnectionOptions.builder().githubRepo(REPO).build();
+
+    Path resolved = BinaryResolver.resolve(options, downloader(Map.of(version, Map.of(ASSET, digest()))), name -> null);
+
+    assertArrayEquals(BINARY, Files.readAllBytes(resolved));
+    assertEquals(version, downloader(Map.of()).cachedRelease(REPO).orElseThrow());
+  }
+
+  @Test
+  void keepsAHandInstalledCacheWithoutReleaseMetadata() throws IOException {
+    Files.createDirectories(cache().getParent());
+    Files.write(cache(), BINARY);
+    cache().toFile().setExecutable(true, true);
+    BinaryDownloader downloader = downloader(Map.of());
+
+    Path resolved =
+        BinaryResolver.resolve(
+            ConnectionOptions.builder().githubRepo(REPO).build(), downloader, name -> null);
+
+    assertArrayEquals(BINARY, Files.readAllBytes(resolved));
+    assertTrue(Files.exists(cache()));
+    assertTrue(Files.notExists(downloader.metadataPath()));
+    assertTrue(releases.requested().isEmpty());
+  }
+
+  @Test
+  void replacesACacheRecordedForAnotherReleaseWithTheBuiltAgainstRelease() throws IOException {
+    String version = BinaryDownloader.builtAgainstRelease();
+    byte[] old = "old release".getBytes(StandardCharsets.UTF_8);
+    releases.publish(REPO, version, ASSET, BINARY);
+    Files.createDirectories(cache().getParent());
+    Files.write(cache(), old);
+    cache().toFile().setExecutable(true, true);
+    Files.writeString(
+        downloader(Map.of()).metadataPath(),
+        "{\"version\":\"v0.0.5\",\"sha256\":\""
+            + ReleaseServer.sha256(old)
+            + "\",\"repo\":\""
+            + REPO
+            + "\"}");
+    BinaryDownloader downloader =
+        downloader(Map.of(version, Map.of(ASSET, digest())));
+
+    Path resolved =
+        BinaryResolver.resolve(
+            ConnectionOptions.builder().githubRepo(REPO).build(), downloader, name -> null);
+
+    assertArrayEquals(BINARY, Files.readAllBytes(resolved));
+    assertEquals(version, downloader.cachedRelease(REPO).orElseThrow());
+  }
+
+  @Test
+  void unavailableBuiltAgainstReleaseFallsBackToPath() throws IOException {
+    Path onPath = home.resolve("path").resolve("sysml-grpc");
+    Files.createDirectories(onPath.getParent());
+    Files.write(onPath, BINARY);
+    onPath.toFile().setExecutable(true, true);
+    BinaryDownloader downloader = downloader(Map.of());
+
+    Path resolved =
+        BinaryResolver.resolve(
+            ConnectionOptions.builder().githubRepo(REPO).build(),
+            downloader,
+            name -> name.equals("PATH") ? onPath.getParent().toString() : null);
+
+    assertEquals(onPath, resolved);
+  }
+
+  @Test
+  void unavailableBuiltAgainstReleaseWithoutPathNamesTheReleaseAndReason() {
+    BinaryDownloader downloader = downloader(Map.of());
+    ServiceStartException error =
+        assertThrows(
+            ServiceStartException.class,
+            () ->
+                BinaryResolver.resolve(
+                    ConnectionOptions.builder().githubRepo(REPO).build(),
+                    downloader,
+                    name -> null));
+
+    assertTrue(error.getMessage().contains(BinaryDownloader.builtAgainstRelease()));
+    assertTrue(error.getMessage().contains("404"), error.getMessage());
+    assertTrue(error.getMessage().contains("unreleased checkout"), error.getMessage());
+  }
+
+  @Test
+  void checksumMismatchForBuiltAgainstReleaseDoesNotFallBackToPath() throws IOException {
+    String version = BinaryDownloader.builtAgainstRelease();
+    byte[] tampered = "tampered".getBytes(StandardCharsets.UTF_8);
+    releases.publish(REPO, version, ASSET, tampered);
+    Path onPath = home.resolve("path").resolve("sysml-grpc");
+    Files.createDirectories(onPath.getParent());
+    Files.write(onPath, BINARY);
+    onPath.toFile().setExecutable(true, true);
+    BinaryDownloader downloader = downloader(Map.of(version, Map.of(ASSET, digest())));
+
+    assertThrows(
+        ChecksumMismatchException.class,
+        () ->
+            BinaryResolver.resolve(
+                ConnectionOptions.builder().githubRepo(REPO).build(),
+                downloader,
+                name -> name.equals("PATH") ? onPath.getParent().toString() : null));
+  }
+
+  @Test
   void usesTheCacheWhenItIsTheReleaseAskedFor() throws IOException {
     releases.publish(REPO, VERSION, ASSET, BINARY);
     ConnectionOptions options = ConnectionOptions.builder().downloadVersion(VERSION).build();

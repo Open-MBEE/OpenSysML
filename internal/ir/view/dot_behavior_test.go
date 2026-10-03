@@ -46,10 +46,10 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	// Pins: ports at the action's border, named outside in small type, and
 	// never a note-shaped node of their own.
 	for port, want := range map[string][]string{
-		`"n5.0"`: {`xlabel="mask"`, `fontsize=8`, `pos="90,406!"`, `width=0.16666666666666666`},
-		`"n5.1"`: {`xlabel="guide"`, `pos="180,406!"`},
-		`"n5.2"`: {`xlabel="image"`, `pos="180,334!"`},
-		`"n6.0"`: {`xlabel="image"`, `pos="180,286!"`},
+		`"n3.0"`: {`xlabel="mask"`, `fontsize=8`, `pos="90,406!"`, `width=0.16666666666666666`},
+		`"n3.1"`: {`xlabel="guide"`, `pos="180,406!"`},
+		`"n3.2"`: {`xlabel="image"`, `pos="180,334!"`},
+		`"n4.0"`: {`xlabel="image"`, `pos="180,286!"`},
 		`"n1.0"`: {`xlabel="result"`, `pos="60,494!"`},
 	} {
 		line := dotLine(source, port)
@@ -66,7 +66,7 @@ func TestDOTCameoActionNotation(t *testing.T) {
 		t.Errorf("%d note-shaped nodes, want the one comment:\n%s", n, source)
 	}
 	// Object flows end at the pins, not at the actions.
-	for _, flow := range []string{`"n1.0" -> "n5.0" [style=dashed`, `"n3.0" -> "n5.1" [style=dashed`, `"n5.2" -> "n6.0" [style=dashed`} {
+	for _, flow := range []string{`"n1.0" -> "n3.0" [style=dashed`, `"n2.0" -> "n3.1" [style=dashed`, `"n3.2" -> "n4.0" [style=dashed`} {
 		if !strings.Contains(source, flow) {
 			t.Errorf("flow %s not drawn pin to pin:\n%s", flow, source)
 		}
@@ -85,7 +85,7 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	}
 	// Fork and join: bars at their stated 200×10 bounds with nothing written in
 	// or beside them, since their names are synthesized.
-	for _, bar := range []string{`"n9"`, `"n10"`} {
+	for _, bar := range []string{`"n7"`, `"n8"`} {
 		line := dotLine(source, bar)
 		for _, attr := range []string{`fillcolor=black`, `label=""`, `width=2.7777777777777777`, `height=0.1388888888888889`, `fixedsize=true`} {
 			if !strings.Contains(line, attr) {
@@ -99,10 +99,10 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	// Decision and merge are diamonds at their bounds, the terminate a
 	// bull's-eye, the start a dot.
 	for node, want := range map[string][]string{
-		`"n11"`: {`shape=diamond`, `pos="250,70!"`},
-		`"n12"`: {`shape=diamond`, `pos="250,120!"`},
-		`"n13"`: {`shape=doublecircle`, `pos="250,20!"`},
-		`"n14"`: {`shape=circle`, `fillcolor=black`, `pos="337.5,522.5!"`, `width=0.20833333333333334`},
+		`"n9"`:  {`shape=diamond`, `pos="250,70!"`},
+		`"n10"`: {`shape=diamond`, `pos="250,120!"`},
+		`"n11"`: {`shape=doublecircle`, `pos="250,20!"`},
+		`"n12"`: {`shape=circle`, `fillcolor=black`, `pos="337.5,522.5!"`, `width=0.20833333333333334`},
 	} {
 		line := dotLine(source, node)
 		for _, attr := range want {
@@ -115,7 +115,7 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	if line := dotLine(source, `"note:0"`); !strings.Contains(line, `pos="550,295!"`) || !strings.Contains(line, "Acquire a new star") {
 		t.Errorf("note misplaced: %s", line)
 	}
-	if !strings.Contains(source, `"note:0" -> "n5" [style=dashed, arrowhead=none]`) {
+	if !strings.Contains(source, `"note:0" -> "n3" [style=dashed, arrowhead=none]`) {
 		t.Errorf("note anchor not dashed:\n%s", source)
 	}
 }

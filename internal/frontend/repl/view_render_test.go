@@ -69,8 +69,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports]]", "Graphviz DOT", "PlantUML")
 }
 
@@ -133,10 +133,10 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
-		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+		"usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
 	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
-	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
@@ -231,6 +231,32 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 	if out := run(t, s, "%render Tabular::parts mermaid"); !strings.Contains(out, "error: ") {
 		t.Errorf("Mermaid of a table = %v, want an error line naming the form", out)
+	}
+}
+
+// A delimited form carries no notice, so %render lists a table's after its records.
+func TestRenderOfADelimitedTableListsItsNotices(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindTable,
+		View:    "Demo::odd",
+		Columns: []string{"Element", "Kind"},
+		Rows:    [][]string{{"Demo::odd", "view"}},
+		Notices: []string{"nested view Demo::odd is nested in itself; listed once"},
+	}
+	for form, sep := range map[view.Form]string{view.FormCSV: ",", view.FormTSV: "\t"} {
+		lines, err := artifactLines(rendering, form, view.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"Element" + sep + "Kind", "Demo::odd" + sep + "view", "", "not represented:",
+			"  - nested view Demo::odd is nested in itself; listed once"}
+		if !slices.Equal(lines, want) {
+			t.Errorf("%s = %q, want %q", form, lines, want)
+		}
+	}
+	rendering.Notices = nil
+	if lines, err := artifactLines(rendering, view.FormCSV, view.Options{}); err != nil || len(lines) != 2 {
+		t.Errorf("csv without a notice = %q, %v, want the two records alone", lines, err)
 	}
 }
 
@@ -413,7 +439,7 @@ func TestRenderIsInHelpAndCompletion(t *testing.T) {
 	if got := s.Complete("%render Demo::sum", len("%render Demo::sum")); !slices.Contains(got.Candidates, "Demo::summary") {
 		t.Errorf("completing a view name offered %v", got.Candidates)
 	}
-	for _, form := range []string{"text", "mermaid", "markdown"} {
+	for _, form := range []string{"text", "mermaid", "markdown", "csv", "tsv"} {
 		if got := s.Complete("%render Demo::summary ", len("%render Demo::summary ")); !slices.Contains(got.Candidates, form) {
 			t.Errorf("completing the form offered %v, want %s", got.Candidates, form)
 		}

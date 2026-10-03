@@ -150,14 +150,15 @@ exception:
 2. **The shared cache** `~/.opensysml/bin/sysml-grpc` (`sysml-grpc.exe` on
    Windows), where a verified download puts it and where `make build` can put
    your own build.
-3. **A release download** into that cache, when a release is asked for by
-   `ensure_binary(version=...)` or `$OPENSYSML_GRPC_VERSION`. A download that was
-   asked for and failed is an error, not a reason to try `$PATH`, whose binary is
-   of no known release.
+3. **A release download** into that cache, using the release this client was
+   built against unless `ensure_binary(version=...)` or
+   `$OPENSYSML_GRPC_VERSION` selects another one. An executable cache without
+   release metadata is treated as a hand-installed build and kept.
 4. **`$PATH`**: the first executable `sysml-grpc` (`sysml-grpc.exe` on Windows)
    on it, which is what a package manager or `go install` leaves behind.
 
-With none of those, the error lists everywhere it looked and what would fix it.
+If the built-against release is unavailable, an executable on `$PATH` is used
+with a warning; otherwise the error names the release and what would fix it.
 
 A binary from `$OPENSYSML_BINARY` or `$PATH` is used exactly as it is found: it
 belongs to no release, so **it is not verified against the pinned digests below**,
