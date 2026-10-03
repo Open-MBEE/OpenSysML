@@ -731,19 +731,54 @@
       color: #ffcdd2;
       opacity: 1;
     }
+    .osml-schematic__edit { margin: .7rem 0 0; }
+    .osml-schematic__edit[hidden] { display: none; }
     .osml-schematic__src {
-      max-height: 22rem;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 22rem;
+      resize: vertical;
       overflow: auto;
-      margin: .7rem 0 0;
+      margin: 0;
       padding: .7rem .9rem;
+      border: 1px solid rgba(255, 255, 255, .25);
       border-radius: .3rem;
       background: rgba(0, 0, 0, .35);
       color: #e8eaf6;
+      font-family: var(--md-code-font-family, monospace);
       font-size: .58rem;
       line-height: 1.5;
       text-align: left;
+      tab-size: 4;
+      white-space: pre;
     }
-    .osml-schematic__src[hidden] { display: none; }
+    .osml-schematic__src:focus { outline: 2px solid var(--md-accent-fg-color); outline-offset: 1px; }
+    .osml-schematic__src[aria-invalid="true"] { border-color: #ef9a9a; }
+    .osml-schematic__hint {
+      margin: .4rem 0 0;
+      font-size: .6rem;
+      opacity: .85;
+      text-align: left;
+    }
+    .osml-schematic__hint code {
+      padding: 0 .2em;
+      background: rgba(0, 0, 0, .3);
+      color: inherit;
+      font-size: .95em;
+    }
+    .osml-schematic__hint button {
+      margin-left: .3rem;
+      padding: .1rem .5rem;
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: .2rem;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .osml-schematic__hint button:hover,
+    .osml-schematic__hint button:focus { background-color: var(--md-accent-fg-color); }
     .osml-nodecard__note {
       margin-top: .45rem;
       font-size: .56rem;
@@ -897,13 +932,16 @@
           <text class="osml-node-sub" x="450" y="442" text-anchor="middle" font-size="10">Java &middot; OMG reference</text>
         </g>
       </svg>
-      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes.</p>
+      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Edit the model and the engine redraws the diagram as you type.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
-        <button type="button" class="osml-btn" data-osml-source aria-expanded="false">View the model</button>
-        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+        <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
       </div>
-      <pre class="osml-schematic__src" data-osml-src hidden><code></code></pre>
+      <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
+        <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic. <button type="button" data-osml-reset>Reset</button></p>
+      </div>
     </div>
 <script>
 (function () {
@@ -1051,7 +1089,7 @@
       '<div class="osml-nodecard__note">' + (n.model
         ? "Read by the engine from model " + escAttr(modelHash.slice(0, 12))
         : "Run the model to read these from the engine") + '</div>' +
-      '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>';
+      (href ? '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>' : "");
     card.hidden = false;
     card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
     posEl = card.querySelector("[data-osml-pos]");
@@ -1224,7 +1262,9 @@
   var runBtn = root.querySelector("[data-osml-run]");
   var srcBtn = root.querySelector("[data-osml-source]");
   var srcEl = root.querySelector("[data-osml-src]");
-  var sourceText = null, model = null, running = false;
+  var editorEl = root.querySelector("[data-osml-editor]");
+  var resetBtn = root.querySelector("[data-osml-reset]");
+  var sourceText = null, model = null, modelText = null, edited = null, running = false;
 
   function status(text, isError) {
     statusEl.textContent = text;
@@ -1257,17 +1297,28 @@
     return res;
   }
 
-  function readModel() {
-    if (!model) {
-      model = Promise.all([loadEngine(), fetchSource()]).then(function (got) {
-        var parsed = rpc("ParseSources", { documents: [{ name: "opensysml-stack.sysml", content: got[1] }] });
+  // The text the diagram is drawn from: the visitor's edit, else the shipped file.
+  function currentSource() {
+    return edited === null ? fetchSource() : Promise.resolve(edited);
+  }
+
+  function describeDiagnostic(d) {
+    var at = d.span && d.span.startLine ? "line " + d.span.startLine + ":" + d.span.startCol + ": " : "";
+    return at + (d.message || "error");
+  }
+
+  function readModel(text) {
+    if (!model || modelText !== text) {
+      modelText = text;
+      model = loadEngine().then(function () {
+        var parsed = rpc("ParseSources", { documents: [{ name: "opensysml-stack.sysml", content: text }] });
         var diags = parsed.diagnostics || [];
-        if (diags.length) throw new Error("the model has " + diags.length + " diagnostic(s): " + (diags[0].message || ""));
+        if (diags.length) throw new Error(diags.length + " diagnostic" + (diags.length > 1 ? "s" : "") + ", " + describeDiagnostic(diags[0]));
         var built = rpc("Instantiate", { modelHash: parsed.modelHash, symbolId: STACK });
         var byId = {};
         (built.instances || []).forEach(function (i) { byId[i.id] = i; });
         var stack = (built.instances || []).filter(function (i) { return i.typeSymbolId === STACK; })[0];
-        if (!stack) throw new Error("Instantiate returned no " + STACK);
+        if (!stack) throw new Error("the model has no " + STACK + " to draw");
         var value = function (inst, f) {
           var fv = inst.featureValues && inst.featureValues[f];
           return fv && fv.value;
@@ -1276,12 +1327,13 @@
         Object.keys(stack.featureValues || {}).forEach(function (f) {
           var ref = value(stack, f), inst = ref && byId[ref.instanceId];
           if (!inst) return;
-          if (value(inst, "label")) {
+          if (value(inst, "label") || value(inst, "api")) {
             var attrs = {};
             Object.keys(inst.featureValues).sort().forEach(function (a) {
               var v = value(inst, a);
               if (v && "stringValue" in v) attrs[a] = v.stringValue;
             });
+            if (!attrs.label) attrs.label = f;
             parts[f] = { symbol: inst.typeSymbolId, attrs: attrs };
             var api = value(inst, "api");
             if (api) portOwner[api.instanceId] = f;
@@ -1299,7 +1351,8 @@
         }).filter(function (e) { return e.from && e.to; });
         return { hash: parsed.modelHash, parts: parts, edges: edges };
       });
-      model.catch(function () { model = null; });
+      var mine = model;
+      mine.catch(function () { if (model === mine) model = null; });
     }
     return model;
   }
@@ -1321,20 +1374,31 @@
     });
     svg.appendChild(g);
     addNode(g);
+    nodes[k].dynamic = true;
     bindNode(k);
   }
 
+  // Only a web link opens from a card: an edited repo cannot run script.
+  function webHref(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+
+  // Hand-drawn parts an edit removes keep their place for when they return.
+  var shelved = {};
   function applyModel(m) {
     modelHash = m.hash;
     var slot = 0;
     Object.keys(m.parts).forEach(function (k) {
       var a = m.parts[k].attrs;
+      if (!nodes[k] && shelved[k]) {
+        svg.appendChild(shelved[k].g);
+        nodes[k] = shelved[k];
+        delete shelved[k];
+      }
       if (!nodes[k]) newNode(k, a.label, slot++);
       var g = nodes[k].g;
       nodes[k].model = m.parts[k];
       g.dataset.osmlKind = a.kind || "";
-      g.dataset.osmlHref = a.repo || "";
-      g.setAttribute("aria-label", a.label + " on GitHub");
+      g.dataset.osmlHref = webHref(a.repo);
+      g.setAttribute("aria-label", g.dataset.osmlHref ? a.label + " on GitHub" : a.label);
       g.querySelector(".osml-node-stereo").textContent = "\u00ab" + (a.kind || "part") + "\u00bb";
       g.querySelector(".osml-node-label").textContent = a.label;
       g.querySelector(".osml-node-sub").textContent = [a.lang, a.role].filter(Boolean).join(" \u00b7 ");
@@ -1343,6 +1407,7 @@
       if (m.parts[k]) return;
       if (activeNode === k) closeCard();
       nodes[k].g.remove();
+      if (!nodes[k].dynamic) shelved[k] = nodes[k];
       delete nodes[k];
     });
     // The wires are the model's interfaces, client end to store end.
@@ -1366,7 +1431,7 @@
 
   function engineRead() {
     status(globalThis.sysmlEngine ? "Reading the model\u2026" : "Loading the engine (about 7 MB, once)\u2026");
-    return readModel().then(function (m) {
+    return currentSource().then(readModel).then(function (m) {
       if (modelHash !== m.hash) applyModel(m);
       return m;
     });
@@ -1455,15 +1520,57 @@
   });
 
   srcBtn.addEventListener("click", function () {
-    var open = srcEl.hidden;
-    srcEl.hidden = !open;
+    var open = editorEl.hidden;
+    editorEl.hidden = !open;
     srcBtn.setAttribute("aria-expanded", String(open));
-    srcBtn.textContent = open ? "Hide the model" : "View the model";
-    if (!open || srcEl.textContent) return;
+    srcBtn.textContent = open ? "Hide the model" : "Edit the model";
+    if (!open) return;
+    if (srcEl.value) { srcEl.focus(); return; }
+    srcEl.value = "Loading the model\u2026";
+    srcEl.readOnly = true;
     fetchSource().then(function (text) {
-      srcEl.firstChild.textContent = text;
+      srcEl.value = edited === null ? text : edited;
+      srcEl.readOnly = false;
+      srcEl.focus();
+      srcEl.setSelectionRange(0, 0);
+      srcEl.scrollTop = 0;
     }, function (e) {
-      srcEl.firstChild.textContent = "Could not load the model: " + e.message;
+      srcEl.value = "";
+      status("Could not load the model: " + e.message + ". Hide and reopen the editor to try again.", true);
+    });
+  });
+
+  // Every edit is re-read by the engine and redrawn; a model that does not read
+  // cleanly leaves the last good diagram up and says why.
+  var editTimer = null, editSeq = 0;
+  function redraw() {
+    var seq = ++editSeq;
+    if (running) { editTimer = setTimeout(redraw, 300); return; }
+    var t0 = performance.now();
+    engineRead().then(function (m) {
+      if (seq !== editSeq) return;
+      srcEl.removeAttribute("aria-invalid");
+      var ms = Math.max(1, Math.round(performance.now() - t0));
+      status("The engine re-read your model in " + ms + " ms: " + Object.keys(m.parts).length + " parts, " +
+        m.edges.length + " interfaces. Run it to send a change along them.");
+    }, function (e) {
+      if (seq !== editSeq) return;
+      srcEl.setAttribute("aria-invalid", "true");
+      status("Not redrawn \u2014 " + e.message + ". The diagram shows the last model that read cleanly.", true);
+    });
+  }
+  srcEl.addEventListener("input", function () {
+    if (srcEl.readOnly) return;
+    edited = srcEl.value;
+    clearTimeout(editTimer);
+    editTimer = setTimeout(redraw, 250);
+  });
+  resetBtn.addEventListener("click", function () {
+    fetchSource().then(function (text) {
+      edited = null;
+      srcEl.value = text;
+      clearTimeout(editTimer);
+      redraw();
     });
   });
 })();
