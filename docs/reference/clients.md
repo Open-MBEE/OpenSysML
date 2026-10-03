@@ -130,8 +130,8 @@ be one runs the conformance scenarios below through its own API.
 
 ## Providing the service binary
 
-Python, Node, and Julia download binaries pinned by per-release-asset SHA-256 digests; Python and Node
-verify the release's Sigstore-signed manifest, but Julia does not. A crate published from a Rust
+Python, Node, Java and Julia download binaries pinned by per-release-asset SHA-256 digests; Python,
+Node and Java verify the release's Sigstore-signed manifest, but Julia does not. A crate published from a Rust
 release tag embeds that release's service digests and downloads its built-against release by default;
 Rust does not verify the manifest's Sigstore signature itself. Clients also look for explicitly
 supplied or already-installed binaries, using the same lookup order:
