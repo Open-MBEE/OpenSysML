@@ -13,6 +13,7 @@ stmt action body
       eval feature log -> "go(effect);"
       eval literal "both(entry);" -> "both(entry);"
     eval operator + -> "go(effect);both(entry);"
+choice entering both: next split->l1(effect), r0(entry) (unordered; took split->l1(effect) first)
 stmt action body
   stmt assign log
       eval feature log -> "go(effect);both(entry);"

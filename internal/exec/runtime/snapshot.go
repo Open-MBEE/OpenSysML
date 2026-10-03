@@ -83,6 +83,7 @@ type runCapture struct {
 	successionOrderNotes mapState[successionOrderNoteKey, bool]
 	holdingDriven        bool
 	clockRun             *runState
+	stateExecutors       []*StateExecutor
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -396,6 +397,7 @@ func (ctx *Context) captureRun() runCapture {
 		successionOrderNotes: captureMap(ctx.successionOrderNotes),
 		holdingDriven:        ctx.holdingDriven,
 		clockRun:             ctx.clockRun.state,
+		stateExecutors:       slices.Clone(ctx.stateExecutors),
 	}
 	return c
 }
@@ -418,6 +420,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.successionOrderNotes = c.successionOrderNotes.restore()
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
+	ctx.stateExecutors = slices.Clone(c.stateExecutors)
 	ctx.workChanged()
 }
 
@@ -713,6 +716,8 @@ type stateCapture struct {
 	timerScheduled     mapState[*lower.Transition, bool]
 	timeTriggerVerdict mapState[*lower.Transition, error]
 	changeFired        mapState[*lower.Transition, bool]
+	changeObserved     mapState[*lower.Transition, bool]
+	changePending      mapState[*lower.Transition, bool]
 	firingChange       *lower.Transition
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
@@ -770,6 +775,8 @@ func (e *StateExecutor) capture() stateCapture {
 		timerScheduled:     captureMap(e.timerScheduled),
 		timeTriggerVerdict: captureMap(e.timeTriggerVerdict),
 		changeFired:        captureMap(e.changeFired),
+		changeObserved:     captureMap(e.changeObserved),
+		changePending:      captureMap(e.changePending),
 		firingChange:       e.firingChange,
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
@@ -832,6 +839,9 @@ func (c stateCapture) restore() {
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()
+	e.changeObserved = c.changeObserved.restore()
+	e.changePending = c.changePending.restore()
+	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
@@ -852,13 +862,14 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 	cloned := make([]heldEntry, len(entries))
 	for i, entry := range entries {
 		cloned[i] = heldEntry{
-			owner:    entry.owner,
-			regions:  slices.Clone(entry.regions),
-			branches: maps.Clone(entry.branches),
-			chain:    slices.Clone(entry.chain),
-			scopes:   slices.Clone(entry.scopes),
-			machine:  entry.machine,
-			firing:   entry.firing.snapshot(),
+			owner:        entry.owner,
+			regions:      slices.Clone(entry.regions),
+			branches:     maps.Clone(entry.branches),
+			chain:        slices.Clone(entry.chain),
+			scopes:       slices.Clone(entry.scopes),
+			machine:      entry.machine,
+			firing:       entry.firing.snapshot(),
+			routeEffects: cloneRouteEntryEffects(entry.routeEffects),
 		}
 	}
 	return cloned

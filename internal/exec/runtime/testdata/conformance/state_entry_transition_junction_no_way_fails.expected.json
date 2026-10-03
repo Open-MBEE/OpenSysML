@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Enter"}],
+  "error": "entry transition through junction route: no way through: junction route"
+}

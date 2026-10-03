@@ -267,9 +267,9 @@ regenerates them beside the default golden.
 
 ### Checking Every Schedule (`.check.expected.json`)
 
-An action case with an admissible set also owns a `<case>.check.expected.json`:
-what the explicit-state checker (`runtime.CheckAction`, the `check` engine)
-finds when it searches every schedule of the action, derived from the library
+A case with an admissible set also owns a `<case>.check.expected.json`: what the
+explicit-state checker (`runtime.Check`, the `check` engine) finds when it
+searches every schedule of the action or state machine, derived from the library
 text as the admissible set was:
 
 ```json

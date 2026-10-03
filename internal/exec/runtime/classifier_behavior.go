@@ -1220,10 +1220,12 @@ func (ctx *Context) performanceOccurrence(
 				sentinel, name, inst.ID, err)
 		}
 		ctx.noteProbeWrite(fv)
+		endWrite := ctx.beginFeatureWrite(fv)
 		before := ctx.beforeWrite(fv)
 		fv.Value = Value{Kind: ValInstance, Instance: occurrence.ID}
 		fv.Materialized = true
 		ctx.afterWrite(fv, before)
+		endWrite()
 		return occurrence, nil
 	}
 	id, ok := fv.HeldValue().Object()

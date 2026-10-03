@@ -1,0 +1,13 @@
+{
+  "verdict": "divergent",
+  "divergent": {
+    "log": [
+      "\"a-effect a-entry b-effect b-entry \"",
+      "\"a-effect b-effect a-entry b-entry \"",
+      "\"a-effect b-effect b-entry a-entry \"",
+      "\"b-effect a-effect a-entry b-entry \"",
+      "\"b-effect a-effect b-entry a-entry \"",
+      "\"b-effect b-entry a-effect a-entry \""
+    ]
+  }
+}
