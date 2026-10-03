@@ -373,10 +373,7 @@ public final class Connection implements AutoCloseable {
     if (!response.getError().isEmpty()) {
       throw new ModelException(response.getError(), diagnostics);
     }
-    List<Symbol> roots = new java.util.ArrayList<>(response.getRootsCount());
-    for (org.openmbee.opensysml.proto.SymbolInfo root : response.getRootsList()) {
-      roots.add(Protos.symbol(root));
-    }
+    List<Symbol> roots = response.getRootsList().stream().map(Protos::symbol).toList();
     return new Model(this, response.getModelHash(), roots, diagnostics, names);
   }
 

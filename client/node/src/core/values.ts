@@ -673,12 +673,7 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
 
 function encodeQuantity(quantity: QuantityValue): Quantity {
   return create(QuantitySchema, {
-    magnitude:
-      quantity.magnitude.kind !== "int"
-        ? { case: "realMagnitude", value: quantity.magnitude.value }
-        : fitsInt64(quantity.magnitude.value)
-          ? { case: "intMagnitude", value: quantity.magnitude.value }
-          : { case: "bigIntMagnitude", value: quantity.magnitude.value.toString() },
+    magnitude: encodeQuantityMagnitude(quantity.magnitude),
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
   });
@@ -773,9 +768,19 @@ export function fitsInt64(value: bigint): boolean {
   return value >= INT64_MIN && value <= INT64_MAX;
 }
 
+/** A quantity's magnitude on the wire: a real, or an integer as int64 when it fits and as decimal text otherwise. */
+export function encodeQuantityMagnitude(magnitude: Magnitude): Quantity["magnitude"] {
+  if (magnitude.kind === "real") {
+    return { case: "realMagnitude", value: magnitude.value };
+  }
+  return fitsInt64(magnitude.value)
+    ? { case: "intMagnitude", value: magnitude.value }
+    : { case: "bigIntMagnitude", value: magnitude.value.toString() };
+}
+
 /** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
 export function decodeBigInteger(text: string): bigint {
-  if (!/^-?[0-9]+$/.test(text)) {
+  if (!/^-?\d+$/.test(text)) {
     throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
   }
   return BigInt(text);

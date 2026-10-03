@@ -874,28 +874,13 @@ func (d *decoder) headEnd(el, parent *element) bool {
 // head, refused when they contradict it, and ordinary members otherwise.
 func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 	subject := rdf.IRI(el.iri)
-	what := fmt.Sprintf("the transition <%s>", parent.iri)
 	m, owned := d.owningMembership[el.iri]
 	owning := ""
 	if owned {
 		owning = d.metaclass(rdf.IRI(m.iri))
 	}
 	agree := func(property string, stated rdf.Term, role string) (bool, error) {
-		head, hasHead, err := d.transitionObject(parent, property)
-		if err != nil || !hasHead {
-			return false, err
-		}
-		same, err := d.sameEndpoint(head, stated)
-		if err != nil {
-			return false, err
-		}
-		if !same {
-			return false, &UnsupportedError{
-				What: what,
-				Note: fmt.Sprintf("its head states <%s> as its %s while its owned %s refers to <%s>, and writing one would drop the other", head.Value, role, el.metaclass, stated.Value),
-			}
-		}
-		return true, nil
+		return d.transitionHeadAgrees(el, parent, property, stated, role)
 	}
 	switch {
 	case el.metaclass == mMembership && !owned:
@@ -937,4 +922,24 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		return agree(pTarget, ends[1], "target")
 	}
 	return false, nil
+}
+
+// transitionHeadAgrees tells whether the head of the transition parent states
+// stated as its property, refusing a head that names another endpoint.
+func (d *decoder) transitionHeadAgrees(el, parent *element, property string, stated rdf.Term, role string) (bool, error) {
+	head, hasHead, err := d.transitionObject(parent, property)
+	if err != nil || !hasHead {
+		return false, err
+	}
+	same, err := d.sameEndpoint(head, stated)
+	if err != nil {
+		return false, err
+	}
+	if !same {
+		return false, &UnsupportedError{
+			What: fmt.Sprintf("the transition <%s>", parent.iri),
+			Note: fmt.Sprintf("its head states <%s> as its %s while its owned %s refers to <%s>, and writing one would drop the other", head.Value, role, el.metaclass, stated.Value),
+		}
+	}
+	return true, nil
 }

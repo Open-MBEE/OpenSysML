@@ -147,8 +147,8 @@ func TestLibraryMembershipOwningAnotherElementIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	real := "sysml:memberElement <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;\n    sysml:isLibraryElement"
-	if !strings.Contains(string(turtle), real) {
+	realMembership := "sysml:memberElement <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;\n    sysml:isLibraryElement"
+	if !strings.Contains(string(turtle), realMembership) {
 		t.Fatalf("the graph no longer states the library membership of Real")
 	}
 	integer := strings.Index(string(turtle), `sysml:qualifiedName "ScalarValues::Integer"`)
@@ -157,7 +157,7 @@ func TestLibraryMembershipOwningAnotherElementIsRefused(t *testing.T) {
 	}
 	start := strings.LastIndex(string(turtle[:integer]), "\n\n") + 2
 	subject := strings.SplitN(string(turtle[start:]), "\n", 2)[0]
-	swapped := strings.Replace(string(turtle), real, "sysml:memberElement "+subject+" ;\n    sysml:isLibraryElement", 1)
+	swapped := strings.Replace(string(turtle), realMembership, "sysml:memberElement "+subject+" ;\n    sysml:isLibraryElement", 1)
 	if back, err := convert.Convert("l.ttl", []byte(swapped), convert.FormatTurtle, convert.FormatSysML); err == nil {
 		t.Errorf("a library membership owning another element was converted:\n%s", back)
 	} else if !strings.Contains(err.Error(), "library membership") {
