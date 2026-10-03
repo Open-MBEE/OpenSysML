@@ -243,7 +243,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
@@ -290,10 +290,15 @@ written in, so the verdicts are about that object:
 | `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
 | `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
+| `-import <file>` | Sets the feature values a CSV, TSV, JSON or JSON Lines file assigns: an `element` column names each element and every other column one of its features, with a unit as `mass [kg]`. Composes with `-convert sysml -o`, which writes the imported model; the source file is not changed. An empty cell leaves a value as it was; a row, value or unit the model refuses imports nothing. Repeatable. See [Importing data](#importing-data) |
+| `-import-as values` | What `-import` makes of each row; `values`, the default, is the only shape so far |
+| `-import-map <file>` | A JSON mapping file naming the column or JSON Pointer path each element and feature comes from, with units and value types |
+| `-import-format <format>` | Reads the `-import` files as `csv`, `tsv`, `json` or `jsonl` rather than as their extension says |
+| `-import-dry-run` | Reports the values `-import` would set and changes and writes nothing |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
-| `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
+| `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it, under every `-schedule` and `-engine` — `explore` and `-engine check` search that point, and their standing says `after the initial transition only` when a do behavior, an event, a timer or a change condition is left pending; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
@@ -502,6 +507,10 @@ sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced s
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
 sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
 
+# A table as comma- or tab-separated values, for a spreadsheet or a script
+sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv
+sysml model.sysml -render Views::partsTable -render-form tsv | cut -f1,3
+
 # A view over several files, loaded as one model
 sysml types.sysml model.sysml -render Views::vehicleView
 sysml model/*.sysml -render Views::partsTable -render-form markdown -o parts.md
@@ -544,7 +553,8 @@ plain name. Only views written in the requested form take part, and a plain name
 tagged one is tagged in turn, so no two files written in one run meet. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
-`.puml`, PlantUML's conventional extension.
+`.puml`, PlantUML's conventional extension, and a forced `csv` or `tsv` form writes the tables as
+`.csv` or `.tsv` and skips every other view.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered
@@ -571,6 +581,8 @@ The forms a kind can be written in:
 | `text` | every kind | ASCII a person reads; the default at a terminal |
 | `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
+| `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
+| `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
@@ -586,6 +598,22 @@ in each form:
 | `mermaid` | Flowchart labels use Markdown when every line is safe: an italic keyword line, then bold head lines and plain details separated by real newlines; unsafe labels fall back to an escaped `<br>` label. State and sequence labels use `<br>` with the same keyword-first order |
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
+
+An action rendering draws the action's own directed parameters as pins on its frame — `in` and
+`inout` on the frame's input side, `out` and `return` on the output side; a usage's are the ones its
+type gives it — the way it draws each nested node's parameters as pins on the node, and draws a
+parameter binding between the frame and a node's pin, or between two nodes' pins, as a binding edge
+between the pins: a nested parameter's value naming the action's parameter (`in b = bread;`,
+`in bread = ToastBread::bread;`, `out x :>> x = y;`), or an explicit `bind pack.boxed = toast;`. A
+name the node declares or inherits itself (`action child { in x; in y = x; }` under a frame with its
+own `x`) is the node's, not the frame's, and binds no frame pin; a node whose flow is drawn inside it
+binds its own parameters to its nodes' pins as the frame does. A binding one end of which is no pin —
+a literal, an expression, an attribute — draws nothing. `dot`
+sets the frame's pins on the cluster's border as squares, the way it sets a node's; `text` lists
+each pin under its node (`in bread`) and names the pins an edge joins (`heat.t => pack.t`,
+`ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and names the
+rest in a `%% not represented:` notice; `plantuml`'s state grammar has no pin, so it names the edge's
+pins in the edge's label (`n0 -- n1 : bread = b`) and the pins in a `' not represented:` notice.
 
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
@@ -1313,6 +1341,29 @@ errors the model had before the run are not counted against the records, and
 a migrated SysML v1 model whose transitions declare `accept s3 : s3` parameters
 re-checks as clean as it loaded. See
 [Recording analysis runs](../manual/recording-analysis-runs.md).
+
+## Importing data
+
+`-import` sets feature values from a table or JSON file — a spreadsheet export,
+a simulation's results, a script's output — and `-convert sysml -o` writes the
+model with the values in place:
+
+```bash
+$ sysml vehicle.sysml -import values.csv -convert sysml -o imported.sysml
+✓ package Vehicle
+✓ imported 3 values into 2 elements from values.csv
+  Vehicle::car::count = 4
+  Vehicle::car::supplier = "Acme, Inc."
+  Vehicle::car::engine::mass = 180 [kg] (redefines Vehicle::Engine::mass)
+wrote imported.sysml (sysml, 376 bytes)
+```
+
+A feature the element declares has its value replaced; one it inherits gets a
+redefinition. The file is checked whole before anything changes — values are
+read as the feature's type reads them and units must measure what the feature
+does — and a file the model refuses imports nothing. `-import-dry-run` prints
+the values without writing, and `-import-map` maps differently named columns
+and nested JSON fields. See [Importing data into a model](../manual/importing-data.md).
 
 ## Comparing a migrated configuration with the tool's results
 

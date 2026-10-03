@@ -22,6 +22,8 @@ const FORMS: Record<string, FormDescription> = {
   dot: { extension: ".dot", filter: "Graphviz DOT", description: "Graphviz DOT graph; a positioned view names its layout engine" },
   plantuml: { extension: ".puml", filter: "PlantUML", description: "PlantUML diagram in the Pilot visualizer's style" },
   markdown: { extension: ".md", filter: "Markdown", description: "Markdown pipe table, for a table view" },
+  csv: { extension: ".csv", filter: "CSV", description: "Comma-separated values, for a table view" },
+  tsv: { extension: ".tsv", filter: "TSV", description: "Tab-separated values, for a table view" },
   text: { extension: ".txt", filter: "Text", description: "Text form, one line per element" },
 };
 

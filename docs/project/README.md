@@ -41,6 +41,9 @@ within these records and means nothing outside this repository.
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI
+- **[SysML v1 to v2 transformation census](sysml-v1-transformation-census.md)** — which of the OMG
+  transformation model's 783 mapping classes the migrator carries out, each tied to the code and
+  test that backs it; the figures and the mapping list are gated in CI
 - **[Adjudications](adjudications.md)** — the divergences from the pinned pilot implementation we
   keep, the rows still open against it, and the reading behind each one
 - **[Protocol state machines](protocol-state-machines.md)** — whether SysML v2 has a construct for

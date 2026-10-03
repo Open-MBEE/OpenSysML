@@ -1,6 +1,7 @@
 // What exploring a behavior under the `explore` scheduling policy found: every
 // distinct outcome the runs reached, rather than one run's result.
 
+import { byCodeUnit } from "./capabilities.js";
 import { ExecutionError, type ModelDiagnostic, type UnsupportedValueError } from "./errors.js";
 import type { SysMLValue } from "./values.js";
 import { formatValue } from "./values.js";
@@ -71,7 +72,7 @@ export class Outcome {
     if (this.statesVisited.length > 0) {
       parts.push(`visits ${this.statesVisited.join(", ")}`);
     }
-    for (const [name, value] of [...this.outputs.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    for (const [name, value] of [...this.outputs.entries()].sort(([a], [b]) => byCodeUnit(a, b))) {
       parts.push(`${name} = ${typeof value === "object" && "kind" in value ? formatValue(value) : String(value)}`);
     }
     return parts.length > 0 ? parts.join("; ") : "no outputs";

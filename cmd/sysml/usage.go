@@ -408,6 +408,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
 				usage.Ex("sysml model.sysml -render Views::loopView -render-form dot -render-ports full", "every port of every part, typed"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
+				usage.Ex("sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
@@ -418,8 +419,8 @@ func doc() usage.Doc {
 					"it. Notices — an empty view, an element the rendering cannot " +
 					"represent — go on stderr. Every file named is loaded as one " +
 					"model, so a view may expose elements a sibling file declares. " +
-					"-render-form names the form written — text, mermaid, markdown, dot " +
-					"or plantuml; by default -render takes it from the destination and " +
+					"-render-form names the form written — text, mermaid, markdown, dot, " +
+					"plantuml, csv or tsv; by default -render takes it from the destination and " +
 					"-render-all writes each kind's machine form, one file per view named " +
 					"by its qualified name with :: as . and every byte unsafe in a filename " +
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
@@ -427,7 +428,10 @@ func doc() usage.Doc {
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
 					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
 					"-render-form plantuml, which also writes a sequence rendering; neither " +
-					"Graphviz nor PlantUML is needed to write them. Both are drawn in the " +
+					"Graphviz nor PlantUML is needed to write them. A table is written as a " +
+					"Markdown table by default, and as comma- or tab-separated values with " +
+					"-render-form csv or tsv: a header record of the columns, then a record " +
+					"per row, quoted as RFC 4180 quotes a field. Graph forms are drawn in the " +
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
 					"fills the DOT, Mermaid and PlantUML nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
@@ -619,7 +623,7 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
-	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock; without it a state machine takes only its initial transition")
+	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock; without it a state machine takes only its initial transition under every schedule and engine")
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
 	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
@@ -647,6 +651,11 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
+	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
+	fs.StringVar(&importAs, "import-as", "values", "What -import makes of each row: values, which sets the features of the element the row names")
+	fs.StringVar(&importMap, "import-map", "", "Read -import's columns and fields onto elements and features as this JSON mapping file says")
+	fs.StringVar(&importFormat, "import-format", "", "Read -import files as csv, tsv, json or jsonl rather than as their extension says")
+	fs.BoolVar(&importDryRun, "import-dry-run", false, "Report the values -import would set, changing and writing nothing")
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
 	fs.StringVar(&outputPath, "output", "", outputUsage())
 	fs.StringVar(&outputPath, "o", "", outputUsage())
@@ -654,7 +663,7 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, csv or tsv (csv and tsv for a table); default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection: minimal (default), the ports its connectors end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
@@ -754,6 +763,11 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("convert", formatArg),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
+			usage.Opt("import", fileArg),
+			usage.Opt("import-as", "<shape>"),
+			usage.Opt("import-map", fileArg),
+			usage.Opt("import-format", formatArg),
+			usage.Opt("import-dry-run", ""),
 			usage.Opt("id", nameArg),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),

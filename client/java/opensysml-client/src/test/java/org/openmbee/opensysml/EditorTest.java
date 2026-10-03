@@ -216,7 +216,8 @@ class EditorTest {
     assertEquals("sysml", Conversion.formatOf(Path.of("a.sysml")));
     assertEquals("ttl", Conversion.formatOf(Path.of("a.ttl")));
     assertEquals("api-json", Conversion.formatOf(Path.of("a.json")));
-    assertThrows(IllegalArgumentException.class, () -> Conversion.formatOf(Path.of("a.xmi")));
+    Path v1 = Path.of("a.xmi");
+    assertThrows(IllegalArgumentException.class, () -> Conversion.formatOf(v1));
     Path written = Conversion.writeContent("package P;\r\n", directory.resolve("out.sysml"));
     assertEquals("package P;\r\n", Files.readString(written));
   }
@@ -243,8 +244,9 @@ class EditorTest {
   @Test
   void aShortNameOnAnAdoptedModelNeedsQueryRatherThanAnsweringAbsent() {
     try (Connection connection = offline()) {
+      Model adopted = model(connection);
       CapabilityException refused =
-          assertThrows(CapabilityException.class, () -> model(connection).find("Vehicle"));
+          assertThrows(CapabilityException.class, () -> adopted.find("Vehicle"));
       assertEquals(Capabilities.QUERY, refused.capability());
     }
   }

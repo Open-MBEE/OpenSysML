@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "Sequenced::part1",
+  "slots": {
+    "n": {"type": "Integer", "value": 1}
+  }
+}

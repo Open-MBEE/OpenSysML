@@ -377,7 +377,7 @@ func TestOperatorRulesInMultiplicityBounds(t *testing.T) {
 	kerml := `package P {
 	private import ScalarValues::*;
 	datatype C; classifier K;
-	feature n : Integer;
+	feature n : Integer = 1;
 	feature a : K[((1 as C) as Integer)..(2 as Integer)];
 	feature b : K[n..((n as C) as Natural)];
 }`

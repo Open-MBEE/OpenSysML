@@ -475,7 +475,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 		}
 		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
 			scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
-		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, 0)
+		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0)
 		if ok {
 			out.Roots = append(out.Roots, node)
 		}
@@ -495,15 +495,20 @@ type actionSubject struct {
 	// the exposed action the subject is rendered under.
 	view *symbols.Symbol
 	elem *symbols.Symbol
+	// frame is the node already standing for the action in the enclosing
+	// rendering, whose pins its bindings attach to; nil for a rendered action.
+	frame *Node
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
-// successions and object flows as edges. A nested action declaring a body of its
-// own is lowered in turn, so the rendering shows the flow within it as well; its
-// own root is discarded, so the node standing for it in the caller carries its
-// geometry and notes.
+// successions, object flows and bindings as edges. A nested action declaring a
+// body of its own is lowered in turn, so the rendering shows the flow within it
+// as well; the node standing for it in the caller is its frame, carrying its
+// nodes, geometry and notes, and its pins are the ones its bindings attach to.
+// drawn collects the node drawn for each lowered node across the nesting, so a
+// binding reaching into a nested flow finds its pin.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
-	lowered map[ast.Node]bool, depth int) (*Node, bool) {
+	lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
 	// A node performing statements holds no flow of its own to render.
 	if usage, ok := decl.(*ast.Usage); ok && depth > 0 && lower.PerformsLeafStatements(usage.Members) {
@@ -514,9 +519,11 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
-		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
-	if depth == 0 {
+	root := subject.frame
+	if root == nil {
+		root = &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
+			Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
+		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
 	}
@@ -538,7 +545,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		if child.NameSynthesized || child.Name == "" {
 			child.Text = r.actionText(graph, node, nodeDoc)
 		}
-		nodes[node] = child
+		nodes[node], drawn[node] = child, child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedScope := graph.Scopes[node]
@@ -546,16 +553,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				nestedScope = actionScope(scope, nested)
 			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
-				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem}
+				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem, frame: child}
 			// The nested flow's own edges belong to the nested nodes, which the
 			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
-			if sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1); ok && len(sub.Children) > 0 {
-				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
+			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1); ok && len(child.Children) > 0 {
+				child.Detail = detailWith(child.Detail, "own flow")
 			}
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
-	if len(root.Children) == 0 {
+	r.bindingEdges(subject, graph, root, nodes, drawn, out)
+	if subject.frame == nil && len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
 	return root, true
@@ -593,6 +601,110 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
 		}
 	}
+}
+
+// bindingEdges draws the action's parameter bindings as binding edges between
+// the pins they join: a node's pin valued by one of the action's own parameters
+// (`in b = bread;`, `in b = ToastBread::bread;`, `out x :>> x = y;`), an explicit
+// bind with an end at a node's pin (`bind pack.boxed = toast;`), and one between
+// two nodes' pins (`bind heat.t = pack.t;`, which is no flow). The edge runs the
+// way the values go, from the frame's input or a node's output to the pin that
+// takes them. A binding whose other end is no drawn pin — a literal, an
+// expression, an attribute — draws nothing: it states a value, not a wire.
+func (r *Renderer) bindingEdges(subject actionSubject, graph *lower.ActionGraph, root *Node, nodes map[ast.Node]*Node,
+	drawn map[ast.Node]*Node, out *Rendering) {
+	// An explicit bind between two nodes' pins lowers to an entry at each end;
+	// an inout pin's value binding is in Bindings as well as ValueBindings.
+	seen := map[*ast.Usage]bool{}
+	for _, binding := range slices.Concat(graph.ValueBindings, graph.Bindings) {
+		if seen[binding.Decl] {
+			continue
+		}
+		seen[binding.Decl] = true
+		at, atPin := bindingPin(nodes, drawn, binding.Node, binding.Path, binding.Pin, root, "")
+		other, otherPin := bindingPin(nodes, drawn, binding.OtherNode, binding.OtherPath, binding.OtherPin, root, binding.OtherParameter)
+		if at == nil || other == nil {
+			continue
+		}
+		from, fromPin, to, toPin := at, atPin, other, otherPin
+		if pinGives(other, otherPin, root) && !pinGives(at, atPin, root) {
+			from, fromPin, to, toPin = other, otherPin, at, atPin
+		}
+		synthesized := r.declaredNameSynthesized(subject.elem, binding.Decl)
+		var name string
+		if binding.Decl.Kind == ast.UsageBinding {
+			name = binding.Decl.Ident.Name
+		}
+		out.Edges = append(out.Edges, Edge{From: from.ID, To: to.ID, FromPort: fromPin, ToPort: toPin,
+			Label: edgeLabel(name, portLabelOf(from, fromPin)+" = "+portLabelOf(to, toPin), synthesized), Name: edgeName(name, synthesized),
+			Kind: EdgeBinding, Origin: nodeOrigin(docOf(graph, binding.Decl, subject.doc), binding.Decl),
+			Route: r.declaredRouteOf(subject.view, subject.elem, binding.Decl, out),
+			Style: r.declaredEdgeDress(subject.view, subject.elem, binding.Decl, from.ID, to.ID, out)})
+	}
+}
+
+// bindingPin is the drawn node and pin a binding end is at: the node the end
+// names, reached through path where it reaches into a nested flow, else the
+// frame's pin named parameter; nil for an end at no drawn pin, which no edge
+// can attach to.
+func bindingPin(nodes, drawn map[ast.Node]*Node, at ast.Node, path []ast.Node, pin string, root *Node, parameter string) (*Node, string) {
+	node := root
+	if at != nil {
+		var ok bool
+		if node, ok = nodes[at]; !ok {
+			return nil, ""
+		}
+		for _, step := range path {
+			if node, ok = drawn[step]; !ok {
+				return nil, ""
+			}
+		}
+		parameter = pin
+	}
+	if id := drawnPort(node, parameter); id != "" {
+		return node, id
+	}
+	return nil, ""
+}
+
+// drawnPort is the ID of a node's port by name, "" for a name of none.
+func drawnPort(node *Node, name string) string {
+	for _, port := range node.Ports {
+		if port.Name == nameText(name) {
+			return port.ID
+		}
+	}
+	return ""
+}
+
+// pinGives reports whether a pin is where a binding's values come from: the
+// frame's input, which the action is given, or a node's output, which it yields.
+func pinGives(node *Node, id string, root *Node) bool {
+	direction := portDirectionOf(node, id)
+	if node == root {
+		return direction != PortOut
+	}
+	return direction == PortOut
+}
+
+// portDirectionOf is the direction of a node's port, by ID.
+func portDirectionOf(node *Node, id string) PortDirection {
+	for _, port := range node.Ports {
+		if port.ID == id {
+			return port.Direction
+		}
+	}
+	return PortUndirected
+}
+
+// portLabelOf is the name of a node's port, by ID.
+func portLabelOf(node *Node, id string) string {
+	for _, port := range node.Ports {
+		if port.ID == id {
+			return port.Name
+		}
+	}
+	return ""
 }
 
 // flowLabel is what an object flow carries: the pins it joins; a flow naming no

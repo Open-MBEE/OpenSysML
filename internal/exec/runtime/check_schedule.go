@@ -128,8 +128,9 @@ type checkMove struct {
 // A step of a do flow within the machine's move picks its token as a choice point
 // of the move (ChoiceTokenOrder); any other nested step goes in declared order.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
-	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
-	if tokens.owner != r.script.owner {
+	sameStep := tokens.owner == r.script.owner && tokens.scope == nil
+	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0 && sameStep}
+	if !sameStep {
 		m.nested, m.selected = !tokens.stepped, false
 	}
 	r.move = m
@@ -155,7 +156,7 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 			m.taken = i
 		}
 	}
-	if tokens.stepped && tokens.owner != r.script.owner {
+	if tokens.stepped && !sameStep {
 		if len(enabled) >= 2 {
 			m.taken = r.choose(ChoicePoint{Kind: ChoiceTokenOrder, Step: tokens.step, Alternatives: m.enabled}, nil)
 			m.selected = true

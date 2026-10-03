@@ -8,6 +8,7 @@ import type {
   DocumentQueryBinding,
   DocumentQueryRow,
   DocumentValue as PbDocumentValue,
+  Quantity,
   RunDocumentQueryResponse,
 } from "../generated/sysml_pb.js";
 import {
@@ -19,7 +20,14 @@ import {
   UnitTermSchema,
 } from "../generated/sysml_pb.js";
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
-import { decodeBigInteger, fitsInt64, formatValue, type SysMLValue } from "./values.js";
+import {
+  decodeBigInteger,
+  encodeQuantityMagnitude,
+  fitsInt64,
+  formatValue,
+  type Magnitude,
+  type SysMLValue,
+} from "./values.js";
 
 /** Whether a wire binding sends an Integer beyond int64, which needs `big_int_values`. */
 export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
@@ -219,14 +227,17 @@ export class DocumentEvent {
       time instanceof DocumentState ||
       time instanceof DocumentEvent
         ? time.toString()
-        : typeof time === "object"
-          ? formatValue(time)
-          : String(time);
+        : renderPlainTime(time);
     return `${rendered}: ${this.text}`;
   }
 }
 
 /** What a binding value or an answered cell value may be. */
+/** A time that is a plain value: a SysML value formatted, anything else as JavaScript spells it. */
+function renderPlainTime(time: SysMLValue | string | bigint | number | boolean): string {
+  return typeof time === "object" ? formatValue(time) : String(time);
+}
+
 export type DocumentValue =
   | ElementRef
   | ObjectRef
@@ -380,17 +391,26 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
   );
 }
 
+/** A wire quantity's magnitude as a value; one carrying none reads as a real zero. */
+function decodeMagnitude(magnitude: Quantity["magnitude"]): Magnitude {
+  switch (magnitude.case) {
+    case "intMagnitude":
+      return { kind: "int", value: magnitude.value };
+    case "bigIntMagnitude":
+      return { kind: "int", value: decodeBigInteger(magnitude.value) };
+    case "realMagnitude":
+      return { kind: "real", value: magnitude.value };
+    default:
+      return { kind: "real", value: 0 };
+  }
+}
+
 function boundQuantity(
   value: Extract<SysMLValue, { kind: "quantity" }>,
 ): ReturnType<typeof create<typeof QuantitySchema>> {
   const magnitude = value.magnitude;
   return create(QuantitySchema, {
-    magnitude:
-      magnitude.kind === "real"
-        ? { case: "realMagnitude", value: magnitude.value }
-        : fitsInt64(magnitude.value)
-          ? { case: "intMagnitude", value: magnitude.value }
-          : { case: "bigIntMagnitude", value: magnitude.value.toString() },
+    magnitude: encodeQuantityMagnitude(magnitude),
     unit: value.unit,
     ...(value.unitTerm === undefined
       ? {}
@@ -508,14 +528,7 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
       const magnitude = kind.value.magnitude;
       const decoded: Extract<SysMLValue, { kind: "quantity" }> = {
         kind: "quantity",
-        magnitude:
-          magnitude.case === "intMagnitude"
-            ? { kind: "int", value: magnitude.value }
-            : magnitude.case === "bigIntMagnitude"
-              ? { kind: "int", value: decodeBigInteger(magnitude.value) }
-              : magnitude.case === "realMagnitude"
-                ? { kind: "real", value: magnitude.value }
-                : { kind: "real", value: 0 },
+        magnitude: decodeMagnitude(magnitude),
         unit: kind.value.unit,
       };
       return decoded;

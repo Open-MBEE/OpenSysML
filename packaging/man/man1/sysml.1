@@ -111,6 +111,7 @@ Run this state machine, as \-state "Mission rover1" to run it on an object
 .BR \-advance " \fItime\fP"
 Simulated time units to run the \-action and \-state behaviors for, on one
 shared clock; without it a state machine takes only its initial transition
+under every schedule and engine
 .TP
 .BR \-schedule " \fIpolicy\fP"
 Policy every run resolves its choice points under: declared, reverse
@@ -225,6 +226,26 @@ Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, or fmu
 for a Functional Mock\-up Unit to import; for \-migrate: xmi, uml or mdzip,
 the forms of a SysML v1 model; default the input's extension
 .TP
+.BR \-import " \fIfile\fP"
+Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+per element, before \-convert writes the model; an element column names the
+element and each other column a feature, as mass [kg] (repeatable)
+.TP
+.BR \-import\-as " \fIshape\fP"
+What \-import makes of each row: values, which sets the features of the
+element the row names. The default is values.
+.TP
+.BR \-import\-map " \fIfile\fP"
+Read \-import's columns and fields onto elements and features as this JSON
+mapping file says
+.TP
+.BR \-import\-format " \fIformat\fP"
+Read \-import files as csv, tsv, json or jsonl rather than as their extension
+says
+.TP
+.B \-import\-dry\-run
+Report the values \-import would set, changing and writing nothing
+.TP
 .BR \-id " \fIname\fP"
 With \-convert ttl or api\-json, how derived element ids are spelled:
 qualified (default) derives each from its qualified name; uuid mints
@@ -280,9 +301,9 @@ without a declared view
 Render every declared view into this directory
 .TP
 .BR \-render\-form " \fIform\fP"
-Form \-render or \-render\-all writes: text, mermaid, markdown, dot or
-plantuml; default from the destination for \-render, each kind's machine form
-for \-render\-all
+Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
+csv or tsv (csv and tsv for a table); default from the destination for
+\-render, each kind's machine form for \-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid or plantuml form fills nodes from, by keyword family:
@@ -875,6 +896,8 @@ sysml model.sysml \-render Views::loopView \-render\-form dot \e
     \-render\-ports full
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
+sysml model.sysml \-render Views::partsTable \-render\-form csv \-o \e
+    parts.csv
 # several files, loaded as one model
 sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
@@ -886,25 +909,28 @@ tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
 rendering cannot represent \(em go on stderr. Every file named is loaded as
 one model, so a view may expose elements a sibling file declares.
-\-render\-form names the form written \(em text, mermaid, markdown, dot or
-plantuml; by default \-render takes it from the destination and \-render\-all
-writes each kind's machine form, one file per view named by its qualified name
-with :: as . and every byte unsafe in a filename (/, \e, :, ., %, control
-characters, what Windows reserves) as %XX; a name past 255 bytes is cut and
-tagged ~ and a hash of the whole. A graph\-shaped rendering is written as a
-Mermaid diagram by default, as Graphviz DOT with \-render\-form dot and as
-PlantUML with \-render\-form plantuml, which also writes a sequence rendering;
-neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
-black\-and\-white style of the SysML v2 Pilot visualizer; \-render\-palette
-fills the DOT, Mermaid and PlantUML nodes by keyword family from a
-colourblind\-safe palette (okabe\-ito, tol\-bright, tol\-muted, tol\-light,
-brewer\-set2, brewer\-dark2, viridis or cividis), keeping black text legible
-on every fill. \-render\-style names the look the DOT and Mermaid forms draw
-in: pilot (default), the Pilot visualizer's, or cameo, the look of Cameo
-Systems Modeler \(em a diagram frame with a header tab, Arial text, gradient
-fills, compartments and the UML pseudo\-state symbols \(em for a diagram
-migrated from Cameo to keep its look. An interconnection draws on each part
-the ports its connectors end at, each a small square on the part's border
+\-render\-form names the form written \(em text, mermaid, markdown, dot,
+plantuml, csv or tsv; by default \-render takes it from the destination and
+\-render\-all writes each kind's machine form, one file per view named by its
+qualified name with :: as . and every byte unsafe in a filename (/, \e, :, .,
+%, control characters, what Windows reserves) as %XX; a name past 255 bytes is
+cut and tagged ~ and a hash of the whole. A graph\-shaped rendering is written
+as a Mermaid diagram by default, as Graphviz DOT with \-render\-form dot and
+as PlantUML with \-render\-form plantuml, which also writes a sequence
+rendering; neither Graphviz nor PlantUML is needed to write them. A table is
+written as a Markdown table by default, and as comma\- or tab\-separated
+values with \-render\-form csv or tsv: a header record of the columns, then a
+record per row, quoted as RFC 4180 quotes a field. Graph forms are drawn in
+the black\-and\-white style of the SysML v2 Pilot visualizer;
+\-render\-palette fills the DOT, Mermaid and PlantUML nodes by keyword family
+from a colourblind\-safe palette (okabe\-ito, tol\-bright, tol\-muted,
+tol\-light, brewer\-set2, brewer\-dark2, viridis or cividis), keeping black
+text legible on every fill. \-render\-style names the look the DOT and Mermaid
+forms draw in: pilot (default), the Pilot visualizer's, or cameo, the look of
+Cameo Systems Modeler \(em a diagram frame with a header tab, Arial text,
+gradient fills, compartments and the UML pseudo\-state symbols \(em for a
+diagram migrated from Cameo to keep its look. An interconnection draws on each
+part the ports its connectors end at, each a small square on the part's border
 named beside it; \-render\-ports full draws every port a part has, labelled
 name : Type. A DiagramLayout Style on a member colours it over either look,
 and a Note is drawn beside the member it is about. A view whose members carry

@@ -15,8 +15,8 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"   // registers the notation REPL commands
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // registers the positional REPL commands
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -472,6 +472,13 @@ func runCLI() int {
 	if imageBaseURL != "" && migrateFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
 		return 2
+	}
+	if message := importMisuse(); message != "" {
+		fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+		return 2
+	}
+	if importDryRun {
+		return runImportDryRun(args)
 	}
 	if flagGiven("record-into") && len(modelChecks.records) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")

@@ -1,13 +1,12 @@
 # The site is the docs/ tree unmodified: every page stays a Markdown file read on
-# GitHub, and MkDocs is only the renderer. The exceptions are the landing page, which
-# frames docs/README.md with a hero that only makes sense on a web page, and the header
-# menu, which links the sites GitHub's own header cannot.
+# GitHub, and MkDocs is only the renderer. The landing page is the exception: it
+# frames docs/README.md with a hero that only makes sense on a web page.
 site_name: OpenSysML
 site_description: A SysML v2 and KerML implementation in Go — language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
 site_url: https://opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML
-edit_uri: edit/main/docs/
+edit_uri: edit/develop/docs/
 # The affiliation is a span rather than its own line because the footer's copyright is the
 # only place the theme lets a site put text; stylesheets/footer.css moves it to the right.
 copyright: >-
@@ -19,14 +18,17 @@ docs_dir: docs
 
 theme:
   name: material
-  # overrides/ holds the landing page template and the header menu; every documentation
-  # page is otherwise the theme as shipped.
+  # overrides/ holds the landing page template and the sidebar navigation (the
+  # shipped partial minus tab-mode hiding of inactive top-level items); every
+  # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.top
     - navigation.indexes
+    - navigation.tabs
+    - navigation.tabs.sticky
     - content.code.copy
     - content.action.edit
     - search.highlight
@@ -49,8 +51,17 @@ theme:
         name: Switch to light mode
 
 extra_css:
-  - stylesheets/nav-menu.css
   - stylesheets/footer.css
+  - stylesheets/ecosystem.css
+
+extra:
+  social:
+    - icon: fontawesome/solid/dragon
+      link: https://lord.opensysml.org/
+      name: Legend of the Red Dragon
+
+extra_javascript:
+  - assets/sysml-engine-loader.js
 
 plugins:
   - search
@@ -59,18 +70,33 @@ plugins:
   - redirects:
       redirect_maps:
         guide/09-python.md: guide/09-clients.md
+        ecosystem.md: README.md
 
 not_in_nav: |
   guide/09-python.md
+  internals/README.md
+  internals/architecture.md
+  internals/testing.md
+  internals/performance.md
+  internals/interface-records.md
+  internals/execution-ir-design.md
+  project/README.md
+  project/spec-compliance.md
+  project/exact-rational-evaluation.md
+  project/expansion-regions.md
+  project/bitwise-complement.md
+  project/exception-handlers.md
+  project/pilot-differential.md
+  project/spec-pilot-gap-register.md
+  project/roadmap.md
+  project/nightly.md
 
 # repo_links: links out of docs/ (examples/, Go sources, CONTRIBUTING.md) are correct
 # on GitHub and 404 here, so they are rewritten to the repository at build time.
 # landing: docs/README.md is rendered with the landing page template.
-# header_menu: the header override stays the shipped header plus the menu include.
 hooks:
   - scripts/mkdocs_repo_links.py
   - scripts/mkdocs_landing.py
-  - scripts/mkdocs_header_menu.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
 
@@ -147,6 +173,7 @@ exclude_docs: |
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
   project/validation-constraints.md
+  project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md
   project/html-document-backend.md
@@ -161,7 +188,12 @@ exclude_docs: |
   project/statemachines-library.md
 
 nav:
-  - Documentation: README.md
+  - Home: README.md
+  - CLI: cli.md
+  - Documentation: documentation.md
+  - Clients: clients.md
+  - Community: community.md
+  - Downloads: downloads.md
   - Guide:
       - guide/README.md
       - guide/01-install.md
@@ -188,6 +220,7 @@ nav:
       - Worked example: manual/worked-example.md
       - Requirements traceability examples: manual/traceability-examples.md
       - Recording analysis runs: manual/recording-analysis-runs.md
+      - Importing data into a model: manual/importing-data.md
       - Running external programs from a model: manual/running-external-programs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
@@ -222,21 +255,5 @@ nav:
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
       - WebAssembly builds: reference/wasm.md
-  - Internals:
-      - internals/README.md
-      - Architecture: internals/architecture.md
-      - Testing: internals/testing.md
-      - Performance: internals/performance.md
-      - Interface records: internals/interface-records.md
-      - Execution IR design: internals/execution-ir-design.md
-  - Project:
-      - project/README.md
-      - Spec compliance: project/spec-compliance.md
-      - Exact-rational evaluation: project/exact-rational-evaluation.md
-      - Expansion regions: project/expansion-regions.md
-      - Bitwise complement: project/bitwise-complement.md
-      - Exception handlers: project/exception-handlers.md
-      - Pilot differential: project/pilot-differential.md
-      - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md
-      - Roadmap: project/roadmap.md
-      - Nightly snapshots: project/nightly.md
+  # internals/ and project/ are published but kept out of the tab bar: they are contributor
+  # records, reachable through links, search and GitHub (see not_in_nav).

@@ -35,6 +35,18 @@ func TestProdBuild(t *testing.T) {
 		}
 	})
 
+	t.Run("import", func(t *testing.T) {
+		dir := t.TempDir()
+		target := write(t, filepath.Join(dir, "v.sysml"), "package P { private import ScalarValues::*; part p { attribute n : Integer = 1; } }\n")
+		data := write(t, filepath.Join(dir, "d.csv"), "element,n\nP::p,2\n")
+		out := filepath.Join(dir, "out.sysml")
+		got := runFiles(t, binary, []string{target}, "-import", data, "-convert", "sysml", "-o", out)
+		written, _ := os.ReadFile(out)
+		if got.status != 0 || !strings.Contains(string(written), "attribute n : Integer = 2;") {
+			t.Errorf("-import: status %d, stderr %q, wrote %q", got.status, got.stderr, written)
+		}
+	})
+
 	t.Run("help", func(t *testing.T) {
 		got := runBinary(t, binary, "", []string{"-help"})
 		if got.status != 0 {
@@ -58,7 +70,7 @@ func TestProdBuild(t *testing.T) {
 			t.Fatalf("the prompt exited %d:\n%s%s", got.status, got.stdout, got.stderr)
 		}
 		out := got.stdout + got.stderr
-		for _, cmd := range []string{"%print", "%save", "%query"} {
+		for _, cmd := range []string{"%print", "%save", "%query", "%import"} {
 			if !strings.Contains(out, cmd+" ") {
 				t.Errorf("%%help does not list %s:\n%s", cmd, out)
 			}

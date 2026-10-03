@@ -64,6 +64,52 @@ func TestW8CFeatureReferenceAccessibleAndValid(t *testing.T) {
 	}
 }
 
+func TestW8CFeatureReferenceToMultiplicity(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "in-class multiplicity",
+			src: `package P {
+	class E {
+		multiplicity em [1..4];
+		feature v : ScalarValues::Natural = em;
+	}
+}`,
+		},
+		{
+			name: "package-level multiplicity",
+			src: `package P {
+	multiplicity pm [1..4];
+	feature w = pm;
+}`,
+		},
+		{
+			name: "issue 802 reproduction",
+			src: `package P {
+	private import ScalarValues::*;
+	class T;
+	class K { feature f : T { multiplicity m [1..2]; } }
+	class C { alias m for K::f::m; }
+	class E {
+		multiplicity em [1..4];
+		feature k : Integer { alias a for em; }
+		feature v : Natural = em;
+	}
+}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := w8cLibraryErrorsIn(t, "<t>.kerml", tt.src); len(got) != 0 {
+				t.Errorf("unexpected errors: %v", got)
+			}
+		})
+	}
+}
+
 func TestW8CFeatureReferenceLocation(t *testing.T) {
 	src := `package P {
 	private import ScalarValues::*;

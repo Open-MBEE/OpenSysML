@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.UnaryOperator;
 
 /**
  * A connection to a {@code sysml-grpc} service, and the entry point of this client.
@@ -154,7 +155,12 @@ public final class Connection implements AutoCloseable {
   }
 
   private static Optional<String> requiredRelease(ConnectionOptions options) {
-    Optional<String> asked = BinaryDownloader.versionAskedFor(options);
+    return requiredRelease(options, System::getenv);
+  }
+
+  static Optional<String> requiredRelease(
+      ConnectionOptions options, UnaryOperator<String> environment) {
+    Optional<String> asked = BinaryDownloader.explicitVersion(options, environment);
     if (asked.isEmpty() || !asked.get().equals("latest")) {
       return asked;
     }
@@ -373,10 +379,7 @@ public final class Connection implements AutoCloseable {
     if (!response.getError().isEmpty()) {
       throw new ModelException(response.getError(), diagnostics);
     }
-    List<Symbol> roots = new java.util.ArrayList<>(response.getRootsCount());
-    for (org.openmbee.opensysml.proto.SymbolInfo root : response.getRootsList()) {
-      roots.add(Protos.symbol(root));
-    }
+    List<Symbol> roots = response.getRootsList().stream().map(Protos::symbol).toList();
     return new Model(this, response.getModelHash(), roots, diagnostics, names);
   }
 

@@ -177,8 +177,10 @@ type checkResultOf struct {
 	Contrast *checkWitness `json:"contrast,omitempty"`
 	// Reason is why nothing is claimed, or what bounds a bounded negative answer
 	// to a Sensitive question; empty for every other covered result.
-	Reason   string `json:"reason,omitempty"`
-	Standing string `json:"standing"`
+	Reason string `json:"reason,omitempty"`
+	// Scope is how far short of quiescence the claim was observed; it holds there.
+	Scope    []string `json:"scope,omitempty"`
+	Standing string   `json:"standing"`
 	// Inputs are the features of the initial state the engine quantified over or
 	// pinned, each with its domain, and Assumptions the constraints it assumed over
 	// them; only a symbolic engine reports either.
@@ -373,6 +375,7 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 			Witness:     checkWitnessOf(r.Witness),
 			Contrast:    checkWitnessOf(r.Contrast),
 			Reason:      r.Reason,
+			Scope:       scopeOf(r.Scope),
 			Standing:    r.Standing(),
 			Inputs:      checkInputs(r.Inputs),
 			Assumptions: r.Assumptions,
@@ -797,4 +800,13 @@ func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVer
 		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
 	}
 	return out
+}
+
+// scopeOf spells the reasons a claim was observed short of quiescence.
+func scopeOf(reasons []runtime.ObservationReason) []string {
+	var scope []string
+	for _, reason := range reasons {
+		scope = append(scope, string(reason))
+	}
+	return scope
 }

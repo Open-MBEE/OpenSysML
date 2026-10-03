@@ -136,6 +136,8 @@ func TestTraceLabelsExpressionKinds(t *testing.T) {
 		{&ast.SequenceExpr{Elements: []ast.Node{&ast.NullExpr{}}}, "sequence of 1"},
 		{&ast.CollectExpr{}, "collect"},
 		{&ast.SelectExpr{}, "select"},
+		{&ast.CastExpr{TargetType: featureRef("Real").Name}, "cast Real"},
+		{&ast.IfActionNode{}, "if"},
 		{nil, "nil"},
 	}
 
