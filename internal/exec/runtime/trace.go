@@ -719,8 +719,10 @@ func TraceLabel(node ast.Node) string {
 		return "construct " + qualifiedNameToString(n.Type)
 	case *ast.MetadataAccessExpr:
 		return "metadata"
+	case *ast.CastExpr:
+		return "cast " + qualifiedNameToString(n.TargetType)
 	default:
-		return fmt.Sprintf("%T", node)
+		return nodeIdentifier(node)
 	}
 }
 
@@ -763,8 +765,50 @@ func nodeIdentifier(node ast.Node) string {
 		return controlNodeName(n.Name, "decision")
 	case *ast.ActionExecutionNode:
 		return controlNodeName(n.Name, "action")
+	case *ast.PseudostateNode:
+		return controlNodeName(n.Name, n.Kind.String())
+	case *ast.StateRegion:
+		return controlNodeName(n.Name, "region")
+	case *ast.WhileLoopActionNode:
+		return loopLabel(n.Kind, n.Variable.Name, n.Condition != nil)
+	case *ast.IfActionNode:
+		return "if"
+	case *ast.IfBranchNode:
+		return n.Kind.String()
+	case *ast.AssignmentActionNode:
+		return "assign " + chainText(n.Target)
+	case *ast.SendStatement:
+		return "send"
+	case *ast.PerformActionNode:
+		if inv := n.PerformedInvocation(); inv != nil {
+			return "perform " + qualifiedNameToString(inv.Type)
+		}
+		return "perform " + chainText(n.ActionRef)
+	case *ast.TerminateStatement:
+		if n.Target != nil {
+			return "terminate " + chainText(n.Target)
+		}
+		return "terminate"
+	case *ast.AcceptActionUsage:
+		return controlNodeName(n.Name, "accept")
 	default:
 		return fmt.Sprintf("%T", node)
+	}
+}
+
+// loopLabel names a loop by the keywords that introduce and end it and, for a
+// `for` loop, the variable it binds.
+func loopLabel(kind ast.LoopKind, variable string, conditioned bool) string {
+	switch kind {
+	case ast.LoopFor:
+		return "for " + variable
+	case ast.LoopUntil:
+		if !conditioned {
+			return "loop"
+		}
+		return "loop until"
+	default:
+		return "while"
 	}
 }
 

@@ -488,8 +488,8 @@ func TestTraceOrderViolationFails(t *testing.T) {
 	}
 }
 
-// A trace names control nodes by what they do, so an unnamed fork or final
-// node does not surface a Go type name to whoever reads the trace.
+// A trace names control and statement nodes by what they do, so an unnamed fork
+// or loop does not surface a Go type name to whoever reads the trace.
 func TestNodeIdentifierNamesControlNodes(t *testing.T) {
 	cases := []struct {
 		node ast.Node
@@ -502,11 +502,52 @@ func TestNodeIdentifierNamesControlNodes(t *testing.T) {
 		{&ast.MergeNode{}, "merge"},
 		{&ast.DecisionNode{}, "decision"},
 		{&ast.ForkNode{Name: "split"}, "split"},
+		{&ast.PseudostateNode{Kind: ast.PseudostateChoice}, "choice"},
+		{&ast.StateRegion{}, "region"},
+		{&ast.WhileLoopActionNode{Kind: ast.LoopWhile}, "while"},
+		{&ast.WhileLoopActionNode{Kind: ast.LoopUntil}, "loop"},
+		{&ast.WhileLoopActionNode{Kind: ast.LoopUntil, Condition: &ast.LiteralBool{Value: true}}, "loop until"},
+		{&ast.WhileLoopActionNode{Kind: ast.LoopFor, Variable: ast.Identification{Name: "i"}}, "for i"},
+		{&ast.IfActionNode{}, "if"},
+		{&ast.IfBranchNode{Kind: ast.IfBranchElse}, "else"},
+		{&ast.AssignmentActionNode{Target: featureRef("x")}, "assign x"},
+		{&ast.SendStatement{}, "send"},
+		{&ast.PerformActionNode{ActionRef: featureRef("tick")}, "perform tick"},
+		{&ast.TerminateStatement{}, "terminate"},
+		{&ast.TerminateStatement{Target: featureRef("slow")}, "terminate slow"},
+		{&ast.AcceptActionUsage{}, "accept"},
 	}
 
 	for _, tc := range cases {
 		if got := nodeIdentifier(tc.node); got != tc.want {
 			t.Errorf("nodeIdentifier(%T) = %q, want %q", tc.node, got, tc.want)
+		}
+	}
+}
+
+// featureRef is a reference to the feature of a one-segment name.
+func featureRef(name string) *ast.FeatureReference {
+	ref := &ast.FeatureReference{Name: &ast.QualifiedName{}}
+	ref.Name.SetSingleton(ast.NameSegment{Text: name})
+	return ref
+}
+
+// No golden trace names a node by its Go type: every node a token rests at or a
+// choice offers has a name of its own or of what it does.
+func TestTraceGoldensNameNoGoType(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("testdata", "conformance", "*.trace.golden"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no trace goldens found: %v", err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if strings.Contains(line, "*ast.") {
+				t.Errorf("%s:%d names a Go type: %s", path, i+1, strings.TrimSpace(line))
+			}
 		}
 	}
 }

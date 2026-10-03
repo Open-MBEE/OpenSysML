@@ -1,11 +1,11 @@
-step 1: token 1@*ast.IfActionNode
+step 1: token 1@if
 stmt if
     eval feature count -> 0
     eval literal 0 -> 0
   eval operator == -> true
   stmt assign count
     eval literal 1 -> 1
-step 2: token 1@*ast.WhileLoopActionNode
+step 2: token 1@while
 stmt while
   iteration 1
       eval feature count -> 1
@@ -29,7 +29,7 @@ stmt while
       eval feature count -> 3
       eval literal 3 -> 3
     eval operator == -> true
-step 3: token 1@*ast.WhileLoopActionNode
+step 3: token 1@loop until
 stmt loop until
   iteration 1
     stmt assign count
@@ -39,7 +39,7 @@ stmt loop until
       eval feature count -> 4
       eval literal 4 -> 4
     eval operator == -> true
-step 4: token 1@*ast.WhileLoopActionNode
+step 4: token 1@for i
 stmt for i
     eval literal 1 -> 1
     eval literal 2 -> 2

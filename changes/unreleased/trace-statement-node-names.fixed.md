@@ -1,0 +1,1 @@
+- **Traces and witnesses name loop, `if` and other statement nodes by what they do.** A token resting at an unnamed statement node is now spelled `2@loop until`, `3@for i`, `1@if`, `4@assign x` or `5@terminate slow` rather than by a Go type name such as `2@*ast.WhileLoopActionNode`, in `explore` witnesses, `-trace` output and choice points alike.
