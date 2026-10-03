@@ -412,6 +412,45 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
+	// A snapshot restores the coverage notes it captured: one taken before the
+	// run clears them, one taken after keeps them.
+	t.Run("block-body-notes-restore", func(t *testing.T) {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+			action def LoneOnly {
+				first start then worker;
+				action worker {
+					if true {
+						action a[2];
+					}
+				}
+				then done;
+			}
+		}`))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "LoneOnly", ast.DefAction)
+		before, err := ctx.Snapshot()
+		if err != nil {
+			t.Fatalf("Snapshot: %v", err)
+		}
+		if _, err := ctx.ExecuteAction(sym); err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if len(ctx.coverageReasons()) == 0 {
+			t.Fatalf("no coverage note recorded")
+		}
+		after, err := ctx.Snapshot()
+		if err != nil {
+			t.Fatalf("Snapshot after the run: %v", err)
+		}
+		after.Restore()
+		if got := ctx.coverageReasons(); !slices.Contains(got, ReasonBlockBodyRepetition) {
+			t.Errorf("notes after restoring the later snapshot = %v, want the block-body reason", got)
+		}
+		before.Restore()
+		if got := ctx.coverageReasons(); len(got) != 0 {
+			t.Errorf("notes after restoring the earlier snapshot = %v, want none", got)
+		}
+	})
+
 	// A written [*] end into a join contradicts the end multiplicity SysML
 	// mandates there, and is unsatisfiable rather than a barrier.
 	t.Run("wildcard-into-join-contradicts-mandate", func(t *testing.T) {

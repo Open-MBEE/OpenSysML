@@ -205,17 +205,21 @@ func (inst *Instance) behaviorsOf(kind lower.ClassifierBehaviorKind, sym *symbol
 	if sym == nil || sym.Decl == nil {
 		return nil
 	}
-	var bodies []*ObjectBehavior
+	var direct, bodies []*ObjectBehavior
 	for _, b := range inst.behaviors {
 		if b.Kind != kind {
 			continue
 		}
 		if b.member != nil && b.member.Decl == sym.Decl {
-			return []*ObjectBehavior{b}
+			direct = append(direct, b)
+			continue
 		}
 		if (len(b.bindings) > 1 && declaresAny(b.bindings[1:], sym)) || declaresAny(b.kinds, sym) {
 			bodies = append(bodies, b)
 		}
+	}
+	if len(direct) > 0 {
+		return direct
 	}
 	return bodies
 }

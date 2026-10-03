@@ -1827,8 +1827,27 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 		}
 		return performed[0].Action, nil
 	default:
+		if member := sameBehaviorMember(performed); member != nil {
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", ErrAmbiguousAction, symbolText(action), len(performed), member.Name)
+		}
 		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// sameBehaviorMember is the usage every behavior is bound under when they
+// share one: the performances of `perform action run[2]` are ambiguous as
+// several of `run`, not as different usages.
+func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
+	member := behaviors[0].Member()
+	if member == nil {
+		return nil
+	}
+	for _, b := range behaviors[1:] {
+		if b.Member() != member {
+			return nil
+		}
+	}
+	return member
 }
 
 // behaviorUsages names the usages the behaviors are bound under, unnamed ones left out.
