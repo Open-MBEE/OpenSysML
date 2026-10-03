@@ -835,8 +835,9 @@ func (s *Session) Submit(src string) Result {
 // SourceFile is one source of a submission together with the file it was read
 // from, which is what diagnostics over a multi-file load are reported against.
 type SourceFile struct {
-	Name string
-	Text string
+	Name     string
+	Text     string
+	Warnings []string
 }
 
 // SubmitAll accumulates every src as one submission, from no file in particular.

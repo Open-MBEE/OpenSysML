@@ -1,8 +1,11 @@
 package source
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
-// Kind is the language a file is written in. The two languages share a lexer
+// Kind is the language a source is parsed as. The two languages share a lexer
 // but not a grammar: KerML notation in a SysML file is diagnosed.
 type Kind int
 
@@ -27,12 +30,13 @@ func (k Kind) String() string {
 	}
 }
 
-// KindOf reports the language of a file name by its extension.
+// KindOf reports the language of a file name by its extension. API JSON files
+// are converted to SysML notation before they are parsed.
 func KindOf(name string) Kind {
-	switch {
-	case strings.HasSuffix(name, ".sysml"):
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".sysml", ".json":
 		return KindSysML
-	case strings.HasSuffix(name, ".kerml"):
+	case ".kerml":
 		return KindKerML
 	default:
 		return KindUnknown

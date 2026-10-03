@@ -174,6 +174,20 @@ func FormatOfPath(path string) (Format, error) {
 	}
 }
 
+// ModelSource converts an explicitly named API-JSON source to SysML notation.
+// Other formats are returned unchanged.
+func ModelSource(name string, data []byte, warn func(string)) (text []byte, converted bool, err error) {
+	from, err := FormatOfPath(name)
+	if err != nil || from != FormatAPIJSON {
+		return data, false, nil
+	}
+	text, err = ConvertWith(name, data, FormatAPIJSON, FormatSysML, Options{Warn: warn})
+	if err != nil {
+		return nil, false, err
+	}
+	return text, true, nil
+}
+
 // SyntaxError reports that the input could not be read as its format. It lists
 // every syntax error rather than only the first, so one conversion attempt
 // shows everything that needs fixing.

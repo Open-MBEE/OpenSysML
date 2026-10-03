@@ -43,6 +43,7 @@ func TestLoadingADirectoryResolvesRegardlessOfFileName(t *testing.T) {
 	// Sorted order puts the referencing file first.
 	writeFile(t, filepath.Join(dir, "a-uses.sysml"), "package Uses { private import Defs::*; part w : Wheel; }\n")
 	writeFile(t, filepath.Join(dir, "b-defs.sysml"), "package Defs { part def Wheel; }\n")
+	writeFile(t, filepath.Join(dir, "ignored.json"), "not API JSON")
 
 	s := NewSession()
 	out, err := s.LoadPaths([]string{dir})
@@ -58,6 +59,40 @@ func TestLoadingADirectoryResolvesRegardlessOfFileName(t *testing.T) {
 	}
 	if got := s.List(); len(got) != 2 {
 		t.Fatalf("want 2 snippets in the session, got %d: %v", len(got), got)
+	}
+}
+
+func TestLoadPathsReportConvertsAPIJSONAndReportsWarnings(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json")
+	session := NewSession()
+
+	report, err := session.LoadPathsReport([]string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Errors {
+		t.Fatalf("converted API JSON did not analyze cleanly: %v", report.Found)
+	}
+	if len(report.Declared) == 0 {
+		t.Fatal("converted API JSON declared no root symbols")
+	}
+	if !strings.Contains(strings.Join(report.Found, "\n"), "warning: the library element") {
+		t.Fatalf("load report omitted the conversion warning: %v", report.Found)
+	}
+}
+
+func TestLoadingADirectoryIgnoresJSONFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "model.sysml"), "package OnlySysML { part def A; }\n")
+	writeFile(t, filepath.Join(dir, "not-a-model.json"), "not API JSON")
+
+	session := NewSession()
+	report, err := session.LoadPathsReport([]string{dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Errors || len(report.Declared) != 1 || !strings.Contains(report.Declared[0], "OnlySysML") {
+		t.Fatalf("directory load did not ignore .json: %+v", report)
 	}
 }
 

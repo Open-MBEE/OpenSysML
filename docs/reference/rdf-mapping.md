@@ -1967,6 +1967,10 @@ element it cannot place, rather than emitting a model with elements missing.
 
 ## The API element form
 
+An explicitly named API element-form `.json` file is converted to SysML notation before it is
+loaded or validated. Diagnostic positions refer to that converted notation, not to positions in
+the JSON document.
+
 `sysml -convert api-json` (`%save model.json`, the service's `Convert` to or from
 `api-json` or `json`) writes the graph above in the form the OMG SysML v2 API &
 Services specification serves from its `/elements` endpoints: a JSON array of

@@ -2,6 +2,14 @@ package source
 
 import "testing"
 
+func TestKindOfAPIJSONIsSysML(t *testing.T) {
+	for _, name := range []string{"model.json", "model.JSON"} {
+		if got := KindOf(name); got != KindSysML {
+			t.Errorf("KindOf(%q) = %v, want SysML", name, got)
+		}
+	}
+}
+
 func TestSpanText(t *testing.T) {
 	sf := New("test.sysml", []byte("part def Engine;"))
 	sp := Span{Offset: 9, Len: 6}

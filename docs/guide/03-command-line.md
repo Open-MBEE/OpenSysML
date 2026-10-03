@@ -182,6 +182,9 @@ sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
+An explicitly named API element-form `.json` file is converted before validation. Diagnostic
+positions refer to the converted SysML notation, not to positions in the JSON document.
+
 A single `-` stands for standard input wherever a file name is accepted, so you can pipe a model
 in; its diagnostics are reported against `<stdin>`. To read a file that is actually named `-`,
 write `./-`. `-convert` needs `-from` for piped input, because a stream has no file
