@@ -802,8 +802,8 @@ public sealed interface Value {
     if (a instanceof BigInteger x) {
       return b instanceof BigInteger y ? x.equals(y) : b instanceof Double r && realIsBig(r, x);
     }
-    if (b instanceof BigInteger) {
-      return magnitudesEqual(b, a);
+    if (b instanceof BigInteger y) {
+      return a instanceof Double r && realIsBig(r, y);
     }
     if (a instanceof Long x) {
       return b instanceof Long y ? x.longValue() == y : realIsLong(b.doubleValue(), x);
@@ -930,7 +930,7 @@ public sealed interface Value {
    */
   default double asDouble() {
     if (this instanceof IntegerValue integer) {
-      return integer.value();
+      return (double) integer.value();
     }
     if (this instanceof BigIntegerValue integer) {
       return integer.value().doubleValue();

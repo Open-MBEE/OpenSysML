@@ -278,37 +278,8 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	for _, state := range e.stateStack {
 		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(state))
 	}
-	for _, state := range sortedStates(e.history) {
-		record := e.history[state]
-		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
-		for _, region := range sortedRegions(record.regions) {
-			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
-		}
-		s.out.WriteString("}")
-	}
-	for _, join := range e.graph.Pseudostates {
-		arrived := e.joinArrived[join]
-		if len(arrived) == 0 {
-			continue
-		}
-		fmt.Fprintf(&s.out, " arrived{%s: ", join.Name)
-		first := true
-		for _, segment := range e.joinIncoming(join) {
-			if !slices.Contains(arrived, segment) {
-				continue
-			}
-			if !first {
-				s.out.WriteString(", ")
-			}
-			first = false
-			name := segment.Name
-			if name == "" {
-				name = StateVertexName(segment.Source)
-			}
-			s.out.WriteString(name)
-		}
-		s.out.WriteString("}")
-	}
+	s.history(e)
+	s.joinsArrived(e)
 	fmt.Fprintf(&s.out, " data{%s}", s.values(e.stateData))
 	for _, state := range sortedStates(e.stateAttrs) {
 		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[state]))
@@ -335,6 +306,46 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		s.out.WriteString("}")
 	}
 	s.out.WriteByte('\n')
+}
+
+// history spells the last active child, and region children, of each state
+// the machine remembers.
+func (s *stateSpeller) history(e *StateExecutor) {
+	for _, state := range sortedStates(e.history) {
+		record := e.history[state]
+		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
+		for _, region := range sortedRegions(record.regions) {
+			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
+		}
+		s.out.WriteString("}")
+	}
+}
+
+// joinsArrived spells the incoming segments that have arrived at each join.
+func (s *stateSpeller) joinsArrived(e *StateExecutor) {
+	for _, join := range e.graph.Pseudostates {
+		arrived := e.joinArrived[join]
+		if len(arrived) == 0 {
+			continue
+		}
+		fmt.Fprintf(&s.out, " arrived{%s: ", join.Name)
+		first := true
+		for _, segment := range e.joinIncoming(join) {
+			if !slices.Contains(arrived, segment) {
+				continue
+			}
+			if !first {
+				s.out.WriteString(", ")
+			}
+			first = false
+			name := segment.Name
+			if name == "" {
+				name = StateVertexName(segment.Source)
+			}
+			s.out.WriteString(name)
+		}
+		s.out.WriteString("}")
+	}
 }
 
 // stateName spells a state by its path in the machine, nothing for none.
@@ -514,48 +525,11 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	for _, local := range perf.locals {
 		fmt.Fprintf(&b, " local{%s}", s.values(local))
 	}
-	for _, node := range sortedNodes(perf.pending) {
-		pins := perf.pending[node]
-		names := make([]string, 0, len(pins))
-		for pin := range pins {
-			names = append(names, pin)
-		}
-		sort.Strings(names)
-		for _, pin := range names {
-			fmt.Fprintf(&b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
-		}
-	}
-	for _, node := range sortedNodes(perf.nested) {
-		for _, delivery := range perf.nested[node] {
-			path := make([]string, 0, len(delivery.path)+1)
-			path = append(path, s.node(perf.graph, node))
-			for _, step := range delivery.path {
-				path = append(path, nodeIdentifier(step))
-			}
-			fmt.Fprintf(&b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
-		}
-	}
+	s.deliveries(&b, perf)
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
 	}
-	groups := slices.Collect(maps.Keys(perf.repeats))
-	sort.Slice(groups, func(i, j int) bool { return s.groups[groups[i]] < s.groups[groups[j]] })
-	for _, id := range groups {
-		state := perf.repeats[id]
-		live := make([]string, 0, len(state.live))
-		for _, repeated := range state.live {
-			live = append(live, s.frameLabel(repeated))
-		}
-		sort.Strings(live)
-		fmt.Fprintf(&b, " repeat{%s remaining=%d live=", s.groups[id], state.remaining)
-		for i, repeated := range live {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			b.WriteString(repeated)
-		}
-		b.WriteByte('}')
-	}
+	s.repeats(&b, perf)
 	streamed := slices.Sorted(maps.Keys(perf.streamed))
 	if len(streamed) > 0 {
 		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
@@ -575,6 +549,42 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 		}
 	}
 	return b.String()
+}
+
+// deliveries spells the values pending on a frame's pins and those delivered
+// to the pins of its nested nodes.
+func (s *stateSpeller) deliveries(b *strings.Builder, perf *actionFrame) {
+	for _, node := range sortedNodes(perf.pending) {
+		pins := perf.pending[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			fmt.Fprintf(b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
+		}
+	}
+	for _, node := range sortedNodes(perf.nested) {
+		for _, delivery := range perf.nested[node] {
+			path := make([]string, 0, len(delivery.path)+1)
+			path = append(path, s.node(perf.graph, node))
+			for _, step := range delivery.path {
+				path = append(path, nodeIdentifier(step))
+			}
+			fmt.Fprintf(b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
+		}
+	}
+}
+
+// repeats spells each repetition group of a frame with the performances still live in it.
+func (s *stateSpeller) repeats(b *strings.Builder, perf *actionFrame) {
+	groups := slices.Collect(maps.Keys(perf.repeats))
+	sort.Slice(groups, func(i, j int) bool { return s.groups[groups[i]] < s.groups[groups[j]] })
+	for _, id := range groups {
+		state := perf.repeats[id]
+		live := make([]string, 0, len(state.live))
+		for _, repeated := range state.live {
+			live = append(live, s.frameLabel(repeated))
+		}
+		sort.Strings(live)
+		fmt.Fprintf(b, " repeat{%s remaining=%d live=%s}", s.groups[id], state.remaining, strings.Join(live, ","))
+	}
 }
 
 // sortedNodes orders a map's node keys by identity, so the form is independent of map order.

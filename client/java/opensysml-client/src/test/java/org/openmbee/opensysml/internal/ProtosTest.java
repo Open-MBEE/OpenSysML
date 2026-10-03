@@ -119,18 +119,11 @@ class ProtosTest {
     assertFalse(read.sameValue(new Value.IntegerValue(Long.MAX_VALUE)));
     assertEquals(0x1p70, read.asDouble());
     for (String malformed : List.of("", "-", "007", "+5", "1e3", "9223372036854775807")) {
-      assertThrows(
-          TransportException.class,
-          () ->
-              Protos.value(
-                  org.openmbee.opensysml.proto.Value.newBuilder()
-                      .setBigIntValue(malformed)
-                      .build()),
-          malformed);
+      var bad = org.openmbee.opensysml.proto.Value.newBuilder().setBigIntValue(malformed).build();
+      assertThrows(TransportException.class, () -> Protos.value(bad), malformed);
     }
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new Value.BigIntegerValue(java.math.BigInteger.valueOf(Long.MIN_VALUE)));
+    java.math.BigInteger withinLong = java.math.BigInteger.valueOf(Long.MIN_VALUE);
+    assertThrows(IllegalArgumentException.class, () -> new Value.BigIntegerValue(withinLong));
     var quantity =
         org.openmbee.opensysml.proto.Quantity.newBuilder()
             .setBigIntMagnitude("-9223372036854775809")

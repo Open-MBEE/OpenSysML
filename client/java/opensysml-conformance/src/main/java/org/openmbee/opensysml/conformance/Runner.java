@@ -19,7 +19,6 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -233,13 +232,9 @@ final class Runner {
 
   /** The capabilities a scenario needs that the service does not report. */
   private List<String> missingCapabilities(Scenario scenario) {
-    List<String> missing = new ArrayList<>();
-    for (String capability : scenario.requiresCapabilities()) {
-      if (!capabilities.contains(capability)) {
-        missing.add(capability);
-      }
-    }
-    return missing;
+    return scenario.requiresCapabilities().stream()
+        .filter(capability -> !capabilities.contains(capability))
+        .toList();
   }
 
   /** Builds the call's message from the scenario's protobuf JSON, with the placeholders resolved. */

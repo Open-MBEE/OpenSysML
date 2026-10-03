@@ -256,37 +256,11 @@ func (m *Model) readsValueless(scope *symbols.Scope, n ast.Node, seen map[*symbo
 	}
 	switch e := n.(type) {
 	case *ast.QualifiedName, *ast.FeatureReference, *ast.FeatureChainExpr:
-		sym, ok := m.resolver.ResolveTarget(scope, n)
-		if !ok || sym == nil {
-			return false
-		}
-		if target, aliasOK := m.resolver.ResolveAliasTarget(sym); aliasOK {
-			sym = target
-		}
-		if sym == nil || seen[sym] || !sym.Kind.IsFeature() {
-			return false
-		}
-		usage, ok := sym.Decl.(*ast.Usage)
-		if !ok {
-			return false
-		}
-		if usage.Value == nil {
-			return true
-		}
-		next := make(map[*symbols.Symbol]bool, len(seen)+1)
-		for s := range seen {
-			next[s] = true
-		}
-		next[sym] = true
-		return m.readsValueless(declScope(sym), usage.Value, next)
+		return m.referenceReadsValueless(scope, n, seen)
 	case *ast.OperatorExpr:
 		if e.Operator == ast.OpConditional && len(e.Operands) == 3 {
-			cond, ok := m.evalIn(scope, e.Operands[0], seen)
-			if ok && cond.Kind == ValBool {
-				if cond.Bool {
-					return m.readsValueless(scope, e.Operands[1], seen)
-				}
-				return m.readsValueless(scope, e.Operands[2], seen)
+			if cond, ok := m.evalIn(scope, e.Operands[0], seen); ok && cond.Kind == ValBool {
+				return m.readsValueless(scope, conditionalBranch(e, cond.Bool), seen)
 			}
 		}
 		for _, operand := range e.Operands {
@@ -296,6 +270,42 @@ func (m *Model) readsValueless(scope *symbols.Scope, n ast.Node, seen map[*symbo
 		}
 	}
 	return false
+}
+
+// conditionalBranch selects the operand a conditional takes for cond.
+func conditionalBranch(e *ast.OperatorExpr, cond bool) ast.Node {
+	if cond {
+		return e.Operands[1]
+	}
+	return e.Operands[2]
+}
+
+// referenceReadsValueless tells whether the feature ref names has no value,
+// directly or through the value it is bound to.
+func (m *Model) referenceReadsValueless(scope *symbols.Scope, ref ast.Node, seen map[*symbols.Symbol]bool) bool {
+	sym, ok := m.resolver.ResolveTarget(scope, ref)
+	if !ok || sym == nil {
+		return false
+	}
+	if target, aliasOK := m.resolver.ResolveAliasTarget(sym); aliasOK {
+		sym = target
+	}
+	if sym == nil || seen[sym] || !sym.Kind.IsFeature() {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	if usage.Value == nil {
+		return true
+	}
+	next := make(map[*symbols.Symbol]bool, len(seen)+1)
+	for s := range seen {
+		next[s] = true
+	}
+	next[sym] = true
+	return m.readsValueless(declScope(sym), usage.Value, next)
 }
 
 func (m *Model) evalIn(scope *symbols.Scope, n ast.Node, seen map[*symbols.Symbol]bool) (Value, bool) {
