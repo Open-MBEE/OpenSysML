@@ -29,6 +29,34 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("unsequenced_inherited_assertion_stays_unchecked", func(t *testing.T) {
+		src := `package test {
+			action def G { assert constraint check { false } }
+			action def S :> G;
+		}`
+		for _, name := range []string{"G", "S"} {
+			t.Run(name, func(t *testing.T) {
+				if _, err := executeInheritedAction(t, src, name); err != nil {
+					t.Fatalf("ExecuteAction(%s): %v, want an unsequenced assertion to remain unchecked", name, err)
+				}
+			})
+		}
+	})
+
+	t.Run("inherited_assertion_sequenced_by_specialization", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			action def G { assert constraint check { false } }
+			action def S :> G {
+				first start then check;
+				first check then done;
+			}
+		}`, "S")
+		var violation *ViolationError
+		if !errors.As(err, &violation) || violation.Element != "check" || !errors.Is(err, ErrViolated) {
+			t.Fatalf("ExecuteAction error = %v, want inherited assertion check violated", err)
+		}
+	})
+
 	t.Run("inherited_sequenced_assertion_violation", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

@@ -29,7 +29,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if lowerableActionNode(decl) {
+			if lowerableActionNodeInBody(graph, body, decl) {
 				continue
 			}
 			for _, target := range resolve.ActionNodeRedefinitionTargets(body, decl, false) {
@@ -50,7 +50,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if !lowerableActionNode(decl) {
+			if !lowerableActionNodeInBody(graph, body, decl) {
 				continue
 			}
 			if initial, marker := decl.(*ast.InitialNode); marker {
@@ -85,7 +85,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if !lowerableActionNode(decl) {
+			if !lowerableActionNodeInBody(graph, body, decl) {
 				continue
 			}
 			if _, marker := decl.(*ast.InitialNode); marker {
@@ -183,7 +183,7 @@ func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {
 func lowerableActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || IsCaseNode(n) || resolve.IsAssertion(n)
+		return n.Kind == ast.UsageAction || IsCaseNode(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode,
 		*ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
 		*ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,
@@ -192,6 +192,22 @@ func lowerableActionNode(decl ast.Node) bool {
 	default:
 		return false
 	}
+}
+
+func lowerableActionNodeInBody(graph *ActionGraph, body *symbols.Scope, decl ast.Node) bool {
+	assertion, ok := decl.(*ast.Usage)
+	if !ok || !resolve.IsAssertion(assertion) {
+		return lowerableActionNode(decl)
+	}
+	if body != nil && body.Node() != nil && orderedAssertions(ast.DeclMembers(body.Node()))[assertion] {
+		return true
+	}
+	if graph == nil || graph.Scope == nil || graph.Scope == body || graph.Scope.Node() == nil {
+		return false
+	}
+	members := append([]ast.Node(nil), ast.DeclMembers(graph.Scope.Node())...)
+	members = append(members, assertion)
+	return orderedAssertions(members)[assertion]
 }
 
 func inheritedActionEdge(decl ast.Node) bool {
