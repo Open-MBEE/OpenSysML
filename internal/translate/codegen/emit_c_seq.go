@@ -236,7 +236,8 @@ static sysml_bool sysml_eq_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	return true;
 }
 
-/* Same elements in order whatever the shape: SequenceFunctions::equals and same. */
+/* Same elements in order whatever the shape: SequenceFunctions::equals, and same
+   wherever '===' of two elements is their '=='. */
 static sysml_bool sysml_equals_SFX(sysml_seq_SFX a, sysml_seq_SFX b) {
 	if (a.len != b.len) return false;
 	for (sysml_int i = 0; i < a.len; i++) if (!EQ(a.data[i], b.data[i])) return false;
@@ -379,6 +380,13 @@ static sysml_seq_SFX sysml_parse_seq_SFX(const char *s, const char *name) {
 // cSeqTyped is the runtime that differs by element type: ranges and
 // aggregation over numbers, truth over Booleans, widening to Real.
 const cSeqTyped = `
+/* SequenceFunctions::same over numbers: each element '===' its counterpart. */
+static sysml_bool sysml_same_num(sysml_seq_num a, sysml_seq_num b) {
+	if (a.len != b.len) return false;
+	for (sysml_int i = 0; i < a.len; i++) if (!sysml_nsame(a.data[i], b.data[i])) return false;
+	return true;
+}
+
 static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const char *type) {
 	for (sysml_int i = 0; i < s.len; i++) sysml_at_least(s.data[i], lo, type);
 	return s;
@@ -700,7 +708,12 @@ func (e *cEmitter) seqCall(x SeqCall, v []string) string {
 		return fmt.Sprintf("sysml_includes_only_%s(%s, %s)", sfx, v[0], v[1])
 	case SeqExcludes:
 		return fmt.Sprintf("sysml_excludes_%s(%s, %s)", sfx, v[0], v[1])
-	case SeqEquals, SeqSame:
+	case SeqEquals:
+		return fmt.Sprintf("sysml_equals_%s(%s, %s)", sfx, v[0], v[1])
+	case SeqSame:
+		if x.Args[0].Type().Elem() == TypeNum {
+			return fmt.Sprintf("sysml_same_num(%s, %s)", v[0], v[1])
+		}
 		return fmt.Sprintf("sysml_equals_%s(%s, %s)", sfx, v[0], v[1])
 	case SeqUnion, SeqIncluding:
 		return fmt.Sprintf("sysml_union_%s(%s, %s)", sfx, v[0], v[1])

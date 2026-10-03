@@ -206,7 +206,7 @@ func sysmlEq[T sysmlElem](a, b sysmlSeq[T]) bool {
 	return a.shape == b.shape && sysmlEquals(a, b)
 }
 
-// sysmlEquals is SequenceFunctions::equals and same: the elements in order,
+// sysmlEquals is SequenceFunctions::equals: the elements in order,
 // whatever the shape.
 func sysmlEquals[T sysmlElem](a, b sysmlSeq[T]) bool {
 	if len(a.data) != len(b.data) {
@@ -214,6 +214,24 @@ func sysmlEquals[T sysmlElem](a, b sysmlSeq[T]) bool {
 	}
 	for i := range a.data {
 		if !sysmlElemEq(a.data[i], b.data[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// sysmlSame is SequenceFunctions::same: the elements in order, each '===' its
+// counterpart, so an Integer is never the same as an equal Real.
+func sysmlSame[T sysmlElem](a, b sysmlSeq[T]) bool {
+	if len(a.data) != len(b.data) {
+		return false
+	}
+	for i := range a.data {
+		if x, ok := any(a.data[i]).(sysmlNum); ok {
+			if !sysmlNSame(x, any(b.data[i]).(sysmlNum)) {
+				return false
+			}
+		} else if !sysmlElemEq(a.data[i], b.data[i]) {
 			return false
 		}
 	}
@@ -682,8 +700,10 @@ func (e *goEmitter) seqCall(x SeqCall, v []string) string {
 		return fmt.Sprintf("sysmlIncludesOnly(%s, %s)", v[0], v[1])
 	case SeqExcludes:
 		return fmt.Sprintf("sysmlExcludes(%s, %s)", v[0], v[1])
-	case SeqEquals, SeqSame:
+	case SeqEquals:
 		return fmt.Sprintf("sysmlEquals(%s, %s)", v[0], v[1])
+	case SeqSame:
+		return fmt.Sprintf("sysmlSame(%s, %s)", v[0], v[1])
 	case SeqUnion, SeqIncluding:
 		return fmt.Sprintf("sysmlConcat(%s, %s)", v[0], v[1])
 	case SeqIntersection:
