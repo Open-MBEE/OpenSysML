@@ -18,6 +18,9 @@ type Outcome struct {
 	// it belongs to. An action's own `terminate` node completes it instead.
 	Terminated bool
 	Err        error
+	// Scope says how far short of quiescence the run was observed; no part of
+	// the outcome's identity.
+	Scope []ObservationReason
 	// ctx is the run's context, where the objects the outputs hold live.
 	ctx *Context
 }
