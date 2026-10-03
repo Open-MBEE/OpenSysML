@@ -1,3 +1,7 @@
+---
+description: The OpenSysML stack and ecosystem — three independent SysML v2 implementations over a version-controlled model store, all open source.
+---
+
 # The stack and the ecosystem
 
 Open source finally speaks SysML v2: three independently built implementations of the

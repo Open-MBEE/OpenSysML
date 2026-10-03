@@ -1,3 +1,7 @@
+---
+description: Download OpenSysML — release binaries for Linux, macOS and Windows, the nightly build, the VS Code extension, PyPI, npm and Homebrew.
+---
+
 # Downloads
 
 Everything ships from [GitHub Releases](https://github.com/Open-MBEE/OpenSysML/releases)

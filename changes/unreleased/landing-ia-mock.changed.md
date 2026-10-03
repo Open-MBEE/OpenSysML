@@ -1,0 +1,1 @@
+- **Redesigned the documentation site's landing page and information architecture.** The homepage now leads with a project overview and an interactive stack diagram; new top-level pages cover the `sysml` command line (with an in-browser WebAssembly REPL), documentation, client libraries, and community links; a sticky tab bar provides the main navigation.

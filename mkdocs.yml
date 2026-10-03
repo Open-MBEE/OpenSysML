@@ -27,6 +27,8 @@ theme:
     - navigation.tracking
     - navigation.top
     - navigation.indexes
+    - navigation.tabs
+    - navigation.tabs.sticky
     - content.code.copy
     - content.action.edit
     - search.highlight
@@ -162,7 +164,11 @@ exclude_docs: |
   project/statemachines-library.md
 
 nav:
-  - Documentation: README.md
+  - Home: README.md
+  - sysml: sysml.md
+  - Documentation: documentation.md
+  - Clients: clients.md
+  - Community: community.md
   - Downloads: downloads.md
   - Ecosystem: ecosystem.md
   - Guide:
