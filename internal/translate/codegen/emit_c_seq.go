@@ -220,7 +220,7 @@ static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
 				sysml_int first = slots[k];
 				const char *text = SHOW(v);
 				free(slots);
-				sysml_failf("%s: uniqueness violation: %s (%s) is written at positions %lld and %lld of a unique feature", where, text, KINDOF(v), (long long)first, (long long)i + 1);
+				sysml_failf("%s: uniqueness violation: %s%s%s%s is written at positions %lld and %lld of a unique feature", where, text, KOPEN, KINDOF(v), KCLOSE, (long long)first, (long long)i + 1);
 			}
 		}
 	}
@@ -529,6 +529,9 @@ func cSeqSuffix(t Type) string {
 	if t.IsFn() {
 		return "fn"
 	}
+	if t.IsRec() {
+		return "rec"
+	}
 	switch t.Elem() {
 	case TypeInt:
 		return "int"
@@ -570,7 +573,7 @@ func cSeqRuntime() string {
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
 			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
-			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore)
+			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)
