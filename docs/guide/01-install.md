@@ -5,7 +5,9 @@ work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/Open-MBEE/OpenSysML/releases):
+Download the latest release for your platform from [GitHub Releases](https://github.com/Open-MBEE/OpenSysML/releases)
+— the [downloads page](../downloads.md) summarizes every artifact and package-manager
+route, including the prebuilt VS Code extension:
 
 **Linux (x64; use `opensysml-linux-arm64.tar.gz` on arm64):**
 ```bash

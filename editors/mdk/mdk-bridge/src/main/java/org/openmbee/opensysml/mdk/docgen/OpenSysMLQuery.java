@@ -7,6 +7,7 @@ import com.nomagic.uml2.ext.magicdraw.actions.mdbasicactions.CallBehaviorAction;
 import com.nomagic.uml2.ext.magicdraw.classes.mdkernel.Element;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.openmbee.mdk.docgen.docbook.DBParagraph;
 import org.openmbee.mdk.docgen.docbook.DocumentElement;
 import org.openmbee.mdk.model.Query;
@@ -20,6 +21,8 @@ import org.openmbee.mdk.model.Query;
  */
 public abstract class OpenSysMLQuery extends Query {
   static final String ARGUMENTS_TAG = "arguments";
+
+  private static final Logger LOG = Logger.getLogger(OpenSysMLQuery.class.getName());
 
   private final String operation;
   private final String operationLabel;
@@ -84,7 +87,7 @@ public abstract class OpenSysMLQuery extends Query {
     try {
       Application.getInstance().getGUILog().log(message);
     } catch (RuntimeException headless) {
-      System.err.println(message);
+      LOG.warning(message);
     }
   }
 }

@@ -1,5 +1,6 @@
 //! Writing a model out as SysML notation, RDF Turtle or the SysML v2 API's JSON element form.
 
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,7 +40,7 @@ pub fn format_of_path(path: impl AsRef<Path>) -> Result<&'static str, Error> {
     let path = path.as_ref();
     let extension = path
         .extension()
-        .and_then(|ext| ext.to_str())
+        .and_then(OsStr::to_str)
         .map(str::to_ascii_lowercase)
         .unwrap_or_default();
     match extension.as_str() {

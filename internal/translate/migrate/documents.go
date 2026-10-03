@@ -2305,6 +2305,9 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 	}
 }
 
+// inRowOpen opens a cell expression that binds the row being rendered.
+const inRowOpen = "{ in row : "
+
 // columnExpr is a Column over a feature of the row's type.
 type columnExpr struct {
 	name, argument, expression string
@@ -2351,7 +2354,7 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, n
 		c.m.expose(s.feature, "a column of a document table reads it")
 		name := c.caption(col, s.key)
 		if s.cell {
-			cell := "{ in row : " + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
+			cell := inRowOpen + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
 			return "", columnExpr{name: name, argument: "cell", expression: cell}, nil, ""
 		}
 		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, nil, ""
@@ -2372,7 +2375,7 @@ func (c *chain) expressionColumn(col *sysmlv1.DocGenStep, e string, self oclValu
 	if err != nil {
 		return "", expr, nil, "the expression " + strconv.Quote(e) + " is not lowered: " + err.Error()
 	}
-	cell := "{ in row : " + rowType + "; " + text + " }"
+	cell := inRowOpen + rowType + "; " + text + " }"
 	return "", columnExpr{name: c.caption(col, e), argument: "cell", expression: cell}, notes, ""
 }
 
@@ -2403,7 +2406,7 @@ func (c *chain) collectedColumn(col *sysmlv1.DocGenStep, steps []*sysmlv1.DocGen
 			return "", expr, nil, why
 		}
 		read := map[string]string{"name": ".name", "documentation": ".documentation"}[attr]
-		cell := "{ in row : " + oclMetaclass("") + "; " + collected.text + read + " }"
+		cell := inRowOpen + oclMetaclass("") + "; " + collected.text + read + " }"
 		return "", columnExpr{name: c.caption(col, attr), argument: "cell", expression: cell}, notes, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))

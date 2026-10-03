@@ -12,6 +12,9 @@ import (
 // its border, Cameo's pin.
 const dotPinSize = 12
 
+// dotEmptyCell pads a port strip so the pins sit between the corners.
+const dotEmptyCell = "<td></td>"
+
 // dotPinPts is the type a port's name is set in beside its square.
 const dotPinPts = 8
 
@@ -282,15 +285,15 @@ func (w *dotWriter) dotPinRow(ports []Port, columns int) string {
 	if len(ports) == 0 {
 		return ""
 	}
-	cells := []string{"<td></td>"}
+	cells := []string{dotEmptyCell}
 	for _, port := range ports {
 		cells = append(cells,
 			fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d" bgcolor=%s></td>`, dotQuote(port.ID), dotPinSize-2, dotPinSize-2, dotQuote(w.pinFill())),
 			fmt.Sprintf(`<td align="left">%s</td>`, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(w.ports.pinLabel(port)))),
-			"<td></td>")
+			dotEmptyCell)
 	}
 	for len(cells) < columns {
-		cells = append(cells, "<td></td>")
+		cells = append(cells, dotEmptyCell)
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }

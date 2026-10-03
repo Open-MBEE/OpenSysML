@@ -16,6 +16,9 @@ import (
 // the export does not contain prints what the tool cached for it — nothing,
 // for the View Editor's placeholder — and is noted on the comment.
 
+// selfReference ends the note for a cross-reference that resolves to the comment carrying it.
+const selfReference = " refers back to the text being written, so nothing stands for it"
+
 // docRun is one run of a migrated Paragraph: text, or a reference to an
 // element or a diagram of the export.
 type docRun struct {
@@ -58,7 +61,7 @@ func (m *migration) resolveRef(r proseRun, inline bool) (docRun, string) {
 	switch r.cf {
 	case cfValue:
 		if m.resolving[r.id] {
-			return docRun{}, "a cross-reference to the value of " + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
+			return docRun{}, "a cross-reference to the value of " + refTarget(e, d) + selfReference
 		}
 		m.resolving[r.id] = true
 		defer delete(m.resolving, r.id)
@@ -223,7 +226,7 @@ func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.
 	const subject = "a cross-reference to the documentation of "
 	if d != nil {
 		if m.resolving[id] {
-			return "", subject + refTarget(e, d) + " refers back to the text being written, so nothing stands for it"
+			return "", subject + refTarget(e, d) + selfReference
 		}
 		m.resolving[id] = true
 		defer delete(m.resolving, id)
@@ -245,7 +248,7 @@ func (m *migration) documentationText(id string, e *sysmlv1.Element, d *sysmlv1.
 	var text string
 	for _, c := range comments {
 		if m.resolving[c.ID] {
-			return "", subject + describe(e) + " refers back to the text being written, so nothing stands for it"
+			return "", subject + describe(e) + selfReference
 		}
 		if text = m.commentBody(c); text != "" {
 			break

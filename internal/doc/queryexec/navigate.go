@@ -242,24 +242,8 @@ func (e *executor) evaluateCollection(
 	function := expression.Target()
 	at := func(value Value) []Value { return []Value{valueAt(value, expression.Origin())} }
 	switch function {
-	case "size":
-		return at(IntegerValue(int64(len(values)))), nil
-	case "isEmpty":
-		return at(BooleanValue(len(values) == 0)), nil
-	case "notEmpty":
-		return at(BooleanValue(len(values) > 0)), nil
-	case "head":
-		if len(values) == 0 {
-			return nil, nil
-		}
-		return values[:1], nil
-	case "last":
-		if len(values) == 0 {
-			return nil, nil
-		}
-		return values[len(values)-1:], nil
-	case "distinct":
-		return distinctValues(values), nil
+	case "size", "isEmpty", "notEmpty", "head", "last", "distinct":
+		return sequenceFunction(function, values, at), nil
 	case "includes", "excludes", "including", "excluding":
 		argument, ok := argumentValue(expression, "value")
 		if !ok {
@@ -308,13 +292,10 @@ func (e *executor) evaluateCollection(
 			if !holds {
 				selected = append(selected, value)
 			}
-		case "exists":
-			if holds {
-				return at(BooleanValue(true)), nil
-			}
-		case "forAll":
-			if !holds {
-				return at(BooleanValue(false)), nil
+		case "exists", "forAll":
+			// exists is decided by the first holding value, forAll by the first failing one.
+			if holds == (function == "exists") {
+				return at(BooleanValue(holds)), nil
 			}
 		}
 	}
@@ -325,6 +306,31 @@ func (e *executor) evaluateCollection(
 		return at(BooleanValue(true)), nil
 	}
 	return selected, nil
+}
+
+// sequenceFunction applies one of the sequence functions that take no
+// argument beyond their source.
+func sequenceFunction(function string, values []Value, at func(Value) []Value) []Value {
+	switch function {
+	case "size":
+		return at(IntegerValue(int64(len(values))))
+	case "isEmpty":
+		return at(BooleanValue(len(values) == 0))
+	case "notEmpty":
+		return at(BooleanValue(len(values) > 0))
+	case "head":
+		if len(values) == 0 {
+			return nil
+		}
+		return values[:1]
+	case "last":
+		if len(values) == 0 {
+			return nil
+		}
+		return values[len(values)-1:]
+	default:
+		return distinctValues(values)
+	}
 }
 
 // bindable tells whether a body's parameter declared of the metaclass binds

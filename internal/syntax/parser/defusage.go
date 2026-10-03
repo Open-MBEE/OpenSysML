@@ -2010,15 +2010,18 @@ type ownedMember struct {
 	bodies []bodyContext
 }
 
+// requirementOrCase names the bodies that offer the members shared by both.
+const requirementOrCase = "requirement or case"
+
 var ownedMembers = map[string]ownedMember{
-	"subject":     {"the subject of a requirement or case", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
-	"actor":       {"an actor of a requirement or case", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
+	"subject":     {"the subject of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
+	"actor":       {"an actor of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
 	"stakeholder": {"a stakeholder of a requirement", "requirement", []bodyContext{bodyRequirement}},
 	"objective":   {"the objective of a case", "case", []bodyContext{bodyCase}},
 	// RequirementConstraintMember (SysML.xtext:2039) is a requirement or case
 	// body's production alone, so the `assume`/`require` prefix is body-owned.
-	"assume":  {"a constraint assumption", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
-	"require": {"a required constraint", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
+	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
+	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
 	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}},
 	"do":      {"the do action of a state", "state", []bodyContext{bodyState}},
 	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}},

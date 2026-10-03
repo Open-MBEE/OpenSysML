@@ -61,7 +61,7 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("keep Later: %v", err)
 	}
-	if got := sequenceLen(exec.StateData()["busy.r1.a.deferred"]); got != 1 {
+	if sequenceLen(exec.StateData()["busy.r1.a.deferred"]) != 1 {
 		t.Fatalf("deferred = %s; want the Later event kept by a", FormatValue(exec.StateData()["busy.r1.a.deferred"]))
 	}
 	exec.SendSignal("Abort", nil)
