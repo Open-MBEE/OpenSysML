@@ -47,10 +47,14 @@ func (env *stmtEnv) leave() {
 	}
 }
 
-// declareUnvalued marks a name the innermost entered block declares without a value.
+// declareUnvalued marks a name the innermost entered block declares without a
+// value — or the body's own data when no block is entered, which marks it
+// declared for a write while a read answers as missing, like a feature stated
+// without a value.
 func (env *stmtEnv) declareUnvalued(name string) {
 	depth := len(env.frames)
 	if depth == 0 {
+		env.data.markUnvalued(name)
 		return
 	}
 	if env.unvalued[depth-1] == nil {
@@ -201,6 +205,10 @@ type stmtEngine struct {
 	frameBuf []frame
 	// thisOccurrence is host.materializeOccurrence, bound once for every evalIn.
 	thisOccurrence func() (*Instance, error)
+	// features are the valued features a body's statements may name where the
+	// host supplies them — a constraint's parameters — nil where the body's
+	// frame answers every name already.
+	features map[string]scopedExpr
 }
 
 // newStmtEngineOver returns an engine running statements against data, which also
@@ -258,6 +266,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		thisOccurrence: e.thisOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
+		features:       e.features,
 		inBehaviorBody: true,
 		activation:     e.activation,
 	}
@@ -411,7 +420,6 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
 	case lower.Declare:
-		value := Value{Kind: ValNull}
 		if s.Value != nil {
 			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
 			if err != nil {
@@ -420,9 +428,17 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
-			value = evaluated
+			e.env.declare(s.Name, evaluated)
+			return flowNext, nil
 		}
-		e.env.declare(s.Name, value)
+		// A constraint body's performance declares a valueless name as missing
+		// until a step binds it — a read answers as missing, a write binds it;
+		// every other body binds null for it, as it always has.
+		if _, constraint := e.host.(*constraintStmtHost); constraint {
+			e.env.declareUnvalued(s.Name)
+		} else {
+			e.env.declare(s.Name, Value{Kind: ValNull})
+		}
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)

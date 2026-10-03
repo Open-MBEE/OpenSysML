@@ -1,0 +1,5 @@
+{
+	"type": "constraint",
+	"evaluate": "test::Rig::writesChain",
+	"error": "effect outside the constraint performance: constraint body: v.z writes a feature of an object outside the constraint's own performance"
+}

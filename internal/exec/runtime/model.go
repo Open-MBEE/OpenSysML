@@ -81,6 +81,10 @@ type Model struct {
 	// defaults, result expression) per calc symbol.
 	calcShapes map[*symbols.Symbol]*calcShape
 
+	// constraintSteps memoizes the step each member of a constraint body lowers
+	// to, one lowering per member node however often a check reads the body.
+	constraintSteps map[ast.Node]lower.Statement
+
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
 	predicateShapes map[*symbols.Symbol]*calcShape
@@ -136,6 +140,10 @@ type Model struct {
 	bindingIR       map[*symbols.Symbol][]lower.Binding
 	bindingRoots    map[*symbols.Symbol]map[string]bool
 	bindingFeatures map[*symbols.Symbol]map[string][]lower.Binding
+
+	// namespaceUsageIndex is the model's namespace-owned bindings and subsetting
+	// usages walked once, on the first namespace denotation that needs them.
+	namespaceUsageIndex *namespaceModelIndex
 
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
@@ -211,6 +219,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
+		constraintSteps:     make(map[ast.Node]lower.Statement),
 		librarySymbols:      make(map[string]*symbols.Symbol),
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
@@ -281,6 +290,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	m.scopes = append(m.scopes, scope)
 	m.declared = nil
 	m.census = nil
+	m.namespaceUsageIndex = nil
 	m.behaviorOrdersReady = false
 	m.behaviorOrders = nil
 	m.behaviorOrdersByEnd = nil
