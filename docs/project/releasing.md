@@ -126,7 +126,8 @@ artifacts; nothing reaches a registry or a GitHub release.
 A green rehearsal proves the tag will not fail on builds, tests, version
 lockstep, registry availability, credential presence, npm/Central/GitHub
 token auth, the GPG key and passphrase with real Maven signing, npm packing,
-or `cargo package`. It cannot prove the PyPI and crates.io token validity (no
+`cargo package`, or the release-digest stamps and the assertions that the
+wheel, sdist and crate pin the rehearsed tag's binaries. It cannot prove the PyPI and crates.io token validity (no
 read-only check exists for either), cosign keyless signing (skipped because it
 writes to Rekor), the uploads themselves, Central publish permission beyond
 token auth, or a version someone publishes between the rehearsal and the tag.
@@ -222,7 +223,9 @@ does a tag whose version `client/python/opensysml/_version.py`,
 
 ## What CircleCI publishes
 
-`build-release` produces, in `dist/`:
+`build-release-binaries` builds the Go binaries for every platform into `dist/`,
+and `build-release` assembles the release from them and the Python distribution,
+so that `dist/` holds:
 
 - per-binary archives — `sysml-<os>-<arch>.tar.gz`,
   `sysml-lsp-<os>-<arch>.tar.gz` (`.zip` on Windows);
@@ -235,8 +238,9 @@ does a tag whose version `client/python/opensysml/_version.py`,
   archived, because that is what `opensysml` downloads and verifies
   (`client/python/opensysml/binary.py`) when it starts the service for a Python caller;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
-  `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` and the same files
-  `publish-pypi` uploads (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
+  `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
+  `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
+  [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
 - `SHA256SUMS.txt` over every archive, the wheel and every `sysml-grpc` binary,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
@@ -247,7 +251,7 @@ does a tag whose version `client/python/opensysml/_version.py`,
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 
-Before any of it is stored or published, `build-release` runs each host-platform
+Before any of it is stored or published, `build-release-binaries` runs each host-platform
 binary and fails the release unless `--version` reports `CIRCLE_TAG`. The ldflags
 are the only thing stamping the tag into a binary, and a binary reporting `dev`
 or a stale tag looks the same on the release page as a correct one — that is how
@@ -749,9 +753,21 @@ token, `Contents: read` for a fine-grained one; nothing is written through the
 API. Without either variable the script fails immediately with
 `MissingTokenError` naming the variable, rather than at the first request.
 
-The Rust client does not verify signed manifests itself. `publish-crates`
-stamps the crate's own release tag from `dist/SHA256SUMS.txt` before packaging;
-that package-time addition is not committed to the synced client tables.
+Each client's package ships the pins of its own release, stamped at release
+time by `client/python/scripts/pin_release_checksums.py` and never committed to
+the synced client tables. `build-python-package` runs it with
+`--from-binaries dist/grpc` — hashing the `sysml-grpc` binaries
+`build-release-binaries` built, before `SHA256SUMS.txt` exists — against the
+copy of the table the wheel and sdist package, so `pip install opensysml==X.Y.Z`
+verifies the service it downloads against a digest inside the wheel, with no
+environment variable and no `sigstore` at run time. `publish-crates` stamps the
+crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once the signed
+manifest exists. Both jobs then fail unless the packaged table pins all five
+`sysml-grpc-*` assets for the tag, and `build-release` fails before signing
+unless the wheel's pins are the digests the manifest lists. The signed manifest
+is therefore what an `opensysml` reaches for only for another release, or when it
+is older than the release it is asked for; `--write` back-fills the committed
+tables after a release as before, for those clients.
 
 ## The SonarCloud scan
 
@@ -1016,16 +1032,27 @@ An API token is the authentication CircleCI has.
 Two jobs of the `release` workflow, so the distribution is built once and the same
 bytes go to the GitHub release and to PyPI.
 
-`build-python-package`, which runs beside the Go suite and gates `build-release`:
+`build-python-package`, which runs after `build-release-binaries` (whose `dist/grpc`
+it attaches) and gates `build-release`:
 
 1. `check_version.py` — the tag must name the declared version.
-2. `python -m build` — wheel *and* sdist, into `client/python/dist/`.
-3. `twine check --strict` — the metadata a broken listing comes from.
-4. Installs the built wheel into a clean virtualenv, imports it, and checks
+2. `pin_release_checksums.py --version "$CIRCLE_TAG" --from-binaries dist/grpc
+   --table client/python/opensysml/release-digests.json` — hashes the five
+   `sysml-grpc-*` binaries the release ships and stamps them, under the tag,
+   into the copy of the table the distribution packages (see [Pinned release
+   digests](#pinned-release-digests)). The committed tables are untouched.
+3. `python -m build` — wheel *and* sdist, into `client/python/dist/`.
+4. `twine check --strict` — the metadata a broken listing comes from.
+5. Installs the built wheel into a clean virtualenv, imports it, and checks
    `opensysml.__version__` is the version being published.
-5. Persists `client/python/dist/` to the workspace. `build-release` copies both
-   files into `dist/`, lists them in `SHA256SUMS.txt` before signing it, and checks
-   their names carry the tag's version.
+6. Opens the wheel and the sdist and fails unless each packages a
+   `release-digests.json` pinning all five assets for the tag to the digests of
+   the binaries in `dist/grpc`, and the installed wheel's `pinned_digest()`
+   returns them.
+7. Persists `client/python/dist/` to the workspace. `build-release` copies both
+   files into `dist/`, lists them in `SHA256SUMS.txt`, fails unless the wheel's
+   pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
+   the distribution's names carry the tag's version.
 
 `publish-pypi`, which runs last, after the Go suite, the Python client tests,
 `build-release` and `publish-github-release` have all passed on the tagged revision:

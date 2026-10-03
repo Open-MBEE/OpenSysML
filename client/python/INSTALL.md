@@ -16,6 +16,14 @@ selects another release:
 pip install opensysml==0.9.0
 ```
 
+The download is verified against a SHA-256 digest the wheel ships: a release of
+`opensysml` is built after that release's `sysml-grpc` binaries and pins their
+digests, so installing its own release needs no environment variable and no
+`sigstore` at run time. Another release is verified against its signed
+`SHA256SUMS.txt` with the `sigstore` dependency, and refused — never downloaded
+unverified — when that package is missing (the error says what to install). See
+[Pinned release digests](README.md#pinned-release-digests).
+
 See [docs/project/releasing.md](../../docs/project/releasing.md#releasing-opensysml-to-pypi).
 
 ## From source
@@ -63,7 +71,8 @@ client/python/
 ├── opensysml/          # Package source
 │   ├── *.py          # Core modules (connection, model, symbol, etc.)
 │   ├── proto/        # Generated protobuf stubs
-│   └── release-digests.json  # Pinned service digests, synced from client/
+│   └── release-digests.json  # Pinned service digests, synced from client/;
+│                             # a released wheel also pins its own release
 ├── tests/            # Test suite
 ├── scripts/          # Release helpers (version check, latency measurement)
 ├── pyproject.toml    # Package metadata and build configuration

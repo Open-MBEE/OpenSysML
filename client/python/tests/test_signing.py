@@ -26,6 +26,7 @@ from opensysml.binary import (
 from opensysml.errors import (
     ChecksumMismatchError,
     ManifestSignatureError,
+    SigstoreUnavailableError,
     UnpinnedReleaseError,
     UnsignedReleaseError,
 )
@@ -304,8 +305,13 @@ class TestVerifyingAManifest:
     ):
         """An install without the verifier refuses rather than skipping the check."""
         monkeypatch.setitem(sys.modules, 'sigstore.models', None)
-        with pytest.raises(UnsignedReleaseError, match='cannot verify the signature'):
+        with pytest.raises(UnsignedReleaseError, match='cannot verify the signature') as exc:
             verify_manifest(manifest, bundle, signer)
+        # The refusal names the package that is missing and how to install it.
+        assert isinstance(exc.value, SigstoreUnavailableError)
+        assert 'the sigstore package is not installed' in str(exc.value)
+        assert exc.value.install_command in str(exc.value)
+        assert "pip install 'sigstore>=4.5.0,<5'" in str(exc.value)
 
     def test_an_asset_the_manifest_does_not_cover_is_refused(
         self, signer, manifest, bundle
@@ -397,6 +403,26 @@ class TestPinsAndSignedManifestsTogether:
             )
         assert 'pins no SHA-256 digest' in str(exc.value)
         assert 'publishes no readable SHA256SUMS.txt.bundle' in str(exc.value)
+        assert 'sigstore' not in str(exc.value)
+
+    def test_sigstore_being_unavailable_names_the_package_as_the_remedy(self, monkeypatch):
+        """A signed release this install cannot check: the fix is the package, not the release."""
+        monkeypatch.setattr('opensysml.binary.PINNED_SHA256', {})
+        monkeypatch.delenv('OPENSYSML_ALLOW_UNPINNED_DOWNLOAD', raising=False)
+        reason = SigstoreUnavailableError(
+            'opensysml cannot verify the signature on SHA256SUMS.txt because the '
+            'sigstore package is not installed (No module named sigstore)'
+        )
+        with pytest.raises(UnpinnedReleaseError) as exc:
+            expected_digest(VERSION, BINARY_ASSET, 'ab' * 32, unverified_reason=reason)
+        message = str(exc.value)
+        assert 'pins no SHA-256 digest' in message
+        assert 'the sigstore package is not installed' in message
+        assert "install the sigstore package (python -m pip install 'sigstore>=4.5.0,<5')" in message
+        assert 'ships the digests of its own core release' in message
+        assert f'another release or for an opensysml older than {VERSION}' in message
+        assert 'it was not downloaded' in message
+        assert 'OPENSYSML_ALLOW_UNPINNED_DOWNLOAD' in message
 
 
 class TestDownloadingAnUnpinnedRelease:
@@ -438,6 +464,23 @@ class TestDownloadingAnUnpinnedRelease:
         release(assets)
         with pytest.raises(ChecksumMismatchError, match='Checksum mismatch'):
             download_binary(version=VERSION)
+
+    def test_a_signed_release_is_refused_without_sigstore_and_says_what_to_install(
+        self, signer, release, monkeypatch, tmp_path
+    ):
+        """No verifier, no download; the error names the package and the install."""
+        assets = served_release(manifest=fixture(MANIFEST_ASSET), bundle=fixture(BUNDLE_ASSET))
+        release(assets)
+        monkeypatch.setitem(sys.modules, 'sigstore.models', None)
+        with pytest.raises(UnpinnedReleaseError) as exc:
+            download_binary(version=VERSION)
+        message = str(exc.value)
+        assert 'pins no SHA-256 digest' in message
+        assert 'the sigstore package is not installed' in message
+        assert "python -m pip install 'sigstore>=4.5.0,<5'" in message
+        assert 'ships the digests of its own core release' in message
+        assert 'it was not downloaded' in message
+        assert not (tmp_path / 'sysml-grpc').exists()
 
     def test_a_release_without_a_bundle_is_refused(self, signer, release):
         """An old release, published before the pipeline signed anything."""
