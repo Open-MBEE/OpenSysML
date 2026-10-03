@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -523,6 +524,15 @@ func TestNodeIdentifierNamesControlNodes(t *testing.T) {
 		if got := nodeIdentifier(tc.node); got != tc.want {
 			t.Errorf("nodeIdentifier(%T) = %q, want %q", tc.node, got, tc.want)
 		}
+	}
+}
+
+// A short-named for loop's token and statement carry the same label.
+func TestShortNamedForLoopLabelsAgree(t *testing.T) {
+	node := &ast.WhileLoopActionNode{Kind: ast.LoopFor, Variable: ast.Identification{ShortName: "v"}}
+	stmt := lower.Loop{Kind: ast.LoopFor, Variable: "v", Node: node}
+	if token, statement := nodeIdentifier(node), stmtLabel(stmt); token != "for v" || statement != token {
+		t.Errorf("token label %q, statement label %q, want both %q", token, statement, "for v")
 	}
 }
 

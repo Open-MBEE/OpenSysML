@@ -1393,11 +1393,12 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 	case *ast.AssignmentActionNode:
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
+		variable, _ := m.Variable.DeclaredName()
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
-			Variable:   m.Variable.Name,
+			Variable:   variable,
 			Collection: m.Collection,
 			Body:       lowerBlock(m, m.Body, childScope(scope, m)),
 			Node:       m,

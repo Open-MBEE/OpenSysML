@@ -382,6 +382,32 @@ func blockOwnedBy(t *testing.T, body Block, name string) Block {
 	return block
 }
 
+// A for loop whose variable has only a short name lowers with that name.
+func TestActionBodyForLoopTakesShortNamedVariable(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			attribute steps = (1, 2);
+			action driver {
+				for <v> in steps {
+					assign steps := steps;
+				}
+			}
+			succession first start then driver;
+		}
+	`)
+	body := graph.Bodies[nodeNamed(t, graph, "driver")]
+	if len(body) != 1 {
+		t.Fatalf("driver lowered to %d statements, want 1: %#v", len(body), body)
+	}
+	loop, ok := body[0].(Loop)
+	if !ok {
+		t.Fatalf("statement 0 = %T, want Loop", body[0])
+	}
+	if loop.Variable != "v" {
+		t.Errorf("for loop variable = %q, want %q", loop.Variable, "v")
+	}
+}
+
 func actionGraphFor(t *testing.T, src string) *ActionGraph {
 	t.Helper()
 	graph, err := ToActionGraph(actionUsageOf(t, src), nil)
