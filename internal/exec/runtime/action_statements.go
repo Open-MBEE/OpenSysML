@@ -16,6 +16,8 @@ type actionStmtHost struct {
 	node ast.Node // the action node whose body is running, for diagnostics
 	// perf is the performance the body runs in, whose features it declares into.
 	perf *actionFrame
+	// step is the performance of a statement node's step, owning what its body performs.
+	step *actionFrame
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
@@ -27,6 +29,26 @@ func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, 
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
 	return err
+}
+
+// executeStatementBody runs the statements of the statement node step performs, in the
+// performance around it, with what they perform owned by step.
+func (e *performances) executeStatementBody(step *actionFrame, graph *lower.ActionGraph) error {
+	perf := step.parent
+	_, err := e.ctx.runStatements(func() *stmtEngine {
+		host := &actionStmtHost{exec: e, node: step.node, perf: perf, step: step}
+		lexical := perf.lexicalFrames()
+		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
+	}, graph.Bodies[step.node])
+	return err
+}
+
+// around is the performance the body's nodes are performed in and its terminates resolve from.
+func (h *actionStmtHost) around() *actionFrame {
+	if h.step != nil {
+		return h.step
+	}
+	return h.perf
 }
 
 // runNodeBody runs the statements a control or initial node's body declares,
@@ -136,7 +158,7 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	env := engine.env
 	if s.Kind == lower.EffectTerminate {
-		return h.exec.terminate(engine, h.perf, s)
+		return h.exec.terminate(engine, h.around(), s)
 	}
 	if s.Kind == lower.EffectStart {
 		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
@@ -180,7 +202,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 // performNode performs a nested action a block of the body declares as a
 // subperformance of the body's.
 func (h *actionStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
-	return h.exec.performNode(h.perf, engine, graph, node)
+	return h.exec.performNode(h.around(), engine, graph, node)
 }
 
 // runFlow rejects a stated flow among statements: an action's own flow is the
@@ -191,7 +213,7 @@ func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 }
 
 func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
-	return h.exec.performBlockFlow(h.perf, engine, block)
+	return h.exec.performBlockFlow(h.around(), engine, block)
 }
 
 // performNode performs node, which a block of parent's body declares, as a subperformance
