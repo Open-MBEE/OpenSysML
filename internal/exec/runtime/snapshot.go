@@ -59,6 +59,7 @@ type runCapture struct {
 	ids               *idSequence
 	nextID            int64
 	activations, runs int64
+	coverageNotes     mapState[string, bool]
 	run               *runState
 	trace             *TraceRecorder
 	traced            traceCapture
@@ -349,6 +350,7 @@ func (ctx *Context) captureRun() runCapture {
 		choices:          ctx.choices,
 		draws:            ctx.draws,
 		evaluations:      ctx.evaluations,
+		coverageNotes:    captureMap(ctx.coverageNotes),
 		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:    captureMap(ctx.heldBehaviors),
 		holdingDriven:    ctx.holdingDriven,
@@ -370,6 +372,7 @@ func (c runCapture) restore(ctx *Context) {
 	c.traced.restore(c.trace)
 	ctx.choices, ctx.draws = c.choices, c.draws
 	ctx.evaluations = c.evaluations
+	ctx.coverageNotes = c.coverageNotes.restore()
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.holdingDriven = c.holdingDriven

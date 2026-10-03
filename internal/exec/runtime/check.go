@@ -326,11 +326,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
-	for _, note := range ctx.coverageReasons() {
-		if !slices.Contains(c.notes, note) {
-			c.notes = append(c.notes, note)
-		}
-	}
+	c.foldNotes()
 	slices.Sort(c.notes)
 	return more, nil
 }
@@ -555,8 +551,20 @@ func (c *checker) search(stop context.Context, mass float64) error {
 			c.releaseAll()
 			return err
 		}
+		// The next move's restore rewinds the context's notes, so fold them now.
+		c.foldNotes()
 	}
 	return nil
+}
+
+// foldNotes merges the coverage reasons the run recorded on its context into
+// the checker's, since restoring the context's snapshot drops them.
+func (c *checker) foldNotes() {
+	for _, note := range c.ctx.coverageReasons() {
+		if !slices.Contains(c.notes, note) {
+			c.notes = append(c.notes, note)
+		}
+	}
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.

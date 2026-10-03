@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -161,6 +162,31 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 					assertDistinctRunOccurrences(t, ctx, inst)
 				}
 			})
+		}
+	})
+
+	// `perform action run[2]` starts two performances, which PerformedActionsOf
+	// returns both of; running `run` a third time is ambiguous under `run`.
+	t.Run("perform-repeated-actions-listed-and-ambiguous", func(t *testing.T) {
+		file := parseAndBuild(t, `package test {
+			part def Host {
+				perform action run[2];
+			}
+		}`)
+		index, _, ctx := buildRuntime(t, "<test>", file)
+		host := findSymbolByName(index.DocumentRoot("<test>"), "Host", ast.DefPart)
+		inst, err := ctx.Instantiate(host)
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		run := resolveSymbol(t, host.Scope, "run")
+		performed := inst.PerformedActionsOf(run)
+		if len(performed) != 2 {
+			t.Fatalf("PerformedActionsOf(run) = %d behaviors, want 2", len(performed))
+		}
+		if _, err := ctx.performanceOf(run, inst, nil); !errors.Is(err, ErrAmbiguousAction) ||
+			!strings.Contains(err.Error(), "2 times, under run") {
+			t.Errorf("performanceOf(run) = %v, want ErrAmbiguousAction wording the shared usage", err)
 		}
 	})
 
