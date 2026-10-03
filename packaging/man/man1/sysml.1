@@ -222,6 +222,26 @@ Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, or fmu
 for a Functional Mock\-up Unit to import; for \-migrate: xmi, uml or mdzip,
 the forms of a SysML v1 model; default the input's extension
 .TP
+.BR \-import " \fIfile\fP"
+Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+per element, before \-convert writes the model; an element column names the
+element and each other column a feature, as mass [kg] (repeatable)
+.TP
+.BR \-import\-as " \fIshape\fP"
+What \-import makes of each row: values, which sets the features of the
+element the row names. The default is values.
+.TP
+.BR \-import\-map " \fIfile\fP"
+Read \-import's columns and fields onto elements and features as this JSON
+mapping file says
+.TP
+.BR \-import\-format " \fIformat\fP"
+Read \-import files as csv, tsv, json or jsonl rather than as their extension
+says
+.TP
+.B \-import\-dry\-run
+Report the values \-import would set, changing and writing nothing
+.TP
 .BR \-id " \fIname\fP"
 With \-convert ttl or api\-json, how derived element ids are spelled:
 qualified (default) derives each from its qualified name; uuid mints

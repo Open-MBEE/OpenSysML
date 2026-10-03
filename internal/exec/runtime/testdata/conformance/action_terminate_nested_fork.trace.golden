@@ -8,7 +8,7 @@ step 3: token 2@nsplit, token 3@sync
 step 4: token 3@sync, token 4@waiter, token 5@quit
 stmt assign inner
   eval literal 1 -> 1
-step 5: token 3@sync, token 4@waiter, token 5@*ast.TerminateStatement
+step 5: token 3@sync, token 4@waiter, token 5@terminate
 stmt terminate
 terminate action node node: dropped token 4@waiter
 leave action node: node
