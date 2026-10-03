@@ -1,0 +1,6 @@
+step 1: token 1@a
+stmt assign y
+  eval literal 1 -> 1
+eval feature go -> true
+step 2: token 1@b
+step 3: no active tokens

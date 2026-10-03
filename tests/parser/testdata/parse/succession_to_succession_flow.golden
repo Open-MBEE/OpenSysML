@@ -1,0 +1,27 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Gated" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Pass"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="y" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))))))
+          (InitialNode name="a" successor="f"
+            (FeatureReference name="go"))
+          (Membership visibility="default"
+            (Usage kind="flow" name="f" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="succession"
+              (FlowEnds from="a.y" to="b.v" payload="Integer" declared=false))))))))

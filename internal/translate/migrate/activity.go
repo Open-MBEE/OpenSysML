@@ -113,6 +113,10 @@ type activity struct {
 	// control-flow-driven action that are written as successions it waits on too.
 	dataWhy map[*sysmlv1.Element]string
 	awaited map[*sysmlv1.Element]bool
+	// succFlow settles which object flows are written as succession flows.
+	succFlow map[*sysmlv1.Element]bool
+	// through marks the forks, joins and merges object flows pass through as features.
+	through map[*sysmlv1.Element]bool
 	// dead marks the calls found refused before writing, so that the calls their
 	// result pins feed know that no value reaches them.
 	dead map[*sysmlv1.Element]bool
@@ -164,6 +168,8 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		dataOnly:    map[*sysmlv1.Element]bool{},
 		dataWhy:     map[*sysmlv1.Element]string{},
 		awaited:     map[*sysmlv1.Element]bool{},
+		succFlow:    map[*sysmlv1.Element]bool{},
+		through:     map[*sysmlv1.Element]bool{},
 		dead:        map[*sysmlv1.Element]bool{},
 		dataNode:    map[*sysmlv1.Element]bool{},
 		sink:        map[*sysmlv1.Element]bool{},
@@ -355,6 +361,7 @@ func (a *activity) write() {
 			}
 		}
 	}
+	a.settleThrough()
 	for _, n := range a.nodes {
 		if a.dataNode[n] {
 			continue
@@ -414,7 +421,7 @@ func (a *activity) link() {
 	controlled, control, outs := a.controlIndex()
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] || a.guardedFlow(e) {
 			continue
 		}
 		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
@@ -503,7 +510,7 @@ func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 			continue
 		}
 		pair := [2]*sysmlv1.Element{from, to}
-		if e.Type != "ControlFlow" && (control[pair] || linked[pair]) {
+		if e.Type != "ControlFlow" && !a.guardedFlow(e) && (control[pair] || linked[pair]) {
 			continue
 		}
 		a.succ[from] = append(a.succ[from], e)
@@ -588,7 +595,7 @@ func (a *activity) entries(n *sysmlv1.Element) {
 		name = s.name
 	}
 	switch {
-	case len(a.prev[n]) <= 1:
+	case a.orderedPrev(n) <= 1:
 	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal || a.sink[n]:
 		m := writeName(a.fresh("merge"))
 		a.merges[n] = m
@@ -930,7 +937,16 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		a.madeUp(s.name)
 		from = s.name
 	}
-	outs := a.succ[n]
+	var outs []*sysmlv1.Element
+	entry := map[*sysmlv1.Element]string{}
+	for _, e := range a.succ[n] {
+		if a.successionFlow(e) {
+			if entry[e] = a.flowEntry(ownerNode(a.m.model.Ref(e, "target"))); entry[e] == "" {
+				continue
+			}
+		}
+		outs = append(outs, e)
+	}
 	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
@@ -944,7 +960,10 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		return
 	}
 	for _, e := range outs {
-		to := a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		to := entry[e]
+		if to == "" {
+			to = a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		}
 		if to == "" {
 			a.unwritableEdge(e)
 			continue
@@ -1474,17 +1493,17 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 		a.m.w.line(actionKw + name + " terminate;")
 		a.m.add(n, Mapped, name, "")
 	case "ForkNode":
-		a.m.w.line("fork " + name + ";")
+		a.m.w.block("fork "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "JoinNode":
-		a.m.w.line("join " + name + ";")
+		a.m.w.block("join "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
 		return // successions writes the comments, after the else branch
 	case "MergeNode":
-		a.m.w.line("merge " + name + ";")
+		a.m.w.block("merge "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "CentralBufferNode", "DataStoreNode", "ExpansionNode":
 		a.m.w.line(actionKw + name + ";")
@@ -1761,6 +1780,10 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		a.m.unmapped(e, joinNotes(a.m.dangling(e, "source", "target"), "the flow lacks an end"))
 		return
 	}
+	if a.through[src] || a.through[tgt] {
+		a.throughFlow(e, src, tgt)
+		return
+	}
 	if k := nodeKind(tgt); k != nodePin && k != nodeParam {
 		a.objectFlowTarget(e, tgt)
 		return
@@ -1780,17 +1803,19 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	}
 	if receiver, ok := a.receivers[tgt]; ok {
 		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
+		a.keepOrder(e)
 		return
 	}
 	to, ok := a.pinRef(tgt)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's target "+describe(tgt)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	for _, s := range a.edgeSources[e] {
 		a.objectFlowSource(e, s, tgt, to)
 	}
-	if g := firstOwned(e, "guard"); g != nil {
+	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
 }
@@ -1838,6 +1863,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	from, ok := a.pinRef(s)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	if first, ok := a.written[[2]*sysmlv1.Element{s, tgt}]; ok {
@@ -1861,6 +1887,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
 		a.starve(tgt, to, describe(s.Parent)+" is not migrated")
+		a.keepOrder(e)
 		return
 	}
 	if a.unassigned(s) {
@@ -1894,25 +1921,74 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 }
 
-// dataEdge writes the flow e carries from from to to: a binding at a
-// parameter, a flow between pins, named as a member when a diagram shows e.
+// dataEdge writes the flow e carries from from to to: a binding at a parameter, a
+// flow of what the source pin is typed by between pins, a succession flow where it
+// also orders its actions; named as a member when a diagram shows e.
 func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
-	kw, decl, base := "flow", "flow "+from+" to "+to, spoken(from)+" to "+spoken(to)
+	kw, base := "flow", spoken(from)+" to "+spoken(to)
 	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
+		kw, base = "binding", spoken(to)+" = "+spoken(from)
 	}
 	namer := a.namer(e, s, tgt)
 	name := a.edgeFresh(namer, base)
 	if name != "" {
-		if kw == "flow" {
-			decl = "flow " + writeName(name) + " from " + from + " to " + to
-		} else {
-			decl = kw + " " + writeName(name) + " " + decl
-		}
 		a.m.madeUp(namer, writeName(name))
+	}
+	decl := "bind " + to + " = " + from
+	switch {
+	case kw == "flow":
+		decl = "flow " + a.flowHead(name, nil) + from + " to " + to
+		switch {
+		case a.successionFlow(e) && a.inert[s.Parent]:
+			defer a.keepOrder(e)
+		case a.gatedFlow(e):
+			if name == "" {
+				name = a.fresh(base)
+				a.m.w.madeUp(writeName(name))
+			}
+			a.gate(e, s.Parent, name)
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
+		case a.successionFlow(e):
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
+		}
+	case name != "":
+		decl = kw + " " + writeName(name) + " " + decl
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
+}
+
+// gate writes the guarded succession from source that leads to the succession flow
+// named name, which e is written as: the flow moves its value only when the guard holds.
+func (a *activity) gate(e, source *sysmlv1.Element, name string) {
+	g := a.guard(e, "")
+	a.m.w.lines(g.comment)
+	a.m.w.line(firstKw + writeName(a.name(source, baseName(source))) + g.expr + thenKw + writeName(name) + ";")
+}
+
+// flowHead writes what a flow declares before its ends: its name and the type
+// item of what it carries, then from; nothing when it declares neither.
+func (a *activity) flowHead(name string, item *sysmlv1.Element) string {
+	var head []string
+	if name != "" {
+		head = append(head, writeName(name))
+	}
+	if typ, _ := a.m.typeRef(item, a.def); typ != "" {
+		head = append(head, "of "+typ)
+	}
+	if len(head) == 0 {
+		return ""
+	}
+	return strings.Join(head, " ") + " from "
+}
+
+// itemType is the classifier what travels from s to tgt is typed by: the source's,
+// else the target's.
+func (a *activity) itemType(s, tgt *sysmlv1.Element) *sysmlv1.Element {
+	if t := a.endType(s); t != nil {
+		return t
+	}
+	return a.endType(tgt)
 }
 
 // namer is the edge naming the member written once for what s carries to tgt: a

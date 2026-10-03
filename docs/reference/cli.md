@@ -272,7 +272,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
 
-Check flags, each repeatable. `-instantiate` runs first whatever order the flags are
+Check flags may be combined. `-instantiate` runs first whatever order the flags are
 written in, so the verdicts are about that object:
 
 | Flag | Checks |
@@ -280,6 +280,7 @@ written in, so the verdicts are about that object:
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
 | `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
+| `-self-check` | Applies the 13 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
@@ -289,6 +290,11 @@ written in, so the verdicts are about that object:
 | `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
 | `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
+| `-import <file>` | Sets the feature values a CSV, TSV, JSON or JSON Lines file assigns: an `element` column names each element and every other column one of its features, with a unit as `mass [kg]`. Composes with `-convert sysml -o`, which writes the imported model; the source file is not changed. An empty cell leaves a value as it was; a row, value or unit the model refuses imports nothing. Repeatable. See [Importing data](#importing-data) |
+| `-import-as values` | What `-import` makes of each row; `values`, the default, is the only shape so far |
+| `-import-map <file>` | A JSON mapping file naming the column or JSON Pointer path each element and feature comes from, with units and value types |
+| `-import-format <format>` | Reads the `-import` files as `csv`, `tsv`, `json` or `jsonl` rather than as their extension says |
+| `-import-dry-run` | Reports the values `-import` would set and changes and writes nothing |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
@@ -1335,6 +1341,29 @@ errors the model had before the run are not counted against the records, and
 a migrated SysML v1 model whose transitions declare `accept s3 : s3` parameters
 re-checks as clean as it loaded. See
 [Recording analysis runs](../manual/recording-analysis-runs.md).
+
+## Importing data
+
+`-import` sets feature values from a table or JSON file — a spreadsheet export,
+a simulation's results, a script's output — and `-convert sysml -o` writes the
+model with the values in place:
+
+```bash
+$ sysml vehicle.sysml -import values.csv -convert sysml -o imported.sysml
+✓ package Vehicle
+✓ imported 3 values into 2 elements from values.csv
+  Vehicle::car::count = 4
+  Vehicle::car::supplier = "Acme, Inc."
+  Vehicle::car::engine::mass = 180 [kg] (redefines Vehicle::Engine::mass)
+wrote imported.sysml (sysml, 376 bytes)
+```
+
+A feature the element declares has its value replaced; one it inherits gets a
+redefinition. The file is checked whole before anything changes — values are
+read as the feature's type reads them and units must measure what the feature
+does — and a file the model refuses imports nothing. `-import-dry-run` prints
+the values without writing, and `-import-map` maps differently named columns
+and nested JSON fields. See [Importing data into a model](../manual/importing-data.md).
 
 ## Comparing a migrated configuration with the tool's results
 

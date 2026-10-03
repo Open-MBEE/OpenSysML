@@ -342,8 +342,8 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if n.ActionRef != nil {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the action node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.Usage:
 		if lower.IsCaseNode(n) {
@@ -352,12 +352,12 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if performsAction(n) {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the action node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode:
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the statement node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the statement node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.SendStatement:
 		return &UnsupportedError{Node: label, Construct: "send", Reason: "messages are encoded by a later stage"}
@@ -367,6 +367,27 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		return &UnsupportedError{Node: label, Construct: fmt.Sprintf("%T", node), Reason: "the interpreter runs no such node"}
 	}
 	return nil
+}
+
+// checkSuccessors refuses a node other than a fork that several successions leave:
+// two not of succession flows are a choice the interpreter refuses, and the one beside
+// a succession flow's starts with it, as after a fork, which the stage does not encode.
+func (f *Flow) checkSuccessors(node ast.Node, label, reason string) error {
+	out := f.Outgoing[node]
+	if len(out) < 2 {
+		return nil
+	}
+	control := 0
+	for _, i := range out {
+		if !f.Edges[i].Carries {
+			control++
+		}
+	}
+	if control > 1 {
+		return &FlowError{Node: label, Reason: reason}
+	}
+	return &UnsupportedError{Node: label, Construct: "implicit fork",
+		Reason: "the successions of succession flows leaving a node start beside its other succession, which only a fork is encoded as"}
 }
 
 // checkImplicitJoin refuses a node other than a join or a merge that several
