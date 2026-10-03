@@ -24,14 +24,13 @@ part def Host {
         action one {
             out result[1] = 1;
         }
-        first one then 'set k';
         action 'set k' {
             in value[1];
             assign context.k := value;
         }
         first 'set k' then final;
         action final terminate;
-        flow one.result to 'set k'.value;
+        succession flow one.result to 'set k'.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
     state def Machine {
