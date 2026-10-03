@@ -1,0 +1,68 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="action" name="blocks" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="total" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="")
+          (Membership visibility="default"
+            (Usage kind="action" name="driver" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (WhileLoopActionNode kind="loop" variable=""
+                (OperatorExpr operator=">"
+                  (FeatureReference name="total")
+                  (LiteralInteger value="0"))
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="repeated" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Integer
+                          (*ast.QualifiedName)))))))
+              (IfActionNode
+                (OperatorExpr operator="=="
+                  (FeatureReference name="total")
+                  (LiteralInteger value="0"))
+                (IfBranchNode kind="then"
+                  (Membership visibility="default"
+                    (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Membership visibility="default"
+                        (Usage kind="attribute" name="thenValue" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                          (Relationship kind="typing" target=Integer
+                            (*ast.QualifiedName)))))))
+                (IfBranchNode kind="else"
+                  (Membership visibility="default"
+                    (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Membership visibility="default"
+                        (Usage kind="attribute" name="elseValue" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                          (Relationship kind="typing" target=Integer
+                            (*ast.QualifiedName))))))))
+              (WhileLoopActionNode kind="loop" variable=""
+                (OperatorExpr operator=">"
+                  (FeatureReference name="total")
+                  (LiteralInteger value="1"))
+                (Membership visibility="default"
+                  (Usage kind="action" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (Membership visibility="default"
+                      (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (Membership visibility="default"
+                          (Usage kind="attribute" name="nested" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                            (Relationship kind="typing" target=Integer
+                              (*ast.QualifiedName))))))
+                    (*ast.AssignmentActionNode))))))
+          (FinalNode)
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="start"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="driver"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="driver"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="done"
+                (*ast.QualifiedName)))))))))

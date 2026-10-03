@@ -92,6 +92,9 @@ func (ctx *Context) recordShapes(obj *Instance, shapes *Shapes, seen map[int64]b
 		ctx.recordShape(c, shapes)
 	}
 	for _, val := range obj.held() {
+		if seq := requiredTail(val); seq != nil {
+			ctx.recordShape(seq.required.typ, shapes)
+		}
 		ctx.walkValue(val, func(v Value) {
 			if v.Kind == ValVariant {
 				ctx.recordShape(v.Variant(), shapes)
@@ -202,7 +205,7 @@ func (ctx *Context) collectedFeatureValue(s *FeatureValue) bool {
 	if s.Written || !s.Materialized || (s.Values.Kind != ValSequence && s.Values.Kind != ValSet) {
 		return false
 	}
-	object := false
+	object := requiredTail(s.Values) != nil
 	ctx.walkValue(s.Values, func(v Value) {
 		if _, held := carriedObject(v); held {
 			object = true
@@ -230,7 +233,7 @@ func (ctx *Context) connectorFeatureValue(s *FeatureValue) bool {
 // HoldsObject reports whether the value is, or carries, an object of this context:
 // one a reader can inspect, so the value is only meaningful in the context it came from.
 func (ctx *Context) HoldsObject(val Value) bool {
-	found := false
+	found := requiredTail(val) != nil
 	ctx.walkValue(val, func(v Value) {
 		if _, ok := carriedObject(v); ok {
 			found = true
@@ -276,7 +279,7 @@ func (ctx *Context) walkValueFrom(val Value, visit func(Value), seen map[*Coordi
 		}
 	case ValSequence:
 		if val.Sequence() != nil {
-			for _, elem := range val.Sequence().Elements() {
+			for _, elem := range standingElements(val) {
 				ctx.walkValueFrom(elem, visit, seen)
 			}
 		}
@@ -623,6 +626,11 @@ func (a *adoption) declarationRead(fv *FeatureValue, declared *declaredFeatures)
 }
 
 func (a *adoption) planValue(owner string, val Value) error {
+	if seq := requiredTail(val); seq != nil {
+		if _, err := a.rebindShaped(seq.required.typ, "the type of the members its lower bound requires"); err != nil {
+			return err
+		}
+	}
 	var err error
 	a.prev.walkValue(val, func(v Value) {
 		if err != nil {
@@ -1027,6 +1035,9 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.occurrences[found] = ids
 		}
 	}
+	for sym := range a.prev.occurrenceTails {
+		a.carryOccurrenceTail(sym, adopted)
+	}
 	for key, id := range a.prev.metadataObjects {
 		if !adopted[id] {
 			continue
@@ -1241,8 +1252,11 @@ func (a *adoption) rewrite(val Value) Value {
 			return NewEmptySequenceOf(a.rewriteUnit(unit))
 		}
 		seq := NewSequence()
-		for _, elem := range val.Sequence().Elements() {
+		for _, elem := range val.Sequence().elements {
 			seq.Append(a.rewrite(elem))
+		}
+		if r := val.Sequence().required; r != nil {
+			seq.required = a.rewriteRequired(r)
 		}
 		return NewSequenceValue(seq)
 	case ValSet:
@@ -1293,4 +1307,34 @@ func (a *adoption) rewrite(val Value) Value {
 	default:
 		return val
 	}
+}
+
+// rewriteRequired is r as a population of this context, its members of the type rebound
+// for theirs; the identities are the shared sequence's, so none is taken here.
+func (a *adoption) rewriteRequired(r *requiredMembers) *requiredMembers {
+	typ := r.typ
+	if found, ok := a.rebound[typ]; ok {
+		typ = found
+	}
+	carried := &requiredMembers{ctx: a.ctx, typ: typ, owner: r.owner, feature: r.feature, first: r.first, count: r.count, reached: r.reached}
+	a.ctx.registerRequired(carried)
+	return carried
+}
+
+// carryOccurrenceTail takes over the members a namespace usage's lower bound requires past
+// its occurrences, when the occurrences and every member made were carried over.
+func (a *adoption) carryOccurrenceTail(sym *symbols.Symbol, adopted map[int64]bool) {
+	r := a.prev.occurrenceTail(sym)
+	if r == nil || slices.ContainsFunc(a.prev.occurrences[sym], func(id int64) bool { return !adopted[id] }) ||
+		slices.ContainsFunc(a.prev.madeRequired(r), func(inst *Instance) bool { return !adopted[inst.ID] }) {
+		return
+	}
+	found, err := a.rebind(sym, "a usage of it")
+	if err != nil {
+		return
+	}
+	if _, err := a.rebind(r.typ, "the type of the members its lower bound requires"); err != nil {
+		return
+	}
+	a.ctx.recordOccurrenceTail(found, a.rewriteRequired(r))
 }

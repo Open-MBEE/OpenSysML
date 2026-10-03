@@ -124,7 +124,7 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 		return nil
 	}
 	order := e.beginStepOrder()
-	tokens := e.stepCandidates(&order, oneMoveEligible)
+	tokens := e.stepCandidates(&order, oneMoveEligible, nil)
 	var moves []enabledMove
 	for _, id := range tokens.ids {
 		if tokens.held[id] {

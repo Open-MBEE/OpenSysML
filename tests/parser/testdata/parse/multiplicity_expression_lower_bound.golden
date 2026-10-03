@@ -1,0 +1,54 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="M" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="C"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="1.0")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Holder"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="3")))
+          (Membership visibility="default"
+            (Usage kind="part" name="large" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="5000"))))
+          (Membership visibility="default"
+            (Usage kind="part" name="scaled" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (OperatorExpr operator="*"
+                  (FeatureReference name="k")
+                  (LiteralInteger value="1000")))))
+          (Membership visibility="default"
+            (Usage kind="part" name="named" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (FeatureReference name="k")
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="part" name="arithmetic" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (OperatorExpr operator="+"
+                  (LiteralInteger value="3")
+                  (LiteralInteger value="2")))))
+          (Membership visibility="default"
+            (Usage kind="part" name="unbounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=C
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInfinity)
+                (LiteralInfinity)))))))))

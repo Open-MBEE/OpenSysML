@@ -1738,10 +1738,11 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
 	values := []runtime.Value{fv.Value}
 	switch fv.Values.Kind {
-	case runtime.ValSequence:
-		values = fv.Values.Sequence().Elements()
-	case runtime.ValSet:
-		values = fv.Values.Set().Elements()
+	case runtime.ValSequence, runtime.ValSet:
+		var err error
+		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
+			return nil
+		}
 	}
 
 	var out []*runtime.Instance
@@ -1867,8 +1868,12 @@ func formatValue(ctx *runtime.Context, val runtime.Value) string {
 		if val.Sequence() == nil {
 			return "[]"
 		}
-		parts := make([]string, len(val.Sequence().Elements()))
-		for i, element := range val.Sequence().Elements() {
+		elements, err := ctx.HeldElements(val)
+		if err != nil {
+			return fmt.Sprintf("[%d values: %v]", runtime.ElementCount(val), err)
+		}
+		parts := make([]string, len(elements))
+		for i, element := range elements {
 			parts[i] = formatValue(ctx, element)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"

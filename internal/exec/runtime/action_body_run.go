@@ -62,7 +62,7 @@ type bodyRun struct {
 	// traceBase is the nesting the work resumed at, which its levels count from.
 	traceBase int
 	// awaitsMessages lets the run pause for a message too, as a do behavior does
-	// while its machine goes on; a token's step run waits only on the clock.
+	// while its machine goes on; an outer body sets the waits its run may pause for.
 	awaitsMessages bool
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
@@ -161,16 +161,49 @@ func (w bodyWait) goesOn() bool {
 		if e.state != StateWaiting || e.canProceed(nil) {
 			return false
 		}
-		return w.onMessage || e.waitsOnClock(nil)
+		return w.onMessage && e.waitsForMessage(nil, make(map[waitTarget]bool)) ||
+			e.waitsOnClock(nil) || e.watchesChangeIn(nil, make(map[waitTarget]bool))
 	}
 	e := w.exec
 	if e.canProceed(w.perf) {
 		return false
 	}
-	if w.onMessage {
-		return len(e.waitingTokens(w.perf)) > 0
+	return w.onMessage && e.waitsForMessage(w.perf, make(map[waitTarget]bool)) ||
+		e.waitsOnClock(w.perf) || e.watchesChangeIn(w.perf, make(map[waitTarget]bool))
+}
+
+// waitsForMessage reports whether the wait ultimately holds a non-clock accept.
+func (w bodyWait) waitsForMessage(seen map[waitTarget]bool) bool {
+	if !w.onMessage {
+		return false
 	}
-	return e.waitsOnClock(w.perf)
+	if w.held != nil {
+		return w.held.waitsForMessage(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.waitsForMessage(w.perf, seen)
+	}
+	return false
+}
+
+func (w bodyWait) watchesChange(seen map[waitTarget]bool) bool {
+	if w.held != nil {
+		return w.held.watchesChangeIn(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.watchesChangeIn(w.perf, seen)
+	}
+	return false
+}
+
+func (w bodyWait) changeWaitHolds(seen map[waitTarget]bool) bool {
+	if w.held != nil {
+		return w.held.changeWaitHoldsIn(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.changeWaitHoldsIn(w.perf, seen)
+	}
+	return false
 }
 
 // waiter is the executor the paused work waits on, nil for none: the action it
@@ -544,7 +577,7 @@ type bodyDivision struct {
 // A run one move at a time with another move open goes one move at a time inside
 // the work too, through the flows and actions it performs (stepsTokens).
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
-	run := &bodyRun{work: work}
+	run := &bodyRun{work: work, awaitsMessages: true}
 	if outer := e.ctx.body; outer != nil {
 		run.awaitsMessages, run.steps, run.shared = outer.awaitsMessages, outer.steps, outer.shared
 		run.stepDraws, run.token = outer.stepDraws, outer.token
@@ -819,7 +852,16 @@ func (ctx *Context) driveClock(waits string) error {
 // pausedOnClock reports a token whose work waits on the clock through a flow it
 // runs or an action it performs; the tokens parked there hold the wait, not this one.
 func (t Token) pausedOnClock() bool {
-	return t.body != nil && t.body.paused.onWait
+	return t.body != nil && t.body.paused.onWait && !t.body.paused.wait.onMessage
+}
+
+// pausedOnMessage reports whether a token's paused body ultimately waits on a message.
+func (t Token) pausedOnMessage() bool {
+	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.waitsForMessage(make(map[waitTarget]bool))
+}
+
+func (t Token) pausedOnChange() bool {
+	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.watchesChange(make(map[waitTarget]bool))
 }
 
 // resumable reports a token whose paused work would go on if resumed now: paused

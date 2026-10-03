@@ -131,12 +131,13 @@ type checkMove struct {
 // within its move, picks its token as a choice point of the move (ChoiceTokenOrder);
 // any other nested step goes in declared order.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
-	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
+	sameStep := tokens.owner == r.script.owner && tokens.scope == nil
+	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0 && sameStep}
 	if outer := r.move; outer != nil && outer.trying() {
 		m.outer = outer
 		m.within = tokens.owner == r.script.owner
 	}
-	if tokens.owner != r.script.owner {
+	if !sameStep && !m.within {
 		m.nested, m.selected = !tokens.stepped, false
 	}
 	r.move = m
@@ -162,7 +163,7 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 			m.taken = i
 		}
 	}
-	if m.within || tokens.stepped && tokens.owner != r.script.owner {
+	if m.within || tokens.stepped && !sameStep {
 		if len(enabled) >= 2 {
 			m.taken = r.choose(ChoicePoint{Kind: ChoiceTokenOrder, Step: tokens.step, Alternatives: m.enabled}, nil)
 			m.selected = true

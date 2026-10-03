@@ -20,8 +20,8 @@ type freshBehavior struct {
 
 // freshInvocation is the behaviors named, run together on a fresh context: what
 // a check searches every schedule of, and what one linearization of it runs. The
-// horizon, when set, is how far the shared clock moves; without one each behavior
-// runs to completion, a machine until nothing more is due.
+// horizon, when set, is how far the shared clock moves; without one an action runs
+// to completion and a machine takes its initial transition only.
 type freshInvocation struct {
 	behaviors []freshBehavior
 	names     []string
@@ -170,15 +170,19 @@ func (r *freshInvocation) start(ctx *runtime.Context) (*runtime.Invocation, erro
 		inv.Names = r.names
 		inv.PerformerNames = performers
 	}
-	if r.horizon != nil {
+	switch {
+	case r.horizon != nil:
 		inv.Horizon = runtime.HorizonAt(*r.horizon)
+	case len(inv.States) > 0:
+		inv.Horizon = runtime.HorizonInitial()
 	}
 	return inv, nil
 }
 
 // run is one linearization of the invocation: the shared clock advanced to the
-// horizon, or each behavior run to completion in start order. An action that
-// stopped short is an error, as the prompt's run reports it.
+// horizon, or each action run to completion in start order and each machine left
+// at its initial transition. An action that stopped short is an error, as the
+// prompt's run reports it.
 func (r *freshInvocation) run(ctx *runtime.Context) (runtime.Outcome, error) {
 	inv, err := r.start(ctx)
 	if err != nil {
@@ -191,11 +195,6 @@ func (r *freshInvocation) run(ctx *runtime.Context) (runtime.Outcome, error) {
 		}
 	default:
 		for _, exec := range inv.Actions {
-			if err := exec.RunToCompletion(); err != nil {
-				return runtime.Outcome{}, err
-			}
-		}
-		for _, exec := range inv.States {
 			if err := exec.RunToCompletion(); err != nil {
 				return runtime.Outcome{}, err
 			}

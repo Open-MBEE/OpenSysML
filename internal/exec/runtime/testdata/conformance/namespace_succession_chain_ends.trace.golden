@@ -1,0 +1,21 @@
+materialize: b #1
+start: performed action g of #1
+materialize: g #2
+run: performed action g of #1
+step 1: token 1@g1
+stmt assign n
+    eval feature n -> 0
+    eval literal 10 -> 10
+  eval operator * -> 0
+step 2: token 1@done
+step 3: no active tokens
+start: performed action m of #1
+materialize: m #3
+run: performed action m of #1
+step 1: token 1@m1
+stmt assign n
+    eval feature n -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens

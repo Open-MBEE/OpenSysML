@@ -38,7 +38,7 @@ func BenchmarkCompiledCalc(b *testing.B) {
 					}
 				}
 				s := loadCompileFixture(b)
-				program, err := s.CompileCalc("Compiled::" + c.calc)
+				program, err := s.CompileCalc("Compiled::"+c.calc, target)
 				if err != nil {
 					b.Fatal(err)
 				}
