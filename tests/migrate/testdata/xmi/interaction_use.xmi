@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_speed" name="speed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_speed0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_spin" name="Spin" method="_spinning">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRpm" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_spinning" name="Spinning" specification="_spin">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRpm2" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnRpm" name="rpm" parameter="_spRpm2"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set speed" structuralFeature="_speed" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ofRpm" source="_apnRpm" target="_setVal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_drive" name="Drive">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_dMotor" name="motor" type="_motor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_kick" name="Kick">
+        <formalGate xmi:type="uml:Gate" xmi:id="_kickIn" name="cmd"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_klSelf" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_kRSpin" covered="_klSelf" message="_kmSpin"/>
+        <message xmi:type="uml:Message" xmi:id="_kmSpin" name="kickSpin" messageSort="synchCall" signature="_spin" sendEvent="_kickIn" receiveEvent="_kRSpin">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_kmSpinRpm" value="20.0"/>
+        </message>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Controller"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rDrive" name="drive" type="_drive" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_limit" name="limit">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_limit0" value="10.0"/>
+      </ownedAttribute>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_spinup" name="Spin Up">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_suRpm" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_sulC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_sulM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_suS" covered="_sulC" message="_sumSpin"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_suR" covered="_sulM" message="_sumSpin"/>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_suFast" name="fast" covered="_sulM">
+          <invariant xmi:type="uml:Constraint" xmi:id="_suFastC">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_suFastS"><body>speed &gt; limit</body></specification>
+          </invariant>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_sumSpin" name="spin" messageSort="synchCall" signature="_spin" sendEvent="_suS" receiveEvent="_suR">
+          <argument xmi:type="uml:OpaqueExpression" xmi:id="_sumSpinRpm"><body>rpm</body></argument>
+        </message>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_run" name="Run">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_rlC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_rlM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_runUse" name="warm" covered="_rlC _rlM" refersTo="_spinup">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_runUseRpm" value="30.0"/>
+        </fragment>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_runAt30" name="at30" covered="_rlM">
+          <invariant xmi:type="uml:Constraint" xmi:id="_runAt30C">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_runAt30S"><body>speed == 30.0</body></specification>
+          </invariant>
+        </fragment>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_runS" covered="_rlC" message="_runSlow"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_runR" covered="_rlM" message="_runSlow"/>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_runSlowed" covered="_rlM">
+          <invariant xmi:type="uml:Constraint" xmi:id="_runSlowedC" name="slowed">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_runSlowedS"><body>drive.motor.speed &lt; limit</body></specification>
+          </invariant>
+        </fragment>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_runProse" name="calm" covered="_rlM">
+          <invariant xmi:type="uml:Constraint" xmi:id="_runProseC">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_runProseS"><body>the motor runs quietly</body><language>English</language></specification>
+          </invariant>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_runSlow" name="slow" messageSort="synchCall" signature="_spin" sendEvent="_runS" receiveEvent="_runR">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_runSlowRpm" value="5.0"/>
+        </message>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_overrun" name="Overrun">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_olC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_olM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_oS" covered="_olC" message="_oSpin"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_oR" covered="_olM" message="_oSpin"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_oUse" covered="_olC _olM" refersTo="_spinup">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_oUseRpm" value="5.0"/>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_oSpin" name="spin" messageSort="synchCall" signature="_spin" sendEvent="_oS" receiveEvent="_oR">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_oSpinRpm" value="50.0"/>
+        </message>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_relay" name="Relay">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_rylC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_rylM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ryS" covered="_rylC" message="_ryCmd"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_ryUse" name="kick" covered="_rylM" refersTo="_kick">
+          <actualGate xmi:type="uml:Gate" xmi:id="_ryGate" name="cmd"/>
+        </fragment>
+        <fragment xmi:type="uml:StateInvariant" xmi:id="_ryAt20" name="at20" covered="_rylM">
+          <invariant xmi:type="uml:Constraint" xmi:id="_ryAt20C">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_ryAt20S"><body>speed == 20.0</body></specification>
+          </invariant>
+        </fragment>
+        <message xmi:type="uml:Message" xmi:id="_ryCmd" name="cmd" messageSort="synchCall" signature="_spin" sendEvent="_ryS" receiveEvent="_ryGate">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_ryCmdRpm" value="20.0"/>
+        </message>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_astray" name="Astray">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_alC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_alM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_aS" covered="_alC" message="_aSpin"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_aR" covered="_alM" message="_aSpin"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_aUse" covered="_alC" refersTo="_gone"/>
+        <message xmi:type="uml:Message" xmi:id="_aSpin" name="spin" messageSort="synchCall" signature="_spin" sendEvent="_aS" receiveEvent="_aR">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_aSpinRpm" value="1.0"/>
+        </message>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_again" name="Again">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_glC" name="c" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_glM" name="m" represents="_dMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_gS" covered="_glC" message="_gSpin"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_gR" covered="_glM" message="_gSpin"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_gUse" covered="_glC" refersTo="_again"/>
+        <message xmi:type="uml:Message" xmi:id="_gSpin" name="spin" messageSort="synchCall" signature="_spin" sendEvent="_gS" receiveEvent="_gR">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_gSpinRpm" value="1.0"/>
+        </message>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

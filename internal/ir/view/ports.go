@@ -82,8 +82,10 @@ func (k Kind) SupportsPorts() bool { return k == KindInterconnection }
 // PortsMinimal those an edge ends at, named alone.
 type portView struct {
 	// interconnection reports whether the rendering is one, whose ports the
-	// text and Mermaid forms write; an action's pins are its flows' labels there.
+	// text and Mermaid forms write; action reports an action rendering, whose
+	// pins the text form writes under their nodes.
 	interconnection bool
+	action          bool
 	minimal         bool
 	connected       map[string]bool
 }
@@ -96,7 +98,7 @@ func (r *Rendering) portView(display Ports) portView { return r.portViewOver(dis
 // draws edges alone of the rendering's: the minimal display follows those, so
 // no pin stands for a connector the form leaves out.
 func (r *Rendering) portViewOver(display Ports, edges []Edge) portView {
-	v := portView{interconnection: r.Kind == KindInterconnection, minimal: display != PortsFull && r.Kind.SupportsPorts()}
+	v := portView{interconnection: r.Kind == KindInterconnection, action: r.Kind == KindAction, minimal: display != PortsFull && r.Kind.SupportsPorts()}
 	if !v.minimal {
 		return v
 	}
@@ -133,4 +135,25 @@ func (v portView) pinLabel(port Port) string {
 		return port.label()
 	}
 	return port.Name
+}
+
+// undrawnPins names the pins of an action rendering a form leaves undrawn, as
+// `node.pin` in node then pin order, drawn saying which it draws.
+func (r *Rendering) undrawnPins(drawn func(node *Node, port Port) bool) []string {
+	var names []string
+	var walk func(*Node)
+	walk = func(node *Node) {
+		for _, port := range node.Ports {
+			if !drawn(node, port) {
+				names = append(names, nodeLabel(node)+"."+port.Name)
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	return names
 }

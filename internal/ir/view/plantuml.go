@@ -56,6 +56,12 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
 	}
+	if r.Kind == KindAction {
+		if pins := r.undrawnPins(func(*Node, Port) bool { return false }); len(pins) > 0 {
+			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); PlantUML's state grammar has no pin, so the edges name them",
+				len(pins), strings.Join(pins, ", ")))
+		}
+	}
 	notices = append(notices, r.visualNotices(noFontOrEdgeStyle, true)...)
 	b := &w.b
 	b.WriteString("@startuml\n")
