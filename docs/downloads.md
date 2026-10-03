@@ -21,7 +21,7 @@ covers checksum and signature verification, Gatekeeper on macOS, and the optiona
 ## Individual tools
 
 Each archive contains only the named tool. The `sysml-grpc` service is a separate download;
-Python, Node, Java and Rust clients fetch it themselves. Its downloads are raw binaries, each
+most [client libraries](reference/clients.md) fetch it themselves. Its downloads are raw binaries, each
 with a sidecar SHA-256 file.
 
 | Tool | Linux x64 | Linux arm64 | macOS Intel | macOS Apple Silicon | Windows x64 |
