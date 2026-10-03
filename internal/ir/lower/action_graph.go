@@ -188,6 +188,9 @@ type ActionEdge struct {
 	Name               string
 	SourceMultiplicity *ast.Multiplicity
 	TargetMultiplicity *ast.Multiplicity
+	// DeclaredOrder marks the succession a block's declaration order synthesizes
+	// rather than the model states: the executor's order, not a written one.
+	DeclaredOrder bool
 }
 
 // Statement is one lowered statement in an action node's body. Statements are

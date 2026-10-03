@@ -1,8 +1,9 @@
 package test {
 	private import ScalarValues::*;
 
-	// A repeated step ends behind one barrier at a decision too: `d` decides
-	// once after the last performance of `a`, where the guard already holds.
+	// A decision declares no multiplicity of its own, and a succession into it
+	// does not fix its count: `a`'s three performances cannot order with
+	// respect to `d`, so the flow is refused rather than run behind one barrier.
 	action def U {
 		attribute c : Integer = 0;
 		first start then a;

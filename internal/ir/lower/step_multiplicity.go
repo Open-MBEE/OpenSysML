@@ -168,15 +168,24 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 		sourceEnd := &crossingRange{lower: 1, upper: 1, written: true}
 		return g.checkEdgeOrder(node, edge, count, nil, sourceEnd, nil, model)
 	}
+	if edge.DeclaredOrder && count > 1 {
+		return g.stepError(node, model, StepOrderOpenCode,
+			"the body states no succession, so its declaration order is the executor's and does not order every performance", nil)
+	}
 	if isControlNode(other) {
 		return g.checkControlEdge(node, edge, other, count, model)
 	}
 	return g.checkRepeatedEdgeOrder(node, edge, count, model)
 }
 
-// checkControlEdge orders an edge between a repeated step and a control node,
-// whose ends SysML fixes even where nothing is written: the succession crosses
-// the node once per performance into a join or merge, and once elsewhere.
+// checkControlEdge orders an edge between a repeated step and a control node.
+// An action usage declares no default multiplicity (SysML v2 §7.6.3 leaves it
+// [0..*] and the standard library's controls subaction is [0..*]), so the node's
+// count comes only from what its successions fix: a bijective crossing — every
+// performance into a join, or the lone incoming edge of a merge — or the one
+// performance a fork or the lone outgoing edge of a decision leaves, which fix
+// the node to the repeated step's count. Any other adjacency leaves the count
+// undetermined and the order open.
 func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control ast.Node, count int64, model *semantics.Model) error {
 	into := edge.Target == control
 	sourceEnd, targetEnd := mandatedControlEnds(control, into)
@@ -186,34 +195,48 @@ func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control a
 	if err := g.checkMandatedEnd(node, edge.TargetMultiplicity, targetEnd, control, model, edge.Decl); err != nil {
 		return err
 	}
-	_, joins := control.(*ast.JoinNode)
-	_, merges := control.(*ast.MergeNode)
-	if into && (joins || merges) {
-		// The crossing is bijective, so the control node performs once per
-		// performance of the repeated step; every other edge at it must still
-		// order under that count.
-		counts := map[ast.Node]int64{control: count}
-		check := func(other ActionEdge) error {
-			if other == edge {
-				return nil
-			}
-			s, t := mandatedControlEnds(control, other.Target == control)
-			return g.checkEdgeOrder(node, other, count, counts, s, t, model)
-		}
-		for _, other := range g.Incoming(control) {
-			if err := check(other); err != nil {
-				return err
-			}
-		}
-		for _, other := range g.Edges[control] {
-			if err := check(other); err != nil {
-				return err
-			}
-		}
-		return nil
+	var derived bool
+	switch control.(type) {
+	case *ast.JoinNode:
+		// The join-in ends are mandated one each, so the crossing is bijective.
+		derived = into
+	case *ast.MergeNode:
+		// One incoming edge plus the one incoming link every merge performance
+		// owns make the crossing bijective.
+		derived = into && len(g.Incoming(control)) == 1
+	case *ast.ForkNode:
+		// The fork-out ends are mandated one each, so the crossing is bijective.
+		derived = !into
+	case *ast.DecisionNode:
+		// One outgoing edge plus the one outgoing link every decision performance
+		// owns make the crossing bijective.
+		derived = !into && len(g.Edges[control]) == 1
 	}
-	counts := map[ast.Node]int64{control: 1}
-	return g.checkEdgeOrder(node, edge, count, counts, sourceEnd, targetEnd, model)
+	if !derived {
+		return g.stepError(node, model, StepOrderOpenCode,
+			"the "+controlKindName(control)+" node's performance count is not determined: an action usage declares no default multiplicity and its successions do not fix it", edge.Decl)
+	}
+	// The control node performs once per performance of the repeated step, so
+	// every other edge at it must still order under that count.
+	counts := map[ast.Node]int64{control: count}
+	check := func(other ActionEdge) error {
+		if other == edge {
+			return nil
+		}
+		s, t := mandatedControlEnds(control, other.Target == control)
+		return g.checkEdgeOrder(node, other, count, counts, s, t, model)
+	}
+	for _, other := range g.Incoming(control) {
+		if err := check(other); err != nil {
+			return err
+		}
+	}
+	for _, other := range g.Edges[control] {
+		if err := check(other); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkMandatedEnd refuses a written end that contradicts the range SysML

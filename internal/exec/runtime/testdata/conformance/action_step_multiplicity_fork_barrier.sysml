@@ -1,8 +1,9 @@
 package test {
 	private import ScalarValues::*;
 
-	// The written [*] source end admits every performance of `a` behind one
-	// barrier: `f` fires once after the last, so each branch runs once.
+	// A fork declares no multiplicity of its own, and a succession into it does
+	// not fix its count: `a`'s three performances cannot order with respect to
+	// `f`, so the flow is refused rather than run behind one barrier.
 	action def U {
 		attribute c : Integer = 0;
 		first start then a;

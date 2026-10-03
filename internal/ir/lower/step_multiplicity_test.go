@@ -253,7 +253,7 @@ func TestActionGraphCheckStepSuccessions(t *testing.T) {
 			wantCode:           StepOrderUnsatisfiableCode,
 		},
 		{name: "guarded edge is unsupported", stepCount: 3, guard: &ast.LiteralBool{Value: true}, wantCode: StepMultiplicityUnsupportedCode},
-		{name: "control node adjacency takes the plain-then check", stepCount: 3, repeatedIsSource: true, control: true, wantCode: StepOrderUnsatisfiableCode},
+		{name: "control node adjacency fixes no count", stepCount: 3, repeatedIsSource: true, control: true, wantCode: StepOrderOpenCode},
 		{name: "guarded edge at single count is unchanged", stepCount: 1, guard: &ast.LiteralBool{Value: true}},
 		{name: "control adjacency at single count is unchanged", stepCount: 1, repeatedIsSource: true, control: true},
 	}
@@ -328,7 +328,7 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name: "written wildcard into a fork is a barrier",
+			name: "written wildcard into a fork fixes no count",
 			model: `action def A {
 				first start then a;
 				action a[3];
@@ -336,9 +336,10 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first [*] a then f;
 				then done;
 			}`,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "written wildcard into a decision is a barrier",
+			name: "written wildcard into a decision fixes no count",
 			model: `action def A {
 				first start then a;
 				action a[3];
@@ -346,9 +347,10 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first [*] a then d;
 				if true then done;
 			}`,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "plain succession into a fork is refused",
+			name: "plain succession into a fork fixes no count",
 			model: `action def A {
 				first start then a;
 				action a[3];
@@ -356,10 +358,10 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first a then f;
 				then done;
 			}`,
-			wantCode: StepOrderUnsatisfiableCode,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "exact-one end into a fork excludes the count",
+			name: "exact-one end into a fork fixes no count",
 			model: `action def A {
 				first start then a;
 				action a[3];
@@ -367,10 +369,10 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first [1] a then f;
 				then done;
 			}`,
-			wantCode: StepOrderUnsatisfiableCode,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "written wildcard out of a merge fans out",
+			name: "written wildcard out of a merge fixes no count",
 			model: `action def A {
 				first start then p;
 				action p;
@@ -380,9 +382,10 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first m then [*] a;
 				then done;
 			}`,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "plain succession out of a merge is refused",
+			name: "plain succession out of a merge fixes no count",
 			model: `action def A {
 				first start then p;
 				action p;
@@ -392,29 +395,80 @@ func TestActionGraphCheckStepControlNodeAdjacency(t *testing.T) {
 				succession first m then a;
 				then done;
 			}`,
-			wantCode: StepOrderUnsatisfiableCode,
+			wantCode: StepOrderOpenCode,
 		},
 		{
-			name: "a fork cannot drive every performance",
+			name: "a succession out of a join fixes no count",
+			model: `action def A {
+				first start then j;
+				join j;
+				action a[3];
+				succession first j then a;
+				then done;
+			}`,
+			wantCode: StepOrderOpenCode,
+		},
+		{
+			name: "a fork's lone outgoing crossing fans the split out",
 			model: `action def A {
 				first start then f;
 				fork f;
 				action a[3];
 				succession first f then a;
-				then done;
+				succession first [*] a then [1] done;
+			}`,
+		},
+		{
+			name: "a fork's predecessor cannot order every crossing",
+			model: `action def A {
+				first start then b;
+				action b;
+				then f;
+				fork f;
+				action a[3];
+				succession first f then a;
+				succession first [*] a then [1] done;
 			}`,
 			wantCode: StepOrderUnsatisfiableCode,
 		},
 		{
-			name: "a decision cannot drive every performance",
+			name: "a decision's predecessor cannot order every crossing",
+			model: `action def A {
+				first start then b;
+				action b;
+				then d;
+				decide d;
+				action a[3];
+				succession first d then a;
+				succession first [*] a then [1] done;
+			}`,
+			wantCode: StepOrderUnsatisfiableCode,
+		},
+		{
+			name: "a merge with another incoming succession fixes no count",
+			model: `action def A {
+				first start then b;
+				action b;
+				action a[3];
+				succession first a then m;
+				succession first b then m;
+				merge m;
+				then done;
+			}`,
+			wantCode: StepOrderOpenCode,
+		},
+		{
+			name: "a decision with another outgoing succession fixes no count",
 			model: `action def A {
 				first start then d;
 				decide d;
 				action a[3];
+				action b;
 				succession first d then a;
+				succession first d then b;
 				then done;
 			}`,
-			wantCode: StepOrderUnsatisfiableCode,
+			wantCode: StepOrderOpenCode,
 		},
 		{
 			name: "every performance crosses a lone join",

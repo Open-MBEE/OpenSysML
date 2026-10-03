@@ -2,8 +2,5 @@
 	"type": "action",
 	"libraries": true,
 	"schedule": "declared",
-	"trace": true,
-	"outputs": {
-		"c": {"type": "Integer", "value": 13}
-	}
+	"error": "the decision node's performance count is not determined"
 }

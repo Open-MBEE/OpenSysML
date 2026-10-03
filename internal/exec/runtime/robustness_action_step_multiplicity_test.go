@@ -135,6 +135,22 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			code: lower.StepOrderUnsatisfiableCode,
 			model: `package test {
 				action def A {
+					first start then b;
+					action b;
+					then f;
+					fork f;
+					action a[3];
+					succession first f then a;
+					succession first [*] a then [1] done;
+				}
+			}`,
+		},
+		{
+			name: "fork-adjacency-undetermined", step: "a", multiplicity: "[3]",
+			code:   lower.StepOrderOpenCode,
+			reason: "the fork node's performance count is not determined",
+			model: `package test {
+				action def A {
 					fork f;
 					action a[3];
 					succession first start then a;
@@ -274,8 +290,8 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 		},
 		{
 			name: "while-block-three", step: "tick", multiplicity: "[3]",
-			code:   lower.StepOrderUnsatisfiableCode,
-			reason: "the succession's end multiplicities exclude the declared step count",
+			code:   lower.StepOrderOpenCode,
+			reason: "the body states no succession, so its declaration order is the executor's and does not order every performance",
 			model: `package test {
 				private import ScalarValues::*;
 				action def A {

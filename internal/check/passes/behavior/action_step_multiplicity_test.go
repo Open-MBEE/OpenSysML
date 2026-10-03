@@ -115,8 +115,8 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
-			name: "while block sequences a repeated step",
-			code: "action-step-order-unsatisfiable",
+			name: "a body's declaration order is the executor's",
+			code: "action-step-order-open",
 			model: `package P {
 				private import ScalarValues::*;
 				action def A {
@@ -132,7 +132,7 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 				}
 			}`,
 			step: "tick", multiplicity: "[3]",
-			reason: "the succession's end multiplicities exclude the declared step count",
+			reason: "the body states no succession, so its declaration order is the executor's and does not order every performance",
 		},
 		{
 			name: "unevaluable succession-end count",
@@ -145,16 +145,59 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			step: "a", multiplicity: "[3]",
 		},
 		{
-			name: "a fork cannot drive every performance",
+			name: "a fork's predecessor cannot order every crossing",
 			code: "action-step-order-unsatisfiable",
 			model: `action def A {
-				first start then f;
+				first start then b;
+				action b;
+				then f;
 				fork f;
 				action a[3];
 				succession first f then a;
+				succession first [*] a then [1] done;
+			}`,
+			step: "a", multiplicity: "[3]",
+		},
+		{
+			name: "a repeated step into a fork fixes no count",
+			code: "action-step-order-open",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then f;
+				fork f;
 				then done;
 			}`,
 			step: "a", multiplicity: "[3]",
+			reason: "the fork node's performance count is not determined",
+		},
+		{
+			name: "a repeated step into a decision fixes no count",
+			code: "action-step-order-open",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then d;
+				decide d;
+				if true then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "the decision node's performance count is not determined",
+		},
+		{
+			name: "a succession out of a merge fixes no count",
+			code: "action-step-order-open",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;
+			}`,
+			step: "a", multiplicity: "[3]",
+			reason: "the merge node's performance count is not determined",
 		},
 		{
 			name: "a written wildcard into a join contradicts its mandate",
@@ -642,38 +685,6 @@ func TestActionStepMultiplicityPassAcceptsExecutedRepetition(t *testing.T) {
 				part camera : Camera {
 					perform action takePhoto[2] : Act;
 				}
-			}`,
-		},
-		{
-			name: "repeated step behind a fork barrier",
-			model: `action def A {
-				first start then a;
-				action a[3];
-				succession first [*] a then f;
-				fork f;
-				then done;
-			}`,
-		},
-		{
-			name: "repeated step behind a decision barrier",
-			model: `action def A {
-				first start then a;
-				action a[3];
-				succession first [*] a then d;
-				decide d;
-				if true then done;
-			}`,
-		},
-		{
-			name: "repeated step fanned out of a merge",
-			model: `action def A {
-				first start then p;
-				action p;
-				merge m;
-				first p then m;
-				action a[3];
-				succession first m then [*] a;
-				then done;
 			}`,
 		},
 		{

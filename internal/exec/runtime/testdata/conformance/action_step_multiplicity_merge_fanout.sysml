@@ -1,9 +1,10 @@
 package test {
 	private import ScalarValues::*;
 
-	// The written [*] target end admits every performance of `a` out of the
-	// merge's single performance: `m` fires once and `a` still performs three
-	// times, unordered with respect to one another.
+	// A merge declares no multiplicity of its own, and a succession out of it
+	// does not fix its count: `a`'s three performances cannot order with
+	// respect to `m`, so the flow is refused rather than fanned out of one
+	// merge performance.
 	action def U {
 		attribute c : Integer = 0;
 		first start then p;
