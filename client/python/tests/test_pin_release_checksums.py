@@ -249,6 +249,13 @@ def _temporary_table(tmp_path):
     return table
 
 
+def _shared_table(tmp_path, monkeypatch):
+    table = tmp_path / "shared-release-digests.json"
+    table.write_text(pin.render_table({}), encoding="utf-8")
+    monkeypatch.setattr(pin, "DIGESTS_FILE", str(table))
+    return table
+
+
 def _client_digest_snapshot():
     paths = (sync.SOURCE,) + tuple(
         os.path.join(sync.REPO_ROOT, relative) for relative in sync.COPIES
@@ -315,6 +322,49 @@ def test_manifest_stamping_refuses_conflicting_pin_without_writing(tmp_path):
         pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
 
     assert table_path.read_bytes() == original
+
+
+def test_default_manifest_stamp_syncs_shared_table_once(tmp_path, monkeypatch):
+    manifest, _ = _release_manifest(tmp_path)
+    table_path = _shared_table(tmp_path, monkeypatch)
+    sync_calls = []
+    monkeypatch.setattr(
+        pin, "sync_clients", lambda digests_file=None: sync_calls.append(digests_file)
+    )
+
+    assert pin.stamp_from_manifest(manifest, "v0.9.1")
+
+    assert sync_calls == [str(table_path)]
+
+
+def test_identical_shared_manifest_restamp_does_not_sync(tmp_path, monkeypatch):
+    manifest, _ = _release_manifest(tmp_path)
+    table_path = _shared_table(tmp_path, monkeypatch)
+    sync_calls = []
+    monkeypatch.setattr(
+        pin, "sync_clients", lambda digests_file=None: sync_calls.append(digests_file)
+    )
+    assert pin.stamp_from_manifest(manifest, "v0.9.1")
+    sync_calls.clear()
+
+    assert not pin.stamp_from_manifest(manifest, "v0.9.1")
+
+    assert sync_calls == []
+
+
+def test_manifest_stamp_to_explicit_table_does_not_sync(tmp_path, monkeypatch):
+    manifest, _ = _release_manifest(tmp_path)
+    _shared_table(tmp_path, monkeypatch)
+    table_path = tmp_path / "crate-release-digests.json"
+    table_path.write_text(pin.render_table({}), encoding="utf-8")
+    sync_calls = []
+    monkeypatch.setattr(
+        pin, "sync_clients", lambda digests_file=None: sync_calls.append(digests_file)
+    )
+
+    assert pin.stamp_from_manifest(manifest, "v0.9.1", table_path=table_path)
+
+    assert sync_calls == []
 
 
 def test_manifest_cli_needs_no_token_and_uses_the_selected_table(tmp_path, monkeypatch):

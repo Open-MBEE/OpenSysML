@@ -20,6 +20,9 @@ without changing the table.
 The table lives in client/release-digests.json, and `--write` syncs it into
 every client that ships a copy (scripts/sync-release-digests.py).
 
+With `--from-manifest`, stamping the shared table also syncs client copies.
+An explicit `--table` for a package-local table stays isolated.
+
 The Rust release job can stamp its published crate directly from the checksum
 manifest already produced for the release, without a GitHub token or network access:
 
@@ -242,6 +245,9 @@ def render_table(table):
 def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=None):
     """Add one release's service digests from its already-produced checksum manifest.
 
+    Stamping DIGESTS_FILE syncs the client copies; an explicit alternate table
+    is updated alone.
+
     Args:
         manifest_path (str): Path to the release's SHA256SUMS.txt
         version (str): Release tag
@@ -255,6 +261,9 @@ def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=No
         PinError: If the manifest is invalid or an existing pin conflicts
     """
     table_path = table_path or DIGESTS_FILE
+    sync_shared_table = os.path.realpath(table_path) == os.path.realpath(DIGESTS_FILE)
+    if sync_shared_table:
+        table_path = DIGESTS_FILE
     digests = {}
     try:
         with open(manifest_path, encoding="utf-8") as manifest:
@@ -307,6 +316,8 @@ def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=No
             output.write(render_table(table))
     except OSError as e:
         raise PinError(f"cannot write digest table {table_path}: {e}")
+    if sync_shared_table:
+        sync_clients(table_path)
     return True
 
 
@@ -377,7 +388,10 @@ def main(argv=None):
     parser.add_argument(
         "--table",
         default=DIGESTS_FILE,
-        help="digest table to update in --from-manifest mode",
+        help=(
+            "table to stamp; the shared source syncs client copies, "
+            "other tables stay isolated"
+        ),
     )
     parser.add_argument(
         "--write",
