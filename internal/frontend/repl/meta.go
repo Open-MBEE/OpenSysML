@@ -124,6 +124,7 @@ const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
 	cmdRecord         = "%record"
+	cmdImport         = "%import"
 	cmdInvoke         = "%invoke"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
@@ -225,6 +226,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
+	{name: cmdImport, group: groupBehavioral, args: "<file> [map <file>] [format csv|tsv|json|jsonl] [dry-run]", desc: "set feature values from a CSV, TSV, JSON or JSON Lines file, one row per element: an element column names it and each other column a feature, `mass [kg]` with its unit; a feature the element inherits is redefined in its body, and a value the model refuses imports nothing"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
@@ -572,6 +574,8 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{recordUsage}, false, nil), true
 		}
 		return metaOut(s.doRecord(strings.TrimPrefix(strings.TrimSpace(line), cmdRecord))), true
+	case cmdImport:
+		return metaOut(s.doImport(strings.TrimPrefix(strings.TrimSpace(line), cmdImport))), true
 	case cmdSweep:
 		if len(fields) < 2 {
 			return metaOut([]string{sweepUsage}, false, nil), true
@@ -1738,10 +1742,11 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
 	values := []runtime.Value{fv.Value}
 	switch fv.Values.Kind {
-	case runtime.ValSequence:
-		values = fv.Values.Sequence().Elements()
-	case runtime.ValSet:
-		values = fv.Values.Set().Elements()
+	case runtime.ValSequence, runtime.ValSet:
+		var err error
+		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
+			return nil
+		}
 	}
 
 	var out []*runtime.Instance
@@ -1867,8 +1872,12 @@ func formatValue(ctx *runtime.Context, val runtime.Value) string {
 		if val.Sequence() == nil {
 			return "[]"
 		}
-		parts := make([]string, len(val.Sequence().Elements()))
-		for i, element := range val.Sequence().Elements() {
+		elements, err := ctx.HeldElements(val)
+		if err != nil {
+			return fmt.Sprintf("[%d values: %v]", runtime.ElementCount(val), err)
+		}
+		parts := make([]string, len(elements))
+		for i, element := range elements {
 			parts[i] = formatValue(ctx, element)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"

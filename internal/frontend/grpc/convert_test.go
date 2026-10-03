@@ -250,6 +250,7 @@ package Vehicle {
 // TestCollectionElementsHandlesSetAndSequence verifies a collection feature value is
 // marshalled whichever collection kind the runtime left in it.
 func TestCollectionElementsHandlesSetAndSequence(t *testing.T) {
+	rt := runtime.NewContext(runtime.NewModel(nil, nil), runtime.DefaultMaxSteps)
 	one := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
 	two := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 2}}
 
@@ -265,12 +266,12 @@ func TestCollectionElementsHandlesSetAndSequence(t *testing.T) {
 		"sequence": runtime.NewSequenceValue(seq),
 		"set":      runtime.NewSetValue(set),
 	} {
-		if got := len(objref.CollectionElements(val)); got != 2 {
-			t.Errorf("%s: got %d elements, want 2", name, got)
+		if got, err := objref.CollectionElements(rt, val); err != nil || len(got) != 2 {
+			t.Errorf("%s: got %d elements, %v, want 2", name, len(got), err)
 		}
 	}
 
-	if got := objref.CollectionElements(runtime.Value{Kind: runtime.ValNull}); got != nil {
-		t.Errorf("non-collection: got %v, want nil", got)
+	if got, err := objref.CollectionElements(rt, runtime.Value{Kind: runtime.ValNull}); err != nil || got != nil {
+		t.Errorf("non-collection: got %v, %v, want nil", got, err)
 	}
 }

@@ -8,13 +8,13 @@
 //!
 //! # Known limitation: this client verifies pins only
 //!
-//! A download is verified against the digest table this crate ships
-//! (`release-digests.json`, embedded at build time). Unlike the Python, Node and
-//! Java clients, it does **not** verify the sigstore-signed `SHA256SUMS.txt`
-//! manifest a release publishes, so a release this crate pins no digest for
-//! cannot be verified here at all: it is refused. Setting
-//! `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` is the only way through, and it accepts
-//! the checksum served beside the binary, which is same-origin trust.
+//! A crate published from a release tag carries that release's service digests,
+//! stamped from its checksum manifest when the crate is published. Its
+//! built-against default can therefore be verified. A crate built from a Git
+//! checkout, or asked for another release, still needs a matching embedded pin
+//! or `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`, which accepts the checksum served
+//! beside the binary. This client does not verify the manifest's Sigstore
+//! signature itself.
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;

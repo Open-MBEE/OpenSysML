@@ -15,10 +15,12 @@ From crates.io:
 opensysml = "0.9"
 ```
 
-A published crate cannot download the `sysml-grpc` binary of its own release —
-its embedded `release-digests.json` pins only the digests known when it was
-built — so it targets a running service or a binary it is pointed at
-(`$OPENSYSML_GRPC_BINARY`, then `sysml-grpc` on `$PATH`; see below). See
+A crate published from a release tag carries that release's service digests in
+its embedded `release-digests.json`, stamped from the release checksum manifest
+at publish time, so its built-against default can verify and download the
+binary. A crate built from a Git checkout, or asked for another release, still
+needs a matching pin or `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. The Rust client
+does not verify the manifest's Sigstore signature itself. See
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-rust-client-to-cratesio)
 for how the crate is published.
 
@@ -96,10 +98,12 @@ release cannot be downloaded, a working cache is kept with a warning, or a
 binary on `$PATH` is used with a warning; checksum mismatches are never
 answered from either.
 
-Unlike the Python and Java clients, Rust verifies pinned digests only and does
-not verify signed release manifests. For releases without a pin, it refuses
-the download and uses a working cache or `$PATH` with a warning; if neither is
-available, it errors.
+The crate's behavior depends on how it was built. A release-tag crate receives
+its own tag's digests at publish time from the release checksum manifest, so
+its built-against default can be verified. A checkout build or a request for
+another release still needs a matching embedded pin or
+`$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. This client does not verify the manifest's
+Sigstore signature itself.
 
 The download goes to a temporary file, is verified, and only then atomically
 replaces the cache with mode `0700` (POSIX). Requests time out after 15 seconds.
@@ -130,12 +134,13 @@ and is about to be started.
 
 ### Trust model, and what this client does not verify
 
-A download is verified against the digest table the crate ships
-([`opensysml/release-digests.json`](opensysml/release-digests.json), a synced copy of
-`client/release-digests.json` embedded with `include_str!`) — a pin resolved
-from outside the published artifact would not be a pin. A `.sha256` served
-beside the binary that disagrees with a pin is tampering: the download is
-refused, and the cache is untouched.
+A download is verified against the digest table embedded in the crate
+([`opensysml/release-digests.json`](opensysml/release-digests.json)); a pin
+resolved from outside the published artifact would not be a pin. The committed
+copy is synced from `client/release-digests.json`, and the release job adds the
+crate's own tag from the release checksum manifest when it packages a release.
+A `.sha256` served beside the binary that disagrees with a pin is tampering: the
+download is refused, and the cache is untouched.
 
 **Known limitation:** unlike the Python, Node and Java clients, this client does
 **not** verify the release's sigstore-signed `SHA256SUMS.txt` manifest

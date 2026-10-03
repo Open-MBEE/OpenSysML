@@ -1,0 +1,140 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Closures" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Sq"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (OperatorExpr operator="*"
+              (FeatureReference name="v")
+              (FeatureReference name="v")))))
+      (Membership visibility="default"
+        (Usage kind="calc" name="sqU" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Sq
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Apply"
+          (Membership visibility="default"
+            (Usage kind="calc" name="f" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Real
+                  (*ast.QualifiedName)))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (InvocationExpr type="f"
+              (FeatureReference name="a")))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Stored"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="b" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="g" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureReference name="sqU")))
+          (IfActionNode
+            (FeatureReference name="b")
+            (IfBranchNode kind="then"
+              (*ast.AssignmentActionNode)))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (InvocationExpr type="Apply"
+              (FeatureReference name="g")
+              (LiteralReal value="2.0")))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Mk"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Real
+                  (*ast.QualifiedName))
+                (OperatorExpr operator="*"
+                  (FeatureReference name="v")
+                  (FeatureReference name="k")))))
+          (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (FeatureReference name="s"))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Rec"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Real
+                  (*ast.QualifiedName))
+                (OperatorExpr operator="if"
+                  (OperatorExpr operator=">"
+                    (FeatureReference name="v")
+                    (LiteralReal value="3.0"))
+                  (FeatureReference name="v")
+                  (InvocationExpr type="s"
+                    (OperatorExpr operator="+"
+                      (FeatureReference name="v")
+                      (FeatureReference name="k")))))))
+          (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (InvocationExpr type="s"
+              (LiteralReal value="1.0")))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Same"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="k" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="or"
+              (OperatorExpr operator="=="
+                (InvocationExpr type="Mk"
+                  (FeatureReference name="k"))
+                (InvocationExpr type="Mk"
+                  (FeatureReference name="k")))
+              (OperatorExpr operator="==="
+                (InvocationExpr type="Mk"
+                  (FeatureReference name="k"))
+                (FeatureReference name="sqU"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Text"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="s" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=String
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=String
+              (*ast.QualifiedName))
+            (InvocationExpr type="StringFunctions::Substring"
+              (OperatorExpr operator="+"
+                (FeatureReference name="s")
+                (LiteralString value="\"!\""))
+              (LiteralInteger value="1")
+              (LiteralInteger value="2"))))))))

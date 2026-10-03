@@ -872,6 +872,9 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 			}
 		}
 		inv := runtime.Invocation{States: []*runtime.StateExecutor{exec}}
+		if duration == nil {
+			inv.Horizon = runtime.HorizonInitial()
+		}
 		return inv.Outcome(), nil
 	})
 }

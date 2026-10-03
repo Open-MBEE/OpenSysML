@@ -195,7 +195,22 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 // false when it declares none and the assumed 1..1 governs it instead.
 func (ctx *Context) extractMultiplicity(featureSym *symbols.Symbol) (r semantics.Range, stated bool) {
 	_, stated = ctx.model.semantics.MultiplicityOf(featureSym)
-	return ctx.model.semantics.EffectiveMultiplicityOf(featureSym), stated
+	r = ctx.model.semantics.EffectiveMultiplicityOf(featureSym)
+	if stated && (!r.Lower.Known || !r.Upper.Known) && featureSym.OwnerScope != nil {
+		// A bound naming a valued feature is model-level evaluable in the scope declaring it.
+		if scoped, ok := ctx.model.semantics.RangeIn(featureSym.OwnerScope, semantics.UsageMultiplicityOf(featureSym)); ok {
+			r = semantics.Range{Lower: knownBound(r.Lower, scoped.Lower), Upper: knownBound(r.Upper, scoped.Upper)}
+		}
+	}
+	return r, stated
+}
+
+// knownBound is plain, or scoped where plain is unknown.
+func knownBound(plain, scoped semantics.Bound) semantics.Bound {
+	if plain.Known {
+		return plain
+	}
+	return scoped
 }
 
 // extractDefaultValue returns the default-value expression for a feature (nil if none).

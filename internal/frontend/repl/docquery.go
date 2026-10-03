@@ -303,7 +303,11 @@ func (s *Session) queryValues(ctx *runtime.Context, value runtime.Value) ([]quer
 		if value.Sequence() == nil {
 			return nil, nil
 		}
-		return s.queryValueList(ctx, value.Sequence().Elements())
+		elements, err := ctx.HeldElements(value)
+		if err != nil {
+			return nil, err
+		}
+		return s.queryValueList(ctx, elements)
 	case runtime.ValSet:
 		if value.Set() == nil {
 			return nil, nil
