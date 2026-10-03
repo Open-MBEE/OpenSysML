@@ -229,7 +229,7 @@ func (m Model) addMemberSpliceDetails(i int, op Operation) (addMemberDetails, er
 	sp := splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}
 	introduced := []string{}
 	if takenName != "" {
-		introduced = append(introduced, takenName)
+		introduced = append(introduced, symbolName(takenName))
 	}
 	for _, target := range op.Redefines {
 		if names, ok := source.QualifiedNameSegments(target); ok && len(names) > 0 {

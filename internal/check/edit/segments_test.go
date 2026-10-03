@@ -475,6 +475,15 @@ func batchingOperations(spec segmentModel, rng *rand.Rand, caseIndex int) []Oper
 				{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", Redefines: []string{features[0]}, Value: "2.0"},
 			}
 		}
+		if caseIndex%31 == 0 {
+			adds = []Operation{
+				{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", MemberName: "x", Type: "Real"},
+				{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", MemberName: "'x'", Type: "Real"},
+			}
+			if caseIndex/31%2 == 1 {
+				adds[0].MemberName, adds[1].MemberName = adds[1].MemberName, adds[0].MemberName
+			}
+		}
 		ops := append([]Operation(nil), adds...)
 		if len(spec.importOwners) > 1 {
 			namedOwner := spec.importOwners[(ownerIndex+1)%len(spec.importOwners)]
@@ -509,11 +518,17 @@ func randomizedOperations(spec segmentModel, model Model, rng *rand.Rand, caseIn
 	ops := make([]Operation, 0, batchSize)
 	if caseIndex%8 == 0 {
 		name := fmt.Sprintf("child%d", caseIndex)
-		owner := spec.partOwner + "::" + name
+		memberName := name
+		ownerName := name
+		if caseIndex/8%2 == 1 {
+			memberName = "'" + name + "'"
+			ownerName = memberName
+		}
+		owner := spec.partOwner + "::" + ownerName
 		ops = append(ops,
-			Operation{Kind: OpAddMember, Owner: spec.partOwner, MemberKind: "part", MemberName: name, Type: spec.partType},
+			Operation{Kind: OpAddMember, Owner: spec.partOwner, MemberKind: "part", MemberName: memberName, Type: spec.partType},
 			Operation{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", MemberName: "x", Type: "Real", Value: "1.0"},
-			Operation{Kind: OpSetValue, Target: owner + "::x", Value: "2.0"},
+			Operation{Kind: OpSetValue, Target: spec.partOwner + "::" + name + "::x", Value: "2.0"},
 		)
 	}
 	for len(ops) < batchSize {
@@ -543,7 +558,8 @@ func randomSegmentOperation(spec segmentModel, model Model, rng *rand.Rand, case
 		}
 	case choice < 73:
 		owner := spec.batchOwner
-		name := fmt.Sprintf("generated%d_%d", caseIndex, opIndex)
+		names := []string{fmt.Sprintf("generated%d_%d", caseIndex, opIndex), "x", "'x'"}
+		name := names[rng.Intn(len(names))]
 		return Operation{
 			Kind: OpAddMember, Owner: owner, MemberKind: "attribute",
 			MemberName: name, Type: "Real", Value: memberValues[rng.Intn(len(memberValues))],
@@ -918,6 +934,50 @@ func TestSegmentsSplitAtDeclarationAndNameDependencies(t *testing.T) {
 	_, err := assertSegments(t, model, taken, []int{0, 1})
 	if editError(t, err).OperationIndex != 1 {
 		t.Fatalf("name collision index = %d, want 1", editError(t, err).OperationIndex)
+	}
+}
+
+func TestSegmentsQuotedDuplicateMemberNames(t *testing.T) {
+	model := quickModel("quoted-names.sysml", `package P {
+    part def Vehicle { attribute mass : Real; }
+    part v0 : Vehicle {}
+}
+`)
+	for _, tc := range []struct {
+		name  string
+		first string
+		next  string
+	}{
+		{name: "unquoted then quoted", first: "x", next: "'x'"},
+		{name: "quoted then unquoted", first: "'x'", next: "x"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ops := []Operation{
+				{Kind: OpAddMember, Owner: "P::v0", MemberKind: "attribute", MemberName: tc.first, Type: "Real"},
+				{Kind: OpAddMember, Owner: "P::v0", MemberKind: "attribute", MemberName: tc.next, Type: "Real"},
+			}
+			_, err := assertSegments(t, model, ops, []int{0, 1})
+			got := editError(t, err)
+			if got.Failure != FailureMemberNameTaken || got.OperationIndex != 1 {
+				t.Fatalf("refusal = %s at %d (%s), want %s at 1",
+					got.Failure, got.OperationIndex, got.Message, FailureMemberNameTaken)
+			}
+		})
+	}
+}
+
+func TestSegmentsQuotedOwnersMatchParsedNames(t *testing.T) {
+	model := quickModel("quoted-owner.sysml", `package P {
+    part def Vehicle { attribute mass : Real; }
+}
+`)
+	ops := []Operation{
+		{Kind: OpAddMember, Owner: "P", MemberKind: "part", MemberName: "'w'", Type: "Vehicle"},
+		{Kind: OpAddMember, Owner: "P::w", MemberKind: "attribute", MemberName: "x", Type: "Real"},
+		{Kind: OpAddMember, Owner: "P::'w'", MemberKind: "attribute", MemberName: "y", Type: "Real"},
+	}
+	if _, err := assertSegments(t, model, ops, []int{0, 1}); err != nil {
+		t.Fatalf("quoted owner operations failed: %v", err)
 	}
 }
 

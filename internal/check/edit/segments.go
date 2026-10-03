@@ -307,8 +307,11 @@ func (s *editSegment) namesIndependent(c segmentCandidate) bool {
 	if s.names.hasAncestor(c.path) {
 		return false
 	}
-	if c.add != nil && c.add.takenName != "" && s.ownerNames[c.add.owner][c.add.takenName] {
-		return false
+	if c.add != nil {
+		takenName := symbolName(c.add.takenName)
+		if takenName != "" && s.ownerNames[c.add.owner][takenName] {
+			return false
+		}
 	}
 	return true
 }
