@@ -781,6 +781,7 @@ and not from a disagreement alone.
 | `org.omg.sysml.xtext` — `SysMLValidator`/`KerMLValidator`, invocation argument count | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | an invocation that leaves a default-less `in` parameter unbound validates clean in every form: positional (`F(1.0)`, `F()` against `calc def F { in x : Real; in y : Real; … }`), named (`F(x = 1.0)`, `F(y = 2.0)`), with the omitted parameter declared `[1]` or `[1..*]`, on a calc, a behavior (`Act(1.0).r`, `Act()`), a constructor (`new P()`, `new P(1.0).q`) and an invocation heading a feature chain; only an argument past the last parameter is reported, `Must correspond to one input parameter of the invoked type` (`arity.sysml:38:32` for `F(1.0, 2.0, 3.0)`; `arity.kerml:30:30` for the KerML twin). The pinned evaluator forms and evaluates the same calls: `F(1.0)`, `F(x = 1.0)`, `F(y = 2.0)` and `F()` answer the unreduced `OperatorExpression +`, `F(1.0, 2.0)` `LiteralRational 3.0`, `D(1.0)` (`in y default 1.0`) `2.0`, `Opt(1.0)` (`in y [0..1]`) `1.0` | established by running the pinned `validate-sysml-batch` and `validate-kerml` over a 20-form probe of the above and `build/pilot-evaluator/eval-sysml --cases` over its evaluable rows (transcript below); earlier, `2026-05` (0.60.1) over the whole `airbus/apollo-11-sysml-v2` model at `6e9c93f` was silent on `ln(m0 / mf)` and `calculateDeltaV(isp, initialMass, finalMass)` ([performance.md](../internals/performance.md#a-real-model-apollo-11)), and the pilot's own `kerml-examples/Simple Tests/Behaviors.kerml:14` (`A().y` against `behavior A { in x; … }`) is silent under `validate-kerml` with `ParsingTests_Behaviors.kerml.xt` declaring the file error-free. **Adjudicated as the specification's reading, not a pilot defect:** KerML 1.0 §8.3.4.8.8 lists no `InvocationExpression` constraint on the count of arguments — `validateInvocationExpressionParameterRedefinition` and `…NoDuplicateParameterRedefinition` bound each argument *written* to one input, and the pinned validator's `Must correspond to one input parameter`, `Parameter already bound` and `Must be an in parameter` are those — so the unbound parameter is a property of the instance the call describes, not of the expression. OpenSysML therefore reports the omission as the advisory `unbound-parameter` (a warning in every conformance mode) identically at a bare call and at a chain head, and refuses the evaluation at run time with `ErrUnboundParameter` | **not filed** — a question, not a defect report, drafted below; a maintainer may still want to confirm the reading |
 | `org.omg.sysml.xtext` — `SysMLValidator.isDuration`/`isTime`, behind `validateTriggerInvocationActionAfterArgument` and `…AtArgument` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | with `d : DurationValue` and `t : TimeInstantValue`, `accept after d * d` and `accept at t * t` validate clean although the product has dimension T², while `accept after 10 [m] / 2 [m/s]`, whose quotient has dimension T, is refused | established from the pinned `SysMLValidator` class: an operator argument is a duration or an instant when its operator is one of `-`, `+`, `*`, `%`, `^`, `**` (`isQuantityOperator`) and every operand is itself one — `/` is not in the list and no dimension is computed; reproduced with the pinned batch validator, transcript below | **not filed** — question drafted below, awaiting maintainer authorisation |
 | `org.omg.sysml.interactive` — the expression evaluator over `OccurrenceFunctions` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | `OccurrenceFunctions::'==='(w1, w1)` evaluates to `false` while `w1 === w1` and `BaseFunctions::'==='(w1, w1)` evaluate to `true`; `isDuring(1)` and `isDuring("x")` evaluate to `true`; `create`, `destroy`, `addNew` and `addNewAt` answer their `occ` argument for any argument, an out-of-range `addNewAt` index included | established by evaluating the calls through the pinned pilot's own headless evaluator (`build/pilot-evaluator/eval-sysml --cases`, transcript below): the evaluator folds each declared body over the *declarations* (`x.portionOfLife == y.portionOfLife` over features no value has, `notEmpty(during)` over the function's own feature) rather than over occurrences, so its answers contradict its own operator | **not filed** — question drafted below, awaiting maintainer authorisation |
+| `org.omg.sysml.xtext` — the accessible-feature check on succession ends | `2026-08` (`jupyter-sysml-kernel` 0.62.0) | a package-owned succession whose ends name members of one type by qualified name (`first r::move then r::grip;` with `part r : Robot`) reports `Must be an accessible feature (use dot notation for nesting)` at each end, while `connect r::move to r::grip;` with the same ends validates clean | established by running the pinned `validate-sysml-batch` on the two models below. KerML §8.3.4.5.3 `deriveConnectorDefaultFeaturingType` and the implied TypeFeaturing of §8.4.4.6.1 (Table 11 note 2) feature both by `Robot`, so both are well formed. OpenSysML follows the specification ([spec-pilot-gap-register.md](spec-pilot-gap-register.md#21-a-succession-whose-ends-are-qualified-names)) | **not filed** — question drafted below, awaiting maintainer authorisation |
 
 ### `Type::ownedDisjoining` does not contain a `Disjoining` whose `owningType` is that `Type` (pilot `2026-05`)
 
@@ -1666,6 +1667,46 @@ the references are still being linked — computing `memberName` for one use res
 `h2`, which asks the sibling use for *its* `memberName`, which resolves `a` again — rather than
 on anything in the model. Is the bodiless outcome intended, or should (2), (3) and (6) report
 what (4) and (5) do?
+````
+
+### A succession whose ends are qualified names is rejected, the same connector accepted (pilot `2026-08`)
+
+**Not filed.** Drafted here for a maintainer to authorise. Nothing has been posted upstream.
+OpenSysML accepts and executes these successions. The derivation is in
+[behavior-semantic-oracle.md](behavior-semantic-oracle.md#a-succession-outside-a-behavior-body-orders-the-performances-it-relates-wherever-they-run).
+
+````markdown
+### A package-owned succession with qualified-name ends is rejected as not accessible
+
+**Version:** `2026-08` (`jupyter-sysml-kernel` 0.62.0, `validate-sysml-batch` over the shipped
+standard library).
+
+#### Minimal reproduction
+
+```sysml
+package R {
+    part def Robot { perform action move; perform action grip; }
+    part r : Robot;
+    first r::move then r::grip;
+}
+```
+
+#### Expected
+
+No diagnostics. Both ends are members of `Robot`, so under KerML 1.0 §8.3.4.5.3
+(`deriveConnectorDefaultFeaturingType`) the succession's `defaultFeaturingType` is `Robot`.
+Because it has no owning type, §8.4.4.6.1 (Table 11 note 2) adds an implied TypeFeaturing to
+`Robot`, which satisfies `checkConnectorTypeFeaturing`.
+
+#### Actual
+
+```
+nsq.sysml:4:11: error: Must be an accessible feature (use dot notation for nesting)
+nsq.sysml:4:24: error: Must be an accessible feature (use dot notation for nesting)
+```
+
+Replacing the succession with `connect r::move to r::grip;` validates clean, and so does the
+dot-chain succession `first r.move then r.grip;`.
 ````
 
 ---

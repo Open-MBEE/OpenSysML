@@ -731,6 +731,9 @@ func (m *Model) ConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
 // attachmentPath resolves an end attachment and each of its chain prefixes,
 // outermost first; nil where any prefix resolves to nothing.
 func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+	if m == nil || m.resolver == nil || node == nil {
+		return nil
+	}
 	var prefixes []ast.Node
 	for n := node; n != nil; {
 		prefixes = append(prefixes, n)

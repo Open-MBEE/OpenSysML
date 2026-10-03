@@ -39,7 +39,9 @@ was produced by it.
 10. [Recording analysis runs](recording-analysis-runs.md) — writing the runs a
     case makes into the model as `AnalysisRecords` elements, and reading them
     back with document queries
-11. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+11. [Importing data into a model](importing-data.md) — setting feature values
+    from CSV, TSV, JSON or JSON Lines files
+12. [Limitations and troubleshooting](troubleshooting.md) — the typed error
     catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it

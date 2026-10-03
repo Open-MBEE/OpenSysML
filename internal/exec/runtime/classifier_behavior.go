@@ -50,6 +50,8 @@ type ObjectBehavior struct {
 	// typeBound marks the behavior bound by the object's type at materialization
 	// or restart, rather than started by an explicit `perform obj.beh.start`.
 	typeBound bool
+	ctx       *Context
+	deferred  *classifierBehaviorDecl
 }
 
 // Describe names the behavior and the object running it, for diagnostics.
@@ -674,17 +676,24 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 // runs everything attached.
 func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 	defer ctx.holdDrivenWork()()
+	ctx.noteRefusedBehaviorOrders(inst)
 	for _, typ := range inst.types() {
 		for i, decl := range ctx.classifierBehaviorsOf(typ) {
 			if ctx.runsBound(inst, decl.member, typ) {
 				continue
 			}
-			if ctx.trace != nil {
-				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+			var behavior *ObjectBehavior
+			var err error
+			if ctx.shouldDeferBehavior(inst, decl.member) {
+				behavior, err = ctx.deferredBehaviorFor(inst, decl, i)
+			} else {
+				if ctx.trace != nil {
+					ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+				}
+				ctx.attachBehavior(inst, decl.member)
+				behavior, err = ctx.attachClassifierBehavior(inst, decl)
+				ctx.behaviorAttached(inst, decl.member)
 			}
-			ctx.attachBehavior(inst, decl.member)
-			behavior, err := ctx.attachClassifierBehavior(inst, decl)
-			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
 				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
 					if behavior != nil {
@@ -698,8 +707,10 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
 			ctx.behaviorsAttached++
-			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+			if behavior.deferred == nil {
+				ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
+			}
 			ctx.workChanged()
 		}
 	}
@@ -914,28 +925,79 @@ func behaviorsExcept(behaviors []*ObjectBehavior, dropped map[*ObjectBehavior]bo
 // event a sibling's send put in flight. Bounded by the event budget, so
 // endlessly signalling objects report a typed error instead of spinning.
 func (ctx *Context) drainObjectBehaviors() error {
+	_, err := ctx.drainObjectBehaviorsUntil(nil, nil)
+	return err
+}
+
+func (ctx *Context) drainObjectBehaviorsUntil(progress *dueProgress, halted func() bool) (bool, error) {
 	for rounds := int64(0); ; rounds++ {
 		if rounds >= ctx.maxStateEvents {
-			return budgetExceeded(ErrStateEventLimitExceeded,
+			return false, budgetExceeded(ErrStateEventLimitExceeded,
 				fmt.Sprintf("%s: exceeded max events (%d rounds; raise %s to allow more), possible non-terminating exchange between objects",
 					ErrBehaviorBudget, ctx.maxStateEvents, MaxStateEventsEnvVar), ErrBehaviorBudget)
 		}
 		behavior, ok := ctx.nextRunnableBehavior()
 		if !ok {
-			return nil
+			return false, ctx.successionCycle()
 		}
-		if ctx.trace != nil {
-			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+		if err := ctx.runAttachedBehavior(behavior, progress); err != nil {
+			return false, err
 		}
-		if err := behavior.run(); err != nil {
-			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
-			if recordsFailure(behavior, err) {
-				ctx.endFailedPerformance(behavior, wrapped)
-				continue
-			}
-			return wrapped
+		if halted != nil && halted() {
+			return true, nil
 		}
 	}
+}
+
+func (ctx *Context) runAttachedBehavior(behavior *ObjectBehavior, progress *dueProgress) error {
+	if behavior.deferred != nil {
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return ctx.handleBehaviorRunError(behavior, err)
+		}
+		if behavior.Err != nil {
+			return nil
+		}
+	}
+	if ctx.trace != nil {
+		ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+	}
+	var moved bool
+	var waiter clockWaiter
+	var err error
+	if progress == nil {
+		err = behavior.run()
+	} else if behavior.State != nil {
+		waiter = behavior.State
+		moved, err = behavior.State.runDue(progress)
+	} else if behavior.Action != nil {
+		waiter = behavior.Action
+		moved, err = behavior.Action.runDue(progress)
+	} else {
+		err = behavior.run()
+	}
+	if err = ctx.handleBehaviorRunError(behavior, err); err != nil {
+		return err
+	}
+	if progress != nil && waiter != nil {
+		if moved {
+			progress.unsettle()
+		} else {
+			progress.settle(waiter)
+		}
+	}
+	return nil
+}
+
+func (ctx *Context) handleBehaviorRunError(behavior *ObjectBehavior, err error) error {
+	if err == nil || behavior == nil {
+		return err
+	}
+	wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+	if recordsFailure(behavior, err) {
+		ctx.endFailedPerformance(behavior, wrapped)
+		return nil
+	}
+	return wrapped
 }
 
 // nextRunnableBehavior returns the next behavior with work to do: one not yet
@@ -998,6 +1060,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 func (b *ObjectBehavior) hasPendingWork() bool {
 	if b.Err != nil {
 		return false
+	}
+	if b.deferred != nil {
+		return b.ctx != nil && !b.ctx.lifeEnded(b.Object) && b.ctx.deferredBehaviorReady(b)
 	}
 	switch {
 	case b.State != nil:
@@ -1098,6 +1163,7 @@ func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehavi
 		member:   decl.member,
 		bindings: chain,
 		kinds:    ctx.behaviorKinds(chain),
+		ctx:      ctx,
 	}
 	var occurrence *Instance
 	switch decl.behavior.Kind {

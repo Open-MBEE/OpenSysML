@@ -79,6 +79,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W11AKerMLSpecializationPass{})
 	reg.Register(behavior.ControlNodeSuccessionPass{})
 	reg.Register(behavior.ActionStepMultiplicityPass{})
+	reg.Register(BehaviorOrderPass{})
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	reg.Register(NestedRedefinitionPass{})
