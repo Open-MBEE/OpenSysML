@@ -8,11 +8,11 @@ import (
 
 // successionFlow reports whether the object flow e is written as a succession flow,
 // which orders its target action after its source as well as carrying the value:
-// it joins pins of two actions of the activity that fire, under no guard but true,
-// from no streaming parameter to none, a value travels it, and it is the succession
-// its target waits on; or it enters or leaves a node passing objects through as the
-// succession between its ends, under no guard. A source whose end is stamped leads
-// on through its stamp instead. Settled once the data waits and timings are.
+// it joins pins of two actions of the activity that fire, from no streaming parameter
+// to none, a value travels it, and it is the succession its target waits on, guarded
+// only where its target is entered directly; or it enters or leaves a node passing objects
+// through as the succession between its ends, under no guard. A source whose end is
+// stamped leads on through its stamp instead. Settled once the data waits and timings are.
 func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	if v, ok := a.succFlow[e]; ok {
 		return v
@@ -25,7 +25,8 @@ func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	case a.through[src] || a.through[tgt]:
 		v = e.Type == "ObjectFlow" && !realGuard(e) && !a.dataOnly[e] && slices.Contains(a.succ[ownerNode(src)], e)
 	default:
-		v = a.joinsActions(e) && !realGuard(e) && slices.Contains(a.succ[src.Parent], e) && a.carriesValue(e)
+		v = a.joinsActions(e) && (!realGuard(e) || a.flowEntry(tgt.Parent) == "") &&
+			slices.Contains(a.succ[src.Parent], e) && a.carriesValue(e)
 	}
 	a.succFlow[e] = v
 	return v
@@ -207,7 +208,15 @@ func (a *activity) keepOrder(e *sysmlv1.Element) {
 	if !ok || entry == "" {
 		return
 	}
-	a.m.w.line(firstKw + writeName(name) + thenKw + entry + ";")
+	g := a.guard(e, "")
+	a.m.w.lines(g.comment)
+	a.m.w.line(firstKw + writeName(name) + g.expr + thenKw + entry + ";")
+}
+
+// gatedFlow reports whether e is a succession flow under a guard, written as the target
+// of a guarded succession from its source: `first a if g then f; succession flow f ...;`.
+func (a *activity) gatedFlow(e *sysmlv1.Element) bool {
+	return a.successionFlow(e) && realGuard(e)
 }
 
 // hasParameter reports whether a call's input pin is written: an untyped call

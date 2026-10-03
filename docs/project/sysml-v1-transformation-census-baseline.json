@@ -12081,13 +12081,15 @@
       "implementation": [
         "internal/translate/migrate/objectflows.go:realGuard",
         "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12111,13 +12113,15 @@
       "implementation": [
         "internal/translate/migrate/objectflows.go:realGuard",
         "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12142,13 +12146,15 @@
       "implementation": [
         "internal/translate/migrate/objectflows.go:realGuard",
         "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12173,13 +12179,15 @@
       "implementation": [
         "internal/translate/migrate/objectflows.go:realGuard",
         "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12204,13 +12212,15 @@
       "implementation": [
         "internal/translate/migrate/objectflows.go:realGuard",
         "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12503,7 +12513,7 @@
         "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
         "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "a guarded object flow is written as the guarded succession `first a if g then b` (a TransitionUsage) beside the `flow` carrying its value; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]

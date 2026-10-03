@@ -55,7 +55,7 @@ Activity	Pipeline::Gate	_gate	-> Pipeline::gate	(written as an action usage of P
 ActivityFinalNode	Pipeline::Gate::<ActivityFinalNode>	_gf	-> final
 ControlFlow	Pipeline::Gate::<ControlFlow>	_ge2
 InitialNode	Pipeline::Gate::<InitialNode>	_gi	-> start
-ObjectFlow	Pipeline::Gate::<ObjectFlow>	_go1	(the JavaScript body is translated to v2)
+ObjectFlow	Pipeline::Gate::<ObjectFlow>	_go1	-> Pipeline::gate::'produce.y to consume.v'	(the JavaScript body is translated to v2)
 OpaqueAction	Pipeline::Gate::consume	_gc	-> consume	(the JavaScript body is translated to v2)
 InputPin	Pipeline::Gate::consume::v	_gcv	-> Pipeline::gate::consume.v
 OpaqueAction	Pipeline::Gate::produce	_gp	-> produce	(the JavaScript body is translated to v2)

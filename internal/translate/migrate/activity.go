@@ -1941,6 +1941,13 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 		switch {
 		case a.successionFlow(e) && a.inert[s.Parent]:
 			defer a.keepOrder(e)
+		case a.gatedFlow(e):
+			if name == "" {
+				name = a.fresh(base)
+				a.m.w.madeUp(writeName(name))
+			}
+			a.gate(e, s.Parent, name)
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
 		case a.successionFlow(e):
 			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
 		}
@@ -1949,6 +1956,14 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
+}
+
+// gate writes the guarded succession from source that leads to the succession flow
+// named name, which e is written as: the flow moves its value only when the guard holds.
+func (a *activity) gate(e, source *sysmlv1.Element, name string) {
+	g := a.guard(e, "")
+	a.m.w.lines(g.comment)
+	a.m.w.line(firstKw + writeName(a.name(source, baseName(source))) + g.expr + thenKw + writeName(name) + ";")
 }
 
 // flowHead writes what a flow declares before its ends: its name and the type

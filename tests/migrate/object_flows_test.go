@@ -18,7 +18,8 @@ func TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects(t *testing.T) {
 		"out ref outputObject2 : ScalarValues::Real = inputObject1;",
 		"out ref outputObject1 : ScalarValues::Real nonunique = (inputObject1, inputObject2);",
 		"succession flow of ScalarValues::Real from pick.outputObject1 to consume.v;",
-		"first produce if on then consume;",
+		"first produce if on then 'produce.y to consume.v';\n" +
+			"        succession flow 'produce.y to consume.v' of ScalarValues::Real from produce.y to consume.v;",
 		"flow produce.y to feed.v;",
 	} {
 		if !strings.Contains(notation, want) {
@@ -94,4 +95,63 @@ func TestObjectFlowFromStampedActionFollowsTheStamp(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Line")
 	wantValues(t, runValues(t, s, "Line::hand", "Line"), map[string]string{"consume.v": "2.5"})
+}
+
+// rejectedFlow is an activity whose guarded object flow into consume is false,
+// while another action's flow also reaches the same pin.
+const rejectedFlow = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_line" name="Line">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_la" name="a"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/><defaultValue xmi:type="uml:LiteralReal" xmi:id="_la0" value="0.0"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ln" name="n"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/><defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ln0" value="0"/></ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lo" name="on"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/><defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_lo0" value="false"/></ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_pick" name="Pick">
+        <node xmi:type="uml:InitialNode" xmi:id="_pi"/>
+        <node xmi:type="uml:ForkNode" xmi:id="_pk" name="both"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pr" name="rejected">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_pry" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 1.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pa" name="accepted">
+          <outputValue xmi:type="uml:OutputPin" xmi:id="_pay" name="y"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></outputValue>
+          <language>JavaScript</language><body>y = 2.0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_pc" name="consume">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_pcv" name="v"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/></inputValue>
+          <language>JavaScript</language><body>a = v; n = n + 1;</body>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe1" source="_pi" target="_pk"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe2" source="_pk" target="_pr"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe3" source="_pk" target="_pa"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_po1" source="_pry" target="_pcv">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_pg"><language>JavaScript</language><body>on</body></guard>
+        </edge>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_po2" source="_pay" target="_pcv"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A guarded object flow is the target of its guarded succession, so a false guard
+// moves no value: consume, reached also from accepted, runs once on accepted's value.
+func TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse(t *testing.T) {
+	r := migrateDocument(t, rejectedFlow, `
+  <sysml:Block xmi:id="_lineB" base_Class="_line"/>`)
+	for _, line := range []string{
+		"first rejected if on then 'rejected.y to consume.v';",
+		"succession flow 'rejected.y to consume.v' of ScalarValues::Real from rejected.y to consume.v;",
+		"succession flow of ScalarValues::Real from accepted.y to consume.v;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "first rejected if on then consume;") {
+		t.Errorf("the guarded succession bypasses the flow:\n%s", r.Notation)
+	}
+	wantClean(t, "t.sysml", r)
+	s := session(t, r)
+	meta(t, s, "%instantiate Line")
+	wantValues(t, runValues(t, s, "Line::pick", "#1"), map[string]string{"consume.v": "2.0"})
+	if out := meta(t, s, "%eval in #1 : n"); !strings.Contains(out, "= 1") {
+		t.Errorf("consume ran other than once: %s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : a"); !strings.Contains(out, "= 2.0") {
+		t.Errorf("consume took the rejected value: %s", out)
+	}
 }

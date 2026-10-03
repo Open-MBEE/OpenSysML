@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -164,4 +165,48 @@ func TestRuntimeRobustnessObjectFlow(t *testing.T) {
 			t.Fatalf("run error = %v, want ErrDivisionByZero", err)
 		}
 	})
+	t.Run("rejected_gated_flow_into_a_required_pin_reached_by_control_deadlocks", func(t *testing.T) {
+		err := runObjectFlowCase(t, `package test {
+			private import ScalarValues::*;
+			action run {
+				first start then split;
+				fork split;
+				first split then a;
+				first split then c;
+				action a { out y : Integer; assign y := 1; }
+				action c;
+				first c then b;
+				first a if false then f;
+				succession flow f of Integer from a.y to b.v;
+				action b { in v : Integer [1]; }
+			}
+		}`)
+		if !errors.Is(err, ErrActionDeadlock) {
+			t.Fatalf("run error = %v, want ErrActionDeadlock", err)
+		}
+	})
+
+	for name, c := range map[string]struct{ flow, want string }{
+		"succession_leading_to_a_plain_flow_is_invalid": {
+			"flow f of Integer from a.y to b.v;", "leads to flow f, which is no succession flow"},
+		"succession_leading_to_a_flow_from_another_node_is_invalid": {
+			"succession flow f of Integer from c.y to b.v;", "leads to flow f, which leaves c, not a"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := runObjectFlowCase(t, `package test {
+				private import ScalarValues::*;
+				action run {
+					first start then a;
+					action a { out y : Integer; assign y := 1; }
+					action c { out y : Integer; assign y := 2; }
+					first a if true then f;
+					`+c.flow+`
+					action b { in v : Integer; }
+				}
+			}`)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("run error = %v, want one reading %q", err, c.want)
+			}
+		})
+	}
 }

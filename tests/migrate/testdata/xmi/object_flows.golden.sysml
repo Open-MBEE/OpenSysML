@@ -24,15 +24,15 @@ part def Pipeline {
             out y : ScalarValues::Real[1];
             assign y := 4.0;
         }
-        first produce if on then consume;
         action consume {
             in v : ScalarValues::Real[1];
             assign a := v;
         }
         first consume then final;
         action final terminate;
-        flow produce.y to consume.v;
-        metadata MigrationMetadata::SynthesizedName about final;
+        first produce if on then 'produce.y to consume.v';
+        succession flow 'produce.y to consume.v' of ScalarValues::Real from produce.y to consume.v;
+        metadata MigrationMetadata::SynthesizedName about final, 'produce.y to consume.v';
     }
     action spread {
         first start then produce;
