@@ -2,10 +2,7 @@ package codegen
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
-	"sync"
-	"unicode/utf8"
 )
 
 // cStrRuntime is the String runtime of a generated C program: UTF-8 bytes in
@@ -107,46 +104,23 @@ static uint32_t sysml_decode(const unsigned char *p, sysml_int n, int *w) {
 	return r;
 }
 
-/* Whether Go's strconv.IsPrint holds of r, so a quoted String shows it as it is. */
-static bool sysml_printable(uint32_t r) {
-	if (r < 0x80) return r >= 0x20 && r < 0x7F;
-	size_t lo = 0, hi = sizeof sysml_unprintable / sizeof sysml_unprintable[0];
-	while (lo < hi) {
-		size_t mid = (lo + hi) / 2;
-		if (r < sysml_unprintable[mid][0]) hi = mid;
-		else if (r > sysml_unprintable[mid][1]) lo = mid + 1;
-		else return false;
-	}
-	return true;
-}
-
-/* s as a double-quoted literal, escaped as Go's strconv.Quote escapes it. */
+/* s as the String literal that reads back to it: only the quote, the backslash and \b \t \n \f \r are escaped. */
 static const char *sysml_quote(sysml_str s) {
-	char *out = sysml_alloc((size_t)s.len * 4 + 3);
+	char *out = sysml_alloc((size_t)s.len * 2 + 3);
 	size_t k = 0;
 	out[k++] = '"';
-	for (sysml_int i = 0; i < s.len;) {
-		int w;
-		const unsigned char *p = (const unsigned char *)s.p + i;
-		uint32_t r = sysml_decode(p, s.len - i, &w);
-		i += w;
-		if (r == 0xFFFD && w == 1) { k += (size_t)sprintf(out + k, "\\x%02x", p[0]); continue; }
-		if (r == '"' || r == '\\') { out[k++] = '\\'; out[k++] = (char)r; continue; }
-		if (sysml_printable(r)) { memcpy(out + k, p, (size_t)w); k += (size_t)w; continue; }
-		const char *esc = NULL;
-		switch (r) {
-		case '\a': esc = "\\a"; break;
-		case '\b': esc = "\\b"; break;
-		case '\f': esc = "\\f"; break;
-		case '\n': esc = "\\n"; break;
-		case '\r': esc = "\\r"; break;
-		case '\t': esc = "\\t"; break;
-		case '\v': esc = "\\v"; break;
+	for (sysml_int i = 0; i < s.len; i++) {
+		char c = s.p[i], esc = 0;
+		switch (c) {
+		case '"': case '\\': esc = c; break;
+		case '\b': esc = 'b'; break;
+		case '\t': esc = 't'; break;
+		case '\n': esc = 'n'; break;
+		case '\f': esc = 'f'; break;
+		case '\r': esc = 'r'; break;
 		}
-		if (esc) { memcpy(out + k, esc, 2); k += 2; }
-		else if (r < ' ' || r == 0x7F) k += (size_t)sprintf(out + k, "\\x%02x", (unsigned)r);
-		else if (r < 0x10000) k += (size_t)sprintf(out + k, "\\u%04x", (unsigned)r);
-		else k += (size_t)sprintf(out + k, "\\U%08x", (unsigned)r);
+		if (esc) { out[k++] = '\\'; out[k++] = esc; }
+		else out[k++] = c;
 	}
 	out[k++] = '"';
 	out[k] = 0;
@@ -231,39 +205,6 @@ static sysml_str sysml_parse_str(const char *s, const char *name) {
 	return (sysml_str){k, out};
 }
 `
-
-// cUnprintable is the C table of the code point ranges at or above U+0080 that
-// strconv.IsPrint rejects, so the C program quotes as the interpreter does.
-var cUnprintable = sync.OnceValue(func() string {
-	var b strings.Builder
-	b.WriteString("static const uint32_t sysml_unprintable[][2] = {")
-	start := rune(-1)
-	n := 0
-	flush := func(end rune) {
-		if n%6 == 0 {
-			b.WriteString("\n\t")
-		} else {
-			b.WriteString(" ")
-		}
-		fmt.Fprintf(&b, "{0x%X, 0x%X},", start, end)
-		n++
-		start = -1
-	}
-	for r := rune(0x80); r <= utf8.MaxRune; r++ {
-		if !strconv.IsPrint(r) {
-			if start < 0 {
-				start = r
-			}
-		} else if start >= 0 {
-			flush(r - 1)
-		}
-	}
-	if start >= 0 {
-		flush(utf8.MaxRune)
-	}
-	b.WriteString("\n};\n")
-	return b.String()
-})
 
 // cStrLit is a String literal as a C sysml_str over static bytes.
 func cStrLit(s string) string {
