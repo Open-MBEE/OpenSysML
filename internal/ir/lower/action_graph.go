@@ -898,7 +898,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return l.succession(n.First, n.Successor, n.Guard, n, weight, "", nil, nil)
+	return l.succession(n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight})
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -1075,7 +1075,7 @@ func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool)
 	return nil, nil
 }
 
-func (l *actionEdgeLowerer) succession(sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string, sourceMultiplicity, targetMultiplicity *ast.Multiplicity) error {
+func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge ActionEdge) error {
 	sourceNode, err := l.endpoint(sourceRef, nil, true)
 	if err != nil {
 		return err
@@ -1090,11 +1090,8 @@ func (l *actionEdgeLowerer) succession(sourceRef, targetRef, guard, decl ast.Nod
 	if targetNode == nil {
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
-	l.addEdge(ActionEdge{
-		Source: sourceNode, Target: targetNode, Guard: guard, Decl: decl,
-		Probability: weight, Name: name,
-		SourceMultiplicity: sourceMultiplicity, TargetMultiplicity: targetMultiplicity,
-	})
+	edge.Source, edge.Target = sourceNode, targetNode
+	l.addEdge(edge)
 	return nil
 }
 
@@ -1184,16 +1181,13 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
 	name, _ := ast.EffectiveName(n)
-	return l.succession(
-		sourceRef,
-		targetRef,
-		nil,
-		n,
-		weight,
-		name,
-		n.ConnectorEnds[0].Multiplicity,
-		n.ConnectorEnds[1].Multiplicity,
-	)
+	return l.succession(sourceRef, targetRef, ActionEdge{
+		Decl:               n,
+		Probability:        weight,
+		Name:               name,
+		SourceMultiplicity: n.ConnectorEnds[0].Multiplicity,
+		TargetMultiplicity: n.ConnectorEnds[1].Multiplicity,
+	})
 }
 
 func hasDeclaredNodeMultiplicity(graph *ActionGraph, ends []*ast.ConnectorEnd) bool {
