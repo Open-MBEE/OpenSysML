@@ -224,8 +224,17 @@ func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
-	local := mapFrame(env.locals)
-	local.cells = env.localCells
+	local := env.bodyFrame(env.locals, env.localCells)
+	return local
+}
+
+// bodyFrame marks local values as part of the behavior run that owns the data frame.
+func (env *stmtEnv) bodyFrame(vars map[string]Value, cells *bodyCells) frame {
+	local := mapFrame(vars)
+	local.owner, local.perf = env.data.owner, env.data.perf
+	local.run, local.performed = env.data.run, env.data.performed
+	local.merged, local.firing = env.data.merged, env.data.firing
+	local.cells = cells
 	return local
 }
 
@@ -376,18 +385,13 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := mapFrame(e.env.locals)
-	root.cells = e.env.localCells
+	root := e.env.bodyFrame(e.env.locals, e.env.localCells)
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
-	for _, local := range e.env.frames {
-		frames = append(frames, mapFrame(local))
-	}
 	for i := range e.env.frames {
-		fr := len(frames) - len(e.env.frames) + i
-		frames[fr].cells = e.env.cells[i]
+		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i]))
 		index := i
-		frames[fr].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
+		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
 	e.frameBuf = frames
 	ec := &e.scratch
@@ -414,19 +418,16 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := mapFrame(e.env.locals)
-	root.cells = e.env.localCells
+	root := e.env.bodyFrame(e.env.locals, e.env.localCells)
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	if depth > len(e.env.frames) {
 		depth = len(e.env.frames)
 	}
 	for i, local := range e.env.frames[:depth] {
-		fr := mapFrame(local)
-		fr.cells = e.env.cells[i]
+		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i]))
 		index := i
-		fr.ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
-		frames = append(frames, fr)
+		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
 	return &EvalContext{
 		ctx: e.ctx, scope: scope, self: e.host.performer(),
@@ -701,11 +702,32 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		return e.block(s)
 	case lower.Effect:
 		return flowNext, e.host.effect(e, s)
+	case lower.Assert:
+		return flowNext, e.assert(s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
 	default:
 		return flowNext, fmt.Errorf("%s: unsupported statement %T", e.host.describe(), stmt)
 	}
+}
+
+// assert checks an assertion the flow has reached against the values in reach
+// here, a failing condition ending the run as a ViolationError.
+func (e *stmtEngine) assert(s lower.Assert) error {
+	if s.Sym == nil {
+		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNoConditions, e.host.describe())
+	}
+	ec := e.evalIn(s.Scope)
+	check := conditionCheck{
+		sym:     s.Sym,
+		kind:    "constraint",
+		what:    "assertion",
+		self:    ec.self,
+		frames:  slices.Clone(ec.frames),
+		negated: s.Node.IsNegated,
+	}
+	_, err := e.ctx.evaluateConditions(check, e.ctx.conditionsOf(s.Sym, e.ctx.chainMembers(s.Sym, s.Scope)))
+	return err
 }
 
 // declareUsage brings a body-local calc usage into force: the evaluation of it
@@ -980,6 +1002,13 @@ func (f *loopFrame) clone() bodyFrame {
 	return &c
 }
 
+// syncLoopCells keeps the loop frame's cell store aligned with its local frame.
+func (e *stmtEngine) syncLoopCells(f *loopFrame) {
+	if depth := len(e.env.cells); depth > 0 {
+		f.cells = e.env.cells[depth-1]
+	}
+}
+
 // enterLoop enters the frame the loop's body declares into, or re-enters the one a
 // paused loop ran in; leave restores what was around it.
 func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
@@ -1083,9 +1112,11 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 			}
 		}
 		clear(f.locals)
+		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 	}
 	flow, err = e.runBlock(stmt.Body)
+	e.syncLoopCells(f)
 	if err != nil || flow == flowReturn {
 		return flow, true, err
 	}
@@ -1165,10 +1196,13 @@ func (e *stmtEngine) forIteration(stmt lower.Loop, f *loopFrame, resumed bool) (
 	defer func() { e.endIteration(f, err) }()
 	if !resumed {
 		clear(f.locals)
+		e.syncLoopCells(f)
 		e.ctx.resetBodyCells(f.cells)
 		f.locals[stmt.Variable] = f.elements[f.iteration-1]
 	}
-	return e.runBlock(stmt.Body)
+	flow, err = e.runBlock(stmt.Body)
+	e.syncLoopCells(f)
+	return flow, err
 }
 
 // stmtLabel names a statement for a trace by what it does and, where it has
@@ -1193,16 +1227,11 @@ func stmtLabel(stmt lower.Statement) string {
 	case lower.If:
 		return "if"
 	case lower.Loop:
-		switch s.Kind {
-		case ast.LoopFor:
-			return "for " + s.Variable
-		case ast.LoopUntil:
-			return "loop until"
-		default:
-			return "while"
-		}
+		return loopLabel(s.Kind, s.Variable, s.Condition != nil)
 	case lower.Effect:
 		return s.Kind.String()
+	case lower.Assert:
+		return "assert " + ActionNodeName(s.Node)
 	case lower.Unsupported:
 		return s.Description
 	default:

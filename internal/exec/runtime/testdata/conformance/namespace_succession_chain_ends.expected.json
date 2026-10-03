@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::b",
+  "slots": {
+    "n": {"type": "Integer", "value": 1}
+  }
+}

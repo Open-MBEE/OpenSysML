@@ -893,7 +893,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_point", migrate.Mapped, "written as an action usage of Telescope, which a call on an object performs, so its body runs on the object and reaches its features")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
-	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
+	wantNote(t, r, "_call", migrate.Mapped, "")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Station")

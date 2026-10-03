@@ -50,5 +50,5 @@ stmt if
   eval literal true -> true
   stmt assign d
     eval literal 1 -> 1
-choice step 1: tokens 1@*ast.IfActionNode, 2@*ast.WhileLoopActionNode, 3@*ast.WhileLoopActionNode (unordered; took 3@*ast.WhileLoopActionNode first)
+choice step 1: tokens 1@if, 2@while, 3@for i (unordered; took 3@for i first)
 step 1: no active tokens

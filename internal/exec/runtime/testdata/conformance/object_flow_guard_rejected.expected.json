@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::pick",
+	"trace": true,
+	"outputs": {
+		"runs": {"type": "Integer", "value": 1},
+		"took": {"type": "Integer", "value": 2},
+		"b.v": {"type": "Integer", "value": 2}
+	}
+}

@@ -300,11 +300,14 @@ What the rows say about the current runtime:
   plane0.sats`) is rejected: the subject must denote one object. Assertions
   are therefore made on the block's configuration — one check for every
   occurrence that inherits the block's values — and on each diverging unit.
-- A collection whose lower bound exceeds 1 000 is not materialized: a plane
-  written `Spacecraft[1600]` validates but its assertions report
-  `multiplicity violation: lower bound too large or infinite` when checked.
-  Keep a fleet under that bound per usage — 32 planes of 400 rather than 8
-  of 1 600 — until the runtime holds occurrences sparsely.
+- A collection with a large lower bound is held sparsely: a plane written
+  `Spacecraft[1600]` holds 1 600 units, but a unit is made only when it is
+  read, so `size(plane.sats)` and `plane.sats#(7)` cost one object or none.
+  Work that reads every unit — a roll-up, a quantifier, listing them — is
+  bounded by the element budget (`OPENSYSML_MAX_ELEMENTS`, default
+  1 000 000) and reports `collection element limit exceeded` past it. A
+  lower bound of `*` (`[*..*]`) is never a count and reports
+  `multiplicity violation: infinite lower bound`.
 
 What would make these cheap is described in
 [scaling to very large models](../project/large-model-scaling-design.md),

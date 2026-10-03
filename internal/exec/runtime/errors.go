@@ -51,6 +51,10 @@ var (
 	// ErrMultiplicityViolation is returned when a feature value access/assignment violates multiplicity bounds.
 	ErrMultiplicityViolation = errors.New("multiplicity violation")
 
+	// ErrInfiniteLowerBound is returned when a collection is filled to a lower bound of *,
+	// which requires no finite number of values; it is a multiplicity violation.
+	ErrInfiniteLowerBound = fmt.Errorf("%w: infinite lower bound", ErrMultiplicityViolation)
+
 	// ErrUniquenessViolation is returned when a value written to a unique feature repeats one of its values.
 	ErrUniquenessViolation = errors.New("uniqueness violation")
 
@@ -305,6 +309,10 @@ var (
 	// ErrNodePin is returned when a pin read, flow, or binding names a feature the
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
+
+	// ErrAmbiguousMergeInput is returned when a token that no flow brought reaches a
+	// merge holding values plain flows left at more than one of its inputs.
+	ErrAmbiguousMergeInput = errors.New("merge input is ambiguous")
 
 	// ErrFlowSource is returned when a flow's source completes with its pin holding
 	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.

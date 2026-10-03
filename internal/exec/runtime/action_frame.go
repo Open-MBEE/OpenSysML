@@ -128,6 +128,9 @@ type actionFrame struct {
 	// pending queues what flows and bindings delivered to a node's pins ahead of
 	// its performances, each of which takes the oldest delivery at each pin.
 	pending map[ast.Node]map[string][]Value
+	// held queues what object flows delivered to the inputs of a fork, join or merge
+	// until a token passes it, each value with the flow that brought it.
+	held map[ast.Node]map[string][]nodeObject
 	// staged locates, per target node and pin, the queued value each streaming source
 	// performance's latest write left, which the source's next write replaces.
 	staged map[ast.Node]map[string][]stagedStream
@@ -655,10 +658,15 @@ func (f *actionFrame) path() string {
 		return ""
 	}
 	name := ActionNodeName(f.node)
-	if prefix := f.parent.path(); prefix != "" {
+	prefix := f.parent.path()
+	switch {
+	case name == "":
+		return prefix
+	case prefix == "":
+		return name
+	default:
 		return prefix + "." + name
 	}
-	return name
 }
 
 // declares reports whether the performance holds a feature of this name.

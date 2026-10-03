@@ -58,8 +58,14 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	if err := ctx.checkPerformer(inst); err != nil {
 		return fmt.Errorf("start %s %s: %w", decl.behavior.Kind, decl.behavior.Name, err)
 	}
-	if ctx.declarative || ctx.runsBound(inst, decl.member, typ) {
+	if ctx.declarative {
 		return nil
+	}
+	if ctx.runsBound(inst, decl.member, typ) {
+		return nil
+	}
+	if err := ctx.checkSuccessionOrderViolation(inst, decl.member); err != nil {
+		return err
 	}
 	defer ctx.beginRun()()
 	defer ctx.holdDrivenWork()()

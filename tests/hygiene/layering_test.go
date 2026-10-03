@@ -80,6 +80,7 @@ var packageLayer = map[string]string{
 	"internal/exec/analysis/modelform":  "exec",
 	"internal/exec/analysis/record":     "exec",
 	"internal/exec/simresults":          "exec",
+	"internal/exec/ingest":              "exec",
 	"internal/exec/engines":             "exec",
 	"internal/exec/fmi":                 "exec",
 	"internal/exec/hostcap":             "exec",

@@ -87,7 +87,12 @@ func (w *materializeWalk) walk(inst *Instance, depth int) {
 			w.errs = append(w.errs, err)
 			continue
 		}
-		nested := heldInstances(w.ctx, fv)
+		values, cut, err := w.ctx.heldUpTo(fv.HeldValue(), w.budget+1)
+		if err != nil {
+			w.errs = append(w.errs, err)
+		}
+		w.bounded = w.bounded || cut
+		nested := instancesOf(w.ctx, values)
 		w.budget -= len(nested)
 		for _, held := range nested {
 			if w.budget <= 0 {
@@ -119,18 +124,14 @@ func holdsVerdict(feat *EffectiveFeature) bool {
 	}
 }
 
-// heldInstances returns the objects a feature value holds, one or a collection of them;
-// an object standing for an unset value-typed feature reads as unset and is left out.
+// heldInstances returns the objects a feature value holds, one or a collection of them,
+// as they stand; an object standing for an unset value-typed feature reads as unset and is left out.
 func heldInstances(ctx *Context, fv *FeatureValue) []*Instance {
-	held := fv.HeldValue()
-	values := []Value{held}
-	switch held.Kind {
-	case ValSequence:
-		values = held.Sequence().Elements()
-	case ValSet:
-		values = held.Set().Elements()
-	}
+	return instancesOf(ctx, standingElements(fv.HeldValue()))
+}
 
+// instancesOf is the objects among values; one standing for an unset value-typed feature is left out.
+func instancesOf(ctx *Context, values []Value) []*Instance {
 	var out []*Instance
 	for _, val := range values {
 		id, ok := val.Object()
