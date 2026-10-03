@@ -1603,8 +1603,7 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 		if !ok {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
-		// An Integer magnitude keeps its kind, as the quantity operators keep it.
-		if num := kind.element(q.Num); q.Num.Kind != semantics.ValInt && num != q.Num {
+		if num := kind.element(q.Num); num != q.Num {
 			held := *q
 			held.Num = num
 			q = &held

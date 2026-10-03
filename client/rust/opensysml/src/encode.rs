@@ -687,7 +687,7 @@ mod tests {
                 "{value:?}"
             );
         }
-        assert!(!Value::Rational(third.clone()).same_value(&Value::Real(third.to_f64())));
+        assert!(Value::Rational(third.clone()).same_value(&Value::Real(third.to_f64())));
         let kilometres = Quantity {
             magnitude: Magnitude::Rational(third),
             unit: "km".to_owned(),

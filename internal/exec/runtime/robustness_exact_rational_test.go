@@ -17,6 +17,7 @@ func TestRuntimeRobustnessExactRational(t *testing.T) {
 	t.Run("denominator_growth_beyond_a_lowered_budget", testDenominatorGrowthBeyondALoweredBudget)
 	t.Run("power_beyond_the_size_budget", testRationalPowerBeyondTheSizeBudget)
 	t.Run("literal_beyond_the_size_budget", testRationalLiteralBeyondTheSizeBudget)
+	t.Run("conversion_beyond_a_lowered_budget", testRationalConversionBeyondALoweredBudget)
 	t.Run("division_by_zero", testRationalDivisionByZero)
 }
 
@@ -79,6 +80,38 @@ func testRationalLiteralBeyondTheSizeBudget(t *testing.T) {
 		if got, err := evalCollectionExpr(t, src); !errors.Is(err, semantics.ErrRationalSizeLimit) {
 			t.Errorf("%s = %s, %v; want %v", src, FormatValue(got), err, semantics.ErrRationalSizeLimit)
 		}
+	}
+}
+
+// ToRational reads its text under the run's budget, however few digits spell
+// it: eighteen fractional digits need 117 bits, past a 64-bit budget.
+func testRationalConversionBeyondALoweredBudget(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			calc read {
+				in s : String;
+				return : Rational = RationalFunctions::ToRational(s);
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	budgets := DefaultBudgets()
+	budgets.MaxIntegerBits = MinMaxIntegerBits
+	if err := ctx.SetBudgets(budgets); err != nil {
+		t.Fatal(err)
+	}
+	root := idx.DocumentRoot("<test>")
+	sym := findSymbolByName(root, "read", ast.DefCalc)
+	if sym == nil {
+		t.Fatal("read calc not found")
+	}
+	got, err := ctx.InvokeCalc(sym, []Value{NewStringValue("0.25")}, root)
+	if err != nil || got.Kind != ValConst || got.Const.FormatRational() != "0.25" {
+		t.Fatalf("ToRational(\"0.25\") = %s, %v; want 0.25", FormatValue(got), err)
+	}
+	if got, err := ctx.InvokeCalc(sym, []Value{NewStringValue("0.123456789012345678")}, root); !errors.Is(err, semantics.ErrRationalSizeLimit) {
+		t.Fatalf("ToRational of 18 digits under a 64-bit budget = %s, %v; want %v", FormatValue(got), err, semantics.ErrRationalSizeLimit)
 	}
 }
 

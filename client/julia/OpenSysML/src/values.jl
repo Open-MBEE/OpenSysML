@@ -667,6 +667,11 @@ function same_value(left, right)
         return length(left) == length(right) && all(same_value(a, b) for (a, b) in zip(left, right))
     elseif left isa AbstractSet && right isa AbstractSet
         return _same_unordered(left, right)
+    elseif left isa Rational && right isa AbstractFloat
+        # A Rational meets a Real at Real precision, as the service compares them.
+        return isequal(Float64(left), right)
+    elseif left isa AbstractFloat && right isa Rational
+        return isequal(left, Float64(right))
     end
     return isequal(left, right)
 end

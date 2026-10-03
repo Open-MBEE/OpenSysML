@@ -823,8 +823,11 @@ fn magnitudes_equal(a: &Magnitude, b: &Magnitude) -> bool {
         | (Magnitude::Real(r), Magnitude::BigInteger(n)) => n.equals_real(*r),
         (Magnitude::Integer(_), Magnitude::BigInteger(_))
         | (Magnitude::BigInteger(_), Magnitude::Integer(_)) => false,
-        // A rational is never whole and never an f64, so it is only the same rational.
         (Magnitude::Rational(x), Magnitude::Rational(y)) => x == y,
+        // A Rational meets a Real at Real precision, as the service compares them.
+        (Magnitude::Rational(q), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::Rational(q)) => q.to_f64() == *r,
+        // A rational is never whole, so it is no Integer.
         (Magnitude::Rational(_), _) | (_, Magnitude::Rational(_)) => false,
     }
 }
@@ -2239,6 +2242,7 @@ mod tests {
     #[test]
     fn same_value_judges_numbers_by_value() {
         let z = |real, imaginary| Value::Complex(Complex { real, imaginary });
+        let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
                 magnitude,
@@ -2275,6 +2279,18 @@ mod tests {
             (Value::Integer(2), z(2.0, 0.0), true),
             (Value::Integer(2), z(2.0, 1.0), false),
             (z(2.0, 1.0), z(2.0, 1.0), true),
+            (rational("1", "3"), Value::Real(1.0 / 3.0), true),
+            (rational("1", "3"), Value::Real(0.3333), false),
+            (
+                rational("1", "3"),
+                rational("6004799503160661", "18014398509481984"),
+                false,
+            ),
+            (
+                metre(Magnitude::Rational(Rational::parse("1", "3").unwrap())),
+                metre(Magnitude::Real(1.0 / 3.0)),
+                true,
+            ),
             (Value::Integer(1), Value::Boolean(true), false),
             (Value::Integer(1), Value::Text("1".to_owned()), false),
             (

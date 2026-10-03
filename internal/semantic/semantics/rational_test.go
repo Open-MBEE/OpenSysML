@@ -72,6 +72,11 @@ func TestParseRationalIsExact(t *testing.T) {
 			t.Errorf("ParseRational(%.20q, 128) = %v, want ErrRationalSizeLimit", text, err)
 		}
 	}
+	for _, text := range []string{"0.123456789012345678", "-123456789.123456789", "0.123456789012345678e0"} {
+		if _, err := ParseRational(text, 64); !errors.Is(err, ErrRationalSizeLimit) {
+			t.Errorf("ParseRational(%q, 64) = %v, want ErrRationalSizeLimit", text, err)
+		}
+	}
 	for _, text := range []string{"", "abc", "1.2.3", "NaN", "Inf", "0x1p3", "1e"} {
 		if _, err := ParseRational(text, DefaultMaxIntegerBits); !errors.Is(err, ErrRealNotation) {
 			t.Errorf("ParseRational(%q) = %v, want ErrRealNotation", text, err)

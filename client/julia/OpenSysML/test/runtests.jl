@@ -25,6 +25,8 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test encode_value(third) == Dict("rationalValue" => Dict("numerator" => "-1", "denominator" => "3"))
     @test encode_value(1//4) == Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "4"))
     @test OpenSysML.rationals_as_reals!(encode_value(1//4)) == Dict("realValue" => 0.25)
+    @test same_value(third, -1/3) && same_value(-1/3, third) && !same_value(third, -0.3333)
+    @test !same_value(1//3, 6004799503160661//18014398509481984)
     @test OpenSysML.rationals_as_reals!(encode_value(Any[1//3, 1//2])) ==
           Dict("sequence" => Dict("elements" => Any[
               Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "3")),

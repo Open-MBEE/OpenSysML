@@ -103,10 +103,11 @@ test("a terminating Rational prints as its decimal, any other as numerator/denom
   assert.equal(formatRational(rational(-7n, 3n)), "-7/3");
 });
 
-test("a Rational equals the number it is, Integer and Real alike, never rounding", () => {
+test("a Rational equals an Integer exactly and a Real at Real precision", () => {
   assert.ok(valuesEqual(rational(4n, 2n), { kind: "int", value: 2n }));
   assert.ok(valuesEqual(rational(1n, 2n), { kind: "real", value: 0.5 }));
-  assert.ok(!valuesEqual(tenth, { kind: "real", value: 0.1 }));
+  assert.ok(valuesEqual(tenth, { kind: "real", value: 0.1 }));
+  assert.ok(!valuesEqual(tenth, { kind: "real", value: 0.1 + 2 ** -56 }));
   assert.ok(!valuesEqual(third, rational(1n, 4n)));
   assert.ok(valuesEqual(third, rational(2n, 6n)));
   assert.ok(!valuesEqual(third, { kind: "real", value: Infinity }));

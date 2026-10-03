@@ -63,7 +63,7 @@ class RationalProtosTest {
     assertEquals(proto, Protos.proto(read));
     assertEquals(1.0 / 3.0, read.asDouble());
     assertTrue(read.sameValue(new Value.RationalValue(Rational.of(2, 6))));
-    assertFalse(read.sameValue(new Value.RealValue(1.0 / 3.0)));
+    assertTrue(read.sameValue(new Value.RealValue(1.0 / 3.0)));
     assertFalse(read.sameValue(new Value.IntegerValue(0)));
     var whole =
         org.openmbee.opensysml.proto.Value.newBuilder()

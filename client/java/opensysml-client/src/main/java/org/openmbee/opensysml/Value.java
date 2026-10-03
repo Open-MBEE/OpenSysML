@@ -822,11 +822,18 @@ public sealed interface Value {
   }
 
   private static boolean magnitudesEqual(Number a, Number b) {
+    if (a instanceof Rational && b instanceof Rational) {
+      return a.equals(b);
+    }
+    if (a instanceof Rational && b instanceof Double || a instanceof Double && b instanceof Rational) {
+      // A Rational meets a Real at Real precision, as the service compares them.
+      return a.doubleValue() == b.doubleValue();
+    }
     a = a instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : a;
     b = b instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : b;
     if (a instanceof Rational || b instanceof Rational) {
-      // A rational no double holds is never whole, so it equals only the same rational.
-      return a.equals(b);
+      // A rational no double holds is never whole, so it is no Integer.
+      return false;
     }
     if (a instanceof BigInteger x) {
       return b instanceof BigInteger y ? x.equals(y) : b instanceof Double r && realIsBig(r, x);

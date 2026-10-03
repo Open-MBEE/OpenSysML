@@ -1179,6 +1179,13 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
   if (a.kind === "real" && b.kind === "real") {
     return a.value === b.value;
   }
+  // A Rational meets a Real at Real precision, as the service compares them.
+  if (a.kind === "rational" && b.kind === "real") {
+    return rationalToNumber(a) === b.value;
+  }
+  if (a.kind === "real" && b.kind === "rational") {
+    return a.value === rationalToNumber(b);
+  }
   const x = exactOf(a);
   const y = exactOf(b);
   return x !== undefined && y !== undefined && x.numerator * y.denominator === y.numerator * x.denominator;

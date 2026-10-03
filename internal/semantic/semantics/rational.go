@@ -214,6 +214,14 @@ func sizedRat(r *big.Rat, maxBits int64) (Value, error) {
 	return RatValue(r), nil
 }
 
+// sizedValue is the exact number v, refused when its terms exceed maxBits.
+func sizedValue(v Value, maxBits int64) (Value, error) {
+	if bits := v.RatBitLen(); bits > maxBits {
+		return Value{}, RationalSizeExceeded(bits, maxBits)
+	}
+	return v, nil
+}
+
 // RatOf is the exact number v (Integer or Rational) as a Rational.
 func RatOf(v Value) Value {
 	if v.Kind == ValRational {
@@ -481,7 +489,7 @@ func ParseRational(text string, maxBits int64) (Value, error) {
 			n = -n
 		}
 		v, _ := FracValue(n, pow10(int64(len(frac))))
-		return v, nil
+		return sizedValue(v, maxBits)
 	}
 	digits := strings.TrimLeft(whole+frac, "0")
 	if digits == "" {
@@ -508,7 +516,7 @@ func ParseRational(text string, maxBits int64) (Value, error) {
 			n = -n
 		}
 		v, _ := FracValue(n, pow10(-scale))
-		return v, nil
+		return sizedValue(v, maxBits)
 	}
 	n, _ := new(big.Int).SetString(digits, 10)
 	if neg {
