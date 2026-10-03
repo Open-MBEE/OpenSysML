@@ -116,6 +116,7 @@ behavior engine, RDF exporter and document generator. The same runtime sits behi
     padding: 0;
     background: transparent;
     box-shadow: none;
+    color: inherit;
   }
   .osml-terminal .md-code__nav {
     display: none;
@@ -754,6 +755,7 @@ then evaluate, instantiate and execute against it.</p>
     var arg = sp < 0 ? '' : line.slice(sp + 1).trim();
     var fn = commands[cmd];
     if (fn) { fn(arg); return; }
+    if (cmd === '%eval') line = arg;
     if (!modelHash) { println('<span class="osml-err">✗ no model — %parse first</span>'); return; }
     var r = call('Evaluate', { modelHash: modelHash, expression: line });
     var res = r.result || {};
@@ -776,42 +778,42 @@ then evaluate, instantiate and execute against it.</p>
   <p>Execute a model's analysis cases — evaluated features with units carried and
   checked, objectives decided against what the run finds. The delta-v budget above
   is the <a href="https://github.com/Open-MBEE/OpenSysML/blob/develop/examples/runtime-showcase/README.md">runtime showcase</a>.</p>
-  <p class="osml-eco__links"><a href="guide/03-command-line/">The command line</a></p>
+  <p class="osml-eco__links"><a href="../guide/03-command-line/">The command line</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">sysml&gt;</span>
   <h3>Explore in a REPL</h3>
   <p>Parse, instantiate, evaluate and inspect a live session — every <code>%</code> command and
   its arguments, plus what keeps your model across restarts.</p>
-  <p class="osml-eco__links"><a href="guide/04-repl/">The REPL</a> · <a href="reference/repl-commands/">REPL commands</a></p>
+  <p class="osml-eco__links"><a href="../guide/04-repl/">The REPL</a> · <a href="../reference/repl-commands/">REPL commands</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">-check</span>
   <h3>Validate and check</h3>
   <p>Name resolution, typing and constraint tiers — and what a validator alone cannot
   reach, which the runtime modes below do.</p>
-  <p class="osml-eco__links"><a href="guide/05-checking/">Checking models</a></p>
+  <p class="osml-eco__links"><a href="../guide/05-checking/">Checking models</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">-run</span>
   <h3>Run behavior</h3>
   <p>Actions, state machines, calculations, analyses and requirements, run on a clock —
   with a step budget if a model does not finish on its own.</p>
-  <p class="osml-eco__links"><a href="guide/06-behavior/">Behavior</a></p>
+  <p class="osml-eco__links"><a href="../guide/06-behavior/">Behavior</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">-convert</span>
   <h3>Export RDF</h3>
   <p>Write a model out as Turtle for graph stores — the mapping, what is not mapped,
   and why the experimental flag is honest.</p>
-  <p class="osml-eco__links"><a href="guide/07-saving-and-rdf/">Saving and RDF</a> · <a href="reference/rdf-mapping/">RDF mapping</a></p>
+  <p class="osml-eco__links"><a href="../guide/07-saving-and-rdf/">Saving and RDF</a> · <a href="../reference/rdf-mapping/">RDF mapping</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">-render-document</span>
   <h3>Generate documents</h3>
   <p>Markdown, HTML and PDF documents driven by the model's own document queries —
   the full manual is a chapter of its own.</p>
-  <p class="osml-eco__links"><a href="manual/">Document generation manual</a></p>
+  <p class="osml-eco__links"><a href="../manual/">Document generation manual</a></p>
 </div>
 </div>
 
