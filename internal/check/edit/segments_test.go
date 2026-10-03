@@ -121,6 +121,10 @@ func quickModel(name, text string) Model {
 	return Model{Source: sf, Root: root, Index: idx, ParseDiags: p.Diagnostics}
 }
 
+func crlf(text string) string {
+	return strings.ReplaceAll(text, "\n", "\r\n")
+}
+
 type segmentModel struct {
 	name              string
 	text              string
@@ -265,6 +269,129 @@ part v1 : Vehicle { attribute mass : Real = 3.0; }
     part v0 : Vehicle { attribute mass : Real = 2.0; }
     part v1 : Vehicle { attribute mass : Real = 3.0; }
 }
+
+`,
+	},
+	{
+		name: "empty-owner-bodies", batchOwner: "P::v0", partOwner: "P::v0", partType: "P::Vehicle",
+		importOwners:      []string{"P::v0", "P::v1", "P::v2", "P::v3"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Vehicle::power"},
+		text: `package P {
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part v0 : Vehicle {}
+    part v1 : Vehicle { }
+    part v2 : Vehicle;
+    part v3 : Vehicle;
+}
+`,
+	},
+	{
+		name: "crlf-owner-bodies", batchOwner: "P::v0", partOwner: "P::v0", partType: "P::Vehicle",
+		importOwners:      []string{"P::v0", "P::v1", "P::v2", "P::v3"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		localTargets:      []string{"P::v2::local"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Vehicle::power"},
+		text: crlf(`package P {
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part v0 : Vehicle {}
+    part v1 : Vehicle;
+    part v2 : Vehicle { attribute local : Real = 2.0; }
+    part v3 : Vehicle { attribute local : Real = 3.0; }
+}
+`),
+	},
+	{
+		name: "closing-line-comment", batchOwner: "P::v0", partOwner: "P::v0", partType: "P::Vehicle",
+		importOwners:      []string{"P::v0", "P::v1", "P::v2", "P::v3"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		localTargets:      []string{"P::v0::local", "P::v2::local"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Vehicle::power"},
+		text: `package P {
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part v0 : Vehicle {
+        attribute local : Real = 1.0;
+    } // end
+    part v1 : Vehicle;
+    part v2 : Vehicle { attribute local : Real = 2.0; }
+    part v3 : Vehicle;
+}
+`,
+	},
+	{
+		name: "block-comment-before-close", batchOwner: "P::v0", partOwner: "P::v0", partType: "P::Vehicle",
+		importOwners:      []string{"P::v0", "P::v1", "P::v2", "P::v3"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		localTargets:      []string{"P::v0::local", "P::v2::local"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Vehicle::power"},
+		text: `package P {
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part v0 : Vehicle {
+        attribute local : Real = 1.0;
+        /* x */
+    }
+    part v1 : Vehicle;
+    part v2 : Vehicle { attribute local : Real = 2.0; }
+    part v3 : Vehicle;
+}
+`,
+	},
+	{
+		name: "member-on-close-line", batchOwner: "P::v0", partOwner: "P::v0", partType: "P::Vehicle",
+		importOwners:      []string{"P::v0", "P::v1", "P::v2", "P::v3"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		localTargets:      []string{"P::v0::local", "P::v2::local"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Vehicle::power"},
+		text: `package P {
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part v0 : Vehicle {
+        attribute local : Real = 1.0; }
+    part v1 : Vehicle;
+    part v2 : Vehicle { attribute local : Real = 2.0; }
+    part v3 : Vehicle;
+}
+`,
+	},
+	{
+		name: "same-line-owners", batchOwner: "P::a", partOwner: "P::a", partType: "P::Vehicle",
+		importOwners:      []string{"P::a", "P::b", "P::c::battery", "P::d::battery"},
+		inheritedFeatures: []string{"mass", "power", "cost"},
+		valueTargets:      []string{"P::Vehicle::mass", "P::Battery::power"},
+		text: `package P {
+    part def Battery {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+    }
+    part def Vehicle {
+        attribute mass : Real;
+        attribute power : Real;
+        attribute cost : Real;
+        part battery : Battery;
+    }
+    part a : Vehicle; part b : Vehicle;
+    part c : Vehicle { part :>> battery; } part d : Vehicle { part :>> battery; }
+}
 `,
 	},
 }
@@ -348,17 +475,26 @@ func batchingOperations(spec segmentModel, rng *rand.Rand, caseIndex int) []Oper
 				{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", Redefines: []string{features[0]}, Value: "2.0"},
 			}
 		}
-		if len(spec.localTargets) > 0 {
-			localIndex := ownerIndex % len(spec.localTargets)
-			set := Operation{Kind: OpSetValue, Target: spec.localTargets[localIndex], Value: fmt.Sprintf("%d.0", caseIndex+7)}
-			insertAt := caseIndex % (len(adds) + 1)
-			ops := make([]Operation, 0, len(adds)+1)
-			ops = append(ops, adds[:insertAt]...)
-			ops = append(ops, set)
-			ops = append(ops, adds[insertAt:]...)
-			return ops
+		ops := append([]Operation(nil), adds...)
+		if len(spec.importOwners) > 1 {
+			namedOwner := spec.importOwners[(ownerIndex+1)%len(spec.importOwners)]
+			ops = append(ops, Operation{
+				Kind: OpAddMember, Owner: namedOwner, MemberKind: "attribute",
+				MemberName: fmt.Sprintf("named%d", caseIndex), Type: "Real", Value: "1.0",
+			})
 		}
-		return adds
+		targets := spec.valueTargets
+		if len(spec.localTargets) > 0 {
+			targets = spec.localTargets
+		}
+		if len(targets) > 0 {
+			set := Operation{Kind: OpSetValue, Target: targets[ownerIndex%len(targets)], Value: fmt.Sprintf("%d.0", caseIndex+7)}
+			insertAt := caseIndex % (len(ops) + 1)
+			ops = append(ops, Operation{})
+			copy(ops[insertAt+1:], ops[insertAt:])
+			ops[insertAt] = set
+		}
+		return ops
 	}
 	for i := 0; i < count; i++ {
 		adds = append(adds, Operation{
@@ -476,7 +612,8 @@ func assertSegments(t *testing.T, model Model, ops []Operation, wantStarts []int
 	got, starts, gotErr := apply(model, ops, false)
 	want, sequentialStarts, wantErr := apply(model, ops, true)
 	if field := firstDifference(got, gotErr, want, wantErr); field != "" {
-		t.Fatalf("sequential mismatch at %s: got %v, want %v", field, gotErr, wantErr)
+		t.Fatalf("sequential mismatch at %s: gotErr=%v wantErr=%v\ngot bytes: %q\nwant bytes: %q\nops=%#v",
+			field, gotErr, wantErr, resultBytes(got), resultBytes(want), ops)
 	}
 	if !reflect.DeepEqual(starts, wantStarts) {
 		t.Fatalf("segment starts = %v, want %v (error: %v)", starts, wantStarts, gotErr)
@@ -498,6 +635,13 @@ func assertSegments(t *testing.T, model Model, ops []Operation, wantStarts []int
 		t.Fatalf("sequential starts = %v, want %v", sequentialStarts, wantSequentialStarts)
 	}
 	return got, gotErr
+}
+
+func resultBytes(result *Result) []byte {
+	if result == nil {
+		return nil
+	}
+	return result.Content
 }
 
 func compactModel() Model {
@@ -607,6 +751,73 @@ func TestSegmentsChainBodylessMemberInsertions(t *testing.T) {
 		{Kind: OpAddMember, Owner: "P::v0", MemberKind: "attribute", MemberName: "beta", Type: "Real"},
 	}
 	assertSegments(t, bodyful, bodyfulOps, []int{0})
+}
+
+func segmentModelByName(t *testing.T, name string) segmentModel {
+	t.Helper()
+	for _, spec := range segmentModels {
+		if spec.name == name {
+			return spec
+		}
+	}
+	t.Fatalf("missing segment model %q", name)
+	return segmentModel{}
+}
+
+func insertionLayoutOperations(spec segmentModel) []Operation {
+	firstOwner := spec.importOwners[0]
+	secondOwner := spec.importOwners[1]
+	ops := []Operation{
+		{Kind: OpAddMember, Owner: firstOwner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[0]}, Value: "1.0"},
+		{Kind: OpAddMember, Owner: firstOwner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[1]}, Value: "2.0"},
+		{Kind: OpAddMember, Owner: firstOwner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[2]}, Value: "3.0"},
+		{Kind: OpSetValue, Target: spec.valueTargets[0], Value: "8.0"},
+		{Kind: OpAddMember, Owner: secondOwner, MemberKind: "attribute", MemberName: "namedMember", Type: "Real", Value: "4.0"},
+		{Kind: OpAddMember, Owner: secondOwner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[0]}, Value: "5.0"},
+		{Kind: OpAddMember, Owner: secondOwner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[1]}, Value: "6.0"},
+	}
+	for ownerIndex := 2; ownerIndex < len(spec.importOwners); ownerIndex++ {
+		owner := spec.importOwners[ownerIndex]
+		ops = append(ops,
+			Operation{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[0]}, Value: "7.0"},
+			Operation{Kind: OpAddMember, Owner: owner, MemberKind: "attribute", Redefines: []string{spec.inheritedFeatures[1]}, Value: "8.0"},
+		)
+	}
+	return ops
+}
+
+func assertInsertionLayout(t *testing.T, name string, wantStarts []int) {
+	t.Helper()
+	spec := segmentModelByName(t, name)
+	model := quickModel(spec.name+".sysml", spec.text)
+	_, err := assertSegments(t, model, insertionLayoutOperations(spec), wantStarts)
+	if err != nil {
+		t.Fatalf("layout operations failed: %v", err)
+	}
+}
+
+func TestSegmentsChainEmptyOwnerBodies(t *testing.T) {
+	assertInsertionLayout(t, "empty-owner-bodies", []int{0})
+}
+
+func TestSegmentsChainCRLFOwnerBodies(t *testing.T) {
+	assertInsertionLayout(t, "crlf-owner-bodies", []int{0})
+}
+
+func TestSegmentsChainClosingBraceLineComment(t *testing.T) {
+	assertInsertionLayout(t, "closing-line-comment", []int{0})
+}
+
+func TestSegmentsChainBlockCommentBeforeClose(t *testing.T) {
+	assertInsertionLayout(t, "block-comment-before-close", []int{0})
+}
+
+func TestSegmentsChainMemberOnClosingLine(t *testing.T) {
+	assertInsertionLayout(t, "member-on-close-line", []int{0})
+}
+
+func TestSegmentsSplitOwnersOnOneLine(t *testing.T) {
+	assertInsertionLayout(t, "same-line-owners", []int{0, 4, 9})
 }
 
 func TestSegmentsBatchFlatImportedFeatures(t *testing.T) {
