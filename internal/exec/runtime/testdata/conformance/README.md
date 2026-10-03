@@ -188,7 +188,10 @@ a case that hits it fails with a message telling the author to raise it:
   each matched exactly and in canonical order — a schedule oracle's own
   disclaimer about the orders it could not vary. Stating it explores the case
   even without `outcomes`; the exact set it explores to is then asserted only
-  where the case also carries `outcomes` or `outputs`.
+  where the case also carries `outcomes` or `outputs`. Where the default budget
+  leaves that exploration incomplete, a case pairs `exploreNotes` with
+  `exploreBudget` for completeness only — a budget never changes a result's
+  standing.
 
 Cases without `outcomes` or `exploreNotes` are not explored by the harness. The
 default schedule is deterministic, so a case with an admissible set still keeps

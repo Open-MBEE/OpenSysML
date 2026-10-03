@@ -158,47 +158,7 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 			}`,
 			step: "a", multiplicity: "[3]",
 		},
-		{
-			name: "a repeated step into a fork fixes no count",
-			code: "action-step-order-open",
-			model: `action def A {
-				first start then a;
-				action a[3];
-				succession first [*] a then f;
-				fork f;
-				then done;
-			}`,
-			step: "a", multiplicity: "[3]",
-			reason: "the fork node's performance count is not determined",
-		},
-		{
-			name: "a repeated step into a decision fixes no count",
-			code: "action-step-order-open",
-			model: `action def A {
-				first start then a;
-				action a[3];
-				succession first [*] a then d;
-				decide d;
-				if true then done;
-			}`,
-			step: "a", multiplicity: "[3]",
-			reason: "the decision node's performance count is not determined",
-		},
-		{
-			name: "a succession out of a merge fixes no count",
-			code: "action-step-order-open",
-			model: `action def A {
-				first start then p;
-				action p;
-				merge m;
-				first p then m;
-				action a[3];
-				succession first m then [*] a;
-				then done;
-			}`,
-			step: "a", multiplicity: "[3]",
-			reason: "the merge node's performance count is not determined",
-		},
+
 		{
 			name: "a written wildcard into a join contradicts its mandate",
 			code: "action-step-order-unsatisfiable",
@@ -685,6 +645,38 @@ func TestActionStepMultiplicityPassAcceptsExecutedRepetition(t *testing.T) {
 				part camera : Camera {
 					perform action takePhoto[2] : Act;
 				}
+			}`,
+		},
+		{
+			name: "repeated step behind a fork barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then f;
+				fork f;
+				then done;
+			}`,
+		},
+		{
+			name: "repeated step behind a decision barrier",
+			model: `action def A {
+				first start then a;
+				action a[3];
+				succession first [*] a then d;
+				decide d;
+				if true then done;
+			}`,
+		},
+		{
+			name: "repeated step fanned out of a merge",
+			model: `action def A {
+				first start then p;
+				action p;
+				merge m;
+				first p then m;
+				action a[3];
+				succession first m then [*] a;
+				then done;
 			}`,
 		},
 		{

@@ -146,9 +146,9 @@ func TestRuntimeRobustnessActionStepMultiplicity(t *testing.T) {
 			}`,
 		},
 		{
-			name: "fork-adjacency-undetermined", step: "a", multiplicity: "[3]",
-			code:   lower.StepOrderOpenCode,
-			reason: "the fork node's performance count is not determined",
+			name: "fork-adjacency-plain-succession", step: "a", multiplicity: "[3]",
+			code:   lower.StepOrderUnsatisfiableCode,
+			reason: "the succession's end multiplicities exclude the declared step count",
 			model: `package test {
 				action def A {
 					fork f;

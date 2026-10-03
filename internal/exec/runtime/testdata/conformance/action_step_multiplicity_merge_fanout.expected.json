@@ -2,5 +2,8 @@
 	"type": "action",
 	"libraries": true,
 	"schedule": "declared",
-	"error": "the merge node's performance count is not determined"
+	"trace": true,
+	"outputs": {
+		"c": {"type": "Integer", "value": 31}
+	}
 }

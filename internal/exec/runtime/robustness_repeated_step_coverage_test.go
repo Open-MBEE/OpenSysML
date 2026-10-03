@@ -268,54 +268,25 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
-	// A control node adjacent to a repeated step and fixed by nothing is the
-	// open order the undetermined-count reason reports.
-	t.Run("control-node-count-undetermined", func(t *testing.T) {
-		for _, test := range []struct {
-			name  string
-			model string
-			want  string
-		}{
-			{"into-fork", `first start then a;
+	// Under the one-performance reading a merge carrying another incoming
+	// succession beside the repeated step's cannot order its one performance
+	// against three.
+	t.Run("merge-another-incoming-unsatisfiable", func(t *testing.T) {
+		_, err := executeActionSource(t, "A", `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then b;
+				action b;
 				action a[3];
-				succession first [*] a then f;
-				fork f;
-				then done;`, "the fork node's performance count is not determined"},
-			{"into-decision", `first start then a;
-				action a[3];
-				succession first [*] a then d;
-				decide d;
-				if true then done;`, "the decision node's performance count is not determined"},
-			{"out-of-merge", `first start then p;
-				action p;
+				succession first a then m;
+				succession first b then m;
 				merge m;
-				first p then m;
-				action a[3];
-				succession first m then [*] a;
-				then done;`, "the merge node's performance count is not determined"},
-			{"out-of-join", `first start then p;
-				action p;
-				join j;
-				first p then j;
-				action a[3];
-				succession first j then [*] a;
-				succession first [*] a then [1] done;`, "the join node's performance count is not determined"},
-		} {
-			t.Run(test.name, func(t *testing.T) {
-				_, err := executeActionSource(t, "A", `package test {
-					private import ScalarValues::*;
-					action def A {
-						`+test.model+`
-					}
-				}`)
-				var stepErr *lower.StepMultiplicityError
-				if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderOpenCode {
-					t.Fatalf("execution error = %v, want %s", err, lower.StepOrderOpenCode)
-				}
-				if !strings.Contains(err.Error(), test.want) {
-					t.Errorf("execution error = %v, want %q", err, test.want)
-				}
-			})
+				then done;
+			}
+		}`)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderUnsatisfiableCode)
 		}
 	})
 

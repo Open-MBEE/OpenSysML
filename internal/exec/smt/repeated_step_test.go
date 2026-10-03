@@ -52,6 +52,8 @@ func TestEncodeRepeatedStepOutcomes(t *testing.T) {
 	}{
 		{"exact", "action_step_multiplicity_exact.sysml", "test::Rep", 6, false, map[int64]bool{3: true}},
 		{"zero", "action_step_multiplicity_zero.sysml", "test::Zero", 6, false, map[int64]bool{7: true}},
+		{"fork barrier", "action_step_multiplicity_fork_barrier.sysml", "test::U", 10, false, map[int64]bool{113: true}},
+		{"merge fanout", "action_step_multiplicity_merge_fanout.sysml", "test::U", 10, false, map[int64]bool{31: true}},
 		{"join per performance", "action_step_multiplicity_join_per_performance.sysml", "test::U", 11, false, map[int64]bool{3: true}},
 		{"merge per performance", "action_step_multiplicity_merge_per_performance.sysml", "test::U", 11, false, map[int64]bool{3: true}},
 		{"guard true", "action_step_multiplicity_guard_true.sysml", "test::U", 10, false, map[int64]bool{3: true}},
@@ -148,6 +150,39 @@ func TestEngineWitnessesReplayOverRepeatedSteps(t *testing.T) {
 		then done;
 	}
 }`, "test::Rep", "test::Rep::belowFinal"},
+		{"fork barrier", "repeated_fork_barrier.sysml", `package test {
+	private import ScalarValues::*;
+	action def U {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 113 }
+		first start then a;
+		action a[3] { assign c := c + 1; }
+		succession first [*] a then f;
+		fork f;
+		then x;
+		then y;
+		action x { assign c := c + 10; }
+		action y { assign c := c + 100; }
+		succession first x then m;
+		succession first y then m;
+		merge m;
+		succession first m then done;
+	}
+}`, "test::U", "test::U::belowFinal"},
+		{"merge fanout", "repeated_merge_fanout.sysml", `package test {
+	private import ScalarValues::*;
+	action def U {
+		attribute c : Integer = 0;
+		constraint belowFinal { c < 31 }
+		first start then b;
+		action b { assign c := 1; }
+		succession first b then m;
+		merge m;
+		succession first m then [*] a;
+		action a[3] { assign c := c + 10; }
+		then done;
+	}
+}`, "test::U", "test::U::belowFinal"},
 		{"join per performance", "repeated_join.sysml", `package test {
 	private import ScalarValues::*;
 	action def U {
@@ -276,27 +311,16 @@ func TestAnalyzeRefusesWhatCheckStepRefuses(t *testing.T) {
 				action q;
 				succession first a if true then q;
 			}
-			action def IntoFork {
-				first start then a;
-				action a[2];
-				succession first [*] a then f;
+			action def MergeOtherIncoming {
+				first start then f;
 				fork f;
-				then done;
-			}
-			action def IntoDecision {
-				first start then a;
+				then b;
+				then a;
+				action b;
 				action a[2];
-				succession first [*] a then d;
-				decide d;
-				if true then done;
-			}
-			action def OutOfMerge {
-				first start then p;
-				action p;
+				succession first a then m;
+				succession first b then m;
 				merge m;
-				first p then m;
-				action a[2];
-				succession first m then [*] a;
 				then done;
 			}
 		}`)
@@ -307,9 +331,7 @@ func TestAnalyzeRefusesWhatCheckStepRefuses(t *testing.T) {
 		{"PlainThen", lower.StepOrderUnsatisfiableCode},
 		{"ForkOut", lower.StepOrderUnsatisfiableCode},
 		{"GuardFrom", lower.StepMultiplicityUnsupportedCode},
-		{"IntoFork", lower.StepOrderOpenCode},
-		{"IntoDecision", lower.StepOrderOpenCode},
-		{"OutOfMerge", lower.StepOrderOpenCode},
+		{"MergeOtherIncoming", lower.StepOrderUnsatisfiableCode},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			matches := idx.LookupQualified("test::" + tc.name)

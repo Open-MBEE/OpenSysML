@@ -179,13 +179,10 @@ func (g *ActionGraph) checkRepeatedEdge(node ast.Node, edge ActionEdge, count in
 }
 
 // checkControlEdge orders an edge between a repeated step and a control node.
-// An action usage declares no default multiplicity (SysML v2 §7.6.3 leaves it
-// [0..*] and the standard library's controls subaction is [0..*]), so the node's
-// count comes only from what its successions fix: a bijective crossing — every
-// performance into a join, or the lone incoming edge of a merge — or the one
-// performance a fork or the lone outgoing edge of a decision leaves, which fix
-// the node to the repeated step's count. Any other adjacency leaves the count
-// undetermined and the order open.
+// An unwritten node runs once, unless its ends force the repeated step's
+// count: a bijective crossing — every performance into a join, or the lone
+// incoming edge of a merge — or the one performance a fork or the lone
+// outgoing edge of a decision leaves.
 func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control ast.Node, count int64, model *semantics.Model) error {
 	into := edge.Target == control
 	sourceEnd, targetEnd := mandatedControlEnds(control, into)
@@ -213,8 +210,8 @@ func (g *ActionGraph) checkControlEdge(node ast.Node, edge ActionEdge, control a
 		derived = !into && len(g.Edges[control]) == 1
 	}
 	if !derived {
-		return g.stepError(node, model, StepOrderOpenCode,
-			"the "+controlKindName(control)+" node's performance count is not determined: an action usage declares no default multiplicity and its successions do not fix it", edge.Decl)
+		counts := map[ast.Node]int64{control: 1}
+		return g.checkEdgeOrder(node, edge, count, counts, sourceEnd, targetEnd, model)
 	}
 	// The control node performs once per performance of the repeated step, so
 	// every other edge at it must still order under that count.

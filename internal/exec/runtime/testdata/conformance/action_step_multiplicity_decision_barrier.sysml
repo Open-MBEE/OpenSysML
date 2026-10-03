@@ -1,9 +1,10 @@
 package test {
 	private import ScalarValues::*;
 
-	// A decision declares no multiplicity of its own, and a succession into it
-	// does not fix its count: `a`'s three performances cannot order with
-	// respect to `d`, so the flow is refused rather than run behind one barrier.
+	// The decision declares no multiplicity, and its ends force no other
+	// count, so it takes the executor's one-performance reading — an
+	// unwritten step performs once per arrival — and decides once after the
+	// last performance of `a`, where the guard already holds.
 	action def U {
 		attribute c : Integer = 0;
 		first start then a;
