@@ -3,7 +3,7 @@
 This page covers what `@openmbee/opensysml` exports, how its two entry points differ, and
 where its surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
-[guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
+the [Node client guide](../clients/node.md). The client's own
 notes on packaging and its conformance run are in
 [client/node/README.md](../../client/node/README.md).
 

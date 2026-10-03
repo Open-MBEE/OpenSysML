@@ -4,6 +4,9 @@ The `+opensysml` package calls the `sysml-grpc` service over Connect-JSON,
 without protobuf-generated code. It supports **MATLAB R2019b+** and **GNU
 Octave 7+**.
 
+For a task-oriented walkthrough, see the
+[MATLAB client guide](https://opensysml.org/clients/matlab/).
+
 ## Requirements and installation
 
 Add `client/matlab/` to the MATLAB or Octave path:

@@ -1,7 +1,7 @@
 # The Rust client API
 
 This page covers what the `opensysml` crate exposes and why it is blocking. To choose between the clients, see [client libraries](clients.md); for a
-task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
+task-oriented walkthrough, see the [Rust client guide](../clients/rust.md). The crate's own notes on
 binary provisioning and its trust model are in
 [client/rust/README.md](../../client/rust/README.md).
 

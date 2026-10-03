@@ -238,5 +238,5 @@ julia --project=client/julia/OpenSysML \
 
 The package's [README](../../client/julia/OpenSysML/README.md) includes
 installation and examples. See the [wire contract](wire-contract.md) for the
-Connect-JSON shapes and the [client guide](../guide/09-clients.md#from-julia)
+Connect-JSON shapes and the [client guide](../clients/julia.md)
 for a walkthrough.
