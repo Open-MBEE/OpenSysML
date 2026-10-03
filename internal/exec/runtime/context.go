@@ -985,11 +985,12 @@ func (ctx *Context) endActivation(activation int64) {
 
 // incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
 // The error names the effective budget and the variable that raises it.
+// A spent budget leaves the counter at the limit, so it never overflows.
 func (ctx *Context) incrementStep() error {
-	ctx.run.steps++
-	if ctx.run.steps > ctx.maxSteps {
+	if ctx.run.steps >= ctx.maxSteps {
 		return ctx.stepLimitExceeded()
 	}
+	ctx.run.steps++
 	return nil
 }
 
