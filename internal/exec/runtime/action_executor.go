@@ -1161,6 +1161,18 @@ func (e *ActionExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					ErrActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
+			if attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
+				value, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.root.cells, e.root.key(attr.Name), fv)
+				if err != nil {
+					return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+				}
+				if seeded {
+					if err := e.streamInitialOutput(attr.Name, value); err != nil {
+						return err
+					}
+					continue
+				}
+			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid &&
 				(!attr.Binding || fv.Written || e.occurrenceRedefinesAttribute(attr, fv)) {
 				e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
@@ -1329,6 +1341,7 @@ func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, erro
 	return fv.HeldValue(), nil
 }
 
+// mirrorBindingOccurrence exposes a tracked body feature through its occurrence.
 func (e *ActionExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
 	if e.occurrence == nil || !e.declaresAttribute(name) {
 		return value, nil
@@ -1341,6 +1354,7 @@ func (e *ActionExecutor) mirrorBindingOccurrence(name string, value Value, cell 
 	return mirrored, nil
 }
 
+// occurrenceRedefinesAttribute reports whether the occurrence supplies another declaration's default.
 func (e *ActionExecutor) occurrenceRedefinesAttribute(attr lower.Attribute, fv *FeatureValue) bool {
 	return occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope)
 }
@@ -1454,6 +1468,7 @@ func (e *ActionExecutor) bindInputs() error {
 	return nil
 }
 
+// beginRootPerformance starts the root performance's dependency lifetime.
 func (e *ActionExecutor) beginRootPerformance() {
 	if e.root.began == 0 {
 		e.root.began = e.ctx.newActivation()
@@ -1461,6 +1476,7 @@ func (e *ActionExecutor) beginRootPerformance() {
 	e.ctx.beginPerformanceLife(e.occurrence, e.root.began)
 }
 
+// endRootPerformance ends the root performance's dependency lifetime.
 func (e *ActionExecutor) endRootPerformance() {
 	e.ctx.endPerformanceLife(e.occurrence)
 	e.ctx.endActivation(e.root.began)

@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// TestRuntimeRobustnessBodyFeatureBindings pins body-binding errors and lifetimes.
 func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 	t.Run("cycle", func(t *testing.T) {
 		ctx, action := loadAction(t, `package test {
@@ -288,7 +289,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		}
 	})
 
-	t.Run("calc_usage_remains_one_shot", func(t *testing.T) {
+	t.Run("action_body_calc_usage_remains_one_shot", func(t *testing.T) {
 		ctx, action := loadAction(t, `package test {
 			private import ScalarValues::*;
 			calc def Twice {
@@ -316,6 +317,39 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		}
 		if got := FormatValue(exec.Results()["result"]); got != "4" {
 			t.Fatalf("calc usage result = %s, want its one-shot pin value 4", got)
+		}
+	})
+
+	t.Run("block_body_calc_usage_remains_one_shot", func(t *testing.T) {
+		ctx, action := loadAction(t, `package test {
+			private import ScalarValues::*;
+			calc def Rhs {
+				in x : Integer;
+				out y : Integer = x * 2;
+			}
+			action run {
+				attribute x : Integer := 2;
+				out attribute result : Integer;
+				first start;
+				then action write {
+					if true {
+						calc k1 : Rhs { in x = x; }
+						assign result := k1.y;
+						assign x := 5;
+						assign result := k1.y;
+					}
+				}
+			}
+		}`, "run")
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion: %v", err)
+		}
+		if got := FormatValue(exec.Results()["result"]); got != "4" {
+			t.Fatalf("block calc usage result = %s, want its one-shot pin value 4", got)
 		}
 	})
 }

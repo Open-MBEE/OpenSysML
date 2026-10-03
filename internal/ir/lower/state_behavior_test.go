@@ -172,6 +172,7 @@ func TestStateBehaviorBodyWithAmbiguousStartKeepsNoInitial(t *testing.T) {
 	}
 }
 
+// TestStateBehaviorActionExecutionIsStateData checks lowered action results in state data.
 func TestStateBehaviorActionExecutionIsStateData(t *testing.T) {
 	body := lowerActionExecution(&ast.ActionExecutionNode{
 		Name:       "calculated",

@@ -735,15 +735,24 @@ func (b *ExpectedExploreBudget) budget() ExploreBudget {
 
 // admissibleSchemaProblems reports how a case misuses outcomes and admissible:
 // the two go together, replace the single outcome rather than sit beside it,
-// list distinct results, and cite a section the oracle has.
+// list at least two distinct results, and cite a section the oracle has.
 func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]bool) []string {
 	var problems []string
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil {
+		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
+		if expected.ExploreBudget != nil && !hasSingleOutcome {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
+		}
+		if expected.ExploreBudget != nil && hasSingleOutcome {
+			if expected.Type != "action" && expected.Type != "state" {
+				problems = append(problems, fmt.Sprintf("exploreBudget applies to action and state cases, not %q", expected.Type))
+			}
+			if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+				problems = append(problems, "exploreBudget: "+err.Error())
+			}
 		}
 		return problems
 	}
@@ -758,6 +767,9 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	}
 	if len(expected.Performers) > 0 {
 		problems = append(problems, "outcomes and performers are stated together")
+	}
+	if len(expected.Outcomes) < 2 {
+		problems = append(problems, "outcomes lists one result; state it as the single outcome")
 	}
 	for i, outcome := range expected.Outcomes {
 		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
@@ -2416,7 +2428,7 @@ func validateElements(t reporter, ctx *Context, name string, expected []Expected
 }
 
 // TestAdmissibleOutcomesSchema pins that an admissible set cannot hide a bug: it
-// replaces the single outcome, lists distinct results, and cites an oracle section.
+// replaces the single outcome, lists at least two, and cites an oracle section.
 func TestAdmissibleOutcomesSchema(t *testing.T) {
 	titles := oracleSectionTitles(t)
 	const cited = "Concurrent branches writing one feature: the value is open, the writes are not"
@@ -2429,12 +2441,16 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
+	runs := 65536
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
 	}{
 		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome explore budget", ExpectedOutcome{
+			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
+		}, 0},
 		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
 		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
 		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},
@@ -2443,7 +2459,7 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"missing admissible", ExpectedOutcome{Type: "action", Outcomes: outcomes}, 1},
 		{"admissible cites no section", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: "the value is open"}, 1},
 		{"admissible without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Admissible: cited}, 1},
-		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 0},
+		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1},
 		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1},
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1},
 	}

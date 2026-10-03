@@ -71,6 +71,7 @@ type imagedFrame struct {
 	nested     map[ast.Node][]nestedDelivery
 }
 
+// imagedBodyCell stores a body binding's value and tracking state for an image.
 type imagedBodyCell struct {
 	name        string
 	value       ast.Node
@@ -689,6 +690,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	return nil
 }
 
+// imageBodyCells captures binding declarations and flags without dependency edges.
 func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell {
 	if cells == nil {
 		return nil
@@ -712,6 +714,7 @@ func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell 
 	return image
 }
 
+// restoreStateBodyCells reinstates the binding cells owned by a state image.
 func restoreStateBodyCells(
 	ctx *Context,
 	cells *bodyCells,
@@ -747,6 +750,7 @@ func restoreStateBodyCells(
 	}
 }
 
+// restoreBodyCellValue restores a body's value and written or tracking state.
 func restoreBodyCellValue(cells *bodyCells, state imagedBodyCell, cell *bodyCell) {
 	if value, held := cells.vars[state.name]; held {
 		cell.fv.Value, cell.fv.Materialized = value, true
@@ -761,6 +765,7 @@ func restoreBodyCellValue(cells *bodyCells, state imagedBodyCell, cell *bodyCell
 	}
 }
 
+// frameCells rebuilds the dependency cells for a materialized performance frame.
 func (m *materializing) frameCells(
 	perf *actionFrame,
 	values map[string]Value,

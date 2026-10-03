@@ -348,6 +348,15 @@ func (e *StateExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					ErrStatePerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
+			if attr.Binding && !fv.Written && !occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope) {
+				_, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.stateCells, attr.Name, fv)
+				if err != nil {
+					return fmt.Errorf("derive state machine attribute %s: %w", attr.Name, err)
+				}
+				if seeded {
+					continue
+				}
+			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid &&
 				(!attr.Binding || fv.Written || occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope)) {
 				e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
@@ -412,6 +421,7 @@ func (e *StateExecutor) dataFrame() frame {
 	}
 }
 
+// ensureStateCells lazily creates dependency cells for machine data.
 func (e *StateExecutor) ensureStateCells() *bodyCells {
 	if e.stateCells == nil {
 		e.stateCells = newBodyCells(e.stateData, func(scope *symbols.Scope) *EvalContext {
@@ -424,6 +434,7 @@ func (e *StateExecutor) ensureStateCells() *bodyCells {
 	return e.stateCells
 }
 
+// stateAttributeContext resolves an attribute in machine data and its state frames.
 func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.thisOccurrence = e.materializeOccurrence
@@ -596,6 +607,7 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 	return fv.HeldValue(), nil
 }
 
+// mirrorBindingOccurrence exposes a tracked state feature through its occurrence.
 func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
 	if e.occurrence == nil || !e.declaresAttribute(name) {
 		return value, nil
@@ -5605,10 +5617,12 @@ func (e *StateExecutor) StateDataWithError() (map[string]Value, error) {
 	return data, deriveErr
 }
 
+// copyStateValues copies a state's materialized values under its qualified path.
 func copyStateValues(values map[string]Value, cells *bodyCells, prefix string) map[string]Value {
 	return copyStateValuesInto(make(map[string]Value, len(values)), values, cells, prefix)
 }
 
+// copyStateValuesInto adds a state's materialized values to an output map.
 func copyStateValuesInto(target, values map[string]Value, cells *bodyCells, prefix string) map[string]Value {
 	for name, value := range values {
 		target[prefix+name] = value

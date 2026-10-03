@@ -140,6 +140,7 @@ func (f frame) lookup(name string) (Value, bool) {
 	return value, ok
 }
 
+// read resolves a name and derives its body cell when the stored value is stale.
 func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	name = canonical(f.aliases, name)
 	if f.masked[name] || (f.visible != nil && !f.visible[name]) {
@@ -175,6 +176,7 @@ func (f frame) set(name string, value Value) {
 	f.vars[name] = value
 }
 
+// setBody writes through the frame's dependency cell when one is present.
 func (f frame) setBody(ctx *Context, name string, value Value) {
 	name = canonical(f.aliases, name)
 	if f.slots != nil && f.slots.set(name, value) {
@@ -214,6 +216,7 @@ func (f frame) each(fn func(name string, value Value)) {
 	}
 }
 
+// visibleNames returns the visible names bound by the frame and its cells.
 func (f frame) visibleNames() map[string]bool {
 	names := make(map[string]bool, len(f.vars))
 	f.each(func(name string, _ Value) { names[canonical(f.aliases, name)] = true })
@@ -225,6 +228,7 @@ func (f frame) visibleNames() map[string]bool {
 	return names
 }
 
+// eachCurrent visits frame values after settling its tracked bindings.
 func (f frame) eachCurrent(ctx *Context, fn func(name string, value Value)) error {
 	if f.cells != nil {
 		if err := ctx.deriveBodyCells(f.cells); err != nil {

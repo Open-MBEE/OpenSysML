@@ -4,7 +4,6 @@ materialize: patient #1
 materialize: Heart #2
 start: exhibited state machine rhythm of #2
 materialize: Beating #3
-    eval literal 0 -> 0
 enter: alive
 run: exhibited state machine rhythm of #2
 do: alive

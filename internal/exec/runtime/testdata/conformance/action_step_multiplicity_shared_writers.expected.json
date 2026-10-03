@@ -2,8 +2,5 @@
 	"type": "action",
 	"exploreBudget": {"runs": 65536},
 	"libraries": true,
-	"outcomes": [
-		{"outputs": {"c": {"type": "Integer", "value": 3}}}
-	],
-	"admissible": "Repeated action steps and shared writes"
+	"outputs": {"c": {"type": "Integer", "value": 3}}
 }

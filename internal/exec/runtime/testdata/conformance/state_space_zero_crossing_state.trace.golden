@@ -13,15 +13,6 @@ eval invoke VectorOf -> ⟨10.0⟩
     bind components = (19.0, 0.0) [argument]
   exit calc VectorFunctions::VectorOf -> ⟨19.0, 0.0⟩
 eval invoke VectorOf -> ⟨19.0, 0.0⟩
-    eval literal 19.0 -> 19.0
-    eval literal 0.0 -> 0.0
-  eval sequence of 2 -> (19.0, 0.0)
-  enter calc VectorFunctions::VectorOf
-    bind components = (19.0, 0.0) [argument]
-  exit calc VectorFunctions::VectorOf -> ⟨19.0, 0.0⟩
-eval invoke VectorOf -> ⟨19.0, 0.0⟩
-  eval literal 0.5 -> 0.5
-eval index -> 0.5 [s]
   eval literal 0.5 -> 0.5
 eval index -> 0.5 [s]
 run: performed action fall of #1

@@ -109,6 +109,7 @@ func (ctx *Context) deriveWith(fv *FeatureValue, eval func() (Value, error)) (Va
 	}
 }
 
+// deriveOnceWith evaluates one dependency-tracked attempt and reports invalidation.
 func (ctx *Context) deriveOnceWith(fv *FeatureValue, eval func() (Value, error)) (val Value, stale bool, err error) {
 	top := len(ctx.deriving)
 	ctx.deriving = append(ctx.deriving, derivation{fv: fv})
@@ -120,6 +121,7 @@ func (ctx *Context) deriveOnceWith(fv *FeatureValue, eval func() (Value, error))
 	return val, false, err
 }
 
+// derivingValue reports whether fv is already on the active derivation stack.
 func (ctx *Context) derivingValue(fv *FeatureValue) bool {
 	for i := range ctx.deriving {
 		if ctx.deriving[i].fv == fv {

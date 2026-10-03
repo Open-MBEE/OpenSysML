@@ -223,6 +223,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 	return root
 }
 
+// registerRootBindings installs tracked cells for the root's declared bindings.
 func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 	for _, attr := range e.features {
 		if !attr.Binding || attr.Value == nil {
@@ -1193,6 +1194,7 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 	return ec
 }
 
+// evalBindingContext resolves a binding in its performance while masking its own name.
 func (e *performances) evalBindingContext(
 	perf *actionFrame, scope *symbols.Scope, name string, activation int64,
 ) *EvalContext {
@@ -1894,6 +1896,7 @@ func performanceFrame(f *actionFrame) frame {
 	return fr
 }
 
+// bodyCells lazily gives a performance data map its dependency cells.
 func (e *performances) bodyCells(perf *actionFrame) *bodyCells {
 	if perf.cells == nil {
 		perf.cells = newBodyCells(perf.data, func(scope *symbols.Scope) *EvalContext {

@@ -44,6 +44,7 @@ func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
 	return frame
 }
 
+// ensureLocalCells lazily creates dependency cells for an entered block.
 func (e *stmtEngine) ensureLocalCells(index int) *bodyCells {
 	if e.env.cells[index] == nil {
 		depth := index + 1
@@ -108,6 +109,7 @@ func (env *stmtEnv) declare(ctx *Context, name string, value Value) {
 	}
 }
 
+// ensureRootCells lazily creates dependency cells for behavior-local declarations.
 func (e *stmtEngine) ensureRootCells() *bodyCells {
 	if e.env.localCells == nil {
 		e.env.localCells = newBodyCells(e.env.locals, func(scope *symbols.Scope) *EvalContext {
@@ -117,6 +119,7 @@ func (e *stmtEngine) ensureRootCells() *bodyCells {
 	return e.env.localCells
 }
 
+// rootDeclares reports whether the behavior's root scope declares name.
 func (env *stmtEnv) rootDeclares(name string) bool {
 	if _, ok := env.locals[name]; ok {
 		return true
@@ -124,6 +127,7 @@ func (env *stmtEnv) rootDeclares(name string) bool {
 	return env.unvaluedLocal[name]
 }
 
+// rootLocal reports whether name belongs to the behavior root rather than a block.
 func (env *stmtEnv) rootLocal(name string) bool {
 	if !env.rootDeclares(name) {
 		return false
@@ -136,6 +140,7 @@ func (env *stmtEnv) rootLocal(name string) bool {
 	return true
 }
 
+// assignRootLocal writes a name declared in the behavior's root scope.
 func (env *stmtEnv) assignRootLocal(ctx *Context, name string, value Value) bool {
 	if !env.rootDeclares(name) {
 		return false
@@ -206,6 +211,7 @@ func (env *stmtEnv) values(ctx *Context) (map[string]Value, error) {
 	return merged, nil
 }
 
+// localFrames returns the entered block maps and their dependency-cell stores.
 func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
 	locals := make([]map[string]Value, 0, len(env.frames)+1)
 	cells := make([]*bodyCells, 0, len(env.frames)+1)
@@ -216,6 +222,7 @@ func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
 	return locals, cells
 }
 
+// localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
 	local := mapFrame(env.locals)
 	local.cells = env.localCells
@@ -245,10 +252,12 @@ const (
 	flowReturn
 )
 
+// bodyBindingMirror lets a statement host mirror tracked local bindings.
 type bodyBindingMirror interface {
 	mirrorBodyBinding(name string, cell *bodyCell, value *Value) error
 }
 
+// rootLocalMirror lets a statement host mirror root-local values.
 type rootLocalMirror interface {
 	mirrorRootLocal(name string, value Value) error
 }
@@ -350,6 +359,7 @@ func (e *stmtEngine) finish() {
 	e.ctx.endActivation(e.activation)
 }
 
+// complete freezes the behavior's remaining bindings and ends its activation.
 func (e *stmtEngine) complete() error {
 	err := e.ctx.freezeBodyCells(e.env.localCells)
 	e.ctx.endActivation(e.activation)
@@ -395,6 +405,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	return ec
 }
 
+// evalInDepth resolves a declaration with only the lexical frames visible at depth.
 func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	frames := make([]frame, 0, len(e.env.enclosing)+1+len(e.env.outer)+depth+1)
 	frames = append(frames, e.env.enclosing...)
@@ -701,7 +712,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 // this execution of the body reads starts here, so an evaluation of the same
 // usage from before the declaration was reached is discarded.
 func (e *stmtEngine) declareUsage(stmt lower.DeclareUsage) error {
-	// Body-local calc usages remain one-shot; their pins do not track body `=` bindings.
+	// Known limitation: the `=` pins of a body-local calc usage are evaluated once per declaration and do not track later writes.
 	sym, err := e.ctx.bodyUsageSymbol(stmt)
 	if err != nil {
 		return fmt.Errorf("%s: %w", e.host.describe(), err)
@@ -754,6 +765,7 @@ type blockFrame struct {
 	outer      int64
 }
 
+// abandon releases dependencies and activation state for a discarded block.
 func (f *blockFrame) abandon(ctx *Context) {
 	ctx.forgetBodyCells(f.cells)
 	ctx.endActivation(f.activation)
@@ -953,6 +965,7 @@ type loopFrame struct {
 	elements []Value
 }
 
+// abandon releases dependencies and activation state for a discarded loop.
 func (f *loopFrame) abandon(ctx *Context) {
 	ctx.forgetBodyCells(f.cells)
 	ctx.endActivation(f.activation)

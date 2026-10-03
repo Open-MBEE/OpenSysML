@@ -194,10 +194,12 @@ func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	return nil
 }
 
+// mirrorRootLocal mirrors a calc's root local into its performance occurrence.
 func (h *calcStmtHost) mirrorRootLocal(name string, value Value) error {
 	return h.mirrorOccurrence(name, value)
 }
 
+// mirrorBodyBinding keeps an occurrence feature linked to a calc body binding.
 func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Value) error {
 	if h.occ == nil || h.occ.inst == nil {
 		return nil

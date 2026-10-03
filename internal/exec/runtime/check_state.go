@@ -728,6 +728,7 @@ func (s *stateSpeller) values(m map[string]Value) string {
 	return strings.Join(parts, ", ")
 }
 
+// bodyValues spells stored values and the tracking state of body bindings.
 func (s *stateSpeller) bodyValues(values map[string]Value, cells *bodyCells) string {
 	if cells == nil {
 		return s.values(values)

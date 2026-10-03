@@ -464,6 +464,7 @@ type calcRun struct {
 	occurrence *calcOccurrence
 }
 
+// lookup searches the calc's body frames before its enclosing evaluation frame.
 func (run *calcRun) lookup(name string) (Value, bool) {
 	for i := len(run.bodyFrames) - 1; i >= 0; i-- {
 		if value, ok := run.bodyFrames[i].lookup(name); ok {
@@ -1089,6 +1090,7 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	return value, nil
 }
 
+// readBodyOutput returns a calc output after deriving its body-local dependencies.
 func (run *calcRun) readBodyOutput(ctx *Context, name string) (Value, error) {
 	if run.env.cells == nil && len(ctx.deriving) != 0 {
 		run.env.cells = newBodyCells(run.env.vars, nil)

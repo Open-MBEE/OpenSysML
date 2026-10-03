@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+// TestLoweredBodyFeaturesPreserveValueOperators checks lowered action bindings and defaults.
 func TestLoweredBodyFeaturesPreserveValueOperators(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action act {
@@ -68,6 +69,7 @@ func TestLoweredBodyFeaturesPreserveValueOperators(t *testing.T) {
 	}
 }
 
+// TestStateGraphPreservesAttributeValueOperators checks state attribute binding flags.
 func TestStateGraphPreservesAttributeValueOperators(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		state Machine {

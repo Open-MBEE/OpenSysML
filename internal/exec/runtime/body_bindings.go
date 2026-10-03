@@ -9,13 +9,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+// bodyBindingCheckError identifies a value rejected by its body's declaration.
 type bodyBindingCheckError struct {
 	err error
 }
 
+// Error returns the underlying declaration-check error.
 func (e bodyBindingCheckError) Error() string { return e.err.Error() }
+
+// Unwrap exposes the declaration-check error to errors.Is and errors.As.
 func (e bodyBindingCheckError) Unwrap() error { return e.err }
 
+// bodyCells holds one runtime store and its dependency-graph cells.
 type bodyCells struct {
 	vars    map[string]Value
 	cells   map[string]*bodyCell
@@ -23,6 +28,7 @@ type bodyCells struct {
 	context func(*symbols.Scope) *EvalContext
 }
 
+// bodyCell pairs a stored value with its dependency-graph cell.
 type bodyCell struct {
 	owner   *bodyCells
 	name    string
@@ -30,6 +36,7 @@ type bodyCell struct {
 	binding *bodyBinding
 }
 
+// bodyBinding records the expression and declaration context a cell tracks.
 type bodyBinding struct {
 	value       ast.Node
 	scope       *symbols.Scope
@@ -41,6 +48,7 @@ type bodyBinding struct {
 	frozen      bool
 }
 
+// occurrenceHasRedefinedDefault reports whether an occurrence holds an overriding declaration's default.
 func occurrenceHasRedefinedDefault(fv *FeatureValue, attr lower.Attribute, fallback *symbols.Scope) bool {
 	if fv == nil || fv.Feature == nil || fv.Feature.DefaultDecl == nil {
 		return false
@@ -53,6 +61,7 @@ func occurrenceHasRedefinedDefault(fv *FeatureValue, attr lower.Attribute, fallb
 	return declared != nil && fv.Feature.DefaultDecl != declared
 }
 
+// bodyCellState is the observable tracking state of one body cell.
 type bodyCellState struct {
 	cell         *bodyCell
 	written      bool
@@ -61,6 +70,7 @@ type bodyCellState struct {
 	tracking     bool
 }
 
+// bodyCellsCapture preserves a store's maps and binding metadata for restoration.
 type bodyCellsCapture struct {
 	cells    *bodyCells
 	vars     mapState[string, Value]
@@ -69,6 +79,7 @@ type bodyCellsCapture struct {
 	order    []string
 }
 
+// captureBodyCells snapshots the maps and binding metadata without deriving values.
 func captureBodyCells(cells *bodyCells) bodyCellsCapture {
 	capture := bodyCellsCapture{cells: cells}
 	if cells == nil {
@@ -89,6 +100,7 @@ func captureBodyCells(cells *bodyCells) bodyCellsCapture {
 	return capture
 }
 
+// restore reinstates the maps and bindings held by the capture.
 func (c bodyCellsCapture) restore() {
 	if c.cells == nil {
 		return
@@ -106,10 +118,12 @@ func (c bodyCellsCapture) restore() {
 	}
 }
 
+// newBodyCells wraps a value store with a lazy dependency-cell map.
 func newBodyCells(vars map[string]Value, context func(*symbols.Scope) *EvalContext) *bodyCells {
 	return &bodyCells{vars: vars, cells: make(map[string]*bodyCell), context: context}
 }
 
+// cell returns the named cell, creating a source cell for an existing value.
 func (cells *bodyCells) cell(name string) *bodyCell {
 	if cells == nil {
 		return nil
@@ -128,6 +142,7 @@ func (cells *bodyCells) cell(name string) *bodyCell {
 	return cell
 }
 
+// existingCell returns the named cell without creating one.
 func (cells *bodyCells) existingCell(name string) *bodyCell {
 	if cells == nil {
 		return nil
@@ -135,6 +150,7 @@ func (cells *bodyCells) existingCell(name string) *bodyCell {
 	return cells.cells[name]
 }
 
+// registerBodyBinding adds an expression-backed cell using the store's context.
 func (ctx *Context) registerBodyBinding(
 	cells *bodyCells,
 	name string,
@@ -146,6 +162,7 @@ func (ctx *Context) registerBodyBinding(
 	return ctx.registerBodyBindingInContext(cells, name, value, scope, check, nil, onDerived)
 }
 
+// registerBodyBindingInContext adds an expression-backed cell with a custom context.
 func (ctx *Context) registerBodyBindingInContext(
 	cells *bodyCells,
 	name string,
@@ -162,6 +179,7 @@ func (ctx *Context) registerBodyBindingInContext(
 	return cell
 }
 
+// deriveBodyCell evaluates an unmaterialized binding and records its dependencies.
 func (ctx *Context) deriveBodyCell(cells *bodyCells, name string, cell *bodyCell) (Value, error) {
 	if cell == nil || cell.binding == nil || cell.binding.frozen || cell.fv.Written {
 		value, ok := cells.vars[name]
@@ -199,9 +217,9 @@ func (ctx *Context) deriveBodyCell(cells *bodyCells, name string, cell *bodyCell
 					frames[i].visible = map[string]bool{}
 				}
 			}
-			copy := *ec
-			copy.frames = frames
-			ec = &copy
+			contextCopy := *ec
+			contextCopy.frames = frames
+			ec = &contextCopy
 		}
 		value, err := ec.Eval(cell.binding.value)
 		if err != nil {
@@ -226,6 +244,42 @@ func (ctx *Context) deriveBodyCell(cells *bodyCells, name string, cell *bodyCell
 	return value, err
 }
 
+// seedBodyBindingFromFeatureValue reuses a matching occurrence value and its read edges.
+func (ctx *Context) seedBodyBindingFromFeatureValue(cells *bodyCells, name string, source *FeatureValue) (Value, bool, error) {
+	cell := cells.existingCell(name)
+	if cell == nil || cell.binding == nil || source == nil || !source.Materialized || source.Written || source.body != nil {
+		return Value{}, false, nil
+	}
+	value := source.HeldValue()
+	if value.Kind == ValInvalid {
+		return Value{}, false, nil
+	}
+	if cell.binding.check != nil {
+		if err := cell.binding.check(&value); err != nil {
+			return Value{}, false, bodyBindingCheckError{err: err}
+		}
+	}
+	reads := append([]*FeatureValue(nil), source.reads...)
+	ctx.forgetReads(&cell.fv)
+	ctx.noteProbeWrite(&cell.fv)
+	for _, read := range reads {
+		ctx.listRead(read, &cell.fv)
+	}
+	cell.fv.Value, cell.fv.Values, cell.fv.Materialized = value, Value{}, true
+	cell.fv.Written, cell.fv.BindingDerived, cell.fv.intrinsic = false, false, false
+	cells.vars[name] = value
+	if cell.binding.onDerived != nil {
+		if err := cell.binding.onDerived(&value); err != nil {
+			return Value{}, false, err
+		}
+		cell.fv.Value = value
+		cells.vars[name] = value
+	}
+	ctx.noteRead(nil, &cell.fv)
+	return value, true, nil
+}
+
+// cloneBodyBindingVisibility copies the lexical visibility captured by a binding.
 func cloneBodyBindingVisibility(visible []map[string]bool) []map[string]bool {
 	if visible == nil {
 		return nil
@@ -237,6 +291,7 @@ func cloneBodyBindingVisibility(visible []map[string]bool) []map[string]bool {
 	return cloned
 }
 
+// readBodyCell returns the current value and records it as a dependency when needed.
 func (ctx *Context) readBodyCell(cells *bodyCells, name string) (Value, bool, error) {
 	if cells == nil {
 		return Value{}, false, nil
@@ -266,6 +321,7 @@ func (ctx *Context) readBodyCell(cells *bodyCells, name string) (Value, bool, er
 	return value, ok, nil
 }
 
+// writeBodyCell stores a value and ends tracking when the cell is a binding.
 func (ctx *Context) writeBodyCell(cells *bodyCells, name string, value Value) {
 	if cells == nil {
 		return
@@ -289,6 +345,7 @@ func (ctx *Context) writeBodyCell(cells *bodyCells, name string, value Value) {
 	ctx.afterWrite(&cell.fv, held)
 }
 
+// writeBodyValue stores a semantic value through its dependency cell when present.
 func (ctx *Context) writeBodyValue(cells *bodyCells, vars map[string]Value, name string, value Value) {
 	if cells == nil {
 		vars[name] = value
@@ -297,6 +354,7 @@ func (ctx *Context) writeBodyValue(cells *bodyCells, vars map[string]Value, name
 	ctx.writeBodyCell(cells, name, value)
 }
 
+// mirrorBodyCell exposes a body's tracked value through the matching occurrence feature.
 func (ctx *Context) mirrorBodyCell(inst *Instance, name string, cell *bodyCell, value Value) (Value, error) {
 	if inst == nil {
 		return value, nil
@@ -321,6 +379,7 @@ func (ctx *Context) mirrorBodyCell(inst *Instance, name string, cell *bodyCell, 
 	return fv.HeldValue(), nil
 }
 
+// clearBodyValue clears a stored value and invalidates its dependents.
 func (ctx *Context) clearBodyValue(cells *bodyCells, vars map[string]Value, name string) {
 	if cells == nil || cells.cells[name] == nil {
 		delete(vars, name)
@@ -341,6 +400,7 @@ func (ctx *Context) clearBodyValue(cells *bodyCells, vars map[string]Value, name
 	ctx.afterWrite(&cell.fv, held)
 }
 
+// bodyCellStateOf reports the stored and tracking state of a cell.
 func bodyCellStateOf(cells *bodyCells, name string) bodyCellState {
 	if cells == nil || cells.cells[name] == nil {
 		return bodyCellState{}
@@ -354,6 +414,7 @@ func bodyCellStateOf(cells *bodyCells, name string) bodyCellState {
 	return state
 }
 
+// restoreBodyCellState reinstates a captured cell state and its dependency edges.
 func (ctx *Context) restoreBodyCellState(cells *bodyCells, name string, state bodyCellState) {
 	if state.cell == nil {
 		return
@@ -379,6 +440,7 @@ func (ctx *Context) restoreBodyCellState(cells *bodyCells, name string, state bo
 	}
 }
 
+// readBodyValue reads a value from its dependency-aware store.
 func (ctx *Context) readBodyValue(cells *bodyCells, vars map[string]Value, name string) (Value, bool, error) {
 	if cells == nil {
 		value, ok := vars[name]
@@ -387,6 +449,7 @@ func (ctx *Context) readBodyValue(cells *bodyCells, vars map[string]Value, name 
 	return ctx.readBodyCell(cells, name)
 }
 
+// deriveBodyCells settles the still-tracking cells of a store.
 func (ctx *Context) deriveBodyCells(cells *bodyCells) error {
 	if cells == nil {
 		return nil
@@ -403,6 +466,7 @@ func (ctx *Context) deriveBodyCells(cells *bodyCells) error {
 	return nil
 }
 
+// freezeBodyCells derives and freezes every still-tracking cell in a store.
 func (ctx *Context) freezeBodyCells(cells *bodyCells) error {
 	if err := ctx.deriveBodyCells(cells); err != nil {
 		return err
@@ -422,6 +486,7 @@ func (ctx *Context) freezeBodyCells(cells *bodyCells) error {
 	return nil
 }
 
+// forgetBodyCells removes the dependencies of every binding in a store.
 func (ctx *Context) forgetBodyCells(cells *bodyCells) {
 	if cells == nil {
 		return
@@ -435,6 +500,7 @@ func (ctx *Context) forgetBodyCells(cells *bodyCells) {
 	}
 }
 
+// exitBodyCells invalidates values owned by an exiting state.
 func (ctx *Context) exitBodyCells(cells *bodyCells) {
 	if cells == nil {
 		return
@@ -451,6 +517,7 @@ func (ctx *Context) exitBodyCells(cells *bodyCells) {
 	}
 }
 
+// resetBodyCells removes the stored cells and their dependency edges.
 func (ctx *Context) resetBodyCells(cells *bodyCells) {
 	if cells == nil {
 		return

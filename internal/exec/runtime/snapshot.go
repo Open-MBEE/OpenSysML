@@ -313,6 +313,7 @@ func (c *bodyCapture) restore() {
 	}
 }
 
+// bodyCellsCaptured reports whether a snapshot journals the given cell store.
 func bodyCellsCaptured(captures []bodyCellsCapture, cells *bodyCells) bool {
 	for _, capture := range captures {
 		if capture.cells == cells {

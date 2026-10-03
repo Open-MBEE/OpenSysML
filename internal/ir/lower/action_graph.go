@@ -663,6 +663,7 @@ type Feature struct {
 	Scope     *symbols.Scope
 }
 
+// valueIsBinding reports whether the declaration uses a live `=` value.
 func valueIsBinding(value ast.Node, isInitial, isDefault bool) bool {
 	return value != nil && !isInitial && !isDefault
 }
