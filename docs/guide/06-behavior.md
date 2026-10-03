@@ -865,7 +865,7 @@ least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
-([clients](09-clients.md)). The REPL refuses it, because its `%action` and `%state` debuggers
+([client libraries](../clients.md)). The REPL refuses it, because its `%action` and `%state` debuggers
 step one run and an exploration replays from the start:
 
 ```console
