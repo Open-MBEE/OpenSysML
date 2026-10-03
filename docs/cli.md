@@ -668,7 +668,7 @@ then evaluate, instantiate and execute against it.</p>
     var diags = (parsed.result && parsed.result.diagnostics) || [];
     println('<span class="osml-ok">✓ model.sysml</span> <span class="osml-dim">parsed in ' +
       (performance.now() - t0).toFixed(0) + ' ms · ' + diags.length + ' diagnostics · hash ' +
-      String(modelHash).slice(0, 12) + '…</span>');
+      esc(String(modelHash).slice(0, 12)) + '…</span>');
     diags.slice(0, 8).forEach(function (d) {
       println('  <span class="osml-err">' + esc(d.message || JSON.stringify(d)) + '</span>');
     });
@@ -686,7 +686,7 @@ then evaluate, instantiate and execute against it.</p>
       if (res.error) { println('<span class="osml-err">✗ ' + esc(res.error) + '</span>'); return; }
       var inst = res.instance || {};
       var feats = Object.keys(inst.featureValues || {});
-      println('<span class="osml-ok">✓ instance ' + (inst.id || '?') + '</span> of <span class="osml-hl">' + esc(inst.typeSymbolId || sym) + '</span>' +
+      println('<span class="osml-ok">✓ instance ' + esc(inst.id == null ? '?' : inst.id) + '</span> of <span class="osml-hl">' + esc(inst.typeSymbolId || sym) + '</span>' +
         (feats.length ? ' <span class="osml-dim">— ' + feats.length + ' feature values: ' + feats.slice(0, 6).map(esc).join(', ') + (feats.length > 6 ? ', …' : '') + '</span>' : ''));
     },
     '%run': function (sym) {

@@ -839,6 +839,8 @@
 
   if (!reduceMotion.matches) {
     (function tick(now) {
+      // Instant navigation swaps the page out without unloading it.
+      if (!root.isConnected) return;
       layout(now / 1000);
       requestAnimationFrame(tick);
     })(performance.now());
@@ -869,14 +871,21 @@
       n.dx = nx; n.dy = ny;
       if (reduceMotion.matches) layout(0);
     });
-    n.g.addEventListener("pointerup", function () {
-      if (dragging !== n) return;
+    function endDrag() {
+      if (dragging !== n) return false;
       dragging = null;
       n.g.classList.remove("is-dragging");
+      return true;
+    }
+    n.g.addEventListener("pointerup", function () {
+      if (!endDrag()) return;
       if (!moved && n.g.dataset.osmlHref) {
         window.open(n.g.dataset.osmlHref, "_blank", "noopener");
       }
     });
+    // A touch drag can end through cancellation, or capture through another route.
+    n.g.addEventListener("pointercancel", endDrag);
+    n.g.addEventListener("lostpointercapture", endDrag);
     n.g.addEventListener("pointerenter", function () {
       n.g.classList.add("is-hover");
       wires.forEach(function (p) {

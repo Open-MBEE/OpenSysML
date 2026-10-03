@@ -7,7 +7,7 @@ site_description: A SysML v2 and KerML implementation in Go — language server,
 site_url: https://opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML
-edit_uri: edit/main/docs/
+edit_uri: edit/develop/docs/
 # The affiliation is a span rather than its own line because the footer's copyright is the
 # only place the theme lets a site put text; stylesheets/footer.css moves it to the right.
 copyright: >-
