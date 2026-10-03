@@ -23,6 +23,8 @@ type frame struct {
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
 	owner *calcShape
+	// lexical marks local statement bindings, which are not qualified members.
+	lexical bool
 	// write is the run's own write path for a feature the frame binds — checked
 	// against its declaration and mirrored or streamed the way the run's
 	// statements write it — nil where the frame is a snapshot or plain bindings,
@@ -122,7 +124,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, masked: f.masked, visible: f.visible, aliases: f.aliases, perf: f.perf, owner: f.owner, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
+	return frame{vars: vars, masked: f.masked, visible: f.visible, aliases: f.aliases, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -246,7 +248,7 @@ func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
 	out := ownedFrame(f.owner, vars)
-	out.performed, out.run, out.merged = f.performs(), f.run, f.merged
+	out.performed, out.run, out.merged, out.lexical = f.performs(), f.run, f.merged, f.lexical
 	if f.visible != nil {
 		out.visible = make(map[string]bool, len(f.visible))
 		for name, visible := range f.visible {

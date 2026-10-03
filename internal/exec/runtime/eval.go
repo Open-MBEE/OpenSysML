@@ -922,6 +922,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
+		if f.lexical {
+			continue
+		}
 		if f.owner != nil {
 			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
 				continue
@@ -960,6 +963,9 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value Value) (bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
+		if f.lexical {
+			continue
+		}
 		if f.owner != nil {
 			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
 				continue

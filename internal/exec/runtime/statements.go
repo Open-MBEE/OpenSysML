@@ -228,13 +228,14 @@ func (env *stmtEnv) localFrame() frame {
 	return local
 }
 
-// bodyFrame marks local values as part of the behavior run that owns the data frame.
+// bodyFrame marks local values as lexical bindings in the run that owns the data frame.
 func (env *stmtEnv) bodyFrame(vars map[string]Value, cells *bodyCells) frame {
 	local := mapFrame(vars)
 	local.owner, local.perf = env.data.owner, env.data.perf
 	local.run, local.performed = env.data.run, env.data.performed
 	local.merged, local.firing = env.data.merged, env.data.firing
 	local.cells = cells
+	local.lexical = true
 	return local
 }
 

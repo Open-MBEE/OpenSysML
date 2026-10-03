@@ -114,7 +114,13 @@ func (c bodyCellsCapture) restore() {
 	c.cells.order = append(c.cells.order[:0], c.order...)
 	for name, cell := range c.members {
 		cell.owner, cell.name = c.cells, name
-		cell.binding = c.bindings[cell]
+		if saved := c.bindings[cell]; saved != nil {
+			binding := *saved
+			binding.visible = cloneBodyBindingVisibility(saved.visible)
+			cell.binding = &binding
+		} else {
+			cell.binding = nil
+		}
 		c.cells.cells[name] = cell
 	}
 }
