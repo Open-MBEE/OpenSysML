@@ -137,6 +137,9 @@ type ExpectedOutcome struct {
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
+	// SolverBudget lowers the moves the SMT referee unrolls the case to, for a case
+	// whose every run ends well within them but the default unrolling outlasts the solver.
+	SolverBudget *ExpectedSolverBudget `json:"solverBudget,omitempty"`
 
 	// Action fields
 	Outputs    map[string]ExpectedValue `json:"outputs,omitempty"`
@@ -733,6 +736,12 @@ func (b *ExpectedExploreBudget) budget() ExploreBudget {
 	return budget
 }
 
+// ExpectedSolverBudget is the solverBudget of a case: the moves the SMT referee
+// encodes its action to, in place of the engine's default.
+type ExpectedSolverBudget struct {
+	Moves *int `json:"moves,omitempty"`
+}
+
 // admissibleSchemaProblems reports how a case misuses outcomes and admissible:
 // the two go together, replace the single outcome rather than sit beside it,
 // list at least two distinct results, and cite a section the oracle has.
@@ -745,10 +754,16 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.ExploreBudget != nil {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
 		}
+		if expected.SolverBudget != nil {
+			problems = append(problems, "solverBudget is stated without outcomes to referee")
+		}
 		return problems
 	}
 	if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
 		problems = append(problems, "exploreBudget: "+err.Error())
+	}
+	if b := expected.SolverBudget; b != nil && (b.Moves == nil || *b.Moves < 1) {
+		problems = append(problems, "solverBudget: moves must be stated and at least 1")
 	}
 	if expected.Type != "action" && expected.Type != "state" {
 		problems = append(problems, fmt.Sprintf("outcomes apply to action and state cases, not %q", expected.Type))
@@ -2432,6 +2447,7 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
+	zero, twenty := 0, 20
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
@@ -2449,6 +2465,10 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1},
 		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1},
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1},
+		{"solver budget", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 0},
+		{"solver budget without moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{}}, 1},
+		{"solver budget of no moves", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited, SolverBudget: &ExpectedSolverBudget{Moves: &zero}}, 1},
+		{"solver budget without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, SolverBudget: &ExpectedSolverBudget{Moves: &twenty}}, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

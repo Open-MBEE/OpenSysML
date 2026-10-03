@@ -1,0 +1,14 @@
+step 1: token 1@a
+step 2: token 2@b, token 3@c
+stmt assign cRan
+  eval literal true -> true
+stmt assign bRan
+  eval literal true -> true
+choice step 3: tokens 2@b, 3@c (unordered; took 3@c first)
+step 3: token 2@d, token 3@d
+stmt assign hits
+    eval feature hits -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: token 4@done
+step 5: no active tokens

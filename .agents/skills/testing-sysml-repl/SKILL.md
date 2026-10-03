@@ -1151,6 +1151,27 @@ changes:
   `unresolved reference: n`; the CLI has **no** flag for action inputs, so exercise `in`/`out`
   parameters by having a caller action invoke `action call = Callee(a = 3, b = 4);`.
 
+## Action fan-out CLI checks
+
+- Use explicit succession syntax in minimal repros: `succession a then done;`
+  or `first a then done;`. A bare `a then done;` inside an action body can be
+  rejected as `expected a body member` before execution; do not mistake that
+  diagnostic for a runtime fan-out refusal.
+- The default scheduler is `reverse`, not `declared`. Compare explicit
+  `-schedule declared` with `-schedule reverse`; a no-flag run normally agrees
+  with reverse.
+- `-engine smt -action <name>` asks whether execution holds, not for the table
+  of final values. Use `-engine smt -action <name> -check-diverge <feature>` to
+  request two witnessed final values. `-engine check` and `-schedule explore`
+  expose outcomes directly. SMT may explicitly refuse an implicit join at a
+  plain node, whereas the runtime supports it; use an explicit join for a
+  cross-engine scheduling comparison.
+- Bound adversarial loops with `OPENSYSML_MAX_ACTION_STEPS=200`, and wrap the
+  command with `timeout 30`. Assert the step-limit diagnostic and exit 2,
+  not watchdog exit 124. Report CLI diagnostics separately from Go error
+  identity: the CLI does not expose `errors.Is`, and static merge/join
+  validation may prevent reaching the runtime guard.
+
 ## Control flow inside an action node body
 
 `while`, `loop … until` (braced and unbraced), `for … in` and `if`/`else` execute inside an
@@ -4068,10 +4089,10 @@ Traps and recipes:
 - Error wordings to assert: non-Boolean guard →
   `error: execution failed: type mismatch: node s1: guard must evaluate to boolean, got constant`;
   unresolvable name in a guard → `error: execution failed: eval guard of node s1: unresolved
-  reference: nosuch`. Two guards out of one action node that both hold →
-  `error: execution failed: more than one succession is enabled: action node check has multiple
-  successors` (wraps the `ErrAmbiguousSuccession` sentinel; the run stops with the token still on the
-  node and neither branch's attribute written — assert that with `%tokens`, not just the message).
+  reference: nosuch`. Two guards out of one ordinary action node that both hold are no error: each
+  succession is its own `HappensBefore` link, so the token splits as a fork's does and both branch
+  attributes are written (assert both in `Results:`). Only a `decide` node picks one of several
+  holding guards; a `join` or `merge` with two outgoing successions is still refused.
 - Places a guard could still be silently ignored, all worth a one-liner fixture: succession out of a
   real initial node (`then start s1 if …;`), out of a `merge`, out of a `join` (must not deadlock —
   the branch tokens are consumed either way), and one whose target is `done`.

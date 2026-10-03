@@ -183,6 +183,12 @@ a case that hits it fails with a message telling the author to raise it:
   budget is the answer to a model with more linearizations than the default
   covers, never to an outcome the set is missing: an unlisted outcome is a
   derivation to add to the oracle or a bug to fix.
+- `solverBudget`: optional beside `outcomes`, `{"moves": N}` with N at least 1. The
+  SMT referee (`TestRefereeCorpus`) encodes the case's action to N moves instead of
+  the engine's default 40. State it only for a case whose every run ends well within
+  N moves but whose default unrolling the solver cannot decide within the referee's
+  timeout; the referee's completion query still proves every run ends within N, so a
+  budget too low fails the case rather than hiding behavior.
 
 Cases without `outcomes` are not explored by the harness. The default schedule is
 deterministic, so a case with an admissible set still keeps its exact golden trace.
