@@ -162,7 +162,15 @@ of range` reason outside `1..Length(s)`, and the `ToString` of each numeric libr
 `BooleanFunctions` formats as the interpreter prints. A String compared with `==` to a value of
 another kind is false, as `DataFunctions::'=='` over different data types is in the interpreter.
 A String argument is written in String notation (`"héllo"`, with the interpreter's escapes) and a
-String result prints in it, so output and input round-trip.
+String result prints in it, so output and input round-trip. The notation is KerML's `STRING_VALUE`
+(KerML 1.0 §8.2.2, `KerMLExpressions.xtext`): it admits only the escapes `\b \t \n \f \r \" \'
+\\` and takes every other character as it is. So the interpreter and both targets escape the
+quote, the backslash and the five control characters with a named escape, and write every other
+character, printable or not (`U+200B`, `U+0007`, `U+2028`), unescaped. An escape such as `\u200b`
+would not read back: the parser rejects it, as does a compiled program reading an argument. A
+String can hold a NUL only from a literal in the model (no argument holds one); a C result prints
+it whole, but a C failure message is a NUL-terminated string (`sysml_error`), so a diagnostic
+quoting such a String ends at the NUL.
 
 An enumeration (SysML v2 §8.3.7 EnumerationDefinition: "an AttributeDefinition all of whose
 instances are given by an explicit list of enumerated values") compiles when its literals are
