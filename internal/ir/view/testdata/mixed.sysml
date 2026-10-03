@@ -19,7 +19,10 @@ package MixedExamples {
 		connection supply : Connection connect pump.outlet to tank.inlet;
 	}
 
-	connection def Connection;
+	connection def Connection {
+		end part a;
+		end part b;
+	}
 
 	state def Ready;
 

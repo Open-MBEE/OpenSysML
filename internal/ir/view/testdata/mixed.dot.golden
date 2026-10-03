@@ -35,7 +35,14 @@ digraph "MixedExamples::mixedDiagram" {
       "n26" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>pump : Pump</b></td></tr><tr><td port="n26.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">outlet : FluidPort</font></td></tr></table>>];
       "n27" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n27.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">inlet : FluidPort</font></td></tr><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b></td></tr></table>>];
     }
-    "n28" [label=<<font point-size="10"><i>«connection def»</i></font><br/><b>Connection</b>>];
+    subgraph "cluster_n28" {
+      label=<<font point-size="10"><i>«connection def»</i></font><br/><b>Connection</b>>;
+      color=black;
+      penwidth=0.5;
+      "n28" [shape=point, style=invis, width=0, height=0, label=""];
+      "n29" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>a</b>>];
+      "n30" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>b</b>>];
+    }
     "n1" [label=<<font point-size="10"><i>«state def»</i></font><br/><b>Ready</b><br/>declares no states>];
     subgraph "cluster_n2" {
       label=<<font point-size="10"><i>«state def»</i></font><br/><b>Modes</b>>;
@@ -67,7 +74,7 @@ digraph "MixedExamples::mixedDiagram" {
       "n16" [shape=point, fillcolor=black, label=""];
       "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>ready : Ready</b><br/>initial>];
     }
-    "n29" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Person</b>>];
+    "n31" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Person</b>>];
     "n17" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedDiagram</b>>];
     "n18" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedLayout</b>>];
   }
@@ -80,7 +87,7 @@ digraph "MixedExamples::mixedDiagram" {
   "n16" -> "n15";
   "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none, penwidth=3];
   "n3" -> "n1" [style=dashed, arrowhead=open];
-  "n10" -> "n29" [style=dashed, arrowhead=open];
+  "n10" -> "n31" [style=dashed, arrowhead=open];
   "n11" -> "n25" [style=dashed, arrowhead=open, lhead="cluster_n25"];
   "n13" -> "n5" [label="«perform»", style=dashed, arrowhead=open, lhead="cluster_n5"];
   "n14" -> "n2" [label="«exhibit»", style=dashed, arrowhead=open, ltail="cluster_n14", lhead="cluster_n2"];

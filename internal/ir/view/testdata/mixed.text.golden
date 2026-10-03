@@ -11,6 +11,8 @@ package MixedExamples
     part pump : Pump
     part tank : Tank
   connection def MixedExamples::Connection
+    part a
+    part b
   state def MixedExamples::Ready (declares no states)
   state def MixedExamples::Modes
     start

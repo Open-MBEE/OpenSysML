@@ -56,8 +56,14 @@ flowchart TD
       n27("`*«part»*
 **tank : Tank**`")
     end
-    n28["`*«connection def»*
+    subgraph n28 ["`*«connection def»*
 **Connection**`"]
+      direction TD
+      n29("`*«part»*
+**a**`")
+      n30("`*«part»*
+**b**`")
+    end
     n1["`*«state def»*
 **Ready**
 declares no states`"]
@@ -98,7 +104,7 @@ declares no nodes`")
 **ready : Ready**
 initial`")
     end
-    n29["`*«part def»*
+    n31["`*«part def»*
 **Person**`"]
     n17("`*«view»*
 **mixedDiagram**`")
@@ -114,7 +120,7 @@ initial`")
   n16 --> n15
   n26 ===|"supply"| n27
   n3 -.-> n1
-  n10 -.-> n29
+  n10 -.-> n31
   n11 -.-> n25_anchor
   n13 -.->|"«perform»"| n5_anchor
   n14_anchor -.->|"«exhibit»"| n2_anchor

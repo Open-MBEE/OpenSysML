@@ -11,6 +11,7 @@ package CaseExamples {
 	requirement def FuelReady {
 		subject vehicle : Vehicle;
 	}
+	requirement fuelReady : FuelReady;
 
 	use case def 'Add Fuel' {
 		subject vehicle : Vehicle;
@@ -55,7 +56,7 @@ package CaseExamples {
 	verification def FuelVerification {
 		subject vehicle : Vehicle;
 		objective {
-			verify FuelReady;
+			verify fuelReady;
 		}
 	}
 
