@@ -28,7 +28,6 @@ part def Drive {
         action thirty {
             out result[1] = 30.0;
         }
-        first thirty then 'spin over p';
         perform action 'spin over p' ::> motor.spin;
         first 'spin over p' then 'read motor';
         action 'read motor' {
@@ -37,20 +36,17 @@ part def Drive {
         first 'read motor' then 'fork';
         fork 'fork';
         first 'fork' then forty;
-        first 'fork' then 'join';
+        first 'fork' then 'spin over cmd';
         action forty {
             out result[1] = 40.0;
         }
-        first forty then 'join';
-        join 'join';
-        first 'join' then 'spin over cmd';
         perform action 'spin over cmd' ::> motor.spin;
         first 'spin over cmd' then final;
         action final terminate;
-        flow thirty.result to 'spin over p'.rpm;
-        flow forty.result to 'spin over cmd'.rpm;
-        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
-        metadata MigrationMetadata::StandIn about 'fork', 'join';
+        succession flow thirty.result to 'spin over p'.rpm;
+        succession flow forty.result to 'spin over cmd'.rpm;
+        metadata MigrationMetadata::SynthesizedName about 'fork', final;
+        metadata MigrationMetadata::StandIn about 'fork';
     }
     action stray {
         first start then 'fork';
@@ -60,15 +56,13 @@ part def Drive {
         action five {
             out result[1] = 5.0;
         }
-        first five then 'spin over loose';
         action 'spin over loose' : Motor::Spin;
         action six {
             out result[1] = 6.0;
         }
-        first six then 'spin over split';
         action 'spin over split' : Motor::Spin;
-        flow five.result to 'spin over loose'.rpm;
-        flow six.result to 'spin over split'.rpm;
+        succession flow five.result to 'spin over loose'.rpm;
+        succession flow six.result to 'spin over split'.rpm;
         metadata MigrationMetadata::SynthesizedName about 'fork';
         metadata MigrationMetadata::StandIn about 'fork';
     }

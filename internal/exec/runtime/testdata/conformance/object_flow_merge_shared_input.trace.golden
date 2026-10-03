@@ -1,0 +1,45 @@
+step 1: token 1@split
+step 2: token 2@warm, token 3@b
+stmt assign y
+  eval literal 2 -> 2
+choice step 3: tokens 2@warm, 3@b (unordered; took 3@b first)
+step 3: token 2@settle, token 3@relay
+choice step 4: tokens 2@settle, 3@relay (unordered; took 3@relay first)
+step 4: token 2@a, token 3@m
+  eval feature inputObject1 -> 2
+  eval feature inputObject2 -> ()
+eval sequence of 2 -> (2)
+stmt assign y
+  eval literal 1 -> 1
+choice step 5: tokens 2@a, 3@m (unordered; took 3@m first)
+step 5: token 2@m, token 3@keep
+stmt if
+    eval feature v -> 2
+    eval literal 1 -> 1
+  eval operator == -> false
+stmt if
+    eval feature v -> 2
+    eval literal 2 -> 2
+  eval operator == -> true
+  stmt assign twos
+      eval feature twos -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  eval feature inputObject1 -> 1
+  eval feature inputObject2 -> ()
+eval sequence of 2 -> (1)
+choice step 6: tokens 2@m, 3@keep (unordered; took 3@keep first)
+step 6: token 2@keep
+stmt if
+    eval feature v -> 1
+    eval literal 1 -> 1
+  eval operator == -> true
+  stmt assign ones
+      eval feature ones -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+stmt if
+    eval feature v -> 1
+    eval literal 2 -> 2
+  eval operator == -> false
+step 7: no active tokens

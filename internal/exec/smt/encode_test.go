@@ -509,3 +509,51 @@ func TestEncodeStreamsBackToOwnPin(t *testing.T) {
 		})
 	}
 }
+
+// TestEncodeGatedFlowDeliversOnlyWhenTaken: a guarded succession leading to a
+// succession flow moves the producer's value only where its guard holds, as the
+// interpreter does; where it does not, the consumer neither runs nor holds the value.
+func TestEncodeGatedFlowDeliversOnlyWhenTaken(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 8
+	ctx, action, graph, held := loweredDocument(t, "gated_flow_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		in go : Boolean[1];
+		attribute seen : Integer = -1;
+		first start;
+		action producer { out value : Integer = 5; assign value := 7; }
+		action consumer { in got : Integer = 0; assign seen := got; }
+		succession first start then producer;
+		first producer if go then f;
+		succession flow f from producer.value to consumer.got;
+	}
+}`, "test::outer")
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	last := enc.States[k]
+	failed := solve.VarTerm(last.Failed)
+	seen, gate, got := last.Values["test::outer::seen"], last.Values["test::outer::go"], last.Values["test::outer::consumer::got"]
+	if seen == nil || gate == nil || got == nil {
+		t.Fatalf("no features seen, go and consumer::got among %v", names(enc.Features))
+	}
+	if status := status(t, solver, enc, k, failed); status != solve.StatusUnsat {
+		t.Errorf("completes failed: %v, want unsat", status)
+	}
+	agree := eq(solve.VarTerm(seen), solve.Ite(solve.VarTerm(gate), solve.IntTerm(7), solve.IntTerm(-1)))
+	if status := status(t, solver, enc, k, solve.Not(agree)); status != solve.StatusUnsat {
+		t.Errorf("seen disagrees with the guard: %v, want unsat", status)
+	}
+	queued := last.Values["has pending(test::outer::consumer::got)"]
+	if queued == nil {
+		t.Fatalf("no pending delivery to consumer::got among %v", names(enc.Features))
+	}
+	if status := status(t, solver, enc, k, solve.And(solve.Not(solve.VarTerm(gate)), solve.VarTerm(queued))); status != solve.StatusUnsat {
+		t.Errorf("the rejected value is queued for consumer::got: %v, want unsat", status)
+	}
+	if status := status(t, solver, enc, k, solve.And(solve.VarTerm(gate), solve.Not(eq(solve.VarTerm(got), solve.IntTerm(7))))); status != solve.StatusUnsat {
+		t.Errorf("the accepted value misses consumer::got: %v, want unsat", status)
+	}
+}
