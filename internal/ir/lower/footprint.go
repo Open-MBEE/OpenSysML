@@ -255,6 +255,8 @@ type footprintBuilder struct {
 	scope     *symbols.Scope
 	declared  map[ast.Node]bool
 	footprint Footprint
+	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
+	expanding map[*ast.Usage]bool
 }
 
 func (b *footprintBuilder) read(p Place) {
@@ -309,6 +311,14 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	b.footprint.Dynamic = true
+	if b.expanding[usage] {
+		return
+	}
+	if b.expanding == nil {
+		b.expanding = make(map[*ast.Usage]bool)
+	}
+	b.expanding[usage] = true
+	defer delete(b.expanding, usage)
 	scope := sym.Scope
 	if scope == nil {
 		scope = b.scope

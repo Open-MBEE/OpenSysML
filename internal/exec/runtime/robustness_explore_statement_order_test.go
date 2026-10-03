@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -17,6 +18,7 @@ func TestRuntimeRobustnessExploreStatementOrder(t *testing.T) {
 	t.Run("recorded_order_replays", testStatementOrderReplay)
 	t.Run("seeded_runs_are_reproducible_and_reach_each_order", testStatementOrderSeeded)
 	t.Run("declared_and_reverse_keep_declaration_order", testStatementOrderFixedPolicies)
+	t.Run("cyclic_calc_binding_is_a_typed_error", testStatementOrderCyclicCalcBinding)
 }
 
 const manyStatements = `package test {
@@ -146,5 +148,53 @@ func testStatementOrderFixedPolicies(t *testing.T) {
 		if got := outcomeValue(t, outcome, "y"); got != "1" {
 			t.Errorf("%s gave y = %s, want 1, the statements in declaration order", spelling, got)
 		}
+	}
+}
+
+// cyclicCalcBindings binds a calc usage's input from itself, and two usages from each other.
+const cyclicCalcBindings = `package test {
+	private import ScalarValues::*;
+	calc def Twice { in k : Real; out d = k * 2.0; }
+	action def Self {
+		attribute v : Real = 1.0;
+		attribute doubled : Real = 0.0;
+		first start then compute;
+		action compute {
+			calc t : Twice { in k = t.d; }
+			assign v := 2.0;
+			assign doubled := t.d;
+		}
+		then done;
+	}
+	action def Mutual {
+		attribute v : Real = 1.0;
+		attribute doubled : Real = 0.0;
+		first start then compute;
+		action compute {
+			calc a : Twice { in k = b.d; }
+			calc b : Twice { in k = a.d; }
+			assign v := 2.0;
+			assign doubled := a.d;
+		}
+		then done;
+	}
+}`
+
+// testStatementOrderCyclicCalcBinding: building the statements' footprints through
+// a cyclic binding terminates, and every order ends in the runtime's recursion error.
+func testStatementOrderCyclicCalcBinding(t *testing.T) {
+	m := parseExploreModel(t, cyclicCalcBindings)
+	for _, action := range []string{"Self", "Mutual"} {
+		t.Run(action, func(t *testing.T) {
+			x := m.exploreAction(t, "explore", action)
+			if !x.Complete() || len(x.Outcomes) == 0 {
+				t.Fatalf("exploration %s with %v, want complete", x.Status(), outcomeTexts(x))
+			}
+			for _, o := range x.Outcomes {
+				if !errors.Is(o.Outcome.Err, ErrCalcUsageRecursion) {
+					t.Errorf("outcome %s, want ErrCalcUsageRecursion", o.Outcome)
+				}
+			}
+		})
 	}
 }
