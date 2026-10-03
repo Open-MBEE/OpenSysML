@@ -1,0 +1,16 @@
+enter calc test::pickMass
+  stmt return
+materialize: asm #1
+materialize: Component #2
+          eval chain cell -> (instance#2, 1999 of Component #3..#2001)
+          eval literal 1999 -> 1999
+materialize: Component #2000
+        eval index -> instance#2000
+      eval chain unitMass -> 2.0
+        enter calc SequenceFunctions::size
+          eval chain cell -> (instance#2, 1999 of Component #3..#2001)
+          bind seq = (instance#2, 1999 of Component #3..#2001) [argument]
+        exit calc SequenceFunctions::size -> 2000
+      eval invoke size -> 2000
+    eval operator * -> 4000.0
+exit calc test::pickMass -> 4000.0

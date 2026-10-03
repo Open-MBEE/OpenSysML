@@ -235,6 +235,7 @@ pub(crate) fn lock_path(cache_dir: &Path) -> PathBuf {
 }
 
 /// Report to the caller the way this client can, since it has no logger.
+#[cfg(test)]
 fn warn_on_stderr(message: &str) {
     eprintln!("opensysml: warning: {message}");
 }
@@ -386,7 +387,7 @@ fn link(source: &Path, target: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Whether a path is a file this user can execute.
-fn is_executable(path: &Path) -> bool {
+pub(crate) fn is_executable(path: &Path) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };
@@ -404,6 +405,7 @@ fn is_executable(path: &Path) -> bool {
 /// The digest-named link to the cached binary, when one is cached.
 ///
 /// Resolution reaches the cache without a downloader when no release was asked for.
+#[cfg(test)]
 pub(crate) fn stable_cached_binary(binary_path: &Path) -> Option<PathBuf> {
     let cache_dir = binary_path.parent()?;
     let _held = cache_lock(cache_dir, &|message| warn_on_stderr(&message));
@@ -782,9 +784,22 @@ impl Downloader {
     /// The decision is made holding the shared cache lock, and what is returned
     /// for the cache is a digest-named link no later install replaces.
     pub(crate) fn ensure_binary(&self, version: Option<&str>) -> Result<PathBuf, Error> {
+        self.ensure_binary_with_policy(version, false)
+    }
+
+    /// Resolve the built-against release while preserving an executable hand-installed cache.
+    pub(crate) fn ensure_implicit_binary(&self, version: &str) -> Result<PathBuf, Error> {
+        self.ensure_binary_with_policy(Some(version), true)
+    }
+
+    fn ensure_binary_with_policy(
+        &self,
+        version: Option<&str>,
+        implicit: bool,
+    ) -> Result<PathBuf, Error> {
         let _held = self.hold_cache();
         let binary_path = self.binary_path();
-        let chosen = self.ensure_binary_locked(version)?;
+        let chosen = self.ensure_binary_locked(version, implicit)?;
         Ok(if chosen == binary_path {
             stable_binary(&binary_path, &|message| self.warn(message))
         } else {
@@ -793,10 +808,17 @@ impl Downloader {
     }
 
     /// [`Self::ensure_binary`], with the shared cache held.
-    fn ensure_binary_locked(&self, version: Option<&str>) -> Result<PathBuf, Error> {
+    fn ensure_binary_locked(
+        &self,
+        version: Option<&str>,
+        implicit: bool,
+    ) -> Result<PathBuf, Error> {
         let binary_path = self.binary_path();
         let mut cached = None;
         if binary_path.is_file() {
+            if implicit && !self.metadata_path().exists() && is_executable(&binary_path) {
+                return Ok(binary_path);
+            }
             match self.stale_cache_reason(version) {
                 None => return Ok(binary_path),
                 Some(stale) => {
@@ -818,6 +840,20 @@ impl Downloader {
 
         match self.install(version) {
             Ok(path) => Ok(path),
+            Err(Failure {
+                error: Error::UnpinnedRelease(message),
+                installed: false,
+            }) if implicit => match cached {
+                Some(path) => {
+                    self.warn(format!(
+                        "keeping the cached sysml-grpc at {}: {version} is not verifiable \
+                         ({message}). It may be an older release than asked for.",
+                        path.display(),
+                    ));
+                    Ok(path)
+                }
+                None => Err(Error::UnpinnedRelease(message)),
+            },
             // A download refused for integrity is never answered from the cache,
             // and neither is one that already replaced it.
             Err(Failure {
@@ -1380,6 +1416,133 @@ mod tests {
                 if message.contains("OPENSYSML_GRPC_VERSION")),
             "{error}"
         );
+    }
+
+    #[test]
+    fn the_built_against_release_is_downloaded_and_recorded() {
+        let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let body = b"the built-against release binary";
+        let digest = digest_of(body);
+        let harness = harness(
+            "built-against",
+            release_routes(&version, body, &digest),
+            pin_table(&version, &digest),
+        );
+
+        let path = harness
+            .downloader
+            .ensure_implicit_binary(&version)
+            .expect("built-against release");
+
+        assert_eq!(fs::read(path).expect("read binary"), body);
+        assert_eq!(
+            harness.downloader.cached_release().as_deref(),
+            Some(version.as_str())
+        );
+    }
+
+    #[test]
+    fn an_implicit_request_keeps_an_executable_cache_without_metadata() {
+        let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let harness = harness("hand-installed", HashMap::new(), PinTable::new());
+        let path = harness.downloader.binary_path();
+        fs::create_dir_all(path.parent().expect("cache directory")).expect("create cache");
+        fs::write(&path, b"hand-installed binary").expect("install binary");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).expect("make executable");
+        }
+
+        let resolved = harness
+            .downloader
+            .ensure_implicit_binary(&version)
+            .expect("keep hand-installed binary");
+
+        assert_eq!(
+            fs::read(resolved).expect("read binary"),
+            b"hand-installed binary"
+        );
+        assert!(!harness.downloader.metadata_path().exists());
+    }
+
+    #[test]
+    fn an_implicit_request_replaces_a_cache_from_another_release() {
+        let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let body = b"the built-against release binary";
+        let digest = digest_of(body);
+        let harness = harness(
+            "implicit-replace",
+            release_routes(&version, body, &digest),
+            pin_table(&version, &digest),
+        );
+        let downloader = &harness.downloader;
+        let old = b"old release";
+        fs::write(downloader.binary_path(), old).expect("place old cache");
+        downloader
+            .write_metadata(&CacheMetadata {
+                version: "v0.0.5".to_owned(),
+                sha256: digest_of(old),
+                repo: REPO.to_owned(),
+            })
+            .expect("record old cache");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(downloader.binary_path(), fs::Permissions::from_mode(0o700))
+                .expect("make executable");
+        }
+
+        let path = downloader
+            .ensure_implicit_binary(&version)
+            .expect("replace old release");
+
+        assert_eq!(fs::read(path).expect("read binary"), body);
+        assert_eq!(
+            downloader.cached_release().as_deref(),
+            Some(version.as_str())
+        );
+        assert!(downloader
+            .warnings()
+            .iter()
+            .any(|warning| warning.contains("replacing the cached sysml-grpc")));
+    }
+
+    #[test]
+    fn an_unpinned_implicit_replacement_keeps_the_working_cache() {
+        let version = "v0.3.0";
+        let sidecar = format!("{}  {ASSET}\n", digest_of(b"unpinned binary"));
+        let routes = HashMap::from([(
+            format!("/{REPO}/releases/download/{version}/{ASSET}.sha256"),
+            sidecar.into_bytes(),
+        )]);
+        let harness = harness("implicit-unpinned", routes, PinTable::new());
+        let downloader = &harness.downloader;
+        let cached = b"working cache";
+        fs::write(downloader.binary_path(), cached).expect("place cache");
+        downloader
+            .write_metadata(&CacheMetadata {
+                version: "v0.0.5".to_owned(),
+                sha256: digest_of(cached),
+                repo: REPO.to_owned(),
+            })
+            .expect("record cache");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(downloader.binary_path(), fs::Permissions::from_mode(0o700))
+                .expect("make executable");
+        }
+
+        let path = downloader
+            .ensure_implicit_binary(version)
+            .expect("retain cache for unavailable release");
+
+        assert_eq!(fs::read(path).expect("read cache"), cached);
+        assert!(downloader
+            .warnings()
+            .iter()
+            .any(|warning| warning.contains("not verifiable")));
     }
 
     #[test]

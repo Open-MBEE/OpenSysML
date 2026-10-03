@@ -8,11 +8,11 @@ notes on packaging and its conformance run are in
 [client/node/README.md](../../client/node/README.md).
 
 ```bash
-npm install @openmbee/opensysml        # once the first release is published
+npm install @openmbee/opensysml
 ```
 
-Nothing is published yet, so a checkout builds it: `npm install && npm run build`
-in `client/node`.
+The package is published on npm. From a checkout, build it with
+`npm install && npm run build` in `client/node`.
 
 ## The two entry points
 

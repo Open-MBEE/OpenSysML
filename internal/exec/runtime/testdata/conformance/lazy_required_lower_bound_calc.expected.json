@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "trace": true,
+  "result": {
+    "type": "Real",
+    "value": 4000.0
+  }
+}

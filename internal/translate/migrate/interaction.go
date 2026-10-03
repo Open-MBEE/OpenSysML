@@ -25,8 +25,10 @@ type scenario struct {
 	steps  []*scenarioStep
 	// calls lists the call steps resolved so far, which a reply answers.
 	calls []*scenarioStep
-	// others are the fragments that order nothing: executions, invariants, orderings.
-	others []*sysmlv1.Element
+	// others are the fragments that order nothing: executions, orderings, and the
+	// state invariants no assertion is written for, with the reason in unwritten.
+	others    []*sysmlv1.Element
+	unwritten map[*sysmlv1.Element]string
 	// waited holds the duration constraints written as waits before a step.
 	waited map[*sysmlv1.Element]bool
 	// names gives each stepped message its step's name; last is the latest one.
@@ -37,6 +39,8 @@ type scenario struct {
 	chains int
 	// pending holds the waits forked after a message, to be joined before the later message they span to.
 	pending map[*sysmlv1.Element]pendingWait
+	// uses gives each interaction use its step.
+	uses map[*sysmlv1.Element]*scenarioStep
 	// outer gives each operand's body the body of the fragment it is nested in.
 	outer map[*[]*scenarioStep]*[]*scenarioStep
 	// nest names the actions the steps being written are nested in; hidden
@@ -65,6 +69,8 @@ type lifelineRef struct {
 	path  string
 	chain string
 	typ   *sysmlv1.Element
+	// from spells the object as an expression of the interaction reads it.
+	from string
 }
 
 type stepKind int
@@ -80,6 +86,9 @@ const (
 	stepLoop
 	stepPar
 	stepSeq
+	stepUse
+	stepGate
+	stepAssert
 )
 
 // scenarioStep is one thing the scenario does: a message, or a combined fragment
@@ -107,6 +116,13 @@ type scenarioStep struct {
 	// an else or unguarded operand has "". count repeats a loop a fixed number of times.
 	operands []*scenarioOperand
 	count    string
+	// use is an interaction use's referenced interaction, performed as target
+	// with the members body.
+	use    *sysmlv1.Element
+	target string
+	lines  []string
+	// cond is the condition a state invariant's assertion checks.
+	cond string
 }
 
 type scenarioOperand struct {
@@ -175,15 +191,17 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 	defer func() { m.self = saved }()
 	s := &scenario{
 		m: m, e: e, context: context, self: self,
-		order:   map[*sysmlv1.Element]int{},
-		lines:   map[*sysmlv1.Element]lifelineRef{},
-		used:    map[string]bool{"start": true, "done": true},
-		placed:  map[*sysmlv1.Element]bool{},
-		waited:  map[*sysmlv1.Element]bool{},
-		names:   map[*sysmlv1.Element]string{},
-		chain:   map[*sysmlv1.Element]chainPos{},
-		pending: map[*sysmlv1.Element]pendingWait{},
-		outer:   map[*[]*scenarioStep]*[]*scenarioStep{},
+		order:     map[*sysmlv1.Element]int{},
+		lines:     map[*sysmlv1.Element]lifelineRef{},
+		used:      map[string]bool{"start": true, "done": true},
+		placed:    map[*sysmlv1.Element]bool{},
+		waited:    map[*sysmlv1.Element]bool{},
+		names:     map[*sysmlv1.Element]string{},
+		chain:     map[*sysmlv1.Element]chainPos{},
+		pending:   map[*sysmlv1.Element]pendingWait{},
+		outer:     map[*[]*scenarioStep]*[]*scenarioStep{},
+		unwritten: map[*sysmlv1.Element]string{},
+		uses:      map[*sysmlv1.Element]*scenarioStep{},
 	}
 	for i, f := range e.Owned("fragment") {
 		s.order[f] = i
@@ -194,6 +212,9 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 		}
 	}
 	steps, note := s.resolve(e.Owned("fragment"), e.Owned("message"), &s.steps)
+	if note == "" {
+		note = gatesAdjoin(steps)
+	}
 	if note != "" {
 		return nil, note
 	}
@@ -228,9 +249,21 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 			}
 			steps = append(steps, step)
 		case "InteractionUse":
-			return nil, "the interaction use " + describe(f) + " refers to another interaction, whose steps a scenario does not perform"
+			step, note := s.use(f, body)
+			if note != "" {
+				return nil, "the interaction use " + describe(f) + " " + note
+			}
+			steps = append(steps, step)
+		case "StateInvariant":
+			step, note := s.invariant(f, body)
+			if note != "" {
+				s.unwritten[f] = note
+				s.others = append(s.others, f)
+				continue
+			}
+			steps = append(steps, step)
 		case "ExecutionOccurrenceSpecification", "BehaviorExecutionSpecification", "ActionExecutionSpecification",
-			"StateInvariant", "DestructionOccurrenceSpecification", "OccurrenceSpecification", "Continuation":
+			"DestructionOccurrenceSpecification", "OccurrenceSpecification", "Continuation":
 			s.others = append(s.others, f)
 		default:
 			return nil, "the fragment " + describe(f) + " is a " + f.Type + ", which has no v2 form"
@@ -248,6 +281,276 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 		steps = append(steps, step)
 	}
 	return steps, ""
+}
+
+// gatesAdjoin says why a message entering an interaction use's gate is not
+// sent just before the use in the order steps are written, seq operands inlined.
+func gatesAdjoin(steps []*scenarioStep) string {
+	steps = inlineSeq(steps)
+	for i, step := range steps {
+		if step.kind != stepGate {
+			for _, o := range step.operands {
+				if note := gatesAdjoin(o.steps); note != "" {
+					return note
+				}
+			}
+			continue
+		}
+		j := i + 1
+		for j < len(steps) && steps[j].kind == stepGate && steps[j].frag == step.frag {
+			j++
+		}
+		if j < len(steps) && steps[j].kind == stepUse && steps[j].frag == step.frag {
+			continue
+		}
+		return theMessage + describe(step.msg) + " enters the interaction use " + describe(step.frag) +
+			" through its gate but is not sent just before it, and the performed scenario carries the message where the use is"
+	}
+	return ""
+}
+
+// inlineSeq lists steps with each seq or strict fragment replaced by its operands' steps.
+func inlineSeq(steps []*scenarioStep) []*scenarioStep {
+	var out []*scenarioStep
+	for _, step := range steps {
+		if step.kind != stepSeq {
+			out = append(out, step)
+			continue
+		}
+		for _, o := range step.operands {
+			out = append(out, inlineSeq(o.steps)...)
+		}
+	}
+	return out
+}
+
+// use resolves an interaction use: the referenced interaction's scenario,
+// performed on the object it acts on with the use's arguments bound to its parameters.
+func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
+	ref := s.m.model.Ref(f, "refersTo")
+	switch {
+	case ref == nil:
+		return nil, "refers to no interaction" + suffixNote(s.m.dangling(f, "refersTo"))
+	case ref.Type != "Interaction":
+		return nil, "refers to " + describe(ref) + ", a " + ref.Type + " rather than an interaction"
+	}
+	if note := s.m.interactionNote(ref); note != "" {
+		return nil, "refers to " + describe(ref) + ", which is not migrated: " + note
+	}
+	if !s.m.written(ref) {
+		return nil, "refers to " + describe(ref) + ", which has no v2 declaration"
+	}
+	step := &scenarioStep{kind: stepUse, frag: f, use: ref, body: body}
+	if s.m.asUsage[ref] {
+		obj, why := s.performer(f, ref)
+		if why != "" {
+			return nil, why
+		}
+		usage := s.m.nameOf(ref)
+		if obj == "" {
+			// A step named as the usage it performs would hide it.
+			s.used[usage] = true
+		}
+		step.target = " ::> " + joinDot(obj, writeName(usage))
+	} else {
+		step.target = " : " + s.m.ref(ref, s.e)
+		ins, cnote := s.m.contextIns(s.m.contextOf(ref), s.e)
+		if ins != "" {
+			step.lines = s.m.contextBody(ref, ins)
+		}
+		step.note = cnote
+	}
+	var ins []*sysmlv1.Element
+	for _, p := range ref.Owned("ownedParameter") {
+		if dir, _ := parameterDirection(p); dir == "in" || dir == "inout" {
+			ins = append(ins, p)
+		}
+	}
+	args, note, why := s.bindArguments(f, ins, "parameter", ref)
+	if why != "" {
+		return nil, why
+	}
+	step.lines = append(step.lines, args...)
+	step.note = joinNotes(step.note, note)
+	base := lowerFirst(s.m.nameFor(ref))
+	if n := s.m.nameOf(f); n != "" {
+		base = n
+	}
+	step.base = freshIn(s.used, base)
+	step.name = writeName(step.base)
+	s.returnValue(step)
+	s.uses[f] = step
+	return step, ""
+}
+
+// performer spells the object an interaction use performs ref on: the scenario's
+// own object when ref belongs to its context, else the one lifeline the use
+// covers, or the one part of the context, that is an object of ref's context.
+func (s *scenario) performer(f, ref *sysmlv1.Element) (string, string) {
+	owner := classifierOf(ref)
+	self := s.m.thisName(s.e)
+	if self == "this" {
+		self = ""
+	}
+	if owner == s.context || s.m.inherits(s.context, owner) {
+		return self, ""
+	}
+	var found []lifelineRef
+	for _, line := range s.m.model.Refs(f, "covered") {
+		if r, ok := s.lines[line]; ok && r.typ != nil && (r.typ == owner || s.m.inherits(r.typ, owner)) {
+			found = append(found, r)
+		}
+	}
+	if len(found) == 1 {
+		return found[0].chain, ""
+	}
+	obj, _, why := s.m.objectOf(owner, s.context, "this")
+	if obj == "" {
+		return "", "refers to " + describe(ref) + " of " + qualifiedName(owner) + ", performed on an object of it: no one lifeline it covers stands for one, and " + qualifiedName(s.context) + " " + why
+	}
+	return joinDot(self, strings.TrimPrefix(strings.TrimPrefix(obj, "this"), ".")), ""
+}
+
+// returnValue reports the result an interaction use names a recipient for:
+// a scenario binds no return parameter, so there is no value to assign.
+func (s *scenario) returnValue(step *scenarioStep) {
+	f := step.frag
+	if r := s.m.model.Ref(f, "returnValueRecipient"); r != nil {
+		step.note = joinNotes(step.note, "the return value is not assigned to "+describe(r)+": the scenario of "+describe(step.use)+" binds no return parameter")
+	} else if v := firstOwned(f, "returnValue"); v != nil {
+		step.note = joinNotes(step.note, "the return value "+describeValue(v)+" is not checked: the scenario of "+describe(step.use)+" binds no return parameter")
+	}
+}
+
+// gated resolves a message that enters an interaction use through one of its
+// gates: the performed scenario's message leaving the matching formal gate carries it.
+func (s *scenario) gated(step *scenarioStep, gate *sysmlv1.Element) (*scenarioStep, string) {
+	use := gate.Parent
+	if use.Type != "InteractionUse" || !within(use, s.e) {
+		return nil, "is received on the gate " + describe(gate) + " of " + describe(use) + ", which is not an interaction use of the interaction"
+	}
+	ref := s.m.model.Ref(use, "refersTo")
+	if ref == nil {
+		return nil, "enters the interaction use " + describe(use) + ", which refers to no interaction"
+	}
+	inner := s.formalMessage(ref, s.m.nameOf(gate))
+	if inner == nil {
+		return nil, "enters the interaction use " + describe(use) + " through the gate " + describe(gate) + ", which no message of " + describe(ref) + " leaves"
+	}
+	step.kind = stepGate
+	step.frag = use
+	step.op = inner
+	if len(step.msg.Owned("argument")) > 0 {
+		step.note = "the arguments it carries into the gate are those the message " + describe(inner) + " of " + describe(ref) + " states"
+	}
+	return step, ""
+}
+
+// formalMessage finds the message of interaction ref that leaves its formal gate named name.
+func (s *scenario) formalMessage(ref *sysmlv1.Element, name string) *sysmlv1.Element {
+	for _, g := range ref.Owned("formalGate") {
+		if s.m.nameOf(g) != name {
+			continue
+		}
+		for _, msg := range ref.Owned("message") {
+			if s.m.model.Ref(msg, "sendEvent") == g {
+				return msg
+			}
+		}
+	}
+	return nil
+}
+
+// invariant resolves a state invariant to the assertion of its condition at its
+// point in the scenario: its names read the covered lifeline's object first, as
+// UML evaluates it there, else the interaction's context.
+func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep, string) {
+	c := firstOwned(f, "invariant")
+	if c == nil {
+		return nil, "the state invariant states no condition"
+	}
+	spec := firstOwned(c, "specification")
+	if spec == nil {
+		return nil, "the state invariant's constraint has no specification"
+	}
+	var lines []lifelineRef
+	for _, line := range s.m.model.Refs(f, "covered") {
+		if r, ok := s.lines[line]; ok {
+			lines = append(lines, r)
+		}
+	}
+	cond, note, ok := "", "", false
+	if len(lines) == 1 && lines[0].typ != nil && spec.Type == "OpaqueExpression" {
+		text, lang := opaqueBody(spec)
+		on, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
+		switch {
+		case lost != "":
+			return nil, "the state invariant's condition [" + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + ", which has no v2 declaration"
+		case read:
+			cond, ok, note = s.m.behaviorExpr(on, lang, s.e)
+			if !ok {
+				return nil, "the state invariant's condition [" + describeValue(spec) + "] is not written: " + note
+			}
+		}
+	}
+	if !ok {
+		var refusal string
+		cond, ok, refusal = s.m.behaviorValue(spec, s.e)
+		if !ok {
+			return nil, "the state invariant's condition [" + describeValue(spec) + "] is not written: " + refusal
+		}
+		note = refusal
+	}
+	if kind, _ := exprLiteral(cond); kind != "" && kind != "boolean" {
+		return nil, "the state invariant's condition " + cond + " is not a Boolean"
+	}
+	base := s.m.nameOf(f)
+	if base == "" {
+		base = s.m.nameOf(c)
+	}
+	if base == "" {
+		base = "invariant"
+	}
+	step := &scenarioStep{kind: stepAssert, frag: f, body: body, cond: cond, note: note}
+	step.base = freshIn(s.used, base)
+	step.name = writeName(step.base)
+	return step, ""
+}
+
+// onObject qualifies each name of text that is a written attribute of typ with
+// path, the object it is read on; read reports whether any name was, and lost
+// names an attribute of typ text reads that is not written.
+func (m *migration) onObject(text, path string, typ *sysmlv1.Element) (on string, read bool, lost string) {
+	refs, ok := exprRefs(text)
+	if !ok {
+		return "", false, ""
+	}
+	owned := map[string]*sysmlv1.Element{}
+	for _, f := range m.attributesOf(typ) {
+		owned[m.nameOf(f)] = f
+	}
+	var starts []int
+	for _, r := range refs {
+		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+			continue
+		}
+		f := owned[r.steps[0].name]
+		switch {
+		case f == nil:
+		case !m.written(f):
+			return "", false, describe(f)
+		default:
+			starts = append(starts, r.start)
+		}
+	}
+	if len(starts) == 0 {
+		return "", false, ""
+	}
+	slices.Sort(starts)
+	for i := len(starts) - 1; i >= 0; i-- {
+		text = text[:starts[i]] + path + "." + text[starts[i]:]
+	}
+	return text, true, ""
 }
 
 // lifeline resolves the object a lifeline stands for: a part, port or reference
@@ -273,7 +576,7 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 			return lifelineRef{}, "stands for the " + dir + " parameter " + describe(rep) + ", which holds no object when the scenario starts"
 		}
 		name := writeName(s.m.nameFor(rep))
-		ref = lifelineRef{line: line, path: name, chain: name, typ: s.m.model.Ref(rep, "type")}
+		ref = lifelineRef{line: line, path: name, chain: name, typ: s.m.model.Ref(rep, "type"), from: name}
 	case "Property", "Port":
 		if !s.m.written(rep) {
 			return lifelineRef{}, standsFor + describe(rep) + " of " + qualifiedName(rep.Parent) + ", which has no v2 declaration"
@@ -295,7 +598,7 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 				self = ""
 			}
 		}
-		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type")}
+		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type"), from: paths[0]}
 		if self != "this" {
 			ref.chain = ref.path
 		}
@@ -363,6 +666,9 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	if step.sender, note = s.end(msg, "sendEvent"); note != "" {
 		return nil, "is sent from " + note
 	}
+	if gate := s.m.model.Ref(msg, "receiveEvent"); gate != nil && gate.Type == "Gate" && gate.Parent != s.e {
+		return s.gated(step, gate)
+	}
 	if step.receiver, note = s.end(msg, "receiveEvent"); note != "" {
 		return nil, "is received on " + note
 	}
@@ -390,8 +696,12 @@ func (s *scenario) message(msg *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 // message has no such occurrence (a found or lost message).
 func (s *scenario) end(msg *sysmlv1.Element, role string) (*lifelineRef, string) {
 	ev := s.m.model.Ref(msg, role)
-	if ev == nil {
+	if ev == nil || ev.Type == "Gate" && ev.Parent == s.e {
+		// A formal gate is the interaction's edge: the message comes from or goes to its environment.
 		return nil, ""
+	}
+	if ev.Type == "Gate" {
+		return nil, "the gate " + describe(ev) + " of " + describe(ev.Parent) + ", which no lifeline of the interaction stands behind"
 	}
 	line := s.m.model.Ref(ev, "covered")
 	if line == nil || line.Type != "Lifeline" {
@@ -881,7 +1191,7 @@ func suffixNote(s string) string {
 // interactionBody writes an interaction as a scenario: an action whose steps are
 // its messages and combined fragments in occurrence order.
 func (m *migration) interactionBody(e *sysmlv1.Element) {
-	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation")
+	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation", "formalGate")
 	s, note := m.scenario(e, "this")
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.
@@ -901,6 +1211,9 @@ func (s *scenario) write() {
 		s.m.add(line, Mapped, ref.path, "the lifeline stands for "+ref.path+", which the steps address")
 	}
 	s.writeSteps(s.steps)
+	for _, g := range s.e.Owned("formalGate") {
+		s.m.add(g, Mapped, "", "the gate is the scenario's edge: a message leaving it comes from whatever performs the scenario")
+	}
 	for _, f := range s.others {
 		s.other(f)
 	}
@@ -923,13 +1236,17 @@ func (s *scenario) write() {
 		}
 		s.m.unmapped(o, "a "+o.Type+" has no v2 form")
 	}
-	n := countSteps(s.steps)
+	n, others := countSteps(s.steps)
 	steps := "steps"
-	if n == 1 {
+	if n+others == 1 {
 		steps = "step"
 	}
-	note := "written as a scenario of " + strconv.Itoa(n) + " " + steps +
-		", one per message in occurrence order; the lifelines' own behavior is not part of it"
+	per := "message"
+	if others > 0 {
+		per = "message, interaction use or state invariant"
+	}
+	note := "written as a scenario of " + strconv.Itoa(n+others) + " " + steps +
+		", one per " + per + " in occurrence order; the lifelines' own behavior is not part of it"
 	if has(s.e, "TestCase") {
 		note = joinNotes(note, s.verdictNote())
 	}
@@ -947,18 +1264,22 @@ func (s *scenario) verdictNote() string {
 	return "the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete"
 }
 
-// countSteps counts the messages a body of steps and its fragments write.
-func countSteps(steps []*scenarioStep) int {
-	n := 0
+// countSteps counts the messages a body of steps and its fragments write, and
+// apart from them the interaction uses and state invariants.
+func countSteps(steps []*scenarioStep) (messages, others int) {
 	for _, s := range steps {
-		if s.msg != nil {
-			n++
+		switch {
+		case s.kind == stepUse || s.kind == stepAssert:
+			others++
+		case s.msg != nil:
+			messages++
 		}
 		for _, o := range s.operands {
-			n += countSteps(o.steps)
+			m, n := countSteps(o.steps)
+			messages, others = messages+m, others+n
 		}
 	}
-	return n
+	return messages, others
 }
 
 // writeSteps writes a body of steps chained from start to done.
@@ -1064,6 +1385,21 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 		m.w.line("join " + join + ";")
 		s.fragmentDone(step, "fork")
 		return join
+	case stepUse:
+		return s.performUse(step, prev)
+	case stepGate:
+		use := s.uses[step.frag]
+		s.m.add(step.msg, verdictFor(step.note), use.name, joinNotes("the message enters "+use.name+" through its gate, where the performed scenario's message "+describe(step.op)+" carries it", step.note))
+		if ev := s.m.model.Ref(step.msg, "sendEvent"); ev != nil {
+			s.m.add(ev, Mapped, use.name, "the occurrence orders the step "+use.name)
+		}
+		return ""
+	case stepAssert:
+		m.w.line("assert constraint " + step.name + " { " + step.cond + " }")
+		m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the assertion "+step.name+", which the scenario checks when it reaches it", step.note))
+		if c := firstOwned(step.frag, "invariant"); c != nil {
+			m.add(c, verdictFor(step.note), step.name, "the constraint is the condition of the assertion "+step.name)
+		}
 	case stepSeq:
 		prevInner := prev
 		for _, o := range step.operands {
@@ -1083,6 +1419,23 @@ func (s *scenario) step(step *scenarioStep, prev string) string {
 	m.w.line(firstKw + prev + thenKw + step.name + ";")
 	if step.msg != nil {
 		return s.startWaits(step)
+	}
+	return step.name
+}
+
+// performUse writes an interaction use as the perform of its interaction's scenario after prev.
+func (s *scenario) performUse(step *scenarioStep, prev string) string {
+	m := s.m
+	decl := "perform action " + step.name + step.target
+	if len(step.lines) == 0 {
+		m.w.line(decl + ";")
+	} else {
+		m.w.line(decl + " { " + strings.Join(step.lines, "; ") + "; }")
+	}
+	m.w.line(firstKw + prev + thenKw + step.name + ";")
+	m.add(step.frag, verdictFor(step.note), step.name, joinNotes("written as the perform "+step.name+" of the scenario of "+describe(step.use), step.note))
+	for _, g := range step.frag.Owned("actualGate") {
+		m.add(g, Mapped, step.name, "the gate passes its message into the performed scenario "+step.name)
 	}
 	return step.name
 }
@@ -1381,7 +1734,7 @@ func (s *scenario) other(f *sysmlv1.Element) {
 	case "BehaviorExecutionSpecification", "ActionExecutionSpecification", "ExecutionOccurrenceSpecification":
 		s.m.add(f, Skipped, "", "the execution spans the steps between its occurrences, which run in order without it")
 	case "StateInvariant":
-		s.m.add(f, Unmapped, "", "the state invariant asserts what holds at its point in the scenario, which no step checks")
+		s.m.add(f, Unmapped, "", s.unwritten[f])
 	case "DestructionOccurrenceSpecification":
 		s.m.add(f, Unmapped, "", "the destruction ends an object that exists for as long as its owner does")
 	default:

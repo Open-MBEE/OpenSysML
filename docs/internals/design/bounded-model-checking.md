@@ -457,7 +457,7 @@ sysml model.sysml -engine check -instantiate Fleet::truck \
 
 | Flag | Meaning |
 |------|---------|
-| `-engine check` with `-action "<name> [object]"`, `-state "<name> [object]"`, `-advance D` | Explore the schedules of the behaviors `-action` and `-state` would run once, on one clock: an action's to completion, a state machine's until nothing more is due — or, with `-advance`, up to that horizon, a wait past it left unreached |
+| `-engine check` with `-action "<name> [object]"`, `-state "<name> [object]"`, `-advance D` | Explore the schedules of the behaviors `-action` and `-state` would run once, on one clock: an action's to completion, a state machine's initial transition only — or, with `-advance`, up to that horizon, a wait past it left unreached |
 | `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
 | `-check-diverge <feature>` | Report divergence of this feature (`x`, `step.out` for a performed node's output, or `this.level` for the performing object's; a name nothing holds is refused; a schedule leaving it unset ends as `<unset>`); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
 | `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |

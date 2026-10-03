@@ -598,7 +598,10 @@ func (ctx *Context) declaredAlong(inst *Instance, path []string, sources []*Feat
 	if len(path) == 1 {
 		return sources, true
 	}
-	for _, held := range elementsOf(fv.HeldValue()) {
+	if seq := requiredTail(fv.HeldValue()); seq != nil && int64(len(ctx.madeRequired(seq.required))) < seq.required.count {
+		return sources, false
+	}
+	for _, held := range standingElements(fv.HeldValue()) {
 		child, ok := ctx.instances[held.Instance]
 		if held.Kind != ValInstance || !ok || len(child.classifiers) != 0 {
 			return sources, false
@@ -660,7 +663,7 @@ func (ctx *Context) materializeAlong(inst *Instance, path []string) error {
 	if len(path) == 1 {
 		return nil
 	}
-	for _, held := range elementsOf(fv.HeldValue()) {
+	for _, held := range standingElements(fv.HeldValue()) {
 		if child, ok := ctx.instances[held.Instance]; held.Kind == ValInstance && ok {
 			if err := ctx.materializeAlong(child, path[1:]); err != nil {
 				return err

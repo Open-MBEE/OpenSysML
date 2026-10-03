@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::asm",
+  "slots": {
+    "cellCount": {"type": "Integer", "value": 2000},
+    "gridCount": {"type": "Integer", "value": 3000},
+    "cellMass": {"type": "Real", "value": 4000.0},
+    "gridMass": {"type": "Real", "value": 6003.0},
+    "sameMember": {"type": "Boolean", "value": true},
+    "distinctMembers": {"type": "Boolean", "value": false},
+    "spareFirst": {"type": "Boolean", "value": true},
+    "holdsSpare": {"type": "Boolean", "value": true}
+  }
+}

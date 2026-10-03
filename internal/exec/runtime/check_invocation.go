@@ -32,16 +32,26 @@ type Invocation struct {
 type Horizon struct {
 	at      float64
 	bounded bool
+	// initial stops each machine started at its initial transition, the clock held.
+	initial bool
 }
 
 // HorizonAt is the horizon at instant t.
 func HorizonAt(t float64) Horizon { return Horizon{at: t, bounded: true} }
 
+// HorizonInitial is the horizon of machines run without a duration: each takes its
+// initial transition only, as a run of a state machine with no `-advance` does.
+func HorizonInitial() Horizon { return Horizon{initial: true} }
+
 // Bounded is the instant the horizon stops the clock at, false for none.
 func (h Horizon) Bounded() (at float64, ok bool) { return h.at, h.bounded }
 
-// Reaches reports whether the instant lies within the horizon.
-func (h Horizon) Reaches(t float64) bool { return !h.bounded || t <= h.at }
+// Initial reports whether the horizon stops the machines at their initial transition.
+func (h Horizon) Initial() bool { return h.initial }
+
+// Reaches reports whether the instant lies within the horizon; no wait ahead
+// lies within an initial one.
+func (h Horizon) Reaches(t float64) bool { return !h.initial && (!h.bounded || t <= h.at) }
 
 // reachable is the refusal of a bounded horizon the clock cannot run to from
 // now: one behind it, or not a finite instant.
@@ -73,6 +83,9 @@ func (inv *Invocation) started(ctx *Context) error {
 	}
 	if err := inv.Horizon.reachable(ctx.clock.now); err != nil {
 		return err
+	}
+	if inv.Horizon.initial && len(inv.Actions) > 0 {
+		return fmt.Errorf("%w: an initial-transition horizon stops state machines, and the invocation starts an action", ErrNothingStarted)
 	}
 	for _, exec := range inv.Actions {
 		if exec.ctx != ctx {
@@ -276,7 +289,32 @@ func (inv *Invocation) Outcome() Outcome {
 		outcome = ctx.JointOutcome(inv.names(), outcomes)
 	}
 	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
+	if inv.leftPending() {
+		outcome.Scope = []ObservationReason{ReasonInitialTransitionOnly}
+	}
 	return outcome
+}
+
+// ObservationReason says how far short of quiescence an outcome was observed: its
+// claim holds at that point, and its strength stands.
+type ObservationReason string
+
+// ReasonInitialTransitionOnly scopes the outcome of a machine stopped at its
+// initial transition with work left that a duration would run.
+const ReasonInitialTransitionOnly ObservationReason = "after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending"
+
+// leftPending reports whether the horizon stopped a machine at its initial
+// transition with a do behavior, an event, a signal, a wait or a change condition left.
+func (inv *Invocation) leftPending() bool {
+	if !inv.Horizon.initial {
+		return false
+	}
+	for _, exec := range inv.States {
+		if exec.drivable() && (exec.HasPendingWork() || len(exec.clockWaits()) > 0 || exec.WatchesChangeCondition()) {
+			return true
+		}
+	}
+	return false
 }
 
 // PerformerAttributes are the attributes the behaviors' performers hold, as an

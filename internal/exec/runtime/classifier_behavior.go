@@ -411,7 +411,7 @@ func namesAbandoned(fv *FeatureValue, abandoned map[int64]bool) bool {
 	if namesAbandonedObject(fv.Value, abandoned) {
 		return true
 	}
-	for _, val := range elementsOf(fv.Values) {
+	for _, val := range listedElements(fv.Values) {
 		if namesAbandonedObject(val, abandoned) {
 			return true
 		}
@@ -425,7 +425,7 @@ func namesAbandonedValue(val Value, abandoned map[int64]bool) bool {
 	if namesAbandonedObject(val, abandoned) {
 		return true
 	}
-	for _, elem := range elementsOf(val) {
+	for _, elem := range listedElements(val) {
 		if namesAbandonedObject(elem, abandoned) {
 			return true
 		}
