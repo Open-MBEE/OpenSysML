@@ -212,6 +212,9 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 		}
 	}
 	steps, note := s.resolve(e.Owned("fragment"), e.Owned("message"), &s.steps)
+	if note == "" {
+		note = gatesAdjoin(steps)
+	}
 	if note != "" {
 		return nil, note
 	}
@@ -277,17 +280,20 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 		}
 		steps = append(steps, step)
 	}
-	if note := gatesAdjoin(steps); note != "" {
-		return nil, note
-	}
 	return steps, ""
 }
 
 // gatesAdjoin says why a message entering an interaction use's gate is not
-// sent just before the use among steps, whose perform carries it in its place.
+// sent just before the use in the order steps are written, seq operands inlined.
 func gatesAdjoin(steps []*scenarioStep) string {
+	steps = inlineSeq(steps)
 	for i, step := range steps {
 		if step.kind != stepGate {
+			for _, o := range step.operands {
+				if note := gatesAdjoin(o.steps); note != "" {
+					return note
+				}
+			}
 			continue
 		}
 		j := i + 1
@@ -301,6 +307,21 @@ func gatesAdjoin(steps []*scenarioStep) string {
 			" through its gate but is not sent just before it, and the performed scenario carries the message where the use is"
 	}
 	return ""
+}
+
+// inlineSeq lists steps with each seq or strict fragment replaced by its operands' steps.
+func inlineSeq(steps []*scenarioStep) []*scenarioStep {
+	var out []*scenarioStep
+	for _, step := range steps {
+		if step.kind != stepSeq {
+			out = append(out, step)
+			continue
+		}
+		for _, o := range step.operands {
+			out = append(out, inlineSeq(o.steps)...)
+		}
+	}
+	return out
 }
 
 // use resolves an interaction use: the referenced interaction's scenario,

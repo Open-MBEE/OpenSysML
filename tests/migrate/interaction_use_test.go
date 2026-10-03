@@ -233,3 +233,30 @@ func TestLifelineInvariantDoesNotReadTheContextsFeature(t *testing.T) {
 		t.Errorf("%v", d)
 	}
 }
+
+// A seq fragment's operands are written inline, so a gate message ending one still
+// enters the interaction use that follows the fragment directly.
+func TestGateMessageEndingASeqOperand(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/interaction_use.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := `<fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ryS" covered="_rylC" message="_ryCmd"/>`
+	wrapped := bytes.Replace(data, []byte(send), []byte(`<fragment xmi:type="uml:CombinedFragment" xmi:id="_rySeq" interactionOperator="seq" covered="_rylC">
+          <operand xmi:type="uml:InteractionOperand" xmi:id="_rySeqOp">
+            `+send+`
+          </operand>
+        </fragment>`), 1)
+	if bytes.Equal(wrapped, data) {
+		t.Fatal("the fixture no longer has the relay's gate message")
+	}
+	r, err := migrate.Migrate("interaction_use.xmi", wrapped)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantNote(t, r, "_ryCmd", migrate.Approximated, "the message enters kick through its gate")
+	if !bytes.Contains(r.Notation, []byte("perform action kick ::> drive.kick;")) {
+		t.Errorf("the relay does not perform kick:\n%s", r.Notation)
+	}
+	wantClean(t, "interaction_use.sysml", r)
+}
