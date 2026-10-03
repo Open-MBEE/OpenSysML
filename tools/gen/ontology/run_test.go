@@ -5,102 +5,122 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 )
 
-// sampleOntology is a checkout-shaped excerpt: two classes, an object property, a
-// datatype property, a nested restriction (skipped) and a foreign parent (dropped).
-const sampleOntology = `<?xml version="1.0"?>
-<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-         xmlns:owl="http://www.w3.org/2002/07/owl#">
-  <owl:Ontology rdf:about="https://www.omg.org/spec/SysML"/>
-  <owl:Class rdf:about="https://www.omg.org/spec/SysML#PartUsage">
-    <rdfs:label>PartUsage</rdfs:label>
-    <rdfs:subClassOf rdf:resource="https://www.omg.org/spec/SysML#Usage"/>
-    <rdfs:subClassOf rdf:resource="https://www.omg.org/spec/SysML#ItemUsage"/>
-    <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-    <rdfs:subClassOf>
-      <owl:Restriction>
-        <owl:onProperty rdf:resource="https://www.omg.org/spec/SysML#PartUsage_partDefinition"/>
-        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#nonNegativeInteger">0</owl:minCardinality>
-      </owl:Restriction>
-    </rdfs:subClassOf>
-  </owl:Class>
-  <owl:Class rdf:about="https://www.omg.org/spec/SysML#Element"/>
-  <owl:ObjectProperty rdf:about="https://www.omg.org/spec/SysML#PartUsage_partDefinition">
-    <rdfs:label>partDefinition</rdfs:label>
-    <rdfs:domain rdf:resource="https://www.omg.org/spec/SysML#PartUsage"/>
-    <rdfs:range rdf:resource="https://www.omg.org/spec/SysML#PartDefinition"/>
-  </owl:ObjectProperty>
-  <owl:DatatypeProperty rdf:about="https://www.omg.org/spec/SysML#Element_name">
-    <rdfs:domain rdf:resource="https://www.omg.org/spec/SysML#Element"/>
-    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
-  </owl:DatatypeProperty>
-</rdf:RDF>
-`
+const (
+	testTag       = "2026-08"
+	testCommitSHA = "0123456789abcdef0123456789abcdef01234567"
+	testRepo      = "https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git"
+)
 
-// sampleEcore carries the features the sample ontology's properties name.
+var testPin = baseline.Pin{Tag: testTag, Commit: testCommitSHA}
+
+// sampleEcore is a SysML.ecore excerpt: an abstract root, a class with two
+// supertypes, an enumeration, every primitive spelling, and every flag the table records.
 const sampleEcore = `<?xml version="1.0" encoding="UTF-8"?>
-<ecore:EPackage xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="sysml">
-  <eClassifiers xsi:type="ecore:EClass" name="PartUsage" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <eStructuralFeatures xsi:type="ecore:EReference" name="partDefinition" upperBound="-1"/>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="sysml" nsURI="https://www.omg.org/spec/SysML/20250201" nsPrefix="sysml">
+  <eClassifiers xsi:type="ecore:EClass" name="PartUsage" eSuperTypes="#//Usage #//ItemUsage">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="partDefinition" ordered="false" upperBound="-1"
+        eType="#//PartDefinition" volatile="true" transient="true" derived="true">
+      <eAnnotations source="subsets" references="#//ItemUsage/itemDefinition"/>
+    </eStructuralFeatures>
   </eClassifiers>
-  <eClassifiers xsi:type="ecore:EClass" name="Element" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name"/>
+  <eClassifiers xsi:type="ecore:EClass" name="Element" abstract="true">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="isLibraryElement" eType="ecore:EDataType types.ecore#//Boolean"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="visibility" eType="#//VisibilityKind"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="ownedRelationship" upperBound="-1"
+        eType="#//Element" containment="true" eOpposite="#//Element/owningRelatedElement"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="owningRelatedElement" ordered="false"
+        eType="#//Element" eOpposite="#//Element/ownedRelationship"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Usage" eSuperTypes="#//Element">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="weight" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="ItemUsage" eSuperTypes="#//Usage">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="itemDefinition" ordered="false" upperBound="-1"
+        eType="#//PartDefinition" derived="true"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="PartDefinition" eSuperTypes="#//Element">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="ownedPart" upperBound="-1" eType="#//PartUsage" derived="true">
+      <eAnnotations source="redefines" references="#//Element/ownedRelationship #//ItemUsage/itemDefinition"/>
+    </eStructuralFeatures>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EEnum" name="VisibilityKind">
+    <eLiterals name="public"/>
   </eClassifiers>
 </ecore:EPackage>
 `
 
 const wantTable = `// Code generated by tools/gen/ontology. DO NOT EDIT.
 //
-// Source:   Open-MBEE/sysmlv2-rdf-ontology, sysml2/owl/www.omg.org/spec/SysML.owl
-// Ecore:    sysml2/ecore/SysML.ecore (property multiplicities)
-// Ontology: SysML v2 metamodel version 202407 (generated from SysML.ecore)
-// Commit:   0123456789abcdef0123456789abcdef01234567
+// Source:    https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git 2026-08, org.omg.sysml/model/SysML.ecore
+// Commit:    0123456789abcdef0123456789abcdef01234567
+// Metamodel: https://www.omg.org/spec/SysML/20250201
 //
 // Regenerate with (see README.md):
 //
-//	go run -C tools ./gen/ontology -ontology <path to sysmlv2-rdf-ontology checkout>
+//	./scripts/download-pilot-metamodel.sh
+//	go run -C tools ./gen/ontology
 
 package ontology
 
-// Version is the OMG SysML v2 metamodel version the table was generated from.
-const Version = "202407"
+// Version is the OMG SysML v2 metamodel version the table was generated from,
+// the date in the ecore's namespace URI.
+const Version = "20250201"
 
-// SourceCommit is the sysmlv2-rdf-ontology commit the table was generated from.
+// SourceTag is the pilot implementation release the table was generated from.
+const SourceTag = "2026-08"
+
+// SourceCommit is the pilot implementation commit the table was generated from.
 const SourceCommit = "0123456789abcdef0123456789abcdef01234567"
 
-// properties holds every owl:ObjectProperty and owl:DatatypeProperty the
-// ontology declares, ordered by IRI.
+// properties holds every eStructuralFeature the metamodel declares, ordered by IRI.
 var properties = []Property{
+	{Name: "isLibraryElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_isLibraryElement", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#boolean"},
 	{Name: "name", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_name", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#string"},
-	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true},
+	{Name: "ownedRelationship", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_ownedRelationship", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Many: true, Ordered: true, Opposite: "Element::owningRelatedElement"},
+	{Name: "owningRelatedElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_owningRelatedElement", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Opposite: "Element::ownedRelationship"},
+	{Name: "visibility", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_visibility", Kind: DatatypeProperty, Range: "https://www.omg.org/spec/SysML#VisibilityKind"},
+	{Name: "itemDefinition", DefiningClass: "ItemUsage", IRI: "https://www.omg.org/spec/SysML#ItemUsage_itemDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true},
+	{Name: "ownedPart", DefiningClass: "PartDefinition", IRI: "https://www.omg.org/spec/SysML#PartDefinition_ownedPart", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartUsage", Many: true, Ordered: true, Derived: true, Redefines: []string{"Element::ownedRelationship", "ItemUsage::itemDefinition"}},
+	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true, Subsets: []string{"ItemUsage::itemDefinition"}},
+	{Name: "weight", DefiningClass: "Usage", IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real"},
 }
 
-// classes holds every owl:Class the ontology declares with its named
-// rdfs:subClassOf parents, ordered by name.
+// classes holds every EClass the metamodel declares with its eSuperTypes, ordered by name.
 var classes = []Class{
-	{Name: "Element"},
+	{Name: "Element", Abstract: true},
+	{Name: "ItemUsage", Parents: []string{"Usage"}},
+	{Name: "PartDefinition", Parents: []string{"Element"}},
 	{Name: "PartUsage", Parents: []string{"ItemUsage", "Usage"}},
+	{Name: "Usage", Parents: []string{"Element"}},
 }
 `
 
-// newCheckout lays out the files run reads from a sysmlv2-rdf-ontology checkout.
-func newCheckout(t *testing.T, owl string) string {
+// newMetamodel lays out the directory scripts/download-pilot-metamodel.sh fetches.
+func newMetamodel(t *testing.T, ecore string) string {
 	t.Helper()
-	root := newGitTestRoot(t)
-	writeGitTestFile(t, filepath.Join(root, ".git", "HEAD"), testCommitSHA+"\n")
-	writeGitTestFile(t, filepath.Join(root, readme),
-		"# SysML v2 ontology\n\n![version](https://img.shields.io/badge/Version-202407-blue)\n")
-	writeGitTestFile(t, filepath.Join(root, owlPath), owl)
-	writeGitTestFile(t, filepath.Join(root, ecorePath), sampleEcore)
-	return root
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, stampPath), testTag+" "+testCommitSHA+" "+testRepo+"\n")
+	writeFile(t, filepath.Join(dir, ecorePath), ecore)
+	return dir
+}
+
+func writeFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRunWritesTheTable(t *testing.T) {
-	root := newCheckout(t, sampleOntology)
+	dir := newMetamodel(t, sampleEcore)
 	out := filepath.Join(t.TempDir(), "table.go")
-	if err := run(root, out); err != nil {
+	if err := run(dir, out, false, testPin); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	got, err := os.ReadFile(out)
@@ -112,65 +132,84 @@ func TestRunWritesTheTable(t *testing.T) {
 	}
 }
 
-func TestRunRejectsAnOntologyTheTableCannotHold(t *testing.T) {
-	property := func(iri, label, domain string) string {
-		var b strings.Builder
-		b.WriteString(`<owl:ObjectProperty rdf:about="` + iri + `">`)
-		if label != "" {
-			b.WriteString(`<rdfs:label>` + label + `</rdfs:label>`)
-		}
-		if domain != "" {
-			b.WriteString(`<rdfs:domain rdf:resource="` + domain + `"/>`)
-		}
-		b.WriteString(`</owl:ObjectProperty>`)
-		return b.String()
+func TestCheckFailsOnlyOnDrift(t *testing.T) {
+	dir := newMetamodel(t, sampleEcore)
+	out := filepath.Join(t.TempDir(), "table.go")
+	if err := run(dir, out, true, testPin); err == nil || !strings.Contains(err.Error(), "is stale") {
+		t.Fatalf("check without a table: error %v, want it stale", err)
 	}
+	writeFile(t, out, wantTable)
+	if err := run(dir, out, true, testPin); err != nil {
+		t.Fatalf("check of the current table: %v", err)
+	}
+	writeFile(t, out, strings.Replace(wantTable, `, Derived: true, Subsets`, `, Subsets`, 1))
+	if err := run(dir, out, true, testPin); err == nil || !strings.Contains(err.Error(), "is stale") {
+		t.Fatalf("check of a drifted table: error %v, want it stale", err)
+	}
+	if got, _ := os.ReadFile(out); strings.Contains(string(got), `Derived: true, Subsets`) {
+		t.Fatal("check rewrote the table")
+	}
+}
+
+func TestRunRefusesAMetamodelOfAnotherPin(t *testing.T) {
+	dir := newMetamodel(t, sampleEcore)
+	out := filepath.Join(t.TempDir(), "table.go")
+	moved := baseline.Pin{Tag: "2026-09", Commit: strings.Repeat("f", 40)}
+	if err := run(dir, out, false, moved); err == nil || !strings.Contains(err.Error(), "rerun ./scripts/download-pilot-metamodel.sh") {
+		t.Fatalf("run: error %v, want the stale download named", err)
+	}
+	if err := os.Remove(filepath.Join(dir, stampPath)); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(dir, out, false, testPin); err == nil || !strings.Contains(err.Error(), "pin stamp") {
+		t.Fatalf("run: error %v, want the missing stamp", err)
+	}
+	writeFile(t, filepath.Join(dir, stampPath), "2026-08 deadbeef\n")
+	if err := run(dir, out, false, testPin); err == nil || !strings.Contains(err.Error(), "<tag> <commit> <repository>") {
+		t.Fatalf("run: error %v, want the malformed stamp", err)
+	}
+}
+
+func TestRunRejectsAMetamodelTheTableCannotHold(t *testing.T) {
 	wrap := func(body string) string {
-		return `<rdf:RDF xmlns:rdf="` + rdfNS + `" xmlns:rdfs="` + rdfsNS + `" xmlns:owl="` + owlNS + `">` +
-			body + `</rdf:RDF>`
+		return `<ecore:EPackage xmlns:xsi="` + xsiNS + `" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" ` +
+			`nsURI="https://www.omg.org/spec/SysML/20250201">` + body + `</ecore:EPackage>`
 	}
+	class := func(name, attrs, body string) string {
+		return `<eClassifiers xsi:type="ecore:EClass" name="` + name + `" ` + attrs + `>` + body + `</eClassifiers>`
+	}
+	feature := func(kind, name, attrs, body string) string {
+		return `<eStructuralFeatures xsi:type="ecore:` + kind + `" name="` + name + `" ` + attrs + `>` + body + `</eStructuralFeatures>`
+	}
+	element := func(body string) string { return class("Element", "", body) }
 	cases := []struct {
-		name, owl, want string
+		name, ecore, want string
 	}{
-		{"no declarations", wrap(`<owl:Ontology rdf:about="x"/>`), "no declarations found"},
-		{"missing rdf:about", wrap(`<owl:Class/>`), "Class declaration without rdf:about"},
-		{"foreign namespace", wrap(`<owl:Class rdf:about="http://example.org/Thing"/>`),
-			"declaration outside the SysML namespace"},
-		{"unqualified property", wrap(property(sysmlNS+"name", "", sysmlNS+"Element")),
-			"property IRI is not <Metaclass>_<name>"},
-		{"label disagrees", wrap(property(sysmlNS+"Element_name", "title", sysmlNS+"Element")),
-			`rdfs:label "title" does not match the IRI's property name "name"`},
-		{"no domain", wrap(property(sysmlNS+"Element_name", "", "")), "no rdfs:domain"},
-		{"domain disagrees", wrap(property(sysmlNS+"Element_name", "", sysmlNS+"Usage")),
-			"rdfs:domain Usage is not the qualifying metaclass Element"},
-		{"truncated file", `<rdf:RDF xmlns:rdf="` + rdfNS + `" xmlns:owl="` + owlNS + `"><owl:Class rdf:about="x">`,
-			"unexpected EOF"},
-		{"no ecore feature", wrap(property(sysmlNS+"Element_title", "title", sysmlNS+"Element")),
-			"no eStructuralFeatures Element.title"},
+		{"no classifiers", wrap(``), "no eClassifiers found"},
+		{"bad nsURI", strings.Replace(wrap(element("")), "SysML/20250201", "SysML", 1), "is not https://www.omg.org/spec/SysML/<yyyymmdd>"},
+		{"subpackage", wrap(element("") + `<eSubpackages name="x"/>`), "eSubpackages are not supported"},
+		{"duplicate class", wrap(element("") + element("")), "eClassifiers Element declared twice"},
+		{"foreign supertype", wrap(class("Usage", `eSuperTypes="#//Thing"`, "")), "eSuperTypes #//Thing is no EClass"},
+		{"underscore name", wrap(element(feature("EAttribute", "a_b", `eType="types.ecore#//String"`, ""))),
+			"cannot form a <Metaclass>_<name> IRI"},
+		{"unknown primitive", wrap(element(feature("EAttribute", "n", `eType="types.ecore#//Char"`, ""))),
+			"no primitive the table maps"},
+		{"reference to a primitive", wrap(element(feature("EReference", "n", `eType="types.ecore#//String"`, ""))),
+			"which the table cannot range over"},
+		{"dangling opposite", wrap(element(feature("EReference", "n", `eType="#//Element" eOpposite="#//Element/m"`, ""))),
+			"eOpposite: #//Element/m is no eStructuralFeature"},
+		{"dangling subsets", wrap(element(feature("EReference", "n", `eType="#//Element"`,
+			`<eAnnotations source="subsets" references="#//Element/m"/>`))), "subsets: #//Element/m is no eStructuralFeature"},
+		{"unqualified redefines", wrap(element(feature("EReference", "n", `eType="#//Element"`,
+			`<eAnnotations source="redefines" references="#//Element"/>`))), "redefines: #//Element is no eStructuralFeature"},
+		{"truncated file", `<ecore:EPackage nsURI="x"><eClassifiers>`, "unexpected EOF"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			root := newCheckout(t, tc.owl)
-			err := run(root, filepath.Join(t.TempDir(), "table.go"))
+			err := run(newMetamodel(t, tc.ecore), filepath.Join(t.TempDir(), "table.go"), false, testPin)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("run: error %v, want one containing %q", err, tc.want)
 			}
 		})
-	}
-}
-
-func TestRunNeedsTheCheckoutsVersionBadge(t *testing.T) {
-	root := newCheckout(t, sampleOntology)
-	writeGitTestFile(t, filepath.Join(root, readme), "# no badge here\n")
-	err := run(root, filepath.Join(t.TempDir(), "table.go"))
-	if err == nil || !strings.Contains(err.Error(), "no Version-<n> badge") {
-		t.Fatalf("run: error %v, want the missing badge", err)
-	}
-	if err := os.Remove(filepath.Join(root, readme)); err != nil {
-		t.Fatal(err)
-	}
-	err = run(root, filepath.Join(t.TempDir(), "table.go"))
-	if err == nil || !strings.Contains(err.Error(), "read ontology version") {
-		t.Fatalf("run: error %v, want the unreadable README", err)
 	}
 }

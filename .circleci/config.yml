@@ -506,6 +506,25 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The metamodel table is generated from the pilot's SysML.ecore at the pin;
+      # a pin bump without regenerating it fails here.
+      - restore_cache:
+          keys:
+            - pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot metamodel
+          command: ./scripts/download-pilot-metamodel.sh
+
+      - save_cache:
+          key: pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-metamodel
+
+      - run:
+          name: Check the metamodel table matches the pinned SysML.ecore
+          command: make ontology-table-check
+
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
       - run:

@@ -1,69 +1,71 @@
-# SysML v2 ontology term table
+# SysML v2 metamodel term table
 
-`table.go` is generated from the OMG SysML v2 metamodel as
-[Open-MBEE/sysmlv2-rdf-ontology](https://github.com/Open-MBEE/sysmlv2-rdf-ontology)
-renders it in OWL — `sysml2/owl/www.omg.org/spec/SysML.owl`, version `202407`,
-generated there from `SysML.ecore` — plus the checkout's `sysml2/ecore/SysML.ecore`
-itself, which supplies each property's upper multiplicity. Neither file is
-vendored here (the OWL alone is ~624 KB of third-party RDF/XML): the generator
-reads them from a local checkout and records the upstream commit SHA in the
-generated header, so the table is reproducible from a header alone.
+`table.go` is generated from the OMG SysML v2 metamodel as the pilot implementation
+([Systems-Modeling/SysML-v2-Pilot-Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation))
+publishes it: `org.omg.sysml/model/SysML.ecore`, at the release and commit
+[`scripts/pilot-pin.sh`](../../../../scripts/pilot-pin.sh) pins for every other pilot input.
+The metamodel version is the date in the ecore's namespace URI
+(`https://www.omg.org/spec/SysML/20250201` → `20250201`). The ecore is not vendored
+(~620 KB of third-party XMI); the generated header records the pilot tag, commit and namespace
+URI, so the table is reproducible from the header alone.
 
-The table holds, per property, the unqualified local name this tool's encoder
-writes (`declaredName`), the metaclass that defines it (`Element`), the full
-ontology IRI (`https://www.omg.org/spec/SysML#Element_declaredName`), whether it
-is an `owl:ObjectProperty` or an `owl:DatatypeProperty`, its declared
-`rdfs:range`, and whether its ecore upper bound is unbounded (`Many` — the
-multiplicity the API JSON form spells as an array). It also holds every
-`owl:Class` and its named `rdfs:subClassOf` parents, which `IsAncestorOrSelf`
-walks for the domain check in `validate.go` and which `PropertyOf` uses to
-pick the declaration a given metaclass inherits a name from.
+Each ecore `EStructuralFeature` becomes one property, named as the OWL rendering of the
+metamodel names it — `https://www.omg.org/spec/SysML#<DefiningClass>_<name>` — and holding:
+
+| Field | From the ecore |
+|-------|----------------|
+| `Name`, `DefiningClass`, `IRI` | the feature's name and the `EClass` declaring it |
+| `Kind` | `ObjectProperty` for an `EReference`, `DatatypeProperty` for an `EAttribute` |
+| `Range` | the referenced class, the attribute's enumeration, or the XSD/OWL datatype of its primitive (`Boolean` → `xsd:boolean`, `String` → `xsd:string`, `Integer` → `xsd:int`, `Real` → `owl:real`) |
+| `Many` | `upperBound="-1"`: the API JSON form spells it as an array |
+| `Ordered` | a multi-valued feature without `ordered="false"` (ecore's default is ordered) |
+| `Derived` | `derived="true"` |
+| `Redefines`, `Subsets` | the `redefines` / `subsets` annotations' references, as `Class::feature` |
+| `Opposite` | `eOpposite`, as `Class::feature` |
+
+`Property.QualifiedName` gives the same `Class::feature` spelling, so the three reference fields
+can be looked up with `PropertyOf`. Every `EClass` becomes a `Class` with its `eSuperTypes`, which
+`IsAncestorOrSelf` walks for the domain check in `validate.go` and `PropertyOf` uses to pick the
+declaration a metaclass inherits a name from, and `Abstract` for `abstract="true"`, which the check
+reports as an `abstract-class` violation.
 
 The table's contents are counted in one place,
-[docs/project/roadmap.md](../../../../docs/project/roadmap.md) § D8, together with
-what the gate finds. Some unqualified names are declared by more than one
-metaclass, so `LookupProperty` returns every declaration and `AmbiguousNames`
-reports those names rather than one being picked silently.
+[docs/project/roadmap.md](../../../../docs/project/roadmap.md) § D8, together with what the gate
+finds. Some unqualified names are declared by more than one metaclass, so `LookupProperty` returns
+every declaration and `AmbiguousNames` reports those names rather than one being picked silently.
 
-## What the ontology does not carry
+## Regenerating and checking
 
-`SysML.owl` records no ecore abstractness. The only abstractness in the file is
-the metamodel's own `Type::isAbstract` property (`sysml:Type_isAbstract`, a
-`Type`-domained `owl:DatatypeProperty` about modeled types, not about
-metaclasses); the `owl:Class` declarations themselves carry no
-abstract/concrete marker. A "the metaclass must be concrete" check is therefore
-not possible from this table and is not implemented — see
-`docs/project/roadmap.md` § D7 for the abstract-`sysml:Import` finding that check
-would otherwise have caught.
-
-## Regenerating
-
-Clone the ontology (any revision; the SHA is recorded, not pinned):
+From the repository root:
 
 ```bash
-git clone https://github.com/Open-MBEE/sysmlv2-rdf-ontology.git
+make ontology-table          # ./scripts/download-pilot-metamodel.sh && go run -C tools ./gen/ontology
+make ontology-table-check    # the same with -check, as CI runs it
 ```
 
-Then, from the repository root:
+`scripts/download-pilot-metamodel.sh` fetches the pinned pilot's `org.omg.sysml/model` into
+`build/pilot-metamodel/` and stamps it with the pin; the generator refuses a download whose stamp
+is not the current pin. It also refuses an ecore whose namespace URI is not
+`https://www.omg.org/spec/SysML/<yyyymmdd>`, a feature whose type, opposite, redefined or subsetted
+feature names nothing in the ecore, a primitive it has no datatype for, and a name containing `_`,
+which would make an IRI ambiguous. `-check` writes nothing and fails when the committed table
+differs from what the pin generates. `TestTableFollowsThePilotPin` (`tests/ontology`) fails, with
+no download needed, when the pin moves and the table's header still names the previous one.
 
-```bash
-go run -C tools ./gen/ontology -ontology /path/to/sysmlv2-rdf-ontology
-```
+## Bumping
 
-or, equivalently, with the checkout in `$SYSMLV2_RDF_ONTOLOGY`:
+The table follows the pilot pin; there is no separate ontology pin to bump.
 
-```bash
-SYSMLV2_RDF_ONTOLOGY=/path/to/sysmlv2-rdf-ontology go generate ./internal/translate/rdf/ontology
-```
-
-The generator lives in the `tools/` module and writes the table under the
-repository root it finds above its working directory; pass the checkout as an
-absolute path. It reads the ontology version from the checkout's `sysml2/README.md`
-and the commit SHA from the checkout's on-disk Git metadata. It does not need a
-`git` binary, refuses to write a table if any property has no `rdfs:domain` or
-if a property IRI disagrees with its domain or names no eStructuralFeature in
-the ecore, and overwrites `table.go` in place.
-Review the diff, then run
-`go test ./internal/translate/rdf/ontology/... ./internal/translate/export/...` — the
-export gate compares the golden graphs against the new table and will report
-anything the ontology bump changed.
+1. Move `PILOT_TAG` and `PILOT_COMMIT` in `scripts/pilot-pin.sh` (see
+   [docs/project/pilot-corpora.md](../../../../docs/project/pilot-corpora.md) for what else that
+   moves).
+2. `make ontology-table`, then review the diff of `table.go`: classes and properties added,
+   removed or renamed, and new flags.
+3. Update the counts in `tests/ontology/ontology_test.go` and `docs/project/roadmap.md` § D8.
+4. `go test ./internal/translate/... ./tests/ontology ./tests/export ./tests/migrate` and the
+   RDF and API-JSON corpus round-trip gates (`docs/project/rdf-corpus-roundtrip.md`). The export
+   gate `TestGoldenGraphsMatchOntology` compares the golden graphs against the new table: a
+   metaclass the export writes that the metamodel renamed, or a property it dropped, appears as a
+   new violation, and an entry of `tests/export/testdata/ontology-known-violations.txt` the new
+   table resolves as one to remove. Fix the mapping rather than listing a new violation, and keep
+   graphs earlier releases wrote readable.

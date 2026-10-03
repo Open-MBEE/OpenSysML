@@ -1,12 +1,11 @@
 // Package ontology holds the SysML v2 metamodel term table generated from the
-// Open-MBEE OWL rendering, plus the domain/range check built on it. The ontology
-// qualifies each property by its defining metaclass (sysml:Element_declaredName)
-// where this tool writes the unqualified name (sysml:declaredName), so the table
-// records both spellings. It records no ecore abstractness, so a "the metaclass
-// must be concrete" check is not possible here. See README.md.
+// OMG metamodel's SysML.ecore, plus the domain/range check built on it. The
+// table qualifies each property by its defining metaclass in OWL style
+// (sysml:Element_declaredName) where this tool writes the unqualified name
+// (sysml:declaredName), so it records both spellings. See README.md.
 package ontology
 
-//go:generate go run -C ../../../../tools ./gen/ontology -ontology $SYSMLV2_RDF_ONTOLOGY
+//go:generate go run -C ../../../../tools ./gen/ontology
 
 import (
 	"strings"
@@ -31,7 +30,7 @@ func (k PropertyKind) String() string {
 	return "owl:ObjectProperty"
 }
 
-// Property is one metamodel property as the ontology declares it.
+// Property is one metamodel property, an ecore eStructuralFeature.
 type Property struct {
 	// Name is the unqualified name this tool's encoder writes ("declaredName").
 	Name string
@@ -41,18 +40,38 @@ type Property struct {
 	IRI string
 	// Kind is owl:ObjectProperty or owl:DatatypeProperty.
 	Kind PropertyKind
-	// Range is the declared rdfs:range IRI, empty when none is declared.
+	// Range is the rdfs:range IRI: a metaclass or enumeration in the SysML
+	// namespace, or the XSD/OWL datatype of an ecore primitive.
 	Range string
 	// Many reports an unbounded upper multiplicity (ecore upperBound -1):
 	// the API JSON shape is an array.
 	Many bool
+	// Ordered reports a Many property whose values are ordered (ecore
+	// ordered, which defaults to true); a single-valued property is never Ordered.
+	Ordered bool
+	// Derived reports a property the metamodel computes (ecore derived="true")
+	// rather than one an element owns.
+	Derived bool
+	// Redefines and Subsets name the properties this one redefines or subsets,
+	// as "DefiningClass::name" ("Type::ownedFeature"), when the metamodel states any.
+	Redefines []string
+	Subsets   []string
+	// Opposite is the "DefiningClass::name" of the ecore eOpposite, the
+	// navigable property at the other end of the same association, if any.
+	Opposite string
 }
 
-// Class is one metaclass and its named rdfs:subClassOf parents; the anonymous
-// cardinality restrictions the ontology also states are not recorded.
+// QualifiedName returns the property as "DefiningClass::name", the form
+// Redefines, Subsets and Opposite name properties in.
+func (p Property) QualifiedName() string { return p.DefiningClass + "::" + p.Name }
+
+// Class is one metaclass, an ecore EClass, and its eSuperTypes.
 type Class struct {
 	// Name is the metaclass name ("PartUsage"), its local name in the namespace.
 	Name string
+	// Abstract reports an abstract metaclass (ecore abstract="true"), one no
+	// element is an instance of directly.
+	Abstract bool
 	// Parents are the metaclass names of the declared direct superclasses.
 	Parents []string
 }

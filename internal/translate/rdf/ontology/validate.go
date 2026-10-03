@@ -13,6 +13,9 @@ type ViolationKind string
 const (
 	// UnknownClass is an rdf:type the ontology declares no owl:Class for.
 	UnknownClass ViolationKind = "unknown-class"
+	// AbstractClass is an rdf:type the metamodel declares abstract, which no
+	// element instantiates directly.
+	AbstractClass ViolationKind = "abstract-class"
 	// UntypedSubject carries SysML properties with no rdf:type, which leaves
 	// their domain uncheckable.
 	UntypedSubject ViolationKind = "untyped-subject"
@@ -57,8 +60,7 @@ const missing = "-"
 
 // Check reports every way the triples of g disagree with the ontology. Only
 // SysML-namespace predicates are checked; the RDF vocabulary and this tool's own
-// extension namespace are out of the ontology's scope. The ontology records no
-// abstractness, so an abstract metaclass is not a violation here.
+// extension namespace are out of the ontology's scope.
 func Check(g *rdf.Graph) []Violation {
 	var out []Violation
 	hasSysMLProperty := make(map[rdf.Term]bool)
@@ -79,8 +81,14 @@ func Check(g *rdf.Graph) []Violation {
 			}
 			continue
 		}
-		if _, ok := LookupClass(classNameOf(typeIRI)); ok {
+		if class, ok := LookupClass(classNameOf(typeIRI)); ok {
 			declared[subject] = true
+			if class.Abstract {
+				out = append(out, Violation{
+					Kind: AbstractClass, Class: class.Name, Property: missing, Subject: subject.Value,
+					Detail: fmt.Sprintf("rdf:type %s is abstract in the metamodel", typeIRI),
+				})
+			}
 			continue
 		}
 		out = append(out, Violation{
