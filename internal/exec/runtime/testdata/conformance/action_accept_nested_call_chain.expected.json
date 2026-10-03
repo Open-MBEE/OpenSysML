@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::nested",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"received": {"type": "Integer", "value": 7}
+	}
+}
