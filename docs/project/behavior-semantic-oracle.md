@@ -266,8 +266,9 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
 `_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
 `_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
-`_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`
-(trace goldens where carried), `_guard_true` and `_guard_false`.
+`_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
+`_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
+`_guard_false_single`.
 
 Derived constraints:
 
@@ -365,7 +366,9 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   performance of `a` after `p` (`_guard_true`). A false guard asserts no order, yet `a`'s exact
   count still requires its `n` performances, now unordered with respect to `p`; the token flow
   performs none, so the run refuses with `action-step-order-open` (`_guard_false`), and validation
-  warns where the guard is the literal `false`. An unwritten target end stays refused.
+  warns where the guard is the literal `false`. A false guard into a single performance prunes the
+  edge instead: one performance needs no ordering among repetitions, so `a` simply does not perform
+  (`_guard_false_single`). An unwritten target end stays refused.
 - **Pins and bindings** (KerML §8.4.4.6.2, binding connectors as `SelfLink`; §7.4.11 feature
   values). A feature value in the step's body (`action a : Inc[2] { in x = c; }`) is featured by
   the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
