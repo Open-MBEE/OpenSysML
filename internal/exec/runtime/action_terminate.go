@@ -321,9 +321,7 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	e.dropTokensIn(perf, id)
 	if perf == e.root {
 		e.removeToken(e.tokenIndex(id))
-		e.state = StateCompleted
-		e.endRootPerformance()
-		return nil
+		return e.completeRoot()
 	}
 	return e.leaveTerminated(e.tokenIndex(id), perf)
 }

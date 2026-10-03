@@ -40,6 +40,7 @@ type bodyCell struct {
 type bodyBinding struct {
 	value       ast.Node
 	scope       *symbols.Scope
+	masked      string
 	check       func(*Value) error
 	context     func(*symbols.Scope) *EvalContext
 	onDerived   func(*Value) error
@@ -484,6 +485,26 @@ func (ctx *Context) freezeBodyCells(cells *bodyCells) error {
 		ctx.forgetReads(&cell.fv)
 	}
 	return nil
+}
+
+// restartBodyCells makes frozen, unwritten bindings eligible to derive again.
+func (ctx *Context) restartBodyCells(cells *bodyCells) {
+	if cells == nil {
+		return
+	}
+	for _, name := range cells.order {
+		cell := cells.cells[name]
+		if cell.binding == nil || !cell.binding.frozen || cell.fv.Written {
+			continue
+		}
+		ctx.invalidateDependents(&cell.fv)
+		ctx.noteProbeWrite(&cell.fv)
+		ctx.forgetReads(&cell.fv)
+		delete(cells.vars, name)
+		cell.fv.Value, cell.fv.Values, cell.fv.Materialized = Value{}, Value{}, false
+		cell.fv.BindingDerived, cell.fv.intrinsic = false, false
+		cell.binding.frozen = false
+	}
 }
 
 // forgetBodyCells removes the dependencies of every binding in a store.

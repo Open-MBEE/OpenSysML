@@ -1432,6 +1432,16 @@ func (e *ActionExecutor) hasFlow() bool {
 		e.dynamicsKind != lower.NotStateSpace)
 }
 
+// completeRoot freezes the root bindings and ends its performance.
+func (e *ActionExecutor) completeRoot() error {
+	if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
+		return err
+	}
+	e.state = StateCompleted
+	e.endRootPerformance()
+	return nil
+}
+
 // completeWithoutFlow completes an action stating no flow: it performs no step,
 // so its performance begins, takes its inputs, and ends at once.
 func (e *ActionExecutor) completeWithoutFlow() error {
@@ -1442,12 +1452,7 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
-	if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
-		return err
-	}
-	e.state = StateCompleted
-	e.endRootPerformance()
-	return nil
+	return e.completeRoot()
 }
 
 // bindInputs writes the supplied inputs into the performance, then the
@@ -1609,12 +1614,7 @@ func (e *ActionExecutor) initialize() error {
 		if err := checkStreamsReceived(e.root); err != nil {
 			return err
 		}
-		if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
-			return err
-		}
-		e.state = StateCompleted
-		e.endRootPerformance()
-		return nil
+		return e.completeRoot()
 	}
 	e.seedTokens(e.root, starts, 0)
 
@@ -2085,11 +2085,7 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 			if err := checkStreamsReceived(e.root); err != nil {
 				return err
 			}
-			if err := e.ctx.freezeBodyCells(e.root.cells); err != nil {
-				return err
-			}
-			e.state = StateCompleted
-			e.endRootPerformance()
+			return e.completeRoot()
 		}
 		return nil
 	}
@@ -3053,10 +3049,17 @@ func (e *ActionExecutor) State() ExecutionState {
 // each nested non-repeated node's latest performance and under `part.attribute` what the one
 // object each of its own parts denotes holds; a performed usage's mirror its occurrence.
 func (e *ActionExecutor) Results() map[string]Value {
-	results := make(map[string]Value, len(e.root.data))
-	e.root.collect("", results)
-	e.collectPartsHeld(results)
+	results, _ := e.ResultsWithError()
 	return results
+}
+
+// ResultsWithError returns the values the action's features hold and the first binding
+// derivation error; a feature whose binding fails to derive is omitted.
+func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
+	results := make(map[string]Value, len(e.root.data))
+	err := e.root.collect("", results)
+	e.collectPartsHeld(results)
+	return results, err
 }
 
 // collectPartsHeld adds the attributes held by the object each part or item usage the

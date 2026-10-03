@@ -5288,6 +5288,7 @@ func (e *StateExecutor) resetEntering() {
 
 // performEntry records the entry of state and performs its entry behaviors.
 func (e *StateExecutor) performEntry(state *ast.StateNode) error {
+	e.ctx.restartBodyCells(e.stateAttrCells[state])
 	if !e.activeAtEntry[state] {
 		e.entering[state] = true
 	}

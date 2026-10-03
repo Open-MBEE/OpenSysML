@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // TestRuntimeRobustnessBodyFeatureBindings pins body-binding errors and lifetimes.
@@ -52,6 +54,140 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		}
 		if _, _, err := ctx.readBodyValue(exec.root.cells, exec.root.data, "live"); !errors.Is(err, ErrOccurrenceDestroyed) {
 			t.Fatalf("read live after destroying target = %v, want ErrOccurrenceDestroyed", err)
+		}
+	})
+
+	t.Run("results_report_destroyed_binding_error", func(t *testing.T) {
+		ctx, action := loadAction(t, `package test {
+			private import ScalarValues::*;
+			part def Target { attribute n : Integer := 2; }
+			action run {
+				in ref target : Target;
+				attribute live : Integer = target.n;
+				first start;
+				then action read { assign live := live + 1; }
+			}
+		}`, "run")
+		idx := ctx.model.resolver.Index()
+		target, err := ctx.Instantiate(oneSymbol(t, idx, "test::Target"))
+		if err != nil {
+			t.Fatalf("Instantiate Target: %v", err)
+		}
+		exec, err := ctx.CreateActionExecutorWithInputs(action, nil, map[string]Value{"target": objectValue(target)})
+		if err != nil {
+			t.Fatalf("CreateActionExecutorWithInputs: %v", err)
+		}
+		exec.SetBreakpoint("read")
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion: %v", err)
+		}
+		if got := exec.PausedAt(); got != "read" {
+			t.Fatalf("PausedAt = %q, want read", got)
+		}
+		if err := ctx.destroy(target); err != nil {
+			t.Fatalf("destroy Target: %v", err)
+		}
+		results, err := exec.ResultsWithError()
+		if !errors.Is(err, ErrOccurrenceDestroyed) {
+			t.Fatalf("ResultsWithError error = %v, want ErrOccurrenceDestroyed", err)
+		}
+		if _, ok := results["live"]; ok {
+			t.Fatalf("ResultsWithError returned failed live binding: %s", FormatValue(results["live"]))
+		}
+		if _, ok := exec.Results()["live"]; ok {
+			t.Fatal("Results returned a failed live binding")
+		}
+	})
+
+	t.Run("terminate_freezes_root_binding", func(t *testing.T) {
+		ctx, action := loadAction(t, `package test {
+			private import ScalarValues::*;
+			part def Target { attribute n : Integer := 2; }
+			action run {
+				in ref target : Target;
+				attribute live : Integer = target.n;
+				first start;
+				then terminate;
+			}
+			action update {
+				in ref target : Target;
+				first start;
+				then action write { assign target.n := 5; }
+			}
+		}`, "run")
+		idx := ctx.model.resolver.Index()
+		target, err := ctx.Instantiate(oneSymbol(t, idx, "test::Target"))
+		if err != nil {
+			t.Fatalf("Instantiate Target: %v", err)
+		}
+		exec, err := ctx.CreateActionExecutorWithInputs(action, nil, map[string]Value{"target": objectValue(target)})
+		if err != nil {
+			t.Fatalf("CreateActionExecutorWithInputs: %v", err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion: %v", err)
+		}
+		if _, err := ctx.ExecuteActionWithInputs(
+			oneSymbol(t, idx, "test::update"),
+			map[string]Value{"target": objectValue(target)},
+		); err != nil {
+			t.Fatalf("ExecuteActionWithInputs update: %v", err)
+		}
+		if got := FormatValue(exec.Results()["live"]); got != "2" {
+			t.Fatalf("live after target.n := 5 = %s, want termination-time value 2", got)
+		}
+	})
+
+	t.Run("state_space_stop_time_reads_tracking_binding", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "stop-time-binding.sysml", parseAndBuild(t, `package test {
+			private import ScalarValues::*;
+			private import SI::*;
+			private import VectorFunctions::*;
+			private import StateSpaceRepresentation::*;
+			private import StateSpaceIntegration::*;
+			action dyn : ContinuousStateSpaceDynamics, FixedStepDynamics {
+				in stop : DurationValue = 2 [s];
+				in :>> input : Input = VectorOf((0.0));
+				:>> stateSpace = VectorOf((1.0));
+				:>> timeStep = 0.1 [s];
+				:>> stopTime = stop;
+				calc :>> getDerivative {
+					in input : Input;
+					in stateSpace : StateSpace;
+					return : StateDerivative = (0.0 - 0.5) * stateSpace / 1 [s];
+				}
+				calc :>> getOutput {
+					in input : Input;
+					in stateSpace : StateSpace;
+					return : Output = stateSpace;
+				}
+			}
+		}`))
+		exec, err := ctx.CreateActionExecutor(oneSymbol(t, idx, "test::dyn"))
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		stop, ok := exec.root.data[exec.root.key("stop")]
+		if !ok {
+			t.Fatal("initialized stop parameter is missing")
+		}
+		if stop.Kind != ValQuantity {
+			t.Fatalf("stop = %s, want a quantity", FormatValue(stop))
+		}
+		step, ok := exec.root.data[exec.root.key("timeStep")]
+		if !ok {
+			t.Fatal("initialized timeStep is missing")
+		}
+		ctx.writeBodyValue(exec.root.cells, exec.root.data, exec.root.key("stop"), step)
+		if _, ok := exec.root.data[exec.root.key("stopTime")]; ok {
+			t.Fatal("writing stop did not invalidate its derived stopTime")
+		}
+		run := &stateSpaceRun{dyn: exec.dynamics.dyn}
+		if err := exec.readStep(run); err != nil {
+			t.Fatalf("readStep after writing stop: %v", err)
+		}
+		if !run.stops || run.stop != 0.1 {
+			t.Fatalf("readStep stop = %v (stops=%v), want 0.1 after binding rederivation", run.stop, run.stops)
 		}
 	})
 
@@ -259,6 +395,73 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		}
 		if got := FormatValue(copiedBehavior.Action.Results()["result"]); got != "10" {
 			t.Fatalf("imaged result = %s, want 10 after lazy rederivation", got)
+		}
+	})
+
+	t.Run("held_image_restores_binding_self_name_mask", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "body-binding-mask-image.sysml", parseAndBuild(t, `package test {
+			private import ScalarValues::*;
+			action def Work {
+				in z : Integer;
+				first start;
+				then action reader {
+					in z : Integer = z;
+					out attribute result : Integer;
+					first start;
+					action heard accept g : Integer;
+					action finish { assign result := z; }
+					done;
+					succession first start then heard;
+					succession first heard then finish;
+					succession first finish then done;
+				}
+			}
+			part def Host {
+				attribute z : Integer := 4;
+				perform action work : Work { in z = this.z; }
+			}
+		}`))
+		host, err := ctx.Instantiate(oneSymbol(t, idx, "test::Host"))
+		if err != nil {
+			t.Fatalf("Instantiate Host: %v", err)
+		}
+		behavior, ok := host.Behavior("work")
+		if !ok || behavior.Action == nil {
+			t.Fatal("Host has no work action")
+		}
+		nine := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 9}}
+		ctx.PostMessage(Message{SignalType: "Integer", Object: host.ID, Value: &nine})
+		behavior.Action.SetBreakpoint("finish")
+		if err := behavior.Action.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion to the nested finish: %v", err)
+		}
+		if got := behavior.Action.PausedAt(); got != "finish" {
+			t.Fatalf("PausedAt = %q, state = %v, want the nested reader's finish (behavior error: %v)",
+				got, behavior.Action.State(), behavior.Err)
+		}
+		image := imageInto(t, ctx, host)
+		copied, ok := image.Instance(host.ID)
+		if !ok {
+			t.Fatalf("image has no Host #%d", host.ID)
+		}
+		copiedBehavior, ok := copied.Behavior("work")
+		if !ok || copiedBehavior.Action == nil {
+			t.Fatal("image has no work action")
+		}
+		if err := copiedBehavior.Action.RunToCompletion(); err != nil {
+			t.Fatalf("RunToCompletion of imaged action: %v", err)
+		}
+		results, err := copiedBehavior.Action.ResultsWithError()
+		if err != nil {
+			t.Fatalf("ResultsWithError: %v", err)
+		}
+		result := results["reader.result"]
+		if result.Kind != ValSequence || result.Sequence() == nil || result.Sequence().Size() != 1 {
+			t.Fatalf("imaged reader result = %s, want one value from performer z", FormatValue(result))
+		}
+		got, err := result.Sequence().At(0)
+		if err != nil || FormatValue(got) != "4" {
+			t.Fatalf("imaged reader result element = %s, %v; want 4", FormatValue(got), err)
 		}
 	})
 

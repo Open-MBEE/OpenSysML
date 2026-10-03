@@ -151,11 +151,14 @@ func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	if dyn.StopTime == nil {
 		return nil
 	}
-	stop, ok := e.root.data[e.root.key(lower.StopTimeFeature)]
+	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, symbolText(e.action))
+	stop, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.StopTimeFeature))
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrStateSpaceStep, what, err)
+	}
 	if !ok || stop.Kind == ValNull {
 		return nil
 	}
-	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, symbolText(e.action))
 	if run.stop, err = e.ctx.timeMagnitude(stop, what); err != nil {
 		return fmt.Errorf("%w: %w", ErrStateSpaceStep, err)
 	}

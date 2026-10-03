@@ -245,6 +245,7 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 			return err
 		}
 		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, nil, context, onDerived)
+		cell.binding.masked = attr.Name
 	}
 }
 
@@ -399,9 +400,10 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 		context := func(scope *symbols.Scope) *EvalContext {
 			return e.evalBindingContext(perf, scope, feature.Name, activation)
 		}
-		e.ctx.registerBodyBindingInContext(
+		cell := e.ctx.registerBodyBindingInContext(
 			e.bodyCells(perf), perf.key(feature.Name), feature.Value, feature.Scope, check, context, nil,
 		)
+		cell.binding.masked = feature.Name
 	}
 	if err := e.takeDeliveries(parent, node, perf); err != nil {
 		return err
@@ -479,6 +481,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 				cell = e.ctx.registerBodyBindingInContext(
 					cells, name, feature.Value, feature.Scope, check, context, nil,
 				)
+				cell.binding.masked = feature.Name
 			}
 			value, err = e.ctx.deriveBodyCell(cells, name, cell)
 		} else {
@@ -1292,19 +1295,31 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 
 // collect reports the values the performance and its non-repeated subactions hold,
 // under their paths (`p.v`), the latest performance of each name standing for it.
-func (f *actionFrame) collect(prefix string, into map[string]Value) {
+func (f *actionFrame) collect(prefix string, into map[string]Value) error {
+	var deriveErr error
 	if f.perfs != nil && f.perfs.ctx != nil {
-		_ = f.perfs.ctx.deriveBodyCells(f.cells)
+		deriveErr = f.perfs.ctx.deriveBodyCells(f.cells)
 	}
 	for name, value := range f.data {
+		var cell *bodyCell
+		if f.cells != nil {
+			cell = f.cells.cells[name]
+		}
+		if cell != nil && cell.binding != nil &&
+			!cell.fv.Written && !cell.binding.frozen && !cell.fv.Materialized {
+			continue
+		}
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
 		if sub.repetition > 0 {
 			continue
 		}
-		sub.collect(prefix+name+".", into)
+		if err := sub.collect(prefix+name+".", into); deriveErr == nil {
+			deriveErr = err
+		}
 	}
+	return deriveErr
 }
 
 // latestSubactions is the latest performance of each named node under f, by name.

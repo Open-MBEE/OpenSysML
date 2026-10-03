@@ -600,6 +600,8 @@ is an OpenSysML policy because the language does not specify later reads of an
 ended occurrence. State exit invalidates dependents of the exiting state's
 attribute cells, so a later read observes the existing inactive-state behavior
 rather than a cached value from before exit.
+On state re-entry, each frozen unwritten `=` attribute restarts for lazy
+rederivation; written values remain held.
 
 The cells are journaled with their owning maps for snapshot/restore, carried in
 held images (tracking values restore unmaterialized and rederive lazily), and

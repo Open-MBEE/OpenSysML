@@ -76,6 +76,7 @@ type imagedBodyCell struct {
 	name        string
 	value       ast.Node
 	scope       *symbols.Scope
+	masked      string
 	written     bool
 	frozen      bool
 	visible     []map[string]bool
@@ -704,6 +705,7 @@ func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell 
 		}
 		image = append(image, imagedBodyCell{
 			name: name, value: cell.binding.value, scope: cell.binding.scope,
+			masked:  cell.binding.masked,
 			written: cell.fv.Written, frozen: cell.binding.frozen,
 			visible: cloneBodyBindingVisibility(cell.binding.visible), limitFrames: cell.binding.limitFrames,
 		})
@@ -775,14 +777,15 @@ func (m *materializing) frameCells(
 	if len(image) == 0 {
 		return nil
 	}
-	cells := newBodyCells(values, func(scope *symbols.Scope) *EvalContext {
+	defaultContext := func(scope *symbols.Scope) *EvalContext {
 		ec := perf.perfs.evalContextFor(perf, scope)
 		if localDepth > 0 {
 			localStart := len(ec.frames) - len(perf.locals) - 1
 			ec.frames = ec.frames[:localStart+localDepth]
 		}
 		return ec
-	})
+	}
+	cells := newBodyCells(values, defaultContext)
 	for _, state := range image {
 		if state.value == nil {
 			continue
@@ -804,8 +807,15 @@ func (m *materializing) frameCells(
 				}
 			}
 		}
-		cell := m.dst.registerBodyBinding(cells, state.name, state.value, state.scope, check, onDerived)
+		context := func(scope *symbols.Scope) *EvalContext {
+			if state.masked != "" {
+				return perf.perfs.evalBindingContext(perf, scope, state.masked, perf.began)
+			}
+			return defaultContext(scope)
+		}
+		cell := m.dst.registerBodyBindingInContext(cells, state.name, state.value, state.scope, check, context, onDerived)
 		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
+		cell.binding.masked = state.masked
 		cell.binding.limitFrames = state.limitFrames
 		if state.written {
 			cell.fv.Written = true
