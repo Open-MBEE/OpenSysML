@@ -56,6 +56,9 @@ extra_css:
   - stylesheets/footer.css
   - stylesheets/ecosystem.css
 
+extra_javascript:
+  - assets/sysml-engine-loader.js
+
 plugins:
   - search
   # A page published under another name keeps answering there: the site redirects the old

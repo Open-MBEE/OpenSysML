@@ -658,12 +658,14 @@ then evaluate, instantiate and execute against it.</p>
     out.scrollTop = out.scrollHeight;
   }
   function call(method, params) {
-    return JSON.parse(globalThis.sysmlEngine.call(method, JSON.stringify(params)));
+    var reply = JSON.parse(globalThis.sysmlEngine.call(method, JSON.stringify(params)));
+    if (reply.error) return { result: { error: reply.error.message || JSON.stringify(reply.error) } };
+    return reply;
   }
   function parse() {
     var t0 = performance.now();
     var parsed = call('ParseSources', { documents: [{ name: 'model.sysml', content: src.value }] });
-    if (parsed.error) { println('<span class="osml-err">✗ ' + esc(JSON.stringify(parsed.error)) + '</span>'); return; }
+    if (parsed.result && parsed.result.error) { println('<span class="osml-err">✗ ' + esc(parsed.result.error) + '</span>'); return; }
     modelHash = parsed.result && parsed.result.modelHash;
     var diags = (parsed.result && parsed.result.diagnostics) || [];
     println('<span class="osml-ok">✓ model.sysml</span> <span class="osml-dim">parsed in ' +
@@ -714,42 +716,18 @@ then evaluate, instantiate and execute against it.</p>
 
   load.addEventListener('click', function () {
     load.disabled = true;
-    // The landing page's diagram may already have started this page's engine.
-    if (globalThis.sysmlEngine) {
+    if (!globalThis.sysmlEngine) {
+      println('<span class="osml-dim">loading sysml-engine.wasm (~7 MB)…</span>');
+    }
+    window.osmlLoadEngine({ wasmExec: '/assets/wasm_exec.js', engine: '/assets/sysml-engine.wasm.gz' }).then(function () {
       println('<span class="osml-ok">✓ engine loaded</span> — ' + esc(globalThis.sysmlEngine.version || 'unknown'));
       parse();
       input.disabled = false;
       input.focus();
-      return;
-    }
-    println('<span class="osml-dim">loading sysml-engine.wasm (~7 MB)…</span>');
-    var s = document.createElement('script');
-    s.src = '/assets/wasm_exec.js';
-    s.onload = function () {
-      if (!('DecompressionStream' in window)) {
-        println('<span class="osml-err">✗ this browser cannot inflate the module — try a current Chrome, Firefox or Safari</span>');
-        load.disabled = false;
-        return;
-      }
-      var go = new Go();
-      var done = fetch('/assets/sysml-engine.wasm.gz')
-        .then(function (r) { return r.body.pipeThrough(new DecompressionStream('gzip')); })
-        .then(function (rs) { return new Response(rs).arrayBuffer(); })
-        .then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
-      done.then(function (res) {
-        go.run(res.instance);
-        (function wait() {
-          if (!globalThis.sysmlEngine) { setTimeout(wait, 120); return; }
-          println('<span class="osml-ok">✓ engine loaded</span> — ' + esc(globalThis.sysmlEngine.version || 'unknown'));
-          parse();
-          input.disabled = false;
-          input.focus();
-        })();
-      }).catch(function (e) {
-        println('<span class="osml-err">✗ engine failed to load: ' + esc(e) + '</span>');
-      });
-    };
-    document.body.appendChild(s);
+    }).catch(function (e) {
+      println('<span class="osml-err">✗ engine failed to load: ' + esc(e.message || e) + '</span>');
+      load.disabled = false;
+    });
   });
 
   input.addEventListener('keydown', function (e) {
