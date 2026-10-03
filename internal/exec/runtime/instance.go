@@ -397,8 +397,19 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
-	if live, ok := ctx.liveOccurrences(sym); ok && len(live) == 1 {
-		return live[0], nil
+	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
+		return nil, err
+	} else if bound && len(objs) == 1 {
+		return objs[0], nil
+	} else if bound {
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
+	}
+	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
+		return nil, err
+	} else if subsetted && len(objs) == 1 {
+		return objs[0], nil
+	} else if subsetted {
+		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", symbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
@@ -418,8 +429,15 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 // occurrencesOf returns the objects a namespace-level usage of several occurrences denotes,
 // materializing its lower bound once, in declaration order, as a nested collection's is.
 func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
-	if live, ok := ctx.liveOccurrences(sym); ok {
-		return live, nil
+	if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
+		return nil, err
+	} else if bound {
+		return objs, nil
+	}
+	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
+		return nil, err
+	} else if subsetted {
+		return objs, nil
 	}
 	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, symbolText(sym))
 	if err != nil {
@@ -468,6 +486,13 @@ func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
 		}
 		return members, nil
 	case ctx.optionalValueless(sym):
+		// Of itself an optional usage denotes nothing, but a binding connector
+		// may have bound it to another usage's value.
+		if objs, bound, err := ctx.namespaceBoundObjects(sym); err != nil {
+			return nil, err
+		} else if bound {
+			return objs, nil
+		}
 		return nil, nil
 	}
 	return nil, ctx.undenotedUsage(sym)
@@ -487,7 +512,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
 	}
-	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(int64(len(members))) {
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(int64(len(members))) && !symbols.IsAbstract(sym) {
 		spelled := ctx.qualifiedSymbolName(sym)
 		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
 	}
