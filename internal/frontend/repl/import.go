@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const importUsage = "usage: %import <file> [as values] [map <file>] [format csv|tsv|json|jsonl] [dry-run]"
@@ -84,20 +85,20 @@ func (s *Session) importData(path string, opts ImportOptions) Verdict {
 	if err != nil {
 		return fail(err)
 	}
-	ops, elements, err := s.importOps(rows)
+	ops, values, elements, err := s.importOps(rows)
 	if err != nil {
 		return fail(err)
 	}
-	if len(ops) == 0 {
+	if values == 0 {
 		return Verdict{Subject: path, Status: VerdictHolds, Lines: []string{"✓ " + path + ": no values to import"}}
 	}
 	edited, err := s.importEdits(ops)
 	if err != nil {
 		return fail(err)
 	}
-	head := fmt.Sprintf("✓ imported %s into %s from %s", countOf(len(ops), "value", "values"), countOf(elements, "element", "elements"), path)
+	head := fmt.Sprintf("✓ imported %s into %s from %s", countOf(values, "value", "values"), countOf(elements, "element", "elements"), path)
 	if opts.DryRun {
-		head = fmt.Sprintf("dry run: would import %s into %s from %s; the model is unchanged", countOf(len(ops), "value", "values"), countOf(elements, "element", "elements"), path)
+		head = fmt.Sprintf("dry run: would import %s into %s from %s; the model is unchanged", countOf(values, "value", "values"), countOf(elements, "element", "elements"), path)
 	} else if err := s.commitImport(edited); err != nil {
 		return fail(err)
 	}
@@ -144,11 +145,12 @@ func readImport(file, name string, opts ImportOptions) ([]ingest.Row, error) {
 }
 
 // importOps lowers rows to edits: a feature the element declares has its value
-// set, one it inherits is redefined in the element's body with the value.
-func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, error) {
+// set, one it inherits is redefined in the element's body with the value. It
+// also counts the values set and the elements they are set on.
+func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, int, error) {
 	idx := s.symbolIndex()
 	if idx == nil {
-		return nil, 0, errors.New("no model is loaded to import into")
+		return nil, 0, 0, errors.New("no model is loaded to import into")
 	}
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
@@ -161,35 +163,62 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, error) {
 	}
 	var ops []importOp
 	elements := map[string]bool{}
+	assigned := map[[2]string]string{}
+	redefined := map[string]bool{}
+	values := 0
 	for _, row := range rows {
 		if len(row.Cells) == 0 {
 			continue
 		}
-		syms := idx.LookupQualified(row.Element)
-		switch {
-		case len(syms) == 0:
-			return nil, 0, fmt.Errorf("%s: no element named %s", row.Where, row.Element)
-		case len(syms) > 1:
-			return nil, 0, fmt.Errorf("%s: %s names more than one element", row.Where, row.Element)
-		case !own[syms[0].DocName]:
-			return nil, 0, fmt.Errorf("%s: %s is a library element, which an import does not change", row.Where, row.Element)
+		t, err := importTargetOf(idx, resolver, sem, row.Element)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("%s: %w", row.Where, err)
 		}
-		elem := syms[0]
-		elemFQN := idx.GetFQN(elem)
-		elements[elemFQN] = true
-		for _, cell := range row.Cells {
-			feat, declared := importFeature(sem, elem, cell.Feature)
-			if feat == nil {
-				return nil, 0, fmt.Errorf("%s: %s has no feature named %s", cell.Where, elemFQN, cell.Feature)
+		if !own[t.anchor.DocName] {
+			return nil, 0, 0, fmt.Errorf("%s: %s is a library element, which an import does not change", row.Where, row.Element)
+		}
+		elements[t.fqn] = true
+		owner := idx.GetFQN(t.anchor)
+		for _, via := range t.via {
+			path := owner + "::" + via.Name
+			if !redefined[path] {
+				kind, ok := redefinitionKeyword(via.Kind)
+				if !ok {
+					return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", row.Where, owner, via.Name, via.Kind)
+				}
+				op := sedit.AddMember(owner, kind, "")
+				op.Redefines = []string{source.NameText(via.Name)}
+				ops = append(ops, importOp{
+					op: op, where: row.Where,
+					desc: fmt.Sprintf("%s (redefines %s)", path, idx.GetFQN(via)),
+					doc:  t.anchor.DocName, at: t.anchor.DeclSpan.Offset,
+				})
+				redefined[path] = true
 			}
+			owner = path
+		}
+		for _, cell := range row.Cells {
+			if first, ok := assigned[[2]string{t.fqn, cell.Feature}]; ok {
+				return nil, 0, 0, fmt.Errorf("%s: %s::%s is already set at %s", cell.Where, t.fqn, cell.Feature, first)
+			}
+			assigned[[2]string{t.fqn, cell.Feature}] = cell.Where
+			feat, declared := importFeature(sem, t.sym, cell.Feature)
+			if feat == nil {
+				return nil, 0, 0, fmt.Errorf("%s: %s has no feature named %s", cell.Where, t.fqn, cell.Feature)
+			}
+			declared = declared && len(t.via) == 0
 			class, enum := importClass(sem, idx, feat)
 			value, err := ingest.Literal(cell, class, enum)
 			if err != nil {
-				return nil, 0, fmt.Errorf("%s: %w", cell.Where, err)
+				return nil, 0, 0, fmt.Errorf("%s: %w", cell.Where, err)
 			}
-			if err := importDimension(sem, elem, feat, cell, value); err != nil {
-				return nil, 0, fmt.Errorf("%s: %w", cell.Where, err)
+			if class == ingest.ClassEnum && len(idx.LookupQualified(value)) == 0 {
+				return nil, 0, 0, fmt.Errorf("%s: %s is not a value of %s", cell.Where, strings.TrimSpace(cell.Text), enum)
 			}
+			if err := importDimension(sem, t.sym, feat, cell, value); err != nil {
+				return nil, 0, 0, fmt.Errorf("%s: %w", cell.Where, err)
+			}
+			values++
 			if declared {
 				target := idx.GetFQN(feat)
 				ops = append(ops, importOp{
@@ -200,19 +229,63 @@ func (s *Session) importOps(rows []ingest.Row) ([]importOp, int, error) {
 			}
 			kind, ok := redefinitionKeyword(feat.Kind)
 			if !ok {
-				return nil, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", cell.Where, elemFQN, cell.Feature, feat.Kind)
+				return nil, 0, 0, fmt.Errorf("%s: %s inherits %s, a %s an import cannot redefine", cell.Where, t.fqn, cell.Feature, feat.Kind)
 			}
-			op := sedit.AddMember(elemFQN, kind, "")
-			op.Redefines = []string{feat.Name}
+			op := sedit.AddMember(owner, kind, "")
+			op.Redefines = []string{source.NameText(feat.Name)}
 			op.Value = value
 			ops = append(ops, importOp{
 				op: op, where: cell.Where,
-				desc: fmt.Sprintf("%s::%s = %s (redefines %s)", elemFQN, feat.Name, value, idx.GetFQN(feat)),
-				doc:  elem.DocName, at: elem.DeclSpan.Offset,
+				desc: fmt.Sprintf("%s::%s = %s (redefines %s)", t.fqn, feat.Name, value, idx.GetFQN(feat)),
+				doc:  t.anchor.DocName, at: t.anchor.DeclSpan.Offset,
 			})
 		}
 	}
-	return ops, len(elements), nil
+	return ops, values, len(elements), nil
+}
+
+// importTarget is the element a row names. When the model declares it, anchor
+// is that declaration; when it is a feature reached through the types of a
+// declared element, anchor is that element and via the inherited features on
+// the way to it, which the import redefines in anchor's body, outermost first.
+type importTarget struct {
+	sym    *symbols.Symbol
+	fqn    string
+	anchor *symbols.Symbol
+	via    []*symbols.Symbol
+}
+
+// importTargetOf resolves name, following an alias to the element it names.
+func importTargetOf(idx *symbols.Index, resolver *resolve.Resolver, sem *semantics.Model, name string) (importTarget, error) {
+	segs, ok := source.QualifiedNameSegments(name)
+	if !ok || len(segs) == 0 {
+		return importTarget{}, fmt.Errorf("%s is not a qualified name", name)
+	}
+	for n := len(segs); n >= 1; n-- {
+		syms := idx.LookupQualified(strings.Join(segs[:n], "::"))
+		if len(syms) == 0 {
+			continue
+		}
+		if len(syms) > 1 {
+			return importTarget{}, fmt.Errorf("%s names more than one element", strings.Join(segs[:n], "::"))
+		}
+		sym := resolver.AliasedElement(syms[0])
+		t := importTarget{sym: sym, fqn: idx.GetFQN(sym), anchor: sym}
+		for _, seg := range segs[n:] {
+			feat, declared := importFeature(sem, t.sym, seg)
+			switch {
+			case feat == nil:
+				return importTarget{}, fmt.Errorf("no element named %s: %s has no member named %s", name, t.fqn, seg)
+			case declared && len(t.via) == 0:
+				t.sym, t.fqn, t.anchor = feat, idx.GetFQN(feat), feat
+			default:
+				t.sym, t.fqn = feat, t.fqn+"::"+feat.Name
+				t.via = append(t.via, feat)
+			}
+		}
+		return t, nil
+	}
+	return importTarget{}, fmt.Errorf("no element named %s", name)
 }
 
 // importDimension refuses a value whose unit measures another dimension than
