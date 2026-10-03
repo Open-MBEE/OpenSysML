@@ -123,6 +123,10 @@ const (
 	NodePrefixMetadata
 	NodeTransition
 	NodeOther
+	NodeFork
+	NodeJoin
+	NodeMerge
+	NodeDecision
 )
 
 // NodeKindOf classifies a declaring node.
@@ -156,6 +160,14 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodePrefixMetadata
 	case *ast.TransitionMember:
 		return NodeTransition
+	case *ast.ForkNode:
+		return NodeFork
+	case *ast.JoinNode:
+		return NodeJoin
+	case *ast.MergeNode:
+		return NodeMerge
+	case *ast.DecisionNode:
+		return NodeDecision
 	}
 	return NodeOther
 }
@@ -406,6 +418,8 @@ func IsAbstract(sym *Symbol) bool {
 	case *ast.Definition:
 		return d.IsAbstract
 	case *ast.Usage:
+		return d.IsAbstract
+	case *ast.CrossFeatureMember:
 		return d.IsAbstract
 	}
 	return false

@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::count",
+	"trace": true,
+	"outputs": {
+		"n": {"type": "Integer", "value": 3},
+		"inc.x": {"type": "Integer", "value": 2},
+		"inc.y": {"type": "Integer", "value": 3}
+	}
+}

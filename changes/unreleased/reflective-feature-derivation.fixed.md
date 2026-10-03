@@ -1,0 +1,1 @@
+- **Derive reflective feature flags for KerML declarations and wrapper elements.** Classify KerML usages by their metaclass and apply ownership-derived reflective semantics without changing execution compositeness.
