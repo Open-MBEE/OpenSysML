@@ -2182,11 +2182,26 @@ jobs:
       - store_artifacts:
           path: dist/
           destination: release-binaries
-      
+
+      # Workspace layers are additive and a path persisted by two upstream jobs
+      # fails the downstream attach, so only what this job wrote is persisted:
+      # the binaries and archives stay in build-release-binaries' layer.
       - persist_to_workspace:
           root: .
           paths:
-            - dist
+            - dist/SHA256SUMS.txt
+            - dist/grpc/*.sha256
+            - dist/opensysml-*-py3-none-any.whl
+            - dist/opensysml-[0-9]*.tar.gz
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - persist_to_workspace:
+                root: .
+                paths:
+                  - dist/SHA256SUMS.txt.bundle
+                  - dist/provenance.intoto.json
+                  - dist/provenance.intoto.json.bundle
 
   # Publishes @openmbee/opensysml and its five per-platform packages from the
   # core `v<version>` tag, carrying the sysml-grpc binaries build-release

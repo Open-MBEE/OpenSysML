@@ -313,6 +313,19 @@ class TestVerifyingAManifest:
         assert exc.value.install_command in str(exc.value)
         assert "pip install 'sigstore>=4.5.0,<5'" in str(exc.value)
 
+    def test_a_missing_sigstore_dependency_is_named_as_the_one_missing(
+        self, signer, manifest, bundle, monkeypatch
+    ):
+        """sigstore present but cryptography absent: the refusal names cryptography."""
+        monkeypatch.setitem(sys.modules, 'cryptography.x509', None)
+        with pytest.raises(SigstoreUnavailableError) as exc:
+            verify_manifest(manifest, bundle, signer)
+        message = str(exc.value)
+        assert 'the cryptography package sigstore depends on is not installed' in message
+        assert 'the sigstore package is not installed' not in message
+        # Installing sigstore brings its dependencies with it, so the remedy holds.
+        assert exc.value.install_command in message
+
     def test_an_asset_the_manifest_does_not_cover_is_refused(
         self, signer, manifest, bundle
     ):

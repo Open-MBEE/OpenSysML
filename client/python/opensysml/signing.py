@@ -65,14 +65,20 @@ def _load_sigstore():
 
     Raises:
         SigstoreUnavailableError: If it cannot be imported, so nothing can be
-            verified; the message names the package and how to install it
+            verified; the message names the package that is missing (sigstore,
+            or a package it depends on) and how to install it
     """
     try:
         return _Sigstore()
     except ImportError as e:
+        missing = (e.name or "sigstore").partition(".")[0]
+        package = (
+            "the sigstore package" if missing == "sigstore"
+            else f"the {missing} package sigstore depends on"
+        )
         raise SigstoreUnavailableError(
-            f"opensysml cannot verify the signature on {MANIFEST_ASSET} because the "
-            f"sigstore package is not installed ({e}); install it with "
+            f"opensysml cannot verify the signature on {MANIFEST_ASSET} because "
+            f"{package} is not installed ({e}); install it with "
             f"{SigstoreUnavailableError.install_command}"
         )
 

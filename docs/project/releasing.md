@@ -251,6 +251,13 @@ so that `dist/` holds:
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 
+The two jobs share one workspace: `build-release-binaries` persists the whole
+`dist/` tree, and `build-release` persists only what it added to it — the
+manifest, its signature and provenance bundles, the `.sha256` sidecars and the
+Python distribution. Workspace layers are additive, and a path persisted by two
+upstream jobs fails the attach in every job downstream of both, which is every
+publish job.
+
 Before any of it is stored or published, `build-release-binaries` runs each host-platform
 binary and fails the release unless `--version` reports `CIRCLE_TAG`. The ldflags
 are the only thing stamping the tag into a binary, and a binary reporting `dev`
@@ -1165,9 +1172,10 @@ See `client/node/README.md`.
 
 ### Where the binaries come from
 
-The five binaries are `build-release`'s `dist/grpc` output — the same bytes as
-the GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace
-the npm job attaches. `npm run platform-packages` refuses to package a binary
+The five binaries are `build-release-binaries`' `dist/grpc` output, with the
+`.sha256` sidecars `build-release` writes beside them — the same bytes as the
+GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace the
+npm job attaches. `npm run platform-packages` refuses to package a binary
 whose bytes disagree with its `.sha256` sidecar, or that has none, so the
 packages can only carry what the release built. npm's `--provenance` is not
 used: the CLI mints attestations only on GitHub Actions and GitLab CI/CD.

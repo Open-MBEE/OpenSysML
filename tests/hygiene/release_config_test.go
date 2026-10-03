@@ -275,3 +275,88 @@ func TestRustCrateIsStampedWithItsReleaseDigests(t *testing.T) {
 		}
 	}
 }
+
+// persistedPaths is every path the steps persist to the workspace, including
+// those inside when/unless blocks.
+func persistedPaths(t *testing.T, steps []yaml.Node) []string {
+	t.Helper()
+	var paths []string
+	for _, step := range steps {
+		if step.Kind != yaml.MappingNode || len(step.Content) < 2 {
+			continue
+		}
+		key, value := step.Content[0].Value, step.Content[1]
+		switch key {
+		case "persist_to_workspace":
+			var persist struct {
+				Root  string   `yaml:"root"`
+				Paths []string `yaml:"paths"`
+			}
+			if err := value.Decode(&persist); err != nil {
+				t.Fatalf("decode persist_to_workspace: %v", err)
+			}
+			if persist.Root != "." {
+				t.Errorf("persist_to_workspace root is %q; the release jobs share root .", persist.Root)
+			}
+			paths = append(paths, persist.Paths...)
+		case "when", "unless":
+			var block struct{ Steps []yaml.Node }
+			if err := value.Decode(&block); err != nil {
+				t.Fatalf("decode %s block: %v", key, err)
+			}
+			paths = append(paths, persistedPaths(t, block.Steps)...)
+		}
+	}
+	return paths
+}
+
+// TestReleaseJobsPersistDisjointWorkspaceLayers holds build-release to
+// persisting only the files it writes. Workspace layers are additive, and a
+// path persisted by two upstream jobs fails the attach in every job
+// downstream of both, which is every publish job: build-release-binaries
+// persists the whole dist tree, so build-release must not persist it again.
+func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
+	config := loadCircleConfig(t)
+	binaries, ok := config.Jobs["build-release-binaries"]
+	if !ok {
+		t.Fatal("no build-release-binaries job")
+	}
+	release, ok := config.Jobs["build-release"]
+	if !ok {
+		t.Fatal("no build-release job")
+	}
+
+	upstream := persistedPaths(t, binaries.Steps)
+	requireAll(t, "build-release-binaries persists", upstream, "dist")
+
+	// Everything build-release writes into dist: the manifest and what signs
+	// it, the sidecars opensysml reads, and the Python distribution it copies in.
+	own := func(path string) bool {
+		if !strings.HasPrefix(path, "dist/") {
+			return false
+		}
+		switch {
+		case strings.Contains(path, "SHA256SUMS.txt"),
+			strings.Contains(path, "provenance.intoto.json"),
+			strings.HasSuffix(path, ".sha256"),
+			strings.HasSuffix(path, ".whl"),
+			strings.HasPrefix(path, "dist/opensysml-[0-9]"):
+			return true
+		}
+		return false
+	}
+	persisted := persistedPaths(t, release.Steps)
+	for _, path := range persisted {
+		if !own(path) {
+			t.Errorf("build-release persists %q, which build-release-binaries' layer already carries; persist only the files build-release writes", path)
+		}
+	}
+	requireAll(t, "build-release persists", persisted,
+		"dist/SHA256SUMS.txt",
+		"dist/SHA256SUMS.txt.bundle",
+		"dist/provenance.intoto.json.bundle",
+		"dist/grpc/*.sha256",
+		"dist/opensysml-*-py3-none-any.whl",
+		"dist/opensysml-[0-9]*.tar.gz",
+	)
+}
