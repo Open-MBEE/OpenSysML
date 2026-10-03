@@ -316,7 +316,14 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 // workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, snapshot, err := s.ws.RenderView(name, params.View)
+	var rendering *view.Rendering
+	var snapshot *model.Snapshot
+	var err error
+	if params.LinkTemplate != "" {
+		rendering, snapshot, err = s.ws.RenderViewLinked(name, params.View)
+	} else {
+		rendering, snapshot, err = s.ws.RenderView(name, params.View)
+	}
 	if err != nil {
 		return nil, err
 	}

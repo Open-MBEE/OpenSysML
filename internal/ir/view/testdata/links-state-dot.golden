@@ -25,8 +25,8 @@ digraph "MachineViews::vehicleStates" {
   }
   "n5" -> "n1" [URL="https://example.test/src/state.sysml#L11", tooltip="state.sysml:11:10"];
   "n6" -> "n3" [URL="https://example.test/src/state.sysml#L15", tooltip="state.sysml:15:11"];
-  "n1" -> "n2" [URL="https://example.test/src/state.sysml#L29", tooltip="Machines::VehicleStates::''", lhead="cluster_n2"];
-  "n2" -> "n1" [URL="https://example.test/src/state.sysml#L30", tooltip="Machines::VehicleStates::''", ltail="cluster_n2"];
+  "n1" -> "n2" [URL="https://example.test/src/state.sysml#L29", tooltip="state.sysml:29:3", lhead="cluster_n2"];
+  "n2" -> "n1" [URL="https://example.test/src/state.sysml#L30", tooltip="state.sysml:30:3", ltail="cluster_n2"];
   "n3" -> "n4" [label="accept Signal [temperature > 0]", URL="https://example.test/src/state.sysml#L20", tooltip="Machines::VehicleStates::operating::idle_to_moving"];
-  "n4" -> "n3" [URL="https://example.test/src/state.sysml#L26", tooltip="Machines::VehicleStates::operating::''"];
+  "n4" -> "n3" [URL="https://example.test/src/state.sysml#L26", tooltip="state.sysml:26:4"];
 }

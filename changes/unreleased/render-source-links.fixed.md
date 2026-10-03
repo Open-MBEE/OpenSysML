@@ -1,0 +1,1 @@
+- **Keep source links attached to the workspace generation they render.** LSP resolves link sites while holding the workspace lock, anonymous elements no longer acquire an empty qualified name, and Mermaid's default strict renderer strips source links whose schemes are not HTTP(S).

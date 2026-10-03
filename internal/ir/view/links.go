@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -80,10 +81,13 @@ func (r *Renderer) Sites(locate Locator) Sites {
 		ok   bool
 	}
 	cache := map[Origin]result{}
+	var mu sync.Mutex
 	return func(origin Origin) (Site, bool) {
 		if !origin.Located() || locate == nil {
 			return Site{}, false
 		}
+		mu.Lock()
+		defer mu.Unlock()
 		if found, ok := cache[origin]; ok {
 			return found.site, found.ok
 		}
@@ -97,7 +101,9 @@ func (r *Renderer) Sites(locate Locator) Sites {
 			if index := r.resolver.Index(); index != nil {
 				if scope := index.DocumentRoot(origin.Doc); scope != nil {
 					if sym := scope.DeclaredAt(origin.Span); sym != nil {
-						site.QualifiedName = source.QualifiedNameOf(symbols.NameChain(sym))
+						if sym.Name != "" {
+							site.QualifiedName = source.QualifiedNameOf(symbols.NameChain(sym))
+						}
 						if info, ok := identity.Of(r.model, r.resolver, sym); ok && info != nil {
 							site.ID = info.EffectiveID
 						}

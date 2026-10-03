@@ -825,9 +825,12 @@ origins and bundled library declarations — is not linked.
 
 The writers emit no link syntax when links are disabled or no site is available.
 
-Mermaid's generated page configuration retains `securityLevel: strict`. Strict mode keeps
-JavaScript links disabled; source-link templates should use ordinary HTTP(S) URLs. This does not
-change the security level of Mermaid rendered by a consumer.
+The HTML backend leaves Mermaid's `securityLevel` unset. With the pinned Mermaid CLI 11.17.2,
+the default `strict` mode strips links with every non-HTTP(S) scheme, including `vscode://` and
+`file:///`, and percent-decodes hrefs: `https://example.com/c%5D%22%23#L3` becomes
+`https://example.com/c]%22##L3`. Setting `{"securityLevel":"loose"}` preserves those schemes and
+the encoded href intact. Composite states and subgraphs receive no `<a>` from the writer; a
+consumer rendering Mermaid source controls its own security level.
 
 ### The inline style
 

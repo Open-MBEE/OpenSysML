@@ -129,6 +129,10 @@ Renders one view of a document.
 | `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
+The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
+and PlantUML SVG, but the pinned Mermaid CLI 11.17.2's default strict-mode renderer strips them
+because their scheme is not HTTP(S).
+
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
 (`declares 6 views (KitViews::widgetActions, …); name the one to render`) rather

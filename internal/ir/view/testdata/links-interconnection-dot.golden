@@ -16,5 +16,5 @@ digraph "PlantViews::loopView" {
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>sensor : Pump</b>>, URL="https://example.test/src/interconnection.sysml#L22", tooltip="Plant::Loop::sensor"];
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="supply", arrowhead=none, penwidth=3, URL="https://example.test/src/interconnection.sysml#L19", tooltip="Plant::Loop::supply"];
-  "n1" -> "n2" [label="of Water", style=dashed, URL="https://example.test/src/interconnection.sysml#L20", tooltip="Plant::Loop::''"];
+  "n1" -> "n2" [label="of Water", style=dashed, URL="https://example.test/src/interconnection.sysml#L20", tooltip="interconnection.sysml:20:3"];
 }

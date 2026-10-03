@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -119,6 +121,73 @@ func TestRendererSitesMemoizesAndUsesEffectiveIdentity(t *testing.T) {
 	}
 	if first.ID != info.EffectiveID {
 		t.Errorf("ID = %q, want effective identity %q", first.ID, info.EffectiveID)
+	}
+}
+
+func TestRendererSitesMemoizesConcurrentLookups(t *testing.T) {
+	renderer, index := loadFixtures(t, "tree.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "VehicleViews::vehicleView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	origin := rendering.Roots[0].Origin
+	var calls atomic.Int32
+	sites := renderer.Sites(func(got Origin) (string, source.Pos, bool) {
+		calls.Add(1)
+		return got.Doc, source.Pos{Line: 1, Col: 1}, true
+	})
+
+	var workers sync.WaitGroup
+	for range 16 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			if _, ok := sites(origin); !ok {
+				t.Error("Sites returned no source site")
+			}
+		}()
+	}
+	workers.Wait()
+	if calls.Load() != 1 {
+		t.Errorf("locator called %d times, want once for concurrent lookups", calls.Load())
+	}
+}
+
+func TestRendererSitesLeaveAnonymousQualifiedNameEmpty(t *testing.T) {
+	renderer, index := loadFixtures(t, "interconnection.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "PlantViews::loopView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var origin Origin
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeFlow {
+			origin = edge.Origin
+			break
+		}
+	}
+	if !origin.Located() {
+		t.Fatal("flow edge has no located origin")
+	}
+	sites := renderer.Sites(func(got Origin) (string, source.Pos, bool) {
+		return got.Doc, source.Pos{Line: 20, Col: 3}, true
+	})
+	site, ok := sites(origin)
+	if !ok {
+		t.Fatal("Sites returned no source site for the anonymous flow")
+	}
+	if site.QualifiedName != "" {
+		t.Errorf("anonymous flow qualified name = %q, want empty", site.QualifiedName)
+	}
+	artifact, err := rendering.WriteWith(FormDot, Options{Links: Links{
+		Template: "https://example.test/{file}#L{line}:{col}",
+		Sites:    sites,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `tooltip="interconnection.sysml:20:3"`; !strings.Contains(artifact, want) {
+		t.Errorf("anonymous flow tooltip does not fall back to its source position %q:\n%s", want, artifact)
 	}
 }
 
