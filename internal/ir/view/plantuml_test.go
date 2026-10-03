@@ -127,6 +127,35 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 	}
 }
 
+func TestMixedPlantUMLNoticesUnnestedCaseAndActorChildren(t *testing.T) {
+	rendering := &Rendering{Kind: KindMixed, Roots: []*Node{
+		{ID: "n0", Kind: "use case def", Name: "Inspection", Children: []*Node{
+			{ID: "n1", Kind: "actor", Name: "operator"},
+			{ID: "n2", Kind: "case def", Name: "NestedCase"},
+		}},
+		{ID: "n3", Kind: "actor", Name: "operator", Children: []*Node{
+			{ID: "n4", Kind: "part def", Name: "equipment"},
+		}},
+	}}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	for _, want := range []string{
+		"' not represented: non-case children of use case def Inspection are drawn flat; PlantUML usecase elements cannot contain nodes",
+		"' not represented: non-case children of actor operator are drawn flat; PlantUML actor elements cannot contain nodes",
+	} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("PlantUML lacks %q:\n%s", want, puml)
+		}
+	}
+	for _, want := range []string{"as n1", "as n2", "as n4"} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("PlantUML omits child declaration %q:\n%s", want, puml)
+		}
+	}
+}
+
 // The tree draws containment as the Mermaid tree does: an edge from a node to
 // each child, every node a class, and hides the circle and empty compartments.
 func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {

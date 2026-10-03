@@ -59,6 +59,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
 	}
+	if r.Kind == KindMixed {
+		notices = append(notices, w.mixedContainmentNotices(r.Roots)...)
+	}
 	if r.Kind == KindAction {
 		if pins := r.undrawnPins(func(*Node, Port) bool { return false }); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); PlantUML's state grammar has no pin, so the edges name them",
@@ -289,6 +292,49 @@ func (w *plantumlWriter) writeCaseMixedDiagram(r *Rendering, mixed bool) {
 	}
 }
 
+// mixedContainmentNotices reports case and actor children PlantUML cannot nest.
+func (w *plantumlWriter) mixedContainmentNotices(roots []*Node) []string {
+	var notices []string
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if caseNodeKind(node.Kind) || node.Kind == "actor" {
+			for _, child := range node.Children {
+				if caseNodeKind(child.Kind) {
+					continue
+				}
+				element := "usecase"
+				if node.Kind == "actor" {
+					element = "actor"
+				}
+				name := strings.TrimSpace(node.Kind + " " + w.labels.name(node))
+				notices = append(notices, fmt.Sprintf(
+					"non-case children of %s are drawn flat; PlantUML %s elements cannot contain nodes", name, element))
+				break
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range roots {
+		walk(root)
+	}
+	return notices
+}
+
+// writeCaseMixedContainer writes a mixed rectangle and its ports and children.
+func (w *plantumlWriter) writeCaseMixedContainer(node *Node, depth int, mixed bool) {
+	indent := strings.Repeat("  ", depth)
+	fmt.Fprintf(&w.b, "%srectangle %s as %s%s {\n", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	for _, port := range w.ports.of(node) {
+		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(w.ports.pinLabel(port))), port.ID)
+	}
+	for _, child := range node.Children {
+		w.writeCaseMixedNode(child, depth+1, mixed)
+	}
+	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
 // writeCaseMixedNode writes one case/mixed node using native PlantUML elements.
 func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 	indent := strings.Repeat("  ", depth)
@@ -307,6 +353,11 @@ func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 		}
 	case node.Kind == "actor":
 		fmt.Fprintf(&w.b, "%sactor %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	case mixed && (len(node.Children) > 0 || len(w.ports.of(node)) > 0 && !controlKinds[node.Kind]):
+		w.writeCaseMixedContainer(node, depth, mixed)
 	case node.Kind == "subject":
 		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
 	case node.Kind == "objective":
