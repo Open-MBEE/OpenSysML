@@ -1089,7 +1089,7 @@
       '<div class="osml-nodecard__note">' + (n.model
         ? "Read by the engine from model " + escAttr(modelHash.slice(0, 12))
         : "Run the model to read these from the engine") + '</div>' +
-      '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>';
+      (href ? '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>' : "");
     card.hidden = false;
     card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
     posEl = card.querySelector("[data-osml-pos]");
@@ -1374,20 +1374,31 @@
     });
     svg.appendChild(g);
     addNode(g);
+    nodes[k].dynamic = true;
     bindNode(k);
   }
 
+  // Only a web link opens from a card: an edited repo cannot run script.
+  function webHref(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+
+  // Hand-drawn parts an edit removes keep their place for when they return.
+  var shelved = {};
   function applyModel(m) {
     modelHash = m.hash;
     var slot = 0;
     Object.keys(m.parts).forEach(function (k) {
       var a = m.parts[k].attrs;
+      if (!nodes[k] && shelved[k]) {
+        svg.appendChild(shelved[k].g);
+        nodes[k] = shelved[k];
+        delete shelved[k];
+      }
       if (!nodes[k]) newNode(k, a.label, slot++);
       var g = nodes[k].g;
       nodes[k].model = m.parts[k];
       g.dataset.osmlKind = a.kind || "";
-      g.dataset.osmlHref = a.repo || "";
-      g.setAttribute("aria-label", a.repo ? a.label + " on GitHub" : a.label);
+      g.dataset.osmlHref = webHref(a.repo);
+      g.setAttribute("aria-label", g.dataset.osmlHref ? a.label + " on GitHub" : a.label);
       g.querySelector(".osml-node-stereo").textContent = "\u00ab" + (a.kind || "part") + "\u00bb";
       g.querySelector(".osml-node-label").textContent = a.label;
       g.querySelector(".osml-node-sub").textContent = [a.lang, a.role].filter(Boolean).join(" \u00b7 ");
@@ -1396,6 +1407,7 @@
       if (m.parts[k]) return;
       if (activeNode === k) closeCard();
       nodes[k].g.remove();
+      if (!nodes[k].dynamic) shelved[k] = nodes[k];
       delete nodes[k];
     });
     // The wires are the model's interfaces, client end to store end.
@@ -1523,7 +1535,8 @@
       srcEl.setSelectionRange(0, 0);
       srcEl.scrollTop = 0;
     }, function (e) {
-      srcEl.value = "Could not load the model: " + e.message;
+      srcEl.value = "";
+      status("Could not load the model: " + e.message + ". Hide and reopen the editor to try again.", true);
     });
   });
 

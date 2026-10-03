@@ -286,6 +286,8 @@
         fs: vfs,
         send: vfs.send,
         eof: vfs.eof,
+        // interrupt is Ctrl-C: the REPL drops the declaration it is buffering.
+        interrupt: function () { vfs.send(INTERRUPT_LINE + "\n"); },
         waiting: vfs.waiting,
         exited: false,
         done: null,
@@ -316,6 +318,7 @@
     });
   }
 
+  var INTERRUPT_LINE = "\u0003";
   var HISTORY_KEY = "osml-repl-history", HISTORY_MAX = 500, OUTPUT_MAX = 4000;
 
   function loadHistory() {
@@ -354,7 +357,7 @@
     var toursEl = rootEl.querySelector("[data-repl-tours]");
     var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     var session = null, starting = null, partial = "", history = loadHistory(), hIndex = history.length, draft = "";
-    var queue = [], typing = false, examples = null, tours = [];
+    var queue = [], typing = false, typeTimer = null, pendingInterrupt = false, examples = null, tours = [];
 
     function status(text, isError) {
       statusEl.textContent = text;
@@ -378,7 +381,29 @@
       }
       rootEl.classList.remove("is-busy");
       input.disabled = false;
+      if (pendingInterrupt) {
+        pendingInterrupt = false;
+        if (atContinuation()) { interruptREPL(); return; }
+      }
       pump();
+    }
+    function atContinuation() { return /^\s*\.\.\.>/.test(promptEl.textContent); }
+    function interruptREPL() {
+      rootEl.classList.add("is-busy");
+      session.interrupt();
+    }
+    // interrupt is Ctrl-C: it drops the typed line, any queued walkthrough
+    // input, and the declaration the REPL is still collecting.
+    function interrupt() {
+      clearTimeout(typeTimer);
+      typing = false;
+      queue = [];
+      appendLine(promptEl.textContent.replace(/\u00a0/g, " ") + input.value + "^C", "osml-dim");
+      setInput("");
+      scroll();
+      if (!session || session.exited) return;
+      if (!session.waiting()) pendingInterrupt = true;
+      else if (atContinuation()) interruptREPL();
     }
 
     function fetchExamples() {
@@ -492,8 +517,8 @@
       (function type() {
         i = Math.min(line.length, i + step);
         setInput(line.slice(0, i));
-        if (i < line.length) { setTimeout(type, 12); return; }
-        setTimeout(function () {
+        if (i < line.length) { typeTimer = setTimeout(type, 12); return; }
+        typeTimer = setTimeout(function () {
           typing = false;
           setInput("");
           submit(line);
@@ -540,6 +565,11 @@
     }
 
     input.addEventListener("keydown", function (e) {
+      if (e.ctrlKey && e.key === "c" && input.selectionStart === input.selectionEnd) {
+        e.preventDefault();
+        interrupt();
+        return;
+      }
       if (typing) { e.preventDefault(); return; }
       var v = input.value;
       if (e.key === "Enter" && !e.shiftKey) {
@@ -568,12 +598,6 @@
       } else if (e.ctrlKey && e.key === "l") {
         e.preventDefault();
         out.textContent = "";
-      } else if (e.ctrlKey && e.key === "c" && input.selectionStart === input.selectionEnd) {
-        e.preventDefault();
-        appendLine(promptEl.textContent.replace(/\u00a0/g, " ") + input.value + "^C", "osml-dim");
-        setInput("");
-        queue = [];
-        scroll();
       } else if (e.ctrlKey && e.key === "d" && !input.value && session && !session.exited) {
         e.preventDefault();
         session.eof();

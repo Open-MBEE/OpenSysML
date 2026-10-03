@@ -9,6 +9,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
+// hostInterruptLine is the line a page sends to interrupt the REPL (Ctrl-C),
+// discarding an unfinished declaration.
+const hostInterruptLine = "\x03"
+
 // exposeCompletion lets a page complete the line being typed:
 // globalThis.sysmlReplComplete(textBeforeCursor) answers {candidates, prefix} as JSON.
 func exposeCompletion(sess *repl.Session) {

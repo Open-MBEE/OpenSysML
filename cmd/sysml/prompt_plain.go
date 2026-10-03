@@ -14,18 +14,19 @@ import (
 
 // newLineInput opens the prompt's line reader over standard input. A WebAssembly
 // host has no line editor to hand: lines arrive one at a time from whatever the
-// host wired up, without history, completion or an interrupt to catch. The session
-// is passed for the signature it has on every build and is not consulted. The
-// returned function closes the reader, which is nothing to do over standard input.
+// host wired up. A browser page gets completion through the session and may send
+// hostInterruptLine for Ctrl-C. The returned function closes the reader, which is
+// nothing to do over standard input.
 func newLineInput(sess *repl.Session) (repl.LineReader, func() error, error) {
 	exposeCompletion(sess)
-	return &plainReader{in: bufio.NewReader(os.Stdin), out: os.Stdout}, func() error { return nil }, nil
+	return &plainReader{in: bufio.NewReader(os.Stdin), out: os.Stdout, interrupt: hostInterruptLine}, func() error { return nil }, nil
 }
 
 // plainReader yields the lines it is read from, writing each prompt before it waits.
 type plainReader struct {
-	in  *bufio.Reader
-	out io.Writer
+	in        *bufio.Reader
+	out       io.Writer
+	interrupt string // a line that reads as repl.ErrInterrupt, when nonempty
 }
 
 // ReadLine writes the prompt and reads the next line, without its line ending, and
@@ -44,7 +45,11 @@ func (r *plainReader) ReadLine(prompt string) (string, error) {
 			return "", io.EOF
 		}
 	}
-	return strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"), nil
+	line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+	if r.interrupt != "" && line == r.interrupt {
+		return "", repl.ErrInterrupt
+	}
+	return line, nil
 }
 
 // isTerminal reports whether the file descriptor is a terminal: no WebAssembly host

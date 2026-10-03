@@ -42,4 +42,27 @@ for (const tour of tours) {
 	session.eof();
 	await session.done;
 }
+
+// Ctrl-C at a continuation prompt must drop the unfinished declaration, so the
+// next line is read at the primary prompt.
+{
+	let out = '', waiting = null;
+	const ready = () => new Promise(resolve => { waiting = resolve; });
+	let next = ready();
+	const session = await globalThis.osmlRepl.start({
+		module, files,
+		onOutput: text => { out += text; },
+		onWaiting: () => { const w = waiting; waiting = null; if (w) w(); },
+	});
+	await next;
+	out = '';
+	for (const send of [() => session.send('package Unfinished {\n'), () => session.interrupt(), () => session.send('6 * 7\n')]) {
+		next = ready();
+		send();
+		await next;
+	}
+	console.log(JSON.stringify({ tour: 'interrupt', step: 0, output: out }));
+	session.eof();
+	await session.done;
+}
 process.exit(0);

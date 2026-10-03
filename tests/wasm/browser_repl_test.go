@@ -78,7 +78,7 @@ func TestBrowserREPLWalkthroughs(t *testing.T) {
 	}
 	got := nodeRun(t, fixture(t, "browser-repl.mjs"), wasmExecJS(t), abs(filepath.Join(assets, "sysml-repl.js")),
 		bin, abs(toursFile), abs(filepath.Join("..", "..", "examples", "runtime-showcase")))
-	seen := 0
+	seen, interrupted := 0, ""
 	for _, line := range strings.Split(got.output, "\n") {
 		if !strings.HasPrefix(line, "{") {
 			continue
@@ -90,6 +90,10 @@ func TestBrowserREPLWalkthroughs(t *testing.T) {
 		}
 		if err := json.Unmarshal([]byte(line), &step); err != nil {
 			t.Fatalf("decoding a step report: %v\n%s", err, line)
+		}
+		if step.Tour == "interrupt" {
+			interrupted = step.Output
+			continue
 		}
 		expect, ok := want[key{step.Tour, step.Step}]
 		if !ok {
@@ -109,6 +113,12 @@ func TestBrowserREPLWalkthroughs(t *testing.T) {
 	if seen != len(want) {
 		t.Errorf("the host ran %d of the %d walkthrough steps:\n%s", seen, len(want), got.output)
 	}
+
+	t.Run("Ctrl-C drops an unfinished declaration", func(t *testing.T) {
+		if !strings.Contains(interrupted, "= 42") || !strings.HasSuffix(interrupted, "sysml> ") {
+			t.Errorf("after an interrupt at the continuation prompt, 6 * 7 should evaluate at the primary prompt:\n%q", interrupted)
+		}
+	})
 
 	t.Run("fits the browser REPL size budget", func(t *testing.T) {
 		data, err := os.ReadFile(bin)
