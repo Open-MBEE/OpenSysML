@@ -987,6 +987,23 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
+		return "EventOccurrenceUsage"
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.ForkNode:
+		return "ForkNode"
+	case *ast.JoinNode:
+		return "JoinNode"
+	case *ast.MergeNode:
+		return "MergeNode"
+	case *ast.DecisionNode:
+		return "DecisionNode"
+	case *ast.Usage:
+		if decl.IsEvent {
+			return "EventOccurrenceUsage"
+		}
+	}
 	switch sym.Kind {
 	case symbols.SymbolConnectorEnd:
 		return ConnectorEndMetaclassName(sym)
@@ -997,6 +1014,18 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case symbols.SymbolActionUsage:
 		if sym.DeclaresTransition() {
 			return usageMetaclassNames[ast.UsageTransition]
+		}
+	}
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeFork:
+			return "ForkNode"
+		case symbols.NodeJoin:
+			return "JoinNode"
+		case symbols.NodeMerge:
+			return "MergeNode"
+		case symbols.NodeDecision:
+			return "DecisionNode"
 		}
 	}
 	return metaclassName(sym.Kind)
@@ -1184,7 +1213,13 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if sym.Recorded() {
 		switch sym.Facts.Node {
 		case symbols.NodeDefinition, symbols.NodeUsage:
-			return kermlMetaclassNames[sym.Facts.Keyword]
+			if name := kermlMetaclassNames[sym.Facts.Keyword]; name != "" {
+				return name
+			}
+			if sym.Facts.Node == symbols.NodeUsage {
+				return "Feature"
+			}
+			return ""
 		case symbols.NodePrefixMetadata:
 			return kermlMetaclassNames["metadata"]
 		case symbols.NodeConnectorEnd, symbols.NodeCrossFeature:
@@ -1196,7 +1231,15 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	case *ast.Definition:
 		return kermlMetaclassNames[d.Keyword]
 	case *ast.Usage:
-		return kermlMetaclassNames[d.Keyword]
+		if name := kermlMetaclassNames[d.Keyword]; name != "" {
+			return name
+		}
+		return "Feature"
+	case *ast.BodyExpr:
+		// Body-expression parameters are features but have no Usage declaration node.
+		if sym.Kind.IsFeature() {
+			return "Feature"
+		}
 	case *ast.PrefixMetadata:
 		return kermlMetaclassNames["metadata"]
 	case *ast.ConnectorEnd, *ast.CrossFeatureMember:
@@ -1479,6 +1522,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(direction.String()), true
 	}
+	if value, ok := m.reflectiveFeatureBoolean(sym, feature); ok {
+		return value, true
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Comment:
 		switch feature {
@@ -1518,32 +1564,12 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 	case *ast.Usage:
 		switch feature {
-		case "isAbstract":
-			return boolValue(d.IsAbstract), true
 		case "isSufficient":
 			return boolValue(d.IsAll), true
-		case "isComposite":
-			return boolValue(d.IsComposite || !usageIsReferential(d)), true
-		case "isDerived":
-			return boolValue(d.IsDerived), true
-		case "isEnd":
-			return boolValue(d.IsEnd), true
-		case "isOrdered":
-			return boolValue(d.IsOrdered), true
-		case "isUnique":
-			return boolValue(!d.IsNonunique), true
-		case "isVariable":
-			return boolValue(d.IsVariable), true
-		case "isConstant":
-			return boolValue(d.IsConstant), true
-		case "isPortion":
-			return boolValue(d.Portion != ast.PortionNone), true
 		case "isVariation":
 			return boolValue(IsVariation(sym)), true
 		case "isVariant":
 			return boolValue(IsVariant(sym)), true
-		case "isReference":
-			return boolValue(!d.IsComposite && usageIsReferential(d)), true
 		case "isIndividual":
 			return boolValue(d.IsIndividual), true
 		case "isParallel":
@@ -1551,6 +1577,178 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 	}
 	return symbols.FilterValue{}, false
+}
+
+type reflectiveFeatureFlags struct {
+	isEnd       bool
+	isPortion   bool
+	isConstant  bool
+	isVariable  bool
+	isComposite bool
+	isDerived   bool
+	isAbstract  bool
+	isOrdered   bool
+	isUnique    bool
+	isReference bool
+}
+
+func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
+	if !m.isReflectiveFeature(sym) {
+		return symbols.FilterValue{}, false
+	}
+	if sym.Recorded() && !m.isKerMLDoc(sym) && m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
+		switch feature {
+		case "isVariable":
+			// Records omit the Usage::portion prefix, so mayTimeVary is not decidable without the AST.
+			return symbols.FilterValue{}, false
+		case "isConstant":
+			if sym.Facts.Modifiers.Has(symbols.ModEnd) && !sym.Facts.Modifiers.Has(symbols.ModConstant) {
+				return symbols.FilterValue{}, false
+			}
+		}
+	}
+	flags, isUsage := m.reflectiveFeatureFlags(sym)
+	switch feature {
+	case "isEnd":
+		return boolValue(flags.isEnd), true
+	case "isPortion":
+		return boolValue(flags.isPortion), true
+	case "isConstant":
+		return boolValue(flags.isConstant), true
+	case "isVariable":
+		return boolValue(flags.isVariable), true
+	case "isComposite":
+		return boolValue(flags.isComposite), true
+	case "isDerived":
+		return boolValue(flags.isDerived), true
+	case "isAbstract":
+		return boolValue(flags.isAbstract), true
+	case "isOrdered":
+		return boolValue(flags.isOrdered), true
+	case "isUnique":
+		return boolValue(flags.isUnique), true
+	case "isReference":
+		if isUsage {
+			return boolValue(flags.isReference), true
+		}
+	}
+	return symbols.FilterValue{}, false
+}
+
+func (m *Model) isReflectiveFeature(sym *symbols.Symbol) bool {
+	return sym.IsFeature() || m.metaclassConforms(sym, "KerML::Core::Feature")
+}
+
+func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFlags, bool) {
+	flags := reflectiveFeatureFlags{isUnique: true}
+	isUsage := !m.isKerMLDoc(sym) && m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage")
+
+	if sym.Recorded() {
+		mods := sym.Facts.Modifiers
+		flags.isEnd = mods.Has(symbols.ModEnd)
+		flags.isPortion = mods.Has(symbols.ModPortion)
+		flags.isConstant = mods.Has(symbols.ModConstant)
+		flags.isVariable = mods.Has(symbols.ModVariable) ||
+			(m.isKerMLDoc(sym) && flags.isConstant)
+		flags.isDerived = mods.Has(symbols.ModDerived)
+		flags.isAbstract = sym.Facts.Abstract
+		flags.isOrdered = mods.Has(symbols.ModOrdered)
+		flags.isUnique = !mods.Has(symbols.ModNonunique)
+		if isUsage {
+			flags.isComposite = mods.Has(symbols.ModComposite) || !recordedUsageIsReferential(sym)
+		} else {
+			flags.isComposite = mods.Has(symbols.ModComposite)
+		}
+	} else {
+		flags.isVariable = m.FeatureIsVariable(sym)
+		switch d := sym.Decl.(type) {
+		case *ast.Usage:
+			flags.isEnd = d.IsEnd
+			flags.isPortion = d.IsPortion || d.Portion != ast.PortionNone
+			flags.isConstant = d.IsConstant
+			if !m.isKerMLDoc(sym) && d.IsEnd && m.FeatureIsVariable(sym) {
+				// Mirror the pilot's implicit constant ends.
+				flags.isConstant = true
+			}
+			flags.isDerived = d.IsDerived
+			flags.isAbstract = d.IsAbstract
+			flags.isOrdered = d.IsOrdered
+			flags.isUnique = !d.IsNonunique
+			if isUsage {
+				flags.isComposite = d.IsComposite || !usageIsReferential(d)
+			} else {
+				flags.isComposite = d.IsComposite
+			}
+		case *ast.CrossFeatureMember:
+			flags.isEnd = true
+			flags.isPortion = d.IsPortion
+			flags.isConstant = d.IsConstant
+			flags.isDerived = d.IsDerived
+			flags.isAbstract = d.IsAbstract
+			flags.isOrdered = d.IsOrdered
+			flags.isUnique = !d.IsNonunique
+			flags.isComposite = d.IsComposite
+		case *ast.ConnectorEnd:
+			flags.isEnd = true
+		default:
+			if isUsage {
+				flags.isComposite = defaultUsageComposite(sym.Kind)
+			}
+		}
+	}
+
+	owner := sym.Owner()
+	// The census records pilot silence for attribute-composite members
+	// (validateAttributeDefinitionFeatures, validateAttributeUsageFeatures; docs/project/validation-constraints.md).
+	if m.reflectiveAttributeFeatureOwner(owner) {
+		flags.isComposite = false
+	}
+	if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
+		flags.isComposite = true
+	}
+	flags.isReference = isUsage && !flags.isComposite
+	return flags, isUsage
+}
+
+func defaultUsageComposite(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
+		symbols.SymbolEnumerationUsage, symbols.SymbolConnectorEnd:
+		return false
+	default:
+		return true
+	}
+}
+
+func recordedUsageIsReferential(sym *symbols.Symbol) bool {
+	if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage ||
+		sym.Kind == symbols.SymbolReferenceUsage || sym.Kind == symbols.SymbolConnectorEnd {
+		return true
+	}
+	mods := sym.Facts.Modifiers
+	if mods.Has(symbols.ModReference) || mods.Has(symbols.ModEnd) || mods.Has(symbols.ModEvent) ||
+		sym.Facts.Direction != ast.DirNone ||
+		sym.Facts.UsageKind == ast.UsageEnumeration {
+		return true
+	}
+	if sym.Facts.Keyword == "variant" && mods.Has(symbols.ModVariant) &&
+		mods&(symbols.ModReference|symbols.ModVariable|symbols.ModConstant|
+			symbols.ModEnd|symbols.ModDerived|symbols.ModComposite|symbols.ModPortion) == 0 &&
+		sym.Facts.Direction == ast.DirNone {
+		return true
+	}
+	for _, rel := range sym.Facts.Relationships {
+		if rel.Kind == ast.RelReferences {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) reflectiveAttributeFeatureOwner(owner *symbols.Symbol) bool {
+	return owner != nil &&
+		(m.metaclassConforms(owner, sysmlMetaclassPrefix+"AttributeDefinition") ||
+			m.metaclassConforms(owner, sysmlMetaclassPrefix+"AttributeUsage"))
 }
 
 // reflectiveCommentBody is Comment::body, String[1..1]: "" for a blank comment, and

@@ -663,7 +663,7 @@ object no assertion is about decides nothing — `? Demo::crate states no assert
 and is not shown valid either. A constraint declared without `assert` is a definition to check by
 name, not an assertion about the object, and is not swept. The command line makes the same check with
 [`-validate=<object>`](../reference/cli.md#command-reference), and a script with the
-`ValidateInstance` RPC ([from Python or Go](09-clients.md#validating-an-object-as-a-whole)).
+`ValidateInstance` RPC ([Python client example](../clients/python/verification.md#validating-an-object-as-a-whole)).
 
 For more examples, see
 [examples/repl-behavioral-demo.sysml](../../examples/repl-behavioral-demo.sysml), and the
