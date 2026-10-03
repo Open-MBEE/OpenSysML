@@ -617,6 +617,11 @@ package Compiled {
 		calc def Coalesce { in x : Integer[0..*]; return : Real = x ?? 5.5; }
 		calc def Equality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
 		calc def SameSeq { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
+		calc def SameLit { return : Boolean = same((1), (1.0)); }
+		calc def SameMix { return : Boolean = same((1, 2.5), (1.0, 2.5)); }
+		calc def SameParam { in a : Real; return : Boolean = same((a, 2.5), (1, 2.5)); }
+		calc def SameHeld { in a : Integer; attribute r : Real = a; return : Boolean = same((r, 2.5), (1.0, 2.5)); }
+		calc def SameHeldInt { in a : Integer; attribute r : Real = a; return : Boolean = same((r), (1)); }
 		calc def Union { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
 		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
 		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }
