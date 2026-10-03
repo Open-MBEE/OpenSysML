@@ -9,9 +9,9 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all"
 )
 
-// CompileCalc compiles to the codegen IR, as `sysml -compile` does.
-func (s *Session) CompileCalc(name string) (*codegen.Program, error) {
+// CompileCalc compiles to the codegen IR for target, as `sysml -compile` does.
+func (s *Session) CompileCalc(name string, target codegen.Target) (*codegen.Program, error) {
 	return CompileCalc(s, name, func(model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (*codegen.Program, error) {
-		return codegen.New(model, resolver).Compile(entry)
+		return codegen.New(model, resolver).Compile(entry, target)
 	})
 }

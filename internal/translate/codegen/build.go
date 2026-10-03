@@ -56,6 +56,9 @@ var CFlags = []string{"-O3", "-flto", "-ffp-contract=off", "-std=gnu11", "-Wall"
 
 // Source renders program for target, as a complete program with a main.
 func Source(p *Program, target Target) ([]byte, error) {
+	if p.Target != target {
+		return nil, fmt.Errorf("codegen: program compiled for target %q, not %q", p.Target, target)
+	}
 	var buf bytes.Buffer
 	var err error
 	switch target {
