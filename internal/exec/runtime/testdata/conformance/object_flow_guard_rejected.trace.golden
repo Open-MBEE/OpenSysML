@@ -1,0 +1,16 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@c
+stmt assign y
+  eval literal 2 -> 2
+stmt assign y
+  eval literal 1 -> 1
+eval feature go -> false
+choice step 3: tokens 2@a, 3@c (unordered; took 3@c first)
+step 3: token 3@b
+stmt assign runs
+    eval feature runs -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign took
+  eval feature v -> 2
+step 4: no active tokens

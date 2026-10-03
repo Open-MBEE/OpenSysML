@@ -1541,7 +1541,6 @@ func (e *Encoding) settle(x *nodeEffect, cond *solve.Term, target *solve.Var, va
 // flows carries what a completed node produced over its object flows: to a pin queue of a node in
 // a frame of its own, else to the action's feature. An empty source pin is the interpreter's error.
 func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
-	always := solve.BoolTerm(true)
 	label := e.Flow.label(node)
 	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
 		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
@@ -1552,10 +1551,10 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 		if err != nil {
 			return err
 		}
+		cond := e.gated(x, node, flow)
 		if has, flagged := x.env.has[source.Name]; flagged {
-			x.fail(always, has)
+			x.fail(cond, has)
 		}
-		cond := always
 		if flow.Kind == lower.FlowStreaming {
 			if streamed, ok := x.env.has[streamedName(source.Name)]; ok {
 				cond = not(streamed)
@@ -1564,6 +1563,21 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 		e.carry(x, cond, flow, source, target, x.env.values[source.Name], where)
 	}
 	return nil
+}
+
+// gated is when node's flow moves its value: always, unless a guarded succession leads
+// to it, when only where that guard is defined and holds after the body.
+func (e *Encoding) gated(x *nodeEffect, node ast.Node, flow lower.ObjectFlow) *solve.Term {
+	if flow.Gate == nil {
+		return solve.BoolTerm(true)
+	}
+	for _, i := range e.Flow.Outgoing[node] {
+		if edge := e.Flow.Edges[i]; edge.Carries && edge.Decl == flow.Decl && edge.Guard != nil {
+			holds, defined := x.guards.evaluate(e.exprs[edge.Guard])
+			return and(defined, holds)
+		}
+	}
+	return solve.BoolTerm(true)
 }
 
 // fail records that the interpreter reports an error where path holds and

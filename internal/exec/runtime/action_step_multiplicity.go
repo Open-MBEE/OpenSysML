@@ -97,14 +97,10 @@ func (e *ActionExecutor) passZeroStep(tokenIdx int, node ast.Node) error {
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%w: action node %s has multiple successors", ErrAmbiguousSuccession, ActionNodeName(node))
+	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
+		return err
 	}
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-	e.move(&e.tokens[tokenIdx], successors[0])
-	return nil
+	return e.advance(tokenIdx, successors)
 }
 
 func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {

@@ -7,14 +7,13 @@ part def Timer {
         action three {
             out result[1] = 3.0;
         }
-        first three then 'set t';
         action 'set t' {
             in value[1];
             assign t := value;
         }
         first 'set t' then final;
         action final terminate;
-        flow three.result to 'set t'.value;
+        succession flow three.result to 'set t'.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
 }

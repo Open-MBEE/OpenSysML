@@ -6,9 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	checkpasses "github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
@@ -601,6 +603,45 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 		if got := intValue(t, outcome.Outputs, "total"); got != 10 {
 			t.Errorf("total = %d, want 10", got)
+		}
+	})
+
+	// A succession flow out of a repeated step's pin is an object flow at a
+	// repeated pin: run refuses it, and the pass warns the same.
+	t.Run("succession-flow-at-repeated-pin", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def A {
+				first start then a;
+				action a[2] { out y : Integer; assign y := 1; }
+				succession flow of Integer from a.y to b.x;
+				action b { in x : Integer; }
+				then done;
+			}
+		}`
+		file := parseAndBuild(t, src)
+		index, _, _ := buildRuntimeWithLibraries(t, "<test>", file)
+		diagnostics := checkpasses.Analyze("<test>", file, nil, index)
+		var checked *diag.Diagnostic
+		for i := range diagnostics {
+			if diagnostics[i].Code == "action-step-multiplicity-unsupported" {
+				checked = &diagnostics[i]
+				break
+			}
+		}
+		if checked == nil {
+			t.Fatalf("check diagnostics have no action-step-multiplicity-unsupported warning")
+		}
+		if !strings.Contains(checked.Message, "object flows at pins of a repeated action step") {
+			t.Errorf("check warning = %q, want the repeated-pin flow refusal", checked.Message)
+		}
+		_, err := executeActionSource(t, "A", src)
+		if !errors.Is(err, ErrActionStepMultiplicity) {
+			t.Fatalf("execution error = %v, want ErrActionStepMultiplicity", err)
+		}
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepMultiplicityUnsupportedCode {
+			t.Fatalf("execution error = %v, want StepMultiplicityUnsupportedCode", err)
 		}
 	})
 
