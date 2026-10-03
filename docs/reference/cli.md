@@ -243,7 +243,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
@@ -501,6 +501,10 @@ sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced s
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
 sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
 
+# A table as comma- or tab-separated values, for a spreadsheet or a script
+sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv
+sysml model.sysml -render Views::partsTable -render-form tsv | cut -f1,3
+
 # A view over several files, loaded as one model
 sysml types.sysml model.sysml -render Views::vehicleView
 sysml model/*.sysml -render Views::partsTable -render-form markdown -o parts.md
@@ -543,7 +547,8 @@ plain name. Only views written in the requested form take part, and a plain name
 tagged one is tagged in turn, so no two files written in one run meet. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
-`.puml`, PlantUML's conventional extension.
+`.puml`, PlantUML's conventional extension, and a forced `csv` or `tsv` form writes the tables as
+`.csv` or `.tsv` and skips every other view.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered
@@ -570,6 +575,8 @@ The forms a kind can be written in:
 | `text` | every kind | ASCII a person reads; the default at a terminal |
 | `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
+| `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
+| `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
