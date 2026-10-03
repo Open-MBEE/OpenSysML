@@ -906,17 +906,13 @@ class PublicTypesTest {
     MigrationOptions inline = asked.withLayoutContent("<mtip/>");
     assertTrue(inline.layoutFile().isEmpty());
     assertEquals(java.util.Optional.of("<mtip/>"), inline.layoutContent());
+    java.util.Optional<String> noFormat = java.util.Optional.empty();
+    java.util.Optional<java.nio.file.Path> layoutFile =
+        java.util.Optional.of(java.nio.file.Path.of("l.xml"));
+    java.util.Optional<String> layoutContent = java.util.Optional.of("<mtip/>");
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            new MigrationOptions(
-                java.util.Optional.empty(),
-                false,
-                false,
-                java.util.Optional.of(java.nio.file.Path.of("l.xml")),
-                java.util.Optional.of("<mtip/>"),
-                "",
-                false));
+        () -> new MigrationOptions(noFormat, false, false, layoutFile, layoutContent, "", false));
   }
 
   @Test
@@ -938,7 +934,8 @@ class PublicTypesTest {
     assertEquals(List.of(mapped), report.byVerdict("mapped"));
     assertEquals(List.of(unmapped), report.byVerdict("unmapped"));
     assertEquals(List.of(), report.byVerdict("skipped"));
-    assertThrows(UnsupportedOperationException.class, () -> report.entries().add(mapped));
+    List<MigrationEntry> entries = report.entries();
+    assertThrows(UnsupportedOperationException.class, () -> entries.add(mapped));
 
     byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
     java.util.Map<String, byte[]> files = new java.util.LinkedHashMap<>();
@@ -950,8 +947,9 @@ class PublicTypesTest {
     migration.files().get("images/a.png")[0] = 0;
     assertEquals(
         (byte) 0x89, migration.files().get("images/a.png")[0], "files are copied on the way out");
-    assertThrows(
-        UnsupportedOperationException.class, () -> migration.files().put("other", new byte[0]));
+    java.util.Map<String, byte[]> copied = migration.files();
+    byte[] empty = new byte[0];
+    assertThrows(UnsupportedOperationException.class, () -> copied.put("other", empty));
     assertEquals(report, migration.report());
   }
 

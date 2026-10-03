@@ -528,7 +528,7 @@ func TestMigrateLaysOutFromMTIP(t *testing.T) {
 		ToFormat: "sysml",
 		Layout:   &pb.MigrateRequest_LayoutContent{LayoutContent: "<not mtip"},
 	})
-	if code := connect.CodeOf(err); code != connect.CodeInvalidArgument {
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("an unreadable layout: err = %v, want InvalidArgument", err)
 	}
 }

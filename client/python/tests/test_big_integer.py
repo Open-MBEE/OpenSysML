@@ -72,8 +72,10 @@ def test_a_big_integer_that_is_not_decimal_is_refused(text):
 
 
 def test_fits_int64_bounds():
-    assert fits_int64(INT64_MAX) and fits_int64(INT64_MIN)
-    assert not fits_int64(INT64_MAX + 1) and not fits_int64(INT64_MIN - 1)
+    assert fits_int64(INT64_MAX)
+    assert fits_int64(INT64_MIN)
+    assert not fits_int64(INT64_MAX + 1)
+    assert not fits_int64(INT64_MIN - 1)
 
 
 def test_a_big_quantity_magnitude_round_trips():

@@ -685,8 +685,8 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 			i++
 			label += "\n" + lines[i]
 		}
-		if close := strings.LastIndex(label, end); close >= 0 {
-			label = label[:close]
+		if closeAt := strings.LastIndex(label, end); closeAt >= 0 {
+			label = label[:closeAt]
 			if strings.ContainsAny(strings.ReplaceAll(label, "<br>", ""), "\"<>") {
 				t.Errorf("unescaped label %q", label)
 			}
