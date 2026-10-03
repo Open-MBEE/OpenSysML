@@ -63,7 +63,7 @@ from opensysml.errors import (
     ReferencedElsewhereError, Referrer,
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
-    ServiceTimeoutError, StaleServiceError, SymbolNotFoundError,
+    ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -101,7 +101,7 @@ __all__ = [
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
-    "ServiceError", "ServiceTimeoutError", "StaleServiceError",
+    "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",

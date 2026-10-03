@@ -49,9 +49,15 @@ make python-proto
 
 ## Release digests
 
-After service assets for a release are published, the pinning script downloads
-them, verifies any `.sha256` sidecar and records their hashes in the shared
-release-digest table:
+The release pipeline stamps a release's own service digests into the package
+before building it: `build-python-package` runs
+`pin_release_checksums.py --version "$CIRCLE_TAG" --from-binaries dist/grpc
+--table client/python/opensysml/release-digests.json` against the binaries
+`build-release-binaries` just built, then fails unless the wheel and sdist pin
+all five `sysml-grpc-*` assets for the tag. The committed tables are untouched
+by that stamp. After the service assets for a release are published, the same
+script downloads them, verifies any `.sha256` sidecar and back-fills their
+hashes into the shared release-digest table:
 
 ```bash
 export GITHUB_TOKEN=...
