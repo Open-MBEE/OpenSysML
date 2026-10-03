@@ -146,60 +146,12 @@ func (p *Parser) parseMixedBody() []ast.Node {
 			continue
 		}
 
-		// Check for nested action DECLARATION (action name : Type {...} or action name {...})
-		// vs behavioral action node (action ref or action {expr})
 		if p.atKeyword("action") {
-			// Lookahead to distinguish:
-			// - action <id> : Type { ... } = declaration (typing)
-			// - action <id> { stmts } = declaration (multi-statement body)
-			// - action <id> { expr } = behavioral node (inline expression)
-			// - action { expr } = behavioral node
-			// - action <id>; = behavioral node (reference)
-			// Check for typing colon OR declaration-like body content
-			tok1 := p.peekN(1)
-			// An accept node, however it is identified: `action accept …`
-			// naming no node of its own, `action nm accept …`, and the short
-			// name and name both.
-			if p.atAcceptNode() {
+			if p.actionOpensDeclaration() {
 				body.add(p.parseBodyMember())
-				continue
+			} else {
+				body.add(p.parseActionMember())
 			}
-			if tok1.Kind == lexer.Identifier || tok1.Kind == lexer.Keyword {
-				tok2 := p.peekN(2)
-				// If colon after name → definitely declaration (typing)
-				if tok2.Kind == lexer.Colon {
-					body.add(p.parseBodyMember())
-					continue
-				}
-				// If 'accept' keyword after name → declaration (accept action)
-				// Pattern: action <name> accept <param> : Type [via <port>];
-				if tok2.Kind == lexer.Keyword && tok2.KeywordID == "accept" {
-					body.add(p.parseBodyMember())
-					continue
-				}
-				// If behavioral keyword after name → declaration with inline statement
-				// Pattern: action <name> send <msg> to <target>;
-				//          action <name> perform <ref>;
-				if tok2.Kind == lexer.Keyword && (tok2.KeywordID == "send" || tok2.KeywordID == "terminate" ||
-					tok2.KeywordID == "perform" || tok2.KeywordID == "bind" || tok2.KeywordID == "assign") {
-					body.add(p.parseBodyMember())
-					continue
-				}
-				// If brace after name, peek inside
-				if tok2.Kind == lexer.LBrace && p.startsActionBodyItem(3) {
-					body.add(p.parseBodyMember())
-					continue
-				}
-			}
-			// `action { <statements> }` is the anonymous ActionBodyParameter a loop
-			// or branch body is written as (SysML.xtext ActionBodyParameter), not the
-			// one expression an `action { <expr> }` node computes.
-			if tok1.Kind == lexer.LBrace && p.startsActionBodyItem(2) {
-				body.add(p.parseBodyMember())
-				continue
-			}
-			// Otherwise: treat as behavioral action node
-			body.add(p.parseActionMember())
 			continue
 		}
 
@@ -220,6 +172,42 @@ func (p *Parser) parseMixedBody() []ast.Node {
 
 	p.expect(lexer.RBrace, "expected '}' after action body")
 	return body.finish()
+}
+
+// actionOpensDeclaration tells a nested action declaration (`action name : Type
+// { ... }`, `action name { stmts }`) from a behavioral action node (`action ref;`,
+// `action { expr }`) by looking ahead from the `action` keyword.
+func (p *Parser) actionOpensDeclaration() bool {
+	// An accept node, however it is identified: `action accept …` naming no
+	// node of its own, `action nm accept …`, and the short name and name both.
+	if p.atAcceptNode() {
+		return true
+	}
+	tok1 := p.peekN(1)
+	if tok1.Kind == lexer.Identifier || tok1.Kind == lexer.Keyword {
+		tok2 := p.peekN(2)
+		switch tok2.Kind {
+		case lexer.Colon:
+			// `action <name> : Type` is typed, so a declaration.
+			return true
+		case lexer.Keyword:
+			// `action <name> accept …`, `action <name> send … to …`, `action
+			// <name> perform …`: a declaration with an inline statement.
+			switch tok2.KeywordID {
+			case "accept", "send", "terminate", "perform", "bind", "assign":
+				return true
+			}
+		case lexer.LBrace:
+			// A brace after the name: peek inside for a statement.
+			if p.startsActionBodyItem(3) {
+				return true
+			}
+		}
+	}
+	// `action { <statements> }` is the anonymous ActionBodyParameter a loop
+	// or branch body is written as (SysML.xtext ActionBodyParameter), not the
+	// one expression an `action { <expr> }` node computes.
+	return tok1.Kind == lexer.LBrace && p.startsActionBodyItem(2)
 }
 
 // msgActionBodyMultiplicity diagnoses a multiplicity that opens an action body

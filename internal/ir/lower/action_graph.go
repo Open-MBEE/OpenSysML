@@ -823,7 +823,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "", nil, n.TargetMultiplicity)
+	return lowerSuccession(l.graph, n.First, n.Successor, ActionEdge{Guard: n.Guard, Decl: n, Probability: weight, TargetMultiplicity: n.TargetMultiplicity})
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -967,17 +967,13 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
 	name, _ := ast.EffectiveName(n)
-	return lowerSuccession(
-		l.graph,
-		sourceRef,
-		targetRef,
-		nil,
-		n,
-		weight,
-		name,
-		n.ConnectorEnds[0].Multiplicity,
-		n.ConnectorEnds[1].Multiplicity,
-	)
+	return lowerSuccession(l.graph, sourceRef, targetRef, ActionEdge{
+		Decl:               n,
+		Probability:        weight,
+		Name:               name,
+		SourceMultiplicity: n.ConnectorEnds[0].Multiplicity,
+		TargetMultiplicity: n.ConnectorEnds[1].Multiplicity,
+	})
 }
 
 func hasDeclaredNodeMultiplicity(graph *ActionGraph, ends []*ast.ConnectorEnd) bool {
@@ -1122,8 +1118,8 @@ func resolveFirstNode(graph *ActionGraph) error {
 }
 
 // lowerSuccession adds the edge a succession states between the nodes its two
-// ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string, sourceMultiplicity, targetMultiplicity *ast.Multiplicity) error {
+// ends resolve to; edge carries everything but the resolved Source and Target.
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef ast.Node, edge ActionEdge) error {
 	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
 	if sourceNode == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
@@ -1132,16 +1128,8 @@ func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.N
 	if targetNode == nil {
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
-	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-		Source:             sourceNode,
-		Target:             targetNode,
-		Guard:              guard,
-		Decl:               decl,
-		Probability:        weight,
-		Name:               name,
-		SourceMultiplicity: sourceMultiplicity,
-		TargetMultiplicity: targetMultiplicity,
-	})
+	edge.Source, edge.Target = sourceNode, targetNode
+	graph.Edges[sourceNode] = append(graph.Edges[sourceNode], edge)
 	return nil
 }
 

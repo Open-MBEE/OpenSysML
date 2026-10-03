@@ -1,5 +1,6 @@
 package org.openmbee.opensysml.internal;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -71,47 +72,66 @@ final class JsonBodies {
     Message.Builder builder = null;
     for (Map.Entry<String, JsonElement> member : json.getAsJsonObject().entrySet()) {
       FieldDescriptor field = fieldNamed(message, member.getKey());
-      if (field == null || member.getValue().isJsonNull()) {
-        continue;
-      }
-      if (field.isMapField()) {
-        if (!member.getValue().isJsonObject()) {
-          continue;
-        }
-        JsonObject entries = member.getValue().getAsJsonObject();
-        List<?> pairs = (List<?>) message.getField(field);
-        for (int i = 0; i < pairs.size(); i++) {
-          Message pair = (Message) pairs.get(i);
-          FieldDescriptor key = pair.getDescriptorForType().findFieldByNumber(1);
-          FieldDescriptor value = pair.getDescriptorForType().findFieldByNumber(2);
-          JsonElement entry = entries.get(String.valueOf(pair.getField(key)));
-          Object restored = entry == null ? null : restored(value, pair.getField(value), entry);
-          if (restored != null) {
-            builder = builder != null ? builder : message.toBuilder();
-            builder.setRepeatedField(field, i, pair.toBuilder().setField(value, restored).build());
-          }
-        }
-      } else if (field.isRepeated()) {
-        if (!member.getValue().isJsonArray()) {
-          continue;
-        }
-        List<?> items = (List<?>) message.getField(field);
-        for (int i = 0; i < items.size() && i < member.getValue().getAsJsonArray().size(); i++) {
-          Object restored = restored(field, items.get(i), member.getValue().getAsJsonArray().get(i));
-          if (restored != null) {
-            builder = builder != null ? builder : message.toBuilder();
-            builder.setRepeatedField(field, i, restored);
-          }
-        }
-      } else {
-        Object restored = restored(field, message.getField(field), member.getValue());
-        if (restored != null) {
-          builder = builder != null ? builder : message.toBuilder();
-          builder.setField(field, restored);
-        }
+      if (field != null && !member.getValue().isJsonNull()) {
+        builder = restoredField(message, builder, field, member.getValue());
       }
     }
     return builder == null ? message : builder.build();
+  }
+
+  /**
+   * Puts one field's restored values into {@code builder}, opened from {@code message} the first
+   * time one needs restoring; answers the builder, still {@code null} while nothing has.
+   */
+  private static Message.Builder restoredField(
+      Message message, Message.Builder builder, FieldDescriptor field, JsonElement json) {
+    if (field.isMapField()) {
+      return json.isJsonObject()
+          ? restoredEntries(message, builder, field, json.getAsJsonObject())
+          : builder;
+    }
+    if (field.isRepeated()) {
+      return json.isJsonArray() ? restoredItems(message, builder, field, json.getAsJsonArray()) : builder;
+    }
+    Object restored = restored(field, message.getField(field), json);
+    if (restored == null) {
+      return builder;
+    }
+    Message.Builder opened = builder != null ? builder : message.toBuilder();
+    opened.setField(field, restored);
+    return opened;
+  }
+
+  private static Message.Builder restoredEntries(
+      Message message, Message.Builder builder, FieldDescriptor field, JsonObject entries) {
+    Message.Builder opened = builder;
+    List<?> pairs = (List<?>) message.getField(field);
+    for (int i = 0; i < pairs.size(); i++) {
+      Message pair = (Message) pairs.get(i);
+      FieldDescriptor key = pair.getDescriptorForType().findFieldByNumber(1);
+      FieldDescriptor value = pair.getDescriptorForType().findFieldByNumber(2);
+      JsonElement entry = entries.get(String.valueOf(pair.getField(key)));
+      Object restored = entry == null ? null : restored(value, pair.getField(value), entry);
+      if (restored != null) {
+        opened = opened != null ? opened : message.toBuilder();
+        opened.setRepeatedField(field, i, pair.toBuilder().setField(value, restored).build());
+      }
+    }
+    return opened;
+  }
+
+  private static Message.Builder restoredItems(
+      Message message, Message.Builder builder, FieldDescriptor field, JsonArray items) {
+    Message.Builder opened = builder;
+    List<?> parsed = (List<?>) message.getField(field);
+    for (int i = 0; i < parsed.size() && i < items.size(); i++) {
+      Object restored = restored(field, parsed.get(i), items.get(i));
+      if (restored != null) {
+        opened = opened != null ? opened : message.toBuilder();
+        opened.setRepeatedField(field, i, restored);
+      }
+    }
+    return opened;
   }
 
   /** The value to put back for one field's JSON, or {@code null} when it is already right. */

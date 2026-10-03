@@ -70,7 +70,8 @@ test("SourceDocument objects parse beside the tuple form", async () => {
     SourceDocument.inline("lib", LIBRARY),
     SourceDocument.inline("top", TOP),
   ]);
-  await model.symbol("car");
+  assert.equal(model.documents.length, 2);
+  assert.equal((await model.symbol("car")).name, "car");
 });
 
 test("a broken document reports diagnostics naming it", async () => {

@@ -656,7 +656,7 @@ func (w *indentWriter) Block(header string, body func()) {
 
 func (w *indentWriter) Raw(text string) { w.b.WriteString(text) }
 
-func (w *indentWriter) MadeUp(string) {}
+func (w *indentWriter) MadeUp(string) {} // raw text has no made-up names to record
 
 // startEntry spells a single region's initial transition as the destination of
 // the state's entry; an empty region contributes no destination.

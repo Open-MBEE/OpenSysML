@@ -2358,74 +2358,15 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	}
 	accept, isAccept := graph.Accepts[usage]
 	var payload *Value
-	if isAccept && accept.Trigger != nil {
-		// A trigger waits for time to pass or for a condition to hold rather
-		// than for a message, so it is answered here and not from the queue.
-		ready, err := e.triggerReady(token, accept)
-		if ready || err != nil {
-			ready, err = e.triggerHolds(token, accept)
+	if isAccept {
+		var ready bool
+		if accept.Trigger != nil {
+			ready, err = e.awaitTrigger(token, accept)
+		} else {
+			payload, ready, err = e.awaitSignal(token, accept, usage)
 		}
-		if err != nil {
+		if err != nil || !ready {
 			return err
-		}
-		if !ready {
-			if token.Wait == nil {
-				token.Wait = &AcceptWait{
-					ParamName: accept.ParamName,
-					Trigger:   triggerDescription(accept.Trigger),
-					Since:     e.stepCount + 1,
-				}
-			}
-			return nil
-		}
-		token.Wait = nil
-	} else if isAccept {
-		// An accept node waits for the occurrence its payload names: a message of
-		// the type it was typed with, or of the event it subsets.
-		want := ast.QualifiedText(accept.SignalType)
-		if want == "" {
-			want = lower.FeaturePath(accept.SubsetsEvent)
-		}
-		matches, failed := e.acceptMatch(token.frame, accept, usage)
-		msg, taken := e.ctx.takeAcceptable(matches)
-		if *failed != nil {
-			return *failed
-		}
-		if !taken {
-			if token.Wait == nil {
-				token.Wait = &AcceptWait{
-					ParamName:  accept.ParamName,
-					SignalType: want,
-					ViaPort:    accept.ViaPort,
-					// stepCount is incremented once the step finishes, so the
-					// step now in progress is the next one.
-					Since: e.stepCount + 1,
-				}
-			}
-			return nil
-		}
-		token.Wait = nil
-		if tr := e.trace(); tr != nil {
-			tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
-				acceptedEventName(msg), msg.Payload)
-		}
-		if accept.ParamName != "" {
-			value, err := e.ctx.acceptedValueAs(&msg, accept.SignalType, accept.Scope)
-			if err != nil {
-				return fmt.Errorf("accept %s: %w", accept.ParamName, err)
-			}
-			if token.frame == e.root && e.declaresAttribute(accept.ParamName) {
-				what := func() string { return "accept " + accept.ParamName }
-				if err := e.ctx.checkMutable(e.root.scope, what, accept.ParamName); err != nil {
-					return err
-				}
-			}
-			// The payload is a feature of the flow the accept sits in, which the
-			// nodes after it read by its name.
-			if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
-				return err
-			}
-			payload = &value
 		}
 	}
 
@@ -2450,6 +2391,84 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		work.inv, work.performs = inv, true
 	}
 	return e.runBody(tokenIdx, work)
+}
+
+// awaitTrigger answers an accept node's trigger, which waits for time to pass
+// or for a condition to hold rather than for a message. The token parks on the
+// node until the trigger is ready.
+func (e *ActionExecutor) awaitTrigger(token *Token, accept lower.Accept) (bool, error) {
+	ready, err := e.triggerReady(token, accept)
+	if ready || err != nil {
+		ready, err = e.triggerHolds(token, accept)
+	}
+	if err != nil {
+		return false, err
+	}
+	if !ready {
+		if token.Wait == nil {
+			token.Wait = &AcceptWait{
+				ParamName: accept.ParamName,
+				Trigger:   triggerDescription(accept.Trigger),
+				Since:     e.stepCount + 1,
+			}
+		}
+		return false, nil
+	}
+	token.Wait = nil
+	return true, nil
+}
+
+// awaitSignal takes the occurrence an accept node's payload names from the
+// queue: a message of the type it was typed with, or of the event it subsets.
+// The token parks on the node until one arrives; the payload taken is bound
+// to the parameter and returned.
+func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *ast.Usage) (*Value, bool, error) {
+	want := ast.QualifiedText(accept.SignalType)
+	if want == "" {
+		want = lower.FeaturePath(accept.SubsetsEvent)
+	}
+	matches, failed := e.acceptMatch(token.frame, accept, usage)
+	msg, taken := e.ctx.takeAcceptable(matches)
+	if *failed != nil {
+		return nil, false, *failed
+	}
+	if !taken {
+		if token.Wait == nil {
+			token.Wait = &AcceptWait{
+				ParamName:  accept.ParamName,
+				SignalType: want,
+				ViaPort:    accept.ViaPort,
+				// stepCount is incremented once the step finishes, so the
+				// step now in progress is the next one.
+				Since: e.stepCount + 1,
+			}
+		}
+		return nil, false, nil
+	}
+	token.Wait = nil
+	if tr := e.trace(); tr != nil {
+		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
+			acceptedEventName(msg), msg.Payload)
+	}
+	if accept.ParamName == "" {
+		return nil, true, nil
+	}
+	value, err := e.ctx.acceptedValueAs(&msg, accept.SignalType, accept.Scope)
+	if err != nil {
+		return nil, false, fmt.Errorf("accept %s: %w", accept.ParamName, err)
+	}
+	if token.frame == e.root && e.declaresAttribute(accept.ParamName) {
+		what := func() string { return "accept " + accept.ParamName }
+		if err := e.ctx.checkMutable(e.root.scope, what, accept.ParamName); err != nil {
+			return nil, false, err
+		}
+	}
+	// The payload is a feature of the flow the accept sits in, which the
+	// nodes after it read by its name.
+	if err := e.setFrameFeature(token.frame, accept.ParamName, value); err != nil {
+		return nil, false, err
+	}
+	return &value, true, nil
 }
 
 // completeNode takes the succession out of a node whose performance perf is

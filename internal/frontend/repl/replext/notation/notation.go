@@ -66,7 +66,7 @@ func (writer) PrintElement(file *source.SourceFile, span source.Span, shown stri
 func (writer) Save(origin string, src []byte, path string) ([]string, error) {
 	format, err := convert.FormatOfPath(path)
 	if err != nil {
-		return []string{"error: " + convert.Advise(err, formatAdvice).Error()}, nil
+		return []string{errPrefix + convert.Advise(err, formatAdvice).Error()}, nil
 	}
 	var lines []string
 	// Reported before the conversion, so a refused .ttl save carries it too.
@@ -77,7 +77,7 @@ func (writer) Save(origin string, src []byte, path string) ([]string, error) {
 	// be written, so they are labelled as such.
 	out, syntax, err := convert.ConvertTolerant(origin, src, convert.FormatSysML, format)
 	if err != nil {
-		return append(lines, "error: "+err.Error()), nil
+		return append(lines, errPrefix+err.Error()), nil
 	}
 	if syntax != nil {
 		lines = append(lines, strings.Split("warning: "+syntax.Error(), "\n")...)

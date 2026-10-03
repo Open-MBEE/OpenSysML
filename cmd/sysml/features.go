@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -177,7 +178,7 @@ func omittedUse(fs *flag.FlagSet) error {
 // withoutOmitted drops from the help what documents a left-out feature; a build
 // linking every feature gets d as it is.
 func withoutOmitted(d usage.Doc) usage.Doc {
-	var omitted []*feature
+	var omitted omittedFeatures
 	for _, f := range features {
 		if !f.linked {
 			omitted = append(omitted, f)
@@ -186,72 +187,88 @@ func withoutOmitted(d usage.Doc) usage.Doc {
 	if len(omitted) == 0 {
 		return d
 	}
-	owned := func(text string) bool {
-		for _, f := range omitted {
-			if f.mentionedIn(text) {
+	d.Options = omitted.pruneOptions(d.Options)
+	d.Sections = omitted.pruneSections(d.Sections)
+	return d
+}
+
+// omittedFeatures are the features a build left out, whose documentation it drops.
+type omittedFeatures []*feature
+
+// mentioned reports whether text uses a flag or marker of an omitted feature.
+func (omitted omittedFeatures) mentioned(text string) bool {
+	for _, f := range omitted {
+		if f.mentionedIn(text) {
+			return true
+		}
+	}
+	return false
+}
+
+// ownsFlag reports whether an omitted feature declares the flag name.
+func (omitted omittedFeatures) ownsFlag(name string) bool {
+	for _, f := range omitted {
+		for _, ff := range f.flags {
+			if ff.name == name {
 				return true
 			}
 		}
-		return false
 	}
-	ownedFlag := func(name string) bool {
-		for _, f := range omitted {
-			for _, ff := range f.flags {
-				if ff.name == name {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	ownedSection := func(title string) bool {
-		for _, f := range omitted {
-			for _, s := range f.sections {
-				if s == title {
-					return true
-				}
-			}
-		}
-		return false
-	}
+	return false
+}
 
-	var groups []usage.OptionGroup
-	for _, g := range d.Options {
+// ownsSection reports whether an omitted feature documents itself in the section title.
+func (omitted omittedFeatures) ownsSection(title string) bool {
+	for _, f := range omitted {
+		if slices.Contains(f.sections, title) {
+			return true
+		}
+	}
+	return false
+}
+
+// pruneOptions drops the omitted features' flags, and any group left empty.
+func (omitted omittedFeatures) pruneOptions(groups []usage.OptionGroup) []usage.OptionGroup {
+	var kept []usage.OptionGroup
+	for _, g := range groups {
 		var opts []usage.Option
 		for _, o := range g.Options {
-			if !ownedFlag(o.Name) {
+			if !omitted.ownsFlag(o.Name) {
 				opts = append(opts, o)
 			}
 		}
 		if len(opts) > 0 {
 			g.Options = opts
-			groups = append(groups, g)
+			kept = append(kept, g)
 		}
 	}
-	d.Options = groups
+	return kept
+}
 
-	var sections []usage.Section
-	for _, s := range d.Sections {
-		if ownedSection(s.Title) {
+// pruneSections drops the omitted features' sections, and the examples and
+// paragraphs mentioning them elsewhere.
+func (omitted omittedFeatures) pruneSections(sections []usage.Section) []usage.Section {
+	var kept []usage.Section
+	for _, s := range sections {
+		if omitted.ownsSection(s.Title) {
 			continue
 		}
 		var examples []usage.Example
 		for _, e := range s.Examples {
-			if !owned(e.Command) {
+			if !omitted.mentioned(e.Command) {
 				examples = append(examples, e)
 			}
 		}
 		var paragraphs []string
 		for _, p := range s.Paragraphs {
-			if !owned(p) {
+			if !omitted.mentioned(p) {
 				paragraphs = append(paragraphs, p)
 			}
 		}
 		s.Examples, s.Paragraphs = examples, paragraphs
-		sections = append(sections, s)
+		kept = append(kept, s)
 	}
-	d.Sections = sections
-	return d
+	return kept
 }
 
 // mentionedIn reports whether text uses one of the feature's flags or markers.
