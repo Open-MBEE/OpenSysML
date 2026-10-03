@@ -1,0 +1,94 @@
+/* The ecosystem page (docs/ecosystem.md): stack and ecosystem cards rendered from
+   raw HTML inside the markdown. Every selector carries the .osml-eco__ prefix so
+   the rules cannot leak onto other pages. */
+
+.osml-eco__lede {
+  max-width: 44rem;
+}
+
+.osml-eco__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.osml-eco__card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .35rem;
+  transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+
+a.osml-eco__card:hover {
+  border-color: var(--md-accent-fg-color);
+  transform: translateY(-2px);
+  box-shadow: 0 .3rem .9rem var(--md-default-fg-color--lightest);
+}
+
+.osml-eco__card--hub {
+  border-color: var(--md-accent-fg-color);
+}
+
+.osml-eco__path,
+.osml-eco__role,
+.osml-eco__meta,
+.osml-eco__tag {
+  font-family: var(--md-code-font-family, monospace);
+}
+
+/* The class is nested under .osml-eco__card so these margins win over the
+   card's own `p { margin: 0 }` rule, which carries one more type selector. */
+.osml-eco__card .osml-eco__path {
+  font-size: .6rem;
+  color: var(--md-accent-fg-color);
+  margin: 0 0 .35rem;
+}
+
+.osml-eco__card .osml-eco__role {
+  font-size: .58rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--md-accent-fg-color);
+  margin: 0 0 .5rem;
+}
+
+.osml-eco__card h3,
+.osml-eco__card h4 {
+  font-size: .78rem;
+  font-weight: 700;
+  margin: 0 0 .35rem;
+}
+
+.osml-eco__card p {
+  font-size: .7rem;
+  line-height: 1.6;
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.osml-eco__card .osml-eco__meta {
+  margin-top: auto;
+  padding-top: .55rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  font-size: .6rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.osml-eco__card .osml-eco__links {
+  margin-top: .5rem;
+  font-size: .66rem;
+}
+
+.osml-eco__tag {
+  display: inline-block;
+  font-size: .55rem;
+  letter-spacing: .03em;
+  color: var(--md-default-fg-color--light);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .2rem;
+  padding: .05rem .35rem;
+  margin-bottom: .5rem;
+}

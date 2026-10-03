@@ -4,10 +4,7 @@
 import { ConnectError } from "@connectrpc/connect";
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, normalize, resolve as resolvePath, sep } from "node:path";
-import type { DescMessage, Message } from "@bufbuild/protobuf";
-
-import { fromJson } from "@bufbuild/protobuf";
-import type { JsonValue } from "@bufbuild/protobuf";
+import { fromJson, type DescMessage, type JsonValue, type Message } from "@bufbuild/protobuf";
 import {
   DocumentValueSchema,
   EditOperationSchema,
@@ -58,6 +55,12 @@ export const COVERED_RPCS = [
   "VerifyRequirement",
   "VerifySatisfaction",
 ] as const;
+
+type CoveredRpc = (typeof COVERED_RPCS)[number];
+
+function isCovered(rpc: string): rpc is CoveredRpc {
+  return (COVERED_RPCS as readonly string[]).includes(rpc);
+}
 
 /** One scenario's outcome. The shape tools/cmd/conformance writes. */
 export interface Result {
@@ -119,6 +122,13 @@ interface Answer {
   message: Message;
 }
 
+/** What one scenario's call is made with: its resolved request and the model it addresses. */
+interface Call {
+  request: Record<string, unknown>;
+  modelHash: string;
+  scenario: Scenario;
+}
+
 /** What a scenario's call did, or why this client cannot make it. */
 type Attempt =
   | { kind: "skip"; reason: string }
@@ -173,11 +183,7 @@ export class Runner {
       errored: 0,
       results: [],
     };
-    for (const scenario of scenarios) {
-      if (filter !== undefined && !filter.test(scenario.id)) {
-        continue;
-      }
-      const result = await this.run(scenario);
+    for await (const result of this.results(scenarios, filter)) {
       summary.results.push(result);
       summary.total += 1;
       switch (result.outcome) {
@@ -200,6 +206,15 @@ export class Runner {
         `${summary.failed} failed, ${summary.skipped} skipped, ${summary.errored} in error`,
     );
     return summary;
+  }
+
+  /** The results of the scenarios matching `filter`, each run as the one before it ends. */
+  private async *results(scenarios: Scenario[], filter?: RegExp): AsyncGenerator<Result> {
+    for (const scenario of scenarios) {
+      if (filter === undefined || filter.test(scenario.id)) {
+        yield this.run(scenario);
+      }
+    }
   }
 
   /** Runs one scenario: parse the model it names, make the call, compare. */
@@ -300,7 +315,7 @@ export class Runner {
     modelHash: string,
     scenario: Scenario,
   ): Promise<Attempt> {
-    if (!COVERED_RPCS.includes(rpc as (typeof COVERED_RPCS)[number])) {
+    if (!isCovered(rpc)) {
       return { kind: "skip", reason: `this client does not cover ${rpc}` };
     }
     const unsupported = this.unsupported(rpc, request);
@@ -308,7 +323,7 @@ export class Runner {
       return { kind: "skip", reason: unsupported };
     }
     try {
-      await this.call(rpc, request, modelHash, scenario);
+      await this.calls[rpc]({ request, modelHash, scenario });
     } catch (error) {
       const connectError = asConnectError(error);
       if (connectError !== undefined) {
@@ -359,207 +374,126 @@ export class Runner {
     return undefined;
   }
 
-  private async call(
-    rpc: string,
-    request: Record<string, unknown>,
-    modelHash: string,
-    scenario: Scenario,
-  ): Promise<void> {
-    switch (rpc) {
-      case "GetServerInfo":
-        await this.connection.serverInfo();
-        return;
-      case "ParseFile": {
-        const options = {
-          ...(typeof request["language"] === "string" ? { language: request["language"] } : {}),
-          ...(request["strict_conformance"] === true ? { strict: true } : {}),
-        };
-        const content = request["content"];
-        if (typeof content === "string") {
-          await this.connection.loads(content, options);
-          return;
-        }
-        await this.connection.load(String(request["file_path"]), options);
-        return;
-      }
-      case "GetSymbol":
-        await this.model(request, modelHash, scenario).symbolById(String(request["symbol_id"]));
-        return;
-      case "Evaluate": {
-        const model = this.model(request, modelHash, scenario);
-        await model.eval(String(request["expression"]), {
-          ...(typeof request["context_symbol_id"] === "string" ? { context: request["context_symbol_id"] } : {}),
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-        });
-        return;
-      }
-      case "Instantiate":
-        await this.model(request, modelHash, scenario).instantiate(String(request["symbol_id"]));
-        return;
-      case "ParseSources": {
-        const documents = (request["documents"] as Record<string, unknown>[] | undefined) ?? [];
-        await this.connection.parseSources(
-          documents.map((entry) => {
-            if (typeof entry["content"] === "string") {
-              return SourceDocument.inline(stringOf(entry["name"]), entry["content"]);
-            }
-            return SourceDocument.file(stringOf(entry["filePath"] ?? entry["file_path"]));
-          }),
-          { strictConformance: request["strict_conformance"] === true },
-        );
-        return;
-      }
-      case "GetDiagnostics":
-        await this.model(request, modelHash, scenario).refreshDiagnostics();
-        return;
-      case "ExecuteAction":
-        await this.model(request, modelHash, scenario).executeAction(String(request["action_symbol_id"]), {
-          inputs: valueMap(request["inputs"]),
-          ...(typeof request["schedule"] === "string" ? { schedule: request["schedule"] } : {}),
-        });
-        return;
-      case "ExecuteState":
-        await this.model(request, modelHash, scenario).executeState(String(request["state_machine_symbol_id"]), {
-          ...(typeof request["schedule"] === "string" ? { schedule: request["schedule"] } : {}),
-        });
-        return;
-      case "Convert": {
-        const toFormat = stringOf(request["to_format"]);
-        const source =
-          typeof request["content"] === "string"
-            ? { content: request["content"] }
-            : typeof request["file_path"] === "string"
-              ? { path: request["file_path"] }
-              : { modelHash };
-        await this.connection.convert(toFormat, source, {
-          ...(typeof request["from_format"] === "string"
-            ? { fromFormat: request["from_format"] }
-            : {}),
-        });
-        return;
-      }
-      case "Migrate": {
-        const content = request["content"];
-        const source =
-          content instanceof Uint8Array
-            ? { content }
-            : typeof content === "string"
-              ? { content: Buffer.from(content, "base64") }
-              : { path: stringOf(request["file_path"]) };
-        await this.connection.migrate(stringOf(request["to_format"]), source, {
-          ...(typeof request["from_format"] === "string" ? { fromFormat: request["from_format"] } : {}),
-          ...(request["report"] === true ? { report: true } : {}),
-          ...(request["results"] === true ? { results: true } : {}),
-          ...(typeof request["layout_path"] === "string" ? { layoutPath: request["layout_path"] } : {}),
-          ...(typeof request["layout_content"] === "string"
-            ? { layoutContent: request["layout_content"] }
-            : {}),
-          ...(typeof request["image_base_url"] === "string"
-            ? { imageBaseUrl: request["image_base_url"] }
-            : {}),
-          ...(request["strict"] === true ? { strict: true } : {}),
-        });
-        return;
-      }
-      case "ApplyEdits": {
-        const operations = (request["operations"] as unknown[] | undefined) ?? [];
-        await this.connection.applyEdits(
-          modelHash === "" ? stringOf(request["model_hash"]) : modelHash,
-          operations.map((entry) => fromJson(EditOperationSchema, entry as Record<string, JsonValue>)),
-          {
-            acceptDocuments: request["accept_documents"] === true,
-            ...(typeof request["document"] === "string" ? { document: request["document"] } : {}),
-          },
-        );
-        return;
-      }
-      case "VerifyConstraint":
-        await this.model(request, modelHash, scenario).verifyConstraint(String(request["symbol_id"]), {
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-          ...(typeof request["question"] === "string" ? { question: request["question"] } : {}),
-        });
-        return;
-      case "VerifyRequirement":
-        await this.model(request, modelHash, scenario).verifyRequirement(String(request["symbol_id"]), {
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-          ...(typeof request["question"] === "string" ? { question: request["question"] } : {}),
-        });
-        return;
-      case "VerifySatisfaction":
-        await this.model(request, modelHash, scenario).verifySatisfaction({
-          ...(typeof request["symbol_id"] === "string" ? { symbolId: request["symbol_id"] } : {}),
-        });
-        return;
-      case "ValidateInstance":
-        await this.model(request, modelHash, scenario).validateInstance(String(request["symbol_id"]));
-        return;
-      case "EvaluateCalc":
-        await this.model(request, modelHash, scenario).calc(String(request["symbol_id"]), {
-          arguments: valueList(request["arguments"]),
-        });
-        return;
-      case "Query":
-        await this.model(request, modelHash, scenario).query({
-          ...(request["query"] !== undefined
-            ? { query: fromJson(QuerySchema, request["query"] as Record<string, JsonValue>) }
-            : {}),
-          ...(typeof request["oslc_query"] === "string" ? { oslc: request["oslc_query"] } : {}),
-        });
-        return;
-      case "RunDocumentQuery": {
-        const bindings: Record<string, DocumentValue[]> = {};
-        for (const binding of (request["bindings"] as Record<string, unknown>[] | undefined) ?? []) {
-          bindings[String(binding["parameter"])] = (
-            (binding["values"] as Record<string, JsonValue>[] | undefined) ?? []
-          ).map((value) => bindingValue(fromJson(DocumentValueSchema, value)));
-        }
-        await this.model(request, modelHash, scenario).runDocumentQuery(
-          String(request["query_id"]),
-          bindings,
-        );
-        return;
-      }
-      case "RenderDocument":
-        await this.model(request, modelHash, scenario).renderDocument(String(request["document_id"]));
-        return;
-      case "RunAnalysis":
-        await this.model(request, modelHash, scenario).runAnalysis(String(request["symbol_id"]), {
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-          arguments: valueList(request["arguments"]),
-          namedArguments: valueMap(request["named_arguments"]),
-        });
-        return;
-      case "RunSweep": {
-        const ranges: Record<string, [Value, Value] | [Value, Value, Value]> = {};
-        for (const range of (request["ranges"] as Record<string, JsonValue>[] | undefined) ?? []) {
-          const start = fromJson(ValueSchema, range["start"] as Record<string, JsonValue>);
-          const end = fromJson(ValueSchema, range["end"] as Record<string, JsonValue>);
-          ranges[stringOf(range["parameter"])] =
-            !("step" in range)
-              ? [start, end]
-              : [start, end, fromJson(ValueSchema, range["step"] as Record<string, JsonValue>)];
-        }
-        await this.model(request, modelHash, scenario).runSweep(String(request["symbol_id"]), ranges, {
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-          arguments: valueList(request["arguments"]),
-          ...(typeof request["samples"] === "number" ? { samples: request["samples"] } : {}),
-          ...(typeof request["seed"] === "number" ? { seed: request["seed"] } : {}),
-        });
-        return;
-      }
-      case "ListEngines":
-        await this.connection.listEngines();
-        return;
-      default:
-        throw new Error(`the runner covers ${COVERED_RPCS.join(", ")}, not ${rpc}`);
+  /** How each covered RPC is made through the public API. */
+  private readonly calls: Record<CoveredRpc, (call: Call) => Promise<unknown>> = {
+    GetServerInfo: () => this.connection.serverInfo(),
+    ParseFile: ({ request }) => this.parseFile(request),
+    GetSymbol: (call) => this.model(call).symbolById(String(call.request["symbol_id"])),
+    Evaluate: (call) =>
+      this.model(call).eval(String(call.request["expression"]), {
+        ...stringOption(call.request, "context_symbol_id", "context"),
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+      }),
+    Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
+    ParseSources: ({ request }) => this.parseSources(request),
+    GetDiagnostics: (call) => this.model(call).refreshDiagnostics(),
+    ExecuteAction: (call) =>
+      this.model(call).executeAction(String(call.request["action_symbol_id"]), {
+        inputs: valueMap(call.request["inputs"]),
+        ...stringOption(call.request, "schedule", "schedule"),
+      }),
+    ExecuteState: (call) =>
+      this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
+        ...stringOption(call.request, "schedule", "schedule"),
+      }),
+    Convert: ({ request, modelHash }) =>
+      this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {
+        ...stringOption(request, "from_format", "fromFormat"),
+      }),
+    Migrate: ({ request }) =>
+      this.connection.migrate(stringOf(request["to_format"]), migrateSource(request), {
+        ...stringOption(request, "from_format", "fromFormat"),
+        ...flagOption(request, "report", "report"),
+        ...flagOption(request, "results", "results"),
+        ...stringOption(request, "layout_path", "layoutPath"),
+        ...stringOption(request, "layout_content", "layoutContent"),
+        ...stringOption(request, "image_base_url", "imageBaseUrl"),
+        ...flagOption(request, "strict", "strict"),
+      }),
+    ApplyEdits: ({ request, modelHash }) => this.applyEdits(request, modelHash),
+    VerifyConstraint: (call) =>
+      this.model(call).verifyConstraint(String(call.request["symbol_id"]), subjectAndQuestion(call.request)),
+    VerifyRequirement: (call) =>
+      this.model(call).verifyRequirement(String(call.request["symbol_id"]), subjectAndQuestion(call.request)),
+    VerifySatisfaction: (call) =>
+      this.model(call).verifySatisfaction(stringOption(call.request, "symbol_id", "symbolId")),
+    ValidateInstance: (call) => this.model(call).validateInstance(String(call.request["symbol_id"])),
+    EvaluateCalc: (call) =>
+      this.model(call).calc(String(call.request["symbol_id"]), {
+        arguments: valueList(call.request["arguments"]),
+      }),
+    Query: (call) =>
+      this.model(call).query({
+        ...(call.request["query"] !== undefined
+          ? { query: fromJson(QuerySchema, call.request["query"] as Record<string, JsonValue>) }
+          : {}),
+        ...stringOption(call.request, "oslc_query", "oslc"),
+      }),
+    RunDocumentQuery: (call) =>
+      this.model(call).runDocumentQuery(
+        String(call.request["query_id"]),
+        documentBindings(call.request["bindings"]),
+      ),
+    RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
+    RunAnalysis: (call) =>
+      this.model(call).runAnalysis(String(call.request["symbol_id"]), {
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+        arguments: valueList(call.request["arguments"]),
+        namedArguments: valueMap(call.request["named_arguments"]),
+      }),
+    RunSweep: (call) =>
+      this.model(call).runSweep(String(call.request["symbol_id"]), sweepRanges(call.request["ranges"]), {
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+        arguments: valueList(call.request["arguments"]),
+        ...numberOption(call.request, "samples", "samples"),
+        ...numberOption(call.request, "seed", "seed"),
+      }),
+    ListEngines: () => this.connection.listEngines(),
+  };
+
+  private async parseFile(request: Record<string, unknown>): Promise<void> {
+    const options = {
+      ...stringOption(request, "language", "language"),
+      ...flagOption(request, "strict_conformance", "strict"),
+    };
+    const content = request["content"];
+    if (typeof content === "string") {
+      await this.connection.loads(content, options);
+      return;
     }
+    await this.connection.load(String(request["file_path"]), options);
+  }
+
+  private async parseSources(request: Record<string, unknown>): Promise<void> {
+    const documents = (request["documents"] as Record<string, unknown>[] | undefined) ?? [];
+    await this.connection.parseSources(
+      documents.map((entry) => {
+        if (typeof entry["content"] === "string") {
+          return SourceDocument.inline(stringOf(entry["name"]), entry["content"]);
+        }
+        return SourceDocument.file(stringOf(entry["filePath"] ?? entry["file_path"]));
+      }),
+      { strictConformance: request["strict_conformance"] === true },
+    );
+  }
+
+  private async applyEdits(request: Record<string, unknown>, modelHash: string): Promise<void> {
+    const operations = (request["operations"] as unknown[] | undefined) ?? [];
+    await this.connection.applyEdits(
+      modelHash === "" ? stringOf(request["model_hash"]) : modelHash,
+      operations.map((entry) => fromJson(EditOperationSchema, entry as Record<string, JsonValue>)),
+      {
+        acceptDocuments: request["accept_documents"] === true,
+        ...stringOption(request, "document", "document"),
+      },
+    );
   }
 
   /**
    * The model a scenario's call addresses: the one parsed from its fixture, or a
    * hash adopted as written, which is how "no-such-model" reaches the service.
    */
-  private model(request: Record<string, unknown>, modelHash: string, scenario: Scenario): Model {
+  private model({ request, modelHash, scenario }: Call): Model {
     const named = request["model_hash"];
     const hash = typeof named === "string" ? named : modelHash;
     if (hash === "") {
@@ -708,6 +642,94 @@ function asConnectError(error: unknown): ConnectError | undefined {
 /** A request field read as a string; a field of another form reads as none. */
 function stringOf(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+/** The option `name` taken from a request's string field `key`; nothing when the field is not a string. */
+function stringOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: string } {
+  const value = request[key];
+  return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
+}
+
+/** The option `name` taken from a request's number field `key`; nothing when the field is not a number. */
+function numberOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: number } {
+  const value = request[key];
+  return typeof value === "number" ? ({ [name]: value } as { [P in K]?: number }) : {};
+}
+
+/** The flag `name` set when a request's field `key` is `true`; nothing otherwise. */
+function flagOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: true } {
+  return request[key] === true ? ({ [name]: true } as { [P in K]?: true }) : {};
+}
+
+/** The subject and question options of a verification request. */
+function subjectAndQuestion(request: Record<string, unknown>): { subject?: string; question?: string } {
+  return {
+    ...stringOption(request, "subject_symbol_id", "subject"),
+    ...stringOption(request, "question", "question"),
+  };
+}
+
+/** What a Convert request converts: inline content, a file, or the model it names. */
+function convertSource(
+  request: Record<string, unknown>,
+  modelHash: string,
+): { content: string } | { path: string } | { modelHash: string } {
+  if (typeof request["content"] === "string") {
+    return { content: request["content"] };
+  }
+  if (typeof request["file_path"] === "string") {
+    return { path: request["file_path"] };
+  }
+  return { modelHash };
+}
+
+/** What a Migrate request migrates: bytes, base64 text decoded to bytes, or a file. */
+function migrateSource(request: Record<string, unknown>): { content: Uint8Array } | { path: string } {
+  const content = request["content"];
+  if (content instanceof Uint8Array) {
+    return { content };
+  }
+  if (typeof content === "string") {
+    return { content: Buffer.from(content, "base64") };
+  }
+  return { path: stringOf(request["file_path"]) };
+}
+
+/** A RunDocumentQuery request's bindings, each parameter's values decoded. */
+function documentBindings(json: unknown): Record<string, DocumentValue[]> {
+  const bindings: Record<string, DocumentValue[]> = {};
+  for (const binding of (json as Record<string, unknown>[] | undefined) ?? []) {
+    bindings[String(binding["parameter"])] = (
+      (binding["values"] as Record<string, JsonValue>[] | undefined) ?? []
+    ).map((value) => bindingValue(fromJson(DocumentValueSchema, value)));
+  }
+  return bindings;
+}
+
+/** A RunSweep request's ranges, each a start and end with an optional step. */
+function sweepRanges(json: unknown): Record<string, [Value, Value] | [Value, Value, Value]> {
+  const ranges: Record<string, [Value, Value] | [Value, Value, Value]> = {};
+  for (const range of (json as Record<string, JsonValue>[] | undefined) ?? []) {
+    const start = fromJson(ValueSchema, range["start"] as Record<string, JsonValue>);
+    const end = fromJson(ValueSchema, range["end"] as Record<string, JsonValue>);
+    ranges[stringOf(range["parameter"])] =
+      "step" in range
+        ? [start, end, fromJson(ValueSchema, range["step"] as Record<string, JsonValue>)]
+        : [start, end];
+  }
+  return ranges;
 }
 
 /** A scenario's `inputs` or `named_arguments` object, each value a wire Value JSON. */

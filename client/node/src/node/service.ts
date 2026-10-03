@@ -145,25 +145,25 @@ export class PrivateService {
 /** Takes a hold on the private child for `version`, starting one when there is none. */
 export async function acquirePrivateService(version?: string): Promise<PrivateService> {
   const key = version ?? "";
-  for (;;) {
-    const existing = shared.get(key);
-    if (existing?.alive) {
-      existing.refs += 1;
-      return existing;
-    }
-    let pending = starting.get(key);
-    pending ??= PrivateService.start(version)
-      .then((service) => {
-        service.key = key;
-        shared.set(key, service);
-        return service;
-      })
-      .finally(() => {
-        starting.delete(key);
-      });
-    starting.set(key, pending);
-    await pending;
+  const existing = shared.get(key);
+  if (existing?.alive) {
+    existing.refs += 1;
+    return existing;
   }
+  let pending = starting.get(key);
+  pending ??= PrivateService.start(version)
+    .then((service) => {
+      service.key = key;
+      shared.set(key, service);
+      return service;
+    })
+    .finally(() => {
+      starting.delete(key);
+    });
+  starting.set(key, pending);
+  await pending;
+  // The child just started is taken by the same path as one found alive.
+  return acquirePrivateService(version);
 }
 
 /** The private child this thread holds, for tests and diagnostics. */

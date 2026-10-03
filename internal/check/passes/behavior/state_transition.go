@@ -312,18 +312,7 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		}
 		switch n := decl.(type) {
 		case *ast.TransitionMember:
-			if n.Source == nil {
-				c.checkImplicitSource(m, scope, members, n)
-				c.checkEndpoint(m, scope, n.Target, true, nil)
-				continue
-			}
-			if c.checkAccepterSource(scope, n) {
-				c.checkEndpoint(m, scope, n.Target, true, nil)
-				continue
-			}
-			bare := n.Trigger == nil && len(n.Effect) == 0
-			m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
-			c.checkEndpoint(m, scope, n.Target, true, nil)
+			c.walkTransition(m, scope, members, n, starts)
 		case *ast.SuccessionEdge:
 			// `succession first off then busy;`, whose source is elided by the `entry; then off;` form.
 			if n.Source != nil {
@@ -345,28 +334,45 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		case *ast.StateRegion:
 			c.walkBody(m, kit.BodyScope(scope, n), n.States, nil)
 		case *ast.Usage:
-			// `#choice state pick;` and its siblings declare a routing
-			// pseudostate as a metadata annotation, not a substate.
-			if kind, ok := lower.PseudostateMetadata(c.resolver, scope, n); ok {
-				if routingPseudostate(kind) {
-					name, _ := ast.EffectiveName(n)
-					m.routing = append(m.routing, routingDecl{decl: n, kind: kind, name: name})
-				}
-				continue
-			}
-			switch n.Kind {
-			case ast.UsageState:
-				c.walkBody(m, kit.BodyScope(scope, n), n.Members, n)
-			case ast.UsageSuccession:
-				// A succession is a connector whose two ends name vertices, as a
-				// name (`c::c1`) or a feature chain (`c.c1`).
-				if len(n.ConnectorEnds) == 2 {
-					source := lower.EndpointRef(n.ConnectorEnds[0].AttachedTarget())
-					target := lower.EndpointRef(n.ConnectorEnds[1].AttachedTarget())
-					m.markLeft(c.checkEndpoint(m, scope, source, false, c.startsOf(m, scope, target, true, starts)), source)
-					c.checkEndpoint(m, scope, target, true, nil)
-				}
-			}
+			c.walkUsage(m, scope, n, starts)
+		}
+	}
+}
+
+// walkTransition checks the two ends of a transition member of a machine body.
+func (c *transitionChecker) walkTransition(m *machine, scope *symbols.Scope, members []ast.Node, n *ast.TransitionMember, starts map[ast.Node]bool) {
+	if n.Source == nil {
+		c.checkImplicitSource(m, scope, members, n)
+	} else if !c.checkAccepterSource(scope, n) {
+		bare := n.Trigger == nil && len(n.Effect) == 0
+		m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
+	}
+	c.checkEndpoint(m, scope, n.Target, true, nil)
+}
+
+// walkUsage collects what a usage written in a machine body declares: a routing
+// pseudostate, a state whose body is walked in turn, or a succession between vertices.
+func (c *transitionChecker) walkUsage(m *machine, scope *symbols.Scope, n *ast.Usage, starts map[ast.Node]bool) {
+	// `#choice state pick;` and its siblings declare a routing
+	// pseudostate as a metadata annotation, not a substate.
+	if kind, ok := lower.PseudostateMetadata(c.resolver, scope, n); ok {
+		if routingPseudostate(kind) {
+			name, _ := ast.EffectiveName(n)
+			m.routing = append(m.routing, routingDecl{decl: n, kind: kind, name: name})
+		}
+		return
+	}
+	switch n.Kind {
+	case ast.UsageState:
+		c.walkBody(m, kit.BodyScope(scope, n), n.Members, n)
+	case ast.UsageSuccession:
+		// A succession is a connector whose two ends name vertices, as a
+		// name (`c::c1`) or a feature chain (`c.c1`).
+		if len(n.ConnectorEnds) == 2 {
+			source := lower.EndpointRef(n.ConnectorEnds[0].AttachedTarget())
+			target := lower.EndpointRef(n.ConnectorEnds[1].AttachedTarget())
+			m.markLeft(c.checkEndpoint(m, scope, source, false, c.startsOf(m, scope, target, true, starts)), source)
+			c.checkEndpoint(m, scope, target, true, nil)
 		}
 	}
 }

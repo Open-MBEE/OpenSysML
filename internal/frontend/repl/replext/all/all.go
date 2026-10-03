@@ -3,8 +3,8 @@
 package all
 
 import (
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/graphviz"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/instancegraph"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/graphviz"      // registers the Graphviz REPL commands
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/instancegraph" // registers the instance-graph REPL commands
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"      // registers the notation REPL commands
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional"    // registers the positional REPL commands
 )
