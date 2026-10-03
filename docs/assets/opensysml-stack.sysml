@@ -45,7 +45,7 @@ package OpenSysMLStack {
         part flexo : Project {
             :>> label = "Flexo MMS";
             :>> kind = "model store";
-            :>> lang = "Kotlin / Scala";
+            :>> lang = "Kotlin";
             :>> role = "the versioned store";
             :>> repo = "https://github.com/Open-MBEE/flexo-mms.openmbee.org";
         }
