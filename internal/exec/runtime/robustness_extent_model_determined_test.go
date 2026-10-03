@@ -775,4 +775,108 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 			t.Fatalf("a === b after undo = %s, want true", FormatValue(same))
 		}
 	})
+
+	t.Run("a bound collection class holds its lower bound lazily", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car;
+			part a : Car[1000000000];
+			part b : Car[1000000000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		for _, src := range []string{"size(a)", "size(b)"} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "1000000000" {
+				t.Fatalf("%s = %s, %v; want 1000000000", src, FormatValue(got), err)
+			}
+		}
+		for _, src := range []string{"a#(5) === b#(5)", "a#(999999999) === b#(999999999)"} {
+			got, err := evalIn(t, ctx, pkg.Scope, src)
+			if err != nil || FormatValue(got) != "true" {
+				t.Fatalf("%s = %s, %v; want true", src, FormatValue(got), err)
+			}
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("a billion bound values made %d objects", n)
+		}
+	})
+
+	t.Run("a subsetting member of a lazy namespace collection is among its values", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car;
+			part vs : Car[1000000000];
+			part c : Car :> vs;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		got, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if err != nil || FormatValue(got) != "1000000000" {
+			t.Fatalf("size(vs) = %s, %v; want 1000000000", FormatValue(got), err)
+		}
+		same, err := evalIn(t, ctx, pkg.Scope, "vs#(1) === c")
+		if err != nil || FormatValue(same) != "true" {
+			t.Fatalf("vs#(1) === c = %s, %v; want the subsetter first", FormatValue(same), err)
+		}
+		again, err := evalIn(t, ctx, pkg.Scope, "size(vs)")
+		if err != nil || FormatValue(again) != "1000000000" {
+			t.Fatalf("size(vs) read again = %s, %v; want 1000000000", FormatValue(again), err)
+		}
+		if n := len(ctx.instances); n >= 1100 {
+			t.Fatalf("a billion subsetted values made %d objects", n)
+		}
+	})
+
+	t.Run("a bound class of differing collections stays eager", func(t *testing.T) {
+		model, resolver, root := parseAndBuildLibraryModel(t, `package test {
+			private import BaseFunctions::*;
+			part def A;
+			part def B;
+			part a : A[2000];
+			part b : B[2000];
+			bind a = b;
+		}`)
+		ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+		pkg := resolveSymbol(t, root, "test")
+
+		got, err := evalIn(t, ctx, pkg.Scope, "a#(1500) istype test::B")
+		if err != nil || FormatValue(got) != "true" {
+			t.Fatalf("a#(1500) istype B = %s, %v; want true", FormatValue(got), err)
+		}
+	})
+
+	t.Run("the extent of a bound collection is refused like an unbound one", func(t *testing.T) {
+		for _, bound := range []bool{false, true} {
+			src := `package test {
+				private import SequenceFunctions::*;
+				part def Car;
+				part a : Car[1000000000];
+			}`
+			if bound {
+				src = `package test {
+					private import SequenceFunctions::*;
+					part def Car;
+					part a : Car[1000000000];
+					part b : Car[1000000000];
+					bind a = b;
+				}`
+			}
+			model, resolver, root := parseAndBuildLibraryModel(t, src)
+			ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
+			pkg := resolveSymbol(t, root, "test")
+			if _, err := evalIn(t, ctx, pkg.Scope, "size(a)"); err != nil {
+				t.Fatalf("bound=%v size(a): %v", bound, err)
+			}
+			_, err := evalIn(t, ctx, pkg.Scope, "size(all test::Car)")
+			if !errors.Is(err, ErrElementLimitExceeded) {
+				t.Fatalf("bound=%v size(all Car) = %v, want %v", bound, err, ErrElementLimitExceeded)
+			}
+		}
+	})
 }
