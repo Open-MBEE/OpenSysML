@@ -28,7 +28,7 @@ var ownedUsageMetaclasses = map[string]string{
 func (m *Model) reflectiveOwnedUsages(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	var prefix string
 	switch {
-	case sym.DeclaresUsage():
+	case sym.DeclaresUsage() || m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage"):
 		prefix = "nested"
 	case sym.DeclaresDefinition():
 		prefix = "owned"
