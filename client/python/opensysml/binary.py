@@ -931,7 +931,6 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     if named is not None:
         return named
 
-    download_error = None
     try:
         with cache_lock():
             chosen = _ensure_binary_locked(
@@ -941,21 +940,22 @@ def ensure_binary(force_download=False, version=None, github_repo=None):
     except UnpinnedReleaseError as e:
         if not implicit:
             raise
-        download_error = e
+        return _fallback_to_path_or_raise(version, binary_path, e)
     except ChecksumMismatchError:
         raise
     except ConnectionError as e:
         if not implicit:
             raise
-        download_error = e
+        return _fallback_to_path_or_raise(version, binary_path, e)
 
+
+def _fallback_to_path_or_raise(version, binary_path, download_error):
     on_path = binary_on_path()
-    assert download_error is not None
     if on_path is not None:
         warnings.warn(
             f"Could not download sysml-grpc release {version} ({download_error}); "
             f"using {on_path} from $PATH instead.",
-            stacklevel=2,
+            stacklevel=3,
         )
         return on_path
 

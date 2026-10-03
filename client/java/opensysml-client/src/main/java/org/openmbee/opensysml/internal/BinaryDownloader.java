@@ -181,24 +181,40 @@ public final class BinaryDownloader {
     return versionAskedFor(options, System::getenv);
   }
 
-  static Optional<String> versionAskedFor(
+  /**
+   * A release explicitly selected by the options or environment.
+   *
+   * @param options how the connection was configured
+   * @return the explicitly selected release, if any
+   */
+  public static Optional<String> explicitVersion(ConnectionOptions options) {
+    return explicitVersion(options, System::getenv);
+  }
+
+  /**
+   * A release explicitly selected by the options or the supplied environment.
+   *
+   * @param options how the connection was configured
+   * @param environment source of environment variable values
+   * @return the explicitly selected release, if any
+   */
+  public static Optional<String> explicitVersion(
       ConnectionOptions options, UnaryOperator<String> environment) {
     if (options.downloadVersion().isPresent()) {
       return options.downloadVersion();
     }
     String set = environment.apply(ConnectionOptions.VERSION_ENV);
-    return set == null || set.isBlank()
-        ? Optional.of(builtAgainstRelease())
-        : Optional.of(set.trim());
+    return set == null || set.isBlank() ? Optional.empty() : Optional.of(set.trim());
+  }
+
+  static Optional<String> versionAskedFor(
+      ConnectionOptions options, UnaryOperator<String> environment) {
+    return explicitVersion(options, environment).or(() -> Optional.of(builtAgainstRelease()));
   }
 
   static boolean versionWasExplicit(
       ConnectionOptions options, UnaryOperator<String> environment) {
-    if (options.downloadVersion().isPresent()) {
-      return true;
-    }
-    String set = environment.apply(ConnectionOptions.VERSION_ENV);
-    return set != null && !set.isBlank();
+    return explicitVersion(options, environment).isPresent();
   }
 
   static String builtAgainstRelease() {

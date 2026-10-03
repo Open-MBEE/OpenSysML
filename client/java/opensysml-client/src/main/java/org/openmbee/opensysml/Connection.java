@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.UnaryOperator;
 
 /**
  * A connection to a {@code sysml-grpc} service, and the entry point of this client.
@@ -154,8 +155,13 @@ public final class Connection implements AutoCloseable {
   }
 
   private static Optional<String> requiredRelease(ConnectionOptions options) {
-    Optional<String> asked = BinaryDownloader.versionAskedFor(options);
-    if (!asked.orElseThrow().equals("latest")) {
+    return requiredRelease(options, System::getenv);
+  }
+
+  static Optional<String> requiredRelease(
+      ConnectionOptions options, UnaryOperator<String> environment) {
+    Optional<String> asked = BinaryDownloader.explicitVersion(options, environment);
+    if (asked.isEmpty() || !asked.get().equals("latest")) {
       return asked;
     }
     try {
