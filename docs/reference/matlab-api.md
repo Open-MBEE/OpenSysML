@@ -1,7 +1,7 @@
 # The MATLAB client API
 
 This reference covers the `+opensysml` package. See [client libraries](clients.md) to compare
-language surfaces, [guide chapter 9](../guide/09-clients.md#from-matlab) for a walkthrough, and
+language surfaces, the [MATLAB client guide](../clients/matlab.md), and
 [client/matlab/README.md](../../client/matlab/README.md) for local test and conformance commands.
 
 The package uses Connect-JSON over HTTP, with no generated protobuf code, and runs in **MATLAB

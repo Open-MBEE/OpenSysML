@@ -3,6 +3,7 @@ package edit
 import (
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -249,11 +250,14 @@ func (m Model) valueSplice(i int, op Operation, sym *symbols.Symbol) (splice, er
 // fall inside it and would be spliced away with it.
 func (m Model) tokenSpan(span source.Span) source.Span {
 	end := span.Offset
-	lx := lexer.New(m.Source)
-	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
-		if tok.Span.Offset >= span.End() {
-			break
-		}
+	tokens := m.tokenData().tokens
+	start := sort.Search(len(tokens), func(i int) bool {
+		return tokens[i].Span.Offset >= span.Offset
+	})
+	limit := sort.Search(len(tokens), func(i int) bool {
+		return tokens[i].Span.Offset >= span.End()
+	})
+	for _, tok := range tokens[start:limit] {
 		if tok.Span.Offset < span.Offset || tok.IsTrivia() || tok.Kind == lexer.RegularComment {
 			continue
 		}
@@ -280,12 +284,15 @@ func (m Model) terminator(usage *ast.Usage) (source.Span, bool) {
 	span := usage.Span()
 	var last source.Span
 	found := false
-	lx := lexer.New(m.Source)
-	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
-		if tok.Span.Offset >= span.End() {
-			break
-		}
-		if tok.Span.Offset >= span.Offset && tok.Kind == lexer.Semicolon {
+	tokens := m.tokenData().tokens
+	start := sort.Search(len(tokens), func(i int) bool {
+		return tokens[i].Span.Offset >= span.Offset
+	})
+	limit := sort.Search(len(tokens), func(i int) bool {
+		return tokens[i].Span.Offset >= span.End()
+	})
+	for _, tok := range tokens[start:limit] {
+		if tok.Kind == lexer.Semicolon {
 			last, found = tok.Span, true
 		}
 	}

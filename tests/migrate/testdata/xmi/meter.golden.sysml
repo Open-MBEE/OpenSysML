@@ -61,7 +61,6 @@ part def Meter {
             out y : ScalarValues::Real[1];
             assign y := x * 2;
         }
-        first sense then record;
         action record {
             in v : ScalarValues::Real[1];
             assign total := v + 1;
@@ -97,7 +96,7 @@ part def Meter {
         action shout;
         first shout then final;
         action final terminate;
-        flow sense.y to record.v;
+        succession flow of ScalarValues::Real from sense.y to record.v;
         metadata MigrationMetadata::SynthesizedName about final;
     }
     action skip {
