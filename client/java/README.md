@@ -241,10 +241,10 @@ Ask for a release and the client downloads it into that shared cache:
 ConnectionOptions.builder().downloadVersion("v0.3.0").build();   // or "latest"
 ```
 
-The version is the caller's, else `$OPENSYSML_GRPC_VERSION`, else nothing —
-**no version, no download**: without one the client only resolves what is
-already there, so it never fetches a binary a caller did not ask for. `latest`
-is resolved through the GitHub releases API. The repository is
+The version is the caller's, else `$OPENSYSML_GRPC_VERSION`, else the release
+this client was built against. `latest` is resolved through the GitHub releases
+API. An executable cache without release metadata is treated as a hand-installed
+binary and kept. The repository is
 `Open-MBEE/OpenSysML`, overridable with `ConnectionOptions.githubRepo(...)` or
 `$OPENSYSML_GITHUB_REPO`. Every request times out after 15 seconds, and a
 response body that stops arriving for that long is abandoned too, so a release

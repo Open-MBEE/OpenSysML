@@ -53,7 +53,6 @@ package Demo {
 
     ```bash
     pip install opensysml
-    export OPENSYSML_GRPC_VERSION=latest   # or install sysml-grpc yourself
     ```
 
 === "Node"
@@ -104,12 +103,13 @@ package Demo {
     No installation step beyond the path: the package is plain `.m` files. MATLAB R2019b+ or GNU
     Octave 7+.
 
-The six service clients each need a `sysml-grpc` binary to start, and they share the cache they
-find one in — `~/.opensysml/bin/sysml-grpc`, then `$PATH`, with a release downloaded into that
-cache when `$OPENSYSML_GRPC_VERSION` asks for one. An explicit path comes first, from a variable
-that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRPC_BINARY` for Java
-and Rust. [Getting the service binary](#getting-the-service-binary) gives the five ways to provide
-one. The Go API needs none: it is the engine.
+The service clients share the cache `~/.opensysml/bin/sysml-grpc` and can use a binary on `$PATH`;
+Python and Java download and verify the release they were built against when no release is
+configured. Rust tries its built-against release but, without a pinned digest, falls back to a
+working cache or `$PATH` with a warning, or errors if neither is available. An explicit path comes
+first, from a variable that differs by client: `$OPENSYSML_BINARY` for Python and Node,
+`$OPENSYSML_GRPC_BINARY` for Java and Rust. [Getting the service binary](#getting-the-service-binary)
+gives the five ways to provide one. The Go API needs none: it is the engine.
 
 ### Author an action body
 
@@ -398,14 +398,15 @@ Those projects publish wheels for CPython 3.10 and later only, which is the rang
 
 Every call goes through `sysml-grpc`. The client starts an instance of the service, looking for
 the binary in this order: `$OPENSYSML_BINARY`, then
-`~/.opensysml/bin/sysml-grpc` (`.exe` on Windows), then a release download into that cache if
-one was requested, then `sysml-grpc` on `$PATH`. There are five ways to provide it:
+`~/.opensysml/bin/sysml-grpc` (`.exe` on Windows), then a download of the built-against release
+or the configured release into that cache, then `sysml-grpc` on `$PATH`. There are five ways to
+provide it:
 
 ```bash
 # 1. Download the release build (verified against the digest pinned in opensysml)
 python -c "from opensysml.binary import download_binary; download_binary('latest')"
 
-# 2. Have opensysml.connect() download it on first use
+# 2. Select another release instead of the built-against default
 export OPENSYSML_GRPC_VERSION=latest      # or a tag like v0.0.5
 
 # 3. Build from source
@@ -417,22 +418,22 @@ export OPENSYSML_BINARY=$PWD/bin/sysml-grpc
 # 5. Install one on $PATH, with a package manager or `go install`
 ```
 
-If none of these is in place, `connect()` raises `ConnectionError` listing everywhere it looked,
-rather than downloading anything you did not ask for. A binary from `$OPENSYSML_BINARY` or `$PATH`
-belongs to no release, so it is started as found: not copied into the cache and not verified
-against the pinned digests described below. If `$OPENSYSML_BINARY` names something that is not
-executable, that is an error, not a reason to look elsewhere. `OPENSYSML_GITHUB_REPO` overrides
-the repository releases are fetched from (default `Open-MBEE/OpenSysML`).
+If the built-against release is unavailable, `connect()` uses an executable on `$PATH` with a
+warning, or raises `ConnectionError` with the reason and remedies. A binary from
+`$OPENSYSML_BINARY` or `$PATH` belongs to no release, so it is started as found: not copied into
+the cache and not verified against the pinned digests described below. If `$OPENSYSML_BINARY`
+names something that is not executable, that is an error, not a reason to look elsewhere.
+`OPENSYSML_GITHUB_REPO` overrides the repository releases are fetched from (default
+`Open-MBEE/OpenSysML`).
 
 A download records its release tag, repository and digest beside the binary
 (`~/.opensysml/bin/sysml-grpc.json`). That way a cache left by an earlier release, or by another
 repository publishing the same tag, is replaced rather than handed to a client asking for a newer
 one. Without this check an older build would answer and the call would fail with a
-`MissingCapabilityError` naming a capability the requested release does provide. The check only
-runs when a release is requested, so when `OPENSYSML_GRPC_VERSION` is unset a manually installed
-binary (option 3) is left alone. If the requested release cannot be downloaded, because there is no
-asset for the platform or no network, the cached binary keeps serving and a warning says so rather
-than the connection failing.
+`MissingCapabilityError` naming a capability the requested release does provide. A manually
+installed cache without release metadata is left alone; a cache recorded for another release is
+replaced. If a release cannot be downloaded because there is no asset for the platform or no
+network, the cached binary keeps serving and a warning says so rather than the connection failing.
 
 A download is verified against the SHA-256 digest that `opensysml` pins for that release, not
 against the `.sha256` file served beside the binary. That sidecar comes from whoever served

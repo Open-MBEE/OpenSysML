@@ -23,7 +23,7 @@ public final class ConnectionOptions {
   /** Names the service binary a private child is started from. */
   public static final String BINARY_ENV = "OPENSYSML_GRPC_BINARY";
 
-  /** Names the release to download when no binary is installed, or {@code latest}. */
+  /** Overrides the release to download when no binary is installed, or {@code latest}. */
   public static final String VERSION_ENV = "OPENSYSML_GRPC_VERSION";
 
   /** Names the repository releases are downloaded from, as {@code owner/repo}. */
@@ -129,8 +129,8 @@ public final class ConnectionOptions {
   }
 
   /**
-   * The release a missing binary is downloaded from, absent when {@code $OPENSYSML_GRPC_VERSION}
-   * decides and nothing is downloaded without it.
+   * The release a missing binary is downloaded from, absent when the environment or the release
+   * this client was built against decides.
    *
    * @return a release tag, or {@code latest}
    */
@@ -279,10 +279,11 @@ public final class ConnectionOptions {
 
     /**
      * The release to download when no binary is installed, or when the cached one is another
-     * release. Without one, {@code $OPENSYSML_GRPC_VERSION} decides, and nothing is downloaded
-     * without either.
+     * release. Without one, {@code $OPENSYSML_GRPC_VERSION} decides; otherwise this client's
+     * built-against release is used.
      *
-     * @param downloadVersion a release tag (e.g. {@code v0.3.0}), or {@code latest}
+     * @param downloadVersion a release tag (e.g. {@code v0.3.0}) or {@code latest}; absent uses
+     *     {@code $OPENSYSML_GRPC_VERSION} or this client's built-against release
      * @return this builder
      */
     public Builder downloadVersion(String downloadVersion) {
