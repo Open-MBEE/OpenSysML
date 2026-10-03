@@ -1138,6 +1138,12 @@ destroys; the runtime refuses the destruction. **differs, v2 silent.**
 
 **SM46. A junction on a nested default entry.** PSSM requirements *Junction 002* and *Junction 004* (§9.4.11) put a junction with no way through on the initial transition of a region that the incoming transition enters by default, and read its guards when the incoming transition is selected: the static evaluation of §8.5.6 reaches through the composite's default entry, and the incoming transition is not enabled. *v2/KerML:* the default entry is not part of the incoming transition. SysML v2 §7.18.3 makes it a transition out of the composite's `entry` action (`EntryTransitionMember`), a `TransitionUsage` of its own whose performance is a `NonStateTransitionPerformance` (`TransitionPerformances.kerml`). There, `succession [1] transitionLinkSource then [1] Performance::self` orders the whole performance, including its guard and the route it takes, after its source: the `entry` action, which `States.sysml` (`StateAction`, entry before the middle subperformances) performs once the composite has been entered. The guards beyond that transition's junction are therefore read when that transition is taken, after the incoming transition's effect and the composite's entry, and cannot decide whether the incoming transition was enabled. *Runtime:* `state_route.go:routeAvailable` resolves only the incoming transition's own route (SM32); `state_executor.go:startIn` resolves the default entry's route when the entry action has completed, and a junction there with no outgoing guard true fails the run with a no-way-through error naming the junction (`state_entry_transition_junction_no_way_fails`). **differs because v2 differs.**
 
+The discriminating conformance case `state_entry_transition_junction_reads_outer_effect` starts
+`x` at 0 and has only the `x > 0` branch; the incoming effect sets `x` to 1, so the parent
+preview leaves `Go` unmatched while runtime reads the nested default-entry junction afterward
+and reaches `a`. The typed no-way-through failure is covered by
+`state_entry_transition_junction_no_way_fails`.
+
 ### Actions (fUML)
 
 fUML's activity semantics (formal/21-03-01 §8.9 and §8.10) are the ground PSSM's behaviors
