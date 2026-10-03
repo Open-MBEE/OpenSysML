@@ -21,6 +21,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 	if graph == nil {
 		return nil
 	}
+	ordered := orderedAssertionsForGraph(graph, bodies)
 	incompatible := make(map[ast.Node]ast.Node)
 	allBodies := append([]*symbols.Scope{graph.Scope}, bodies...)
 	for _, body := range allBodies {
@@ -29,7 +30,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if lowerableActionNodeInBody(graph, body, decl) {
+			if lowerableActionNodeInBody(decl, ordered) {
 				continue
 			}
 			for _, target := range resolve.ActionNodeRedefinitionTargets(body, decl, false) {
@@ -50,7 +51,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if !lowerableActionNodeInBody(graph, body, decl) {
+			if !lowerableActionNodeInBody(decl, ordered) {
 				continue
 			}
 			if initial, marker := decl.(*ast.InitialNode); marker {
@@ -85,7 +86,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 		}
 		for _, member := range ast.DeclMembers(body.Node()) {
 			decl := unwrapMembership(member)
-			if !lowerableActionNodeInBody(graph, body, decl) {
+			if !lowerableActionNodeInBody(decl, ordered) {
 				continue
 			}
 			if _, marker := decl.(*ast.InitialNode); marker {
@@ -194,20 +195,35 @@ func lowerableActionNode(decl ast.Node) bool {
 	}
 }
 
-func lowerableActionNodeInBody(graph *ActionGraph, body *symbols.Scope, decl ast.Node) bool {
+func orderedAssertionsForGraph(graph *ActionGraph, bodies []*symbols.Scope) map[*ast.Usage]bool {
+	members := make([]ast.Node, 0)
+	seen := make(map[ast.Node]bool)
+	appendBody := func(body *symbols.Scope) {
+		if body == nil || body.Node() == nil {
+			return
+		}
+		for _, member := range ast.DeclMembers(body.Node()) {
+			decl := unwrapMembership(member)
+			if decl == nil || seen[decl] {
+				continue
+			}
+			seen[decl] = true
+			members = append(members, decl)
+		}
+	}
+	appendBody(graph.Scope)
+	for _, body := range bodies {
+		appendBody(body)
+	}
+	return orderedAssertions(members)
+}
+
+func lowerableActionNodeInBody(decl ast.Node, ordered map[*ast.Usage]bool) bool {
 	assertion, ok := decl.(*ast.Usage)
 	if !ok || !resolve.IsAssertion(assertion) {
 		return lowerableActionNode(decl)
 	}
-	if body != nil && body.Node() != nil && orderedAssertions(ast.DeclMembers(body.Node()))[assertion] {
-		return true
-	}
-	if graph == nil || graph.Scope == nil || graph.Scope == body || graph.Scope.Node() == nil {
-		return false
-	}
-	members := append([]ast.Node(nil), ast.DeclMembers(graph.Scope.Node())...)
-	members = append(members, assertion)
-	return orderedAssertions(members)[assertion]
+	return ordered[assertion]
 }
 
 func inheritedActionEdge(decl ast.Node) bool {

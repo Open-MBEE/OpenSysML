@@ -48,6 +48,35 @@ func TestToActionGraphInheritedActionNodeThroughTwoSpecializations(t *testing.T)
 	}
 }
 
+func TestToActionGraphInheritsAssertionOrderedByIntermediateGeneral(t *testing.T) {
+	src := `
+		action def G { assert constraint check { true } }
+		action def M :> G {
+			first start then check;
+			first check then done;
+		}
+		action def S :> M;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	assertion := actionMember(t, root, "G", "check")
+	if got := namedNode(graph, "check"); got != assertion {
+		t.Fatalf("check node = %p, want inherited assertion %p", got, assertion)
+	}
+	count := 0
+	for _, node := range graph.Nodes {
+		if node == assertion {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("inherited assertion occurs %d times in graph nodes, want once", count)
+	}
+}
+
 func TestToActionGraphQualifiedInheritedActionNode(t *testing.T) {
 	src := `
 		action def Base { action a; }

@@ -57,6 +57,40 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("assertion_ordered_by_intermediate_general", func(t *testing.T) {
+		_, err := executeInheritedAction(t, `package test {
+			action def G { assert constraint check { true } }
+			action def M :> G {
+				first start then check;
+				first check then done;
+			}
+			action def S :> M;
+		}`, "S")
+		if err != nil {
+			t.Fatalf("ExecuteAction(S): %v, want the inherited assertion flow to complete", err)
+		}
+	})
+
+	t.Run("intermediate_general_assertion_violation", func(t *testing.T) {
+		src := `package test {
+			action def G { assert constraint check { false } }
+			action def M :> G {
+				first start then check;
+				first check then done;
+			}
+			action def S :> M;
+		}`
+		for _, name := range []string{"M", "S"} {
+			t.Run(name, func(t *testing.T) {
+				_, err := executeInheritedAction(t, src, name)
+				var violation *ViolationError
+				if !errors.As(err, &violation) || violation.Element != "check" || !errors.Is(err, ErrViolated) {
+					t.Fatalf("ExecuteAction(%s) error = %v, want assertion check violated", name, err)
+				}
+			})
+		}
+	})
+
 	t.Run("inherited_sequenced_assertion_violation", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;
