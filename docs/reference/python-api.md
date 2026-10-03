@@ -444,6 +444,10 @@ The public exception hierarchy for client, service, model and edit failures.
     options:
       heading_level: 3
 
+::: opensysml.SigstoreUnavailableError
+    options:
+      heading_level: 3
+
 ::: opensysml.UnsupportedOperationError
     options:
       heading_level: 3
