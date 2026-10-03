@@ -1800,7 +1800,7 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
 	}
-	if count < 1 {
+	if count <= 1 {
 		return nil
 	}
 	return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(edge.Target, e.ctx.Semantics(),

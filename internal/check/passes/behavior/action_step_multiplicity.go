@@ -227,10 +227,15 @@ func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 		}
 		for _, edge := range graph.Incoming(node) {
 			literal, guarded := edge.Guard.(*ast.LiteralBool)
-			if guarded && !literal.Value && edge.TargetMultiplicity != nil {
-				c.report(graph, graph.StepError(node, c.model, lower.StepOrderOpenCode,
-					"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
+			if !guarded || literal.Value || edge.TargetMultiplicity == nil {
+				continue
 			}
+			count, err := graph.StepCount(node, c.model)
+			if err != nil || count <= 1 {
+				continue
+			}
+			c.report(graph, graph.StepError(node, c.model, lower.StepOrderOpenCode,
+				"a false guard leaves the performances of the repeated step unordered with respect to its source", edge.Decl))
 		}
 	}
 	for _, subflow := range graph.Subflows {

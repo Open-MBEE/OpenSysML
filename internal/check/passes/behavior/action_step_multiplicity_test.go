@@ -258,6 +258,21 @@ func TestActionStepMultiplicityPassReportsRuntimeRefusals(t *testing.T) {
 	}
 }
 
+// A literal-false guard into a step performed once needs no repetition
+// ordering: it prunes the edge, so the pass reports nothing.
+func TestActionStepMultiplicityPassAdmitsFalseGuardIntoSinglePerformance(t *testing.T) {
+	got := actionStepMultiplicityDiags(t, `action def A {
+		first start then p;
+		action p;
+		action a[1];
+		succession first p if false then [1] a;
+		succession first p if true then done;
+	}`)
+	if len(got) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", got)
+	}
+}
+
 func TestActionStepMultiplicityPassReportsUnaddressableBoundAsUnsupported(t *testing.T) {
 	got := actionStepMultiplicityDiags(t, `package test {
 		action def A {
