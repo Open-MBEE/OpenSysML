@@ -160,3 +160,76 @@ func TestMessageThroughAnotherInteractionsGate(t *testing.T) {
 		t.Errorf("%v", d)
 	}
 }
+
+// A message entering an interaction use's gate is carried by the performed scenario, so one
+// sent with another message between it and the use is refused rather than reordered.
+func TestGateMessageSentBeforeAnInterveningMessage(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/interaction_use.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	send := `<fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ryS" covered="_rylC" message="_ryCmd"/>`
+	between := bytes.Replace(data, []byte(send), []byte(send+`
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ryPS" covered="_rylC" message="_ryPre"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ryPR" covered="_rylM" message="_ryPre"/>`), 1)
+	carried := `<argument xmi:type="uml:LiteralReal" xmi:id="_ryCmdRpm" value="20.0"/>
+        </message>`
+	between = bytes.Replace(between, []byte(carried), []byte(carried+`
+        <message xmi:type="uml:Message" xmi:id="_ryPre" name="pre" messageSort="synchCall" signature="_spin" sendEvent="_ryPS" receiveEvent="_ryPR">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_ryPreRpm" value="5.0"/>
+        </message>`), 1)
+	if !bytes.Contains(between, []byte(`xmi:id="_ryPS"`)) || !bytes.Contains(between, []byte(`xmi:id="_ryPre"`)) {
+		t.Fatal("the fixture no longer has the relay to put a message into")
+	}
+	r, err := migrate.Migrate("interaction_use.xmi", between)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantNote(t, r, "_relay", migrate.Unmapped, "the message 'cmd' enters the interaction use 'kick' through its gate but is not sent just before it")
+	for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}
+
+// A state invariant on a lifeline reads that lifeline's object: a name the object's type owns
+// but that has no v2 declaration is refused rather than read on the context's feature of that name.
+func TestLifelineInvariantDoesNotReadTheContextsFeature(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/interaction_use.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	edits := []struct{ old, new string }{
+		{`<packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Controller"/>`, `<packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Controller"/>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_kit" name="StandardProfile">
+      <packagedElement xmi:type="uml:Class" xmi:id="_spare" name="Spare">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_spareLimit" name="limit">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+    </packagedElement>`},
+		{`<ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>`, `<ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rAux" name="aux" type="_spare" aggregation="composite"/>`},
+		{`<lifeline xmi:type="uml:Lifeline" xmi:id="_rlM" name="m" represents="_dMotor"/>`, `<lifeline xmi:type="uml:Lifeline" xmi:id="_rlM" name="m" represents="_dMotor"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_rlA" name="a" represents="_rAux"/>`},
+		{`xmi:id="_runAt30" name="at30" covered="_rlM"`, `xmi:id="_runAt30" name="at30" covered="_rlA"`},
+		{`<body>speed == 30.0</body>`, `<body>limit == 10.0</body>`},
+	}
+	for _, e := range edits {
+		next := bytes.Replace(data, []byte(e.old), []byte(e.new), 1)
+		if bytes.Equal(next, data) {
+			t.Fatalf("the fixture no longer has %s", e.old)
+		}
+		data = next
+	}
+	r, err := migrate.Migrate("interaction_use.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantNote(t, r, "_runAt30", migrate.Unmapped, "the state invariant's condition [limit == 10.0] reads 'limit' of the lifeline's object aux, which has no v2 declaration")
+	if bytes.Contains(r.Notation, []byte("assert constraint at30")) {
+		t.Errorf("the invariant is written as an assertion on the context's limit:\n%s", r.Notation)
+	}
+	for _, d := range errors(t, "interaction_use.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}

@@ -96,6 +96,27 @@ func TestRuntimeRobustnessSequencedAssertion(t *testing.T) {
 			t.Fatalf("error = %v, want the assertion low violated on the third pass", err)
 		}
 	})
+	t.Run("assertion_in_a_branch_flow_is_checked", func(t *testing.T) {
+		_, err := executeActionSource(t, "check", `package test {
+			private import ScalarValues::*;
+			action check {
+				attribute level : Integer = 0;
+				action body {
+					if level == 0 {
+						action raise { assign level := 5; }
+						assert constraint low { level < 3 }
+						first raise then low;
+					}
+				}
+				first start then body;
+				first body then done;
+			}
+		}`)
+		var violation *ViolationError
+		if !errors.As(err, &violation) || violation.Element != "low" {
+			t.Fatalf("error = %v, want the assertion low violated in the branch", err)
+		}
+	})
 	t.Run("inherited_assertion_sequenced_by_the_specialization", func(t *testing.T) {
 		_, err := executeActionSource(t, "Derived", `package test {
 			private import ScalarValues::*;

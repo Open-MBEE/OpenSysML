@@ -277,7 +277,30 @@ func (s *scenario) resolve(fragments, messages []*sysmlv1.Element, body *[]*scen
 		}
 		steps = append(steps, step)
 	}
+	if note := gatesAdjoin(steps); note != "" {
+		return nil, note
+	}
 	return steps, ""
+}
+
+// gatesAdjoin says why a message entering an interaction use's gate is not
+// sent just before the use among steps, whose perform carries it in its place.
+func gatesAdjoin(steps []*scenarioStep) string {
+	for i, step := range steps {
+		if step.kind != stepGate {
+			continue
+		}
+		j := i + 1
+		for j < len(steps) && steps[j].kind == stepGate && steps[j].frag == step.frag {
+			j++
+		}
+		if j < len(steps) && steps[j].kind == stepUse && steps[j].frag == step.frag {
+			continue
+		}
+		return theMessage + describe(step.msg) + " enters the interaction use " + describe(step.frag) +
+			" through its gate but is not sent just before it, and the performed scenario carries the message where the use is"
+	}
+	return ""
 }
 
 // use resolves an interaction use: the referenced interaction's scenario,
@@ -438,8 +461,15 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 	cond, note, ok := "", "", false
 	if len(lines) == 1 && lines[0].typ != nil && spec.Type == "OpaqueExpression" {
 		text, lang := opaqueBody(spec)
-		if on, read := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ); read {
+		on, read, lost := s.m.onObject(strings.TrimSpace(text), lines[0].from, lines[0].typ)
+		switch {
+		case lost != "":
+			return nil, "the state invariant's condition [" + describeValue(spec) + "] reads " + lost + " of the lifeline's object " + lines[0].path + ", which has no v2 declaration"
+		case read:
 			cond, ok, note = s.m.behaviorExpr(on, lang, s.e)
+			if !ok {
+				return nil, "the state invariant's condition [" + describeValue(spec) + "] is not written: " + note
+			}
 		}
 	}
 	if !ok {
@@ -467,32 +497,39 @@ func (s *scenario) invariant(f *sysmlv1.Element, body *[]*scenarioStep) (*scenar
 }
 
 // onObject qualifies each name of text that is a written attribute of typ with
-// path, the object it is read on; read reports whether any name was.
-func (m *migration) onObject(text, path string, typ *sysmlv1.Element) (string, bool) {
+// path, the object it is read on; read reports whether any name was, and lost
+// names an attribute of typ text reads that is not written.
+func (m *migration) onObject(text, path string, typ *sysmlv1.Element) (on string, read bool, lost string) {
 	refs, ok := exprRefs(text)
 	if !ok {
-		return "", false
+		return "", false, ""
 	}
-	owned := map[string]bool{}
+	owned := map[string]*sysmlv1.Element{}
 	for _, f := range m.attributesOf(typ) {
-		if m.written(f) {
-			owned[m.nameOf(f)] = true
-		}
+		owned[m.nameOf(f)] = f
 	}
 	var starts []int
 	for _, r := range refs {
-		if !r.global && r.local == "" && len(r.steps) > 0 && !r.steps[0].chain && owned[r.steps[0].name] {
+		if r.global || r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+			continue
+		}
+		f := owned[r.steps[0].name]
+		switch {
+		case f == nil:
+		case !m.written(f):
+			return "", false, describe(f)
+		default:
 			starts = append(starts, r.start)
 		}
 	}
 	if len(starts) == 0 {
-		return "", false
+		return "", false, ""
 	}
 	slices.Sort(starts)
 	for i := len(starts) - 1; i >= 0; i-- {
 		text = text[:starts[i]] + path + "." + text[starts[i]:]
 	}
-	return text, true
+	return text, true, ""
 }
 
 // lifeline resolves the object a lifeline stands for: a part, port or reference
