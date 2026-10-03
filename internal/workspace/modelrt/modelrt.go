@@ -8,8 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-// Origin is what a runtime is built from: a model.Workspace, or a model.Reading under its lock.
-type Origin interface {
+// Detacher is what a runtime is built from: a model.Workspace, or a model.Reading under its lock.
+type Detacher interface {
 	Detach() (*model.Detached, error)
 }
 
@@ -21,7 +21,7 @@ type Runtime struct {
 }
 
 // New builds a runtime over origin's current documents on a detached index.
-func New(origin Origin) (*Runtime, error) {
+func New(origin Detacher) (*Runtime, error) {
 	d, err := origin.Detach()
 	if err != nil {
 		return nil, err

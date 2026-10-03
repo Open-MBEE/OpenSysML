@@ -291,18 +291,23 @@ function sequenceText(label: string, value: TextField, optional = false): void {
   }
 }
 
+/** The positional slots of an add_sequence operation after its owner and keyword. */
+interface SequenceSlots {
+  ref: string;
+  memberKind: string;
+  memberName: string;
+  typeName: string;
+  after: string;
+}
+
 function sequenceTuple(
   owner: string,
   keyword: string,
-  ref = "",
-  memberKind = "",
-  memberName = "",
-  typeName = "",
-  after = "",
+  slots: SequenceSlots,
   fields?: Record<string, unknown>,
 ): unknown[] {
   const operation: unknown[] = [
-    "add_sequence", owner, keyword, ref, memberKind, memberName, typeName, after,
+    "add_sequence", owner, keyword, slots.ref, slots.memberKind, slots.memberName, slots.typeName, slots.after,
   ];
   if (fields !== undefined && Object.keys(fields).length > 0) {
     operation.push(fields);
@@ -352,18 +357,20 @@ function sequenceStatement(
   return sequenceTuple(
     owner,
     keyword,
-    options?.ref ?? "",
-    memberKind,
-    options?.memberName ?? "",
-    options?.typeName ?? "",
-    after,
+    {
+      ref: options?.ref ?? "",
+      memberKind,
+      memberName: options?.memberName ?? "",
+      typeName: options?.typeName ?? "",
+      after,
+    },
     rest,
   );
 }
 
 /** Chainable action-body items for nested `if` and loop statements. */
 export class Body {
-  #operations: unknown[][] = [];
+  readonly #operations: unknown[][] = [];
 
   /** The body items collected so far. */
   get operations(): readonly unknown[][] {
@@ -639,13 +646,16 @@ export class Body {
   }
 }
 
+/** One name, or several. */
+type Names = string | readonly string[];
+
 interface MemberOptions {
   type?: string | undefined;
   multiplicity?: string | undefined;
   value?: string | undefined;
-  specializes?: string | readonly string[] | undefined;
+  specializes?: Names | undefined;
   abstract?: boolean | undefined;
-  redefines?: string | readonly string[] | undefined;
+  redefines?: Names | undefined;
   default?: boolean | undefined;
   direction?: string | undefined;
   metadata?: string | readonly string[] | undefined;
@@ -712,7 +722,7 @@ function ownerId(owner: unknown): string {
 export class Editor {
   readonly #modelHash: string;
   readonly #apply: (modelHash: string, operations: readonly EditOperationData[]) => Promise<EditResult>;
-  #operations: unknown[][] = [];
+  readonly #operations: unknown[][] = [];
   #applied = false;
 
   constructor(
@@ -1949,9 +1959,8 @@ function addSequenceMessage(add: AddSequenceEdit, operationData: unknown, depth 
   const record = fields as Record<string, unknown>;
   const unknown = Object.keys(record).filter((key) => !SEQUENCE_DETAIL_FIELDS.has(key));
   if (unknown.length > 0) {
-    throw new RangeError(
-      `malformed add_sequence operation: unknown fields ${unknown.sort(byCodeUnit).join(", ")}`,
-    );
+    unknown.sort(byCodeUnit);
+    throw new RangeError(`malformed add_sequence operation: unknown fields ${unknown.join(", ")}`);
   }
   for (const [key, value] of Object.entries(record)) {
     if (key === "body" || key === "else_body") {

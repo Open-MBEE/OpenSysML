@@ -38,18 +38,16 @@ public record BridgeResult(
   }
 
   public static BridgeResult from(Map<String, Object> flat) {
-    List<Outcome> outcomes = new ArrayList<>();
-    for (Map<String, String> row : rows(flat, "outcomes")) {
-      outcomes.add(new Outcome(
-          required(row, "label"), required(row, "detail"), required(row, "status"),
-          Optional.ofNullable(row.get("elementId"))));
-    }
-    List<Diagnostic> diagnostics = new ArrayList<>();
-    for (Map<String, String> row : rows(flat, "diagnostics")) {
-      diagnostics.add(new Diagnostic(
-          required(row, "severity"), required(row, "code"), required(row, "message"),
-          Optional.ofNullable(row.get("location"))));
-    }
+    List<Outcome> outcomes = rows(flat, "outcomes").stream()
+        .map(row -> new Outcome(
+            required(row, "label"), required(row, "detail"), required(row, "status"),
+            Optional.ofNullable(row.get("elementId"))))
+        .toList();
+    List<Diagnostic> diagnostics = rows(flat, "diagnostics").stream()
+        .map(row -> new Diagnostic(
+            required(row, "severity"), required(row, "code"), required(row, "message"),
+            Optional.ofNullable(row.get("location"))))
+        .toList();
     List<String> schedule = new ArrayList<>();
     Object steps = flat.get("schedule");
     if (steps instanceof List<?> list) {

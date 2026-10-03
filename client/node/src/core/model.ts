@@ -127,14 +127,34 @@ function multiplicityBound(bound: string): number | undefined {
 /** Builds a Multiplicity whose predicates mirror Python's. */
 function multiplicityOf(lower: string, upper: string): Multiplicity {
   const lowerBound = lower === "" ? undefined : multiplicityBound(lower);
-  const upperBound = upper === "" ? undefined : upper === "*" ? Number.POSITIVE_INFINITY : multiplicityBound(upper);
   return {
     lower,
     upper,
-    isOptional: lower === "" || lowerBound === undefined ? undefined : lowerBound === 0,
-    isCollection:
-      upper === "" ? undefined : upper === "*" ? true : upperBound === undefined ? undefined : upperBound > 1,
+    isOptional: lowerBound === undefined ? undefined : lowerBound === 0,
+    isCollection: isCollectionUpper(upper),
   };
+}
+
+/** Whether an upper bound admits more than one: unknown for none, or one that is not a number. */
+function isCollectionUpper(upper: string): boolean | undefined {
+  if (upper === "") {
+    return undefined;
+  }
+  if (upper === "*") {
+    return true;
+  }
+  const bound = multiplicityBound(upper);
+  return bound === undefined ? undefined : bound > 1;
+}
+
+/** The symbols of one level of a model, then those of the levels below it. */
+async function* walkLevels(level: ModelSymbol[]): AsyncGenerator<ModelSymbol> {
+  if (level.length === 0) {
+    return;
+  }
+  yield* level;
+  const children = await Promise.all(level.map((symbol) => symbol.children()));
+  yield* walkLevels(children.flat());
 }
 
 /** A model the service has parsed and holds under its hash. */
@@ -580,15 +600,7 @@ export class Model {
 
   /** Every symbol of the model, breadth-first from the root. */
   async *walk(): AsyncGenerator<ModelSymbol> {
-    const queue: ModelSymbol[] = [...this.rootSymbols];
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (current === undefined) {
-        break;
-      }
-      yield current;
-      queue.push(...(await current.children()));
-    }
+    yield* walkLevels([...this.rootSymbols]);
   }
 
   /** Instantiates a part or usage, by short name, FQN or id. */
@@ -745,14 +757,18 @@ export class ModelSymbol {
 
   /** The symbols this one owns, fetched one call each. */
   async children(): Promise<ModelSymbol[]> {
-    const children: ModelSymbol[] = [];
-    for (const id of this.childIds) {
-      const response = await callRpc(
-        this.connection.rpc.getSymbol(
-          { modelHash: this.modelHash, symbolId: id },
-          this.connection.callOptions(),
+    const responses = await Promise.all(
+      this.childIds.map((id) =>
+        callRpc(
+          this.connection.rpc.getSymbol(
+            { modelHash: this.modelHash, symbolId: id },
+            this.connection.callOptions(),
+          ),
         ),
-      );
+      ),
+    );
+    const children: ModelSymbol[] = [];
+    for (const response of responses) {
       if (response.symbol !== undefined) {
         children.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
       }

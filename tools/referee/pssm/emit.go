@@ -659,7 +659,7 @@ func (w *indentWriter) Block(header string, body func()) {
 
 func (w *indentWriter) Raw(text string) { w.b.WriteString(text) }
 
-func (w *indentWriter) MadeUp(string) {}
+func (w *indentWriter) MadeUp(string) {} // raw text has no made-up names to record
 
 // startEntry returns a single region's initial transition, if it has one.
 func (e *emitter) startEntry(inner string, region *Region, where string) (*entryStart, error) {
