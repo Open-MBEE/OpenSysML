@@ -183,9 +183,7 @@ export interface SymbolTree {
 export async function collectDefinitions(...roots: readonly SymbolTree[]): Promise<Definition[]> {
   const definitions: Definition[] = [];
   const factsById = new Map<string, FeatureFacts>();
-  for (const root of roots) {
-    await collect(root, definitions, factsById);
-  }
+  await Promise.all(roots.map((root) => collect(root, definitions, factsById)));
   const resolved = definitions.map((definition) => withInheritedFacts(definition, factsById));
   resolved.sort((left, right) => left.id.localeCompare(right.id));
   return resolved;
@@ -225,9 +223,7 @@ async function collect(
       }),
     );
   }
-  for (const child of children) {
-    await collect(child, out, factsById);
-  }
+  await Promise.all(children.map((child) => collect(child, out, factsById)));
 }
 
 function withInheritedFacts(
@@ -542,8 +538,7 @@ export function renderModule(
   const plan = basePlan(definitions);
   const linearizations = plan.linearizations;
   for (const definition of dependencyOrder(definitions)) {
-    lines.push("", "");
-    lines.push(...renderClass(definition, names, plan.plan.get(definition.id), linearizations, definitions));
+    lines.push("", "", ...renderClass(definition, names, plan.plan.get(definition.id), linearizations, definitions));
   }
   lines.push("");
   return lines.join("\n");
@@ -707,8 +702,7 @@ function renderClass(
   }
 
   for (const feature of [...definition.features, ...inheritedFeatures.values()]) {
-    lines.push("");
-    lines.push(...renderGetter(feature, names));
+    lines.push("", ...renderGetter(feature, names));
   }
   lines.push("}");
   return lines;

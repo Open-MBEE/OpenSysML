@@ -1488,7 +1488,7 @@ impl Model {
         let mut summary = errors
             .iter()
             .take(3)
-            .map(|d| d.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join("; ");
         if errors.len() > 3 {

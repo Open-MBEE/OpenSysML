@@ -67,10 +67,12 @@ import {
   FailureReason,
   SysMLService,
   type Diagnostic as PbDiagnostic,
+  type EditOperation,
   type ExecuteActionResponse,
   type ExecuteStateResponse,
   type Instance as PbInstance,
   type Outcome as PbOutcome,
+  type Query,
   type RunAnalysisResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
@@ -142,7 +144,6 @@ import {
   type EditOperationData,
   type EditResult,
 } from "./edit.js";
-import type { EditOperation } from "../generated/sysml_pb.js";
 
 /** Wire encoding of the request and response bodies. Protobuf is the default. */
 export type Encoding = "protobuf" | "json";
@@ -403,12 +404,10 @@ export class Connection {
     const experimental =
       response.experimental ||
       isExperimental(response.fromFormat, response.toFormat);
-    const notice =
-      response.experimentalNotice !== ""
-        ? response.experimentalNotice
-        : experimental
-          ? EXPERIMENTAL_NOTICE
-          : "";
+    let notice = response.experimentalNotice;
+    if (notice === "" && experimental) {
+      notice = EXPERIMENTAL_NOTICE;
+    }
     if (experimental) {
       // Warned before the error is raised: a refusal is the mapping's
       // experimental behavior, not a reason to say nothing about it.
@@ -538,15 +537,7 @@ export class Connection {
         create(QueryRequestSchema, {
           modelHash,
           oslcQuery: options.oslc ?? "",
-          // An OSLC-only request sends just oslcQuery (the two are mutually
-          // exclusive); every other request sends a Query, empty when nothing
-          // was asked for, which answers every element. An empty oslc is no
-          // OSLC at all, so a structured ask beside it still sends its Query.
-          ...(options.query !== undefined
-            ? { query: options.query }
-            : options.oslc === undefined || options.oslc === ""
-              ? { query: buildQuery(options) }
-              : {}),
+          ...queryField(options),
         }),
         this.callOptions(),
       ),
@@ -1496,4 +1487,20 @@ function outcomeOf(pb: PbOutcome): Outcome {
     witness: pb.witness,
     diagnostics: pb.diagnostics.map(decodeDiagnostic),
   });
+}
+
+/**
+ * The Query a request sends. An OSLC-only request sends just oslcQuery (the
+ * two are mutually exclusive); every other request sends a Query, empty when
+ * nothing was asked for, which answers every element. An empty oslc is no
+ * OSLC at all, so a structured ask beside it still sends its Query.
+ */
+function queryField(options: { payload?: QueryPayload } & QueryForm): { query?: Query } {
+  if (options.query !== undefined) {
+    return { query: options.query };
+  }
+  if (options.oslc === undefined || options.oslc === "") {
+    return { query: buildQuery(options) };
+  }
+  return {};
 }

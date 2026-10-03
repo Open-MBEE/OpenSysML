@@ -64,6 +64,17 @@ func (l *oclLowering) refuse(n *oclNode, why string) error {
 	return &oclRefusal{why: strconv.Quote(n.text) + " " + why}
 }
 
+// The phrases a refusal is built from.
+const (
+	ofA             = " of a "
+	noV2Feature     = ", which no v2 feature stands for"
+	chainingFeature = ".chainingFeature->"
+)
+
+func readsProperty(prop string) string { return "reads " + strconv.Quote(prop) }
+
+func appliesOp(name string) string { return "applies " + strconv.Quote(name) }
+
 // oclMetaclasses are the v2 metaclasses a cell declares its row and lambda
 // variables as, by the v1 metaclass the expression reads them as, most
 // specific first; a connector end is a feature of the connection in v2.
@@ -398,7 +409,7 @@ func (l *oclLowering) hasStereotype(n *oclNode, v oclValue) (oclValue, error) {
 	if def := l.m.stereotypeNamed(v.tag); def != nil && l.m.written(def) {
 		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + stringLiteral(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
-	return oclValue{}, l.refuse(n, "tests for «"+v.tag+"», which no v2 feature stands for")
+	return oclValue{}, l.refuse(n, "tests for «"+v.tag+"»"+noV2Feature)
 }
 
 // stereotypeNamed finds the user stereotype of that name the archive bundles.
@@ -433,25 +444,25 @@ func (l *oclLowering) navigate(n *oclNode, src oclValue, prop string) (oclValue,
 		case "classifier":
 			return oclValue{symbol: oclStereotypes, host: src.host}, nil
 		}
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of a stereotype instance; only its slots and classifiers are read")
+		return oclValue{}, l.refuse(n, readsProperty(prop)+" of a stereotype instance; only its slots and classifiers are read")
 	case oclSlots:
 		if prop == "value" && src.tag != "" {
 			return oclValue{symbol: oclSlotValue, host: src.host, tag: src.tag}, nil
 		}
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of slots; only the value of slots selected by definingFeature.name is read")
+		return oclValue{}, l.refuse(n, readsProperty(prop)+" of slots; only the value of slots selected by definingFeature.name is read")
 	case oclSlotValue:
 		if prop == "element" || prop == "instance" {
 			return l.tagValue(n, src.host, src.tag)
 		}
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of a slot value; only element and instance are read")
+		return oclValue{}, l.refuse(n, readsProperty(prop)+" of a slot value; only element and instance are read")
 	case oclStereotypes, oclStereotypeCount:
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of stereotypes, which the v2 model carries as features")
+		return oclValue{}, l.refuse(n, readsProperty(prop)+" of stereotypes, which the v2 model carries as features")
 	}
 	if prop == "appliedStereotypeInstance" {
 		return oclValue{symbol: oclStereotypeInst, host: &src}, nil
 	}
 	if src.kind == "String" || src.kind == "Integer" || src.kind == "Boolean" {
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of a "+src.kind)
+		return oclValue{}, l.refuse(n, readsProperty(prop)+ofA+src.kind)
 	}
 	if src.kind == "EnumerationLiteral" && prop == "name" {
 		// An enumeration literal's name is the string the v2 feature holds.
@@ -469,9 +480,9 @@ func (l *oclLowering) navigate(n *oclNode, src oclValue, prop string) (oclValue,
 		}
 	}
 	if src.kind == "" {
-		return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+", which no v2 feature stands for")
+		return oclValue{}, l.refuse(n, readsProperty(prop)+noV2Feature)
 	}
-	return oclValue{}, l.refuse(n, "reads "+strconv.Quote(prop)+" of a "+src.kind+", which no v2 feature stands for")
+	return oclValue{}, l.refuse(n, readsProperty(prop)+ofA+src.kind+noV2Feature)
 }
 
 // conforms tells whether elements of kind may be read as meta: they are one,
@@ -502,7 +513,7 @@ func (l *oclLowering) feature(n *oclNode, src oclValue, nav oclNavigation) (oclV
 		})
 		return oclValue{text: text, kind: nav.result}, nil
 	case "role":
-		text := l.each(src, nav.meta, func(e string) string { return e + ".chainingFeature->" + l.function("last") + "()" })
+		text := l.each(src, nav.meta, func(e string) string { return e + chainingFeature + l.function("last") + "()" })
 		return oclValue{text: text, kind: nav.result, single: src.single}, nil
 	case "partWithPort":
 		text := l.each(src, nav.meta, func(e string) string {
@@ -510,17 +521,17 @@ func (l *oclLowering) feature(n *oclNode, src oclValue, nav oclNavigation) (oclV
 		})
 		return oclValue{text: text, kind: nav.result, single: src.single}, nil
 	}
-	return oclValue{}, l.refuse(n, "reads "+strconv.Quote(nav.prop)+", which no v2 feature stands for")
+	return oclValue{}, l.refuse(n, readsProperty(nav.prop)+noV2Feature)
 }
 
 // tagValue lowers the values of the slot of tag on host.
 func (l *oclLowering) tagValue(n *oclNode, host *oclValue, tag string) (oclValue, error) {
 	nav, ok := oclTags[tag]
 	if !ok {
-		return oclValue{}, l.refuse(n, "reads the tag "+strconv.Quote(tag)+", which no v2 feature stands for")
+		return oclValue{}, l.refuse(n, "reads the tag "+strconv.Quote(tag)+noV2Feature)
 	}
 	if !l.conforms(host.kind, nav.meta) {
-		return oclValue{}, l.refuse(n, "reads the tag "+strconv.Quote(tag)+" of a "+host.kind+", which carries none")
+		return oclValue{}, l.refuse(n, "reads the tag "+strconv.Quote(tag)+ofA+host.kind+", which carries none")
 	}
 	l.need(host.variable, nav.meta)
 	switch tag {
@@ -534,7 +545,7 @@ func (l *oclLowering) tagValue(n *oclNode, host *oclValue, tag string) (oclValue
 // pathText reads the features a connector end e chains through to the one it
 // attaches: the nested connector end's property path.
 func (l *oclLowering) pathText(e string) string {
-	return e + ".chainingFeature->" + l.function("excluding") + "(" + e + ".chainingFeature->" + l.function("last") + "())"
+	return e + chainingFeature + l.function("excluding") + "(" + e + chainingFeature + l.function("last") + "())"
 }
 
 // oclCollectionOps are the argument-free collection operations and their v2
@@ -561,52 +572,17 @@ func (l *oclLowering) call(n *oclNode) (oclValue, error) {
 		return oclValue{}, err
 	}
 	if !n.arrow {
-		switch n.name {
-		case "oclAsType":
-			if len(n.args) != 1 {
-				return oclValue{}, l.refuse(n, "casts without one type")
-			}
-			typ, _, ok := n.args[0].path()
-			if !ok || typ == "self" {
-				return oclValue{}, l.refuse(n, "casts to something other than a type name")
-			}
-			if src.symbol != oclConcrete {
-				// Slot, ElementValue and InstanceValue casts narrow reflection
-				// the v2 model does not spell.
-				return src, nil
-			}
-			if !oclKnownKind(typ) {
-				return oclValue{}, l.refuse(n, "casts to "+typ+", which is not a UML metaclass the lowering knows")
-			}
-			if !l.conforms(src.kind, typ) {
-				return oclValue{}, l.refuse(n, "casts a "+src.kind+" to "+typ+", which it cannot be")
-			}
-			src.kind = typ
-			return src, nil
-		case "oclIsKindOf", "oclIsTypeOf":
-			return oclValue{}, l.refuse(n, "tests a metaclass; the v2 model classifies by its own metaclasses")
-		}
-		return oclValue{}, l.refuse(n, "calls the operation "+strconv.Quote(n.name)+", which has no v2 spelling")
+		return l.dotCall(n, src)
 	}
-	if src.symbol == oclStereotypes && n.name == "size" && len(n.args) == 0 {
-		return oclValue{symbol: oclStereotypeCount, host: src.host, tag: src.tag}, nil
-	}
-	if src.symbol == oclStereotypes && (n.name == "notEmpty" || n.name == "isEmpty") && len(n.args) == 0 {
-		has, err := l.hasStereotype(n, src)
-		if err != nil {
-			return oclValue{}, err
-		}
-		if n.name == "isEmpty" {
-			has.text = "not " + has.text
-		}
-		return has, nil
+	if src.symbol == oclStereotypes {
+		return l.stereotypesCall(n, src)
 	}
 	if src.symbol != oclConcrete {
-		return oclValue{}, l.refuse(n, "applies "+strconv.Quote(n.name)+" to stereotype applications, which the v2 model carries as features")
+		return oclValue{}, l.refuse(n, appliesOp(n.name)+" to stereotype applications, which the v2 model carries as features")
 	}
 	if op, ok := oclCollectionOps[n.name]; ok {
 		if len(n.args) != 0 {
-			return oclValue{}, l.refuse(n, "applies "+strconv.Quote(n.name)+" with arguments")
+			return oclValue{}, l.refuse(n, appliesOp(n.name)+" with arguments")
 		}
 		kind := src.kind
 		if op.kind != "" {
@@ -621,14 +597,14 @@ func (l *oclLowering) call(n *oclNode) (oclValue, error) {
 	switch n.name {
 	case "includes", "excludes", "including", "excluding":
 		if len(n.args) != 1 {
-			return oclValue{}, l.refuse(n, "applies "+strconv.Quote(n.name)+" without one argument")
+			return oclValue{}, l.refuse(n, appliesOp(n.name)+" without one argument")
 		}
 		arg, err := l.lower(n.args[0])
 		if err != nil {
 			return oclValue{}, err
 		}
 		if arg.symbol != oclConcrete {
-			return oclValue{}, l.refuse(n, "applies "+strconv.Quote(n.name)+" to stereotype applications")
+			return oclValue{}, l.refuse(n, appliesOp(n.name)+" to stereotype applications")
 		}
 		kind := src.kind
 		if n.name == "includes" || n.name == "excludes" {
@@ -636,7 +612,59 @@ func (l *oclLowering) call(n *oclNode) (oclValue, error) {
 		}
 		return oclValue{text: src.text + "->" + l.function(n.name) + "(" + arg.text + ")", kind: kind, single: kind == "Boolean"}, nil
 	}
-	return oclValue{}, l.refuse(n, "applies "+strconv.Quote(n.name)+", which is not a collection operation the lowering knows")
+	return oclValue{}, l.refuse(n, appliesOp(n.name)+", which is not a collection operation the lowering knows")
+}
+
+// dotCall lowers an operation called on a value with `.`: only the casts have
+// a v2 reading, and only onto a metaclass the value conforms to.
+func (l *oclLowering) dotCall(n *oclNode, src oclValue) (oclValue, error) {
+	switch n.name {
+	case "oclAsType":
+		if len(n.args) != 1 {
+			return oclValue{}, l.refuse(n, "casts without one type")
+		}
+		typ, _, ok := n.args[0].path()
+		if !ok || typ == "self" {
+			return oclValue{}, l.refuse(n, "casts to something other than a type name")
+		}
+		if src.symbol != oclConcrete {
+			// Slot, ElementValue and InstanceValue casts narrow reflection
+			// the v2 model does not spell.
+			return src, nil
+		}
+		if !oclKnownKind(typ) {
+			return oclValue{}, l.refuse(n, "casts to "+typ+", which is not a UML metaclass the lowering knows")
+		}
+		if !l.conforms(src.kind, typ) {
+			return oclValue{}, l.refuse(n, "casts a "+src.kind+" to "+typ+", which it cannot be")
+		}
+		src.kind = typ
+		return src, nil
+	case "oclIsKindOf", "oclIsTypeOf":
+		return oclValue{}, l.refuse(n, "tests a metaclass; the v2 model classifies by its own metaclasses")
+	}
+	return oclValue{}, l.refuse(n, "calls the operation "+strconv.Quote(n.name)+", which has no v2 spelling")
+}
+
+// stereotypesCall lowers a collection operation on the stereotypes applied to
+// an element: counting them, or testing whether one is applied.
+func (l *oclLowering) stereotypesCall(n *oclNode, src oclValue) (oclValue, error) {
+	if len(n.args) == 0 {
+		switch n.name {
+		case "size":
+			return oclValue{symbol: oclStereotypeCount, host: src.host, tag: src.tag}, nil
+		case "notEmpty", "isEmpty":
+			has, err := l.hasStereotype(n, src)
+			if err != nil {
+				return oclValue{}, err
+			}
+			if n.name == "isEmpty" {
+				has.text = "not " + has.text
+			}
+			return has, nil
+		}
+	}
+	return oclValue{}, l.refuse(n, appliesOp(n.name)+" to stereotype applications, which the v2 model carries as features")
 }
 
 // oclIterators maps the OCL iterators to the v2 sequence functions.

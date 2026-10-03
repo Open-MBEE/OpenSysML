@@ -50,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.TreeSet;
 
 /**
@@ -468,13 +469,9 @@ public final class Model {
   }
 
   private static Set<String> unknownOwners(Map<String, String> owner) {
-    Set<String> unknown = new HashSet<>();
-    for (String id : owner.values()) {
-      if (!id.isEmpty() && !owner.containsKey(id)) {
-        unknown.add(id);
-      }
-    }
-    return unknown;
+    return owner.values().stream()
+        .filter(id -> !id.isEmpty() && !owner.containsKey(id))
+        .collect(Collectors.toSet());
   }
 
   private Optional<Symbol> walkTo(String name) {
@@ -499,17 +496,13 @@ public final class Model {
     while (!queue.isEmpty()) {
       Symbol current = queue.removeFirst();
       for (String childId : current.childIds()) {
-        if (!seen.add(childId)) {
-          continue;
+        Optional<Symbol> child = seen.add(childId) ? findSymbol(childId) : Optional.empty();
+        if (child.isPresent()) {
+          if (stop.test(child.get())) {
+            return;
+          }
+          queue.addLast(child.get());
         }
-        Optional<Symbol> child = findSymbol(childId);
-        if (child.isEmpty()) {
-          continue;
-        }
-        if (stop.test(child.get())) {
-          return;
-        }
-        queue.addLast(child.get());
       }
     }
   }
@@ -1356,7 +1349,7 @@ public final class Model {
       response = applyEdits(request);
     }
     EditResult result = Protos.editResult(response);
-    if (several.isEmpty() || several.get() == result.severalDocuments()) {
+    if (several.isEmpty() || several.get().booleanValue() == result.severalDocuments()) {
       return result;
     }
     return new EditResult(

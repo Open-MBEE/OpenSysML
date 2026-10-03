@@ -170,7 +170,7 @@ func TestW8CMultiplicityBoundEvaluableMustHaveValue(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			msgs := w8cMessages(t, tt.src)
-			if got := w8cCount(msgs, msgMultiplicityBoundNatural); got != tt.want {
+			if w8cCount(msgs, msgMultiplicityBoundNatural) != tt.want {
 				t.Errorf("want %d %q, got %v", tt.want, msgMultiplicityBoundNatural, msgs)
 			}
 		})

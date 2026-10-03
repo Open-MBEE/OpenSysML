@@ -840,7 +840,7 @@ export function fitsInt64(value: bigint): boolean {
 
 /** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
 export function decodeBigInteger(text: string): bigint {
-  if (!/^-?[0-9]+$/.test(text)) {
+  if (!/^-?\d+$/.test(text)) {
     throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
   }
   return BigInt(text);
