@@ -1,0 +1,9 @@
+step 1: token 1@produce
+stmt assign y
+  eval literal 3.0 -> 3.0
+step 2: token 1@split
+eval feature inputObject1 -> 3.0
+eval feature inputObject1 -> 3.0
+step 3: token 2@left, token 3@right
+choice step 4: tokens 2@left, 3@right (unordered; took 3@right first)
+step 4: no active tokens

@@ -1,0 +1,45 @@
+step 1: token 1@split
+step 2: token 2@reader, token 3@gate1
+stmt loop until
+  iteration 1
+    stmt node step
+      stmt action body
+enter action node: step
+choice step 3: tokens 2@reader, 3@gate1 (unordered; took 3@gate1 first)
+step 3: token 2@reader, token 3@gate2, token 4@usage_action
+choice step 4: tokens 2@reader, 3@gate2 (unordered; took 3@gate2 first)
+step 4: token 2@reader, token 3@gate3, token 4@usage_action
+choice step 5: tokens 2@reader, 3@gate3 (unordered; took 3@gate3 first)
+step 5: token 2@reader, token 3@sender, token 4@usage_action
+stmt send
+  eval literal 4 -> 4
+stmt send
+  eval literal 6 -> 6
+        stmt assign total
+            eval feature total -> 0
+            eval feature a -> 4
+          eval operator + -> 4
+leave action node: step
+    stmt assign seen
+      eval feature total -> 4
+      eval feature total -> 4
+      eval literal 10 -> 10
+    eval operator >= -> false
+  iteration 2
+    stmt node step
+      stmt action body
+enter action node: step
+        stmt assign total
+            eval feature total -> 4
+            eval feature a -> 6
+          eval operator + -> 10
+leave action node: step
+    stmt assign seen
+      eval feature total -> 10
+      eval feature total -> 10
+      eval literal 10 -> 10
+    eval operator >= -> true
+choice step 6: tokens 2@reader, 3@sender (unordered; took 3@sender first)
+step 6: token 2@sync, token 3@sync
+step 7: token 6@done
+step 8: no active tokens

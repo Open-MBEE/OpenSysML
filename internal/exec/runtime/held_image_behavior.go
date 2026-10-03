@@ -23,6 +23,7 @@ type imagedBehavior struct {
 	onClock   bool
 	err       error
 	typeBound bool
+	deferred  *classifierBehaviorDecl
 	action    *imagedAction
 	state     *imagedState
 }
@@ -65,6 +66,7 @@ type imagedFrame struct {
 	subactions map[ast.Node]int
 	repeats    map[repetitionGroupID]imagedRepetition
 	pending    map[ast.Node]map[string][]Value
+	held       map[ast.Node]map[string][]nodeObject
 	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
 }
@@ -138,11 +140,15 @@ func (t *imaging) behavior(b *ObjectBehavior) error {
 	img := imagedBehavior{
 		object: b.Object.ID, attached: slices.Index(t.ctx.objectBehaviors, b),
 		member: b.member, binding: b.binding, name: b.Name, kind: b.Kind,
-		err: b.Err, typeBound: b.typeBound,
+		err: b.Err, typeBound: b.typeBound, deferred: b.deferred,
 	}
 	t.declared[b.Symbol] = true
 	for _, bound := range b.bindings {
 		t.declared[bound] = true
+	}
+	if b.deferred != nil {
+		t.img.behaviors = append(t.img.behaviors, img)
+		return nil
 	}
 	var err error
 	switch {
@@ -227,7 +233,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil
+	f.saved.subactions, f.saved.repeats, f.saved.pending, f.saved.held, f.saved.staged, f.saved.nested = nil, nil, nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -270,6 +276,10 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		return imagedFrame{}, err
 	}
 	f.pending = clonePending(perf.pending)
+	if err := t.heldValues(perf.held); err != nil {
+		return imagedFrame{}, err
+	}
+	f.held = cloneHeld(perf.held)
 	f.staged = stagedImaged(perf.staged, at)
 	if err := t.deliveredValues(perf.nested); err != nil {
 		return imagedFrame{}, err
@@ -319,6 +329,20 @@ func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
 		for _, d := range deliveries {
 			if err := t.value(d.value); err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+// heldValues checks every value a control node holds.
+func (t *imaging) heldValues(held map[ast.Node]map[string][]nodeObject) error {
+	for _, pins := range held {
+		for _, objects := range pins {
+			for _, h := range objects {
+				if err := t.value(h.value); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -468,6 +492,21 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	decl, ok := m.declaration(inst, b.member)
 	if !ok {
 		return fmt.Errorf("%w: the type binds no such behavior", ErrImageBound)
+	}
+	if b.deferred != nil {
+		behavior, err := dst.deferredBehaviorFor(inst, decl, b.binding)
+		if err != nil {
+			return err
+		}
+		behavior.Err = b.err
+		behavior.typeBound = b.typeBound
+		behavior.Name = b.name
+		behavior.Kind = b.kind
+		inst.behaviors = append(inst.behaviors, behavior)
+		dst.behaviorsAttached++
+		dst.objectBehaviors = append(dst.objectBehaviors, behavior)
+		dst.workChanged()
+		return nil
 	}
 	behavior, occurrence, err := dst.bindClassifierBehavior(inst, decl)
 	if err != nil {
@@ -641,6 +680,9 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	if err := m.pending(perf, img.pending); err != nil {
 		return err
 	}
+	if err := m.held(perf, img.held); err != nil {
+		return err
+	}
 	perf.staged = stagedMaterialized(img.staged, frameAt)
 	if err := m.nested(perf, img.nested); err != nil {
 		return err
@@ -666,6 +708,29 @@ func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[stri
 			}
 		}
 		perf.pending[node] = carriedPins
+	}
+	return nil
+}
+
+// held fills what perf's control nodes hold from img's.
+func (m *materializing) held(perf *actionFrame, held map[ast.Node]map[string][]nodeObject) error {
+	if held == nil {
+		return nil
+	}
+	perf.held = make(map[ast.Node]map[string][]nodeObject, len(held))
+	for node, pins := range held {
+		carriedPins := make(map[string][]nodeObject, len(pins))
+		for pin, objects := range pins {
+			for _, h := range objects {
+				carried, err := m.value(h.value)
+				if err != nil {
+					return err
+				}
+				h.value = carried
+				carriedPins[pin] = append(carriedPins[pin], h)
+			}
+		}
+		perf.held[node] = carriedPins
 	}
 	return nil
 }

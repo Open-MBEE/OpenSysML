@@ -213,6 +213,9 @@ func heldSame(prior, now Value) bool {
 	case ValTensorQuantity:
 		return tensorQuantityHeldSame(prior.TensorQuantity(), now.TensorQuantity())
 	case ValSequence:
+		if requiredTail(prior) != nil || requiredTail(now) != nil {
+			return sameRequired(prior.Sequence(), now.Sequence()) && elementsHeldSame(prior.Sequence().elements, now.Sequence().elements)
+		}
 		return elementsHeldSame(prior.Sequence().Elements(), now.Sequence().Elements())
 	case ValArray:
 		return valueIdentical(prior, now) && elementsHeldSame(prior.Array().Elements, now.Array().Elements)

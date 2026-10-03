@@ -213,9 +213,12 @@ graph carries, the form carries.
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
   `guard` as `{text, span}`, `else` for the branch taken when no guard holds, `probability` as
   `{text, span}` for the weight a `Stochastic::Probability` annotation puts on a succession
-  leaving a decision, and `decl`, the span of the succession that declares it. An
+  leaving a decision, `decl`, the span of the succession that declares it, and `gate`, the span
+  of the guarded succession `first a if g then f;` when the edge is that succession leading to
+  the succession flow `f` (its `target` is then `f`'s target and `decl` is `f`'s span). An
   `ObjectFlowForm` is `name`, `kind` — `streaming` for a plain `flow`, `succession` for a
-  `succession flow` — `source`, `sourcePin`, `target`, `targetPin` and `decl`.
+  `succession flow` — `source`, `sourcePin`, `target`, `targetPin`, `decl`, and `gate`, the span
+  of the guarded succession leading to the flow, which moves its value only when that guard holds.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
   and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`),
   `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,

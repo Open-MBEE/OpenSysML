@@ -1,0 +1,6 @@
+step 1: token 1@produce
+stmt assign y
+  eval literal 5.0 -> 5.0
+step 2: token 2@left, token 3@right
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
+step 3: no active tokens

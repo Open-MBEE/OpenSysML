@@ -348,7 +348,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
 		"assign y := x * 2;",
-		"flow sense.y to record.v;",
+		"succession flow of ScalarValues::Real from sense.y to record.v;",
 		"assign total := v + 1;",
 		"assign peak := v;",
 		"assign half := OpenSysMLMathFunctions::quotient(ticks, 2);",

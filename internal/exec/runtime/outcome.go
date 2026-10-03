@@ -18,6 +18,9 @@ type Outcome struct {
 	// it belongs to. An action's own `terminate` node completes it instead.
 	Terminated bool
 	Err        error
+	// Scope says how far short of quiescence the run was observed; no part of
+	// the outcome's identity.
+	Scope []ObservationReason
 	// ctx is the run's context, where the objects the outputs hold live.
 	ctx *Context
 }
@@ -215,6 +218,12 @@ func (s *objectSpeller) value(v Value, depth int) string {
 	case ValSequence:
 		if v.Sequence() == nil {
 			return "[]"
+		}
+		if seq := requiredTail(v); seq != nil {
+			if len(seq.elements) == 0 {
+				return "[" + formatRequired(seq) + "]"
+			}
+			return "[" + s.elements(seq.elements, depth) + ", " + formatRequired(seq) + "]"
 		}
 		return "[" + s.elements(v.Sequence().Elements(), depth) + "]"
 	case ValSet:

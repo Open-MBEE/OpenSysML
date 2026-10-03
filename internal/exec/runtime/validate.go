@@ -389,7 +389,12 @@ func (w *validationWalk) heldChildren(fv *FeatureValue, segment string) []heldCh
 	switch fv.Values.Kind {
 	case ValSequence:
 		if fv.Values.Sequence() != nil {
-			elements = fv.Values.Sequence().Elements()
+			held, cut, err := w.ctx.heldUpTo(fv.Values, w.budget+1)
+			if err != nil {
+				w.unread = append(w.unread, fmt.Errorf("%s: %w", segment, err))
+			}
+			w.bounded = w.bounded || cut
+			elements = held
 		}
 	case ValSet:
 		if fv.Values.Set() != nil {

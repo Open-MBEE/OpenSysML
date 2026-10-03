@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -545,7 +546,11 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 		if err != nil {
 			return err
 		}
-		values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+		held, err := ctx.HeldElements(sub.HeldValue())
+		if err != nil {
+			return err
+		}
+		values, seen = appendUniqueInstances(values, held, seen)
 		return nil
 	})
 	if err != nil {
@@ -567,7 +572,11 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 			return err
 		}
 		if !open.Stopped {
-			values, seen = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
+			held, err := ctx.HeldElements(sub.HeldValue())
+			if err != nil {
+				return err
+			}
+			values, seen = appendUniqueInstances(values, held, seen)
 			return nil
 		}
 		values = append(values, open.Contributed...)
@@ -675,6 +684,29 @@ func (ctx *Context) materializeSubsettedCollections(inst *Instance, fv *FeatureV
 	return nil
 }
 
+// subsetterRoom is how many objects the optional subsetters fillOptionalSubsetters fills
+// could still take for the collection name: math.MaxInt64 when one takes any number.
+func (ctx *Context) subsetterRoom(inst *Instance, name string) int64 {
+	var room int64
+	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+		if !ctx.fillsFromSubsetted(&feat) {
+			continue
+		}
+		upper := feat.Multiplicity.Upper
+		if !upper.Known || upper.Infinite {
+			return math.MaxInt64
+		}
+		heldValue := inst.FeatureValues[feat.Name].HeldValue()
+		if spare := upper.Value - elementCount(&heldValue); spare > 0 {
+			if room > math.MaxInt64-spare {
+				return math.MaxInt64
+			}
+			room += spare
+		}
+	}
+	return room
+}
+
 // fillOptionalSubsetters makes up to n objects for the optional features subsetting the named
 // collection, in declaration order and within their upper bounds; undo puts every filled feature
 // back, as does the journal under way (see noteProbeWrite).
@@ -698,15 +730,18 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 			continue
 		}
 		fv := inst.FeatureValues[feat.Name]
-		held := elementsOf(fv.HeldValue())
 		spare := n
 		if upper := feat.Multiplicity.Upper; upper.Known && !upper.Infinite {
-			if spare = int(upper.Value) - len(held); spare > n {
+			if spare = int(upper.Value - ElementCount(fv.HeldValue())); spare > n {
 				spare = n
 			}
 		}
 		if spare <= 0 {
 			continue
+		}
+		held, err := ctx.HeldElements(fv.HeldValue())
+		if err != nil {
+			return made, undo, err
 		}
 		composite := ctx.CompositeTypeOf(&feat)
 		for i := 0; i < spare; i++ {

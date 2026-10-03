@@ -27,7 +27,11 @@ func (r Result) Standing() string {
 	if r.Claim.Universal() && r.Strength >= Bounded && r.Question.Free != FreeNothing {
 		strength += " over " + over(r.Question.Free)
 	}
-	return fmt.Sprintf("%s (%s: %s)", r.Claim, strength, r.evidence())
+	evidence := r.evidence()
+	for _, scope := range r.Scope {
+		evidence += "; " + string(scope)
+	}
+	return fmt.Sprintf("%s (%s: %s)", r.Claim, strength, evidence)
 }
 
 // evidence is what earned the strength: the executions made, the witness, and every bound reached.

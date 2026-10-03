@@ -152,7 +152,7 @@ func (r *Replayed) FinalValue(feature string) (string, error) {
 	if err := c.divergeReached(); err != nil {
 		return "", err
 	}
-	values, _, _ := c.spellFinal()
+	values, _, _, _ := c.spellFinal()
 	value, held := values[c.divergenceKey(feature)]
 	if !held {
 		return "", &UnknownCheckFeatureError{Name: feature, Reason: "the run left no value under it"}

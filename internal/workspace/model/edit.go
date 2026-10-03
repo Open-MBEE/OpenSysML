@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // EditResult is what ApplyEdit computed: the edited document first, then every
@@ -69,7 +70,7 @@ func (w *Workspace) ApplyEdit(name string, ops []edit.Operation, read []*Documen
 	}
 	ei := w.editIndexLocked(name)
 	m := edit.Model{
-		Source:     doc.sf,
+		Source:     editSource(doc.sf),
 		Root:       doc.AST,
 		Index:      w.index,
 		ParseDiags: doc.ParseDiagnostics,
@@ -245,4 +246,13 @@ func (w *Workspace) addDocumentsLocked(idx *symbols.Index, except string) map[st
 		}
 	}
 	return standIns
+}
+
+// editSource is the file an edit writes in: a buffer named with no model
+// extension is SysML, as the parser reads it.
+func editSource(sf *source.SourceFile) *source.SourceFile {
+	if sf.Kind() != source.KindUnknown {
+		return sf
+	}
+	return source.NewWithKind(sf.Name(), sf.Bytes(), source.KindSysML)
 }

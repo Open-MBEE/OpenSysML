@@ -1,4 +1,4 @@
-step 1: token 1@*ast.IfActionNode
+step 1: token 1@if
 stmt if
     eval feature x -> 0
     eval literal 0 -> 0

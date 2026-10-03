@@ -1,0 +1,996 @@
+package runtime
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	checkpasses "github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+)
+
+func TestRuntimeRobustnessNamespaceSuccession(t *testing.T) {
+	t.Run("cycle", testNamespaceSuccessionCycle)
+	t.Run("explicit_start_violation", testNamespaceSuccessionExplicitStartViolation)
+	t.Run("completed_later_before_earlier", testNamespaceSuccessionCompletedLaterBeforeEarlier)
+	t.Run("action_performance_violation", testNamespaceSuccessionActionPerformanceViolation)
+	t.Run("release_during_clock_advance", testNamespaceSuccessionClockRelease)
+	t.Run("clock_advance_runs_released_successor", testNamespaceSuccessionAdvanceRunsReleasedSuccessor)
+	t.Run("anything_uses_each_package_head", testNamespaceSuccessionAnythingPaths)
+	t.Run("missing_predecessor", testNamespaceSuccessionMissingPredecessor)
+	t.Run("multiple_predecessors", testNamespaceSuccessionMultiplePredecessors)
+	t.Run("multiple_later_end_performances", testNamespaceSuccessionMultipleLaterPerformances)
+	t.Run("redefined_behavior", testNamespaceSuccessionRedefinedBehavior)
+	t.Run("destroyed_predecessor", testNamespaceSuccessionDestroyedPredecessor)
+	t.Run("snapshot_and_held_image", testNamespaceSuccessionSnapshotAndImage)
+	t.Run("state_speller_dependencies", testNamespaceSuccessionStateSpeller)
+	t.Run("explore_unrelated_interleavings", testNamespaceSuccessionExploreInterleavings)
+	t.Run("no_common_feature_type_has_no_note", testNamespaceSuccessionNoCommonFeatureTypeHasNoNote)
+	t.Run("behavior_type_message_has_no_note", testNamespaceSuccessionMessageHasNoNote)
+	t.Run("already_running_later_start_is_noop", testNamespaceSuccessionAlreadyRunningLaterStartIsNoop)
+	t.Run("explicit_earlier_without_later_is_silent", testNamespaceSuccessionExplicitEarlierWithoutLater)
+	t.Run("explicit_state_starts_observe_succession", testNamespaceSuccessionExplicitStateStart)
+	t.Run("destroyed_exhibitor_state_executor_reuse_is_refused", testNamespaceSuccessionDestroyedExhibitorStateExecutorReuse)
+	t.Run("instance_lists_sorted", testNamespaceSuccessionInstanceListsSorted)
+	t.Run("event_and_performed_action_note", testNamespaceSuccessionEventAndPerformedActionNote)
+	t.Run("check_runtime_refusal_agreement", testNamespaceSuccessionRefusalAgreement)
+}
+
+func TestAdvanceUntilHaltsBetweenReleasedSuccessors(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Holder {
+			attribute a : Integer = 0;
+			attribute b : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then done;
+			}
+			perform action laterA {
+				first start;
+				then action write { assign a := 1; }
+				then done;
+			}
+			perform action laterB {
+				first start;
+				then action write { assign b := 1; }
+				then done;
+			}
+			first earlier then laterA;
+			first earlier then laterB;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	report, err := ctx.AdvanceUntil(1, func() bool {
+		return featureInt(t, ctx, holder, "a") == 1
+	})
+	if err != nil {
+		t.Fatalf("AdvanceUntil: %v", err)
+	}
+	if report.To != 1 {
+		t.Fatalf("AdvanceUntil reached t=%v, want t=1", report.To)
+	}
+	if a, b := featureInt(t, ctx, holder, "a"), featureInt(t, ctx, holder, "b"); a != 1 || b != 0 {
+		t.Fatalf("successor effects after halt = a:%d b:%d, want a:1 b:0", a, b)
+	}
+	if _, err := ctx.Advance(0); err != nil {
+		t.Fatalf("Advance(0) after halt: %v", err)
+	}
+	if a, b := featureInt(t, ctx, holder, "a"), featureInt(t, ctx, holder, "b"); a != 1 || b != 1 {
+		t.Errorf("successor effects after resuming clock = a:%d b:%d, want a:1 b:1", a, b)
+	}
+}
+
+func TestAdvanceReportCountsReleasedSuccessorSteps(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Holder {
+			attribute n : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then done;
+			}
+			perform action later {
+				first start;
+				then action one { assign n := n + 1; }
+				then action two { assign n := n + 1; }
+				then action three { assign n := n + 1; }
+				then done;
+			}
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	report, err := ctx.Advance(1)
+	if err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if report.Steps < 3 {
+		t.Errorf("Advance report steps = %d, want at least the three released successor steps", report.Steps)
+	}
+	if got := featureInt(t, ctx, holder, "n"); got != 3 {
+		t.Errorf("released successor n = %d, want 3", got)
+	}
+}
+
+func testNamespaceSuccessionCycle(t *testing.T) {
+	src := `package test {
+		part def Ring {
+			perform action a { action stepA; }
+			perform action b { action stepB; }
+			first a then b;
+			first b then a;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	_, err := ctx.Instantiate(oneSymbol(t, idx, "test::Ring"))
+	requireSuccessionError(t, err, ErrSuccessionOrderCycle, successionOrderCycleCode)
+}
+
+func testNamespaceSuccessionExplicitStartViolation(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Holder {
+			perform action earlier {
+				first start;
+				then action wait accept after 10 [s];
+				then done;
+			}
+			action later;
+			first earlier then later;
+		}
+		action def Kick {
+			first start;
+			action make { out result : Holder = new Holder(); }
+			action kick { in target : Holder; perform target.later.start; }
+			flow make.result to kick.target;
+			first start then make;
+			first make then kick;
+			first kick then done;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Kick"))
+	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+}
+
+func testNamespaceSuccessionCompletedLaterBeforeEarlier(t *testing.T) {
+	src := `package test {
+		part def Holder {
+			action earlier { first start; then done; }
+			action later { first start; then done; }
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	later := oneSymbol(t, idx, "test::Holder::later")
+	if err := ctx.startBehaviorOn(inst, later); err != nil {
+		t.Fatalf("start later: %v", err)
+	}
+	if behavior := behaviorNamed(t, inst, "later"); !ctx.behaviorPerformanceBegun(behavior) || !ctx.behaviorPerformanceEnded(behavior) {
+		t.Fatalf("later performance is not completed: %s", behavior.Describe())
+	}
+	err = ctx.startBehaviorOn(inst, oneSymbol(t, idx, "test::Holder::earlier"))
+	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+}
+
+func testNamespaceSuccessionAlreadyRunningLaterStartIsNoop(t *testing.T) {
+	ctx, inst := instantiateTimedSuccession(t)
+	held := behaviorNamed(t, inst, "later")
+	ctx.forgetBehaviors([]*ObjectBehavior{held})
+	decl, typ, ok := ctx.startableBehaviorOf(inst, held.member)
+	if !ok {
+		t.Fatal("later is not startable")
+	}
+	ctx.attachBehavior(inst, decl.member)
+	running, err := ctx.attachClassifierBehavior(inst, decl)
+	ctx.behaviorAttached(inst, decl.member)
+	if err != nil {
+		t.Fatalf("attach running later: %v", err)
+	}
+	running.typeBound = true
+	for i, candidate := range ctx.classifierBehaviorsOf(typ) {
+		if candidate.member == decl.member {
+			running.binding = i
+			break
+		}
+	}
+	inst.behaviors = append(inst.behaviors, running)
+	ctx.objectBehaviors = append(ctx.objectBehaviors, running)
+	ctx.pendingBehaviors = append(ctx.pendingBehaviors, running)
+	if !ctx.behaviorPerformanceRunning(running) {
+		t.Fatal("later performance has not begun")
+	}
+	if err := ctx.startBehaviorOn(inst, decl.member); err != nil {
+		t.Fatalf("re-start already-running later: %v", err)
+	}
+	if !ctx.behaviorPerformanceRunning(running) {
+		t.Error("later performance stopped after its no-op explicit start")
+	}
+}
+
+func testNamespaceSuccessionExplicitStateStart(t *testing.T) {
+	src := `package test {
+		attribute def Wake;
+		state def Earlier {
+			entry; then waiting;
+			state waiting;
+			transition first waiting accept Wake then done;
+		}
+		state def Later {
+			entry; then done;
+		}
+		part def Holder {
+			exhibit state earlier : Earlier;
+			exhibit state later : Later;
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	earlier := behaviorNamed(t, inst, "earlier")
+	later := behaviorNamed(t, inst, "later")
+	if earlier.State == nil || !ctx.behaviorPerformanceRunning(earlier) {
+		t.Fatal("earlier exhibit is not running while it awaits Wake")
+	}
+	if later.deferred == nil {
+		t.Fatal("later exhibit was not held while earlier awaits Wake")
+	}
+	laterSymbol := oneSymbol(t, idx, "test::Later")
+	_, err = ctx.CreateStateExecutorFor(laterSymbol, inst)
+	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	_, _, err = ctx.ExecuteStatePerformedBy(laterSymbol, inst, nil)
+	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	if later.deferred == nil || later.State != nil {
+		t.Fatal("rejected explicit starts changed the held exhibit")
+	}
+
+	earlier.State.SendSignal("Wake", nil)
+	if err := earlier.State.RunToCompletion(); err != nil {
+		t.Fatalf("complete earlier exhibit: %v", err)
+	}
+	if !ctx.behaviorPerformanceEnded(earlier) {
+		t.Fatal("earlier exhibit did not end after Wake")
+	}
+	state, err := ctx.CreateStateExecutorFor(laterSymbol, inst)
+	if err != nil {
+		t.Fatalf("create a fresh executor for later: %v", err)
+	}
+	if state == nil || later.State != nil || later.deferred == nil {
+		t.Fatal("explicit start changed the held later exhibit")
+	}
+	state.Release()
+	if _, _, err := ctx.ExecuteStatePerformedBy(laterSymbol, inst, nil); err != nil {
+		t.Fatalf("perform and release the held later exhibit: %v", err)
+	}
+	if later.State == nil || later.deferred != nil {
+		t.Fatal("performState did not release the held later exhibit")
+	}
+	count := 0
+	for _, behavior := range inst.behaviors {
+		if behavior.Member() == later.Member() {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("later exhibit bindings = %d, want one reused exhibit", count)
+	}
+}
+
+func testNamespaceSuccessionExplicitEarlierWithoutLater(t *testing.T) {
+	src := `package test {
+		part def Holder {
+			action earlier { first start; then done; }
+			action later { first start; then done; }
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	earlier := oneSymbol(t, idx, "test::Holder::earlier")
+	orders := ctx.behaviorOrdersFor(earlier, inst, false)
+	if len(orders) != 1 {
+		t.Fatalf("orders for earlier = %d, want one", len(orders))
+	}
+	featuring := ctx.behaviorOrderMatches(inst, earlier, orders[0], orders[0].Earlier)
+	if len(featuring) != 1 {
+		t.Fatalf("featuring instances for earlier = %d, want one", len(featuring))
+	}
+	if count := ctx.behaviorOrderEndPerformanceCount(orders[0], orders[0].Later, featuring[0], nil, nil); count != 0 {
+		t.Fatalf("later-end performances before explicit start = %d, want zero", count)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(earlier, inst, nil); err != nil {
+		t.Fatalf("explicitly start earlier without a later performance: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(SuccessionOrdersNothing); ok {
+			t.Errorf("notes = %v, want no succession-orders-nothing note", ctx.Notes())
+			break
+		}
+	}
+}
+
+func testNamespaceSuccessionDestroyedExhibitorStateExecutorReuse(t *testing.T) {
+	src := `package test {
+		state def Machine {
+			entry; then ready;
+			state ready;
+		}
+		part def Exhibitor { exhibit state modes : Machine; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	exhibitor, err := ctx.Instantiate(oneSymbol(t, idx, "test::Exhibitor"))
+	if err != nil {
+		t.Fatalf("instantiate Exhibitor: %v", err)
+	}
+	machine := oneSymbol(t, idx, "test::Machine")
+	behavior, err := exhibitedBy(machine, exhibitor)
+	if err != nil {
+		t.Fatalf("find exhibited state: %v", err)
+	}
+	if behavior == nil || behavior.State == nil {
+		t.Fatal("Exhibitor has no running state executor to reuse")
+	}
+	if err := ctx.destroy(exhibitor); err != nil {
+		t.Fatalf("destroy Exhibitor: %v", err)
+	}
+	if _, err := ctx.CreateStateExecutorFor(machine, exhibitor); !errors.Is(err, ErrOccurrenceDestroyed) {
+		t.Fatalf("CreateStateExecutorFor on destroyed exhibitor = %v, want ErrOccurrenceDestroyed", err)
+	}
+}
+
+func testNamespaceSuccessionInstanceListsSorted(t *testing.T) {
+	src := `package test {
+		part def Inner {
+			action earlier;
+			action later;
+			first earlier then later;
+		}
+		part def Holder { part children[3] : Inner; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	if _, err := holder.GetFeatureValue(ctx, "children"); err != nil {
+		t.Fatalf("materialize Holder children: %v", err)
+	}
+	inner := oneSymbol(t, idx, "test::Inner")
+	var orderFound bool
+	for _, order := range ctx.behaviorOrders() {
+		if order.Featuring != inner {
+			continue
+		}
+		orderFound = true
+		featuring := ctx.orderFeaturingInstances(order, order.Earlier)
+		if len(featuring) != 3 {
+			t.Fatalf("orderFeaturingInstances returned %d instances, want 3", len(featuring))
+		}
+		assertInstancesSortedByID(t, featuring)
+		break
+	}
+	if !orderFound {
+		t.Fatal("no behavior order features Inner")
+	}
+	children := holder.FeatureValues["children"]
+	if children == nil || children.Feature == nil {
+		t.Fatal("Holder has no children feature value")
+	}
+	children.Value, children.Values = Value{}, Value{}
+	instances := ctx.orderFeatureValues(holder, children.Feature.Symbol)
+	if len(instances) != 3 {
+		t.Fatalf("orderFeatureValues returned %d children, want 3", len(instances))
+	}
+	assertInstancesSortedByID(t, instances)
+}
+
+func assertInstancesSortedByID(t *testing.T, instances []*Instance) {
+	t.Helper()
+	for i := 1; i < len(instances); i++ {
+		if instances[i-1].ID > instances[i].ID {
+			t.Fatalf("instances are not sorted by ID: #%d precedes #%d", instances[i-1].ID, instances[i].ID)
+		}
+	}
+}
+
+func testNamespaceSuccessionActionPerformanceViolation(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Holder {
+			perform action earlier { action wait accept after 10 [s]; }
+			action later { action step; }
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	later := oneSymbol(t, idx, "test::Holder::later")
+	_, err = ctx.CreateActionExecutorFor(later, holder)
+	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+}
+
+func testNamespaceSuccessionClockRelease(t *testing.T) {
+	ctx, inst := instantiateTimedSuccession(t)
+	late := behaviorNamed(t, inst, "later")
+	if late.deferred == nil {
+		t.Fatal("later started before its predecessor ended")
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	if late.deferred != nil || late.Action == nil || !late.Action.State().Ended() {
+		t.Errorf("later = %+v, want a released, completed action", late)
+	}
+	value, err := inst.GetFeatureValue(ctx, "n")
+	if err != nil {
+		t.Fatalf("read n: %v", err)
+	}
+	if got := FormatValue(value.HeldValue()); got != "10" {
+		t.Errorf("n = %s, want 10 after earlier then later", got)
+	}
+}
+
+func testNamespaceSuccessionAdvanceRunsReleasedSuccessor(t *testing.T) {
+	ctx, inst := instantiateTimedSuccession(t)
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	if got := featureInt(t, ctx, inst, "n"); got != 10 {
+		t.Errorf("n = %d immediately after Advance, want 10 after earlier sets 1 then later multiplies by 10", got)
+	}
+}
+
+func testNamespaceSuccessionAnythingPaths(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Bot {
+			attribute n : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then action bump { assign n := n + 1; }
+				then done;
+			}
+			perform action later {
+				first start;
+				then action multiply { assign n := n * 10; }
+				then done;
+			}
+		}
+		part b : Bot;
+		part c : Bot;
+		first b.earlier then c.later;
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	if _, err := ctx.Instantiate(oneSymbol(t, idx, "test::b")); err != nil {
+		t.Fatalf("instantiate b: %v", err)
+	}
+	c, err := ctx.Instantiate(oneSymbol(t, idx, "test::c"))
+	if err != nil {
+		t.Fatalf("instantiate c: %v", err)
+	}
+	later := behaviorNamed(t, c, "later")
+	if later.deferred == nil {
+		t.Fatal("c.later started before the predecessor on package-level b")
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	if later.deferred != nil {
+		t.Error("c.later remains held after b.earlier ended")
+	}
+}
+
+func testNamespaceSuccessionMissingPredecessor(t *testing.T) {
+	src := `package test {
+		part def Holder {
+			action earlier;
+			perform action later { action step; }
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "missing-predecessor.sysml", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	if later := behaviorNamed(t, inst, "later"); later.deferred != nil {
+		t.Error("later remains held without an earlier performance")
+	}
+	if !hasSuccessionNothingNote(ctx.Notes(), "no earlier-end performance") {
+		t.Errorf("notes = %v, want a succession-orders-nothing note for the missing predecessor", ctx.Notes())
+	}
+	for _, note := range ctx.Notes() {
+		finding, ok := note.(SuccessionOrdersNothing)
+		if !ok || !strings.Contains(finding.Reason, "no earlier-end performance") {
+			continue
+		}
+		if file, span := finding.Location(); file != "missing-predecessor.sysml" || span.Len == 0 {
+			t.Errorf("Location() = %q, %+v; want the fixture filename and declaration span", file, span)
+		}
+		return
+	}
+	t.Fatal("no missing-predecessor note has a source location")
+}
+
+func testNamespaceSuccessionMultiplePredecessors(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Arm {
+			perform action earlier { action wait accept after 10 [s]; }
+			perform action later { action step; }
+		}
+		part def Holder {
+			part left[2] : Arm;
+			part right : Arm;
+			first left.earlier then right.later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	right := childByFeature(t, ctx, inst, "right")
+	later := behaviorNamed(t, right, "later")
+	if !ctx.deferredBehaviorReady(later) {
+		t.Fatal("later remains held when multiple predecessor performances make pairing ambiguous")
+	}
+	if err := ctx.runAttachedBehaviors(); err != nil {
+		t.Fatalf("run released behaviors: %v", err)
+	}
+	if !hasSuccessionNothingNote(ctx.Notes(), "2 earlier-end performances") {
+		t.Errorf("notes = %v, want a succession-orders-nothing note for multiple predecessors", ctx.Notes())
+	}
+}
+
+func testNamespaceSuccessionMultipleLaterPerformances(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Arm {
+			perform action earlier { action wait accept after 10 [s]; }
+			perform action later { action step; }
+		}
+		part def Holder {
+			part left : Arm;
+			part right[2] : Arm;
+			first left.earlier then right.later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	notes := ctx.Notes()
+	if _, err := inst.GetFeatureValue(ctx, "right"); err != nil {
+		t.Fatalf("materialize right: %v", err)
+	}
+	var rights []*Instance
+	for _, candidate := range ctx.instances {
+		owner, feature := candidate.Owner()
+		if owner == inst && feature == "right" {
+			rights = append(rights, candidate)
+		}
+	}
+	if len(rights) != 2 {
+		t.Fatalf("right instances = %d, want 2", len(rights))
+	}
+	for _, right := range rights {
+		if later := behaviorNamed(t, right, "later"); later.deferred != nil {
+			t.Errorf("right.later remains held on object #%d", right.ID)
+		}
+	}
+	later := behaviorNamed(t, rights[0], "later")
+	if err := ctx.checkSuccessionOrderViolation(rights[0], later.member); err != nil {
+		t.Fatalf("explicit later start with ambiguous pairing: %v", err)
+	}
+	var findings []SuccessionOrdersNothing
+	for _, note := range notes {
+		if finding, ok := note.(SuccessionOrdersNothing); ok &&
+			strings.Contains(finding.Reason, "later-end performances") {
+			findings = append(findings, finding)
+		}
+	}
+	if len(findings) != 1 || !strings.Contains(findings[0].Reason, "2 later-end performances") ||
+		!strings.Contains(findings[0].Reason, "pairing is open under KERML-29") {
+		t.Fatalf("succession-orders-nothing findings = %+v, want one note for the two ambiguous later-end performances", findings)
+	}
+}
+
+func testNamespaceSuccessionRedefinedBehavior(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Base {
+			perform action earlier { action wait accept after 10 [s]; }
+			perform action later { action original; }
+			first earlier then later;
+		}
+		part def Derived :> Base {
+			perform action :>> later { action replacement; }
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Derived"))
+	if err != nil {
+		t.Fatalf("instantiate Derived: %v", err)
+	}
+	later := behaviorNamed(t, inst, "later")
+	if later.deferred == nil {
+		t.Fatal("redefined later behavior was not held")
+	}
+	if orders := ctx.behaviorOrdersFor(later.member, inst, true); len(orders) != 1 {
+		t.Errorf("orders for redefined later behavior = %d, want 1", len(orders))
+	}
+}
+
+func testNamespaceSuccessionDestroyedPredecessor(t *testing.T) {
+	src := `package test {
+		private import SI::*;
+		part def Arm {
+			perform action earlier { action wait accept after 100 [s]; }
+			perform action later { action step; }
+		}
+		part def Robot {
+			part left : Arm;
+			part right : Arm;
+			first left.earlier then right.later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	robot, err := ctx.Instantiate(oneSymbol(t, idx, "test::Robot"))
+	if err != nil {
+		t.Fatalf("instantiate Robot: %v", err)
+	}
+	left := childByFeature(t, ctx, robot, "left")
+	right := childByFeature(t, ctx, robot, "right")
+	if late := behaviorNamed(t, right, "later"); late.deferred == nil {
+		t.Fatal("later started before the predecessor object ended")
+	}
+	if err := ctx.destroy(left); err != nil {
+		t.Fatalf("destroy predecessor object: %v", err)
+	}
+	if err := ctx.runAttachedBehaviors(); err != nil {
+		t.Fatalf("run released behaviors: %v", err)
+	}
+	if late := behaviorNamed(t, right, "later"); late.deferred != nil {
+		t.Error("later remains held after its predecessor object was destroyed")
+	}
+}
+
+func testNamespaceSuccessionSnapshotAndImage(t *testing.T) {
+	ctx, inst := instantiateTimedSuccession(t)
+	late := behaviorNamed(t, inst, "later")
+	if late.deferred == nil {
+		t.Fatal("later started before the snapshot")
+	}
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	if late.deferred != nil || late.Action == nil || !late.Action.State().Ended() {
+		t.Fatal("later was not released and completed by Advance")
+	}
+	snapshot.Restore()
+	if late = behaviorNamed(t, inst, "later"); late.deferred == nil {
+		t.Fatal("snapshot restore did not return later to its held state")
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance restored clock: %v", err)
+	}
+	if late = behaviorNamed(t, inst, "later"); late.deferred != nil {
+		t.Error("later remains held after the restored predecessor ended")
+	}
+
+	releasedCtx, releasedInst := instantiateTimedSuccession(t)
+	if _, err := releasedCtx.Advance(1); err != nil {
+		t.Fatalf("advance for released snapshot: %v", err)
+	}
+	if late := behaviorNamed(t, releasedInst, "later"); late.deferred != nil {
+		t.Fatal("Advance did not release the later behavior before snapshot")
+	}
+	releasedSnapshot, err := releasedCtx.Snapshot()
+	if err != nil {
+		t.Fatalf("snapshot released behavior: %v", err)
+	}
+	releasedSnapshot.Restore()
+	if released := behaviorNamed(t, releasedInst, "later"); released.deferred != nil {
+		t.Error("released snapshot restore returned later to its held state")
+	}
+
+	source, original := instantiateTimedSuccession(t)
+	img, err := source.Image(original)
+	if err != nil {
+		t.Fatalf("image held object: %v", err)
+	}
+	destination := NewContext(source.Model(), 10000)
+	if err := img.Materialize(destination); err != nil {
+		t.Fatalf("materialize held image: %v", err)
+	}
+	copy, ok := destination.Instance(original.ID)
+	if !ok {
+		t.Fatalf("held image omitted root object #%d", original.ID)
+	}
+	if held := behaviorNamed(t, copy, "later"); held.deferred == nil {
+		t.Fatal("held image round trip did not preserve the deferred behavior")
+	}
+	if _, err := destination.Advance(1); err != nil {
+		t.Fatalf("advance imaged clock: %v", err)
+	}
+	if held := behaviorNamed(t, copy, "later"); held.deferred != nil {
+		t.Error("imaged later behavior remains held after its predecessor ended")
+	}
+}
+
+func testNamespaceSuccessionStateSpeller(t *testing.T) {
+	ctx, inst := instantiateTimedSuccession(t)
+	earlier := behaviorNamed(t, inst, "earlier")
+	before := (&Invocation{Actions: []*ActionExecutor{earlier.Action}}).canonicalState(nil).text
+	if !strings.Contains(before, "held behavior") || !strings.Contains(before, "waits for") {
+		t.Fatalf("held state spelling omits its dependency: %s", before)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	after := (&Invocation{Actions: []*ActionExecutor{earlier.Action}}).canonicalState(nil).text
+	if before == after {
+		t.Error("state spelling is unchanged after the dependency was released")
+	}
+}
+
+func testNamespaceSuccessionExploreInterleavings(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Trio {
+			attribute log : String = "";
+			perform action a {
+				first start;
+				then action wait accept after 1 [s];
+				then action write { assign log := log + "a"; }
+				then done;
+			}
+			perform action b {
+				first start;
+				then action wait accept after 1 [s];
+				then action write { assign log := log + "b"; }
+				then done;
+			}
+			perform action c {
+				first start;
+				then action write { assign log := log + "c"; }
+				then done;
+			}
+			first a then c;
+		}
+	}`
+	m := parseLibraryModel(t, src)
+	trio := oneSymbol(t, m.idx, "test::Trio")
+	exploration, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		inst, err := ctx.Instantiate(trio)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			return Outcome{}, err
+		}
+		value, err := inst.GetFeatureValue(ctx, "log")
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(map[string]Value{"log": value.HeldValue()}), nil
+	})
+	if err != nil {
+		t.Fatalf("explore: %v", err)
+	}
+	if !exploration.Complete() || exploration.Runs < 2 {
+		t.Fatalf("exploration = %s with %d runs, want all due-order interleavings", exploration.Status(), exploration.Runs)
+	}
+	got := make(map[string]bool)
+	for _, outcome := range exploration.Outcomes {
+		got[FormatValue(outcome.Outcome.Outputs["log"])] = true
+	}
+	if !got[`"abc"`] || !got[`"bac"`] {
+		t.Errorf("explored logs = %v, want both a/b orders with c after a", got)
+	}
+}
+
+func testNamespaceSuccessionNoCommonFeatureTypeHasNoNote(t *testing.T) {
+	src := `package test {
+		part p1 { action a; }
+		part p2 { action b; }
+		first p1::a then p2::b;
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	if _, err := ctx.Instantiate(oneSymbol(t, idx, "test::p1")); err != nil {
+		t.Fatalf("instantiate p1: %v", err)
+	}
+	if hasSuccessionNothingNote(ctx.Notes(), "no common featuring type") {
+		t.Fatalf("runtime notes = %v, want no note without a featuring object", ctx.Notes())
+	}
+}
+
+func testNamespaceSuccessionMessageHasNoNote(t *testing.T) {
+	src := `package test {
+		part def Holder {
+			message message;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	if _, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder")); err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	if got := ctx.Notes(); hasSuccessionNothingNote(got, "does not bind an object behavior performance") {
+		t.Fatalf("runtime notes = %v, want no succession-orders-nothing note", got)
+	}
+}
+
+func testNamespaceSuccessionEventAndPerformedActionNote(t *testing.T) {
+	src := `package test {
+		part def Sequenced {
+			event occurrence event;
+			perform action grip;
+			first event then grip;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Sequenced"))
+	if err != nil {
+		t.Fatalf("instantiate Sequenced: %v", err)
+	}
+	ctx.noteRefusedBehaviorOrders(inst)
+	notes := ctx.Notes()
+	count := 0
+	for _, note := range notes {
+		if finding, ok := note.(SuccessionOrdersNothing); ok &&
+			strings.Contains(finding.Reason, "event is a occurrence usage") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("runtime notes = %v, want a succession-orders-nothing note", ctx.Notes())
+	}
+}
+
+func testNamespaceSuccessionRefusalAgreement(t *testing.T) {
+	src := `package Sequenced {
+		part part1 {
+			attribute n : ScalarValues::Integer := 0;
+			perform action action1 {
+				first start;
+				then action increment { assign n := n + 1; }
+				then done;
+			}
+		}
+		requirement requirement1;
+		first part1::action1 then requirement1;
+	}`
+	root := parseAndBuild(t, src)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "namespace-succession.sysml", root)
+	diagnostics := checkpasses.Analyze("namespace-succession.sysml", root, nil, idx)
+	var checked *diag.Diagnostic
+	for i := range diagnostics {
+		if diagnostics[i].Code == successionOrdersNothingCode {
+			checked = &diagnostics[i]
+			break
+		}
+	}
+	if checked == nil {
+		t.Fatalf("check diagnostics = %v, want %s", diagnostics, successionOrdersNothingCode)
+	}
+	if _, err := ctx.Instantiate(oneSymbol(t, idx, "Sequenced::part1")); err != nil {
+		t.Fatalf("instantiate part1: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if runtimeNote, ok := note.(SuccessionOrdersNothing); ok {
+			if runtimeNote.Reason != checked.Message {
+				t.Errorf("runtime reason %q differs from check reason %q", runtimeNote.Reason, checked.Message)
+			}
+			if file, span := runtimeNote.Location(); file != "namespace-succession.sysml" || span.Len == 0 {
+				t.Errorf("Location() = %q, %+v; want the fixture filename and declaration span", file, span)
+			}
+			return
+		}
+	}
+	t.Fatalf("runtime notes = %v, want %s", ctx.Notes(), successionOrdersNothingCode)
+}
+
+func instantiateTimedSuccession(t *testing.T) (*Context, *Instance) {
+	t.Helper()
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Timed {
+			attribute n : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then action bump { assign n := 1; }
+				then done;
+			}
+			perform action later {
+				first start;
+				then action multiply { assign n := n * 10; }
+				then done;
+			}
+			first earlier then later;
+		}
+	}`
+	ctx, inst, err := instantiateWithLibraries(t, src, "test::Timed")
+	if err != nil {
+		t.Fatalf("instantiate Timed: %v", err)
+	}
+	return ctx, inst
+}
+
+func behaviorNamed(t *testing.T, inst *Instance, name string) *ObjectBehavior {
+	t.Helper()
+	behavior, ok := inst.Behavior(name)
+	if !ok {
+		t.Fatalf("object #%d has no %s behavior", inst.ID, name)
+	}
+	return behavior
+}
+
+func childByFeature(t *testing.T, ctx *Context, parent *Instance, name string) *Instance {
+	t.Helper()
+	for _, candidate := range ctx.instances {
+		owner, feature := candidate.Owner()
+		if owner == parent && feature == name {
+			return candidate
+		}
+	}
+	t.Fatalf("object #%d has no child feature %s", parent.ID, name)
+	return nil
+}
+
+func requireSuccessionError(t *testing.T, err, sentinel error, code string) {
+	t.Helper()
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("error = %v, want %v", err, sentinel)
+	}
+	var orderErr *SuccessionOrderError
+	if !errors.As(err, &orderErr) || orderErr.Code != code {
+		t.Fatalf("error = %v, want SuccessionOrderError code %s", err, code)
+	}
+}
+
+func hasSuccessionNothingNote(notes []RunNote, fragment string) bool {
+	for _, note := range notes {
+		if finding, ok := note.(SuccessionOrdersNothing); ok && strings.Contains(finding.Reason, fragment) {
+			return true
+		}
+	}
+	return false
+}
