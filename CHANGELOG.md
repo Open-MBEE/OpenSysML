@@ -7,6 +7,10 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+### Added
+
+- **Set a model's values from CSV, TSV, JSON and JSON Lines files.** `-import <file> -convert sysml -o <out>` and `%import <file>` set each value a row names — a declared feature's value in place, an inherited one by a redefinition in the element, reached through its parts (`Fleet::car1::engine`) and aliases — with units checked against the feature's dimension and the whole file refused when any row does not fit. `-import-map` (a JSON mapping file) and `-import-format` qualify the `-import` before them, and `-import-dry-run` previews. [`examples/data-import-demo`](examples/data-import-demo/README.md) imports a Python script's output into a rover model.
+
 ## 0.9.1 — 2026-09-26
 
 ### Added
