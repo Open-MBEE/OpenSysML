@@ -268,6 +268,9 @@ func (e *StateExecutor) dispatchMoves(d dueDispatch, stepOrder bool) []enabledMo
 	if !d.due {
 		return nil
 	}
+	if d.fails != nil {
+		return []enabledMove{{Owner: e, Kind: moveDispatch, Label: d.label, Fails: d.fails}}
+	}
 	events, label := d.tied, d.label
 	if stepOrder {
 		events, label = d.among, d.step

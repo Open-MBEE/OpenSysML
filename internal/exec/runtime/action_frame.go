@@ -44,7 +44,12 @@ func (e *performances) statementOrder(graph *lower.ActionGraph, node ast.Node, s
 	key := &stmts[0]
 	order, known := e.orders[key]
 	if !known {
-		order = lower.BodyStatementOrder(graph, node, stmts)
+		if graph != nil {
+			order = graph.StatementOrders[node]
+		}
+		if order == nil {
+			order = lower.BodyStatementOrder(graph, node, stmts)
+		}
 		if e.orders == nil {
 			e.orders = make(map[*lower.Statement]*lower.StatementOrder)
 		}

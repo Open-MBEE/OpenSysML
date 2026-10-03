@@ -746,6 +746,7 @@ func (e *ActionExecutor) canProceed(perf *actionFrame) bool {
 // changeWaitHolds reports a token of perf's flow (the action's for nil) parked at
 // an accept whose condition holds now; one the step cannot evaluate counts, so the step reports it.
 func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
+	defer e.ctx.beginProbe()()
 	for i := range e.tokens {
 		token := &e.tokens[i]
 		if token.Wait == nil || token.Wait.Timed || token.Wait.Trigger == "" || !token.inFlowOf(perf) {
@@ -1798,15 +1799,17 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 // guardHolds evaluates the guard a succession out of node carries; a succession
 // carrying none is unconditional.
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
-	result, err := guardResult(ec, guard)
-	if err != nil {
-		return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
-	}
-	if !result.isBool() {
-		return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
-			ErrTypeMismatch, nodeDescription(node), result.Kind)
-	}
-	return result.Const.Bool, nil
+	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
+		result, err := guardResult(ec, guard)
+		if err != nil {
+			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
+		}
+		if !result.isBool() {
+			return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
+				ErrTypeMismatch, nodeDescription(node), result.Kind)
+		}
+		return result.Const.Bool, nil
+	})
 }
 
 // guardResult is what a guard evaluates to; no guard is true.
@@ -1821,21 +1824,34 @@ func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
 // node whose branch is already decided, as a probe the context undoes whole: the
 // read reports a choice and leaves the run as it was. A guard with no result is
 // noted and not selected.
-func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) bool {
-	result, err := func() (Value, error) {
+func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) (bool, error) {
+	guard := successors[i].Guard
+	scope := e.graphOf(frame).Scope
+	var holds bool
+	var err error
+	func() {
 		defer e.ctx.beginProbe()()
-		ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
-		defer ec.beginStep()()
-		return guardResult(ec, successors[i].Guard)
+		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
+			ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+			defer ec.beginStep()()
+			result, err := guardResult(ec, guard)
+			if err != nil {
+				return false, err
+			}
+			if !result.isBool() {
+				return false, fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+			}
+			return result.Const.Bool, nil
+		})
 	}()
-	if err == nil && !result.isBool() {
-		err = fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
-	}
 	if err != nil {
+		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+			return false, err
+		}
 		e.noteUnevaluableGuard(frame, node, successors, i, err)
-		return false
+		return false, nil
 	}
-	return result.Const.Bool
+	return holds, nil
 }
 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
@@ -2209,7 +2225,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 
 		var holds bool
 		if len(holding) > 0 {
-			holds = e.probeGuard(token.frame, decisionNode, successors, i)
+			var err error
+			if holds, err = e.probeGuard(token.frame, decisionNode, successors, i); err != nil {
+				return err
+			}
 		} else {
 			var err error
 			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
@@ -2385,7 +2404,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 // node until the trigger is ready.
 func (e *ActionExecutor) awaitTrigger(token *Token, accept lower.Accept) (bool, error) {
 	ready, err := e.triggerReady(token, accept)
-	if ready || err != nil {
+	if _, change := accept.Trigger.(*ast.ChangeEvent); !change {
 		ready, err = e.triggerHolds(token, accept)
 	}
 	if err != nil {
@@ -2506,13 +2525,11 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	return nil
 }
 
-// triggerReady probes a change event's condition first: a test finding it not
-// holding is no move and leaves no trace. A time event parks visibly, so it is not probed.
+// triggerReady reports whether a change event's condition currently holds.
 func (e *ActionExecutor) triggerReady(token *Token, accept lower.Accept) (bool, error) {
 	if _, changes := accept.Trigger.(*ast.ChangeEvent); !changes {
 		return true, nil
 	}
-	defer e.ctx.beginProbe()()
 	return e.triggerHolds(token, accept)
 }
 
@@ -2527,14 +2544,16 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 	case *ast.ChangeEvent:
 		ec := e.evalContextFor(frame, frame.graph.Scope)
 		defer ec.beginStep()()
-		result, err := ec.Eval(t.Condition)
-		if err != nil {
-			return false, fmt.Errorf("eval accept condition: %w", err)
-		}
-		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-			return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
-		}
-		return result.Const.Bool, nil
+		return e.ctx.guardUnderStatementOrders(t.Condition, e.stepCount+1, frame.graph.Scope, func() (bool, error) {
+			result, err := ec.Eval(t.Condition)
+			if err != nil {
+				return false, fmt.Errorf("eval accept condition: %w", err)
+			}
+			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+				return false, fmt.Errorf("%w: accept when: condition must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+			}
+			return result.Const.Bool, nil
+		})
 	case *ast.TimeEvent:
 		if token.Wait != nil && token.Wait.Timed {
 			return e.ctx.clock.now >= token.Wait.Due, nil

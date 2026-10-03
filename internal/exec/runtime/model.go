@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"sort"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -83,7 +84,8 @@ type Model struct {
 
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
-	constraintSteps map[ast.Node]lower.Statement
+	constraintSteps  map[ast.Node]lower.Statement
+	constraintBodies sync.Map
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.

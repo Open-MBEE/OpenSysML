@@ -305,6 +305,10 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
+		if errors.Is(p.outcome.Err, ErrStatementOrderSweepLimit) &&
+			!slices.Contains(q.result.BudgetsHit, BoundStatementOrders) {
+			q.result.BudgetsHit = append(q.result.BudgetsHit, BoundStatementOrders)
+		}
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -14,9 +15,12 @@ import (
 // constrained object's features, a send, a performed action, a terminate —
 // and the stated flow a verdict orders by declaration instead.
 type constraintStmtHost struct {
-	ctx   *Context
-	self  *Instance
-	scope *symbols.Scope
+	ctx     *Context
+	self    *Instance
+	scope   *symbols.Scope
+	steps   *BodySteps
+	orders  sync.Map
+	indexed sync.Once
 }
 
 // describe names the host in a diagnostic.
@@ -102,9 +106,16 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
 			h.describe(), nodeDescription(node))
 	}
+	var nestedSteps []lower.Statement
+	var nestedOrder *lower.StatementOrder
 	if sub, owns := graph.Subflows[node]; owns && sub != nil {
-		return flowNext, fmt.Errorf("%w: %s: the flow %s states of its own in a body is not executable",
-			ErrStatementNotExecutable, h.describe(), nodeDescription(node))
+		var simple bool
+		nestedSteps, simple = sub.Graph.StatementList()
+		if !simple {
+			return flowNext, fmt.Errorf("%w: %s: the flow %s states of its own in a body is not executable",
+				ErrStatementNotExecutable, h.describe(), nodeDescription(node))
+		}
+		nestedOrder = graph.StatementOrders[node]
 	}
 	engine.env.enter()
 	defer engine.env.leave()
@@ -120,12 +131,20 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		}
 		engine.env.declare(feature.Name, value)
 	}
+	if nestedSteps != nil {
+		return engine.runWithOrder(nestedSteps, nestedOrder)
+	}
 	return engine.run(graph.Bodies[node])
 }
 
 // runBlockFlow refuses the flow a loop or branch body states: a verdict orders
 // its steps by declaration, not by the successions stated.
 func (h *constraintStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	if block.Stated {
+		if steps, ok := block.Graph.StatementList(); ok {
+			return engine.runWithOrder(steps, block.Order)
+		}
+	}
 	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a constraint is not executable",
 		ErrStatementNotExecutable, h.describe())
 }
@@ -153,13 +172,21 @@ func (h *constraintStmtHost) materializeOccurrence() (*Instance, error) { return
 // the constrained object, the caller's bindings, or an enclosing frame. It
 // answers the frame the steps left, which the body's conditions read innermost.
 func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame) (frame, error) {
+	if ctx.statementOrderGuard && steps != nil {
+		for _, write := range steps.Footprint.Writes {
+			if !write.Local {
+				return frame{}, fmt.Errorf("%w: verdict of %s: constraint body may write %s outside its performance",
+					ErrOrderDependentGuardEffect, ctx.statementOrderGuardLabel, write.String())
+			}
+		}
+	}
 	data := frame{vars: make(map[string]Value), unvalued: make(map[string]bool)}
 	enclosing := make([]frame, 0, len(frames)+1)
 	enclosing = append(enclosing, frames...)
 	if bindings.vars != nil {
 		enclosing = append(enclosing, bindings)
 	}
-	host := &constraintStmtHost{ctx: ctx, self: self, scope: steps.Scope}
+	host := &constraintStmtHost{ctx: ctx, self: self, scope: steps.Scope, steps: steps}
 	_, err := ctx.runStatements(func() *stmtEngine {
 		engine := newStmtEngineIn(ctx, host, data, enclosing)
 		engine.features = features
@@ -170,3 +197,84 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 	}
 	return data, nil
 }
+
+// statementOrder returns the lowered order when scheduling or precedence needs it.
+func (h *constraintStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if h.steps != nil {
+		h.indexed.Do(func() {
+			if len(h.steps.Stmts) > 0 && h.steps.Order != nil {
+				h.orders.Store(&h.steps.Stmts[0], h.steps.Order)
+			}
+			indexConstraintStatementOrders(&h.orders, h.steps.Stmts)
+		})
+	}
+	if len(stmts) < 2 {
+		return nil
+	}
+	key := &stmts[0]
+	if order, ok := h.orders.Load(key); ok {
+		order := order.(*lower.StatementOrder)
+		if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+			return order
+		}
+		return nil
+	}
+	order := lower.ConstraintBodyStatementOrder(h.scope, stmts)
+	actual, _ := h.orders.LoadOrStore(key, order)
+	order = actual.(*lower.StatementOrder)
+	if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+		return order
+	}
+	return nil
+}
+
+func indexConstraintStatementOrders(orders *sync.Map, stmts []lower.Statement) {
+	for _, stmt := range stmts {
+		switch nested := stmt.(type) {
+		case lower.If:
+			indexConstraintBlockOrder(orders, nested.Then)
+			if nested.Else != nil {
+				indexConstraintBlockOrder(orders, *nested.Else)
+			}
+		case lower.Loop:
+			indexConstraintBlockOrder(orders, nested.Body)
+		case lower.Block:
+			indexConstraintBlockOrder(orders, nested)
+		}
+	}
+}
+
+func indexConstraintBlockOrder(orders *sync.Map, block lower.Block) {
+	if len(block.Statements) > 0 && block.Order != nil {
+		orders.Store(&block.Statements[0], block.Order)
+	}
+	if block.Graph != nil {
+		indexConstraintGraphOrders(orders, block.Graph)
+	}
+	indexConstraintStatementOrders(orders, block.Statements)
+}
+
+func indexConstraintGraphOrders(orders *sync.Map, graph *lower.ActionGraph) {
+	if graph == nil {
+		return
+	}
+	for node, order := range graph.StatementOrders {
+		stmts := graph.Bodies[node]
+		if order != nil {
+			orders.Store(node, order)
+		}
+		if len(stmts) > 0 && order != nil {
+			orders.Store(&stmts[0], order)
+		}
+		indexConstraintStatementOrders(orders, stmts)
+	}
+	for _, subflow := range graph.Subflows {
+		if subflow != nil {
+			indexConstraintGraphOrders(orders, subflow.Graph)
+		}
+	}
+}
+
+func (h *constraintStmtHost) orderStep() int { return h.ctx.enclosingExecutorStep() }
+
+func (h *constraintStmtHost) yieldsBetweenStatements() bool { return false }

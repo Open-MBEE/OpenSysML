@@ -195,6 +195,14 @@ type Context struct {
 
 	// probes is the number of probes under way; see beginProbe.
 	probes int
+	// statementOrderSweep resolves statement-order choices locally while a probe
+	// enumerates the orders it can observe.
+	statementOrderSweep       *statementOrderSweep
+	statementOrderGuard       bool
+	statementOrderGuardLabel  string
+	statementOrderGuardBodies map[string]bool
+	invocationOrderMemo       *invocationOrderMemo
+	orderAnalysis             map[*symbols.Symbol]*bodyOrderAnalysis
 	// journals is the number of probes and transactions under way: while one is,
 	// every change is journaled for it to undo; see beginJournal.
 	journals int

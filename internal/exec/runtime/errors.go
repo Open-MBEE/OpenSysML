@@ -342,6 +342,14 @@ var (
 	// performed action, a terminate — which a verdict does not perform.
 	ErrConstraintEffect = errors.New("effect outside the constraint performance")
 
+	// ErrOrderDependentPreview is returned when a guard's verdict varies by
+	// statement order inside a preview, where a scheduler choice cannot be made.
+	ErrOrderDependentPreview = errors.New("order-dependent guard in a preview")
+
+	// ErrOrderDependentGuardEffect is returned when a swept guard constraint may
+	// write a feature outside its own performance.
+	ErrOrderDependentGuardEffect = errors.New("order-dependent guard may write outside its constraint performance")
+
 	// ErrUnboundSubject is returned when a condition reads a subject nothing
 	// supplied: the check is about no object, so it reaches no verdict.
 	ErrUnboundSubject = errors.New("subject is unbound")

@@ -7,7 +7,7 @@ package test {
 	constraint ordered {
 		attribute y : Integer = 1;
 		assign y := y * 10;
-		assign y := y + 2;
+		then assign y := y + 2;
 		y == 12
 	}
 }

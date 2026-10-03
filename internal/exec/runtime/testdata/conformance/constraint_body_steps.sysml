@@ -10,7 +10,7 @@ package test {
 		in xs : Integer[*];
 		attribute total : Integer = 0;
 		attribute i : Integer = 0;
-		while i < size(xs) { assign total := total + xs#(i + 1); assign i := i + 1; }
+		while i < size(xs) { assign total := total + xs#(i + 1); then assign i := i + 1; }
 		total > 3
 	}
 
@@ -30,7 +30,7 @@ package test {
 		// z names a local of the performance, not the part's feature it shadows.
 		constraint shadowed { attribute z : Real = 0; assign z := 5; z > 3 }
 		// Declaration order decides: (1 * 10) + 2 == 12, not 1 * 10 + 2's reverse.
-		constraint ordered { attribute y : Integer = 1; assign y := y * 10; assign y := y + 2; y == 12 }
+		constraint ordered { attribute y : Integer = 1; assign y := y * 10; then assign y := y + 2; y == 12 }
 		constraint deep : Deeper { in xs = (5, 0); }
 		// A nested body's steps read the outer body's locals but cannot write them.
 		constraint outerRead { attribute x : Integer = 0; assign x := 5; assert constraint { if x == 5 { } x == 5 } }

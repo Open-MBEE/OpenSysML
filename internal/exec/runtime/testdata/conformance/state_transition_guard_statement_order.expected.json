@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"evaluate": "test::TransitionGuard",
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{"finalState": "accepted", "stateVisits": ["start", "accepted"], "outputs": {}},
+		{"finalState": "start", "stateVisits": ["start"], "outputs": {}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

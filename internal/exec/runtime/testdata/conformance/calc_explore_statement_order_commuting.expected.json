@@ -1,0 +1,5 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {"r": {"type": "Integer", "value": 5}}
+}

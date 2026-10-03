@@ -57,12 +57,33 @@ type Condition struct {
 }
 
 // BodySteps is the statements one constraint body performs before its
-// conditions are evaluated — lowered in declaration order, with the body scope
-// for spans and the resolution of names the statements' own scopes do not reach.
+// conditions are evaluated, with the body scope for spans and name resolution.
 type BodySteps struct {
-	Stmts []lower.Statement
-	Scope *symbols.Scope
-	Node  ast.Node // first statement, for spans
+	Stmts     []lower.Statement
+	Scope     *symbols.Scope
+	Node      ast.Node // first statement, for spans
+	Order     *lower.StatementOrder
+	Footprint lower.Footprint
+}
+
+type constraintBodyKey struct {
+	node  ast.Node
+	scope *symbols.Scope
+}
+
+func (ctx *Context) constraintBodySteps(stmts []lower.Statement, members []ast.Node, scope *symbols.Scope, node ast.Node) *BodySteps {
+	body := &BodySteps{Scope: scope, Node: node}
+	body.Stmts, body.Order = lower.ConstraintBodyWithOrder(scope, members, stmts)
+	body.Footprint = lower.ConstraintBodyFootprint(scope, body.Stmts)
+	if node == nil {
+		return body
+	}
+	key := constraintBodyKey{node: node, scope: scope}
+	if cached, ok := ctx.model.constraintBodies.Load(key); ok {
+		return cached.(*BodySteps)
+	}
+	cached, _ := ctx.model.constraintBodies.LoadOrStore(key, body)
+	return cached.(*BodySteps)
 }
 
 // Label renders the condition as written, negation and grouping included.
@@ -138,6 +159,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 		}
 	}
 	var steps []lower.Statement
+	var stepMembers []ast.Node
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
@@ -155,6 +177,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 					stepNode, stepScope = member.node, member.scope
 				}
 				steps = append(steps, stmt)
+				stepMembers = append(stepMembers, member.node)
 				continue
 			}
 		}
@@ -163,7 +186,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	if len(steps) > 0 {
 		group := append([]Condition(nil), out[start:]...)
 		out = append(out[:start], Condition{Group: group, Required: required,
-			Steps: &BodySteps{Stmts: steps, Scope: stepScope, Node: stepNode}})
+			Steps: ctx.constraintBodySteps(steps, stepMembers, stepScope, stepNode)})
 	}
 	return out
 }
@@ -224,6 +247,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		}
 		var body []Condition
 		var steps []lower.Statement
+		var stepMembers []ast.Node
 		var stepNode ast.Node
 		hasStatements := bodyHasStatements(m.Body)
 		bodyScope := symbols.ConstraintBodyScope(scope, m)
@@ -234,6 +258,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 						stepNode = nested
 					}
 					steps = append(steps, stmt)
+					stepMembers = append(stepMembers, nested)
 					continue
 				}
 			}
@@ -241,7 +266,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		}
 		if len(steps) > 0 {
 			withSteps := Condition{Group: body, Required: required,
-				Steps: &BodySteps{Stmts: steps, Scope: bodyScope, Node: stepNode}}
+				Steps: ctx.constraintBodySteps(steps, stepMembers, bodyScope, stepNode)}
 			if !negated {
 				for i := range withSteps.Group {
 					withSteps.Group[i].Required = withSteps.Group[i].Required && required
@@ -309,6 +334,7 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 	start := len(out)
 	hasStatements := bodyHasStatements(body)
 	var steps []lower.Statement
+	var stepMembers []ast.Node
 	var stepNode ast.Node
 	for _, nested := range body {
 		if hasStatements {
@@ -317,6 +343,7 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 					stepNode = nested
 				}
 				steps = append(steps, stmt)
+				stepMembers = append(stepMembers, nested)
 				continue
 			}
 		}
@@ -325,7 +352,7 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 	if len(steps) > 0 {
 		group := append([]Condition(nil), out[start:]...)
 		out = append(out[:start], Condition{Group: group, Required: required,
-			Steps: &BodySteps{Stmts: steps, Scope: bodyScope, Node: stepNode}})
+			Steps: ctx.constraintBodySteps(steps, stepMembers, bodyScope, stepNode)})
 	}
 	return out
 }

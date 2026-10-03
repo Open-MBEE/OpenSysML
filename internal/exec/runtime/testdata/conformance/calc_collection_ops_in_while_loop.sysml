@@ -8,7 +8,7 @@ package test {
 		attribute total : Integer = 0;
 		while i <= xs->size() {
 			assign total := total + xs#(i);
-			assign i := i + 1;
+			then assign i := i + 1;
 		}
 		return : Integer = total + xs.?{in x; x > 5}->size();
 	}
