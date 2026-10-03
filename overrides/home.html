@@ -829,6 +829,9 @@
 (function () {
   var root = document.querySelector("[data-osml-schematic]");
   if (!root) return;
+  var ac = new AbortController();
+  if (window.__osmlSchematicAbort) window.__osmlSchematicAbort.abort();
+  window.__osmlSchematicAbort = ac;
   var svg = root.querySelector("svg");
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -881,7 +884,7 @@
     }
   }
 
-  var dragging = null, dragFrom = null, moved = false, pressTimer = null, longPressed = false;
+  var dragging = null, dragFrom = null, pressFrom = null, moved = false, pressTimer = null, longPressed = false;
 
   var escAttr = function (s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -900,11 +903,18 @@
     return nodes[key].g.querySelector(".osml-node-label").textContent;
   }
 
+  function syncWires() {
+    wires.forEach(function (p) {
+      var ends = p.dataset.osmlWire.split(",");
+      p.classList.toggle("is-hot",
+        nodes[ends[0]].g.classList.contains("is-hot") ||
+        nodes[ends[1]].g.classList.contains("is-hot"));
+    });
+  }
+
   function hot(k, on) {
     nodes[k].g.classList.toggle("is-hot", on);
-    wires.forEach(function (p) {
-      if (p.dataset.osmlWire.split(",").indexOf(k) >= 0) p.classList.toggle("is-hot", on);
-    });
+    syncWires();
   }
 
   function setFocus() {
@@ -958,6 +968,7 @@
     activeNode = k;
     hot(k, true);
     setFocus();
+    layout(reduceMotion.matches ? 0 : performance.now() / 1000);
   }
 
   function closeCard() {
@@ -971,13 +982,15 @@
   }
 
   document.addEventListener("pointerdown", function (e) {
-    if (!activeNode || !root.isConnected) return;
+    if (!root.isConnected) { ac.abort(); return; }
+    if (!activeNode) return;
     if (card.contains(e.target) || nodes[activeNode].g.contains(e.target)) return;
     closeCard();
-  });
+  }, { signal: ac.signal });
   document.addEventListener("keydown", function (e) {
+    if (!root.isConnected) { ac.abort(); return; }
     if (e.key === "Escape" && activeNode) closeCard();
-  });
+  }, { signal: ac.signal });
 
   // Draw-in: wires trace themselves in, nodes fade up behind them.
   if (!reduceMotion.matches) {
@@ -1009,7 +1022,7 @@
   if (!reduceMotion.matches) {
     (function tick(now) {
       // Instant navigation swaps the page out without unloading it.
-      if (!root.isConnected) return;
+      if (!root.isConnected) { ac.abort(); return; }
       layout(now / 1000);
       requestAnimationFrame(tick);
     })(performance.now());
@@ -1040,6 +1053,7 @@
         }, 550);
       }
       var p = svgPoint(e);
+      pressFrom = { x: p.x, y: p.y };
       dragFrom = { x: p.x - n.dx, y: p.y - n.dy };
       n.g.setPointerCapture(e.pointerId);
       n.g.classList.add("is-dragging");
@@ -1049,7 +1063,10 @@
       if (dragging !== n) return;
       var p = svgPoint(e);
       var nx = p.x - dragFrom.x, ny = p.y - dragFrom.y;
-      if (Math.abs(nx - n.dx) + Math.abs(ny - n.dy) > 4) { moved = true; clearTimeout(pressTimer); }
+      if (!moved && Math.abs(p.x - pressFrom.x) + Math.abs(p.y - pressFrom.y) > 4) {
+        moved = true;
+        clearTimeout(pressTimer);
+      }
       n.dx = nx; n.dy = ny;
       if (reduceMotion.matches) layout(0);
     });
@@ -1057,6 +1074,7 @@
       if (dragging !== n) return false;
       clearTimeout(pressTimer);
       dragging = null;
+      pressFrom = null;
       n.g.classList.remove("is-dragging");
       return true;
     }
