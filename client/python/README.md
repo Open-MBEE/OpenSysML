@@ -267,7 +267,22 @@ lock is dropped could start whatever another client installed in between. The
 Java and Rust clients name that file the same way, so the three share it, and a
 cache that cannot be hashed or linked is started directly with a warning saying so.
 
-At release time, after the service binaries are published and final:
+A release of `opensysml` pins its own core release: the release pipeline hashes
+the five `sysml-grpc-*` binaries it has just built and stamps them, under the
+release tag, into the `release-digests.json` the wheel and sdist package, before
+building them (`pin_release_checksums.py --from-binaries`, in
+`build-python-package`; the job fails if the built wheel lacks any of the five).
+So `pip install opensysml==X.Y.Z` followed by `opensysml.connect()` verifies the
+service it downloads against a digest inside the wheel, with no environment
+variable and no `sigstore` at run time. Another release, or a release newer than
+the installed `opensysml`, has no pin in the wheel: the client then verifies the
+release's signed `SHA256SUMS.txt` manifest with `sigstore` instead. If that
+package is not installed the download is refused — never taken unverified —
+and the error names it and the install, `python -m pip install
+'sigstore>=4.5.0,<5'` (`SigstoreUnavailableError`, an `UnpinnedReleaseError`).
+
+To back-fill the committed table after a release, once the service binaries are
+published and final:
 
 ```bash
 export GITHUB_TOKEN=...            # the release API rate-limits unauthenticated calls
