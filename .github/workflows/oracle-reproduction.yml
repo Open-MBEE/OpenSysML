@@ -65,6 +65,7 @@ jobs:
           ./scripts/download-pilot-corpora.sh
           ./scripts/download-pilot-xpect.sh
           ./scripts/download-pssm-suite.sh
+          ./scripts/download-sysml-v1tov2.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
       # against its committed baseline, ignoring only the recording date. The
@@ -96,6 +97,12 @@ jobs:
       - name: Validation-constraint baseline lists what the pinned jar contains
         if: ${{ !cancelled() }}
         run: go run -C tools ./cmd/validation-census -check -require-jar
+
+      # The transformation census's baseline lists the mapping classes the
+      # pinned model declares; only here is the model present to compare against.
+      - name: Transformation census lists what the pinned model contains
+        if: ${{ !cancelled() }}
+        run: go run -C tools ./cmd/transformation-census -check -require-xmi
 
       # The reports themselves, so a failing run can be read without
       # reproducing the environment.
