@@ -170,6 +170,7 @@ exclude_docs: |
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
   project/validation-constraints.md
+  project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md
   project/html-document-backend.md

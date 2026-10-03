@@ -122,6 +122,10 @@ model with the same help. See [wire-contract.md](wire-contract.md#migration-migr
 
 ## Mapping
 
+OMG's own [SysML v1 to v2 transformation model](https://www.omg.org/spec/SysML/20250201/SysMLv1Tov2.xmi)
+enumerates the official mappings as classes; [the transformation census](../project/sysml-v1-transformation-census.md)
+ties each of its mapping classes to the code that carries it out (or records why it does not).
+
 | SysML v1 | SysML v2 | Verdict |
 |---|---|---|
 | Model, Package | `package` | mapped |
