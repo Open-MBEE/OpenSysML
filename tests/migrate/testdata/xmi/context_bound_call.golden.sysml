@@ -29,7 +29,7 @@ part def Host {
         action consume : Consume;
         first consume then final;
         action final terminate;
-        flow make.integer to consume.value;
+        succession flow make.integer to consume.value;
         /* partition 'host' represents Host: make */
         metadata MigrationMetadata::SynthesizedName about final;
     }

@@ -15,17 +15,12 @@ part def Recorder {
             in y : ScalarValues::String[1];
             out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);
         }
-        first label then 'fork';
-        fork 'fork';
-        first 'fork' then size;
-        first 'fork' then 'join';
+        first label then size;
         action size {
             in list : ScalarValues::String[0..*] ordered nonunique;
             out result : ScalarValues::Integer[1] = SequenceFunctions::size(list);
         }
-        first size then 'join';
-        join 'join';
-        first 'join' then get;
+        first size then get;
         action get {
             in list : ScalarValues::String[0..*] ordered nonunique;
             in index : ScalarValues::Integer[1] = 1;
@@ -38,12 +33,11 @@ part def Recorder {
         }
         first print then final;
         action final terminate;
-        flow count.result to toString.x;
-        flow toString.result to label.y;
-        flow label.result to size.list;
-        flow label.result to get.list;
-        flow get.result to print.value;
-        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
-        metadata MigrationMetadata::StandIn about 'fork', 'join';
+        succession flow of ScalarValues::Integer from count.result to toString.x;
+        succession flow of ScalarValues::String from toString.result to label.y;
+        succession flow of ScalarValues::String from label.result to size.list;
+        succession flow of ScalarValues::String from label.result to get.list;
+        succession flow of ScalarValues::String from get.result to print.value;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

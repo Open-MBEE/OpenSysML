@@ -113,6 +113,8 @@ type activity struct {
 	// control-flow-driven action that are written as successions it waits on too.
 	dataWhy map[*sysmlv1.Element]string
 	awaited map[*sysmlv1.Element]bool
+	// succFlow settles which object flows are written as succession flows.
+	succFlow map[*sysmlv1.Element]bool
 	// dead marks the calls found refused before writing, so that the calls their
 	// result pins feed know that no value reaches them.
 	dead map[*sysmlv1.Element]bool
@@ -164,6 +166,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		dataOnly:    map[*sysmlv1.Element]bool{},
 		dataWhy:     map[*sysmlv1.Element]string{},
 		awaited:     map[*sysmlv1.Element]bool{},
+		succFlow:    map[*sysmlv1.Element]bool{},
 		dead:        map[*sysmlv1.Element]bool{},
 		dataNode:    map[*sysmlv1.Element]bool{},
 		sink:        map[*sysmlv1.Element]bool{},
@@ -414,7 +417,7 @@ func (a *activity) link() {
 	controlled, control, outs := a.controlIndex()
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] || a.guardedFlow(e) {
 			continue
 		}
 		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
@@ -503,7 +506,7 @@ func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 			continue
 		}
 		pair := [2]*sysmlv1.Element{from, to}
-		if e.Type != "ControlFlow" && (control[pair] || linked[pair]) {
+		if e.Type != "ControlFlow" && !a.guardedFlow(e) && (control[pair] || linked[pair]) {
 			continue
 		}
 		a.succ[from] = append(a.succ[from], e)
@@ -588,7 +591,7 @@ func (a *activity) entries(n *sysmlv1.Element) {
 		name = s.name
 	}
 	switch {
-	case len(a.prev[n]) <= 1:
+	case a.orderedPrev(n) <= 1:
 	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal || a.sink[n]:
 		m := writeName(a.fresh("merge"))
 		a.merges[n] = m
@@ -930,7 +933,16 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		a.madeUp(s.name)
 		from = s.name
 	}
-	outs := a.succ[n]
+	var outs []*sysmlv1.Element
+	entry := map[*sysmlv1.Element]string{}
+	for _, e := range a.succ[n] {
+		if a.successionFlow(e) {
+			if entry[e] = a.flowEntry(ownerNode(a.m.model.Ref(e, "target"))); entry[e] == "" {
+				continue
+			}
+		}
+		outs = append(outs, e)
+	}
 	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
@@ -944,7 +956,10 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		return
 	}
 	for _, e := range outs {
-		to := a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		to := entry[e]
+		if to == "" {
+			to = a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		}
 		if to == "" {
 			a.unwritableEdge(e)
 			continue
@@ -1772,25 +1787,39 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	if a.edgeSelf[e] {
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
-	if a.dataOnly[e] && !a.dryFlow(e) {
-		a.m.add(e, Approximated, "", joinNotes("the flow carries its value only: the control flow into "+describe(tgt.Parent)+" starts the action, so the action does not wait for the value on each pass", a.dataWhy[e]))
+	if a.dataOnly[e] && !a.dryFlow(e) && !a.successionFlow(e) {
+		note := "the flow carries its value only: the control flow into " + describe(tgt.Parent) + " starts the action, so the action does not wait for the value on each pass"
+		if a.streams(src) || a.streams(tgt) {
+			note = joinNotes(note, "a streaming parameter takes values while its behavior runs")
+		}
+		a.m.add(e, Approximated, "", joinNotes(note, a.dataWhy[e]))
 	}
 	if a.awaited[e] {
 		a.m.add(e, Mapped, "", "the action waits for the value as well as for the control flow into it, as its pin did")
 	}
+	if a.dataOnly[e] && a.successionFlow(e) {
+		from, to := src.Parent, tgt.Parent
+		if a.starvesWaiting(to, from) {
+			a.m.add(e, Approximated, "", "the action lies on a loop that leaves "+describe(from)+" out, so a later pass follows the control flow into "+describe(to)+" alone and finds no value, where v1 would wait for one that never comes")
+		} else {
+			a.m.add(e, Mapped, "", "the action waits for the value as well as for the control flow into it, as its pin did")
+		}
+	}
 	if receiver, ok := a.receivers[tgt]; ok {
 		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
+		a.keepOrder(e)
 		return
 	}
 	to, ok := a.pinRef(tgt)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's target "+describe(tgt)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	for _, s := range a.edgeSources[e] {
 		a.objectFlowSource(e, s, tgt, to)
 	}
-	if g := firstOwned(e, "guard"); g != nil {
+	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
 }
@@ -1838,6 +1867,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	from, ok := a.pinRef(s)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	if first, ok := a.written[[2]*sysmlv1.Element{s, tgt}]; ok {
@@ -1861,6 +1891,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
 		a.starve(tgt, to, describe(s.Parent)+" is not migrated")
+		a.keepOrder(e)
 		return
 	}
 	if a.unassigned(s) {
@@ -1894,25 +1925,54 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 }
 
-// dataEdge writes the flow e carries from from to to: a binding at a
-// parameter, a flow between pins, named as a member when a diagram shows e.
+// dataEdge writes the flow e carries from from to to: a binding at a parameter, a
+// flow of what the source pin is typed by between pins, a succession flow where it
+// also orders its actions; named as a member when a diagram shows e.
 func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
-	kw, decl, base := "flow", "flow "+from+" to "+to, spoken(from)+" to "+spoken(to)
+	kw, base := "flow", spoken(from)+" to "+spoken(to)
 	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
+		kw, base = "binding", spoken(to)+" = "+spoken(from)
 	}
 	namer := a.namer(e, s, tgt)
 	name := a.edgeFresh(namer, base)
 	if name != "" {
-		if kw == "flow" {
-			decl = "flow " + writeName(name) + " from " + from + " to " + to
-		} else {
-			decl = kw + " " + writeName(name) + " " + decl
-		}
 		a.m.madeUp(namer, writeName(name))
+	}
+	decl := "bind " + to + " = " + from
+	switch {
+	case kw == "flow":
+		decl = "flow " + a.flowHead(name, s, tgt) + from + " to " + to
+		switch {
+		case a.successionFlow(e) && a.inert[s.Parent]:
+			defer a.keepOrder(e)
+		case a.successionFlow(e):
+			decl = "succession " + decl
+		}
+	case name != "":
+		decl = kw + " " + writeName(name) + " " + decl
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
+}
+
+// flowHead writes what a flow declares before its ends: its name and the type of
+// the item it carries, then from; nothing when it declares neither.
+func (a *activity) flowHead(name string, s, tgt *sysmlv1.Element) string {
+	var head []string
+	if name != "" {
+		head = append(head, writeName(name))
+	}
+	t := a.endType(s)
+	if t == nil {
+		t = a.endType(tgt)
+	}
+	if typ, _ := a.m.typeRef(t, a.def); typ != "" {
+		head = append(head, "of "+typ)
+	}
+	if len(head) == 0 {
+		return ""
+	}
+	return strings.Join(head, " ") + " from "
 }
 
 // namer is the edge naming the member written once for what s carries to tgt: a

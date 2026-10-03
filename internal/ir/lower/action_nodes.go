@@ -100,6 +100,7 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 			graph.Nodes = append(graph.Nodes, n)
 			lowerNodeBody(graph, n, ast.NodeBodyMembers(n), scope)
+			lowerControlFeatures(graph, n, scope)
 		case *ast.Usage:
 			switch {
 			case n.Kind == ast.UsageAction:
@@ -197,6 +198,7 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
+		lowerControlFeatures(graph, n, declaringScope)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope)}

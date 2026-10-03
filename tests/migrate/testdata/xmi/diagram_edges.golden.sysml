@@ -32,7 +32,7 @@ package Structure {
             }
             succession finish first 'set speed' then final;
             action final terminate;
-            flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
+            succession flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
             binding 'set speed.value = target' bind 'set speed'.value = target;
             metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
         }

@@ -75,20 +75,20 @@ const forkFedCallApplications = `
 
 // An action a control flow starts and an object flow feeds waits for both, as
 // its pin did in v1, when the value's one producer runs on every pass; inside a
-// loop the producer is not on, the flow keeps carrying its value only.
+// loop the producer is not on, later passes follow the control flow alone.
 func TestActionsWaitForTheValuesFlowingIntoThem(t *testing.T) {
 	r := migrateDocument(t, forkFedCall, forkFedCallApplications)
 	for _, line := range []string{
-		"first 'read gain' then 'join';",
-		"first 'fork' then 'join';",
-		"first 'join' then 'set last';",
-		"flow 'read gain'.result to 'set last'.value;",
+		"first 'fork' then 'set last';",
+		"first 'fork' then 'read gain';",
+		"succession flow 'read gain'.result to 'set last'.value;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "join 'join';")
 	wantNoLine(t, r.Notation, "first 'read gain' then 'set last';")
 	wantNote(t, r, "_mo1", migrate.Mapped, "the action waits for the value as well as for the control flow into it, as its pin did")
-	wantNote(t, r, "_wo1", migrate.Approximated, "the flow carries its value only: the control flow into 'set last' starts the action, so the action does not wait for the value on each pass; the action lies on a loop that leaves 'read gain' out, so waiting would starve its later passes")
+	wantNote(t, r, "_wo1", migrate.Approximated, "the action lies on a loop that leaves 'read gain' out, so a later pass follows the control flow into 'set last' alone and finds no value, where v1 would wait for one that never comes")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -155,13 +155,13 @@ const forkLoopedCall = `
 func TestActionsWaitForProducersEachPassOfALoopRuns(t *testing.T) {
 	r := migrateDocument(t, forkLoopedCall, forkFedCallApplications)
 	for _, line := range []string{
-		"first 'read gain' then 'join';",
-		"first 'fork' then 'join';",
-		"first 'join' then 'set last';",
-		"flow 'read gain'.result to 'set last'.value;",
+		"first 'fork' then 'set last';",
+		"first 'fork' then 'read gain';",
+		"succession flow 'read gain'.result to 'set last'.value;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "join 'join';")
 	wantNote(t, r, "_po1", migrate.Mapped, "the action waits for the value as well as for the control flow into it, as its pin did")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)

@@ -2177,6 +2177,9 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	if err := e.runNodeBody(frame, node); err != nil {
 		return err
 	}
+	if err := e.carryObjects(frame, node, e.tokens[tokenIdx].Via); err != nil {
+		return err
+	}
 
 	// A guard on a branch out of a fork prunes it: only the enabled branches run,
 	// and a fork whose every branch is pruned ends the flow through it.
@@ -2220,6 +2223,9 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	graph := e.graphOf(frame)
 
 	if err := e.runNodeBody(frame, node); err != nil {
+		return err
+	}
+	if err := e.carryObjects(frame, node, token.Via); err != nil {
 		return err
 	}
 
@@ -2266,6 +2272,9 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
 	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
+		return err
+	}
+	if err := e.carryObjects(token.frame, mergeNode, token.Via); err != nil {
 		return err
 	}
 
@@ -2427,22 +2436,16 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%w: action node %s has multiple successors (decision nodes not yet supported)",
-			ErrAmbiguousSuccession, node.Name)
+
+	if err := ambiguousSuccession("action node "+node.Name, successors); err != nil {
+		return err
 	}
 
 	// Apply data flows: transfer data from this node's output pins to target input pins
 	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil); err != nil {
 		return err
 	}
-
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-
-	e.move(&e.tokens[tokenIdx], successors[0])
-	return nil
+	return e.advance(tokenIdx, successors)
 }
 
 // stepNestedAction performs a nested action usage in a frame of its own.
@@ -2610,8 +2613,8 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%w: action node %s has multiple successors", ErrAmbiguousSuccession, ActionNodeName(node))
+	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
+		return err
 	}
 
 	// The flows out of this node carry what this performance produced to the
@@ -2622,11 +2625,43 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// A node the flow leads no further from is where this flow ends: the action
 	// inherits its `done` snapshot, so no succession to a final node is needed.
+	return e.advance(tokenIdx, successors)
+}
+
+// ambiguousSuccession reports successions out of node that state a choice no order
+// resolves: two whose guards hold, or two not of succession flows, which a fork states.
+// The successions of succession flows each follow the node beside another.
+func ambiguousSuccession(node string, successors []lower.ActionEdge) error {
+	guarded, control := 0, 0
+	for _, edge := range successors {
+		if edge.Guard != nil {
+			guarded++
+		}
+		if !edge.Carries {
+			control++
+		}
+	}
+	if guarded > 1 || control > 1 {
+		return fmt.Errorf("%w: %s has multiple successors", ErrAmbiguousSuccession, node)
+	}
+	return nil
+}
+
+// advance takes the token at tokenIdx along every enabled succession out of an action
+// node, each target following it as after a fork; none retires the token.
+func (e *ActionExecutor) advance(tokenIdx int, successors []lower.ActionEdge) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-
+	frame := e.tokens[tokenIdx].frame
 	e.move(&e.tokens[tokenIdx], successors[0])
+	for _, edge := range successors[1:] {
+		token := Token{ID: e.nextTokenID, frame: frame}
+		e.nextTokenID++
+		e.move(&token, edge)
+		e.tokens = append(e.tokens, token)
+		frame.live++
+	}
 	return nil
 }
 
@@ -2918,14 +2953,10 @@ func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%s node has multiple successors", statementNodeKeyword(node))
+	if err := ambiguousSuccession(statementNodeKeyword(node)+" node", successors); err != nil {
+		return err
 	}
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-	e.move(&e.tokens[tokenIdx], successors[0])
-	return nil
+	return e.advance(tokenIdx, successors)
 }
 
 // statementNodeKeyword names a statement node for a message about it, since a
@@ -2997,6 +3028,9 @@ func (e *performances) checkFlowTarget(frame *actionFrame, graph *lower.ActionGr
 // deliverFlow puts a flow's payload where its target reads it: at the pin of a
 // target performing in a frame of its own, else in the flow's own features.
 func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow, value Value) error {
+	if lower.CarriesObjects(flow.Target) {
+		return e.queueControlObject(frame, graph, flow, value)
+	}
 	if err := e.checkFlowTarget(frame, graph, flow); err != nil {
 		return err
 	}

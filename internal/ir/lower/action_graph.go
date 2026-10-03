@@ -200,6 +200,9 @@ type ActionEdge struct {
 	Name               string
 	SourceMultiplicity *ast.Multiplicity
 	TargetMultiplicity *ast.Multiplicity
+	// Carries marks the succession of a succession flow, which delivers a value
+	// as well as ordering its ends.
+	Carries bool
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -1544,6 +1547,44 @@ func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope 
 	}
 }
 
+// lowerControlFeatures records the directed features a fork, join or merge declares
+// (`in ref inputObject1; out ref outputObject1 = inputObject1;`): the values the
+// object flows through it carry in and out.
+func lowerControlFeatures(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
+	if !CarriesObjects(node) {
+		return
+	}
+	body := childScope(scope, node)
+	var features []Feature
+	for _, member := range ast.NodeBodyMembers(node) {
+		m, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || m.Direction != ast.DirIn && m.Direction != ast.DirOut {
+			continue
+		}
+		if feature, ok := declaredFeature(m, body); ok {
+			features = append(features, feature)
+		}
+	}
+	if len(features) == 0 {
+		return
+	}
+	if graph.Features == nil {
+		graph.Features = make(map[ast.Node][]Feature)
+	}
+	recordNodeScope(graph, node, body)
+	graph.Features[node] = features
+}
+
+// CarriesObjects reports whether node is a control node object flows pass
+// through, by the features it declares: a fork, a join or a merge.
+func CarriesObjects(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode:
+		return true
+	}
+	return false
+}
+
 // BodyStatementMembers returns the members of a node body that state work to
 // perform, in declaration order: what a body declares (a parameter, a doc
 // comment) is a feature of the node, not a step of the flow through it.
@@ -2198,7 +2239,7 @@ func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
 	if flow.Kind != FlowSuccession {
 		return
 	}
-	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl})
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl, Carries: true})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

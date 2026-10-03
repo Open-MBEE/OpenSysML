@@ -45,7 +45,7 @@ func TestLibraryCallsComputeThroughTheV2Library(t *testing.T) {
 		"out result : ScalarValues::String[1] = BooleanFunctions::ToString(x);",
 		"/* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf */",
 		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine */",
-		"flow position.result to 'after'.x;",
+		"flow of ScalarValues::Integer from position.result to 'after'.x;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -329,7 +329,7 @@ func TestBundledLibraryCallsAreKnownByIdentity(t *testing.T) {
 	wantNote(t, r, "_size", migrate.Mapped, "calls fUML ListFunctions::ListSize, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to")
 	wantNote(t, r, "_get", migrate.Approximated, "calls fUML ListFunctions::ListGet, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to; v2 fails on an index outside 1..ListSize(list)")
 	wantNote(t, r, "_toString", migrate.Mapped, "calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::IntegerFunctions::ToString recorded beside its href into the library module fUML-Library.mdzip")
-	wantNote(t, r, "_label", migrate.Approximated, "calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip")
+	wantNote(t, r, "_label", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip")
 	wantNote(t, r, "_fumlLibrary", migrate.Skipped, "profile or library content")
 
 	s := session(t, r)
