@@ -33,6 +33,7 @@ Before the import the model cannot answer the question it is for:
 
 ```bash
 $ ../../bin/sysml rover.sysml -eval 'RoverDemo::scout.specificEnergy'
+✓ package RoverDemo
 sysml: evaluation failed: feature value scout.specificEnergy: no value for feature battery.capacity
 ```
 
@@ -63,7 +64,10 @@ dry run: would import 4 values into 2 elements from results/battery-test.json; t
   RoverDemo::hauler::battery::capacity = 6660000 [J] (redefines RoverDemo::Battery::capacity)
   RoverDemo::hauler::battery::cells = 20 (redefines RoverDemo::Battery::cells)
 dry run: would import 2 values into 2 elements from results/motor-telemetry.jsonl; the model is unchanged
-  ...
+  RoverDemo::scout::driveMotor (redefines RoverDemo::Rover::driveMotor)
+  RoverDemo::scout::driveMotor::peakPower = 1450.5 [W] (redefines RoverDemo::Motor::peakPower)
+  RoverDemo::hauler::driveMotor (redefines RoverDemo::Rover::driveMotor)
+  RoverDemo::hauler::driveMotor::peakPower = 2210.0 [W] (redefines RoverDemo::Motor::peakPower)
 dry run: would import 1 value into 1 element from results/overrides.tsv; the model is unchanged
   RoverDemo::hauler::health = RoverDemo::Health::degraded (redefines RoverDemo::Rover::health)
 ```
