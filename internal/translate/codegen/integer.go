@@ -194,10 +194,16 @@ func unboundedIntExpr(x Expr) string {
 	case Steps:
 		return unboundedIntExprs(x.X)
 	case FnLit:
-		return unboundedIntExprs(x.Env...)
+		return unboundedIntExprs(append([]Expr{x.Self}, x.Env...)...)
 	case FnWiden:
 		return unboundedIntExprs(x.X)
-	case FnEnv:
+	case FnEnv, FnSelf:
+	case RecNew:
+		return unboundedIntExprs(x.Fields...)
+	case RecGet:
+		return unboundedIntExprs(x.X)
+	case Narrowed:
+		return unboundedIntExprs(x.X)
 	case FnDispatch:
 		return unboundedIntExprs(append([]Expr{x.F}, x.Cases...)...)
 	default:

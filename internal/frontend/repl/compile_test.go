@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -154,6 +155,36 @@ var compiledCases = []compiledCase{
 	{"Seq::UniqLocAny", []string{"(1,1)"}},
 	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
 	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
+	{"Rec::Read", []string{"1.5"}},
+	{"Rec::Local", []string{"1.5"}},
+	{"Rec::Named", []string{"1.5"}},
+	{"Rec::SameObject", []string{"1.5"}},
+	{"Rec::Alias", []string{"1.5"}},
+	{"Rec::EqualFeatures", []string{"1.5"}},
+	{"Rec::EqualIdent", []string{"1.5"}},
+	{"Rec::NotEqual", []string{"1.5"}},
+	{"Rec::Nested", []string{"1.5"}},
+	{"Rec::Chained", []string{"1.5"}},
+	{"Rec::Receiver", []string{"1.5"}},
+	{"Rec::ReceiverInner", []string{"1.5"}},
+	{"Rec::Passed", []string{"1.5"}},
+	{"Rec::Stored", []string{"1.5"}},
+	{"Rec::ClosureSame", []string{"1.5"}},
+	{"Rec::ClosureOther", []string{"1.5"}},
+	{"Rec::Defaulted", []string{"1.5"}},
+	{"Rec::Overridden", []string{"1.5"}},
+	{"Rec::SeqFeature", []string{"1.5"}},
+	{"Rec::SeqEmpty", []string{"1.5"}},
+	{"Rec::InSeq", []string{"1.5"}},
+	{"Rec::SeqIdent", []string{"1.5"}},
+	{"Rec::Returned", []string{"1.5"}},
+	{"Rec::IntKept", []string{"1.5"}},
+	{"Rec::RecVsNum", []string{"1.5"}},
+	{"Rec::NullCmp", []string{"1.5"}},
+	{"Rec::TooMany", []string{"1.5"}},
+	{"Rec::Steps", []string{"1.5"}},
+	{"Rec::Chosen", []string{"true"}}, {"Rec::Chosen", []string{"false"}},
+	{"Rec::Range", []string{"3"}}, {"Rec::Range", []string{"-1"}},
 	{"Closure::Pick", []string{"true"}}, {"Closure::Pick", []string{"false"}},
 	{"Closure::PickId", []string{"true"}}, {"Closure::PickId", []string{"false"}},
 	{"Closure::PickApply", []string{"true", "3.0"}}, {"Closure::PickApply", []string{"false", "3.0"}},
@@ -332,6 +363,8 @@ func withinUlps(a, b string, n uint64) bool {
 	return bx-by <= n
 }
 
+var objectNumber = regexp.MustCompile(`(\S+) #\d+`)
+
 // failureClass is the part of a failure both surfaces spell the same way: the
 // class of a scalar fault, else the whole message once the interpreter's
 // context labels and the program's calc name are stripped.
@@ -346,7 +379,8 @@ func failureClass(calc, msg string) string {
 		line, _, _ := strings.Cut(rest, "\n")
 		return runtime.ErrStepLimitExceeded.Error() + line
 	}
-	msg = strings.TrimSpace(msg)
+	// A compiled program names an object by its type, having no object numbers.
+	msg = objectNumber.ReplaceAllString(strings.TrimSpace(msg), "$1 object")
 	if _, rest, ok := strings.Cut(msg, "Compiled::"+calc+": "); ok {
 		msg = rest
 	}
@@ -537,6 +571,13 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"] ||
 				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
 				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
+			}
+			// A C record keeps no String or collection, which the arena may reclaim.
+			cOnly := map[string]bool{"Rec::SeqFeature": true, "Rec::SeqEmpty": true}
+			for _, c := range compiledCases {
+				if name := c.calc; strings.HasPrefix(name, "Rec::") && refused[name] != (target == codegen.TargetC && cOnly[name]) {
+					t.Errorf("%s refused = %v for %s", name, refused[name], target)
+				}
 			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
 				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
@@ -787,7 +828,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"Refined", "members of its own"},
 		{"DynamicIntPow", "non-literal Integer exponent"},
 		{"Narrowed", "a Real bound to x, which is Integer"},
-		{"RecordParam", "type Refused::Point is not Integer, Real, Boolean, String or an enumeration"},
+		{"RecordParam", "parameter p takes a Refused::Point, a record, which a program cannot take on its command line"},
 		{"Extent", "operator 'all'"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
@@ -803,7 +844,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"ForwardedUnrelated", "cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq"},
 		{"IntegerNullRange", "a Real[0..*] at result, which holds Integer[0..*]"},
 		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, read from the body of Refused::OuterClosure"},
-		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
+		{"ObjectClosure", "reference to twice, which is not a parameter, body-local attribute or compiled library constant"},
 		{"ObjectCalc", "a calc owned by Refused::Scaler, whose function value closes over that object"},
 		{"ReceiverQualified", "an invocation of a function value with a receiver (`x->f()`)"},
 		{"ForeignQualified", "in calc Compiled::Fn::ApplyQual::f: an `in calc` parameter invoked outside the body of the calc declaring it"},

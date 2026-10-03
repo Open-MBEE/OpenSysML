@@ -305,7 +305,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		if neq {
 			op = ast.OpNeq
 		}
-		if lt.IsEnum() || lt.IsFn() {
+		if lt.IsEnum() || lt.IsFn() || lt.IsRec() {
 			// A literal is identified by itself, and a function value by its
 			// function and the run it closes over, so `===` is `==`.
 			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
@@ -360,6 +360,8 @@ func identityKind(t Type) int {
 		return 2
 	case t.IsFn():
 		return 3
+	case t.IsRec():
+		return 4
 	}
 	return 0
 }

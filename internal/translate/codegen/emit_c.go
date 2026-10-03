@@ -150,6 +150,15 @@ static sysml_real sysml_quot(sysml_int a, sysml_int b) {
 	return negative ? -r : r;
 }
 
+static inline sysml_int sysml_at_least_at(sysml_int v, sysml_int lo, const char *type, const char *where) {
+	if (__builtin_expect(v < lo, 0)) {
+		static char msg[512];
+		snprintf(msg, sizeof msg, "%s: type mismatch: cannot write %lld (an Integer) to a feature typed by %s", where, (long long)v, type);
+		sysml_fail(msg);
+	}
+	return v;
+}
+
 static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *type) {
 	if (__builtin_expect(v < lo, 0)) {
 		static char msg[128];
@@ -530,6 +539,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 		e.raw(cSeqRuntime())
 		e.raw(cEnumSeqRuntime(p))
 		e.raw(cFnSeqRuntime(p))
+		e.raw(cRecSeqRuntime(p))
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -607,9 +617,12 @@ func (e *cEmitter) linef(format string, args ...any) {
 }
 
 func cType(t Type) string {
-	if t.IsEnum() || t.IsFn() {
+	if t.IsEnum() || t.IsFn() || t.IsRec() {
 		if t.Many() {
 			return "sysml_seq_" + cSeqSuffix(t)
+		}
+		if t.IsRec() {
+			return "sysml_rec *"
 		}
 		if t.IsFn() {
 			return "sysml_fn"

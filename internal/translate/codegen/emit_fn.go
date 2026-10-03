@@ -10,15 +10,23 @@ const goFnPrelude = `
 // sysmlFn is a function value: the function it is, an index into sysmlFnNames,
 // and for a closure the run of the body declaring it and what it captures.
 type sysmlFn struct {
-	c   int32
-	run int64
-	env *[]any
+	c    int32
+	run  int64
+	env  *[]any
+	self *sysmlRec
 }
 
 // sysmlFnKey identifies a function value as '==' does.
 type sysmlFnKey struct {
-	c   int32
-	run int64
+	c    int32
+	run  int64
+	self *sysmlRec
+}
+
+// sysmlRec is a data value with features, identified by itself.
+type sysmlRec struct {
+	t string
+	f []any
 }
 
 var sysmlRuns int64
@@ -29,7 +37,7 @@ func sysmlNextRun() int64 {
 	return sysmlRuns
 }
 
-func sysmlFnEq(a, b sysmlFn) bool { return a.c == b.c && a.run == b.run }
+func sysmlFnEq(a, b sysmlFn) bool { return a.c == b.c && a.run == b.run && a.self == b.self }
 `
 
 // goFnTables is the printed name of every function a value may be.
@@ -45,6 +53,9 @@ func goFnTables(p *Program) string {
 func (e *goEmitter) fnExpr(x Expr) (string, bool) {
 	switch x := x.(type) {
 	case FnLit:
+		if x.Self != nil {
+			return fmt.Sprintf("sysmlFn{c: %d, self: %s}", x.Case.ID, e.expr(x.Self)), true
+		}
 		if !x.Case.Closure {
 			return fmt.Sprintf("sysmlFn{c: %d}", x.Case.ID), true
 		}
@@ -61,6 +72,18 @@ func (e *goEmitter) fnExpr(x Expr) (string, bool) {
 		return e.expr(x.X), true
 	case FnEnv:
 		return fmt.Sprintf("(*%s.env)[%d].(%s)", goLocal(x.Name), x.I, goType(x.T)), true
+	case FnSelf:
+		return goLocal(x.Name) + ".self", true
+	case RecNew:
+		values := make([]string, len(x.Fields))
+		for i, v := range x.Fields {
+			values[i] = e.expr(v)
+		}
+		return fmt.Sprintf("&sysmlRec{t: %q, f: []any{%s}}", x.Rec.Short, strings.Join(values, ", ")), true
+	case RecGet:
+		return fmt.Sprintf("%s.f[%d].(%s)", e.expr(x.X), x.Field, goType(x.T)), true
+	case Narrowed:
+		return fmt.Sprintf("sysmlAtLeastAt(%s, %d, %q, %q)", e.expr(x.X), x.R.Lower(), x.R.String(), x.Where), true
 	case FnDispatch:
 		h := goLocal(x.Name)
 		var b strings.Builder
@@ -77,25 +100,39 @@ func (e *goEmitter) fnExpr(x Expr) (string, bool) {
 // cFnRuntime is the function-value runtime of a generated C program: a value
 // holds its captured bindings inline, so it outlives any arena release.
 func cFnRuntime(p *Program) string {
-	if len(p.FnCases) == 0 {
+	if len(p.FnCases) == 0 && len(p.Records) == 0 {
 		return ""
 	}
 	env := 1
-	names := make([]string, len(p.FnCases))
-	for i, k := range p.FnCases {
-		names[i] = cString(k.Name)
+	names := []string{cString("")}
+	if len(p.FnCases) > 0 {
+		names = names[:0]
+	}
+	for _, k := range p.FnCases {
+		names = append(names, cString(k.Name))
 		env = max(env, len(k.Env))
 	}
 	return fmt.Sprintf(`
-typedef union { sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; } sysml_cap;
-/* A function value: the function it is, an index into sysml_fn_names, and for a
-   closure the run of the body declaring it and what it captures. */
-typedef struct { int32_t c; int64_t run; sysml_cap env[%d]; } sysml_fn;
+typedef struct sysml_rec sysml_rec;
+typedef union { sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec; } sysml_cap;
+/* A data value with features, identified by its address; it is never freed,
+   so it outlives every arena release. */
+struct sysml_rec { const char *t; sysml_cap f[1]; };
+static sysml_rec *sysml_rec_new(const char *t, size_t n) {
+	sysml_rec *r = calloc(1, sizeof(sysml_rec) + (n ? n - 1 : 0) * sizeof(sysml_cap));
+	if (!r) sysml_fail("out of memory");
+	r->t = t;
+	return r;
+}
+/* A function value: the function it is, an index into sysml_fn_names, for a
+   closure the run of the body declaring it and what it captures, and for a
+   record's calc the record it was read off. */
+typedef struct { int32_t c; int64_t run; sysml_rec *self; sysml_cap env[%d]; } sysml_fn;
 static const char *const sysml_fn_names[] = {%s};
 static int64_t sysml_runs;
 static inline int64_t sysml_next_run(void) { return ++sysml_runs; }
-static inline bool sysml_fn_eq(sysml_fn a, sysml_fn b) { return a.c == b.c && a.run == b.run; }
-static inline uint64_t sysml_fn_key(sysml_fn f) { return ((uint64_t)f.run * 0x100000001B3ULL) ^ (uint64_t)f.c; }
+static inline bool sysml_fn_eq(sysml_fn a, sysml_fn b) { return a.c == b.c && a.run == b.run && a.self == b.self; }
+static inline uint64_t sysml_fn_key(sysml_fn f) { return ((((uint64_t)f.run * 0x100000001B3ULL) ^ (uint64_t)(uintptr_t)f.self) * 0x100000001B3ULL) ^ (uint64_t)f.c; }
 static void sysml_print_fn_value(sysml_fn f) { fputs(sysml_fn_names[f.c], stdout); }
 static void sysml_print_fn(sysml_fn f) { puts(sysml_fn_names[f.c]); }
 static void sysml_format_fn(sysml_fn f, char *out, size_t size) { snprintf(out, size, "%%s", sysml_fn_names[f.c]); }
@@ -111,13 +148,37 @@ func cFnSeqRuntime(p *Program) string {
 	}
 	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value",
 		"FORMAT", "sysml_format_fn", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
-		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS")
+		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+		"KOPEN", `" ("`, "KCLOSE", `")"`)
 	return "#define SYSML_KIND_FN(v) \"function\"\n" + r.Replace(cSeqTemplate)
+}
+
+// cRecSeqRuntime instantiates the collection runtime over records.
+func cRecSeqRuntime(p *Program) string {
+	if len(p.Records) == 0 {
+		return ""
+	}
+	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value",
+		"FORMAT", "sysml_format_rec", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
+		"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_rec", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+		"KOPEN", `""`, "KCLOSE", `""`)
+	return `#define SYSML_KIND_REC(v) ""
+static inline uint64_t sysml_rec_key(sysml_rec *r) { return (uint64_t)(uintptr_t)r; }
+static void sysml_format_rec(sysml_rec *r, char *out, size_t size) { snprintf(out, size, "%s object", r->t); }
+static void sysml_print_rec_value(sysml_rec *r) { printf("%s object", r->t); }
+static const char *sysml_show_rec(sysml_rec *r) {
+	static char text[256];
+	sysml_format_rec(r, text, sizeof text);
+	return text;
+}
+` + r.Replace(cSeqTemplate)
 }
 
 // cCapField is the member of sysml_cap a captured binding of type t is held in.
 func cCapField(t Type) string {
 	switch {
+	case t.IsRec():
+		return "rec"
 	case t.IsEnum():
 		return "e"
 	case t == TypeInt:
@@ -136,6 +197,9 @@ func cCapField(t Type) string {
 func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 	switch x := x.(type) {
 	case FnLit:
+		if x.Self != nil {
+			return fmt.Sprintf("((sysml_fn){.c = %d, .self = %s})", x.Case.ID, e.expr(x.Self)), true
+		}
 		if !x.Case.Closure {
 			return fmt.Sprintf("((sysml_fn){.c = %d})", x.Case.ID), true
 		}
@@ -152,6 +216,22 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 		return e.expr(x.X), true
 	case FnEnv:
 		return fmt.Sprintf("%s.env[%d].%s", cLocal(x.Name), x.I, cCapField(x.T)), true
+	case FnSelf:
+		return cLocal(x.Name) + ".self", true
+	case RecNew:
+		e.temps++
+		r := fmt.Sprintf("sysml_t%d", e.temps)
+		var b strings.Builder
+		fmt.Fprintf(&b, "({ sysml_rec *%s = sysml_rec_new(%s, %d); ", r, cString(x.Rec.Short), len(x.Fields))
+		for i, v := range x.Fields {
+			fmt.Fprintf(&b, "%s->f[%d].%s = %s; ", r, i, cCapField(v.Type()), e.expr(v))
+		}
+		fmt.Fprintf(&b, "%s; })", r)
+		return b.String(), true
+	case RecGet:
+		return fmt.Sprintf("(%s)->f[%d].%s", e.expr(x.X), x.Field, cCapField(x.T)), true
+	case Narrowed:
+		return fmt.Sprintf("sysml_at_least_at(%s, %d, \"%s\", %s)", e.expr(x.X), x.R.Lower(), x.R, cWhere(x.Where)), true
 	case FnDispatch:
 		e.temps++
 		r := fmt.Sprintf("sysml_t%d", e.temps)

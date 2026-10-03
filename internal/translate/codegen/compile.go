@@ -55,6 +55,8 @@ type Compiler struct {
 	enums        map[*symbols.Symbol]*Enum
 	enumOrder    []*Enum
 	literals     map[*symbols.Symbol]enumLiteral
+	records      map[*symbols.Symbol]*Record
+	recOrder     []*Record
 	literalNames []string
 	// fns are the function values met, kept across passes so their types are
 	// stable; fnSlots are the cases each function-typed slot is widened to.
@@ -74,7 +76,7 @@ type slot struct {
 
 // New returns a Compiler resolving names through resolver and typing through model.
 func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
-	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}, fnSlots: map[slot]*FnSet{}, literals: map[*symbols.Symbol]enumLiteral{}}
+	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}, records: map[*symbols.Symbol]*Record{}, fnSlots: map[slot]*FnSet{}, literals: map[*symbols.Symbol]enumLiteral{}}
 }
 
 // Compile compiles entry and every calc it invokes, transitively, for target.
@@ -85,6 +87,7 @@ func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, erro
 	c.fns = newFnTables()
 	for {
 		c.funcs, c.order, c.keys, c.collections, c.widened = map[specKey]*Func{}, nil, map[*Func]specKey{}, false, false
+		c.recOrder = nil
 		c.pass++
 		fn, err := c.compileCalcWith(entry, nil)
 		if c.widened {
@@ -93,7 +96,10 @@ func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, erro
 		if err != nil {
 			return nil, err
 		}
-		return &Program{Funcs: c.order, Enums: c.enumOrder, FnCases: c.fns.order, Entry: fn, Collections: c.collections, Target: target}, nil
+		if fn.Result.Elem().IsRec() {
+			return nil, &UnsupportedError{Calc: fn.Name, What: fmt.Sprintf("result: a %s, a record, which a program cannot print: the interpreter names a data value by an object number that a compiled run does not reproduce", fn.Result)}
+		}
+		return &Program{Funcs: c.order, Enums: c.enumOrder, Records: c.recOrder, FnCases: c.fns.order, Entry: fn, Collections: c.collections, Target: target}, nil
 	}
 }
 
@@ -322,6 +328,9 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 		if err != nil {
 			return nil, err
 		}
+		if key == c.entry && b.t.Elem().IsRec() {
+			return nil, fc.unsupported(fmt.Sprintf("parameter %s takes a %s, a record, which a program cannot take on its command line", name, b.t))
+		}
 		s := slot{key: key, name: name}
 		if key == c.entry && c.target != TargetC && b.t.Elem() == TypeReal {
 			// A Go program reads a Real argument in either notation, as the interpreter does.
@@ -333,6 +342,11 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 	}
 	if nextFn != len(fargs) {
 		return nil, fc.unsupported(fmt.Sprintf("%d function values bound to %d `in calc` parameters", len(fargs), nextFn))
+	}
+	if fn.self != nil {
+		self := binding{t: RecType(fn.self), m: MultOne}
+		fn.Params = append(fn.Params, Param{Name: selfParam, Type: self.t, Mult: MultOne})
+		fc.env.bind(selfParam, self)
 	}
 	if outer != nil {
 		for _, p := range seed {
@@ -650,6 +664,13 @@ func (fc *funcCompiler) valueType(typ *symbols.Symbol) (Type, Range, string) {
 			return TypeInvalid, RangeAny, why
 		}
 		return EnumType(e), RangeAny, ""
+	}
+	if typ.Kind == symbols.SymbolAttributeDef && !fc.c.resolver.Index().Library(typ) {
+		r, why := fc.recordOf(typ)
+		if why != "" {
+			return TypeInvalid, RangeAny, why
+		}
+		return RecType(r), RangeAny, ""
 	}
 	t, r, ok := scalarType(fc.c.name(typ))
 	if !ok {
@@ -1042,6 +1063,10 @@ func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 		return fc.compileOperator(n)
 	case *ast.InvocationExpr:
 		return fc.compileCall(n)
+	case *ast.ConstructorExpr:
+		return fc.compileConstructor(n)
+	case *ast.FeatureChainExpr:
+		return fc.compileChain(n)
 	case *ast.BodyExpr:
 		// A parenthesized expression parses as a body holding one expression.
 		if len(n.Members) == 1 {
@@ -1081,6 +1106,9 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 	}
 	if f, ok := fc.boundFunction(qn); ok {
 		return fc.fnRead(*f), nil
+	}
+	if x, ok := fc.selfFeature(qn); ok {
+		return x, nil
 	}
 	// A library constant reads as its value, as the interpreter's feature seam gives it.
 	if qn != nil {
@@ -1417,6 +1445,9 @@ func (fc *funcCompiler) unify(a, b Expr, what string) (Type, error) {
 }
 
 func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
+	if chain := semantics.ChainCallee(n); chain != nil {
+		return fc.compileChainCall(n, chain)
+	}
 	if n.Type == nil {
 		return nil, fc.unsupported("an invocation naming no calc")
 	}
@@ -1452,6 +1483,9 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 	}
 	if !isCalc(sym.Decl) {
 		return nil, fc.unsupported(fmt.Sprintf("invocation of %s, which is not a calc", fc.c.name(sym)))
+	}
+	if x, ok, err := fc.callSelfCalc(sym, n); ok {
+		return x, err
 	}
 	if fc.c.resolver.Index().Library(sym) {
 		return fc.compileLibCall(n, fc.c.name(sym))

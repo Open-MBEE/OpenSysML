@@ -308,6 +308,13 @@ func sysmlParseNum(s, name string) sysmlNum {
 	return sysmlNR(sysmlParseReal(s, name))
 }
 
+func sysmlAtLeastAt(v sysmlInt, lo int64, typ, where string) sysmlInt {
+	if sysmlICmp(v, sysmlI(lo)) < 0 {
+		sysmlFail(fmt.Sprintf("%s: type mismatch: cannot write %s (an Integer) to a feature typed by %s", where, v, typ))
+	}
+	return v
+}
+
 func sysmlAtLeast(v sysmlInt, lo int64, typ string) sysmlInt {
 	if sysmlICmp(v, sysmlI(lo)) < 0 {
 		sysmlFail(fmt.Sprintf("type mismatch: cannot write %s (an Integer) to a feature typed by %s", v, typ))
@@ -672,6 +679,9 @@ func sysmlFormat(v any) string {
 	if f, ok := v.(sysmlFn); ok {
 		return sysmlFnNames[f.c]
 	}
+	if r, ok := v.(*sysmlRec); ok {
+		return r.t + " object"
+	}
 	if n, ok := v.(sysmlNum); ok {
 		if n.real {
 			v = n.r
@@ -762,9 +772,12 @@ func (e *goEmitter) linef(format string, args ...any) {
 }
 
 func goType(t Type) string {
-	if t.IsEnum() || t.IsFn() {
+	if t.IsEnum() || t.IsFn() || t.IsRec() {
 		if t.Many() {
 			return goSeqType(t)
+		}
+		if t.IsRec() {
+			return "*sysmlRec"
 		}
 		if t.IsFn() {
 			return "sysmlFn"

@@ -687,6 +687,48 @@ package Compiled {
 		calc def ForS { in x : String[0..*]; attribute s : String = ""; for v in x { assign s := s + v + ";"; } return : String = s; }
 		calc def Ctrl { in a : String; return : String = "\b\t\f\r" + a; }
 	}
+	package Rec {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		attribute def Point { attribute x : Real; attribute y : Real; }
+		attribute def Scaled { attribute k : Real; calc scale { in v : Real; return : Real = v * k; } calc twice { in v : Real; return : Real = scale(scale(v)); } }
+		attribute def Seg { attribute a : Point; attribute b : Point; }
+		attribute def Def { attribute x : Real; attribute y : Real default 3.0; }
+		attribute def Many { attribute xs : Real[0..*] nonunique; }
+		attribute def Counted { attribute n : Natural; }
+		calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+		calc def Read { in a : Real; return : Real = new Point(a, 2.0).x; }
+		calc def Local { in a : Real; attribute p : Point = new Point(a, 2.0); return : Real = p.x + p.y; }
+		calc def Named { in a : Real; return : Real = new Point(y = 2.0, x = a).y; }
+		calc def SameObject { in a : Real; attribute p : Point = new Point(a, a); return : Boolean = p == p; }
+		calc def Alias { in a : Real; attribute p : Point = new Point(a, a); attribute q : Point = p; return : Boolean = p === q and not (p != q); }
+		calc def EqualFeatures { in a : Real; return : Boolean = new Point(a, a) == new Point(a, a); }
+		calc def EqualIdent { in a : Real; return : Boolean = new Point(a, a) === new Point(a, a); }
+		calc def NotEqual { in a : Real; return : Boolean = new Point(a, a) != new Point(a, a); }
+		calc def Nested { in a : Real; attribute s : Seg = new Seg(new Point(a, 1.0), new Point(2.0, a)); return : Real = s.b.y + s.a.x; }
+		calc def Chained { in a : Real; return : Real = new Seg(new Point(a, 1.0), new Point(2.0, a)).b.y; }
+		calc def Receiver { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = s.scale(2.0); }
+		calc def ReceiverInner { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = s.twice(2.0); }
+		calc def Passed { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = Apply(s.scale, 3.0); }
+		calc def Stored { in a : Real; attribute s : Scaled = new Scaled(a); attribute f = s.scale; return : Real = Apply(f, 5.0) + Apply(f, 1.0); }
+		calc def Chosen { in b : Boolean; attribute s : Scaled = new Scaled(2.0); attribute t : Scaled = new Scaled(3.0); attribute f = if b ? s.scale else t.scale; return : Real = Apply(f, 1.5); }
+		calc def ClosureSame { in a : Real; attribute s : Scaled = new Scaled(a); attribute t : Scaled = s; return : Boolean = s.scale == t.scale; }
+		calc def ClosureOther { in a : Real; attribute s : Scaled = new Scaled(a); return : Boolean = s.scale == new Scaled(a).scale; }
+		calc def Defaulted { in a : Real; return : Real = new Def(a).y; }
+		calc def Overridden { in a : Real; return : Real = new Def(a, 1.0).y; }
+		calc def SeqFeature { in a : Real; return : Real[0..*] = new Many((a, a, 1.0)).xs; }
+		calc def SeqEmpty { in a : Real; return : Integer = size(new Many().xs); }
+		calc def InSeq { in a : Real; attribute p : Point = new Point(a, 1.0); attribute ps : Point[0..*] = (p, new Point(2.0, a), p); return : Boolean = ps#(1) == ps#(3) and ps#(1) != ps#(2); }
+		calc def SeqIdent { in a : Real; attribute p : Point = new Point(a, 1.0); return : Boolean = (p, p) == (p, p) and (p, new Point(a, 1.0)) != (p, new Point(a, 1.0)); }
+		calc def Make { in a : Real; return : Point = new Point(a, a + 1.0); }
+		calc def Returned { in a : Real; return : Real = Make(a).y; }
+		calc def IntKept { in a : Real; return : Real = new Point(a, 1).y; }
+		calc def RecVsNum { in a : Real; return : Boolean = new Point(a, a) == a; }
+		calc def NullCmp { in a : Real; return : Boolean = new Point(a, a) == null; }
+		calc def TooMany { in a : Real; return : Real = new Point(a, (1.0, 2.0)).y; }
+		calc def Range { in n : Integer; return : Integer = new Counted(n).n; }
+		calc def Steps { in a : Real; attribute s : Scaled = new Scaled(a); attribute total : Real = 0.0; attribute i : Real = 0.0; while i < 50.0 { assign total := total + s.scale(1.0) + new Point(a, total).x; assign i := i + 1.0; } return : Real = total; }
+	}
 }
 
 // Calculations outside the subset, each refused for the reason its name states.
