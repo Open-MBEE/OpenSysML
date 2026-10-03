@@ -17,7 +17,8 @@ starts and stops on its own.
 They do not all cover the same ground. Go and Java expose every RPC the service offers —
 `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods — and so do Python, Node and Rust. Only Python and Go are published so far.
+query methods — and so do Python, Node and Rust. Python, Node and Rust are published on PyPI, npm
+and crates.io; Java is not on Maven Central, and Julia and MATLAB are source-only.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
@@ -58,7 +59,7 @@ package Demo {
 === "Node"
 
     ```bash
-    npm install @openmbee/opensysml          # once the first release is published
+    npm install @openmbee/opensysml
     export OPENSYSML_GRPC_VERSION=latest
     ```
 
@@ -68,11 +69,12 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml</artifactId>
-      <version>0.9.0</version>
+      <version>0.9.1</version>
     </dependency>
     ```
 
-    Once the first release is published — until then, `make build && mvn -f client/java/pom.xml install` from a checkout.
+    The artifact is not on Maven Central yet. Until then, install it from a checkout with
+    `make build && mvn -f client/java/pom.xml install`.
 
 === "Rust"
 
@@ -1485,9 +1487,10 @@ const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");
 ```
 
-`@openmbee/opensysml` is not published yet, so build it from a checkout: `npm install && npm run build`
-in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
-a service and its parse cache) open across several models. Both a connection and a model are
+Install the published `@openmbee/opensysml` package with `npm install @openmbee/opensysml`; from a
+checkout, use `npm install && npm run build` in `client/node`. `loads` and `load` are the one-shot
+forms; `connect()` keeps a connection (and so a service and its parse cache) open across several
+models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
 is never rounded, `unset` (a feature an object holds nothing for) is distinct from `absent`
@@ -1539,9 +1542,8 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 The client is meant to live inside a JVM host application it does not own (an Eclipse-based tool,
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
-Netty out of a host that has its own. It publishes to Maven Central with each core
-release — `org.openmbee:opensysml` at the core's version — once the first
-release is out; until then, `make build` followed by `mvn -f client/java/pom.xml install`
+Netty out of a host that has its own. The `org.openmbee:opensysml` artifact is not on Maven Central
+yet; until it is, `make build` followed by `mvn -f client/java/pom.xml install` from a checkout
 puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a

@@ -12,9 +12,8 @@ Eclipse-based tool, a Cameo plugin, a web service.
 </dependency>
 ```
 
-The version is the core release's — `v0.9.1` publishes
-`org.openmbee:opensysml:0.9.1` — once the first release is published.
-Until then, build and install it into the local repository from a checkout:
+The client version follows the core release (`0.9.1`), but the artifact is not on Maven Central.
+Build and install it into the local repository from a checkout:
 
 ```bash
 make build                                  # bin/sysml-grpc, which the tests start
@@ -469,10 +468,10 @@ mvn -f client/java/pom.xml test -Dopensysml.requireService=true   # CI: absence 
 
 ## Publishing
 
-Nothing has been published yet. The core `v*` tag's `release` workflow signs,
+The Java artifacts are not on Maven Central yet. The core `v*` tag's `release` workflow signs,
 uploads and publishes `org.openmbee:opensysml` and its `opensysml-parent`
-pom to Maven Central at the core's version — the client is released in lockstep
-with the core, and `autoPublish` releases the validated deployment without a
-portal step. Building locally stays `mvn install` from a checkout. The
+pom at the core's version — the client is released in lockstep with the core, and `autoPublish`
+releases the validated deployment without a portal step. Until then, build with `mvn install` from
+a checkout. The
 procedure, and the credentials the job needs, are in
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-java-client-to-maven-central).
