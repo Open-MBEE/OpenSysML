@@ -115,6 +115,8 @@ type activity struct {
 	awaited map[*sysmlv1.Element]bool
 	// succFlow settles which object flows are written as succession flows.
 	succFlow map[*sysmlv1.Element]bool
+	// through marks the forks, joins and merges object flows pass through as features.
+	through map[*sysmlv1.Element]bool
 	// dead marks the calls found refused before writing, so that the calls their
 	// result pins feed know that no value reaches them.
 	dead map[*sysmlv1.Element]bool
@@ -167,6 +169,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		dataWhy:     map[*sysmlv1.Element]string{},
 		awaited:     map[*sysmlv1.Element]bool{},
 		succFlow:    map[*sysmlv1.Element]bool{},
+		through:     map[*sysmlv1.Element]bool{},
 		dead:        map[*sysmlv1.Element]bool{},
 		dataNode:    map[*sysmlv1.Element]bool{},
 		sink:        map[*sysmlv1.Element]bool{},
@@ -358,6 +361,7 @@ func (a *activity) write() {
 			}
 		}
 	}
+	a.settleThrough()
 	for _, n := range a.nodes {
 		if a.dataNode[n] {
 			continue
@@ -1489,17 +1493,17 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 		a.m.w.line(actionKw + name + " terminate;")
 		a.m.add(n, Mapped, name, "")
 	case "ForkNode":
-		a.m.w.line("fork " + name + ";")
+		a.m.w.block("fork "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "JoinNode":
-		a.m.w.line("join " + name + ";")
+		a.m.w.block("join "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
 		return // successions writes the comments, after the else branch
 	case "MergeNode":
-		a.m.w.line("merge " + name + ";")
+		a.m.w.block("merge "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "CentralBufferNode", "DataStoreNode", "ExpansionNode":
 		a.m.w.line(actionKw + name + ";")
@@ -1774,6 +1778,10 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 	if src == nil || tgt == nil {
 		a.m.unmapped(e, joinNotes(a.m.dangling(e, "source", "target"), "the flow lacks an end"))
+		return
+	}
+	if a.through[src] || a.through[tgt] {
+		a.throughFlow(e, src, tgt)
 		return
 	}
 	if k := nodeKind(tgt); k != nodePin && k != nodeParam {

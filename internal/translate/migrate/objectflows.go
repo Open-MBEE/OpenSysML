@@ -10,12 +10,20 @@ import (
 // which orders its target action after its source as well as carrying the value:
 // it joins pins of two actions of the activity that fire, under no guard but true,
 // from no streaming parameter to none, a value travels it, and it is the succession
-// its target waits on. Settled once the data waits are, as it reads the successions.
+// its target waits on; or it enters or leaves a node passing objects through as the
+// succession between its ends, under no guard. Settled once the data waits are.
 func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	if v, ok := a.succFlow[e]; ok {
 		return v
 	}
-	v := a.joinsActions(e) && !realGuard(e) && slices.Contains(a.succ[a.m.model.Ref(e, "source").Parent], e) && a.carriesValue(e)
+	src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+	var v bool
+	switch {
+	case a.through[src] || a.through[tgt]:
+		v = e.Type == "ObjectFlow" && !realGuard(e) && !a.dataOnly[e] && slices.Contains(a.succ[ownerNode(src)], e)
+	default:
+		v = a.joinsActions(e) && !realGuard(e) && slices.Contains(a.succ[src.Parent], e) && a.carriesValue(e)
+	}
 	a.succFlow[e] = v
 	return v
 }

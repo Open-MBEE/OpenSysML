@@ -16,7 +16,7 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 		return nil
 	}
 	_, merge := node.(*ast.MergeNode)
-	arrived := arrivingInput(graph, node, via)
+	arrived := arrivingInput(frame, graph, node, via)
 	inputs := make(map[string]Value)
 	for _, f := range features {
 		if f.Direction != ast.DirIn {
@@ -57,15 +57,26 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 	return nil
 }
 
-// arrivingInput is the input of node the object flow a token arrived along delivers to,
-// empty for a token that arrived along a succession carrying no value.
-func arrivingInput(graph *lower.ActionGraph, node ast.Node, via lower.ActionEdge) string {
-	if via.Decl == nil {
-		return ""
-	}
+// arrivingInput is the input of node a token arrived for: the one the succession flow
+// it arrived along delivers to, else the one alone a flow from where it came from
+// does, else the first input holding a value; empty when none does.
+func arrivingInput(frame *actionFrame, graph *lower.ActionGraph, node ast.Node, via lower.ActionEdge) string {
+	var from []string
 	for _, flow := range graph.DataFlows[via.Source] {
-		if flow.Target == node && flow.Decl == via.Decl {
+		if flow.Target != node {
+			continue
+		}
+		if via.Decl != nil && flow.Decl == via.Decl {
 			return flow.TargetPin
+		}
+		from = append(from, flow.TargetPin)
+	}
+	if len(from) == 1 {
+		return from[0]
+	}
+	for _, f := range graph.Features[node] {
+		if f.Direction == ast.DirIn && len(frame.pending[node][f.Name]) > 0 {
+			return f.Name
 		}
 	}
 	return ""
