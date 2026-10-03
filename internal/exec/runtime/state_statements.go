@@ -212,7 +212,8 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *
 		return nil
 	}
 	host := e.behaviorHost(behavior, firing)
-	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
+	oneMove := e.ctx.scheduling().oneMove()
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: oneMove, guards: oneMove}
 	return &doRun{host: host, body: body}
 }
 

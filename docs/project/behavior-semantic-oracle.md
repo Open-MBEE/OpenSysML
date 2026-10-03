@@ -77,6 +77,9 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `Performances.kerml` `Performance::enclosedPerformances`, `subperformances` | `step enclosedPerformances: Performance[0..*] subsets performances, timeEnclosedOccurrences` — "timeEnclosedOccurrences of this Performance that are also Performances"; `composite step subperformances: Performance[0..*] subsets enclosedPerformances, suboccurrences` — "enclosedPerformances that are composite" | A composite step's performances start no earlier and end no later than the performance owning them, whether or not a succession orders them |
 | `Occurrences.kerml` `Occurrence::timeEnclosedOccurrences` | "Occurrences that start no earlier than and end no later than this occurrence" | The owner's performance ends only after every subperformance has; its own successors follow them all |
 | `Actions.sysml` `Action::subactions` | `action subactions: Action[0..*] :> actions, subperformances` — "The subperformances of this Action that are Actions" | Every composite action usage of an action (a `send`, `accept`, `assign`, `if`, `while` or `for` among them) is one of its subperformances; a `ref` action usage is not composite and is not one |
+| `Occurrences.kerml` `Occurrence::startShot` | `portion feature startShot: Occurrence[1] subsets snapshots` — "The snapshot representing the start of the occurrence in time" | A feature's initial value is bound at its performance's start shot, before any of its subperformances writes |
+| KerML 1.0 `FeatureValue` (`isInitial`) | An initial feature value (`:=`) gives the feature its value at the start of the featuring occurrence; a bound one (`=`) holds throughout | `attribute t : Integer := c` snapshots `c` once, when its performance starts |
+| `Actions.sysml` `Action::assignments`, `AssignmentAction`; `FeatureReferencingPerformances.kerml` `FeatureWritePerformance` | `abstract action assignments : AssignmentAction[0..*] :> subactions, assignmentActions`; `action def AssignmentAction :> FeatureWritePerformance, Action`; "assigns the values of a feature on an occurrence to the given replacementValues at time its performance ends" | An `assign` is a subperformance of its owner whose write happens when it ends, so it is a separate time from the owner's start shot |
 | `Actions.sysml` `ControlAction` | `bind start = done` — "A ControlAction is instantaneous" | A control node adds no duration; its successor may start as soon as its predecessors end |
 | `Actions.sysml` `ForkAction` | "Fork behavior results from requiring that the target multiplicity of all outgoing succession connectors be 1..1" | Each fork performance is followed by exactly one performance of every target |
 | `Actions.sysml` `JoinAction` | "Join behavior results from requiring that the source multiplicity of all incoming succession connectors be 1..1" | Each join performance follows exactly one performance of every source, one per incoming succession |
@@ -469,7 +472,93 @@ records the default schedule.
 Not covered: a nested action node whose members are only statements, and a loop, branch or
 behavior body stating no flow, run their statements and nodes in declaration order, as they did
 before; the library orders them no more than it orders `a` and `b`, so that order is the
-executor's choice, recorded in [spec compliance](spec-compliance.md).
+executor's choice, recorded in [spec compliance](spec-compliance.md). Another performance may
+still run between two of those statements, as the next section derives.
+
+### A leaf body's start shot and its assignments: another performance may run between them
+
+Fixtures: `action_explore_body_lost_update`, `action_explore_body_three_way`,
+`action_explore_body_fork_lost_update`, `action_explore_body_ordered_substeps`,
+`action_explore_body_guard_branch`, `action_explore_body_typed_callees` and
+`action_explore_body_performed_callees` (golden, explored), with
+`action_step_multiplicity_single_assignment` (one outcome).
+
+```
+Race      c := 0; start → a[2] { t := c; assign c := t + 1 } → done
+ForkPlain c := 0; start → f ⇉ a { t := c; assign c := t + 1 } ─┐
+                            ⇉ b { t := c; assign c := t + 1 } ─┴→ j → done
+```
+
+Derived constraints:
+
+- `attribute t : Integer := c` is an initial feature value (KerML 1.0 `FeatureValue`,
+  `isInitial`): `t` takes the value `c` has at the start of the performance of `a` that features
+  it, its `startShot` (`Occurrences.kerml`). It is a snapshot; a later write of `c` does not
+  change `t`.
+- `assign c := t + 1` is an assignment action usage, one of `a`'s `assignments`, so one of its
+  `subactions` (`Actions.sysml`): a subperformance, enclosed in `a`'s performance
+  (`Performances.kerml`), not coincident with its start. Its type `AssignmentAction` is a
+  `FeatureWritePerformance`, which writes `c` "at time its performance ends"
+  (`FeatureReferencingPerformances.kerml`). The read of `c` and the write of `c` are two times
+  of one performance of `a`.
+- No `HappensBefore` links the two performances of `a[2]` (repeated performances of one step,
+  [above](#repeated-action-steps-and-shared-writes)) nor the two fork branches `a` and `b`
+  (`ForkAction`). So the other performance's start shot may fall between this one's start shot
+  and the end of its assignment. When both start shots come before both writes, both read `0`
+  and both write `1`.
+- The library does not divide one assignment further: `FeatureWritePerformance` states only that
+  the write happens when the assignment ends, and nothing places the evaluation of its value
+  expression at another time. The tool keeps an assignment one move, its value read and its
+  write together, as it keeps one initialization. That is the tool's reading where the library
+  is silent, not a library constraint. So `a[3] { assign c := c + 1; }` reads and writes `c` in
+  one move and loses no update (`action_step_multiplicity_single_assignment`, `c = 3`).
+- A succession inside a body is a `HappensBefore` link. In `action_explore_body_ordered_substeps`
+  the branch `a` performs `a1` then `a2`, each appending to `log`, and the branch `b` appends
+  `"b"`. `b` may run before `a1`, between `a1` and `a2`, or after `a2`, but `a2` never runs
+  before `a1`.
+
+- An `if` is an `IfThenPerformance` (`ControlPerformances.kerml`): `succession [1] ifTest then
+  [0..1] thenClause`, so its guard is evaluated before, not with, its branch. In
+  `action_explore_body_guard_branch`, `a[2] { if c < 1 { assign c := c + 1; } }`, both
+  performances may read the guard before either assigns: `{c = 1, c = 2}`.
+- A step typed by an action definition (`action a : Inc`) and an action a body performs
+  (`perform action pa : Inc`) are performances of `Inc` like any other, whatever executor runs
+  them: `Inc`'s start shot and its assignment are two times, and nothing orders the other
+  branch's performance between them. With `Inc` reading `counter.c` into `t` and writing
+  `t + 1`, both branches admit `{seen = 1, seen = 2}` (`action_explore_body_typed_callees`,
+  `action_explore_body_performed_callees`).
+
+Open: where the other performance runs relative to this performance's start shot and its
+assignments.
+
+Pinned outcomes: `Race` `{c = 1, c = 2}`; `a[3]` with the same body `{c = 1, c = 2, c = 3}`
+(`action_explore_body_three_way`); `ForkPlain` `{c = 1, c = 2}`; the ordered substeps
+`{log = "12b", log = "1b2", log = "b12"}`. Each is stated as `outcomes` citing this section, with
+a `.trace.order` where the library fixes an order. Exploration reaches every member and nothing
+else: `Race` in 6 linearizations, `a[3]` in 90, `ForkPlain` in 6. The exact goldens record the
+default schedule.
+
+The executor gives a leaf body a scheduler boundary after its start shot and after each statement
+where another performance's move could change the outcome there: when two or more of the body's
+moves are dependent on a move of a performance that may run concurrently (`lower.BodyDivides`,
+over the footprints the checker's reduction uses). A body with at most one such move runs as one
+move, because every interleaving inside it only reorders independent moves. The statements of
+one leaf body keep declaration order, as the previous section records. A performance invoked in an
+executor of its own, under a body or a flow driven one move at a time, is analysed by its own
+flow: its start shot and each move that may touch what it does not hold (`lower.BodySharesMoves`,
+`lower.FlowSharesMoves`) are boundaries too. The attributes and `in` parameters its definition
+declares are its performance's own, so moves touching only them are not boundaries
+(`action_explore_body_own_callees`: one outcome in two runs). Its outputs are not: each write to
+one lands at the invoking node's pin and goes on along its streaming flows as it is made, so a
+performance beside it may read the pin before, between or after two writes
+(`action_explore_body_callee_outputs` under `testdata/robustness`: `seen` is 0, 1 or 2).
+
+Not covered: object behaviors, state machines and actions run by separate executors on one
+clock interleave by whole turns. The executor drawn to run at an instant runs until it has no
+move left there, so their moves at one instant are not interleaved. `spec-compliance.md` records
+this as approximate. `-engine smt` encodes a
+body as one move, so it reports a flow with a dividing body as not covered (`body interleaving`)
+instead of encoding one order.
 
 ### A write between two nodes of a concurrent branch: three orders, three outcomes
 

@@ -305,7 +305,13 @@ type stmtListFrame struct {
 	elements int64
 }
 
-func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+// abandon gives back the elements the paused statement held; one yielded before
+// its next statement has none open.
+func (f *stmtListFrame) abandon(*Context) {
+	if f.run != nil {
+		f.run.elements = f.elements
+	}
+}
 
 func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
 
@@ -494,6 +500,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
+		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
 	if f.elseBranch {

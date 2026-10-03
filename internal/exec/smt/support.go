@@ -180,6 +180,9 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 			if err := f.checkImplicitJoin(node); err != nil {
 				return nil, err
 			}
+			if err := f.checkBodyInterleaving(node); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if f.Slots > MaxSlots {
@@ -379,6 +382,16 @@ func (f *Flow) checkImplicitJoin(node ast.Node) error {
 	}
 	return &UnsupportedError{Node: f.label(node), Construct: "implicit join",
 		Reason: "a node several successions enter synchronizes over those still reachable while tokens run concurrently; only a join or a merge is encoded there"}
+}
+
+// checkBodyInterleaving refuses a body another token's moves may interleave
+// inside while tokens run concurrently: the encoding performs a body as one move.
+func (f *Flow) checkBodyInterleaving(node ast.Node) error {
+	if !lower.BodyDivides(f.FrameOf[node].Graph, node) {
+		return nil
+	}
+	return &UnsupportedError{Node: f.label(node), Construct: "body interleaving",
+		Reason: "another performance may interleave between this body's start and its statements, or between two of them; the encoding performs a body as one move"}
 }
 
 // checkBody refuses the statements of a body the stage does not encode, and

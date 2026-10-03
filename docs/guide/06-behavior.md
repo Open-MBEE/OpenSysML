@@ -768,7 +768,10 @@ tried. Under `explore` an action step is one token advancing one node — not, a
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
-unordered, at body granularity: the statements of one body run without interruption. A run that
+unordered. Where another performance's moves can change what a leaf body computes, the body
+yields after its initial values are read and after each statement, so a concurrent branch may
+run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
+statements of one body still run in declaration order. A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the

@@ -67,9 +67,20 @@ type bodyRun struct {
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
 	yields, performed bool
+	// guards has it yield between an `if`'s guard and its branch as well.
+	guards bool
+	// draws has a seeded run draw whether to yield at each such boundary, by the
+	// token the run is for and how many boundaries it drew at before.
+	draws    bool
+	token    int64
+	boundary uint64
 	// steps has the run pause after each token move of the flows and actions it
-	// drives where a step is one move, its machine going on between the moves.
-	steps bool
+	// drives where a step is one move, its machine going on between the moves;
+	// shared only in a flow two of whose moves may touch what another does.
+	steps, shared bool
+	// stepDraws has a seeded run draw whether to pause after a callee's start shot or a
+	// move of its flow where two of its moves may touch what another does.
+	stepDraws bool
 }
 
 // bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
@@ -292,6 +303,9 @@ func (w *usageWork) perform() error {
 			w.phase = usageBody
 		default:
 			w.phase = usageBody
+			if lower.ReadsAtStart(w.graph, w.usage) {
+				e.ctx.bodyPerformed()
+			}
 		}
 	}
 	if w.phase == usageBody {
@@ -410,11 +424,63 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 	return idx, nil
 }
 
+// bodyDivides reports whether another performance may interleave inside work's
+// body with an effect on an outcome, so a run going one move at a time yields in it;
+// open where moves outside its flow may interleave too.
+func (e *ActionExecutor) bodyDivides(work bodyWork, open bool) bool {
+	var graph *lower.ActionGraph
+	var node ast.Node
+	switch w := work.(type) {
+	case *usageWork:
+		if w.performs {
+			return false
+		}
+		graph, node = w.graph, w.usage
+	case *statementWork:
+		graph, node = w.frame.graph, w.node
+	default:
+		return false
+	}
+	if graph == nil {
+		return false
+	}
+	key := bodyDivision{node: node, open: open}
+	divides, known := e.divides[key]
+	if !known {
+		divides = lower.BodyDivides(graph, node) || open && lower.BodySharesMoves(graph, node)
+		if e.divides == nil {
+			e.divides = make(map[bodyDivision]bool)
+		}
+		e.divides[key] = divides
+	}
+	return divides
+}
+
+// bodyDivision keys the cache of bodyDivides.
+type bodyDivision struct {
+	node ast.Node
+	open bool
+}
+
 // runBody starts work for the token at tokenIdx and drives it to its first pause or end.
+// A run one move at a time with another move open goes one move at a time inside
+// the work too, through the flows and actions it performs (stepsTokens).
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work}
 	if outer := e.ctx.body; outer != nil {
-		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
+		run.awaitsMessages, run.steps, run.shared = outer.awaitsMessages, outer.steps, outer.shared
+		run.stepDraws, run.token = outer.stepDraws, outer.token
+	}
+	open := run.steps
+	scheduling := e.ctx.scheduling()
+	if scheduling.oneMove() && len(e.tokens) > 1 && !run.steps {
+		run.steps, run.shared = true, true
+	}
+	if _, draws := scheduling.bodyYields(len(e.tokens) > 1); draws && !run.stepDraws {
+		run.stepDraws, run.token = true, e.tokens[tokenIdx].ID
+	}
+	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && (open || !e.tokens[tokenIdx].drivenByBody()) && e.bodyDivides(work, open) {
+		run.yields, run.draws, run.token, run.guards = yields, draws, e.tokens[tokenIdx].ID, true
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
@@ -478,7 +544,12 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		if !pause.onWait && !pause.tokenStep {
+		switch {
+		case pause.yielded || pause.tokenStep:
+			if i := e.tokenIndex(id); i >= 0 {
+				e.tokens[i].moved = e.sweep
+			}
+		case !pause.onWait:
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
@@ -516,6 +587,12 @@ func (ctx *Context) yieldBody() error {
 	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
 		return nil
 	}
+	if ctx.body.draws {
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
+	}
 	return ctx.pauseBody(bodyPause{yielded: true})
 }
 
@@ -532,13 +609,56 @@ func (ctx *Context) stepsTokens() bool {
 	return ctx.body != nil && ctx.body.steps
 }
 
-// tokenStepBody pauses the body on the stack after one token move where its run
-// goes one move at a time; nil, going on, else.
-func (ctx *Context) tokenStepBody() error {
-	if !ctx.stepsTokens() {
+// guardPerformed notes an `if`'s guard read by the body on the stack, after which a
+// run yielding between a guard and its branch yields.
+func (ctx *Context) guardPerformed() {
+	if ctx.body != nil && ctx.body.guards {
+		ctx.body.performed = true
+	}
+}
+
+// tokenStepBody pauses the body on the stack after one token move of graph's flow
+// where its run goes one move at a time there, or a seeded draw says so; nil, going on, else.
+func (ctx *Context) tokenStepBody(graph *lower.ActionGraph) error {
+	switch {
+	case ctx.stepsTokens():
+		if ctx.body.shared && !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+	case ctx.drawsTokenSteps():
+		if !ctx.flowSharesMoves(graph) {
+			return nil
+		}
+		ctx.body.boundary++
+		if !ctx.scheduling().drawYield(ctx.body.token, ctx.body.boundary) {
+			return nil
+		}
+	default:
 		return nil
 	}
 	return ctx.pauseBody(bodyPause{tokenStep: true})
+}
+
+// drawsTokenSteps reports whether the body on the stack is a seeded run drawing
+// whether to pause after the moves of the callees it performs.
+func (ctx *Context) drawsTokenSteps() bool {
+	return ctx.body != nil && ctx.body.stepDraws
+}
+
+// flowSharesMoves caches lower.FlowSharesMoves by graph.
+func (ctx *Context) flowSharesMoves(graph *lower.ActionGraph) bool {
+	if graph == nil {
+		return false
+	}
+	shares, known := ctx.flowShares[graph]
+	if !known {
+		shares = lower.FlowSharesMoves(graph)
+		if ctx.flowShares == nil {
+			ctx.flowShares = make(map[*lower.ActionGraph]bool)
+		}
+		ctx.flowShares[graph] = shares
+	}
+	return shares
 }
 
 // yieldedHere reports the frame just popped as the one the body yielded in: its
