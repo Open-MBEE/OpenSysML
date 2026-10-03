@@ -1,3 +1,7 @@
+---
+description: The OpenSysML stack and ecosystem — three independent SysML v2 implementations over a version-controlled model store, all open source.
+---
+
 # The stack and the ecosystem
 
 Open source finally speaks SysML v2: three independently built implementations of the
@@ -61,7 +65,7 @@ them together.
     merge, not a file they have to reparse. One SPARQL 1.1 quadstore underneath, JSON
     Web Tokens between services, and a SysML v2 API layer on top, so it plugs into the
     same open interchange the tools above already speak.</p>
-    <p class="osml-eco__meta">Kotlin / Scala · Apache-2.0 · multiple services</p>
+    <p class="osml-eco__meta">Kotlin · Apache-2.0 · multiple services</p>
     <p class="osml-eco__links">
       <a href="https://github.com/Open-MBEE/flexo-mms.openmbee.org">GitHub</a>
     </p>
