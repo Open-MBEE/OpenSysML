@@ -54,6 +54,118 @@ func TestUndecidedVerdictTakesTheCommandPrefix(t *testing.T) {
 	}
 }
 
+func TestSelfCheckJSONReportsUnevaluatedWithoutFailing(t *testing.T) {
+	var out, errs bytes.Buffer
+	r := newReporter(true)
+	r.out, r.err = &out, &errs
+	r.selfCheck([]repl.Verdict{{
+		Subject: "T::inspectTypeSpecializations for T::P",
+		Status:  repl.VerdictUnresolved,
+		Lines:   []string{"? self_check.sysml:1:1: T::inspectTypeSpecializations for T::P could not be evaluated"},
+	}, {
+		Subject: "Self-model check",
+		Status:  repl.VerdictHolds,
+		Lines:   []string{"Self-model check: 1 elements, 1 checks, 0 violations, 1 unevaluated"},
+	}})
+
+	if exit := r.finish(); exit != exitHolds {
+		t.Fatalf("exit status = %d, want %d; report: %s", exit, exitHolds, out.String())
+	}
+	var got checkReport
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("decode self-check JSON: %v\n%s", err, out.String())
+	}
+	if got.Status != repl.VerdictHolds.String() || got.Exit != exitHolds {
+		t.Fatalf("self-check report status=%q exit=%d, want holds/0", got.Status, got.Exit)
+	}
+	if len(got.Checks) != 2 || got.Checks[0].Status != repl.VerdictUnresolved.String() ||
+		!strings.Contains(strings.Join(got.Checks[1].Lines, "\n"), "1 unevaluated") {
+		t.Fatalf("self-check JSON checks = %+v, want unresolved detail and passing unevaluated summary", got.Checks)
+	}
+	if errs.Len() != 0 {
+		t.Fatalf("JSON self-check wrote to stderr: %s", errs.String())
+	}
+}
+
+func TestSelfCheckEvaluationErrorsUseUnevaluableExit(t *testing.T) {
+	cases := []struct {
+		name     string
+		verdicts []repl.Verdict
+		wantExit int
+	}{{
+		name: "error only",
+		verdicts: []repl.Verdict{
+			{
+				Subject: "T::invalidBooleanResult for T::P",
+				Status:  repl.VerdictUnresolved,
+				Lines:   []string{"type_error_self_check.sysml:1:1: error: could not be evaluated: condition must evaluate to boolean"},
+			},
+			{
+				Subject: "Self-model check",
+				Status:  repl.VerdictUnresolved,
+				Lines:   []string{"Self-model check: 1 elements, 1 checks, 0 violations, 0 unevaluated"},
+			},
+		},
+		wantExit: exitUnevaluable,
+	}, {
+		name: "violation only",
+		verdicts: []repl.Verdict{
+			{
+				Subject: "T::reject for T::P",
+				Status:  repl.VerdictFails,
+				Lines:   []string{"type_error_self_check.sysml:1:1: error: T::reject fails for T::P"},
+			},
+			{
+				Subject: "Self-model check",
+				Status:  repl.VerdictFails,
+				Lines:   []string{"Self-model check: 1 elements, 1 checks, 1 violations, 0 unevaluated"},
+			},
+		},
+		wantExit: exitFailed,
+	}, {
+		name: "violation and error",
+		verdicts: []repl.Verdict{
+			{
+				Subject: "T::reject for T::P",
+				Status:  repl.VerdictFails,
+				Lines:   []string{"type_error_self_check.sysml:1:1: error: T::reject fails for T::P"},
+			},
+			{
+				Subject: "T::invalidBooleanResult for T::P",
+				Status:  repl.VerdictUnresolved,
+				Lines:   []string{"type_error_self_check.sysml:1:1: error: could not be evaluated: condition must evaluate to boolean"},
+			},
+			{
+				Subject: "Self-model check",
+				Status:  repl.VerdictFails,
+				Lines:   []string{"Self-model check: 1 elements, 2 checks, 1 violations, 0 unevaluated"},
+			},
+		},
+		wantExit: exitUnevaluable,
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errs bytes.Buffer
+			r := newReporter(true)
+			r.out, r.err = &out, &errs
+			r.selfCheck(tc.verdicts)
+			if exit := r.finish(); exit != tc.wantExit {
+				t.Fatalf("exit status = %d, want %d; report: %s", exit, tc.wantExit, out.String())
+			}
+			var got checkReport
+			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatalf("decode self-check JSON: %v\n%s", err, out.String())
+			}
+			if got.Exit != tc.wantExit {
+				t.Fatalf("JSON exit = %d, want %d", got.Exit, tc.wantExit)
+			}
+			if errs.Len() != 0 {
+				t.Fatalf("JSON self-check wrote to stderr: %s", errs.String())
+			}
+		})
+	}
+}
+
 // A result's inputs and assumptions, and the values a witness fixes with the
 // file it was written to, reach the JSON report; a witness of choices alone
 // reports no inputs and no path.

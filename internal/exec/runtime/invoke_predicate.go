@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -22,6 +23,28 @@ func isPredicateDecl(decl ast.Node) bool {
 		return d.Kind == ast.UsageConstraint || d.Kind == ast.UsageRequirement || d.Kind == ast.UsageObjective
 	}
 	return false
+}
+
+// InvokePredicate applies a constraint or requirement to positional arguments
+// and reports whether its conditions hold.
+func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *symbols.Scope) (bool, error) {
+	defer ctx.beginRun()()
+	if sym == nil || !isPredicateDecl(sym.Decl) {
+		name := "<nil>"
+		if sym != nil {
+			name = ctx.qualifiedSymbolName(sym)
+		}
+		return false, fmt.Errorf("%s is not a predicate", name)
+	}
+	result, err := NewEvalContext(ctx, scope).invokePredicate(sym, calcArgs{positional: args})
+	if err != nil {
+		return false, err
+	}
+	if !result.isBool() {
+		return false, fmt.Errorf("%w: predicate %s returned %s, want Boolean",
+			ErrTypeMismatch, ctx.qualifiedSymbolName(sym), describeValue(result))
+	}
+	return result.Const.Bool, nil
 }
 
 // predicateKind names the kind of predicate sym declares, as verdicts name it.
