@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -26,6 +27,49 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}`, "P")
 		if err != nil {
 			t.Fatalf("ExecuteAction: %v", err)
+		}
+	})
+
+	t.Run("inherited_gated_succession_flow", func(t *testing.T) {
+		for _, tc := range []struct {
+			guard string
+			value int64
+		}{
+			{guard: "true", value: 1},
+			{guard: "false", value: 2},
+		} {
+			t.Run(tc.guard, func(t *testing.T) {
+				src := `package test {
+					private import ScalarValues::*;
+					action def G {
+						attribute go : Boolean = ` + tc.guard + `;
+						first start then a;
+						action a { out y : Integer; assign y := 1; }
+						action c { out y : Integer; assign y := 2; }
+						action b { in v : Integer; }
+						first a if go then f;
+						first a if not go then c;
+						succession flow f of Integer from a.y to b.v;
+						succession flow of Integer from c.y to b.v;
+					}
+					action def S :> G;
+				}`
+				general, err := executeInheritedAction(t, src, "G")
+				if err != nil {
+					t.Fatalf("ExecuteAction(G): %v", err)
+				}
+				specialized, err := executeInheritedAction(t, src, "S")
+				if err != nil {
+					t.Fatalf("ExecuteAction(S): %v", err)
+				}
+				if !reflect.DeepEqual(specialized, general) {
+					t.Fatalf("ExecuteAction(S) outputs = %v, want G outputs %v", specialized, general)
+				}
+				got, ok := specialized["b.v"]
+				if !ok || got.Kind != ValConst || got.Const.Int != tc.value {
+					t.Fatalf("S b.v = %v, want %d", got, tc.value)
+				}
+			})
 		}
 	})
 

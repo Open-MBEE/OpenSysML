@@ -17,9 +17,9 @@ func actionDescription(scope *symbols.Scope) string {
 	return "action"
 }
 
-func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) error {
+func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) ([]pendingGate, error) {
 	if graph == nil {
-		return nil
+		return nil, nil
 	}
 	ordered := orderedAssertionsForGraph(graph, bodies)
 	incompatible := make(map[ast.Node]ast.Node)
@@ -64,7 +64,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 			}
 			matches := inheritedNodeMatches(graph, body, decl)
 			if len(matches) > 1 {
-				return fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, ast.SimpleName(decl))
+				return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, ast.SimpleName(decl))
 			}
 			if len(matches) == 1 {
 				recordInheritedPerform(graph, matches[0], decl, body)
@@ -96,7 +96,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 				continue
 			}
 			if len(inheritedNodeMatches(graph, body, decl)) > 1 {
-				return fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, ast.SimpleName(decl))
+				return nil, fmt.Errorf("%w: %s", ErrAmbiguousInheritedStep, ast.SimpleName(decl))
 			}
 		}
 	}
@@ -124,6 +124,7 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 	}
 
 	seenEdges := make(map[ast.Node]bool)
+	var gates []pendingGate
 	for _, body := range bodies {
 		if body == nil {
 			continue
@@ -144,11 +145,12 @@ func mergeInheritedActionContent(graph *ActionGraph, bodies []*symbols.Scope) er
 			seenEdges[decl] = true
 			graph.recordDeclaredIn(decl, body)
 			if err := lowerer.member(decl); err != nil {
-				return err
+				return nil, err
 			}
 		}
+		gates = append(gates, lowerer.gates...)
 	}
-	return nil
+	return gates, nil
 }
 
 func recordInheritedPerform(graph *ActionGraph, replacement, redefined ast.Node, declaringScope *symbols.Scope) {

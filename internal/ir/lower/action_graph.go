@@ -856,9 +856,11 @@ func lowerActionFlowWithTypingAndAncestors(
 			return graph, err
 		}
 	}
-	if err := mergeInheritedActionContent(graph, generals); err != nil {
+	inheritedGates, err := mergeInheritedActionContent(graph, generals)
+	if err != nil {
 		return graph, err
 	}
+	edges.gates = append(edges.gates, inheritedGates...)
 	if err := lowerInheritedPinConnections(graph, generals); err != nil {
 		return graph, err
 	}

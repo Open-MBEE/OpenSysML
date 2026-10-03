@@ -365,6 +365,53 @@ func TestToActionGraphInheritedFlowStartsAlongsideUnorderedLocalNode(t *testing.
 	}
 }
 
+func TestToActionGraphInheritsGatedSuccessionFlow(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def G {
+			attribute go : Boolean = true;
+			first start then a;
+			action a { out y : Integer; assign y := 1; }
+			action c { out y : Integer; assign y := 2; }
+			action b { in v : Integer; }
+			first a if go then f;
+			first a if not go then c;
+			succession flow f of Integer from a.y to b.v;
+			succession flow of Integer from c.y to b.v;
+		}
+		action def S :> G;
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+
+	a := namedNode(graph, "a")
+	if a == nil {
+		t.Fatal("S graph has no inherited action a")
+	}
+	var flow *ObjectFlow
+	for i := range graph.DataFlows[a] {
+		if graph.DataFlows[a][i].Name == "f" {
+			flow = &graph.DataFlows[a][i]
+			break
+		}
+	}
+	if flow == nil || flow.Kind != FlowSuccession || flow.Gate == nil {
+		t.Fatalf("inherited succession flow = %+v, want gated succession flow f", flow)
+	}
+	for _, edge := range graph.Edges[a] {
+		if edge.Carries && edge.Decl == flow.Decl {
+			if edge.Guard == nil || edge.Gate != flow.Gate {
+				t.Fatalf("carrying edge = %+v, want the inherited gate and guard", edge)
+			}
+			return
+		}
+	}
+	t.Fatal("inherited succession flow f has no carrying edge")
+}
+
 func TestToActionGraphMergesBodyStatingTypedActionNode(t *testing.T) {
 	src := `
 		action def B1 {
