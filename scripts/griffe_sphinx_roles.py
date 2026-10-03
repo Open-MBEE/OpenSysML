@@ -135,15 +135,21 @@ def _resolve_reference(
     package: Module,
     exports: set[str],
     name: str,
+    role: str,
     owning_class: str | None,
     exported_paths: dict[str, str],
 ) -> str | None:
     candidates: list[str] = []
+    owner_candidate = (
+        f"{owning_class}.{name}" if "." not in name and owning_class is not None else None
+    )
     if name.startswith("opensysml."):
         candidates.append(name)
+    if owner_candidate is not None and role in {"meth", "attr"}:
+        candidates.append(owner_candidate)
     candidates.append(f"opensysml.{name}")
-    if "." not in name and owning_class is not None:
-        candidates.append(f"{owning_class}.{name}")
+    if owner_candidate is not None and role not in {"meth", "attr"}:
+        candidates.append(owner_candidate)
 
     seen: set[str] = set()
     for candidate in candidates:
@@ -193,7 +199,14 @@ class SphinxRolesExtension(Extension):
             if docstring is not None and id(docstring) not in rewritten_docstrings:
                 docstring.value = rewrite_roles(
                     docstring.value,
-                    lambda name, role: _resolve_reference(pkg, exports, name, class_path, exported_paths),
+                    lambda name, role: _resolve_reference(
+                        pkg,
+                        exports,
+                        name,
+                        role,
+                        class_path,
+                        exported_paths,
+                    ),
                 )
                 rewritten_docstrings.add(id(docstring))
 

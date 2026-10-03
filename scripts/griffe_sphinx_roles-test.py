@@ -42,6 +42,32 @@ class RewriteRolesTests(unittest.TestCase):
 
         self.assertEqual(result, "Call [`Connection.parse_sources`][opensysml.Connection.parse_sources].")
 
+    def test_extension_resolves_bare_methods_before_top_level_functions(self):
+        from griffe import temporary_visited_package
+
+        source = '''\
+__all__ = ["Conn", "load"]
+
+def load():
+    """Load from the package."""
+
+class Conn:
+    """A connection."""
+
+    def load(self):
+        """Load this connection."""
+
+    def convert(self):
+        """See :meth:`load` and :func:`load`."""
+        '''
+        with temporary_visited_package("opensysml", modules={"__init__.py": source}) as package:
+            roles.SphinxRolesExtension().on_package(pkg=package)
+            convert = package.get_member("Conn").get_member("convert")
+            self.assertEqual(
+                convert.docstring.value,
+                "See [`load`][opensysml.Conn.load] and [`load`][opensysml.load].",
+            )
+
     def test_unresolved_name_becomes_code_span(self):
         result = roles.rewrite_roles(":class:`int`", lambda name, role: None)
 
