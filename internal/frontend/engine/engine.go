@@ -173,14 +173,22 @@ type Engine struct {
 // New builds an engine over the frozen standard library snapshot, under the
 // runtime budgets a default sysml-grpc NewService runs with.
 func New() (*Engine, error) {
+	index, src := libs.FrozenLibrary()
+	return NewWithLibrary(index, src)
+}
+
+// NewWithLibrary builds an engine over a shared standard library snapshot.
+func NewWithLibrary(index *symbols.Index, src libs.Source) (*Engine, error) {
 	budgets, err := runtime.BudgetsFromEnv()
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{
-		budgets: budgets,
-		models:  list.New(),
-		byHash:  make(map[string]*list.Element),
+		libIndex: index,
+		libSrc:   src,
+		budgets:  budgets,
+		models:   list.New(),
+		byHash:   make(map[string]*list.Element),
 	}, nil
 }
 
@@ -210,12 +218,8 @@ func (e *Engine) add(hash string, model *cachedModel) {
 	e.byHash[hash] = e.models.PushFront(&cacheEntry{hash: hash, model: model})
 }
 
-// lib returns the frozen library index for one model to overlay, building it
-// once on the first parse.
+// lib returns the frozen library index for one model to overlay.
 func (e *Engine) lib() (*symbols.Index, libs.Source) {
-	if e.libIndex == nil {
-		e.libIndex, e.libSrc = libs.FrozenLibrary()
-	}
 	return e.libIndex, e.libSrc
 }
 

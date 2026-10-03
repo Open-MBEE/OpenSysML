@@ -70,6 +70,11 @@ type Core struct {
 // New builds a core server over the frozen standard-library snapshot.
 func New() (*Core, error) {
 	index, library := libs.FrozenLibrary()
+	return NewWithLibrary(index, library)
+}
+
+// NewWithLibrary builds a core server over a shared standard-library snapshot.
+func NewWithLibrary(index *symbols.Index, library libs.Source) (*Core, error) {
 	return &Core{
 		libraryIndex: index,
 		library:      library,
