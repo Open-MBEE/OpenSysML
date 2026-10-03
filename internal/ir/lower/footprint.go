@@ -56,13 +56,20 @@ func (p Place) String() string {
 }
 
 // Channel is one message a move sends or waits for: the signal type as written
-// ("" for any) and the port it travels through ("" for none).
+// ("" for any) and the port it travels through ("" for none). Type is the accept's
+// type reference and Message the send's message, each resolving in Scope; Via marks
+// a send routed by connections, Drops a machine's dispatch, which may discard a
+// message sent to its object.
 type Channel struct {
-	Signal string
-	Port   string
+	Signal  string
+	Port    string
+	Type    *ast.QualifiedName
+	Message ast.Node
+	Scope   *symbols.Scope
+	Via     bool
+	Drops   bool
 }
 
-// String renders the channel as `Signal via Port`, dropping what is absent.
 func (c Channel) String() string {
 	text := c.Signal
 	if text == "" {
@@ -92,13 +99,23 @@ type Footprint struct {
 // two sends ordering it), both queuing a completion, convergence on one join or
 // merge, or a dynamic target.
 func (f Footprint) Dependent(g Footprint) bool {
+	return f.DependentBy(g, nil)
+}
+
+// ChannelsMeet reports whether a message operation of one move may not commute
+// with one of another: each channel with whether it sends.
+type ChannelsMeet func(a Channel, aSends bool, b Channel, bSends bool) bool
+
+// DependentBy is Dependent with meet deciding which message operations meet;
+// a nil meet has every two meet.
+func (f Footprint) DependentBy(g Footprint, meet ChannelsMeet) bool {
 	if f.Dynamic || g.Dynamic {
 		return true
 	}
 	if placesMeet(f.Writes, g.Reads) || placesMeet(f.Writes, g.Writes) || placesMeet(g.Writes, f.Reads) {
 		return true
 	}
-	if f.messages() && g.messages() {
+	if f.messagesMeet(g, meet) {
 		return true
 	}
 	if f.Completion && g.Completion {
@@ -107,6 +124,30 @@ func (f Footprint) Dependent(g Footprint) bool {
 	for _, node := range f.Control {
 		for _, other := range g.Control {
 			if node == other {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (f Footprint) messagesMeet(g Footprint, meet ChannelsMeet) bool {
+	if !f.messages() || !g.messages() {
+		return false
+	}
+	if meet == nil {
+		return true
+	}
+	return channelsMeet(f.Sends, true, g.Sends, true, meet) ||
+		channelsMeet(f.Sends, true, g.Accepts, false, meet) ||
+		channelsMeet(f.Accepts, false, g.Sends, true, meet) ||
+		channelsMeet(f.Accepts, false, g.Accepts, false, meet)
+}
+
+func channelsMeet(as []Channel, aSends bool, bs []Channel, bSends bool, meet ChannelsMeet) bool {
+	for _, a := range as {
+		for _, b := range bs {
+			if meet(a, aSends, b, bSends) {
 				return true
 			}
 		}
@@ -465,7 +506,7 @@ func (b *footprintBuilder) statement(stmt Statement) {
 			// A `via` send is routed by connections at run time.
 			b.footprint.Dynamic = true
 		}
-		b.footprint.Sends = append(b.footprint.Sends, Channel{Port: viaPortOf(s)})
+		b.footprint.Sends = append(b.footprint.Sends, Channel{Port: viaPortOf(s), Message: s.Message, Scope: s.Scope, Via: s.IsVia})
 	case Declare:
 		b.reads(s.Scope, s.Value)
 		b.write(Place{Name: s.Name})
@@ -512,14 +553,49 @@ func (b *footprintBuilder) block(block Block) {
 		b.statements(block.Statements)
 		return
 	}
-	for _, node := range block.Graph.Nodes {
-		nested := block.Graph.Footprints()[node]
-		if !block.Graph.StatementRuns[node] {
-			// A nested action or a perform inside a block runs a behavior of its own.
-			nested.Dynamic = true
-		}
-		b.merge(nested)
+	b.merge(FlowFootprint(block.Graph))
+}
+
+// FlowFootprint is what running the flow may touch: every node's footprint and
+// those of the flows its nodes own; a node performing an action is dynamic.
+func FlowFootprint(graph *ActionGraph) Footprint {
+	var b footprintBuilder
+	b.flow(graph, make(map[*ActionGraph]bool))
+	return b.footprint
+}
+
+func (b *footprintBuilder) flow(graph *ActionGraph, seen map[*ActionGraph]bool) {
+	if graph == nil || seen[graph] {
+		return
 	}
+	seen[graph] = true
+	for _, node := range graph.Nodes {
+		b.merge(graph.Footprints()[node])
+		if sub := graph.Subflows[node]; sub != nil {
+			if sub.Graph == nil {
+				b.footprint.Dynamic = true
+			}
+			b.flow(sub.Graph, seen)
+		}
+	}
+}
+
+// InstantDelay is the time event of an accept or transition trigger that may end
+// the instant: a relative delay written as a number, with or without a unit.
+func InstantDelay(trigger ast.Node) (*ast.TimeEvent, bool) {
+	t, ok := trigger.(*ast.TimeEvent)
+	if !ok || t.Absolute {
+		return nil, false
+	}
+	duration := t.Duration
+	if ix, quantity := duration.(*ast.IndexExpr); quantity && ix.Bracket {
+		duration = ix.Operand
+	}
+	switch duration.(type) {
+	case *ast.LiteralInteger, *ast.LiteralReal:
+		return t, true
+	}
+	return nil, false
 }
 
 func (b *footprintBuilder) merge(other Footprint) {
@@ -750,7 +826,7 @@ func (b *footprintBuilder) accept() {
 	if !ok {
 		return
 	}
-	channel := Channel{Port: accept.ViaPort}
+	channel := Channel{Port: accept.ViaPort, Type: accept.SignalType, Scope: accept.Scope}
 	if accept.SignalType != nil {
 		channel.Signal = accept.SignalType.Text()
 	}

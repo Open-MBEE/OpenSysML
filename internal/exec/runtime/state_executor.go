@@ -3457,10 +3457,10 @@ func (e *StateExecutor) RunToQuiescence() error {
 // once nothing is due it advances to the earliest wait, running whatever is due there.
 func (e *StateExecutor) run(atCurrentTime bool) error {
 	var progress dueProgress
-	return e.runCounting(atCurrentTime, &progress)
+	return e.runCounting(atCurrentTime, false, &progress)
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
+func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *dueProgress) (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	wasRunning := e.inRun
@@ -3482,6 +3482,14 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 			progress.unsettle()
 			if e.callReleased() {
 				return nil
+			}
+			if single {
+				return nil
+			}
+			if !atCurrentTime {
+				if err := e.ctx.yieldTurn(e, progress); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -3586,8 +3594,17 @@ func (e *StateExecutor) drivable() bool {
 
 // runDue runs the machine to quiescence at the current instant.
 func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, false)
+}
+
+// runMove is runDue stopping after one unit of the run.
+func (e *StateExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, true)
+}
+
+func (e *StateExecutor) runDueUnits(progress *dueProgress, single bool) (bool, error) {
 	before := *progress
-	err := e.runCounting(true, progress)
+	err := e.runCounting(true, single, progress)
 	return progress.events > before.events || progress.doSteps > before.doSteps, err
 }
 
