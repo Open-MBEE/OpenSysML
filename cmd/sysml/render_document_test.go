@@ -129,6 +129,21 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		2, "SomeView")
 }
 
+func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	template := "https://example.test/src/{file}#L{line}"
+	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "plantuml", "-render-link", template)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("render linked document: %v", err)
+	}
+	want := "https://example.test/src/" + filepath.ToSlash(fixture) + "#L"
+	if !strings.Contains(string(out), want) || !strings.Contains(string(out), "[[") {
+		t.Errorf("document diagrams lack source links to %q:\n%s", want, out)
+	}
+}
+
 // TestRenderDocumentCommittedFixture renders the renderer's committed fixture
 // through the binary's full analysis, matching the committed golden Markdown.
 func TestRenderDocumentCommittedFixture(t *testing.T) {

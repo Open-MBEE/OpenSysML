@@ -89,6 +89,7 @@ type Snapshot struct {
 	// Rendered is the document the rendering was asked of.
 	Rendered *Document
 	docs     map[string]*Document
+	sites    view.Sites
 }
 
 // Document is the named document as the snapshot holds it; nil for a name the
@@ -96,6 +97,9 @@ type Snapshot struct {
 func (s *Snapshot) Document(name string) *Document {
 	return s.docs[name]
 }
+
+// Sites returns the source locations for the rendering's origins.
+func (s *Snapshot) Sites() view.Sites { return s.sites }
 
 // RenderView renders a view of a document. fqn names a declared view or a
 // pseudo-view (`#<kind>[:<fqn>]`); "" renders the document's own view. The
@@ -121,7 +125,16 @@ func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapsho
 	if err != nil {
 		return nil, nil, err
 	}
-	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
+	snapshot := &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}
+	resolver, sem := w.semanticsLocked()
+	renderer := view.NewRenderer(sem, resolver, w.sourceText())
+	snapshot.sites = renderer.Sites(view.FileLocator(sem, func(name string) *source.LineIndex {
+		if doc := snapshot.docs[name]; doc != nil {
+			return doc.Lines()
+		}
+		return nil
+	}))
+	return rendering, snapshot, nil
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.

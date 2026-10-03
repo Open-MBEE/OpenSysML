@@ -239,6 +239,11 @@ is replaced by `<img>` with the caption as its `alt` text; that is the path the 
 use, since no print engine runs Mermaid. Table-kind views keep rendering as a table, as they do
 in Markdown.
 
+An optional source-link template is applied to the nodes and edges that can be located in the
+diagram's source model. HTML documents do not create element-anchored sections, so links back into
+the document are not available as a substitute for source links. Mermaid retains its `strict`
+security level; source links should use ordinary HTTP(S) URLs, not JavaScript URLs.
+
 Supplying the images stays out of `docrender`: rendering them means running `mmdc` as a
 subprocess, which is `docpdf`'s job and must not become a dependency of a pure renderer. So
 `docrender` exposes the diagram sources in document order and accepts the resulting image

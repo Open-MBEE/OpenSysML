@@ -94,6 +94,7 @@ type renderParams struct {
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
+	LinkTemplate string                          `json:"linkTemplate,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -337,7 +338,10 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style, Ports: ports})
+	artifact, err := rendering.WriteWith(form, view.Options{
+		Palette: colors, Style: style, Ports: ports,
+		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
+	})
 	if err != nil {
 		return nil, err
 	}

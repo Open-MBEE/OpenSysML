@@ -1,0 +1,32 @@
+// view: MachineViews::vehicleStates
+// kind: state
+// stated: view def StateTransitionView
+// layout: dot
+digraph "MachineViews::vehicleStates" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«state def»</i></font><br/><b>VehicleStates</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label="", URL="https://example.test/src/state.sysml#L8", tooltip="Machines::VehicleStates"];
+    "n5" [shape=point, fillcolor=black, label=""];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>, URL="https://example.test/src/state.sysml#L13", tooltip="Machines::VehicleStates::off"];
+    subgraph "cluster_n2" {
+      label=<<font point-size="10"><i>«state»</i></font><br/><b>operating</b>>;
+      color=black;
+      penwidth=0.5;
+      "n2" [shape=point, style=invis, width=0, height=0, label="", URL="https://example.test/src/state.sysml#L14", tooltip="Machines::VehicleStates::operating"];
+      "n6" [shape=point, fillcolor=black, label=""];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b><br/>initial>, URL="https://example.test/src/state.sysml#L17", tooltip="Machines::VehicleStates::operating::idle"];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>moving</b>>, URL="https://example.test/src/state.sysml#L18", tooltip="Machines::VehicleStates::operating::moving"];
+    }
+  }
+  "n5" -> "n1" [URL="https://example.test/src/state.sysml#L11", tooltip="state.sysml:11:10"];
+  "n6" -> "n3" [URL="https://example.test/src/state.sysml#L15", tooltip="state.sysml:15:11"];
+  "n1" -> "n2" [URL="https://example.test/src/state.sysml#L29", tooltip="Machines::VehicleStates::''", lhead="cluster_n2"];
+  "n2" -> "n1" [URL="https://example.test/src/state.sysml#L30", tooltip="Machines::VehicleStates::''", ltail="cluster_n2"];
+  "n3" -> "n4" [label="accept Signal [temperature > 0]", URL="https://example.test/src/state.sysml#L20", tooltip="Machines::VehicleStates::operating::idle_to_moving"];
+  "n4" -> "n3" [URL="https://example.test/src/state.sysml#L26", tooltip="Machines::VehicleStates::operating::''"];
+}

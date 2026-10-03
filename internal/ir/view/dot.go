@@ -245,7 +245,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, links: options.Links}
 	w.sources = map[string]bool{}
 	for _, edge := range r.Edges {
 		if edge.FromPort != "" {
@@ -457,11 +457,12 @@ type dotWriter struct {
 	fills     familyFills         // the palette fills, by keyword family
 	labels    labeller            // the node labels, headed relative to the roots' namespace
 	skin      dotSkin             // the drawing style's defaults
-	notes     []Note              // the notes the drawing keeps, those of the nodes it draws
-	noteBoxes []nodeBox           // where each positioned note is drawn, by index in notes
-	noteShown []int               // note index -> the index of the note drawn for it, itself unless a twin at the same place is
-	pictures  []Picture           // the pictures drawn, each at its stated bounds
-	frameRoot string              // the root the Cameo frame header names, drawn untitled
+	links     Links
+	notes     []Note    // the notes the drawing keeps, those of the nodes it draws
+	noteBoxes []nodeBox // where each positioned note is drawn, by index in notes
+	noteShown []int     // note index -> the index of the note drawn for it, itself unless a twin at the same place is
+	pictures  []Picture // the pictures drawn, each at its stated bounds
+	frameRoot string    // the root the Cameo frame header names, drawn untitled
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -1133,6 +1134,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, `comment="collapsed"`)
 		}
 	}
+	attrs = append(attrs, w.dotLinkAttributes(node.Origin)...)
 	return attrs
 }
 
@@ -1674,7 +1676,21 @@ func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	if box, ok := w.boxes[node.ID]; ok {
 		attrs = append(attrs, w.dotPin(box.centre()))
 	}
+	attrs = append(attrs, w.dotLinkAttributes(node.Origin)...)
 	return attrs
+}
+
+func (w *dotWriter) dotLinkAttributes(origin Origin) []string {
+	url, ok := w.links.URL(origin)
+	if !ok {
+		return nil
+	}
+	site, _ := w.links.Sites(origin)
+	tooltip := site.QualifiedName
+	if tooltip == "" {
+		tooltip = fmt.Sprintf("%s:%d:%d", site.File, site.Line, site.Col)
+	}
+	return []string{"URL=" + dotQuote(url), "tooltip=" + dotQuote(tooltip)}
 }
 
 // dotInvisibleAttributes draw a node as nothing: a cluster's anchor, a canvas corner.
@@ -1809,6 +1825,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 			attrs = append(attrs, "lp="+dotQuote(w.dotPoint(w.dotLabelPoint(edge))))
 		}
 	}
+	attrs = append(attrs, w.dotLinkAttributes(edge.Origin)...)
 	return attrs
 }
 

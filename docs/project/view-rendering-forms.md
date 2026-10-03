@@ -804,8 +804,30 @@ pseudostate shape only when nothing else is attached.
   family (fill only; PlantUML takes no border colour on a participant), so the palette is
   represented, not noticed.
 
-Hyperlinks are not written: no writer derives a stable URL from `Origin` today, and the PlantUML
-form adds none on its own; `[[url]]` links stay open with the DOT `URL=` attribute.
+### Source links
+
+The view renderer can resolve each located node and edge to a source `Site` and expand a
+`-render-link` template containing `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`. The
+`{line}` value is one-based and `{col}` is a byte column. Substituted values preserve ASCII
+unreserved characters, `/` and `:` and percent-encode every other UTF-8 byte; template literals
+keep URL delimiters such as `%`, `#`, `?` and `&`, while unsafe bytes are escaped. `{file}` is the
+path as loaded, so absolute input paths are recommended when links must be opened from another
+working directory. A declaration without a locatable on-disk source site — including synthetic
+origins and bundled library declarations — is not linked.
+
+| Form | Linked elements |
+| --- | --- |
+| DOT | Nodes and edges receive quoted `URL` and `tooltip` attributes; the tooltip is the qualified name when available, otherwise `file:line:col`. |
+| PlantUML | Nodes carry `[[url]]` after stereotypes and before palette colors, and edges carry links. Ports and initial/start pseudostate arrows are not linked. |
+| Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
+| Mermaid state diagram | Simple states are linked; composite states are not. |
+| Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. |
+
+The writers emit no link syntax when links are disabled or no site is available.
+
+Mermaid's generated page configuration retains `securityLevel: strict`. Strict mode keeps
+JavaScript links disabled; source-link templates should use ordinary HTTP(S) URLs. This does not
+change the security level of Mermaid rendered by a consumer.
 
 ### The inline style
 
@@ -987,8 +1009,6 @@ and did not change. A view-render RPC added later would take the form as a strin
   `portin`/`portout`.
 - PlantUML prints no stereotype: `hide stereotype` is written so the label's keyword line is the
   one guillemet line; the stereotypes drive only the style and the pseudostate shapes.
-- No `[[url]]` hyperlinks are written by the PlantUML form, no writer having a stable URL for a
-  node's `Origin`.
 - Producing PlantUML runs no jar. The goldens are checked by the in-test syntax walk; a jar on
   the machine is used by hand, or by the optional `-checkonly` check that `OPENSYSML_PLANTUML_JAR`
   turns on.
