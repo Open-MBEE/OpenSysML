@@ -76,7 +76,6 @@ own flow`"]
   classDef anchor fill:none,stroke:none
   class n2_anchor,n3_anchor anchor
   click n1 href "https://example.test/src/action.sysml#L14"
-  click n2 href "https://example.test/src/action.sysml#L16"
   click n4 href "https://example.test/src/action.sysml#L22"
   click n5 href "https://example.test/src/action.sysml#L23"
   click n6 href "https://example.test/src/action.sysml#L29"

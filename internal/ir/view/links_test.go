@@ -306,8 +306,125 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 				}
 				path := filepath.Join("testdata", fmt.Sprintf("links-%s-%s.golden", tc.name, form))
 				checkGolden(t, path, got)
+				if form == FormMermaid {
+					assertMermaidClickTargetsDeclared(t, got)
+				}
 			}
 		})
+	}
+}
+
+func TestMermaidFlowchartDoesNotLinkUsedPortSubgraph(t *testing.T) {
+	renderer, index := loadFixtures(t, "action.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "FlowViews::driveView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := rendering.usedPorts(rendering.portView(PortsMinimal))
+	var target *Node
+	var find func(*Node)
+	find = func(node *Node) {
+		if target != nil {
+			return
+		}
+		if len(node.Children) == 0 && rendering.hasUsedPorts(node, used) {
+			target = node
+			return
+		}
+		for _, child := range node.Children {
+			find(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		find(root)
+	}
+	if target == nil {
+		t.Fatal("action fixture has no childless node with a used port")
+	}
+
+	lineIndex := fixtureText(t, "action.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "action.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	if _, ok := links.URL(target.Origin); !ok {
+		t.Fatalf("used-port action %q has no source URL", target.ID)
+	}
+	input, err := rendering.WriteWith(FormMermaid, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "subgraph " + target.ID + " ["; !strings.Contains(input, want) {
+		t.Errorf("used-port action %q is not drawn as a subgraph:\n%s", target.ID, input)
+	}
+	if unexpected := "click " + target.ID + " "; strings.Contains(input, unexpected) {
+		t.Errorf("Mermaid flowchart linked subgraph ID %q:\n%s", target.ID, input)
+	}
+}
+
+func TestMermaidStateLinksSkipImplicitPseudostates(t *testing.T) {
+	origin := Origin{Doc: "machine.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	start := &Node{ID: "n1", Kind: startKind, Origin: origin}
+	active := &Node{ID: "n2", Kind: "state", Name: "active", Origin: origin}
+	final := &Node{ID: "n3", Kind: "final", Origin: origin}
+	rendering := &Rendering{
+		Kind: KindState,
+		Roots: []*Node{{
+			ID: "n0", Kind: "state", Name: "machine", Origin: origin,
+			Children: []*Node{start, active, final},
+		}},
+		Edges: []Edge{
+			{From: start.ID, To: active.ID, Kind: EdgeTransition},
+			{From: active.ID, To: final.ID, Kind: EdgeTransition},
+		},
+	}
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(got Origin) (Site, bool) {
+			return Site{File: got.Doc, Line: 1, Col: 1}, got.Located()
+		},
+	}
+	got, err := rendering.WriteWith(FormMermaid, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "[*] --> "+active.ID) || !strings.Contains(got, active.ID+" --> [*]") {
+		t.Errorf("test start and final were not converted to [*]:\n%s", got)
+	}
+	for _, id := range []string{start.ID, final.ID} {
+		if unexpected := "click " + id + " "; strings.Contains(got, unexpected) {
+			t.Errorf("Mermaid state linked undeclared pseudostate %q:\n%s", id, got)
+		}
+	}
+	if expected := "click " + active.ID + " "; !strings.Contains(got, expected) {
+		t.Errorf("Mermaid state omitted the declared state's link %q:\n%s", active.ID, got)
+	}
+	assertMermaidClickTargetsDeclared(t, got)
+}
+
+func assertMermaidClickTargetsDeclared(t *testing.T, diagram string) {
+	t.Helper()
+	flowchartNode := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*(\[|\(|\{|@)`)
+	stateNode := regexp.MustCompile(`^state[[:space:]]+".*"[[:space:]]+as[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)`)
+	declared := map[string]bool{}
+	for _, line := range strings.Split(diagram, "\n") {
+		line = strings.TrimSpace(line)
+		if match := stateNode.FindStringSubmatch(line); len(match) > 1 {
+			declared[match[1]] = true
+		} else if match := flowchartNode.FindStringSubmatch(line); len(match) > 1 {
+			declared[match[1]] = true
+		}
+	}
+	for _, line := range strings.Split(diagram, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) >= 2 && fields[0] == "click" && !declared[fields[1]] {
+			t.Errorf("Mermaid click targets undeclared node %q in:\n%s", fields[1], diagram)
+		}
 	}
 }
 
