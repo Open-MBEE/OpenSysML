@@ -2330,6 +2330,9 @@ jobs:
       - run:
           name: Stamp this release's service digests into the crate
           command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
             python3 client/python/scripts/pin_release_checksums.py \
               --version "${CIRCLE_TAG}" \
               --from-manifest dist/SHA256SUMS.txt \
