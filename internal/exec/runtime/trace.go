@@ -770,7 +770,8 @@ func nodeIdentifier(node ast.Node) string {
 	case *ast.StateRegion:
 		return controlNodeName(n.Name, "region")
 	case *ast.WhileLoopActionNode:
-		return loopLabel(n.Kind, n.Variable.Name, n.Condition != nil)
+		variable, _ := n.Variable.DeclaredName()
+		return loopLabel(n.Kind, variable, n.Condition != nil)
 	case *ast.IfActionNode:
 		return "if"
 	case *ast.IfBranchNode:

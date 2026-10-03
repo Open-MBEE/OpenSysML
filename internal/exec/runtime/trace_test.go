@@ -508,6 +508,7 @@ func TestNodeIdentifierNamesControlNodes(t *testing.T) {
 		{&ast.WhileLoopActionNode{Kind: ast.LoopUntil}, "loop"},
 		{&ast.WhileLoopActionNode{Kind: ast.LoopUntil, Condition: &ast.LiteralBool{Value: true}}, "loop until"},
 		{&ast.WhileLoopActionNode{Kind: ast.LoopFor, Variable: ast.Identification{Name: "i"}}, "for i"},
+		{&ast.WhileLoopActionNode{Kind: ast.LoopFor, Variable: ast.Identification{ShortName: "v"}}, "for v"},
 		{&ast.IfActionNode{}, "if"},
 		{&ast.IfBranchNode{Kind: ast.IfBranchElse}, "else"},
 		{&ast.AssignmentActionNode{Target: featureRef("x")}, "assign x"},
