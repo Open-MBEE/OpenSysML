@@ -19,6 +19,16 @@ without changing the table.
 
 The table lives in client/release-digests.json, and `--write` syncs it into
 every client that ships a copy (scripts/sync-release-digests.py).
+
+With `--from-manifest`, stamping the shared table also syncs client copies.
+An explicit `--table` for a package-local table stays isolated.
+
+The Rust release job can stamp its published crate directly from the checksum
+manifest already produced for the release, without a GitHub token or network access:
+
+    python scripts/pin_release_checksums.py --version v0.9.1 \\
+        --from-manifest dist/SHA256SUMS.txt \\
+        --table client/rust/opensysml/release-digests.json
 """
 
 import argparse
@@ -26,6 +36,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -37,6 +48,16 @@ DIGESTS_FILE = os.path.join(REPO_ROOT, "client", "release-digests.json")
 SYNC_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync-release-digests.py")
 DEFAULT_REPO = "Open-MBEE/OpenSysML"
 ASSET_PREFIX = "sysml-grpc-"
+RUST_SERVICE_ASSETS = frozenset(
+    (
+        "sysml-grpc-darwin-amd64",
+        "sysml-grpc-darwin-arm64",
+        "sysml-grpc-linux-amd64",
+        "sysml-grpc-linux-arm64",
+        "sysml-grpc-windows-amd64.exe",
+    )
+)
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 NETWORK_TIMEOUT = 60
 
 
@@ -221,6 +242,85 @@ def render_table(table):
     return json.dumps(table, indent=2, sort_keys=True) + "\n"
 
 
+def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=None):
+    """Add one release's service digests from its already-produced checksum manifest.
+
+    Stamping DIGESTS_FILE syncs the client copies; an explicit alternate table
+    is updated alone.
+
+    Args:
+        manifest_path (str): Path to the release's SHA256SUMS.txt
+        version (str): Release tag
+        repo (str): GitHub repository (owner/repo)
+        table_path (str, optional): Digest table to update; defaults to DIGESTS_FILE
+
+    Returns:
+        bool: Whether a new pin was written
+
+    Raises:
+        PinError: If the manifest is invalid or an existing pin conflicts
+    """
+    table_path = table_path or DIGESTS_FILE
+    sync_shared_table = os.path.realpath(table_path) == os.path.realpath(DIGESTS_FILE)
+    if sync_shared_table:
+        table_path = DIGESTS_FILE
+    digests = {}
+    try:
+        with open(manifest_path, encoding="utf-8") as manifest:
+            lines = manifest.readlines()
+    except (OSError, UnicodeError) as e:
+        raise PinError(f"cannot read checksum manifest {manifest_path}: {e}")
+
+    for line_number, line in enumerate(lines, start=1):
+        fields = line.split()
+        if not fields:
+            continue
+        asset = fields[1] if len(fields) > 1 else fields[0]
+        if asset.endswith(".sha256") or not asset.startswith(ASSET_PREFIX):
+            continue
+        if len(fields) != 2:
+            raise PinError(
+                f"malformed checksum entry for {asset} on line {line_number} "
+                f"of {manifest_path}"
+            )
+        digest, asset = fields
+        if SHA256_PATTERN.fullmatch(digest) is None:
+            raise PinError(
+                f"malformed SHA-256 digest for {asset} on line {line_number} "
+                f"of {manifest_path}"
+            )
+        if asset in digests:
+            raise PinError(f"duplicate service asset {asset} in {manifest_path}")
+        digests[asset] = digest
+
+    missing = sorted(RUST_SERVICE_ASSETS - digests.keys())
+    if missing:
+        raise PinError(
+            f"checksum manifest {manifest_path} is missing service assets: "
+            f"{', '.join(missing)}"
+        )
+
+    table = pinned_table(table_path)
+    versions = table.get(repo, {})
+    if version in versions:
+        if versions[version] == digests:
+            return False
+        raise PinError(
+            f"a different digest pin already exists for {version} of {repo}; "
+            "refusing to replace it"
+        )
+
+    table.setdefault(repo, {})[version] = digests
+    try:
+        with open(table_path, "w", encoding="utf-8") as output:
+            output.write(render_table(table))
+    except OSError as e:
+        raise PinError(f"cannot write digest table {table_path}: {e}")
+    if sync_shared_table:
+        sync_clients(table_path)
+    return True
+
+
 def write_table(table, digests_file=None):
     """Store a table, and sync it into every client that ships a copy.
 
@@ -281,6 +381,19 @@ def main(argv=None):
     parser.add_argument("--version", help="release tag to pin, e.g. v0.0.8")
     parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repository (owner/repo)")
     parser.add_argument(
+        "--from-manifest",
+        metavar="PATH",
+        help="stamp service asset digests from an existing checksum manifest",
+    )
+    parser.add_argument(
+        "--table",
+        default=DIGESTS_FILE,
+        help=(
+            "table to stamp; the shared source syncs client copies, "
+            "other tables stay isolated"
+        ),
+    )
+    parser.add_argument(
         "--write",
         action="store_true",
         help="rewrite client/release-digests.json instead of printing the table",
@@ -292,7 +405,23 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
+    if args.from_manifest:
+        if args.check or args.write:
+            parser.error("--from-manifest cannot be combined with --check or --write")
+        if not args.version:
+            parser.error("--version is required with --from-manifest")
+    elif args.table != DIGESTS_FILE:
+        parser.error("--table can only be used with --from-manifest")
+
     try:
+        if args.from_manifest:
+            changed = stamp_from_manifest(
+                args.from_manifest, args.version, args.repo, args.table
+            )
+            action = "stamped" if changed else "already has"
+            print(f"{action} {args.version} of {args.repo} in {args.table}")
+            return 0
+
         table = pinned_table()
         if args.check:
             problems = check(table)

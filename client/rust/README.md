@@ -12,10 +12,12 @@ From crates.io:
 opensysml = "0.9"
 ```
 
-A published crate cannot download the `sysml-grpc` binary of its own release —
-its embedded `release-digests.json` pins only the digests known when it was
-built — so it targets a running service or a binary it is pointed at
-(`$OPENSYSML_GRPC_BINARY`, then `sysml-grpc` on `$PATH`; see below). See
+A crate published from a release tag carries that release's service digests in
+its embedded `release-digests.json`, stamped from the release checksum manifest
+at publish time, so its built-against default can verify and download the
+binary. A crate built from a Git checkout, or asked for another release, still
+needs a matching pin or `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. The Rust client
+does not verify the manifest's Sigstore signature itself. See
 [docs/project/releasing.md](../../docs/project/releasing.md#releasing-the-rust-client-to-cratesio)
 for how the crate is published.
 
@@ -82,17 +84,23 @@ Resolution is, in order:
 1. `$OPENSYSML_GRPC_BINARY`, the explicit path;
 2. `~/.opensysml/bin/sysml-grpc` (`sysml-grpc.exe` on Windows), the cache shared
    with the Python client;
-3. a download of the release `$OPENSYSML_GRPC_VERSION` asks for, into that cache;
+3. a download into that cache of the release `$OPENSYSML_GRPC_VERSION` names,
+   or the release this client was built against;
 4. `sysml-grpc` on `$PATH`.
 
-A download only happens when `$OPENSYSML_GRPC_VERSION` names a release
-(`latest` resolves through the GitHub releases API), so a caller that never asks
-for one still resolves a locally built binary from `$PATH`. When a release *is*
-asked for, the download precedes `$PATH`, because a binary on `$PATH` is of no
-known version and so does not answer for that release. A cached binary that is
-another release is replaced with a warning, never used silently; a replacement
-that cannot be downloaded leaves the working cache in place, unless the refusal
-was about integrity.
+`$OPENSYSML_GRPC_VERSION` overrides the built-against default, and `latest`
+resolves through the GitHub releases API. An executable cache without release
+metadata is treated as a hand-installed binary and kept. When a requested
+release cannot be downloaded, a working cache is kept with a warning, or a
+binary on `$PATH` is used with a warning; checksum mismatches are never
+answered from either.
+
+The crate's behavior depends on how it was built. A release-tag crate receives
+its own tag's digests at publish time from the release checksum manifest, so
+its built-against default can be verified. A checkout build or a request for
+another release still needs a matching embedded pin or
+`$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. This client does not verify the manifest's
+Sigstore signature itself.
 
 The download goes to a temporary file, is verified, and only then atomically
 replaces the cache with mode `0700` (POSIX). Requests time out after 15 seconds.
@@ -123,12 +131,13 @@ and is about to be started.
 
 ### Trust model, and what this client does not verify
 
-A download is verified against the digest table the crate ships
-([`opensysml/release-digests.json`](opensysml/release-digests.json), a synced copy of
-`client/release-digests.json` embedded with `include_str!`) — a pin resolved
-from outside the published artifact would not be a pin. A `.sha256` served
-beside the binary that disagrees with a pin is tampering: the download is
-refused, and the cache is untouched.
+A download is verified against the digest table embedded in the crate
+([`opensysml/release-digests.json`](opensysml/release-digests.json)); a pin
+resolved from outside the published artifact would not be a pin. The committed
+copy is synced from `client/release-digests.json`, and the release job adds the
+crate's own tag from the release checksum manifest when it packages a release.
+A `.sha256` served beside the binary that disagrees with a pin is tampering: the
+download is refused, and the cache is untouched.
 
 **Known limitation:** unlike the Python, Node and Java clients, this client does
 **not** verify the release's sigstore-signed `SHA256SUMS.txt` manifest

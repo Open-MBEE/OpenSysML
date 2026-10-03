@@ -1,0 +1,124 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Mixed"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="==="
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (FeatureReference name="a"))
+              (SequenceExpr
+                (LiteralReal value="1.0")
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Kept"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="==="
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (FeatureReference name="a"))
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Differ"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="!=="
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (FeatureReference name="a"))
+              (SequenceExpr
+                (LiteralReal value="1.0")
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Nested"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="==="
+              (SequenceExpr
+                (SequenceExpr
+                  (LiteralInteger value="1")
+                  (LiteralInteger value="2"))
+                (FeatureReference name="a"))
+              (SequenceExpr
+                (SequenceExpr
+                  (LiteralInteger value="1")
+                  (LiteralReal value="2.0"))
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Equal"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Boolean
+              (*ast.QualifiedName))
+            (OperatorExpr operator="=="
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (FeatureReference name="a"))
+              (SequenceExpr
+                (LiteralReal value="1.0")
+                (FeatureReference name="a"))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Identities"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mixed" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (InvocationExpr type="Mixed"
+                (LiteralReal value="2.5"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="kept" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (InvocationExpr type="Kept"
+                (LiteralReal value="2.5"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="differ" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (InvocationExpr type="Differ"
+                (LiteralReal value="2.5"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="nested" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (InvocationExpr type="Nested"
+                (LiteralReal value="2.5"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="equal" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (InvocationExpr type="Equal"
+                (LiteralReal value="2.5"))))))
+      (Membership visibility="default"
+        (Usage kind="action" name="identities" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Identities
+            (*ast.QualifiedName)))))))

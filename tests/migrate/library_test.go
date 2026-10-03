@@ -329,7 +329,7 @@ func TestBundledLibraryCallsAreKnownByIdentity(t *testing.T) {
 	wantNote(t, r, "_size", migrate.Mapped, "calls fUML ListFunctions::ListSize, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to")
 	wantNote(t, r, "_get", migrate.Approximated, "calls fUML ListFunctions::ListGet, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to; v2 fails on an index outside 1..ListSize(list)")
 	wantNote(t, r, "_toString", migrate.Mapped, "calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::IntegerFunctions::ToString recorded beside its href into the library module fUML-Library.mdzip")
-	wantNote(t, r, "_label", migrate.Approximated, "calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip")
+	wantNote(t, r, "_label", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip")
 	wantNote(t, r, "_fumlLibrary", migrate.Skipped, "profile or library content")
 
 	s := session(t, r)

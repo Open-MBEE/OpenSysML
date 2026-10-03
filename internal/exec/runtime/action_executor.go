@@ -488,7 +488,7 @@ func (e *ActionExecutor) allTokensParked() bool {
 // for work of its own that waits on the clock.
 func (e *ActionExecutor) anyTokenWaiting() bool {
 	for _, token := range e.tokens {
-		if token.Wait != nil || token.pausedOnClock() {
+		if token.Wait != nil || token.pausedOnClock() || token.pausedOnMessage() || token.pausedOnChange() {
 			return true
 		}
 	}
@@ -501,12 +501,39 @@ func (e *ActionExecutor) anyTokenWaiting() bool {
 func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 	waiting := make([]Token, 0, len(e.tokens))
 	for _, token := range e.tokens {
-		if token.Wait != nil && token.inFlowOf(perf) {
+		if (token.Wait != nil || token.pausedOnMessage() || token.pausedOnChange()) && token.inFlowOf(perf) {
 			waiting = append(waiting, token)
 		}
 	}
 	sort.Slice(waiting, func(i, j int) bool { return waiting[i].ID < waiting[j].ID })
 	return waiting
+}
+
+// waitTarget identifies a flow whose nested message waits are being inspected.
+type waitTarget struct {
+	exec *ActionExecutor
+	perf *actionFrame
+}
+
+// waitsForMessage reports whether a token in perf's flow is ultimately parked on a message.
+func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]bool) bool {
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
+	for _, token := range e.tokens {
+		if !token.inFlowOf(perf) {
+			continue
+		}
+		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger == "" {
+			return true
+		}
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.waitsForMessage(seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // deadlockError describes a suspension that can never end: the accepts still
@@ -523,16 +550,104 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 
 // describeWaits lists what the parked tokens of perf's flow (the action's for nil) wait for.
 func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
-	waiting := e.waitingTokens(perf)
-	descriptions := make([]string, 0, len(waiting))
-	for _, token := range waiting {
-		descriptions = append(descriptions, token.Wait.String())
-	}
-	if blocked := len(e.tokensIn(perf)) - len(waiting); blocked > 0 {
-		descriptions = append(descriptions,
-			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
+	seen := make(map[waitToken]bool)
+	descriptions, blocked := e.describeWaitsIn(perf, seen)
+	if blocked > 0 {
+		descriptions = append(descriptions, fmt.Sprintf("%d token(s) blocked for another reason", blocked))
 	}
 	return strings.Join(descriptions, "; ")
+}
+
+// waitToken identifies a token whose nested wait description is being visited.
+type waitToken struct {
+	exec  *ActionExecutor
+	token int64
+}
+
+// describeWaitsIn returns this flow's wait descriptions and the blocked token count below it.
+func (e *ActionExecutor) describeWaitsIn(perf *actionFrame, seen map[waitToken]bool) ([]string, int) {
+	waiting := e.waitingTokens(perf)
+	descriptions := make([]string, 0, len(waiting))
+	blocked := len(e.tokensIn(perf)) - len(waiting)
+	for _, token := range waiting {
+		key := waitToken{exec: e, token: token.ID}
+		if token.Wait != nil {
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			description := token.Wait.String()
+			if token.frame != nil {
+				if path := token.frame.path(); path != "" {
+					description += " (in " + path + ")"
+				}
+			}
+			descriptions = append(descriptions, description)
+			continue
+		}
+		nested, nestedBlocked := e.describePausedWait(token, seen)
+		descriptions = append(descriptions, nested...)
+		blocked += nestedBlocked
+	}
+	return descriptions, blocked
+}
+
+// describePausedWait adds the nested performance and caller to its wait descriptions.
+func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool) ([]string, int) {
+	wait := token.body.paused.wait
+	var (
+		descriptions []string
+		performance  string
+		blocked      int
+	)
+	if wait.held != nil {
+		descriptions, blocked = wait.held.describeWaitsIn(nil, seen)
+		performance = wait.held.performanceName()
+	} else if wait.exec != nil {
+		descriptions, blocked = wait.exec.describeWaitsIn(wait.perf, seen)
+		performance = wait.exec.performanceName()
+		if wait.perf != nil && wait.perf.node != nil {
+			performance = ActionNodeName(wait.perf.node)
+		}
+	}
+	if len(descriptions) == 0 {
+		return nil, blocked
+	}
+	caller := ActionNodeName(token.Location)
+	for i := range descriptions {
+		context := make([]string, 0, 2)
+		if performance != "" {
+			context = append(context, "in "+performance)
+		}
+		if caller != "" {
+			context = append(context, "performed by "+caller)
+		}
+		if len(context) > 0 {
+			if performance == "" && caller != "" {
+				descriptions[i] = appendWaitContext(descriptions[i], []string{"performed by " + caller})
+			} else {
+				descriptions[i] += " (" + strings.Join(context, ", ") + ")"
+			}
+		}
+	}
+	return descriptions, blocked
+}
+
+func appendWaitContext(description string, context []string) string {
+	if len(context) == 0 {
+		return description
+	}
+	if open := strings.LastIndex(description, " ("); open >= 0 && strings.HasSuffix(description, ")") {
+		inside := description[open+2 : len(description)-1]
+		parts := []string{inside}
+		for _, item := range context {
+			if item != inside {
+				parts = append(parts, item)
+			}
+		}
+		return description[:open+2] + strings.Join(parts, ", ") + ")"
+	}
+	return description + " (" + strings.Join(context, ", ") + ")"
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -544,11 +659,9 @@ func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
 // again or stepped with Step; PausedAt names the node it stopped at. With no
 // breakpoints set the run is unconditional.
 //
-// Nothing outside the action can post a message while this runs, so an action
-// whose every remaining token is parked at an accept for a message can never be
-// resumed: the suspension is a deadlock and is reported as ErrAcceptDeadlock at
-// the first step that makes no progress. A token parked on the clock is resumed
-// by advancing it to its instant, running whatever else is due there too.
+// A message-parked action can be resumed by its caller posting a matching message
+// after this run returns; an unowned run reports ErrAcceptDeadlock when none can.
+// A token parked on the clock is resumed by advancing it to its instant.
 func (e *ActionExecutor) RunToCompletion() error {
 	return e.run(false)
 }
@@ -578,8 +691,8 @@ func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 		e.state = StateRunning
 	}
 
-	// A run may start from StateWaiting: a caller that stepped an action into a
-	// suspension and then posted the awaited message resumes it here.
+	// A run may start from StateWaiting: a caller can post the awaited message
+	// between calls and resume the suspension here.
 	var progress dueProgress
 	wait := bodyWait{held: e}
 	for e.state == StateRunning || e.state == StateWaiting {
@@ -633,8 +746,9 @@ func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
+		err := e.deadlockError(nil)
 		e.endPausedBodies()
-		return e.deadlockError(nil)
+		return err
 	}
 	return nil
 }
@@ -757,20 +871,32 @@ func (e *ActionExecutor) canProceed(perf *actionFrame) bool {
 // changeWaitHolds reports a token of perf's flow (the action's for nil) parked at
 // an accept whose condition holds now; one the step cannot evaluate counts, so the step reports it.
 func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
+	return e.changeWaitHoldsIn(perf, make(map[waitTarget]bool))
+}
+
+func (e *ActionExecutor) changeWaitHoldsIn(perf *actionFrame, seen map[waitTarget]bool) bool {
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
 	for i := range e.tokens {
 		token := &e.tokens[i]
-		if token.Wait == nil || token.Wait.Timed || token.Wait.Trigger == "" || !token.inFlowOf(perf) {
+		if !token.inFlowOf(perf) {
 			continue
 		}
-		usage, ok := token.Location.(*ast.Usage)
-		if !ok {
-			continue
+		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger != "" {
+			usage, ok := token.Location.(*ast.Usage)
+			if ok {
+				accept, ok := e.graphOf(token.frame).Accepts[usage]
+				if _, isChange := accept.Trigger.(*ast.ChangeEvent); ok && isChange {
+					if holds, err := e.triggerHolds(token, accept); err != nil || holds {
+						return true
+					}
+				}
+			}
 		}
-		accept, ok := e.graphOf(token.frame).Accepts[usage]
-		if _, isChange := accept.Trigger.(*ast.ChangeEvent); !ok || !isChange {
-			continue
-		}
-		if holds, err := e.triggerHolds(token, accept); err != nil || holds {
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.changeWaitHolds(seen) {
 			return true
 		}
 	}
@@ -1614,6 +1740,9 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		if node.Kind == ast.UsageAction || lower.IsCaseNode(node) {
 			return e.stepNestedAction(tokenIdx)
 		}
+		if node.Kind == ast.UsageConstraint {
+			return e.stepStatementNode(tokenIdx)
+		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
@@ -1658,6 +1787,9 @@ func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
 	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
 		return nil, false
 	}
+	if e.starvedPin(token.frame, token.Location) {
+		return nil, true
+	}
 	_, join := token.Location.(*ast.JoinNode)
 	incoming := e.awaitedSuccessions(token.frame, token.Location)
 	if len(incoming) < 2 && !join {
@@ -1672,6 +1804,53 @@ func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
 		consumed = append(consumed, idx)
 	}
 	return consumed, true
+}
+
+// starvedPin reports whether a required input pin of node is fed only by succession flows,
+// none of which queued, delivered or may still deliver a value: the node waits for one.
+func (e *ActionExecutor) starvedPin(frame *actionFrame, node ast.Node) bool {
+	graph := e.graphOf(frame)
+	feeds := make(map[string][]lower.ActionEdge)
+	for _, edge := range graph.Incoming(node) {
+		if !edge.Carries {
+			continue
+		}
+		for _, flow := range graph.DataFlows[edge.Source] {
+			if flow.Decl == edge.Decl && flow.Target == node {
+				feeds[flow.TargetPin] = append(feeds[flow.TargetPin], edge)
+			}
+		}
+	}
+	if len(feeds) == 0 {
+		return false
+	}
+	for _, source := range graph.Nodes {
+		for _, flow := range graph.DataFlows[source] {
+			if flow.Target == node && flow.Kind != lower.FlowSuccession {
+				delete(feeds, flow.TargetPin)
+			}
+		}
+	}
+	var live map[ast.Node]bool
+	for _, feature := range graph.Features[node] {
+		edges := feeds[feature.Name]
+		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[node][feature.Name]) > 0 {
+			continue
+		}
+		if sym := memberSymbol(feature.Scope, feature.Node); sym != nil && e.ctx.admitsNoValue(sym) {
+			continue
+		}
+		if live == nil {
+			live = e.reachableFrom(frame, node)
+		}
+		if !slices.ContainsFunc(edges, func(edge lower.ActionEdge) bool {
+			_, delivered := e.arrival(frame, node, edge, false)
+			return delivered || live[edge.Source]
+		}) {
+			return true
+		}
+	}
+	return false
 }
 
 // synchronizes reports whether a node waits for all its incoming successions: every node
@@ -1844,7 +2023,7 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 // scheduleTokens hands the step the tokens it may move, those eligible now, in
 // the order the run's scheduling policy has it try them.
 func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) *tokenSchedule {
-	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible))
+	return e.ctx.scheduling().scheduleStep(e.stepCandidates(order, eligible, nil))
 }
 
 // oneMoveEligible is the eligibility of a step moving one token: a token not
@@ -1852,9 +2031,14 @@ func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) b
 func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
 
 // stepCandidates lists the tokens a step may move, as the policy is handed them.
-func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
+func (e *ActionExecutor) stepCandidates(
+	order *stepOrder,
+	eligible func(Token) bool,
+	scope *actionFrame,
+) stepTokens {
 	tokens := stepTokens{
 		owner:   e,
+		scope:   scope,
 		step:    e.stepCount + 1,
 		ids:     make([]int64, 0, len(e.tokens)),
 		parked:  make(map[int64]bool),
@@ -2056,6 +2240,9 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	if err := e.runNodeBody(frame, node); err != nil {
 		return err
 	}
+	if err := e.carryObjects(frame, node, e.tokens[tokenIdx].Via); err != nil {
+		return err
+	}
 
 	// A guard on a branch out of a fork prunes it: only the enabled branches run,
 	// and a fork whose every branch is pruned ends the flow through it.
@@ -2099,6 +2286,9 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	graph := e.graphOf(frame)
 
 	if err := e.runNodeBody(frame, node); err != nil {
+		return err
+	}
+	if err := e.carryObjects(frame, node, token.Via); err != nil {
 		return err
 	}
 
@@ -2145,6 +2335,9 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
 	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
+		return err
+	}
+	if err := e.carryObjects(token.frame, mergeNode, token.Via); err != nil {
 		return err
 	}
 
@@ -2306,22 +2499,16 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%w: action node %s has multiple successors (decision nodes not yet supported)",
-			ErrAmbiguousSuccession, node.Name)
-	}
 
-	// Apply data flows: transfer data from this node's output pins to target input pins
-	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil); err != nil {
+	if err := ambiguousSuccession("action node "+node.Name, successors); err != nil {
 		return err
 	}
 
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
+	// Apply data flows: transfer data from this node's output pins to target input pins
+	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil, successors); err != nil {
+		return err
 	}
-
-	e.move(&e.tokens[tokenIdx], successors[0])
-	return nil
+	return e.advance(tokenIdx, successors)
 }
 
 // stepNestedAction performs a nested action usage in a frame of its own.
@@ -2489,23 +2676,52 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%w: action node %s has multiple successors", ErrAmbiguousSuccession, ActionNodeName(node))
+	if err := ambiguousSuccession("action node "+ActionNodeName(node), successors); err != nil {
+		return err
 	}
 
 	// The flows out of this node carry what this performance produced to the
 	// pins the nodes downstream read.
-	if err := e.applyDataFlows(frame, frame.graph, node, perf, perf.data, perf.streamed); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, perf, perf.data, perf.streamed, successors); err != nil {
 		return err
 	}
 
 	// A node the flow leads no further from is where this flow ends: the action
 	// inherits its `done` snapshot, so no succession to a final node is needed.
+	return e.advance(tokenIdx, successors)
+}
+
+// ambiguousSuccession reports successions out of node that state a choice no order
+// resolves: two not of succession flows, guarded or not, which a fork states.
+// The successions of succession flows each follow the node beside another.
+func ambiguousSuccession(node string, successors []lower.ActionEdge) error {
+	control := 0
+	for _, edge := range successors {
+		if !edge.Carries {
+			control++
+		}
+	}
+	if control > 1 {
+		return fmt.Errorf("%w: %s has multiple successors", ErrAmbiguousSuccession, node)
+	}
+	return nil
+}
+
+// advance takes the token at tokenIdx along every enabled succession out of an action
+// node, each target following it as after a fork; none retires the token.
+func (e *ActionExecutor) advance(tokenIdx int, successors []lower.ActionEdge) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-
+	frame := e.tokens[tokenIdx].frame
 	e.move(&e.tokens[tokenIdx], successors[0])
+	for _, edge := range successors[1:] {
+		token := Token{ID: e.nextTokenID, frame: frame}
+		e.nextTokenID++
+		e.move(&token, edge)
+		e.tokens = append(e.tokens, token)
+		frame.live++
+	}
 	return nil
 }
 
@@ -2698,15 +2914,16 @@ func (e *ActionExecutor) tokenWaits() []ClockWait {
 	return waits
 }
 
-// dueWork reports a token that can move at this instant (not parked nor paused on
-// the clock, not held at a join, due, or with a message in flight) in the flow
-// awaiting the clock, else the action's.
+// dueWork reports a token that can move at this instant (not parked, nor paused on
+// the clock or for a message, not held at a join, due, or with a message in flight)
+// in the flow awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && !token.pausedOnClock() && !e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
+		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() && !token.pausedOnChange() &&
+			!e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
 			return true
 		}
 	}
@@ -2723,11 +2940,26 @@ func (e *ActionExecutor) heldAtSync(t Token) bool {
 // watchesChange reports a token parked at an `accept when`, which data written
 // outside the action can let proceed.
 func (e *ActionExecutor) watchesChange() bool {
+	return e.watchesChangeIn(nil, make(map[waitTarget]bool))
+}
+
+func (e *ActionExecutor) watchesChangeIn(perf *actionFrame, seen map[waitTarget]bool) bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
 	for _, token := range e.tokens {
+		if !token.inFlowOf(perf) {
+			continue
+		}
 		if token.Wait != nil && token.Wait.Trigger != "" && !token.Wait.Timed {
+			return true
+		}
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.watchesChange(seen) {
 			return true
 		}
 	}
@@ -2790,14 +3022,10 @@ func (e *ActionExecutor) leaveStatementNode(tokenIdx int, frame *actionFrame, no
 	if err != nil {
 		return err
 	}
-	if len(successors) > 1 {
-		return fmt.Errorf("%s node has multiple successors", statementNodeKeyword(node))
+	if err := ambiguousSuccession(statementNodeKeyword(node)+" node", successors); err != nil {
+		return err
 	}
-	if len(successors) == 0 {
-		return e.retireToken(tokenIdx)
-	}
-	e.move(&e.tokens[tokenIdx], successors[0])
-	return nil
+	return e.advance(tokenIdx, successors)
 }
 
 // statementNodeKeyword names a statement node for a message about it, since a
@@ -2814,6 +3042,8 @@ func statementNodeKeyword(node ast.Node) string {
 		return "a 'send'"
 	case *ast.TerminateStatement:
 		return "a 'terminate'"
+	case *ast.Usage:
+		return "the assertion " + ActionNodeName(n)
 	default:
 		return fmt.Sprintf("a %T", node)
 	}
@@ -2824,11 +3054,16 @@ func statementNodeKeyword(node ast.Node) string {
 // unless the pin is declared admitting no value, when the flow carries nothing.
 // A streaming flow from a pin in streamed carried its values as they were written;
 // perf is the performance that produced, nil for a node performed in frame itself.
+// A gated flow moves its value only when its succession is among taken.
 func (e *performances) applyDataFlows(
 	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, perf *actionFrame, produced map[string]Value, streamed map[string]bool,
+	taken []lower.ActionEdge,
 ) error {
 	for _, flow := range graph.DataFlows[sourceNode] {
 		if flow.Kind == lower.FlowStreaming && streamed[flow.SourcePin] {
+			continue
+		}
+		if flow.Gate != nil && !slices.ContainsFunc(taken, func(edge lower.ActionEdge) bool { return edge.Decl == flow.Decl }) {
 			continue
 		}
 		sourceData, ok := produced[flow.SourcePin]
@@ -2867,6 +3102,9 @@ func (e *performances) checkFlowTarget(frame *actionFrame, graph *lower.ActionGr
 // deliverFlow puts a flow's payload where its target reads it: at the pin of a
 // target performing in a frame of its own, else in the flow's own features.
 func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow, value Value) error {
+	if lower.CarriesObjects(flow.Target) {
+		return e.queueControlObject(frame, graph, flow, value)
+	}
 	if err := e.checkFlowTarget(frame, graph, flow); err != nil {
 		return err
 	}

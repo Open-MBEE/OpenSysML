@@ -118,8 +118,20 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 				report.To = ctx.clock.now
 				return report.counting(progress, ctx.run.notes[noted:]), nil
 			}
-			if !ran {
+			if ran {
+				continue
+			}
+			if ctx.behaviorRunDepth > 0 || !ctx.hasReadyDeferredBehavior() {
 				break
+			}
+			stopped, err := ctx.runAttachedBehaviorsUntil(&progress, halted)
+			if err != nil {
+				report.To = ctx.clock.now
+				return report.counting(progress, ctx.run.notes[noted:]), err
+			}
+			if stopped {
+				report.To = ctx.clock.now
+				return report.counting(progress, ctx.run.notes[noted:]), nil
 			}
 		}
 		next, ok := ctx.clock.NextDue()
@@ -132,6 +144,24 @@ func (ctx *Context) AdvanceUntil(duration float64, halted func() bool) (AdvanceR
 	ctx.setClock(deadline)
 	report.To = deadline
 	return report.counting(progress, ctx.run.notes[noted:]), ctx.advanceEnded()
+}
+
+func (ctx *Context) hasReadyDeferredBehavior() bool {
+	for _, behavior := range ctx.objectBehaviors {
+		if behavior.deferred != nil && behavior.hasPendingWork() {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *Context) runAttachedBehaviorsUntil(progress *dueProgress, halted func() bool) (bool, error) {
+	if ctx.behaviorRunDepth > 0 {
+		return false, nil
+	}
+	ctx.behaviorRunDepth++
+	defer func() { ctx.behaviorRunDepth-- }()
+	return ctx.drainObjectBehaviorsUntil(progress, halted)
 }
 
 // advanceEnded is the refusal of an advance of its own that finished every executor
@@ -374,23 +404,14 @@ func (ctx *Context) yieldTurn(driver clockWaiter, progress *dueProgress) error {
 // runWaiter runs one executor's turn of due work, recording the run when the
 // executor is an object's behavior.
 func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error) {
+	behavior := ctx.behaviorOf(w)
 	if ctx.trace != nil {
-		if behavior := ctx.behaviorOf(w); behavior != nil {
+		if behavior != nil {
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 	}
 	moved, err := ctx.runTurn(w, progress)
-	if err != nil {
-		if behavior := ctx.behaviorOf(w); behavior != nil {
-			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
-			if recordsFailure(behavior, err) {
-				ctx.endFailedPerformance(behavior, wrapped)
-				return moved, nil
-			}
-			err = wrapped
-		}
-	}
-	return moved, err
+	return moved, ctx.handleBehaviorRunError(behavior, err)
 }
 
 // dueWaiters lists the executors with work of the given kind due now, in creation

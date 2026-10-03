@@ -66,6 +66,9 @@ func FormatValue(v Value) string {
 		if seq == nil {
 			return "[]"
 		}
+		if seq.required != nil {
+			return "[" + strings.Join(append(formatValueElements(seq.elements), formatRequired(seq)), ", ") + "]"
+		}
 		return "[" + strings.Join(formatValueElements(seq.Elements()), ", ") + "]"
 	case ValSet:
 		set := v.Set()
@@ -567,9 +570,11 @@ func (v Value) Object() (int64, bool) {
 
 // Sequence is an ordered collection (slice-backed). One read empty from a
 // quantity-typed declaration remembers the unit its elements would measure in.
+// One a lower bound filled may end in required members not yet made (required.go).
 type Sequence struct {
 	elements    []Value
 	elementUnit *Unit
+	required    *requiredMembers
 }
 
 // NewSequence creates an empty Sequence.
@@ -586,7 +591,7 @@ func NewEmptySequenceOf(unit Unit) Value {
 // ElementUnit is the unit an empty sequence's elements are declared in; false for
 // a sequence holding elements or read from no quantity-typed declaration.
 func (s *Sequence) ElementUnit() (Unit, bool) {
-	if s == nil || s.elementUnit == nil || len(s.elements) != 0 {
+	if s == nil || s.elementUnit == nil || s.Size() != 0 {
 		return Unit{}, false
 	}
 	return *s.elementUnit, true
@@ -594,25 +599,43 @@ func (s *Sequence) ElementUnit() (Unit, bool) {
 
 // Append adds a value to the end of the sequence.
 func (s *Sequence) Append(val Value) {
+	if s.required != nil {
+		s.elements, s.required = s.Elements(), nil
+	}
 	s.elements = append(s.elements, val)
 }
 
 // At returns the element at the given index (0-based).
 func (s *Sequence) At(index int) (Value, error) {
-	if index < 0 || index >= len(s.elements) {
-		return Value{}, fmt.Errorf("index %d out of range [0, %d)", index, len(s.elements))
+	if index < 0 || index >= s.Size() {
+		return Value{}, fmt.Errorf("%w: index %d is outside 0..%d", ErrIndexOutOfRange, index, s.Size()-1)
 	}
-	return s.elements[index], nil
+	if index < len(s.elements) {
+		return s.elements[index], nil
+	}
+	return s.required.at(int64(index - len(s.elements))), nil
 }
 
 // Size returns the number of elements.
 func (s *Sequence) Size() int {
+	if s.required != nil {
+		return len(s.elements) + int(s.required.count)
+	}
 	return len(s.elements)
 }
 
-// Elements returns the underlying slice (for iteration).
+// Elements returns the elements in order (for iteration); the members of a
+// required tail are named by their reserved identities, made or not.
 func (s *Sequence) Elements() []Value {
-	return s.elements
+	if s.required == nil {
+		return s.elements
+	}
+	out := make([]Value, len(s.elements), s.Size())
+	copy(out, s.elements)
+	for i := int64(0); i < s.required.count; i++ {
+		out = append(out, s.required.at(i))
+	}
+	return out
 }
 
 // Set is a unique collection backed by hash buckets and exact comparisons. A set

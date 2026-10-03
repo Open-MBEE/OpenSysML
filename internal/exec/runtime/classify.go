@@ -310,14 +310,14 @@ func endedText(l life) string {
 // into to own it; each move is noted for the journal.
 func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) {
 	kept := map[int64]bool{}
-	for _, el := range elementsOf(val) {
+	for _, el := range listedElements(val) {
 		if id, ok := el.Object(); ok {
 			kept[id] = true
 		}
 	}
-	for _, el := range elementsOf(fv.HeldValue()) {
+	for _, el := range standingElements(fv.HeldValue()) {
 		id, ok := el.Object()
-		if !ok || kept[id] {
+		if !ok || kept[id] || requiredTail(val) != nil && holdsMember(val, id) {
 			continue
 		}
 		child, ok := ctx.instances[id]
@@ -344,7 +344,7 @@ func (ctx *Context) otherHomeOf(child *Instance, dropped *FeatureValue) (*Instan
 			if fv == dropped || fv.Feature == nil || fv.Feature.Name != name || !ctx.ownsHeld(fv.Feature) {
 				continue
 			}
-			if slices.ContainsFunc(elementsOf(fv.HeldValue()), func(el Value) bool { id, ok := el.Object(); return ok && id == child.ID }) {
+			if holdsMember(fv.HeldValue(), child.ID) {
 				return whole, name
 			}
 		}

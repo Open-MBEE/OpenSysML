@@ -117,44 +117,58 @@ func (c *actionEndpointChecker) checkBody(decl ast.Node, scope *symbols.Scope) {
 			if v.Successor == nil {
 				continue
 			}
-			c.checkEndpoint(scope, nodes, hasInitial, v.First, true, v)
-			c.checkEndpoint(scope, nodes, hasInitial, v.Successor, false, v)
+			c.checkEndpoint(scope, nodes, hasInitial, v.First, nil, v)
+			c.checkEndpoint(scope, nodes, hasInitial, v.Successor, v.First, v)
 		case *ast.SuccessionEdge:
 			if v.SourceMember == nil && !v.SourceImplied {
-				c.checkEndpoint(scope, nodes, hasInitial, v.Source, true, v)
+				c.checkEndpoint(scope, nodes, hasInitial, v.Source, nil, v)
 			}
 			if v.TargetMember == nil && !v.TargetImplied {
-				c.checkEndpoint(scope, nodes, hasInitial, v.Target, false, v)
+				c.checkTarget(scope, nodes, hasInitial, v.Target, v)
 			}
 		case *ast.ControlFlowEdge:
 			if v.SourceMember == nil && !v.SourceImplied {
-				c.checkEndpoint(scope, nodes, hasInitial, v.Source, true, v)
+				c.checkEndpoint(scope, nodes, hasInitial, v.Source, nil, v)
 			}
 			if v.TargetMember == nil && !v.TargetImplied {
-				c.checkEndpoint(scope, nodes, hasInitial, v.Target, false, v)
+				c.checkTarget(scope, nodes, hasInitial, v.Target, v)
 			}
 		case *ast.TransitionMember:
 			if v.Source != nil {
-				c.checkEndpoint(scope, nodes, hasInitial, v.Source, true, v)
+				c.checkEndpoint(scope, nodes, hasInitial, v.Source, nil, v)
 			}
-			c.checkEndpoint(scope, nodes, hasInitial, v.Target, false, v)
+			c.checkEndpoint(scope, nodes, hasInitial, v.Target, v.Source, v)
 		case *ast.Usage:
 			if v.Kind != ast.UsageSuccession || len(v.ConnectorEnds) != 2 {
 				continue
 			}
-			c.checkEndpoint(scope, nodes, hasInitial, connectorEndReference(v.ConnectorEnds[0]), true, v)
-			c.checkEndpoint(scope, nodes, hasInitial, connectorEndReference(v.ConnectorEnds[1]), false, v)
+			source := connectorEndReference(v.ConnectorEnds[0])
+			c.checkEndpoint(scope, nodes, hasInitial, source, nil, v)
+			c.checkEndpoint(scope, nodes, hasInitial, connectorEndReference(v.ConnectorEnds[1]), source, v)
 		}
 	}
 }
 
-// checkEndpoint reports a resolved endpoint that is not an action node.
-func (c *actionEndpointChecker) checkEndpoint(
+// checkTarget reports a resolved target end of an edge that may lead to no flow
+// and is not an action node.
+func (c *actionEndpointChecker) checkTarget(scope *symbols.Scope, nodes []ast.Node, hasInitial bool, ref, subject ast.Node) {
+	c.check(scope, nodes, hasInitial, ref, false, nil, subject)
+}
+
+// checkEndpoint reports a resolved endpoint that is not an action node: a source end
+// when from is nil, else a target end of a succession from from, which may also
+// name a succession flow leaving that node.
+func (c *actionEndpointChecker) checkEndpoint(scope *symbols.Scope, nodes []ast.Node, hasInitial bool, ref, from, subject ast.Node) {
+	c.check(scope, nodes, hasInitial, ref, from == nil, from, subject)
+}
+
+func (c *actionEndpointChecker) check(
 	scope *symbols.Scope,
 	nodes []ast.Node,
 	hasInitial bool,
 	ref ast.Node,
 	sourceEnd bool,
+	from ast.Node,
 	subject ast.Node,
 ) {
 	if ref == nil || lower.ActionEndpointAccepted(nodes, hasInitial, ref, sourceEnd) {
@@ -175,10 +189,22 @@ func (c *actionEndpointChecker) checkEndpoint(
 		c.ctx.DownstreamOfFailure(subject) {
 		return
 	}
+	message := "succession endpoint " + actionEndpointText(ref) + " is not an action node"
+	if flow, isFlow := sym.Decl.(*ast.Usage); isFlow && flow.Kind == ast.UsageFlow && from != nil {
+		switch {
+		case lower.GatedFlowAccepted(nodes, from, flow):
+			return
+		case !flow.IsSuccessionFlow():
+			message = "succession endpoint " + actionEndpointText(ref) + " is a flow, not a succession flow"
+		default:
+			message = "succession endpoint " + actionEndpointText(ref) + " is a succession flow that does not leave " +
+				actionEndpointText(from)
+		}
+	}
 	c.diags = append(c.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     ref.Span(),
-		Message:  "succession endpoint " + actionEndpointText(ref) + " is not an action node",
+		Message:  message,
 		Code:     CodeEndpointNotANode,
 		Source:   "action-endpoint",
 	})

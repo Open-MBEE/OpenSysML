@@ -221,7 +221,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 			return nil
 		}
 	}
-	for _, el := range elementsOf(fv.HeldValue()) {
+	for _, el := range standingElements(fv.HeldValue()) {
 		id, ok := el.Object()
 		if !ok {
 			continue

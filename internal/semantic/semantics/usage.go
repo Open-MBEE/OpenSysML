@@ -73,7 +73,7 @@ func UsageDeclIsComposite(usage *ast.Usage) bool {
 
 func usageIsComposite(usage *ast.Usage) bool {
 	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone ||
-		usage.IsEnd || usage.IsEvent || usage.IsVariantReference() {
+		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
 	}
 	for _, rel := range usage.Relationships {

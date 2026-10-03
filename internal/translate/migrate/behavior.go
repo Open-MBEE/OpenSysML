@@ -45,6 +45,10 @@ func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 		}
 		return catActionDef, ""
 	case "Interaction":
+		// While its scenario is being resolved, its own members are taken as written.
+		if m.deciding[e] {
+			return catActionDef, ""
+		}
 		if note := m.interactionNote(e); note != "" {
 			return catUnmapped, note
 		}

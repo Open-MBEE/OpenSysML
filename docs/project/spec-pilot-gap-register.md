@@ -67,6 +67,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 18 | Cosmetic | Every reference subsetting after the first is reported | reports each extra | same | pilot-following justified by KerML §8.3.3.3 (at most one) |
 | 19 | Cosmetic | `part p : ItemDef;` — a part typed only by a non-part definition | accepted | accepted | pilot-following justified: `parts` supplies `Part` through subsetting |
 | 20 | Cosmetic | Alias identity: an `alias` is a name, not an element | resolves to the aliased element | fixed to match | pilot-following justified by KerML §8.3.2.4 (`Membership`) |
+| 21 | Spurious error | A succession whose ends are qualified names (`first r::move then r::grip;` at package level) | `Must be an accessible feature (use dot notation for nesting)` at each end; the same ends on a `connect` are accepted | accepted, featured by the ends' innermost common featuring type, and executed | spec clear (KerML §8.3.4.5.3); pilot short |
 
 Grouped inventories follow the detailed items: [the `spec-compliance.md` rows whose
 justification is the pilot or nothing](#inventory-a--spec-compliancemd-rows-justified-by-the-pilot-or-by-nothing),
@@ -635,6 +636,51 @@ existing element; now the same as the pilot.
 record says "the pilot was right" without the clause.
 
 **Question for the authors:** none.
+
+### 21. A succession whose ends are qualified names
+
+**Model text**
+
+```sysml
+package R {
+    part def Robot { perform action move; perform action grip; }
+    part r : Robot;
+    first r::move then r::grip;
+}
+```
+
+**Pilot:** `2026-08` (`jupyter-sysml-kernel` 0.62.0) reports
+`nsq.sysml:4:11: error: Must be an accessible feature (use dot notation for nesting)` and the
+same at `4:24`. The same two ends on `connect r::move to r::grip;` validate clean. The
+`spec-compliance.md` example `first part1::action1 then requirement1;` draws the same error at
+its first end. The dot-chain form `first b.g then b.m;` validates clean.
+
+**OpenSysML:** accepts the succession. It is featured by `Robot`, the innermost common
+featuring type of `Robot::move` and `Robot::grip`, and orders `grip` after `move` on every
+`Robot` it runs ([behavior-semantic-oracle.md](behavior-semantic-oracle.md#a-succession-outside-a-behavior-body-orders-the-performances-it-relates-wherever-they-run)).
+Ends with no common featuring type (`first p1::a then p2::b` across two package-level parts)
+are rejected with the pilot's message, and the pilot rejects them too.
+
+**Specification:**
+- KerML §8.3.4.5.3 `deriveConnectorDefaultFeaturingType`: "the innermost common direct or
+  indirect featuringType of the relatedFeatures".
+- `checkConnectorTypeFeaturing`: each related feature has each featuring type of the
+  connector as a direct or indirect featuring type.
+- §8.4.4.6.1 and Table 11 note 2: an implied TypeFeaturing to the `defaultFeaturingType` is
+  added when the connector has no owning type, no owned TypeFeaturing, and a non-null
+  default.
+- A Succession is a Connector (§8.3.4.5.4), and SysML §8.4.9.4 applies the same to
+  `SuccessionAsUsage`.
+
+Nothing in these clauses treats a succession's ends differently from a connector's.
+
+**Assessment:** pilot short, ours follows the specification. The pilot accepts the connector
+form, which suggests that its succession check does not consult the default featuring type.
+That suggestion comes from comparing behavior, not from reading the pilot's source.
+
+**Question for the authors:** is a package-owned succession whose ends name members of one
+type, by qualified name, intended to be well formed by the implied TypeFeaturing of KerML
+§8.4.4.6.1, as the same connector is?
 
 ## Inventory A — `spec-compliance.md` rows justified by the pilot or by nothing
 

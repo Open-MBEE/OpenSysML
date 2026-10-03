@@ -42,8 +42,9 @@ type reporter struct {
 	err  io.Writer
 	json bool
 
-	verdicts []repl.Verdict
-	report   checkReport
+	verdicts       []repl.Verdict
+	statusVerdicts []repl.Verdict
+	report         checkReport
 	// findings counts the model errors the run itself produced, which are
 	// reported as diagnostics and decide no check.
 	findings int
@@ -176,8 +177,10 @@ type checkResultOf struct {
 	Contrast *checkWitness `json:"contrast,omitempty"`
 	// Reason is why nothing is claimed, or what bounds a bounded negative answer
 	// to a Sensitive question; empty for every other covered result.
-	Reason   string `json:"reason,omitempty"`
-	Standing string `json:"standing"`
+	Reason string `json:"reason,omitempty"`
+	// Scope is how far short of quiescence the claim was observed; it holds there.
+	Scope    []string `json:"scope,omitempty"`
+	Standing string   `json:"standing"`
 	// Inputs are the features of the initial state the engine quantified over or
 	// pinned, each with its domain, and Assumptions the constraints it assumed over
 	// them; only a symbolic engine reports either.
@@ -372,6 +375,7 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 			Witness:     checkWitnessOf(r.Witness),
 			Contrast:    checkWitnessOf(r.Contrast),
 			Reason:      r.Reason,
+			Scope:       scopeOf(r.Scope),
 			Standing:    r.Standing(),
 			Inputs:      checkInputs(r.Inputs),
 			Assumptions: r.Assumptions,
@@ -692,6 +696,33 @@ func (r *reporter) diags(diags []repl.Diagnostic) {
 // the other failures to run go.
 func (r *reporter) verdict(v repl.Verdict) {
 	r.verdicts = append(r.verdicts, v)
+	r.statusVerdicts = append(r.statusVerdicts, v)
+	r.reportVerdict(v)
+}
+
+func (r *reporter) selfCheck(verdicts []repl.Verdict) {
+	for _, v := range verdicts {
+		r.verdicts = append(r.verdicts, v)
+		if v.Subject == "Self-model check" || selfCheckEvaluationError(v) {
+			r.statusVerdicts = append(r.statusVerdicts, v)
+		}
+		r.reportVerdict(v)
+	}
+}
+
+func selfCheckEvaluationError(v repl.Verdict) bool {
+	if v.Status != repl.VerdictUnresolved {
+		return false
+	}
+	for _, line := range v.Lines {
+		if strings.Contains(line, "error: could not be evaluated:") {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *reporter) reportVerdict(v repl.Verdict) {
 	if r.json {
 		// The lines are reported with the check itself, not twice.
 		return
@@ -739,7 +770,7 @@ func (r *reporter) finish() int {
 // status is the outcome of the whole run: a check that could not be made leaves
 // it unresolved, and otherwise the worst verdict decided stands.
 func (r *reporter) status() (repl.VerdictStatus, int) {
-	worst := repl.WorstStatus(r.verdicts)
+	worst := repl.WorstStatus(r.statusVerdicts)
 	if !r.clean() {
 		worst = repl.VerdictUnresolved
 	}
@@ -769,4 +800,13 @@ func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVer
 		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
 	}
 	return out
+}
+
+// scopeOf spells the reasons a claim was observed short of quiescence.
+func scopeOf(reasons []runtime.ObservationReason) []string {
+	var scope []string
+	for _, reason := range reasons {
+		scope = append(scope, string(reason))
+	}
+	return scope
 }

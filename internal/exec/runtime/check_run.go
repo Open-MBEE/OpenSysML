@@ -58,7 +58,7 @@ func (r *invocationRun) enabledMoves() []enabledMove {
 	defer r.enter()()
 	var all, held []enabledMove
 	for _, exec := range r.inv.executors() {
-		moves := exec.enabledMoves()
+		moves := r.withinHorizon(exec, exec.enabledMoves())
 		if exec == r.turn {
 			held = moves
 		}
@@ -69,6 +69,16 @@ func (r *invocationRun) enabledMoves() []enabledMove {
 		return all
 	}
 	return held
+}
+
+// withinHorizon keeps of a started machine's moves those of its initial
+// transition, when the horizon stops it there.
+func (r *invocationRun) withinHorizon(exec checkedExecutor, moves []enabledMove) []enabledMove {
+	state, ok := exec.(*StateExecutor)
+	if !r.inv.Horizon.initial || !ok || !slices.Contains(r.inv.States, state) {
+		return moves
+	}
+	return slices.DeleteFunc(moves, func(m enabledMove) bool { return m.Kind != moveEntry })
 }
 
 // owners lists the executors with a move among moves, in executor order.

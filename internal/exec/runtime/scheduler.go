@@ -270,6 +270,7 @@ type scheduler struct {
 // act yet and held ones collapse into another's synchronization.
 type stepTokens struct {
 	owner   *ActionExecutor
+	scope   *actionFrame // nil for the full action flow, non-nil for a subflow.
 	step    int
 	ids     []int64
 	parked  map[int64]bool

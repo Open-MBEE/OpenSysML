@@ -17,7 +17,9 @@ const (
 	sysmlMany
 )
 
-type sysmlElem interface{ sysmlInt | float64 | bool }
+type sysmlElem interface {
+	sysmlInt | float64 | bool | sysmlNum | string | sysmlEnum | sysmlFn
+}
 
 // sysmlSeq is a collection value: null, one bare value, or a sequence.
 type sysmlSeq[T sysmlElem] struct {
@@ -113,11 +115,22 @@ func sysmlCheck[T sysmlElem](s sysmlSeq[T], lo, hi int64, where string) sysmlSeq
 
 // sysmlElemKind is the interpreter's description of an element's type.
 func sysmlElemKind[T sysmlElem](v T) string {
-	switch any(v).(type) {
+	switch v := any(v).(type) {
 	case sysmlInt:
 		return "an Integer"
 	case float64:
 		return "a Real"
+	case sysmlNum:
+		if v.real {
+			return "a Real"
+		}
+		return "an Integer"
+	case string:
+		return "string"
+	case sysmlEnum:
+		return "enumeration literal"
+	case sysmlFn:
+		return "function"
 	}
 	return "a Boolean"
 }
@@ -141,19 +154,38 @@ type sysmlBigKey string
 
 // sysmlKey is v as a map key: equal elements, and only they, share one.
 func sysmlKey[T sysmlElem](v T) any {
+	if n, ok := any(v).(sysmlNum); ok {
+		// A whole Real keys as the Integer it equals.
+		if n.real && (n.r != math.Trunc(n.r) || math.IsInf(n.r, 0)) {
+			return n.r
+		}
+		if n.real {
+			i, _ := new(big.Float).SetFloat64(n.r).Int(nil)
+			return sysmlKey(sysmlWrap(i))
+		}
+		return sysmlKey(n.i)
+	}
 	if i, ok := any(v).(sysmlInt); ok {
 		if i.big != nil {
 			return sysmlBigKey(i.big.String())
 		}
 		return i.small
 	}
+	if f, ok := any(v).(sysmlFn); ok {
+		return sysmlFnKey{f.c, f.run}
+	}
 	return v
 }
 
 // sysmlElemEq is the '==' of two elements.
 func sysmlElemEq[T sysmlElem](a, b T) bool {
-	if x, ok := any(a).(sysmlInt); ok {
+	switch x := any(a).(type) {
+	case sysmlInt:
 		return sysmlICmp(x, any(b).(sysmlInt)) == 0
+	case sysmlNum:
+		return sysmlNCmp(x, any(b).(sysmlNum)) == 0
+	case sysmlFn:
+		return sysmlFnEq(x, any(b).(sysmlFn))
 	}
 	return a == b
 }
@@ -174,7 +206,7 @@ func sysmlEq[T sysmlElem](a, b sysmlSeq[T]) bool {
 	return a.shape == b.shape && sysmlEquals(a, b)
 }
 
-// sysmlEquals is SequenceFunctions::equals and same: the elements in order,
+// sysmlEquals is SequenceFunctions::equals: the elements in order,
 // whatever the shape.
 func sysmlEquals[T sysmlElem](a, b sysmlSeq[T]) bool {
 	if len(a.data) != len(b.data) {
@@ -186,6 +218,33 @@ func sysmlEquals[T sysmlElem](a, b sysmlSeq[T]) bool {
 		}
 	}
 	return true
+}
+
+// sysmlSame is SequenceFunctions::same: the elements in order, each '===' its
+// counterpart, so an Integer is never the same as an equal Real.
+func sysmlSame[T sysmlElem](a, b sysmlSeq[T]) bool {
+	if len(a.data) != len(b.data) {
+		return false
+	}
+	for i := range a.data {
+		if x, ok := any(a.data[i]).(sysmlNum); ok {
+			if !sysmlNSame(x, any(b.data[i]).(sysmlNum)) {
+				return false
+			}
+		} else if !sysmlElemEq(a.data[i], b.data[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// sysmlIdent is the '===' of collections: their '==' with each element '===' its
+// counterpart.
+func sysmlIdent[T sysmlElem](a, b sysmlSeq[T]) bool {
+	if len(a.data) == 0 || len(b.data) == 0 {
+		return len(a.data) == 0 && len(b.data) == 0
+	}
+	return a.shape == b.shape && sysmlSame(a, b)
 }
 
 // sysmlPos is an index as a position: one beyond int64 addresses none.
@@ -342,7 +401,8 @@ func sysmlRange(lo, hi sysmlInt) sysmlSeq[sysmlInt] {
 	if count.big == nil {
 		n = count.small
 	}
-	r := sysmlManySeq[sysmlInt](n)
+	sysmlRangeCharge(n)
+	r := sysmlSeq[sysmlInt]{sysmlMany, make([]sysmlInt, n)}
 	v := lo
 	for i := range r.data {
 		r.data[i] = v
@@ -351,15 +411,63 @@ func sysmlRange(lo, hi sysmlInt) sysmlSeq[sysmlInt] {
 	return r
 }
 
-// sysmlWiden is the Real copy of an Integer collection, charged like any
-// other materialized collection.
-func sysmlWiden(s sysmlSeq[sysmlInt]) sysmlSeq[float64] {
+// sysmlRangeCharge spends a step, then an element, per element of an
+// n-element range, failing at the element where the interpreter's range does.
+func sysmlRangeCharge(n int64) {
+	if room := sysmlMaxSteps - sysmlSteps; n > room && room <= sysmlMaxElements-sysmlElements {
+		sysmlStepFail()
+	}
+	sysmlCharge(n)
+	sysmlSteps += n
+}
+
+// sysmlWiden is the Real copy of a collection of Integers or numbers, charged
+// like any other materialized collection.
+func sysmlWiden[T sysmlElem](s sysmlSeq[T]) sysmlSeq[float64] {
 	sysmlCharge(int64(len(s.data)))
 	r := sysmlSeq[float64]{s.shape, make([]float64, len(s.data))}
 	for i, v := range s.data {
-		r.data[i] = sysmlToReal(v)
+		switch v := any(v).(type) {
+		case sysmlInt:
+			r.data[i] = sysmlToReal(v)
+		case sysmlNum:
+			r.data[i] = v.toReal()
+		}
 	}
 	return r
+}
+
+// sysmlNums is the number copy of a collection of Integers or Reals, each
+// element keeping its kind.
+func sysmlNums[T sysmlElem](s sysmlSeq[T]) sysmlSeq[sysmlNum] {
+	sysmlCharge(int64(len(s.data)))
+	r := sysmlSeq[sysmlNum]{s.shape, make([]sysmlNum, len(s.data))}
+	for i, v := range s.data {
+		switch v := any(v).(type) {
+		case sysmlInt:
+			r.data[i] = sysmlNI(v)
+		case float64:
+			r.data[i] = sysmlNR(v)
+		}
+	}
+	return r
+}
+
+// sysmlNFold folds numbers from the Integer identity, by Integer arithmetic
+// while both operands hold Integers and by Real arithmetic once one does not.
+func sysmlNFold(s sysmlSeq[sysmlNum], identity int64, ints func(a, b sysmlInt) sysmlInt, reals func(a, b float64) float64, op string) sysmlNum {
+	acc := sysmlNI(sysmlI(identity))
+	for _, v := range s.data {
+		if !acc.real && !v.real {
+			acc = sysmlNI(ints(acc.i, v.i))
+			continue
+		}
+		acc = sysmlNR(reals(acc.toReal(), v.toReal()))
+		if math.IsInf(acc.r, 0) {
+			sysmlFailf("arithmetic overflow: %s is not a finite Real", op)
+		}
+	}
+	return acc
 }
 
 func sysmlISum(s sysmlSeq[sysmlInt], op string) sysmlInt {
@@ -432,6 +540,24 @@ func sysmlFormatSeq[T sysmlElem](s sysmlSeq[T]) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
+// sysmlSplitElems splits a sequence body at its commas outside string literals.
+func sysmlSplitElems(body string) []string {
+	var toks []string
+	start, quoted := 0, false
+	for i := 0; i < len(body); i++ {
+		switch c := body[i]; {
+		case quoted && c == '\\':
+			i++
+		case c == '"':
+			quoted = !quoted
+		case !quoted && c == ',':
+			toks = append(toks, body[start:i])
+			start = i + 1
+		}
+	}
+	return append(toks, body[start:])
+}
+
 // sysmlParseSeq parses a collection argument in the notation the interpreter
 // reads and prints: null, a bare value, (a, b, ...) with (a) a bare value,
 // [a, b, ...].
@@ -455,7 +581,7 @@ func sysmlParseSeq[T sysmlElem](s, name string, elem func(string, string) T) sys
 	if body == "" {
 		return r
 	}
-	toks := strings.Split(body, ",")
+	toks := sysmlSplitElems(body)
 	if s[0] == '(' && len(toks) == 1 {
 		return sysmlOneSeq(elem(strings.TrimSpace(body), name))
 	}
@@ -463,23 +589,6 @@ func sysmlParseSeq[T sysmlElem](s, name string, elem func(string, string) T) sys
 		r.data = append(r.data, elem(strings.TrimSpace(tok), name))
 	}
 	return r
-}
-
-func sysmlReadMaxElements() {
-	raw, ok := os.LookupEnv("OPENSYSML_MAX_ELEMENTS")
-	if !ok || strings.TrimSpace(raw) == "" {
-		return
-	}
-	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_ELEMENTS=%q is not an integer: set it to a positive number of collection elements (default %d)\n", raw, sysmlDefaultMaxElements)
-		os.Exit(2)
-	}
-	if n <= 0 {
-		fmt.Fprintf(os.Stderr, "OPENSYSML_MAX_ELEMENTS=%q must be greater than zero: the budget is what stops a runaway run (default %d)\n", raw, sysmlDefaultMaxElements)
-		os.Exit(2)
-	}
-	sysmlMaxElements = n
 }
 `
 
@@ -515,6 +624,9 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		return fmt.Sprintf("func() %s { l := %s; if len(l.data) != 0 { return l }; return %s }()", goSeqType(x.T), e.expr(x.L), e.expr(x.R)), true
 	case SeqEq:
 		eq := fmt.Sprintf("sysmlEq(%s, %s)", e.expr(x.L), e.expr(x.R))
+		if x.Ident {
+			eq = fmt.Sprintf("sysmlIdent(%s, %s)", e.expr(x.L), e.expr(x.R))
+		}
 		if x.Neq {
 			return "(!" + eq + ")", true
 		}
@@ -546,7 +658,9 @@ func (e *goEmitter) sample(s Sample) string {
 	x := goLocal(s.Body.Params[0].Name)
 	var b strings.Builder
 	fmt.Fprintf(&b, "var %s = %s{sysmlMany, nil}; var %s = %s{sysmlMany, nil}; ", dom, goSeqType(s.DomType()), rng, goSeqType(s.RngType()))
-	fmt.Fprintf(&b, "{ s := %s; sysmlEnter(); for _, %s := range s.data { y := %s; sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlLeave() }", e.expr(s.Seq), x, e.expr(s.Body.Body), dom, x, rng)
+	st := s.Steps
+	fmt.Fprintf(&b, "{ s := %s; sysmlEnter(); sysmlStep(%d); for _, %s := range s.data { sysmlStep(%d); y := %s; sysmlStep(%d); sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlStep(%d); sysmlLeave() }",
+		e.expr(s.Seq), st.Enter, x, st.Before, e.expr(s.Body.Body), st.After, dom, x, rng, st.Done)
 	return b.String()
 }
 
@@ -598,8 +712,10 @@ func (e *goEmitter) seqCall(x SeqCall, v []string) string {
 		return fmt.Sprintf("sysmlIncludesOnly(%s, %s)", v[0], v[1])
 	case SeqExcludes:
 		return fmt.Sprintf("sysmlExcludes(%s, %s)", v[0], v[1])
-	case SeqEquals, SeqSame:
+	case SeqEquals:
 		return fmt.Sprintf("sysmlEquals(%s, %s)", v[0], v[1])
+	case SeqSame:
+		return fmt.Sprintf("sysmlSame(%s, %s)", v[0], v[1])
 	case SeqUnion, SeqIncluding:
 		return fmt.Sprintf("sysmlConcat(%s, %s)", v[0], v[1])
 	case SeqIntersection:
@@ -629,6 +745,12 @@ func (e *goEmitter) seqCall(x SeqCall, v []string) string {
 	case SeqAnyTrue:
 		return fmt.Sprintf("sysmlAnyTrue(%s)", v[0])
 	case SeqSum, SeqProduct:
+		if x.T == TypeNum {
+			if x.Op == SeqSum {
+				return fmt.Sprintf("sysmlNFold(%s, 0, sysmlAdd, func(a, b float64) float64 { return a + b }, %q)", v[0], x.Op.Name())
+			}
+			return fmt.Sprintf("sysmlNFold(%s, 1, sysmlMul, func(a, b float64) float64 { return a * b }, %q)", v[0], x.Op.Name())
+		}
 		fn := map[SeqOp]string{SeqSum: "Sum", SeqProduct: "Product"}[x.Op]
 		prefix := "I"
 		if x.T == TypeReal {
@@ -646,6 +768,9 @@ func (e *goEmitter) fold(x Fold) string {
 	elem := goElem(x.Seq.Type())
 	var b strings.Builder
 	fmt.Fprintf(&b, "func() %s { s := %s; ", goType(x.T), e.expr(x.Seq))
+	if x.Steps > 0 {
+		fmt.Fprintf(&b, "sysmlStep(%d); ", x.Steps)
+	}
 	// bind opens the loop body with the parameters bound to args.
 	bind := func(args ...string) string {
 		var s strings.Builder
@@ -685,8 +810,11 @@ func (e *goEmitter) fold(x Fold) string {
 		}
 		fmt.Fprintf(&b, "if len(s.data) == 0 { sysmlFail(%s) }; var r %s; ", strconv.Quote("multiplicity violation: "+x.Op.Name()+" requires a collection of at least one element"), goType(x.T))
 		better := fmt.Sprintf("k %s r", less)
-		if x.T == TypeInt {
+		switch x.T {
+		case TypeInt:
 			better = fmt.Sprintf("sysmlICmp(k, r) %s 0", less)
+		case TypeNum:
+			better = fmt.Sprintf("sysmlNCmp(k, r) %s 0", less)
 		}
 		fmt.Fprintf(&b, "for i, v := range s.data { %sk := %s; if i == 0 || %s { r = k } }; return r }()", bind("v"), body, better)
 	default:
@@ -702,10 +830,15 @@ func (e *goEmitter) forEach(s ForEach) {
 	e.indent++
 	e.linef("s := %s", e.expr(s.Seq))
 	e.linef("if s.shape == sysmlOne {")
-	e.linef("\tsysmlFail(%s)", strconv.Quote("type mismatch: 'for' iterates a collection, and "+article(elem)+" is not one"))
+	if elem == TypeNum {
+		e.linef("\tsysmlFail(\"type mismatch: 'for' iterates a collection, and \" + sysmlElemKind(s.data[0]) + \" is not one\")")
+	} else {
+		e.linef("\tsysmlFail(%s)", strconv.Quote("type mismatch: 'for' iterates a collection, and "+article(elem)+" is not one"))
+	}
 	e.linef("}")
 	e.linef("for _, %s := range s.data {", goLocal(s.Var))
 	e.indent++
+	e.linef("sysmlStep(1)")
 	e.linef("_ = %s", goLocal(s.Var))
 	e.block(s.Body)
 	e.indent--

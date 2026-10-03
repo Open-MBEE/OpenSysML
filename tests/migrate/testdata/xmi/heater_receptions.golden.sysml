@@ -131,7 +131,6 @@ part def Thermostat {
         action seven {
             out result[1] = 7.25;
         }
-        first seven then 'send level';
         action 'send level' {
             in value[1];
             send new Signals::SetLevel(value) via tx;
@@ -142,7 +141,7 @@ part def Thermostat {
         }
         first 'send stop' then final;
         action final terminate;
-        flow seven.result to 'send level'.value;
+        succession flow seven.result to 'send level'.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
 }

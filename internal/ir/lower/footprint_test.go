@@ -818,3 +818,41 @@ func TestFootprintStreamingFollowsRedefinedSourcePins(t *testing.T) {
 		}
 	}
 }
+
+// A sequenced assertion reads the features its condition names, so a concurrent
+// write to one of them does not commute with checking it; one whose condition
+// comes from a type it names reads what lowering cannot see.
+func TestFootprintAssertionReads(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		constraint def Low { in v : Integer; v < 3 }
+		action def Checks {
+			attribute level : Integer = 0;
+			attribute other : Integer = 0;
+			first start;
+			fork split;
+			action raise { assign level := 1; }
+			action touch { assign other := 1; }
+			assert constraint calm { level == 0 }
+			assert constraint low : Low { in v = level; }
+			succession first start then split;
+			succession first split then raise;
+			succession first split then touch;
+			succession first split then calm;
+			succession first split then low;
+		}
+	`, "Checks")
+
+	calm := footprintNamed(t, graph, "calm")
+	if !hasPlace(calm.Reads, "level") || len(calm.Writes) != 0 || calm.Dynamic {
+		t.Errorf("calm footprint:\n%s\nwant a read of level, no writes and no dynamic target", calm)
+	}
+	if !calm.Dependent(footprintNamed(t, graph, "raise")) {
+		t.Error("writing level commutes with asserting it")
+	}
+	if calm.Dependent(footprintNamed(t, graph, "touch")) {
+		t.Error("writing another feature meets the assertion of level")
+	}
+	if low := footprintNamed(t, graph, "low"); !low.Dynamic {
+		t.Errorf("low footprint:\n%s\nwant a dynamic move for a condition its type states", low)
+	}
+}
