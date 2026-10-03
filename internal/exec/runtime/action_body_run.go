@@ -97,16 +97,15 @@ func (w bodyWait) goesOn() bool {
 		if e.state != StateWaiting || e.canProceed(nil) {
 			return false
 		}
-		return w.onMessage && e.waitsForMessage(nil, make(map[waitTarget]bool)) || e.waitsOnClock(nil)
+		return w.onMessage && e.waitsForMessage(nil, make(map[waitTarget]bool)) ||
+			e.waitsOnClock(nil) || e.watchesChangeIn(nil, make(map[waitTarget]bool))
 	}
 	e := w.exec
 	if e.canProceed(w.perf) {
 		return false
 	}
-	if w.onMessage {
-		return e.waitsForMessage(w.perf, make(map[waitTarget]bool))
-	}
-	return e.waitsOnClock(w.perf)
+	return w.onMessage && e.waitsForMessage(w.perf, make(map[waitTarget]bool)) ||
+		e.waitsOnClock(w.perf) || e.watchesChangeIn(w.perf, make(map[waitTarget]bool))
 }
 
 // waitsForMessage reports whether the wait ultimately holds a non-clock accept.
@@ -119,6 +118,26 @@ func (w bodyWait) waitsForMessage(seen map[waitTarget]bool) bool {
 	}
 	if w.exec != nil {
 		return w.exec.waitsForMessage(w.perf, seen)
+	}
+	return false
+}
+
+func (w bodyWait) watchesChange(seen map[waitTarget]bool) bool {
+	if w.held != nil {
+		return w.held.watchesChangeIn(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.watchesChangeIn(w.perf, seen)
+	}
+	return false
+}
+
+func (w bodyWait) changeWaitHolds(seen map[waitTarget]bool) bool {
+	if w.held != nil {
+		return w.held.changeWaitHoldsIn(nil, seen)
+	}
+	if w.exec != nil {
+		return w.exec.changeWaitHoldsIn(w.perf, seen)
 	}
 	return false
 }
@@ -609,6 +628,10 @@ func (t Token) pausedOnClock() bool {
 // pausedOnMessage reports whether a token's paused body ultimately waits on a message.
 func (t Token) pausedOnMessage() bool {
 	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.waitsForMessage(make(map[waitTarget]bool))
+}
+
+func (t Token) pausedOnChange() bool {
+	return t.body != nil && t.body.paused.onWait && t.body.paused.wait.watchesChange(make(map[waitTarget]bool))
 }
 
 // resumable reports a token whose paused work would go on if resumed now: paused

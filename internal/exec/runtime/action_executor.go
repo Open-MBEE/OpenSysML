@@ -488,7 +488,7 @@ func (e *ActionExecutor) allTokensParked() bool {
 // for work of its own that waits on the clock.
 func (e *ActionExecutor) anyTokenWaiting() bool {
 	for _, token := range e.tokens {
-		if token.Wait != nil || token.pausedOnClock() || token.pausedOnMessage() {
+		if token.Wait != nil || token.pausedOnClock() || token.pausedOnMessage() || token.pausedOnChange() {
 			return true
 		}
 	}
@@ -501,7 +501,7 @@ func (e *ActionExecutor) anyTokenWaiting() bool {
 func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 	waiting := make([]Token, 0, len(e.tokens))
 	for _, token := range e.tokens {
-		if (token.Wait != nil || token.pausedOnMessage()) && token.inFlowOf(perf) {
+		if (token.Wait != nil || token.pausedOnMessage() || token.pausedOnChange()) && token.inFlowOf(perf) {
 			waiting = append(waiting, token)
 		}
 	}
@@ -526,7 +526,7 @@ func (e *ActionExecutor) waitsForMessage(perf *actionFrame, seen map[waitTarget]
 		if !token.inFlowOf(perf) {
 			continue
 		}
-		if token.Wait != nil && !token.Wait.Timed {
+		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger == "" {
 			return true
 		}
 		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.waitsForMessage(seen) {
@@ -858,20 +858,32 @@ func (e *ActionExecutor) canProceed(perf *actionFrame) bool {
 // changeWaitHolds reports a token of perf's flow (the action's for nil) parked at
 // an accept whose condition holds now; one the step cannot evaluate counts, so the step reports it.
 func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
+	return e.changeWaitHoldsIn(perf, make(map[waitTarget]bool))
+}
+
+func (e *ActionExecutor) changeWaitHoldsIn(perf *actionFrame, seen map[waitTarget]bool) bool {
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
 	for i := range e.tokens {
 		token := &e.tokens[i]
-		if token.Wait == nil || token.Wait.Timed || token.Wait.Trigger == "" || !token.inFlowOf(perf) {
+		if !token.inFlowOf(perf) {
 			continue
 		}
-		usage, ok := token.Location.(*ast.Usage)
-		if !ok {
-			continue
+		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger != "" {
+			usage, ok := token.Location.(*ast.Usage)
+			if ok {
+				accept, ok := e.graphOf(token.frame).Accepts[usage]
+				if _, isChange := accept.Trigger.(*ast.ChangeEvent); ok && isChange {
+					if holds, err := e.triggerHolds(token, accept); err != nil || holds {
+						return true
+					}
+				}
+			}
 		}
-		accept, ok := e.graphOf(token.frame).Accepts[usage]
-		if _, isChange := accept.Trigger.(*ast.ChangeEvent); !ok || !isChange {
-			continue
-		}
-		if holds, err := e.triggerHolds(token, accept); err != nil || holds {
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.changeWaitHolds(seen) {
 			return true
 		}
 	}
@@ -2793,7 +2805,7 @@ func (e *ActionExecutor) dueWork() bool {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() &&
+		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() && !token.pausedOnChange() &&
 			!e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
 			return true
 		}
@@ -2811,11 +2823,26 @@ func (e *ActionExecutor) heldAtSync(t Token) bool {
 // watchesChange reports a token parked at an `accept when`, which data written
 // outside the action can let proceed.
 func (e *ActionExecutor) watchesChange() bool {
+	return e.watchesChangeIn(nil, make(map[waitTarget]bool))
+}
+
+func (e *ActionExecutor) watchesChangeIn(perf *actionFrame, seen map[waitTarget]bool) bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
+	target := waitTarget{exec: e, perf: perf}
+	if seen[target] {
+		return false
+	}
+	seen[target] = true
 	for _, token := range e.tokens {
+		if !token.inFlowOf(perf) {
+			continue
+		}
 		if token.Wait != nil && token.Wait.Trigger != "" && !token.Wait.Timed {
+			return true
+		}
+		if token.body != nil && token.body.paused.onWait && token.body.paused.wait.watchesChange(seen) {
 			return true
 		}
 	}

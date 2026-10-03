@@ -187,6 +187,262 @@ func acceptSuspensionStatedBlockDeadlockSource() string {
 	}`
 }
 
+func acceptSuspensionChangeWaitSource() string {
+	return `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		action def Main {
+			in ref context : Waiter;
+			out attribute seen : Integer = 0;
+			action def Reader {
+				in ref context : Waiter;
+				out attribute seen : Integer = 0;
+				first start;
+				action await accept when context.ready > 0;
+				action capture { assign seen := context.ready; }
+				done;
+				succession first start then await;
+				succession first await then capture;
+				succession first capture then done;
+			}
+			first start;
+			then perform action reader : Reader { in ref :>> context = context; }
+			then action collect { assign seen := reader.seen; }
+			then done;
+		}
+		part def Waiter {
+			attribute ready : Integer = 0;
+			perform action await : Main { in ref :>> context = this; }
+			perform action update : SetReady { in ref :>> context = this; }
+		}
+		action def SetReady {
+			in ref context : Waiter;
+			first start;
+			accept after 1 [s];
+			action release { assign context.ready := 1; }
+			done;
+			succession first start then release;
+			succession first release then done;
+		}
+	}`
+}
+
+func acceptSuspensionChangeDeadlockSource(nested bool) string {
+	main := `action def Main {
+		attribute ready : Integer = 0;
+		first start;
+		action await accept when ready > 0;
+		done;
+		succession first start then await;
+		succession first await then done;
+	}`
+	if nested {
+		main = `action def Main {
+			attribute ready : Integer = 0;
+			action def Reader {
+				first start;
+				action await accept when ready > 0;
+				done;
+				succession first start then await;
+				succession first await then done;
+			}
+			first start;
+			then perform action reader : Reader;
+			then done;
+		}`
+	}
+	return `package test {
+		private import ScalarValues::*;
+		` + main + `
+	}`
+}
+
+func acceptSuspensionMixedTimerSignalDefinitions() string {
+	return `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		attribute def Go :> Integer;
+		action def Reader {
+			out attribute signalled : Integer = 0;
+			out attribute timed : Integer = 0;
+			first start;
+			fork split;
+			action timer accept after 10 [s];
+			action noteTimer { assign timed := 1; }
+			action signal accept g : Go;
+			action noteSignal { assign signalled := 1; }
+			join meet;
+			done;
+			succession first start then split;
+			succession first split then timer;
+			succession first timer then noteTimer;
+			succession first split then signal;
+			succession first signal then noteSignal;
+			succession first noteTimer then meet;
+			succession first noteSignal then meet;
+			succession first meet then done;
+		}
+		action def Main {
+			out attribute signalled : Integer = 0;
+			out attribute timed : Integer = 0;
+			first start;
+			then perform action reader : Reader;
+			then action collect {
+				assign signalled := reader.signalled;
+				assign timed := reader.timed;
+			}
+			then done;
+		}
+	`
+}
+
+func acceptSuspensionMixedTimerSignalSource() string {
+	return acceptSuspensionMixedTimerSignalDefinitions() + `part def Waiter {
+			perform action main : Main;
+		}
+	}`
+}
+
+func acceptSuspensionMixedTimerSignalScenarioSource(sendSignal bool) string {
+	source := acceptSuspensionMixedTimerSignalDefinitions()
+	if sendSignal {
+		source += `action def Scenario {
+			out attribute signalled : Integer = 0;
+			out attribute timed : Integer = 0;
+			first start;
+			fork split;
+			perform action main : Main;
+			action gate accept after 1 [s];
+			action sender { send new Go(); }
+			join meet;
+			action collect {
+				assign signalled := main.signalled;
+				assign timed := main.timed;
+			}
+			done;
+			succession first start then split;
+			succession first split then main;
+			succession first split then gate;
+			succession first gate then sender;
+			succession first sender then meet;
+			succession first main then meet;
+			succession first meet then collect;
+			succession first collect then done;
+		}`
+	}
+	source += `}`
+	return source
+}
+
+func acceptSuspensionCheckAndExplore(t *testing.T, source, actionName string, deadlock bool, values map[string]string) {
+	t.Helper()
+	model := parseLibraryModel(t, source)
+	action := model.action(t, actionName)
+	run := func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(action)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	acceptSuspensionCheckAndExploreWith(t, model, starterOf(action), run, deadlock, values)
+}
+
+func acceptSuspensionCheckAndExplorePerformed(t *testing.T, source, partName, behaviorName string, deadlock bool, values map[string]string) {
+	t.Helper()
+	model := parseLibraryModel(t, source)
+	part := namedOrFoundSymbol(t, model.idx, "test::"+partName, model.idx.DocumentRoot(model.path), ast.DefPart, ast.UsagePart)
+	start := func(ctx *Context) (*Invocation, error) {
+		performer, err := ctx.Instantiate(part)
+		if err != nil {
+			return nil, err
+		}
+		behavior, ok := performer.Behavior(behaviorName)
+		if !ok || behavior.Action == nil {
+			return nil, fmt.Errorf("part %s has no %s behavior", partName, behaviorName)
+		}
+		return &Invocation{Actions: []*ActionExecutor{behavior.Action}}, nil
+	}
+	run := func(ctx *Context) (Outcome, error) {
+		performer, err := ctx.Instantiate(part)
+		if err != nil {
+			return Outcome{}, err
+		}
+		behavior, ok := performer.Behavior(behaviorName)
+		if !ok || behavior.Action == nil {
+			return Outcome{}, fmt.Errorf("part %s has no %s behavior", partName, behaviorName)
+		}
+		if err := behavior.Action.RunToCompletion(); err != nil {
+			return behavior.Action.Outcome(), err
+		}
+		return behavior.Action.Outcome(), nil
+	}
+	acceptSuspensionCheckAndExploreWith(t, model, start, run, deadlock, values)
+}
+
+func acceptSuspensionCheckAndExploreWith(t *testing.T, model *exploreModel, start Starter,
+	run func(*Context) (Outcome, error), deadlock bool, values map[string]string) {
+	t.Helper()
+	report, err := acceptSuspensionWatchdog(t, "Check", func() (*CheckReport, error) {
+		return Check(context.Background(), model.fresh, start, CheckBudget{},
+			CheckOptions{Reduce: true}, nil)
+	})
+	if errors.Is(err, ErrCheckRefused) {
+		t.Fatalf("Check refused: %v", err)
+	}
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if deadlock {
+		if report.Verdict != CheckViolation || len(report.Violations) == 0 {
+			t.Fatalf("Check: %s, violations %v; want an accept-deadlock violation", report.Status(), report.Violations)
+		}
+		for _, violation := range report.Violations {
+			if !errors.Is(violation.Err, ErrAcceptDeadlock) {
+				t.Errorf("violation error = %v, want ErrAcceptDeadlock", violation.Err)
+			}
+		}
+	} else {
+		if report.Verdict != CheckExhaustive || len(report.Violations) != 0 || len(report.Finals) == 0 {
+			t.Fatalf("Check: %s, violations %v; want exhaustive", report.Status(), report.Violations)
+		}
+		for _, final := range report.Finals {
+			for feature, want := range values {
+				if got := final.Values[feature]; got != want {
+					t.Errorf("Check final %s = %q, want %q", feature, got, want)
+				}
+			}
+		}
+	}
+
+	policy := mustPolicy(t, "explore")
+	explored, err := acceptSuspensionWatchdog(t, "Explore", func() (*Exploration, error) {
+		return Explore(context.Background(), policy, model.fresh, run)
+	})
+	if err != nil {
+		t.Fatalf("Explore: %v", err)
+	}
+	if !explored.Complete() || len(explored.Outcomes) == 0 {
+		t.Fatalf("Explore: %s with %d outcomes; want a complete exploration", explored.Status(), len(explored.Outcomes))
+	}
+	for _, outcome := range explored.Outcomes {
+		if deadlock {
+			if !errors.Is(outcome.Outcome.Err, ErrAcceptDeadlock) {
+				t.Errorf("Explore outcome error = %v, want ErrAcceptDeadlock", outcome.Outcome.Err)
+			}
+			continue
+		}
+		if outcome.Outcome.Err != nil {
+			t.Fatalf("Explore outcome: %v", outcome.Outcome.Err)
+		}
+		for feature, want := range values {
+			if !strings.Contains(outcome.Outcome.String(), feature+" = "+want) {
+				t.Errorf("Explore outcome %q lacks %s = %s", outcome.Outcome.String(), feature, want)
+			}
+		}
+	}
+}
+
 func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 	t.Run("deadlocks_name_nested_accept_and_call_chain", func(t *testing.T) {
 		want := []string{
@@ -313,6 +569,175 @@ func TestRuntimeRobustnessAcceptSuspension(t *testing.T) {
 		if got := ctx.Clock().Now(); got != 5 {
 			t.Errorf("clock = %v, want 5 seconds", got)
 		}
+	})
+
+	t.Run("nested_change_wait_resumes_at_write_instant", func(t *testing.T) {
+		source := acceptSuspensionChangeWaitSource()
+		model, resolver, root := parseAndBuildLibraryModel(t, source)
+		ctx := NewContext(typedModel(model, resolver), 10000)
+		waiterType := resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Waiter")
+		waiter, err := ctx.Instantiate(waiterType)
+		if err != nil {
+			t.Fatalf("Instantiate Waiter: %v", err)
+		}
+		behavior, ok := waiter.Behavior("await")
+		if !ok || behavior.Action == nil {
+			t.Fatalf("waiter has no await action: %v", waiter.Behaviors())
+		}
+		if behavior.Action.State() != StateWaiting {
+			t.Fatalf("waiter state before the write = %v, want StateWaiting", behavior.Action.State())
+		}
+		setter, ok := waiter.Behavior("update")
+		if !ok || setter.Action == nil {
+			t.Fatalf("waiter has no update action: %v", waiter.Behaviors())
+		}
+		if setter.Action.State() != StateWaiting {
+			t.Fatalf("setter state before the write = %v, want StateWaiting", setter.Action.State())
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			t.Fatalf("Advance(1): %v", err)
+		}
+		assertIntOutput(t, behavior.Action.Results(), "seen", 1)
+		if behavior.Action.State() != StateCompleted {
+			t.Fatalf("state after the write = %v, want StateCompleted", behavior.Action.State())
+		}
+		if got := featureInt(t, ctx, waiter, "ready"); got != 1 {
+			t.Errorf("ready = %d, want 1", got)
+		}
+		if got := ctx.Clock().Now(); got != 1 {
+			t.Errorf("clock = %v, want the condition's write instant 1", got)
+		}
+		if setter.Action.State() != StateCompleted {
+			t.Errorf("setter state after the write = %v, want StateCompleted", setter.Action.State())
+		}
+		acceptSuspensionCheckAndExplorePerformed(t, source, "Waiter", "await", false,
+			map[string]string{"seen": "1"})
+	})
+
+	t.Run("unsatisfiable_nested_change_matches_top_level_deadlock", func(t *testing.T) {
+		topLevelSource := acceptSuspensionChangeDeadlockSource(false)
+		_, topLevel := acceptSuspensionExecutor(t, topLevelSource, "Main")
+		_, topLevelErr := acceptSuspensionWatchdog(t, "top-level change accept", func() (struct{}, error) {
+			return struct{}{}, topLevel.RunToCompletion()
+		})
+		if !errors.Is(topLevelErr, ErrAcceptDeadlock) {
+			t.Fatalf("top-level error = %v, want ErrAcceptDeadlock", topLevelErr)
+		}
+		const waitDescription = "accept when waiting since step 2 for its event"
+		if !strings.Contains(topLevelErr.Error(), waitDescription) {
+			t.Fatalf("top-level error = %v, want %q", topLevelErr, waitDescription)
+		}
+
+		nestedSource := acceptSuspensionChangeDeadlockSource(true)
+		_, nested := acceptSuspensionExecutor(t, nestedSource, "Main")
+		_, nestedErr := acceptSuspensionWatchdog(t, "nested change accept", func() (struct{}, error) {
+			return struct{}{}, nested.RunToCompletion()
+		})
+		if !errors.Is(nestedErr, ErrAcceptDeadlock) ||
+			!strings.Contains(nestedErr.Error(), waitDescription) ||
+			!strings.Contains(nestedErr.Error(), "(in Reader, performed by reader)") {
+			t.Fatalf("nested error = %v, want the top-level accept wait described in its call chain", nestedErr)
+		}
+		acceptSuspensionCheckAndExplore(t, nestedSource, "Main", true, nil)
+	})
+
+	t.Run("nested_timer_and_signal_keep_independent_deadlines", func(t *testing.T) {
+		source := acceptSuspensionMixedTimerSignalSource()
+		model, resolver, root := parseAndBuildLibraryModel(t, source)
+		waiterType := resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Waiter")
+		newWaiter := func() (*Context, *ActionExecutor) {
+			ctx := NewContext(typedModel(model, resolver), 10000)
+			waiter, err := ctx.Instantiate(waiterType)
+			if err != nil {
+				t.Fatalf("Instantiate Waiter: %v", err)
+			}
+			behavior, ok := waiter.Behavior("main")
+			if !ok || behavior.Action == nil {
+				t.Fatalf("waiter has no main action: %v", waiter.Behaviors())
+			}
+			return ctx, behavior.Action
+		}
+
+		ctx, action := newWaiter()
+		if action.State() != StateWaiting {
+			t.Fatalf("state = %v, want StateWaiting before the external signal", action.State())
+		}
+		inv := &Invocation{Actions: []*ActionExecutor{action}}
+		canonical := inv.canonicalState(nil).text
+		snapshot, err := action.Snapshot()
+		if err != nil {
+			t.Fatalf("Snapshot: %v", err)
+		}
+		defer snapshot.Release()
+		snapshot.Restore()
+		if got := inv.canonicalState(nil).text; got != canonical {
+			t.Fatalf("restored canonical state differs:\n%s\nwant:\n%s", got, canonical)
+		}
+		if _, err := ctx.Advance(1); err != nil {
+			t.Fatalf("Advance(1): %v", err)
+		}
+		one := integerValue(1)
+		ctx.PostMessage(Message{SignalType: "Go", Value: &one})
+		if _, err := ctx.Advance(0); err != nil {
+			t.Fatalf("Advance(0) after signal: %v", err)
+		}
+		assertIntOutput(t, action.Results(), "reader.signalled", 1)
+		assertIntOutput(t, action.Results(), "reader.timed", 0)
+		if action.State() != StateWaiting {
+			t.Fatalf("state after signal = %v, want StateWaiting for the timer branch", action.State())
+		}
+		if got := ctx.Clock().Now(); got != 1 {
+			t.Fatalf("clock after signal = %v, want 1", got)
+		}
+		if _, err := ctx.Advance(9); err != nil {
+			t.Fatalf("Advance(9): %v", err)
+		}
+		if action.State() != StateCompleted {
+			t.Fatalf("state at the timer deadline = %v, want StateCompleted", action.State())
+		}
+		assertIntOutput(t, action.Results(), "signalled", 1)
+		assertIntOutput(t, action.Results(), "timed", 1)
+		if got := ctx.Clock().Now(); got != 10 {
+			t.Errorf("clock = %v, want timer deadline 10", got)
+		}
+
+		noSignalCtx, noSignalAction := newWaiter()
+		if _, err := noSignalCtx.Advance(10); err != nil && !errors.Is(err, ErrAcceptDeadlock) {
+			t.Fatalf("Advance(10) without a signal: %v", err)
+		}
+		assertIntOutput(t, noSignalAction.Results(), "reader.signalled", 0)
+		assertIntOutput(t, noSignalAction.Results(), "reader.timed", 1)
+		if got := noSignalCtx.Clock().Now(); got != 10 {
+			t.Errorf("clock without signal = %v, want timer deadline 10", got)
+		}
+	})
+
+	t.Run("check_and_explore_nested_timer_signal", func(t *testing.T) {
+		source := acceptSuspensionMixedTimerSignalScenarioSource(true)
+		ctx, exec := acceptSuspensionExecutor(t, source, "Scenario")
+		_, err := acceptSuspensionWatchdog(t, "RunToCompletion", func() (struct{}, error) {
+			return struct{}{}, exec.RunToCompletion()
+		})
+		if err != nil {
+			t.Fatalf("RunToCompletion: %v", err)
+		}
+		assertIntOutput(t, exec.Results(), "signalled", 1)
+		assertIntOutput(t, exec.Results(), "timed", 1)
+		if got := ctx.Clock().Now(); got != 10 {
+			t.Errorf("clock = %v, want timer deadline 10", got)
+		}
+		acceptSuspensionCheckAndExplore(t, source, "Scenario", false,
+			map[string]string{"signalled": "1", "timed": "1"})
+
+		noSignalSource := acceptSuspensionMixedTimerSignalScenarioSource(false)
+		_, noSignal := acceptSuspensionExecutor(t, noSignalSource, "Main")
+		_, deadlockErr := acceptSuspensionWatchdog(t, "RunToCompletion without signal", func() (struct{}, error) {
+			return struct{}{}, noSignal.RunToCompletion()
+		})
+		if !errors.Is(deadlockErr, ErrAcceptDeadlock) {
+			t.Fatalf("RunToCompletion without signal = %v, want ErrAcceptDeadlock", deadlockErr)
+		}
+		acceptSuspensionCheckAndExplore(t, noSignalSource, "Main", true, nil)
 	})
 
 	t.Run("snapshot_restores_parked_chain_twice", func(t *testing.T) {
