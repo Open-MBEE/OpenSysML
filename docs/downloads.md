@@ -21,7 +21,9 @@ macOS, and the optional SMT solver.
   published on every release at the core's version.
 - **Go:** `go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest`, or import
   `client/opensysml` for the [Go client](reference/api.md).
-- **VS Code:** the extension is not on any marketplace — build the `.vsix` from
+- **VS Code:** the extension is not on any marketplace — grab the prebuilt
+  `opensysml-sysml.vsix` from the [nightly release](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)
+  and run `code --install-extension opensysml-sysml.vsix`, or build it from
   `editors/vscode` and side-load it, per the [editors guide](guide/08-editors.md).
 - **Node, Java, Rust, Julia, MATLAB:** the [client libraries](reference/clients.md)
   exist but are not yet published to npm, Maven, crates.io or a Julia registry — pin a
