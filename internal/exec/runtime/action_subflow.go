@@ -203,6 +203,9 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			e.ctx.bodyPerformed()
 		}
 		if moved {
+			if err := e.ctx.switchStrand(); err != nil {
+				return err
+			}
 			switch {
 			case e.ctx.stepsTokens():
 				// A run one move at a time pauses before its next, its machine going on meanwhile.
@@ -253,10 +256,15 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 	before := e.subflowLocations(perf)
 	performing := e.performingTokens(perf)
 	if !e.ctx.stepsTokens() {
+		pauses := e.pauses
 		if err := e.stepSubflowSweep(perf); err != nil {
 			return false, false, err
 		}
-		return e.subflowMoved(perf, before, performing)
+		moved, performed, err := e.subflowMoved(perf, before, performing)
+		if e.yieldedIn(perf, pauses) {
+			moved, performed = true, true
+		}
+		return moved, performed, err
 	}
 	// A token moving on a loop may stand where it stood, so the move itself counts.
 	acted, performed, err := e.stepSubflowMove(perf)
@@ -273,10 +281,12 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
-	eligible := func(t Token) bool { return t.inFlowOf(perf) }
+	eligible := func(t Token) bool { return t.inFlowOf(perf) && !t.drivenUnder(perf) }
 	if e.ctx.scheduling().oneMove() {
 		// Paused work that would only pause again is no alternative to pick.
-		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+		eligible = func(t Token) bool {
+			return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+		}
 	}
 	candidates := e.stepCandidates(&order, eligible)
 	schedule := e.ctx.scheduling().scheduleStep(candidates)
@@ -443,6 +453,17 @@ func (e *ActionExecutor) subflowMoved(perf *actionFrame, before map[int64]ast.No
 	return moved, performed, nil
 }
 
+// yieldedIn reports a token of perf's flow whose work yielded after the executor's
+// pauses-th pause, a move of its node made.
+func (e *ActionExecutor) yieldedIn(perf *actionFrame, pauses int64) bool {
+	for _, idx := range e.tokensIn(perf) {
+		if run := e.tokens[idx].body; run != nil && run.pausedAt > pauses && run.paused.yielded {
+			return true
+		}
+	}
+	return false
+}
+
 // subflowLocations returns where each token of perf's flow sits, by token ID.
 func (e *ActionExecutor) subflowLocations(perf *actionFrame) map[int64]ast.Node {
 	locations := make(map[int64]ast.Node)
@@ -505,6 +526,16 @@ func (t Token) inFlowOf(perf *actionFrame) bool {
 	}
 	for f := t.frame; f != nil; f = f.parent {
 		if f == perf {
+			return true
+		}
+	}
+	return false
+}
+
+// drivenUnder reports a token of a flow nested in perf's that another token's work drives.
+func (t Token) drivenUnder(perf *actionFrame) bool {
+	for f := t.frame; f != nil && f != perf; f = f.parent {
+		if f.inBody {
 			return true
 		}
 	}

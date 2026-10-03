@@ -485,7 +485,7 @@ func dueOrderModel(t *testing.T) (func() (*Context, error), func(*Context) (Outc
 				state waiting;
 				accept after 5 [s] then took;
 				state took {
-					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
+					entry action take { assign seen := cell.mark; then assign cell.mark := cell.mark + 1; }
 				}
 			}
 			state a : Ticker;

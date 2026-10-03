@@ -1,15 +1,15 @@
 do: s
 stmt action body
-  stmt node wait
+enter action node: state behavior <anonymous>
 enter action node: wait
 do: s
 leave action node: wait
-do: s
   stmt assign d
     eval literal 1 -> 1
 do: s
   stmt terminate
-terminate state behavior <anonymous>: no token dropped
+terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+leave action node: state behavior <anonymous>
 exit: s
 enter: t
   eval literal 1 -> 1

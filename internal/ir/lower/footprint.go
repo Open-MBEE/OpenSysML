@@ -296,6 +296,27 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 				each(Place{Sym: sym, Name: redefined, Local: local})
 			}
 		}
+		b.calcUsage(sym, usage)
+	}
+}
+
+// calcUsage adds what reading a calc usage evaluates: the values its members
+// bind, and its body, which reads beyond them.
+func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
+	switch usage.Kind {
+	case ast.UsageCalc, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+	default:
+		return
+	}
+	b.footprint.Dynamic = true
+	scope := sym.Scope
+	if scope == nil {
+		scope = b.scope
+	}
+	for _, member := range usage.Members {
+		if u, ok := unwrapMembership(member).(*ast.Usage); ok {
+			b.reads(scope, u.Value)
+		}
 	}
 }
 

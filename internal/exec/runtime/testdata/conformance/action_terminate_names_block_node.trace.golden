@@ -5,10 +5,11 @@ stmt if
     stmt action body
       stmt node forked
 enter action node: forked
+enter action node: quit
         stmt assign inner
           eval literal 1 -> 1
         stmt terminate
-terminate action node outer: dropped token 3@waiter, token 4@quit
+terminate action node outer: dropped token 3@waiter, token 4@*ast.TerminateStatement
   stmt node next
     stmt assign after
       eval literal 3 -> 3

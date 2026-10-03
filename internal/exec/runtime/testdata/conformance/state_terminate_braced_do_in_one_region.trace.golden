@@ -1,16 +1,19 @@
 choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
 do: lwork
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign a
     eval literal 1 -> 1
 do: rwork
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign b
     eval literal 1 -> 1
 choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
 do: lwork
   stmt terminate
-terminate state behavior <anonymous>: no token dropped
+terminate state behavior <anonymous>: dropped token 1@*ast.TerminateStatement
+leave action node: state behavior <anonymous>
 do: rwork
   stmt assign b
       eval feature b -> 1
@@ -24,6 +27,7 @@ do: rwork
       eval feature b -> 2
       eval literal 1 -> 1
     eval operator + -> 3
+leave action node: state behavior <anonymous>
 exit: rwork
 enter: rdone
 transition: rwork -> rdone

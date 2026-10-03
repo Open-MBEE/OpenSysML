@@ -23,7 +23,7 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
+unordered and took one by its scheduling rule. `ChoiceKind` names the twelve:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
@@ -35,6 +35,8 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
 | `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
 | `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
 | `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
+| `ChoiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
+| `ChoiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
@@ -152,6 +154,10 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   body yields between them (`Context.guardPerformed`); the branch taken is kept in its
   `branchFrame` across the pause. A state's do body yields there only under one-move schedules,
   so `reverse`, `declared` and seeded runs keep their state traces.
+- **Do bodies stating a flow.** A `for`, `while` or `if` node of a do body's stated flow
+  yields after each iteration and branch statement, as the same statement in a statement-list
+  body does (`bodyRun.nodesYield`); the flow counts the node's yield as a move
+  (`ActionExecutor.yieldedIn`), so adding `then` takes no interleaving away.
 - **Callees in executors of their own.** An action a step is typed by, or a body performs, runs
   in its own `ActionExecutor`, outside the graph `BodyDivides` reads. When the body or flow
   driving it goes one move at a time, the callee's start shot is a boundary
@@ -168,9 +174,18 @@ per statement, an `assign` writing when it ends. Another performance may run bet
   within one instant are not interleaved, which spec compliance records as approximate.
 - **Ordered and unordered statements.** A succession inside a nested flow orders its steps, so
   no boundary reorders them; a boundary lets only another performance in. The direct statements
-  of one leaf body, which no succession orders, still run in declaration order: the library
-  leaves their mutual order open, and this is the executor's choice, recorded in
-  [spec compliance](../../project/spec-compliance.md).
+  of one body that no succession or control structure orders are unordered
+  ([derivation](../../project/behavior-semantic-oracle.md#direct-statements-of-one-body-no-succession-orders-each-is-performed-in-which-order-is-open)).
+  `lower.StatementOrder` lists, before each statement runs, those that may run next: a statement
+  `then` links waits for the one before it, a local declaration, `return` or `perform` keeps its
+  place, and two orders that only swap adjacent independent statements (by the reduction's
+  footprints) are one. Two or more candidates are a `ChoiceStatementOrder`
+  (`stmtEngine.pickStatement`); a compound statement already started yields at its inner
+  boundaries so a dependent sibling may run between them. `reverse` and `declared` take
+  declaration order, so their results do not move; `explore`, the checker, replay and seeds
+  choose. A terminate action usage's implicit terminate is one of its body's statements in this
+  sense. `explore` enumerates without partial-order reduction, so a body of many dependent
+  unordered statements may exhaust its run budget, which it reports as incomplete.
 - **Policies.** `explore`, replay and the checker step one move at a time and yield at every
   boundary of a dividing body. `reverse` and `declared` never yield, so a body runs whole as
   before and their results do not change. A seeded run whose step holds another token yields

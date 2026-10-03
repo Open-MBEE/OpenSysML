@@ -469,11 +469,9 @@ subaction as a token started with the owner's performance (`ActionGraph.Concurre
 `StartFlow`), so its interleavings are the same choice points fork branches are. The exact golden
 records the default schedule.
 
-Not covered: a nested action node whose members are only statements, and a loop, branch or
-behavior body stating no flow, run their statements and nodes in declaration order, as they did
-before; the library orders them no more than it orders `a` and `b`, so that order is the
-executor's choice, recorded in [spec compliance](spec-compliance.md). Another performance may
-still run between two of those statements, as the next section derives.
+The statements of a nested action node whose members are only statements, and of a loop, branch
+or behavior body stating no flow, are ordered no more than `a` and `b` are; the sections below
+derive the interleavings another performance may take between them and the orders among them.
 
 ### A leaf body's start shot and its assignments: another performance may run between them
 
@@ -542,8 +540,8 @@ The executor gives a leaf body a scheduler boundary after its start shot and aft
 where another performance's move could change the outcome there: when two or more of the body's
 moves are dependent on a move of a performance that may run concurrently (`lower.BodyDivides`,
 over the footprints the checker's reduction uses). A body with at most one such move runs as one
-move, because every interleaving inside it only reorders independent moves. The statements of
-one leaf body keep declaration order, as the previous section records. A performance invoked in an
+move, because every interleaving inside it only reorders independent moves. The order of the
+statements of one body is open as well, as the next section derives. A performance invoked in an
 executor of its own, under a body or a flow driven one move at a time, is analysed by its own
 flow: its start shot and each move that may touch what it does not hold (`lower.BodySharesMoves`,
 `lower.FlowSharesMoves`) are boundaries too. The attributes and `in` parameters its definition
@@ -559,6 +557,98 @@ move left there, so their moves at one instant are not interleaved. `spec-compli
 this as approximate. `-engine smt` encodes a
 body as one move, so it reports a flow with a dividing body as not covered (`body interleaving`)
 instead of encoding one order.
+
+### Direct statements of one body no succession orders: each is performed, in which order is open
+
+Fixtures: `action_explore_statement_order_dependent`, `action_explore_statement_order_chain` and
+`action_explore_statement_order_if` (golden, explored), with
+`action_explore_statement_order_independent` and `action_explore_statement_order_then` (each one
+outcome).
+
+```
+Order  s { assign x := 1;  assign y := x; }
+Chain  s { assign x := x + 1;  assign x := x * 2;  assign x := x + 3; }    -- x := 1 first
+```
+
+Derived constraints:
+
+- Each direct statement of a body is an action usage of it: an `assign` one of its
+  `assignments`, a `send` one of its `sendSubactions`, an `if` one of its `ifSubactions`, a
+  `while` or `for` one of its `loops`, each a subset of `subactions` (`Actions.sysml`). Each is a
+  subperformance enclosed in the body's performance, as
+  [the subactions above](#subactions-no-succession-orders-each-is-performed-during-the-owner-in-which-order-is-open)
+  are, and nothing written between two statements links them by `HappensBefore`. So in `Order`
+  `y` may read `x` before or after `x` is written: `{y = 0, y = 1}`.
+- `then` written before a statement is a succession from the statement before it
+  (`action_explore_statement_order_then`): `assign y := x` follows `assign x := 1`, `y = 1`. The
+  library's own `ForLoopAction` orders its assignments the same way.
+- A control structure orders what it contains: an `if`'s guard precedes its branch
+  (`IfThenPerformance`, `ifTest then thenClause`) and a loop's iterations follow each other
+  (`LoopAction`). The `if` itself is one subaction of the body and is unordered against its
+  siblings: in `action_explore_statement_order_if` the assignment of `x` may come before the
+  guard reads it, `{y = 0, y = 10}`.
+- Two statements that neither read nor write what the other writes, and touch no message or
+  control the other does, commute: every order of them reaches one result
+  (`action_explore_statement_order_independent`).
+
+Open: the order of two statements no succession or control structure orders.
+
+Pinned outcomes: `Order` `{y = 0, y = 1}`; `Chain` `{x = 6, x = 7, x = 9, x = 10}` over its six
+orders; the `if` case `{y = 0, y = 10}`. Each is stated as `outcomes` citing this section;
+exploration reaches every member and nothing else, `Order` in 2 runs, `Chain` in 6, the
+independent body in 1. The exact goldens record the default schedule.
+
+`declared` and `reverse` perform the statements in declaration order, a tool-defined order.
+`explore`, `-engine check`, replay and seeded schedules choose among the statements that may run
+next (`lower.StatementOrder`). Two orders that differ only by swapping adjacent independent
+statements, by the footprints the checker's reduction uses, are one choice. A declaration of a
+local feature or usage, a `return` and a `perform` keep their place, because the statements after
+them read what they declare. `-engine smt` reports a body with two dependent unordered
+statements as not covered (`statement order`) instead of encoding declaration order.
+
+### A terminate action usage's body and its implicit terminate: each is performed, in which order is open
+
+Fixtures: `action_terminate_usage_body_ends_itself`, `action_terminate_usage_with_body`,
+`action_terminate_usage_body_performs_action`, `action_terminate_usage_in_block_names_itself`,
+`action_terminate_usage_binds_output_pin` and `action_terminate_usage_body_ends_itself_binds_pin`
+(explored).
+
+```
+stop terminate { out code : Integer;  assign code := 42;  then terminate;  then assign other := 7; }
+bind stop.code = result;          -- result : Integer [1]
+```
+
+Derived constraints:
+
+- A terminate action usage is a `TerminateAction` (`Actions.sysml`), an ordinary `Action` whose
+  body is an `ActionBody` (SysML.xtext `TerminateActionUsage`), so its body states successions as
+  any action body does: `then` orders the statements it links, as in
+  [the section above](#direct-statements-of-one-body-no-succession-orders-each-is-performed-in-which-order-is-open).
+- `TerminateAction` declares `action terminateOccurrence : destroy[1]`, the subaction that ends
+  the terminated occurrence. Nothing in the library or in the body links it to the body's other
+  subactions by `HappensBefore`, so it may be performed before, between or after them; the
+  occurrence it ends is the enclosing performance, and what the body has not performed by then is
+  not performed.
+- A `terminate` written in the body ends the usage's own performance at that point of its chain:
+  the statements after it are not performed.
+- An output pin the body has not written when the terminate falls holds no value. A binding of it
+  to a feature of multiplicity `[1]` then binds no value, which the run reports as the typed
+  multiplicity violation it is for any unvalued binding.
+
+Open: where the implicit terminate falls among the body's statements.
+
+Pinned outcomes: each fixture states as `outcomes` every result of the terminate falling before,
+inside or after the body's chain; the two pin fixtures list the multiplicity violation as an
+`error` outcome. Exploration reaches every member and nothing else.
+
+`declared` and `reverse` perform the implicit terminate after the body, a tool-defined
+linearization; `explore`, `-engine check`, replay and seeded schedules choose it against the
+body's statements, between the steps of a `then` chain included.
+
+Approximate: action usages written in an `if` or loop block with no succession between them
+(`action_terminate_usage_in_block_binds_pin`'s `stop` and `later`) are performed in declaration
+order under every policy, so the outcome of `later` running before `stop` ends the block is not
+reached.
 
 ### A write between two nodes of a concurrent branch: three orders, three outcomes
 

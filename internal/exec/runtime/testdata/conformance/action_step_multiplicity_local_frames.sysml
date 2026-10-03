@@ -7,7 +7,7 @@ package test {
 		action a[3] {
 			attribute l : Integer = 0;
 			assign l := l + 1;
-			assign c := c + l;
+			then assign c := c + l;
 		}
 		then done;
 	}

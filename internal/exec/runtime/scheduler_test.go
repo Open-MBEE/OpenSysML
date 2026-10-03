@@ -66,9 +66,9 @@ const choiceModel = `package test {
 		attribute order : String = "";
 		first start;
 		fork split;
-		action a { assign x := 1; assign order := order + "a"; }
-		action b { assign x := 2; assign order := order + "b"; }
-		action c { assign x := 3; assign order := order + "c"; }
+		action a assign x := 1; then assign order := order + "a";
+		action b assign x := 2; then assign order := order + "b";
+		action c assign x := 3; then assign order := order + "c";
 		join sync;
 		then decide select;
 			if level > 50 then warn;
@@ -787,7 +787,7 @@ func changeWatchOrder(t *testing.T, policy SchedulePolicy) ([]int64, []ChoicePoi
 				state waiting;
 				accept when cell.mark > 0 then took;
 				state took {
-					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
+					entry action take { assign seen := cell.mark; then assign cell.mark := cell.mark + 1; }
 				}
 			}
 		}

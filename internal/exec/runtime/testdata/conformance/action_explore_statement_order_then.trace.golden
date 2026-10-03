@@ -1,0 +1,11 @@
+step 1: token 1@s
+enter action node: s
+step 2: token 1@*ast.AssignmentActionNode
+stmt assign x
+  eval literal 1 -> 1
+step 3: token 1@*ast.AssignmentActionNode
+stmt assign y
+  eval feature x -> 1
+leave action node: s
+step 4: token 1@done
+step 5: no active tokens

@@ -375,6 +375,13 @@ func (s *scheduler) bodyYields(contended bool) (yields, draws bool) {
 	return seeded, seeded
 }
 
+// ordersStatements reports whether the run picks among the statements of a body
+// that may run next: as it picks a step's move, or by its seed; a fixed order keeps
+// declaration order.
+func (s *scheduler) ordersStatements() bool {
+	return s.oneMove() || s.policy.kind == scheduleSeeded
+}
+
 // drawYield draws whether a seeded body run for token yields at its boundary-th
 // boundary: a function of the seed and both, so the run's other draws keep their stream.
 func (s *scheduler) drawYield(token int64, boundary uint64) bool {

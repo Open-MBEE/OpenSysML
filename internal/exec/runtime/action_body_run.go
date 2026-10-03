@@ -69,6 +69,8 @@ type bodyRun struct {
 	yields, performed bool
 	// guards has it yield between an `if`'s guard and its branch as well.
 	guards bool
+	// nodesYield makes a loop or `if` node of the flow the run states yield as a statement of its body does.
+	nodesYield bool
 	// draws has a seeded run draw whether to yield at each such boundary, by the
 	// token the run is for and how many boundaries it drew at before.
 	draws    bool
@@ -81,6 +83,54 @@ type bodyRun struct {
 	// stepDraws has a seeded run draw whether to pause after a callee's start shot or a
 	// move of its flow where two of its moves may touch what another does.
 	stepDraws bool
+	// lists are the unordered statement lists running, outermost first.
+	lists []*listLevel
+}
+
+// listLevel is an unordered statement list running in a body: moved is whether its
+// statement running made a move since it started or went on.
+type listLevel struct {
+	frame *stmtListFrame
+	order *lower.StatementOrder
+	moved bool
+}
+
+// enterList notes f running in the body on the stack; nil where none is.
+func (ctx *Context) enterList(f *stmtListFrame, order *lower.StatementOrder) *listLevel {
+	if ctx.body == nil {
+		return nil
+	}
+	level := &listLevel{frame: f, order: order}
+	ctx.body.lists = append(ctx.body.lists, level)
+	return level
+}
+
+// leaveList notes the innermost list entered, level, done running.
+func (ctx *Context) leaveList(level *listLevel) {
+	if level == nil {
+		return
+	}
+	lists := ctx.body.lists
+	ctx.body.lists = lists[:len(lists)-1]
+}
+
+// switchStrand pauses the body on the stack back to the innermost unordered list
+// whose statement running has moved and does not commute with one it may set
+// aside for; nil, going on, where none is.
+func (ctx *Context) switchStrand() error {
+	run := ctx.body
+	if run == nil {
+		return nil
+	}
+	for k := len(run.lists) - 1; k >= 0; k-- {
+		l := run.lists[k]
+		f := l.frame
+		if f.i < 0 || !l.moved || len(l.order.Rivals(f.i, f.done, f.divided)) == 0 {
+			continue
+		}
+		return ctx.pauseBody(bodyPause{yielded: true, strand: f})
+	}
+	return nil
 }
 
 // bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
@@ -91,6 +141,9 @@ type bodyPause struct {
 	wait       bodyWait
 	yielded    bool
 	tokenStep  bool
+	// strand is the unordered statement list the pause unwinds to, which sets the
+	// statement it unwound from aside rather than pausing the body; nil for none.
+	strand *stmtListFrame
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -183,21 +236,46 @@ func (run *bodyRun) end(ctx *Context) {
 // endPerformed ends perf where a body statement of the paused run was performing it,
 // abandoning the levels within it: the run resumed goes on past the node as completed.
 func (run *bodyRun) endPerformed(ctx *Context, perf *actionFrame) bool {
-	for i, f := range run.cursor {
-		pf, ok := f.(*performFrame)
-		if !ok || pf.perf != perf {
-			continue
-		}
-		for _, inner := range run.cursor[:i] {
-			inner.abandon(ctx)
-		}
-		run.cursor = run.cursor[i:]
+	rest, pf, inStrand := endPerformedIn(ctx, run.cursor, perf)
+	if pf == nil {
+		return false
+	}
+	if !inStrand {
+		run.cursor = rest
 		run.traceLevels = pf.levels
 		run.paused = bodyPause{}
-		pf.ended = true
-		return true
 	}
-	return false
+	return true
+}
+
+// endPerformedIn finds the frame performing perf in cursor, or in a statement an
+// unordered list in it set aside, abandoning the levels within it; rest is what of
+// cursor is left, unchanged where the frame was in a statement set aside.
+func endPerformedIn(ctx *Context, cursor []bodyFrame, perf *actionFrame) (rest []bodyFrame, ended *performFrame, inStrand bool) {
+	for i, f := range cursor {
+		switch f := f.(type) {
+		case *performFrame:
+			if f.perf != perf {
+				continue
+			}
+			for _, inner := range cursor[:i] {
+				inner.abandon(ctx)
+			}
+			f.ended = true
+			return cursor[i:], f, false
+		case *stmtListFrame:
+			for _, s := range f.strands {
+				if s == nil {
+					continue
+				}
+				if left, pf, _ := endPerformedIn(ctx, s.cursor, perf); pf != nil {
+					s.cursor, s.levels, s.paused = left, pf.levels-f.levels, bodyPause{}
+					return cursor, pf, true
+				}
+			}
+		}
+	}
+	return cursor, nil, false
 }
 
 // bodyLevels is the trace nesting the body on the stack holds open at this point
@@ -482,8 +560,25 @@ func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	if yields, draws := scheduling.bodyYields(len(e.tokens) > 1 || open); yields && (open || !e.tokens[tokenIdx].drivenByBody()) && e.bodyDivides(work, open) {
 		run.yields, run.draws, run.token, run.guards = yields, draws, e.tokens[tokenIdx].ID, true
 	}
+	if outer := e.ctx.body; outer != nil && outer.nodesYield && yieldsAsStatement(work) {
+		run.yields, run.nodesYield = true, true
+		run.guards = run.guards || outer.guards
+	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
+}
+
+// yieldsAsStatement reports work that is a loop or `if` written as a node of a flow.
+func yieldsAsStatement(work bodyWork) bool {
+	w, ok := work.(*statementWork)
+	if !ok {
+		return false
+	}
+	switch w.node.(type) {
+	case *ast.WhileLoopActionNode, *ast.IfActionNode:
+		return true
+	}
+	return false
 }
 
 // Release ends the run for good: the work of every token a breakpoint left
@@ -584,6 +679,9 @@ func (ctx *Context) pauseBody(pause bodyPause) error {
 // yieldBody pauses the body on the stack before its next statement where its run
 // goes one at a time and has performed one since resumed; nil, going on, else.
 func (ctx *Context) yieldBody() error {
+	if err := ctx.switchStrand(); err != nil {
+		return err
+	}
 	if ctx.body == nil || !ctx.body.yields || !ctx.body.performed {
 		return nil
 	}
@@ -601,6 +699,14 @@ func (ctx *Context) yieldBody() error {
 func (ctx *Context) bodyPerformed() {
 	if ctx.body != nil {
 		ctx.body.performed = true
+		ctx.body.listsMoved()
+	}
+}
+
+// listsMoved notes a move made by the statement each unordered list running runs.
+func (run *bodyRun) listsMoved() {
+	for _, l := range run.lists {
+		l.moved = true
 	}
 }
 
@@ -612,7 +718,11 @@ func (ctx *Context) stepsTokens() bool {
 // guardPerformed notes an `if`'s guard read by the body on the stack, after which a
 // run yielding between a guard and its branch yields.
 func (ctx *Context) guardPerformed() {
-	if ctx.body != nil && ctx.body.guards {
+	if ctx.body == nil {
+		return
+	}
+	ctx.body.listsMoved()
+	if ctx.body.guards {
 		ctx.body.performed = true
 	}
 }
