@@ -11,7 +11,7 @@ package test {
 		first start;
 		then fork f;
 		action p;
-		action q;
+		action q { assign x := 3; }
 		action r { assign x := 1; }
 		action w { assign x := 2; }
 		join j;
