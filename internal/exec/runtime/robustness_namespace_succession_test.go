@@ -29,10 +29,101 @@ func TestRuntimeRobustnessNamespaceSuccession(t *testing.T) {
 	t.Run("no_common_feature_type_has_no_note", testNamespaceSuccessionNoCommonFeatureTypeHasNoNote)
 	t.Run("behavior_type_message_has_no_note", testNamespaceSuccessionMessageHasNoNote)
 	t.Run("already_running_later_start_is_noop", testNamespaceSuccessionAlreadyRunningLaterStartIsNoop)
+	t.Run("explicit_earlier_without_later_is_silent", testNamespaceSuccessionExplicitEarlierWithoutLater)
 	t.Run("explicit_state_starts_observe_succession", testNamespaceSuccessionExplicitStateStart)
+	t.Run("destroyed_exhibitor_state_executor_reuse_is_refused", testNamespaceSuccessionDestroyedExhibitorStateExecutorReuse)
 	t.Run("instance_lists_sorted", testNamespaceSuccessionInstanceListsSorted)
 	t.Run("event_and_performed_action_note", testNamespaceSuccessionEventAndPerformedActionNote)
 	t.Run("check_runtime_refusal_agreement", testNamespaceSuccessionRefusalAgreement)
+}
+
+func TestAdvanceUntilHaltsBetweenReleasedSuccessors(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Holder {
+			attribute a : Integer = 0;
+			attribute b : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then done;
+			}
+			perform action laterA {
+				first start;
+				then action write { assign a := 1; }
+				then done;
+			}
+			perform action laterB {
+				first start;
+				then action write { assign b := 1; }
+				then done;
+			}
+			first earlier then laterA;
+			first earlier then laterB;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	report, err := ctx.AdvanceUntil(1, func() bool {
+		return featureInt(t, ctx, holder, "a") == 1
+	})
+	if err != nil {
+		t.Fatalf("AdvanceUntil: %v", err)
+	}
+	if report.To != 1 {
+		t.Fatalf("AdvanceUntil reached t=%v, want t=1", report.To)
+	}
+	if a, b := featureInt(t, ctx, holder, "a"), featureInt(t, ctx, holder, "b"); a != 1 || b != 0 {
+		t.Fatalf("successor effects after halt = a:%d b:%d, want a:1 b:0", a, b)
+	}
+	if _, err := ctx.Advance(0); err != nil {
+		t.Fatalf("Advance(0) after halt: %v", err)
+	}
+	if a, b := featureInt(t, ctx, holder, "a"), featureInt(t, ctx, holder, "b"); a != 1 || b != 1 {
+		t.Errorf("successor effects after resuming clock = a:%d b:%d, want a:1 b:1", a, b)
+	}
+}
+
+func TestAdvanceReportCountsReleasedSuccessorSteps(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		part def Holder {
+			attribute n : Integer = 0;
+			perform action earlier {
+				first start;
+				then action wait accept after 1 [s];
+				then done;
+			}
+			perform action later {
+				first start;
+				then action one { assign n := n + 1; }
+				then action two { assign n := n + 1; }
+				then action three { assign n := n + 1; }
+				then done;
+			}
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	holder, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	report, err := ctx.Advance(1)
+	if err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	if report.Steps < 3 {
+		t.Errorf("Advance report steps = %d, want at least the three released successor steps", report.Steps)
+	}
+	if got := featureInt(t, ctx, holder, "n"); got != 3 {
+		t.Errorf("released successor n = %d, want 3", got)
+	}
 }
 
 func testNamespaceSuccessionCycle(t *testing.T) {
@@ -199,6 +290,71 @@ func testNamespaceSuccessionExplicitStateStart(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("later exhibit bindings = %d, want one reused exhibit", count)
+	}
+}
+
+func testNamespaceSuccessionExplicitEarlierWithoutLater(t *testing.T) {
+	src := `package test {
+		part def Holder {
+			action earlier { first start; then done; }
+			action later { first start; then done; }
+			first earlier then later;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate Holder: %v", err)
+	}
+	earlier := oneSymbol(t, idx, "test::Holder::earlier")
+	orders := ctx.behaviorOrdersFor(earlier, inst, false)
+	if len(orders) != 1 {
+		t.Fatalf("orders for earlier = %d, want one", len(orders))
+	}
+	featuring := ctx.behaviorOrderMatches(inst, earlier, orders[0], orders[0].Earlier)
+	if len(featuring) != 1 {
+		t.Fatalf("featuring instances for earlier = %d, want one", len(featuring))
+	}
+	if count := ctx.behaviorOrderEndPerformanceCount(orders[0], orders[0].Later, featuring[0], nil, nil); count != 0 {
+		t.Fatalf("later-end performances before explicit start = %d, want zero", count)
+	}
+	if _, err := ctx.ExecuteActionPerformedBy(earlier, inst, nil); err != nil {
+		t.Fatalf("explicitly start earlier without a later performance: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(SuccessionOrdersNothing); ok {
+			t.Errorf("notes = %v, want no succession-orders-nothing note", ctx.Notes())
+			break
+		}
+	}
+}
+
+func testNamespaceSuccessionDestroyedExhibitorStateExecutorReuse(t *testing.T) {
+	src := `package test {
+		state def Machine {
+			entry; then ready;
+			state ready;
+		}
+		part def Exhibitor { exhibit state modes : Machine; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	exhibitor, err := ctx.Instantiate(oneSymbol(t, idx, "test::Exhibitor"))
+	if err != nil {
+		t.Fatalf("instantiate Exhibitor: %v", err)
+	}
+	machine := oneSymbol(t, idx, "test::Machine")
+	behavior, err := exhibitedBy(machine, exhibitor)
+	if err != nil {
+		t.Fatalf("find exhibited state: %v", err)
+	}
+	if behavior == nil || behavior.State == nil {
+		t.Fatal("Exhibitor has no running state executor to reuse")
+	}
+	if err := ctx.destroy(exhibitor); err != nil {
+		t.Fatalf("destroy Exhibitor: %v", err)
+	}
+	if _, err := ctx.CreateStateExecutorFor(machine, exhibitor); !errors.Is(err, ErrOccurrenceDestroyed) {
+		t.Fatalf("CreateStateExecutorFor on destroyed exhibitor = %v, want ErrOccurrenceDestroyed", err)
 	}
 }
 

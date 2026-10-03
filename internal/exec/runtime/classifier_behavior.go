@@ -925,41 +925,79 @@ func behaviorsExcept(behaviors []*ObjectBehavior, dropped map[*ObjectBehavior]bo
 // event a sibling's send put in flight. Bounded by the event budget, so
 // endlessly signalling objects report a typed error instead of spinning.
 func (ctx *Context) drainObjectBehaviors() error {
+	_, err := ctx.drainObjectBehaviorsUntil(nil, nil)
+	return err
+}
+
+func (ctx *Context) drainObjectBehaviorsUntil(progress *dueProgress, halted func() bool) (bool, error) {
 	for rounds := int64(0); ; rounds++ {
 		if rounds >= ctx.maxStateEvents {
-			return budgetExceeded(ErrStateEventLimitExceeded,
+			return false, budgetExceeded(ErrStateEventLimitExceeded,
 				fmt.Sprintf("%s: exceeded max events (%d rounds; raise %s to allow more), possible non-terminating exchange between objects",
 					ErrBehaviorBudget, ctx.maxStateEvents, MaxStateEventsEnvVar), ErrBehaviorBudget)
 		}
 		behavior, ok := ctx.nextRunnableBehavior()
 		if !ok {
-			return ctx.successionCycle()
+			return false, ctx.successionCycle()
 		}
-		if behavior.deferred != nil {
-			if err := ctx.releaseDeferredBehavior(behavior); err != nil {
-				wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
-				if recordsFailure(behavior, err) {
-					ctx.endFailedPerformance(behavior, wrapped)
-					continue
-				}
-				return wrapped
-			}
-			if behavior.Err != nil {
-				continue
-			}
+		if err := ctx.runAttachedBehavior(behavior, progress); err != nil {
+			return false, err
 		}
-		if ctx.trace != nil {
-			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
-		}
-		if err := behavior.run(); err != nil {
-			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
-			if recordsFailure(behavior, err) {
-				ctx.endFailedPerformance(behavior, wrapped)
-				continue
-			}
-			return wrapped
+		if halted != nil && halted() {
+			return true, nil
 		}
 	}
+}
+
+func (ctx *Context) runAttachedBehavior(behavior *ObjectBehavior, progress *dueProgress) error {
+	if behavior.deferred != nil {
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return ctx.handleBehaviorRunError(behavior, err)
+		}
+		if behavior.Err != nil {
+			return nil
+		}
+	}
+	if ctx.trace != nil {
+		ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
+	}
+	var moved bool
+	var waiter clockWaiter
+	var err error
+	if progress == nil {
+		err = behavior.run()
+	} else if behavior.State != nil {
+		waiter = behavior.State
+		moved, err = behavior.State.runDue(progress)
+	} else if behavior.Action != nil {
+		waiter = behavior.Action
+		moved, err = behavior.Action.runDue(progress)
+	} else {
+		err = behavior.run()
+	}
+	if err = ctx.handleBehaviorRunError(behavior, err); err != nil {
+		return err
+	}
+	if progress != nil && waiter != nil {
+		if moved {
+			progress.unsettle()
+		} else {
+			progress.settle(waiter)
+		}
+	}
+	return nil
+}
+
+func (ctx *Context) handleBehaviorRunError(behavior *ObjectBehavior, err error) error {
+	if err == nil || behavior == nil {
+		return err
+	}
+	wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+	if recordsFailure(behavior, err) {
+		ctx.endFailedPerformance(behavior, wrapped)
+		return nil
+	}
+	return wrapped
 }
 
 // nextRunnableBehavior returns the next behavior with work to do: one not yet

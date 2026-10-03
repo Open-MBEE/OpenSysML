@@ -632,7 +632,12 @@ func (ctx *Context) checkSuccessionOrderViolation(inst *Instance, member *symbol
 			continue
 		}
 		for _, featuring := range ctx.behaviorOrderMatches(inst, member, order, order.Earlier) {
-			if !ctx.laterEndIsUnique(order, featuring, inst, member) {
+			laterCount := ctx.behaviorOrderEndPerformanceCount(order, order.Later, featuring, nil, nil)
+			if laterCount == 0 {
+				continue
+			}
+			if laterCount > 1 {
+				ctx.laterEndIsUnique(order, featuring, nil, nil)
 				continue
 			}
 			targets := ctx.orderEndTargetsForOrder(order, order.Later, featuring)

@@ -1993,6 +1993,11 @@ func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExe
 // CreateStateExecutorFor creates a state executor for a machine performed by
 // self, without starting execution.
 func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
+	if self != nil {
+		if err := ctx.checkPerformer(self); err != nil {
+			return nil, err
+		}
+	}
 	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
 	if err != nil {
 		if exec != nil && !reused {
