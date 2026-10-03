@@ -149,7 +149,7 @@ a regression — re-fetch before re-recording anything.
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 9 report a diagnostic [7] — 2 of 58 KerML examples, 7 of 99 SysML examples, 0 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 106/106 clean — 94 vendored OMG files and 12 non-normative OpenSysML extensions [100/100: 94 and 6] |
+| Stdlib parser conformance | 107/107 clean — 94 vendored OMG files and 13 non-normative OpenSysML extensions [100/100: 94 and 6] |
 | Execution conformance cases | 1224, all run and pass, none skipped [894] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
 | Cases admitting several outcomes | 92 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [26] |
@@ -2428,7 +2428,7 @@ A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `
 **form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 and W2 landed,
 `dot` and `plantuml`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
 panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
-through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+through `mmdc` for PDF. The tree, interconnection, state, action, case, mixed and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
 effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
 ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can

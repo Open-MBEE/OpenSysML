@@ -507,7 +507,8 @@ part structure : Diagram {
 - A **view** source carries its own rendering kind from its `render` clause;
   stating a `kind` on the diagram too is a conflict error.
 - A **plain element** source requires a `kind`: `"tree"`,
-  `"interconnection"`, `"state"`, `"action"`, `"table"` or `"sequence"`.
+  `"interconnection"`, `"state"`, `"action"`, `"case"`, `"mixed"`, `"table"`
+  or `"sequence"`.
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
@@ -517,7 +518,8 @@ part structure : Diagram {
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  for graph-shaped kinds (tree, interconnection, state, action, sequence).
+  for graph-shaped kinds (tree, interconnection, state, action, case, mixed,
+  sequence).
   Mermaid, DOT and PlantUML fill applicable nodes by keyword family from that
   colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
   with black text kept legible on every fill
@@ -566,7 +568,8 @@ flowchart LR
 
 Rendered with `-diagram-form dot` (`%render-document <name> dot` in the REPL,
 `diagramForm: "dot"` over the LSP), every graph-shaped diagram of the
-document — a `tree`, `interconnection`, `state` or `action` rendering — is a
+document — a `tree`, `interconnection`, `state`, `action`, `case` or `mixed`
+rendering — is a
 fenced ` ```dot ` block of Graphviz DOT instead, for a toolchain that lays
 diagrams out with Graphviz. No Graphviz installation is needed to write it:
 

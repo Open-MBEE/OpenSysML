@@ -26,6 +26,8 @@ var plantumlGoldenCases = []struct {
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
+	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 	{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 	{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 	{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -68,7 +70,9 @@ func TestGoldenPlantUML(t *testing.T) {
 					t.Errorf("PlantUML lacks %q:\n%s", want, puml)
 				}
 			}
-			if strings.Contains(puml, " direction\n") {
+			if tc.kind == KindCase && !strings.Contains(puml, "left to right direction") {
+				t.Errorf("case PlantUML does not use its LR default:\n%s", puml)
+			} else if tc.kind != KindCase && strings.Contains(puml, " direction\n") {
 				t.Errorf("PlantUML states a direction with none asked for:\n%s", puml)
 			}
 		})
@@ -255,7 +259,8 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 // a textual and a geometry rendering have none, and asking is a typed error.
 func TestPlantUMLFormSupport(t *testing.T) {
 	for _, kind := range Kinds() {
-		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction || kind == KindSequence
+		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction ||
+			kind == KindCase || kind == KindMixed || kind == KindSequence
 		if got := kind.SupportsForm(FormPlantUML); got != want {
 			t.Errorf("%s.SupportsForm(plantuml) = %v, want %v", kind, got, want)
 		}
@@ -559,9 +564,9 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--) ([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|--\|>|\*--|\.\.>|-->|->|--|\.\.) ([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
-	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
+	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.
 	dotFillLine      = regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})"`)
 	plantumlFillLine = regexp.MustCompile(`" as (\w+)(?: <<[^>]+>>)* (#[0-9A-F]{6})`)

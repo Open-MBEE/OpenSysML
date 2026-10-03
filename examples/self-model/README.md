@@ -45,7 +45,7 @@ The eight files:
 ✓ package OpenSysMLGates
 ✓ package OpenSysMLCodebase
 ✓ package OpenSysMLSurfaces
-✓ package OpenSysMLViews
+✓ package OpenSysMLSelfModelViews
 ✓ examples/self-model/behavior.sysml, examples/self-model/document.sysml, examples/self-model/execution.sysml, examples/self-model/identity.sysml, examples/self-model/pipeline.sysml, examples/self-model/quality.sysml, examples/self-model/surfaces.sysml, examples/self-model/views.sysml: no errors
 ```
 
@@ -102,13 +102,13 @@ library growing past its clean file count, say — fails `go test ./examples/`.
 ## Read a view
 
 ```
-> %view OpenSysMLViews::overview
-view OpenSysMLViews::overview
+> %view OpenSysMLSelfModelViews::overview
+view OpenSysMLSelfModelViews::overview
   exposes
     OpenSysMLSurfaces::opensysml (part)
     OpenSysMLSurfaces::Toolchain::lsp (part)
   nested views
-    OpenSysMLViews::overview::pipelineSubview (view)
+    OpenSysMLSelfModelViews::overview::pipelineSubview (view)
   viewpoint conformance
     satisfy maintainerPerspective: conforms
       concern latency: conforms
@@ -130,11 +130,11 @@ state views, Markdown for the tables. Override the destination with
 (`-render` takes a single file, and this model is eight):
 
 ```
-> %render OpenSysMLViews::tierStates mermaid
+> %render OpenSysMLSelfModelViews::tierStates mermaid
 ```
 
 ```
-%% OpenSysMLViews::tierStates — state rendering (view def StateTransitionView)
+%% OpenSysMLSelfModelViews::tierStates — state rendering (view def StateTransitionView)
 stateDiagram-v2
   state "«state def»<br>TierProgression" as n0 {
     state "«state»<br>syntaxTier<br>initial" as n1
@@ -149,7 +149,7 @@ The stage table is the model's answer to "which package implements this stage"; 
 Mermaid above, its first line is a comment naming the view, elided here:
 
 ```
-> %render OpenSysMLViews::stageTable markdown
+> %render OpenSysMLSelfModelViews::stageTable markdown
 ```
 
 | Element | Kind | Type | Declared in |
@@ -163,7 +163,7 @@ Mermaid above, its first line is a comment naming the view, elided here:
 To turn the Mermaid into images, pipe it through the Mermaid CLI:
 
 ```bash
-npx -y @mermaid-js/mermaid-cli -i build/self-model/OpenSysMLViews.pipelineStructure.mmd \
+npx -y @mermaid-js/mermaid-cli -i build/self-model/OpenSysMLSelfModelViews.pipelineStructure.mmd \
   -o pipeline.svg
 ```
 

@@ -24,28 +24,39 @@ const maxBehaviorDepth = 8
 func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
-		if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no state machine; a state rendering does not show it",
-				declKind(elem), r.notationName(elem)))
-			continue
+		if node := r.renderState(view, elem, ids, out, nil); node != nil {
+			out.Roots = append(out.Roots, node)
 		}
-		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
-		if err != nil {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
-				declKind(elem), r.notationName(elem), err))
-			continue
-		}
-		out.Roots = append(out.Roots, r.stateMachineNode(view, elem, graph, ids, out))
 	}
+}
+
+func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
+	record func(*symbols.Symbol, *Node)) *Node {
+	if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
+		out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no state machine; a state rendering does not show it",
+			declKind(elem), r.notationName(elem)))
+		return nil
+	}
+	graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
+	if err != nil {
+		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
+			declKind(elem), r.notationName(elem), err))
+		return nil
+	}
+	return r.stateMachineNode(view, elem, graph, ids, out, record)
 }
 
 // stateMachineNode renders one lowered state machine: its regions and states as
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
-func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
+func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
+	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
 		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	r.dress(view, machine, root, out)
+	if record != nil {
+		record(machine, root)
+	}
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, owner, decl ast.Node, name string) *Node {
@@ -58,16 +69,25 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
 		regions[region] = place(r.regionNode(region, graph, machine, ids), nil, region, region.Name)
+		if record != nil {
+			record(r.declaredSymbol(machine, region), regions[region])
+		}
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
 		node := place(r.stateNode(state, graph, machine, ids), bodyOwning(graph, state), graph.DeclOf(state), state.Name)
+		if record != nil {
+			record(r.declaredSymbol(machine, graph.DeclOf(state)), node)
+		}
 		if graph.Completes(state) {
 			node.Geometry = r.memberGeometryOf(view, r.bodySymbol(machine, graph, bodyOwning(graph, state)), ast.DoneFeature, out)
 		}
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
 			regions[region] = place(r.regionNode(region, graph, machine, ids), state, region, region.Name)
+			if record != nil {
+				record(r.declaredSymbol(machine, region), regions[region])
+			}
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -84,6 +104,9 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	for _, pseudo := range graph.Pseudostates {
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
 			Origin: nodeOrigin(docOf(graph, pseudo, machine.DocName), pseudo)}, graph.PseudostateOwner[pseudo], pseudo, pseudo.Name)
+		if record != nil {
+			record(r.declaredSymbol(machine, pseudo), node)
+		}
 		nodes[pseudo] = node
 		parent := root
 		if owner := graph.PseudostateOwner[pseudo]; owner != nil && nodes[owner] != nil {
@@ -468,18 +491,22 @@ func collapseSpace(text string) string {
 func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
-		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no action; an action rendering does not show it",
-				declKind(elem), r.notationName(elem)))
-			continue
-		}
-		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
-			scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
-		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0)
-		if ok {
+		if node, ok := r.renderAction(view, elem, ids, out, nil); ok {
 			out.Roots = append(out.Roots, node)
 		}
 	}
+}
+
+func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
+	record func(*symbols.Symbol, *Node)) (*Node, bool) {
+	if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
+		out.Notices = append(out.Notices, fmt.Sprintf("%s %s is no action; an action rendering does not show it",
+			declKind(elem), r.notationName(elem)))
+		return nil, false
+	}
+	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
+		scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
+	return r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0, record)
 }
 
 // actionSubject is the action being rendered and the naming context it is
@@ -508,7 +535,7 @@ type actionSubject struct {
 // drawn collects the node drawn for each lowered node across the nesting, so a
 // binding reaching into a nested flow finds its pin.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
-	lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int) (*Node, bool) {
+	lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int, record func(*symbols.Symbol, *Node)) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
 	// A node performing statements holds no flow of its own to render.
 	if usage, ok := decl.(*ast.Usage); ok && depth > 0 && lower.PerformsLeafStatements(usage.Members) {
@@ -530,6 +557,9 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	owner := r.declaredSymbol(subject.elem, decl)
+	if record != nil {
+		record(owner, root)
+	}
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
@@ -542,6 +572,9 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		}
 		r.declaredDress(subject.view, subject.elem, node, child, out)
 		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))
+		if record != nil {
+			record(r.declaredSymbol(subject.elem, node), child)
+		}
 		if child.NameSynthesized || child.Name == "" {
 			child.Text = r.actionText(graph, node, nodeDoc)
 		}
@@ -556,7 +589,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem, frame: child}
 			// The nested flow's own edges belong to the nested nodes, which the
 			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
-			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1); ok && len(child.Children) > 0 {
+			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1, record); ok && len(child.Children) > 0 {
 				child.Detail = detailWith(child.Detail, "own flow")
 			}
 		}

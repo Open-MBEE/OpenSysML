@@ -69,8 +69,8 @@ REPL's `%view` command prints, as an SVG canvas of its own, and redraws as you e
 
 - **Content.** The panel draws a view the document declares (chosen from a dropdown when there
   are several) or, as is usual for a model under development, the document itself, rendered as a
-  tree, an interconnection diagram, a state diagram, an action flow, a sequence diagram or a
-  table. A view whose rendering is unsupported (`geometry`, `textual`) stays in the picker and
+  tree, an interconnection diagram, a state diagram, an action flow, case and mixed diagrams,
+  a sequence diagram or a table. A view whose rendering is unsupported (`geometry`, `textual`) stays in the picker and
   explains why it cannot be drawn.
 - **Navigation.** Clicking a node jumps to the declaration it was built from, and moving the
   cursor in the editor highlights the node that contains it. A node built from a standard
@@ -100,7 +100,7 @@ through a `Route` waypoint. The geometry is on every node and edge the server se
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
-tree, interconnection, state and action diagrams, which read the annotations back.
+tree, interconnection, state, action, case and mixed diagrams, which read the annotations back.
 
 #### Exporting a diagram
 

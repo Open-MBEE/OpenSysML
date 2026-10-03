@@ -391,6 +391,8 @@ func edgeSectionName(kind Kind) string {
 		return "flow"
 	case KindSequence:
 		return "messages"
+	case KindCase, KindMixed:
+		return "relationships"
 	}
 	return "connections"
 }
@@ -404,6 +406,20 @@ func edgeArrow(kind EdgeKind) string {
 		return "=="
 	case EdgeFlow:
 		return "=>"
+	case EdgeComposition:
+		return "*--"
+	case EdgeAssociation:
+		return "--"
+	case EdgeInclude:
+		return "..>"
+	case EdgeAnchor:
+		return ".."
+	case EdgeTyping:
+		return "..>"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeReference:
+		return "..>"
 	}
 	return "->"
 }

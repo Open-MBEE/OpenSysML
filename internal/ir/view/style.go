@@ -207,6 +207,8 @@ func cameoFrameKind(kind Kind) string {
 		return "stm"
 	case KindAction:
 		return "act"
+	case KindCase:
+		return "uc"
 	}
 	return string(kind)
 }

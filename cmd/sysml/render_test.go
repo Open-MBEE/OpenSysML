@@ -16,9 +16,14 @@ import (
 // renderModel declares a view stating no rendering, one exposing nothing, and a
 // part def to ask for by mistake.
 const renderModel = `package Demo {
+    private import OpenSysMLViews::*;
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
+    part def Person;
+    use case def Mission { actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
+    view cases { expose Demo::Mission; render asCaseDiagram; }
+    view mixed { expose Demo; render asMixedDiagram; }
     view parts { expose Demo::Vehicle; render Views::asElementTable; }
     view empty;
 }
@@ -43,6 +48,29 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, "package Demo") {
 		t.Errorf("stderr does not say what the load declared:\n%s", got.stderr)
+	}
+}
+
+func TestRenderCaseAndMixedViewsAndPseudoViews(t *testing.T) {
+	binary := buildCLI(t)
+	cases := []struct {
+		view string
+		flow string
+	}{
+		{"Demo::cases", "flowchart LR"},
+		{"#case", "flowchart LR"},
+		{"#case:Demo::Mission", "flowchart LR"},
+		{"#mixed", "flowchart TD"},
+		{"#mixed:Demo::Mission", "flowchart TD"},
+	}
+	for _, tc := range cases {
+		got := runStreams(t, binary, renderModel, "-render", tc.view)
+		if got.status != exitHolds {
+			t.Fatalf("-render %s: exit status = %d\n%s", tc.view, got.status, got.output())
+		}
+		if !strings.Contains(got.stdout, tc.flow) {
+			t.Errorf("-render %s lacks %q:\n%s", tc.view, tc.flow, got.stdout)
+		}
 	}
 }
 

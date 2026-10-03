@@ -153,7 +153,7 @@ package OpenSysMLDocument {
             part structure : Diagram {
                 attribute redefines caption = "The stages and the artifacts that travel between them";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::pipelineStructure;
+                ref redefines source = OpenSysMLSelfModelViews::pipelineStructure;
             }
 
             part stages : Table {
@@ -174,7 +174,7 @@ package OpenSysMLDocument {
             part libraryLoad : Diagram {
                 attribute redefines caption = "Loading the library: the snapshot when it matches the files, the files otherwise";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::libraryLoadFlow;
+                ref redefines source = OpenSysMLSelfModelViews::libraryLoadFlow;
             }
         }
 
@@ -188,7 +188,7 @@ package OpenSysMLDocument {
             part tierStates : Diagram {
                 attribute redefines caption = "The tier ladder, and where it halts";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::tierStates;
+                ref redefines source = OpenSysMLSelfModelViews::tierStates;
             }
 
             part passes : Table {
@@ -212,7 +212,7 @@ package OpenSysMLDocument {
             part exhaustion : Diagram {
                 attribute redefines caption = "Seven budgets, seven ways a run ends early";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::budgetExhaustion;
+                ref redefines source = OpenSysMLSelfModelViews::budgetExhaustion;
             }
 
             part instantiating : Paragraph {
@@ -222,18 +222,18 @@ package OpenSysMLDocument {
             part instanceLayer : Diagram {
                 attribute redefines caption = "The instance layer: schema once per type, objects on demand, values on first read";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::instanceLayer;
+                ref redefines source = OpenSysMLSelfModelViews::instanceLayer;
             }
 
             part featureRead : Diagram {
                 attribute redefines caption = "One feature read: the case the feature is in decides how its value is made";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::featureReadFlow;
+                ref redefines source = OpenSysMLSelfModelViews::featureReadFlow;
             }
 
             part actionExecution : Diagram {
                 attribute redefines caption = "One action executed: lowered, stepped, scheduled, evaluated, read and written";
-                ref redefines source = OpenSysMLViews::actionExecution;
+                ref redefines source = OpenSysMLSelfModelViews::actionExecution;
             }
 
             part calculating : Paragraph {
@@ -243,13 +243,13 @@ package OpenSysMLDocument {
             part calculation : Diagram {
                 attribute redefines caption = "Invoking a calc: compiled when it may be, on the evaluator otherwise";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::calcInvocationFlow;
+                ref redefines source = OpenSysMLSelfModelViews::calcInvocationFlow;
             }
 
             part analysed : Diagram {
                 attribute redefines caption = "One document analysed end to end";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::analysisFlow;
+                ref redefines source = OpenSysMLSelfModelViews::analysisFlow;
             }
         }
 
@@ -263,7 +263,7 @@ package OpenSysMLDocument {
             part structure : Diagram {
                 attribute redefines caption = "The framework: questions, engines, registry, dispatch, budget and workers";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::analysisFramework;
+                ref redefines source = OpenSysMLSelfModelViews::analysisFramework;
             }
 
             part engines : Table {
@@ -280,7 +280,7 @@ package OpenSysMLDocument {
             part dispatch : Diagram {
                 attribute redefines caption = "Answering one question: selection, coverage, the run, and what the plan records";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::questionFlow;
+                ref redefines source = OpenSysMLSelfModelViews::questionFlow;
             }
 
             part evidence : Paragraph {
@@ -290,7 +290,7 @@ package OpenSysMLDocument {
             part ladder : Diagram {
                 attribute redefines caption = "The evidence scale as a ladder";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::evidenceLadder;
+                ref redefines source = OpenSysMLSelfModelViews::evidenceLadder;
             }
 
             part isolating : Paragraph {
@@ -300,19 +300,19 @@ package OpenSysMLDocument {
             part exploring : Diagram {
                 attribute redefines caption = "Exploring a behavior's outcomes over a fleet of workers";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::exploreFlow;
+                ref redefines source = OpenSysMLSelfModelViews::exploreFlow;
             }
 
             part workers : Diagram {
                 attribute redefines caption = "A worker's life in a plan";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::workerLifecycle;
+                ref redefines source = OpenSysMLSelfModelViews::workerLifecycle;
             }
 
             part marks : Diagram {
                 attribute redefines caption = "A snapshot is a mark between steps";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::snapshotLifecycle;
+                ref redefines source = OpenSysMLSelfModelViews::snapshotLifecycle;
             }
         }
 
@@ -326,7 +326,7 @@ package OpenSysMLDocument {
             part toolchain : Diagram {
                 attribute redefines caption = "The whole toolchain";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::toolchainStructure;
+                ref redefines source = OpenSysMLSelfModelViews::toolchainStructure;
             }
 
             part editing : Paragraph {
@@ -336,7 +336,7 @@ package OpenSysMLDocument {
             part editor : Diagram {
                 attribute redefines caption = "The editor pipeline";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::editorPipeline;
+                ref redefines source = OpenSysMLSelfModelViews::editorPipeline;
             }
         }
 
@@ -350,13 +350,13 @@ package OpenSysMLDocument {
             part path : Diagram {
                 attribute redefines caption = "From a query in the model to a rendered artifact";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::documentPipeline;
+                ref redefines source = OpenSysMLSelfModelViews::documentPipeline;
             }
 
             part branches : Diagram {
                 attribute redefines caption = "The three forms a rendered document branches to";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::documentFlow;
+                ref redefines source = OpenSysMLSelfModelViews::documentFlow;
             }
 
             part kinds : Table {
@@ -377,13 +377,13 @@ package OpenSysMLDocument {
             part path : Diagram {
                 attribute redefines caption = "The identity path, from the library to RDF and back";
                 attribute redefines direction = "LR";
-                ref redefines source = OpenSysMLViews::identityPath;
+                ref redefines source = OpenSysMLSelfModelViews::identityPath;
             }
 
             part roundTrip : Diagram {
                 attribute redefines caption = "Carrying an identity through a graph and back";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::identityRoundTrip;
+                ref redefines source = OpenSysMLSelfModelViews::identityRoundTrip;
             }
 
             part sync : Paragraph {
@@ -393,7 +393,7 @@ package OpenSysMLDocument {
             part syncing : Diagram {
                 attribute redefines caption = "Diffing a local model against its repository";
                 attribute redefines direction = "TB";
-                ref redefines source = OpenSysMLViews::syncFlow;
+                ref redefines source = OpenSysMLSelfModelViews::syncFlow;
             }
         }
 
@@ -406,7 +406,7 @@ package OpenSysMLDocument {
 
             part invariants : Diagram {
                 attribute redefines caption = "The architecture invariants and the parts they constrain";
-                ref redefines source = OpenSysMLViews::invariantTable;
+                ref redefines source = OpenSysMLSelfModelViews::invariantTable;
             }
 
             part oracles : Table {

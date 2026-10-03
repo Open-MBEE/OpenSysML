@@ -273,7 +273,9 @@ func TestRenderOfAnUnknownNameReports(t *testing.T) {
 func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Direct {
+    private import OpenSysMLViews::*;
     port def Port;
+    part def Person;
     part def Network {
         port left : Port;
         port right : Port;
@@ -287,6 +289,13 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         first start;
         action finish;
         succession first start then finish;
+    }
+    use case def Mission {
+        actor operator : Person;
+    }
+    view missionView {
+        expose Direct::Mission;
+        render asCaseDiagram;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -304,6 +313,10 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 		{"#state:Direct::Machine", view.KindState, view.FormMermaid, "stateDiagram-v2"},
 		{"#action:Flow", view.KindAction, view.FormMermaid, "flowchart TD"},
 		{"#interconnection:Direct::Network", view.KindInterconnection, view.FormMermaid, "flowchart LR"},
+		{"#case", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#case:Direct::Mission", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#mixed", view.KindMixed, view.FormMermaid, "flowchart TD"},
+		{"#mixed:Direct::Machine", view.KindMixed, view.FormMermaid, "flowchart TD"},
 		{"#table:Direct::Network", view.KindTable, view.FormMarkdown, "| Element | Kind | Type | Declared in |"},
 	}
 	for _, tc := range cases {
@@ -330,6 +343,16 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	}
 	if text := run(t, s, "%render #tree"); !strings.HasPrefix(text, "tree rendering") {
 		t.Errorf("%%render did not accept #tree:\n%s", text)
+	}
+	if text := run(t, s, "%render #case"); !strings.HasPrefix(text, "case rendering") {
+		t.Errorf("%%render did not accept #case:\n%s", text)
+	}
+	if text := run(t, s, "%render #mixed:Direct::Machine"); !strings.HasPrefix(text, "mixed rendering") {
+		t.Errorf("%%render did not accept a targeted #mixed pseudo-view:\n%s", text)
+	}
+	declared, err := s.ViewRendering("Direct::missionView")
+	if err != nil || declared.Kind != view.KindCase {
+		t.Errorf("declared case rendering = %+v, %v", declared, err)
 	}
 }
 

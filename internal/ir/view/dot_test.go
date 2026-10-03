@@ -26,6 +26,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
 	}
 	for _, tc := range cases {
@@ -49,7 +51,9 @@ func TestGoldenDOT(t *testing.T) {
 					t.Errorf("DOT lacks %q:\n%s", want, dot)
 				}
 			}
-			if strings.Contains(dot, "rankdir") {
+			if tc.kind == KindCase && !strings.Contains(dot, "rankdir=LR") {
+				t.Errorf("case DOT does not use its LR default:\n%s", dot)
+			} else if tc.kind != KindCase && strings.Contains(dot, "rankdir") {
 				t.Errorf("DOT states a rankdir with no direction asked for:\n%s", dot)
 			}
 		})
@@ -60,7 +64,8 @@ func TestGoldenDOT(t *testing.T) {
 // diagram have none, and asking is a typed error naming the kind and the form.
 func TestDOTFormSupport(t *testing.T) {
 	for _, kind := range Kinds() {
-		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction
+		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction ||
+			kind == KindCase || kind == KindMixed
 		if got := kind.SupportsForm(FormDot); got != want {
 			t.Errorf("%s.SupportsForm(dot) = %v, want %v", kind, got, want)
 		}
@@ -328,11 +333,18 @@ func TestDOTDirections(t *testing.T) {
 // Every edge kind is drawn in the style parallel to its Mermaid arrow.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
-		EdgeConnection: `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
-		EdgeTransition: `"a" -> "b" [label="k"];`,
-		EdgeSuccession: `"a" -> "b" [label="k"];`,
-		EdgeFlow:       `"a" -> "b" [label="k", style=dashed];`,
-		EdgeBinding:    `"a" -> "b" [label="k", arrowhead=none];`,
+		EdgeConnection:     `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
+		EdgeTransition:     `"a" -> "b" [label="k"];`,
+		EdgeSuccession:     `"a" -> "b" [label="k"];`,
+		EdgeFlow:           `"a" -> "b" [label="k", style=dashed];`,
+		EdgeBinding:        `"a" -> "b" [label="k", arrowhead=none];`,
+		EdgeComposition:    `"a" -> "b" [label="k", arrowtail=diamond, dir=back];`,
+		EdgeAssociation:    `"a" -> "b" [label="k", dir=none];`,
+		EdgeInclude:        `"a" -> "b" [label="k", style=dashed];`,
+		EdgeAnchor:         `"a" -> "b" [label="k", dir=none, style=dashed];`,
+		EdgeTyping:         `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
+		EdgeSpecialization: `"a" -> "b" [label="k", arrowhead=empty];`,
+		EdgeReference:      `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
 	}
 	for kind := EdgeConnection; kind.String() != "edge"; kind++ {
 		want, ok := styles[kind]
@@ -352,10 +364,12 @@ func TestDOTEdgeKinds(t *testing.T) {
 		}
 		// Mermaid draws the same distinction: a line, a dashed arrow, an arrow.
 		arrow := mermaidArrow(kind)
-		undirected := arrow == "---" || arrow == "==="
+		undirected := kind == EdgeAssociation || kind == EdgeAnchor ||
+			kind == EdgeConnection || kind == EdgeBinding
+		dotUndirected := strings.Contains(want, "dir=none") || strings.Contains(want, "arrowhead=none")
 		switch {
-		case strings.Contains(want, "arrowhead=none") != undirected:
-			t.Errorf("%s: DOT arrowhead and Mermaid arrow %q disagree", kind, arrow)
+		case dotUndirected != undirected:
+			t.Errorf("%s: DOT direction and Mermaid arrow %q disagree", kind, arrow)
 		case strings.Contains(want, "dashed") != strings.Contains(arrow, "."):
 			t.Errorf("%s: DOT style and Mermaid arrow %q disagree", kind, arrow)
 		}

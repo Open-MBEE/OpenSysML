@@ -24,7 +24,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - Measured at the `2026-08` pin after bare parameters took their effective range `[0..*]`, removing
   the adjudicated `Behaviors.kerml:14` multiplicity warning (the `[1]` `RocketEquation` inputs keep
   its warning at `delta-v-budget.sysml:93`): `381 file(s), 343 fully agreeing; 38 agreed, 43 only
-  ours, 1629 only the pilot's`, JSON totals `openSysMLDiagnostics 83 / pilotDiagnostics 1669 /
+  ours, 1632 only the pilot's`, JSON totals `openSysMLDiagnostics 83 / pilotDiagnostics 1672 /
   severityMismatch 2`; the two new only-ours rows are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -147,7 +147,7 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `delta-v-budget.sysml:93`), is current: the action-step multiplicity rule adds the two expected
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
 `takePicture[*]` in `Camera Example/Camera.sysml`; a live run gives `381 file(s), 343 fully
-agreeing; 38 agreed, 43 only ours, 1629 only the pilot's`, byte-identical to the committed baseline, and
+agreeing; 38 agreed, 43 only ours, 1632 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.

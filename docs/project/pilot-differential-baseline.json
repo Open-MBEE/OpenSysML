@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:8b0d334dcd91c03c9e2b12bc9be59204e0ec714520deaab52d81e3454c2c4744"
+        "digest": "sha256:1d0d67e33c2ead2fc74969ef06d1db65b3dd70dd9710218a430e12673ef0ee4b"
       },
       {
         "name": "probes",
@@ -79,9 +79,9 @@
     "agreement": 38,
     "severityMismatch": 2,
     "openSysMLOnly": 43,
-    "pilotOnly": 1629,
+    "pilotOnly": 1632,
     "openSysMLDiagnostics": 83,
-    "pilotDiagnostics": 1669
+    "pilotDiagnostics": 1672
   },
   "roots": [
     {
@@ -865,9 +865,9 @@
         "agreement": 4,
         "severityMismatch": 1,
         "openSysMLOnly": 6,
-        "pilotOnly": 1596,
+        "pilotOnly": 1599,
         "openSysMLDiagnostics": 11,
-        "pilotDiagnostics": 1601
+        "pilotDiagnostics": 1604
       },
       "files": [
         {
@@ -7992,13 +7992,31 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 176,
+              "line": 143,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 173,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 178,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 197,
               "severity": "error",
               "category": "syntax",
               "count": 1
             },
             {
-              "line": 178,
+              "line": 199,
               "severity": "error",
               "category": "syntax",
               "count": 1
@@ -8450,9 +8468,9 @@
       "agreement": 38,
       "severityMismatch": 2,
       "openSysMLOnly": 42,
-      "pilotOnly": 1629,
+      "pilotOnly": 1632,
       "openSysMLDiagnostics": 82,
-      "pilotDiagnostics": 1669
+      "pilotDiagnostics": 1672
     },
     "findings": [
       {

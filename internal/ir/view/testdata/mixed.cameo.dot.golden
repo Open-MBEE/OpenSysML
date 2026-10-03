@@ -1,0 +1,124 @@
+// view: MixedExamples::mixedDiagram
+// kind: mixed
+// stated: render asMixedDiagram
+// layout: dot
+digraph "MixedExamples::mixedDiagram" {
+  graph [fontname="Arial", fontcolor="#424242", compound=true];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>mixed</b> [Package] MixedExamples [ mixedDiagram ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    subgraph "cluster_n0" {
+      label="";
+      style=filled;
+      fillcolor="#FFCC99:#FFFAD4";
+      gradientangle=0;
+      color="#99795C";
+      penwidth=1;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n19" [label=<<font point-size="9">«port def»</font><br/><b>FluidPort</b>>];
+      "n20" [label=<<font point-size="9">«part def»</font><br/><b>BaseUnit</b>>];
+      subgraph "cluster_n21" {
+        label=<<font point-size="9">«part def»</font><br/><b>Pump</b>>;
+        style=filled;
+        fillcolor="#FFCC99:#FFFAD4";
+        gradientangle=0;
+        color="#99795C";
+        penwidth=1;
+        "n21" [shape=point, style=invis, width=0, height=0, label=""];
+        "n22" [label=<<font point-size="9">«port»</font><br/><b>outlet : FluidPort</b>>];
+      }
+      subgraph "cluster_n23" {
+        label=<<font point-size="9">«part def»</font><br/><b>Tank</b>>;
+        style=filled;
+        fillcolor="#FFCC99:#FFFAD4";
+        gradientangle=0;
+        color="#99795C";
+        penwidth=1;
+        "n23" [shape=point, style=invis, width=0, height=0, label=""];
+        "n24" [label=<<font point-size="9">«port»</font><br/><b>inlet : FluidPort</b>>];
+      }
+      subgraph "cluster_n25" {
+        label=<<font point-size="9">«part def»</font><br/><b>Plant</b>>;
+        style=filled;
+        fillcolor="#FFCC99:#FFFAD4";
+        gradientangle=0;
+        color="#99795C";
+        penwidth=1;
+        "n25" [shape=point, style=invis, width=0, height=0, label=""];
+        "n26" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="9">«part»</font><br/><b>pump : Pump</b></td></tr><tr><td port="n26.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">outlet : FluidPort</font></td></tr></table>>];
+        "n27" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n27.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">inlet : FluidPort</font></td></tr><tr><td colspan="2"><font point-size="9">«part»</font><br/><b>tank : Tank</b></td></tr></table>>];
+      }
+      "n28" [label=<<font point-size="9">«connection def»</font><br/><b>Connection</b>>];
+      "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«state def»</font><br/><b>Ready</b></td></tr><hr/><tr><td align="left">declares no states</td></tr></table>>];
+      subgraph "cluster_n2" {
+        label=<<font point-size="9">«state def»</font><br/><b>Modes</b>>;
+        style="rounded,filled";
+        fillcolor="#FFFFCC:#FFFFF2";
+        gradientangle=0;
+        color="#5B5B59";
+        penwidth=1;
+        "n2" [shape=point, style=invis, width=0, height=0, label=""];
+        "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+        "n3" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>ready : Ready</b>>];
+      }
+      subgraph "cluster_n5" {
+        label=<<font point-size="9">«action def»</font><br/><b>Operate</b>>;
+        style="rounded,filled";
+        fillcolor="#E1E1C3:#F7F7EF";
+        gradientangle=0;
+        color="#424242";
+        penwidth=1;
+        "n5" [shape=point, style=invis, width=0, height=0, label=""];
+        "n6" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+        "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>step</b>>];
+        "n8" [shape=doublecircle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+      }
+      "n9" [shape=ellipse, label=<<font point-size="9">«use case def»</font><br/><b>Inspection</b>>];
+      "n10" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>operator : Person</b>>];
+      "n11" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>plant : Plant</b>>];
+      "n12" [shape=note, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>objective</b></td></tr><hr/><tr><td align="left">Inspect the plant and report its operating state.</td></tr></table>>];
+      "n13" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«perform action»</font><br/><b>run : Operate</b></td></tr><hr/><tr><td align="left">declares no nodes</td></tr></table>>];
+      subgraph "cluster_n14" {
+        label=<<font point-size="9">«exhibit state»</font><br/><b>mode : Modes</b>>;
+        style="rounded,filled";
+        fillcolor="#FFFFCC:#FFFFF2";
+        gradientangle=0;
+        color="#5B5B59";
+        penwidth=1;
+        "n14" [shape=point, style=invis, width=0, height=0, label=""];
+        "n16" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+        "n15" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>ready : Ready</b>>];
+      }
+      "n29" [label=<<font point-size="9">«part def»</font><br/><b>Person</b>>];
+      "n17" [label=<<font point-size="9">«view»</font><br/><b>mixedDiagram</b>>];
+      "n18" [label=<<font point-size="9">«view»</font><br/><b>mixedLayout</b>>];
+    }
+  }
+  "n4" -> "n3";
+  "n6" -> "n7";
+  "n7" -> "n8";
+  "n10" -> "n9" [dir=none];
+  "n9" -> "n11" [label="«subject»", dir=none];
+  "n9" -> "n12" [dir=none, style=dashed];
+  "n16" -> "n15";
+  "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none];
+  "n3" -> "n1" [style=dashed, arrowhead=open];
+  "n10" -> "n29" [style=dashed, arrowhead=open];
+  "n11" -> "n25" [style=dashed, arrowhead=open, lhead="cluster_n25"];
+  "n13" -> "n5" [label="«perform»", style=dashed, arrowhead=open, lhead="cluster_n5"];
+  "n14" -> "n2" [label="«exhibit»", style=dashed, arrowhead=open, ltail="cluster_n14", lhead="cluster_n2"];
+  "n21" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n21"];
+  "n22" -> "n19" [style=dashed, arrowhead=open];
+  "n23" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n23"];
+  "n24" -> "n19" [style=dashed, arrowhead=open];
+  "n25" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n25"];
+  "n26" -> "n21" [style=dashed, arrowhead=open, lhead="cluster_n21"];
+  "n27" -> "n23" [style=dashed, arrowhead=open, lhead="cluster_n23"];
+}

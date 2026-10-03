@@ -44,6 +44,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	var notices []string
 	direction, reversed := plantumlDirection(options.Direction)
+	if options.Direction == "" && r.Kind == KindCase {
+		direction, reversed = plantumlDirection(DirectionLeftRight)
+	}
 	if !r.Kind.SupportsDirection() {
 		direction = ""
 	} else if reversed {
@@ -87,6 +90,8 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		w.writeClassDiagram(r)
 	case KindInterconnection:
 		w.writeRectangleDiagram(r)
+	case KindCase, KindMixed:
+		w.writeCaseMixedDiagram(r, r.Kind == KindMixed)
 	case KindState, KindAction:
 		w.writeStateDiagram(r)
 	case KindSequence:
@@ -269,6 +274,50 @@ func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	fmt.Fprintf(&w.b, "%s}\n", indent)
 }
 
+func (w *plantumlWriter) writeCaseMixedDiagram(r *Rendering, mixed bool) {
+	if r.blank() {
+		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
+		return
+	}
+	for _, root := range r.Roots {
+		w.writeCaseMixedNode(root, 0, mixed)
+	}
+	for _, edge := range r.Edges {
+		w.writeEdge(edge)
+	}
+}
+
+func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
+	indent := strings.Repeat("  ", depth)
+	label := plantumlQuote(w.plantumlLabel(node))
+	switch {
+	case slices.Contains(strings.Fields(node.Kind), "package"):
+		fmt.Fprintf(&w.b, "%spackage %s as %s%s {\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+		fmt.Fprintf(&w.b, "%s}\n", indent)
+	case caseNodeKind(node.Kind):
+		fmt.Fprintf(&w.b, "%susecase %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	case node.Kind == "actor":
+		fmt.Fprintf(&w.b, "%sactor %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+	case node.Kind == "subject":
+		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+	case node.Kind == "objective":
+		fmt.Fprintf(&w.b, "%snote %s as %s%s\n", indent, label, node.ID, w.noteDecoration(node))
+	case mixed && controlKinds[node.Kind]:
+		fmt.Fprintf(&w.b, "%scircle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+	default:
+		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	}
+}
+
 // writeStateDiagram writes a state or action rendering as a state diagram:
 // bodies are composite states, entry transitions leave the `[*]` marker of
 // their body, and every other edge is a transition. An action graph takes the
@@ -379,6 +428,18 @@ func plantumlArrow(kind EdgeKind) string {
 		return "--"
 	case EdgeFlow:
 		return "-[dashed]->"
+	case EdgeComposition:
+		return "*--"
+	case EdgeAssociation:
+		return "--"
+	case EdgeInclude:
+		return "..>"
+	case EdgeAnchor:
+		return ".."
+	case EdgeTyping, EdgeReference:
+		return "..>"
+	case EdgeSpecialization:
+		return "--|>"
 	}
 	return "-->"
 }
@@ -399,6 +460,23 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if shape := plantumlShapeStereotype(node); shape != "" && shape != node.Kind {
 		fmt.Fprintf(&out, " <<%s>>", shape)
 	}
+	switch {
+	case w.fills.filled(node):
+		out.WriteString(" " + w.fills.fill(node))
+		if w.borders {
+			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
+		}
+		if node.Style != nil && node.Style.Text != "" {
+			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+		}
+	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
+		out.WriteString(" " + plantumlStyleColor(node.Style))
+	}
+	return out.String()
+}
+
+func (w *plantumlWriter) noteDecoration(node *Node) string {
+	var out strings.Builder
 	switch {
 	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))

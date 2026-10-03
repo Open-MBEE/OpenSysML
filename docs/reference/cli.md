@@ -468,13 +468,19 @@ sysml -e "result" file1.sysml file2.sysml
 loaded as one model, as `-render-all` and `-render-document` load theirs, so the view may expose
 elements a sibling file declares. The rendering kind comes from the view's `render` member, or is a
 containment tree if the view does not state one. This build can produce a tree, an interconnection
-diagram, a state machine, an action flow, a sequence diagram and a table. A geometry view is
-recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
-every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
-`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
-render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
+diagram, a state machine, an action flow, a case diagram, a mixed diagram, a sequence diagram and
+a table. A geometry view is recognized but not drawn. Pseudo-views let you render without declaring
+a view: `#tree` renders every file `-render` loaded (or every document loaded in the REPL), while
+`#tree:<name>`, `#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#case:<name>`,
+`#mixed:<name>`, `#sequence:<name>` and `#table:<name>` render the named element directly
+(`-render '#interconnection:Plant::Loop'`, quoted for the shell).
 Only the kinds this build produces are offered; newly supported kinds become pseudo-views
 automatically.
+
+Case and mixed views may also select their rendering through the bundled `OpenSysMLViews` library:
+import `OpenSysMLViews::*`, then use `render asCaseDiagram;` or `render asMixedDiagram;`, or
+specialize `CaseView` or `MixedView`. Case diagrams default to left-to-right and mixed diagrams
+to top-to-bottom; both use Mermaid as their machine-readable form.
 
 An interconnection draws the exposed parts, the ports on their borders, and the connectors between
 them. A part's ports are those its definition declares as well as any it declares itself — `part
@@ -579,12 +585,12 @@ The forms a kind can be written in:
 | Form | Kinds | What it is |
 | --- | --- | --- |
 | `text` | every kind | ASCII a person reads; the default at a terminal |
-| `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
+| `mermaid` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
 | `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
 | `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
-| `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
-| `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
+| `dot` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
+| `plantuml` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
 A node's label follows the graphical notation's header: the kind leads on its own line in
 guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note

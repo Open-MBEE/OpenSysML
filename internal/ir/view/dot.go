@@ -68,6 +68,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return "", err
 	}
 	direction := options.Direction
+	if direction == "" && r.Kind == KindCase {
+		direction = DirectionLeftRight
+	}
 	if options.Unplaced != UnplacedStrip {
 		r = withoutStandIns(r)
 	}
@@ -1103,8 +1106,19 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	case w.pinned(node):
 		attrs = w.dotPinnedAttributes(node, w.labels.dotLabel(node))
 	default:
-		if w.skin.rounded(node.Kind) {
-			attrs = append(attrs, `style="rounded,filled"`)
+		if caseNodeKind(node.Kind) {
+			attrs = append(attrs, "shape=ellipse")
+		} else {
+			switch node.Kind {
+			case "objective":
+				attrs = append(attrs, "shape=note")
+			case "actor", "subject":
+				attrs = append(attrs, "shape=box")
+			default:
+				if w.skin.rounded(node.Kind) {
+					attrs = append(attrs, `style="rounded,filled"`)
+				}
+			}
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
 		switch {
@@ -1801,6 +1815,20 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
+	case EdgeComposition:
+		attrs = append(attrs, "arrowtail=diamond", "dir=back")
+	case EdgeAssociation:
+		attrs = append(attrs, "dir=none")
+	case EdgeInclude:
+		attrs = append(attrs, dotStyleDashed)
+	case EdgeAnchor:
+		attrs = append(attrs, "dir=none", dotStyleDashed)
+	case EdgeTyping:
+		attrs = append(attrs, dotStyleDashed, "arrowhead=open")
+	case EdgeSpecialization:
+		attrs = append(attrs, "arrowhead=empty")
+	case EdgeReference:
+		attrs = append(attrs, dotStyleDashed, "arrowhead=open")
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {

@@ -639,7 +639,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	flowchart := *r
 	flowchart.Notes = r.flowchartNotesWithDrawnEdges()
 	flow := "TD"
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindCase {
 		flow = "LR"
 	}
 	if direction != "" {
@@ -668,7 +668,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -1119,6 +1119,15 @@ func flowchartPinID(node *Node, port Port, ports portView) string {
 }
 
 func mermaidNodeShape(node *Node, labels labeller, options Options) string {
+	if caseNodeKind(node.Kind) {
+		return "([" + mermaidNodeLabel(node, labels, options) + "])"
+	}
+	switch node.Kind {
+	case "actor", "subject":
+		return "[" + mermaidNodeLabel(node, labels, options) + "]"
+	case "objective":
+		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+	}
 	switch node.Kind {
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
@@ -1794,8 +1803,31 @@ func mermaidArrow(kind EdgeKind) string {
 		return "==="
 	case EdgeFlow:
 		return "-.->"
+	case EdgeAssociation:
+		return "---"
+	case EdgeAnchor:
+		return "-.-"
+	case EdgeInclude, EdgeTyping, EdgeReference:
+		return "-.->"
+	case EdgeSpecialization:
+		return "-->"
+	case EdgeComposition:
+		return "---"
 	}
 	return "-->"
+}
+
+func mermaidEdgeLabel(edge Edge) string {
+	if edge.Label != "" {
+		return edge.Label
+	}
+	switch edge.Kind {
+	case EdgeComposition:
+		return "«composition»"
+	case EdgeSpecialization:
+		return "«specializes»"
+	}
+	return ""
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

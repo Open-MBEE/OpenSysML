@@ -13,14 +13,15 @@ PlantUML compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
+`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
-(connection, binding, transition, succession, flow), a table's columns and rows, the origin of every node
-and row, and notices for what the kind could not represent. The tree, interconnection, state and
-action kinds are produced from the model — the last two from the lowered `StateGraph` and
-`ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
-language.
+(connection, binding, transition, succession, flow, composition, association, include, anchor,
+typing, specialization, reference), a table's columns and rows, the origin of every node
+and row, and notices for what the kind could not represent. The tree, interconnection, state,
+action, case and mixed kinds are produced from the model — the behavior kinds from the lowered
+`StateGraph` and `ActionGraph` the runtime executes — and nothing in the rendering is text of any
+diagram language.
 
 What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
 kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
@@ -43,9 +44,9 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
 | `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
-| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
-| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
-| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
+| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | The default machine-readable form of the graph-shaped kinds |
+| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed` | Graphviz DOT, the alternative to Mermaid |
+| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -162,6 +163,36 @@ arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a 
 path does not carry that path across the drawing. A time or change event, and an accept of an
 event feature (`accept :> shutDown`), keep their written text.
 
+## Case and mixed diagrams
+
+SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
+verification cases. Import `OpenSysMLViews::*` and select a kind
+with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`.
+The same kinds are available without a declared view as `#case`, `#mixed`, `#case:<element>` and
+`#mixed:<element>`. Case diagrams default to left-to-right; mixed diagrams default to top-to-bottom.
+
+A case walk passes through containers until it reaches a case-family element. Cases remain flat
+nodes, including nested cases, because PlantUML use cases cannot be nested. A case owns an
+association to each actor, a `«subject»` association to its subject, and an anchor to its objective;
+the objective's documentation is its node detail, not a layout note. A nested case is joined by a
+composition edge. An included reference draws its target once and joins it with `«include»`; an
+included case declared inline gets its own node and an include edge. Exposed containers with no
+case are reported rather than silently disappearing.
+
+A mixed view puts several diagram traditions on one canvas and shares each model element's node:
+packages become containers, structures use the interconnection nodes and connectors, states and
+actions use their existing behavior renderers, and cases use the case renderer. Other definitions
+remain tree-content nodes. Typing, specialization, perform and exhibit references are added only
+when both endpoints are present in the drawing. Mermaid and DOT keep state/action control nodes;
+the PlantUML component dialect writes them as explicit keyword-bearing circles or rectangles.
+
+The writers preserve the same semantics with each notation's native shapes: Mermaid uses stadium
+cases, boxes for actors and subjects, notes for objectives, dashed include/typing/reference arrows,
+undirected association lines and dotted anchor lines; DOT uses ellipses, boxes and note-shaped
+objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
+rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
+table-only forms and return `WrongFormError` for both new kinds.
+
 ## Mermaid
 
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
@@ -174,12 +205,12 @@ table records what each rendering feature writes:
 
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
-| Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
+| Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; cases use stadium nodes, actors and subjects use keyword-bearing rectangles, and objectives use note nodes. Other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
 | Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows, `-->` for other edges, and `---` for tree containment. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node and subgraph titles use bold head lines, an italic keyword line and plain detail lines. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. State, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |

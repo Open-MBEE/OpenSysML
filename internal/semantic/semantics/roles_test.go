@@ -529,6 +529,22 @@ func TestActorsRedefineByPosition(t *testing.T) {
 	}
 }
 
+func TestIsActorUsageIncludesStakeholder(t *testing.T) {
+	_, root := buildModel(t, `package P {
+		part def Person;
+		requirement def R {
+			actor driver : Person;
+			stakeholder owner : Person;
+		}
+	}`)
+	requirement := nested(t, sym(t, root, "P").Scope, "R")
+	for _, name := range []string{"driver", "owner"} {
+		if usage := nested(t, requirement.Scope, name); !IsActorUsage(usage) {
+			t.Errorf("IsActorUsage(%s) = false, want true", name)
+		}
+	}
+}
+
 // A restatement of an actor met through one branch of a diamond stands for the actor it
 // restates met through the other, whichever branch is written first.
 func TestActorRestatementWinsAcrossDiamond(t *testing.T) {

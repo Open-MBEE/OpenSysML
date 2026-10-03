@@ -118,7 +118,7 @@ that: a picture lies under every element symbol or over every one, never between
 `Picture` belongs to a view alone, `@Picture { … }` in its body; a view carries as many as it
 shows, in declaration order: within each layer a later picture lies over an earlier one it
 overlaps, and every picture over the element symbols lies over every one under them.
-The graph-shaped renderings (interconnection, tree, state and action views) draw it; a table or
+The graph-shaped renderings (interconnection, tree, state, action, case and mixed views) draw it; a table or
 sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
 each picture's file and box under `not drawn`.
 A `Picture` names a file the way a `DocumentQueries::Image` block's `location` names a local
@@ -230,9 +230,9 @@ A `Route` resolves the same way for an edge's declaring element. A `Canvas` belo
 view alone, stated in its body. Where a view's body states two `about` annotations of one
 kind for one element, the first in declaration order applies and the second is a warning.
 
-With no view — the `#tree`, `#interconnection:X` pseudo-views and the LSP's render of a
-document — only the element-level fallback applies, since there is no view body to look
-in.
+With no view — a `#tree`, `#interconnection:X`, `#case` or `#mixed` pseudo-view, and the
+LSP's render of a document — only the element-level fallback applies, since there is no
+view body to look in.
 
 The resolution is a lazy, memoized side-table query in `internal/semantic/semantics/layout.go`
 (`Model.LayoutOf`, `Model.RouteOf`, `Model.CanvasOf`, over `Model.LayoutSitesOf`) built

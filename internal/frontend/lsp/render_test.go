@@ -29,6 +29,10 @@ const renderModel = `package Kit {
 		connect cog to gear;
 	}
 	part def Cog;
+	part def Person;
+	use case def Inspection {
+		actor operator : Person;
+	}
 
 	state def WidgetStates {
 		entry; then off;
@@ -47,6 +51,7 @@ const renderModel = `package Kit {
 package KitViews {
 	private import Views::*;
 	private import StandardViewDefinitions::*;
+	private import OpenSysMLViews::*;
 
 	view widgetTree {
 		expose Kit::Widget;
@@ -70,6 +75,16 @@ package KitViews {
 
 	view widgetSequence : SequenceView {
 		expose Kit::Widget;
+	}
+
+	view widgetCases {
+		expose Kit::Inspection;
+		render asCaseDiagram;
+	}
+
+	view widgetMixed {
+		expose Kit;
+		render asMixedDiagram;
 	}
 
 	view widgetGeometry : GeometryView {
@@ -206,6 +221,8 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 		{"KitViews::widgetActions", view.KindAction, view.FormMermaid},
 		{"KitViews::widgetTable", view.KindTable, view.FormMarkdown},
 		{"KitViews::widgetSequence", view.KindSequence, view.FormMermaid},
+		{"KitViews::widgetCases", view.KindCase, view.FormMermaid},
+		{"KitViews::widgetMixed", view.KindMixed, view.FormMermaid},
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.kind), func(t *testing.T) {
@@ -248,6 +265,23 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 				t.Errorf("no node of the %s rendering is located in the source", tc.kind)
 			}
 		})
+	}
+	for _, tc := range []struct {
+		spec string
+		kind view.Kind
+	}{
+		{"#case", view.KindCase},
+		{"#mixed", view.KindMixed},
+		{"#case:Kit::Inspection", view.KindCase},
+		{"#mixed:Kit::WidgetStates", view.KindMixed},
+	} {
+		out := render(t, s, docURI, tc.spec)
+		if out.Kind != string(tc.kind) || out.Form != string(view.FormMermaid) {
+			t.Errorf("%s rendering = kind %q form %q", tc.spec, out.Kind, out.Form)
+		}
+		if strings.TrimSpace(out.Artifact) == "" || len(out.Nodes) == 0 {
+			t.Errorf("%s rendering is empty: %+v", tc.spec, out)
+		}
 	}
 }
 
@@ -428,8 +462,8 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	if !slices.Contains(listing.PseudoViews, "#sequence") {
 		t.Errorf("pseudoViews = %v, want it to contain #sequence", listing.PseudoViews)
 	}
-	if len(listing.Views) != 7 {
-		t.Fatalf("listed %d views, want 7: %+v", len(listing.Views), listing.Views)
+	if len(listing.Views) != 9 {
+		t.Fatalf("listed %d views, want 9: %+v", len(listing.Views), listing.Views)
 	}
 	kinds := map[string]viewInfo{}
 	for _, info := range listing.Views {

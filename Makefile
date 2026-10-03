@@ -456,7 +456,8 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 	@echo "Rendering the architecture self-model..."
 	@mkdir -p "$(SELF_MODEL_OUT)"
 	@# A renamed or deleted view or document must not leave its old rendering behind.
-	@rm -f "$(SELF_MODEL_OUT)"/OpenSysMLViews.*.mmd "$(SELF_MODEL_OUT)"/OpenSysMLViews.*.md \
+	@rm -f "$(SELF_MODEL_OUT)"/OpenSysMLSelfModelViews.*.mmd "$(SELF_MODEL_OUT)"/OpenSysMLSelfModelViews.*.md \
+		"$(SELF_MODEL_OUT)"/OpenSysMLViews.*.mmd "$(SELF_MODEL_OUT)"/OpenSysMLViews.*.md \
 		"$(SELF_MODEL_OUT)"/OpenSysMLDocument-*.md
 	$(BIN_DIR)/sysml $(SELF_MODEL_DIR)/*.sysml -render-all "$(SELF_MODEL_OUT)"
 	@# The architecture document the model declares, rendered by the same model.

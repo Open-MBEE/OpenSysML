@@ -83,12 +83,12 @@ func (k Kind) SupportsForm(form Form) bool {
 		return k == KindTable
 	case FormDot:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed:
 			return true
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence:
 			return true
 		}
 	}

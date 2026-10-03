@@ -1,6 +1,6 @@
 // The views that present the architecture, one per rendering kind, plus the
 // filtered layer views.
-package OpenSysMLViews {
+package OpenSysMLSelfModelViews {
     private import Views::*;
     private import StandardViewDefinitions::*;
     private import OpenSysMLArtifacts::*;
