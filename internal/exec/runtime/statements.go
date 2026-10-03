@@ -655,11 +655,32 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		return e.block(s)
 	case lower.Effect:
 		return flowNext, e.host.effect(e, s)
+	case lower.Assert:
+		return flowNext, e.assert(s)
 	case lower.Unsupported:
 		return flowNext, fmt.Errorf("%w: %s: %s in a body is not executable", ErrStatementNotExecutable, e.host.describe(), s.Description)
 	default:
 		return flowNext, fmt.Errorf("%s: unsupported statement %T", e.host.describe(), stmt)
 	}
+}
+
+// assert checks an assertion the flow has reached against the values in reach
+// here, a failing condition ending the run as a ViolationError.
+func (e *stmtEngine) assert(s lower.Assert) error {
+	if s.Sym == nil {
+		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNoConditions, e.host.describe())
+	}
+	ec := e.evalIn(s.Scope)
+	check := conditionCheck{
+		sym:     s.Sym,
+		kind:    "constraint",
+		what:    "assertion",
+		self:    ec.self,
+		frames:  slices.Clone(ec.frames),
+		negated: s.Node.IsNegated,
+	}
+	_, err := e.ctx.evaluateConditions(check, e.ctx.conditionsOf(s.Sym, e.ctx.chainMembers(s.Sym, s.Scope)))
+	return err
 }
 
 // declareUsage brings a body-local calc usage into force: the evaluation of it
@@ -1126,6 +1147,8 @@ func stmtLabel(stmt lower.Statement) string {
 		}
 	case lower.Effect:
 		return s.Kind.String()
+	case lower.Assert:
+		return "assert " + ActionNodeName(s.Node)
 	case lower.Unsupported:
 		return s.Description
 	default:
