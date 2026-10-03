@@ -669,9 +669,9 @@ function same_value(left, right)
         return _same_unordered(left, right)
     elseif left isa Rational && right isa AbstractFloat
         # A Rational meets a Real at Real precision, as the service compares them.
-        return isequal(Float64(left), right)
+        return Float64(left) == right
     elseif left isa AbstractFloat && right isa Rational
-        return isequal(left, Float64(right))
+        return left == Float64(right)
     end
     return isequal(left, right)
 end
