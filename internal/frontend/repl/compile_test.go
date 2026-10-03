@@ -604,6 +604,36 @@ func TestCompiledStringResultsRoundTrip(t *testing.T) {
 	}
 }
 
+// A String holding a NUL, which only a literal in the model can, prints whole
+// on both targets, as the interpreter prints it.
+func TestCompiledStringResultHoldsNul(t *testing.T) {
+	model := "package Compiled { private import ScalarValues::*; calc def Nul { in a : String; return : String = \"x\x00\" + a + \"\x00y\"; } }"
+	c := compiledCase{"Nul", []string{"\"\u200b\""}}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := NewSession()
+			if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+				t.Fatalf("model has errors: %v", errs)
+			}
+			want, failure := interpreted(t, s, c)
+			if failure != "" || want != "\"x\x00\u200b\x00y\"" {
+				t.Fatalf("interpreted = (%q, %q)", want, failure)
+			}
+			exe := filepath.Join(t.TempDir(), "Nul")
+			buildCalc(t, s, "Nul", target, exe)
+			if got, failure := compiledRun(t, exe, c); got != want || failure != "" {
+				t.Errorf("compiled = (%q, %q), want %q", got, failure, want)
+			}
+		})
+	}
+}
+
 // The element budget charges the arguments a run holds, as the interpreter's
 // charges the literals it evaluates them from; a lowered OPENSYSML_MAX_ELEMENTS
 // makes that visible with small inputs. The Real copy an Integer collection

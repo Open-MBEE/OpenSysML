@@ -105,7 +105,7 @@ static uint32_t sysml_decode(const unsigned char *p, sysml_int n, int *w) {
 }
 
 /* s as the String literal that reads back to it: only the quote, the backslash and \b \t \n \f \r are escaped. */
-static const char *sysml_quote(sysml_str s) {
+static sysml_str sysml_quote(sysml_str s) {
 	char *out = sysml_alloc((size_t)s.len * 2 + 3);
 	size_t k = 0;
 	out[k++] = '"';
@@ -124,13 +124,16 @@ static const char *sysml_quote(sysml_str s) {
 	}
 	out[k++] = '"';
 	out[k] = 0;
-	return out;
+	return (sysml_str){(sysml_int)k, out};
 }
 
-static void sysml_print_str_value(sysml_str s) { fputs(sysml_quote(s), stdout); }
+static void sysml_print_str_value(sysml_str s) {
+	sysml_str q = sysml_quote(s);
+	fwrite(q.p, 1, (size_t)q.len, stdout);
+}
 static void sysml_print_str(sysml_str s) { sysml_print_str_value(s); fputc('\n', stdout); }
-static void sysml_format_str(sysml_str s, char *out, size_t size) { snprintf(out, size, "%s", sysml_quote(s)); }
-static const char *sysml_show_str(sysml_str s) { return sysml_quote(s); }
+static void sysml_format_str(sysml_str s, char *out, size_t size) { snprintf(out, size, "%s", sysml_quote(s).p); }
+static const char *sysml_show_str(sysml_str s) { return sysml_quote(s).p; }
 
 /* Copies a String's bytes out of the arena when a release to m would reclaim them; NULL when it would not. */
 static char *sysml_save_text(sysml_str s, sysml_mark m) {
