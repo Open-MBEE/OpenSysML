@@ -317,13 +317,15 @@ func (ec *EvalContext) Pop() {
 }
 
 // Lookup searches for a name in the frame stack (innermost first).
-func (ec *EvalContext) Lookup(name string) (Value, bool) {
+func (ec *EvalContext) Lookup(name string) (Value, bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
-		if val, ok := ec.frames[i].lookup(name); ok {
-			return val, true
+		if val, ok, err := ec.frames[i].read(ec.ctx, name); err != nil {
+			return Value{}, false, err
+		} else if ok {
+			return val, true, nil
 		}
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // Eval evaluates an expression node. Returns a Value or an error.
@@ -600,7 +602,9 @@ func (ec *EvalContext) evalName(qn *ast.QualifiedName) (Value, error) {
 	// Outside an expression body no body-local declaration can shadow a bound
 	// name, so a frame binding is the answer: the common case, kept small.
 	if qn != nil && len(qn.Parts) == 1 && (ec.scope == nil || !ec.scope.BodyLocal()) {
-		if val, ok := ec.Lookup(qn.Parts[0].Text); ok {
+		if val, ok, err := ec.Lookup(qn.Parts[0].Text); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 	}
@@ -642,7 +646,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 			}
 		}
 		// Try frame stack first (local bindings from calc/lambda params)
-		if val, ok := ec.Lookup(name); ok {
+		if val, ok, err := ec.Lookup(name); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 		// Then a node of an action performance in the frame stack, read as a value.
@@ -816,7 +822,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// A feature of a behavior whose run is on the stack (`MassCase::result` in its
 	// objective or assertion) reads the value that run bound to it.
 	if qualifier, ok := reading.Part(len(qn.Parts) - 2); ok {
-		if val, ok := ec.frameFeatureValue(qualifier, currentSym); ok {
+		if val, ok, err := ec.frameFeatureValue(qualifier, currentSym); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 	}
@@ -892,7 +900,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 
 // frameFeatureValue reads the resolved member sym, qualified by qualifier, from the innermost
 // frame whose owner is (or specializes) the qualifier, under the name that owner's run binds it by.
-func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool) {
+func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
 		if f.owner != nil {
@@ -903,8 +911,10 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 			if !ok {
 				continue
 			}
-			if val, ok := f.lookup(name); ok {
-				return val, true
+			if val, ok, err := f.read(ec.ctx, name); err != nil {
+				return Value{}, false, err
+			} else if ok {
+				return val, true, nil
 			}
 			continue
 		}
@@ -914,11 +924,13 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 		if !f.runs(ec.ctx, qualifier) {
 			continue
 		}
-		if val, ok := f.lookup(sym.Name); ok {
-			return val, true
+		if val, ok, err := f.read(ec.ctx, sym.Name); err != nil {
+			return Value{}, false, err
+		} else if ok {
+			return val, true, nil
 		}
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // writeFrameFeature is frameFeatureValue for a write: value goes into the innermost
@@ -1314,13 +1326,17 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	// A calc usage carries no value of its own: its output features are computed
 	// by evaluating it, so `c.a` runs the usage — once — and reads the output
 	// from that evaluation rather than from a feature value.
-	if sym, ok := ec.calcUsageOperand(base); ok {
+	if sym, ok, err := ec.calcUsageOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
 	// A part carries no value of its own: it denotes an occurrence, whose features
 	// `lander.mass.mDry` reads, so the chain is read from that object.
-	if sym, ok := ec.occurrenceOperand(base); ok {
+	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		// A usage of an enclosing object is read from that object, so a sibling
 		// chain `e1.length` inside `e3` reads the containing rectangle's e1.
 		if val, ok, err := ec.outerFeatureValue(sym); ok {

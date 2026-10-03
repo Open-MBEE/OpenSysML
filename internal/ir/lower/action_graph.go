@@ -318,10 +318,12 @@ func flattenChain(chain *ast.FeatureChainExpr) (ast.Node, []string) {
 // that block, so the executor binds it in the block's own frame and discards it
 // when the block exits. Value is nil when the declaration carried none.
 type Declare struct {
-	Name  string
-	Value ast.Node
-	Node  ast.Node       // the declaration itself, for diagnostics
-	Scope *symbols.Scope // the scope the declaration was written in
+	Name     string
+	Value    ast.Node
+	Binding  bool
+	BodyData bool           // expression-valued state action execution stored as state data
+	Node     ast.Node       // the declaration itself, for diagnostics
+	Scope    *symbols.Scope // the scope the declaration was written in
 }
 
 func (Declare) statement() { /* marker: closed Statement set */ }
@@ -607,9 +609,10 @@ type Attribute struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the behavior yields
 	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
-	Type  string
-	Value ast.Node
-	Node  ast.Node // the declaration itself, for diagnostics
+	Type    string
+	Value   ast.Node
+	Binding bool
+	Node    ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
 	// resolves; nil where the owner's own scope resolves it.
 	Scope *symbols.Scope
@@ -655,8 +658,13 @@ type Feature struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the node stands for read as a value
 	Value     ast.Node
+	Binding   bool
 	Node      ast.Node // the declaration, for diagnostics
 	Scope     *symbols.Scope
+}
+
+func valueIsBinding(value ast.Node, isInitial, isDefault bool) bool {
+	return value != nil && !isInitial && !isDefault
 }
 
 // Output reports whether the feature is written back rather than read: an `out`
@@ -1272,6 +1280,7 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			Direction: m.Direction,
 			IsResult:  m.IsResult,
 			Value:     m.Value,
+			Binding:   valueIsBinding(m.Value, m.ValueIsInitial, m.ValueIsDefault),
 			Node:      m,
 			Scope:     scope,
 		})
@@ -1616,7 +1625,7 @@ func lowerAttributes(members []ast.Node) []Attribute {
 		if name == "" {
 			continue
 		}
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage})
 	}
 	return attrs
 }

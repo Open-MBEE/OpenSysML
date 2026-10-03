@@ -7,6 +7,8 @@ materialize: EngineCommand #4
 eval chain cmd -> instance#4
   eval feature engineControl -> instance#3
 eval chain cmd -> instance#4
+  eval feature engineControl -> instance#3
+eval chain cmd -> instance#4
 enter: start
 run: exhibited state machine modes of #1
 exit: start

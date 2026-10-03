@@ -13,8 +13,17 @@ materialize: cool #2
         bind components = 1.0 [argument]
       exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
     eval invoke VectorOf -> ⟨1.0⟩
+      eval literal 1.0 -> 1.0
+      enter calc VectorFunctions::VectorOf
+        bind components = 1.0 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨1.0⟩
+    eval invoke VectorOf -> ⟨1.0⟩
       eval literal 0.25 -> 0.25
     eval index -> 0.25 [s]
+      eval literal 0.25 -> 0.25
+    eval index -> 0.25 [s]
+      eval literal 1 -> 1
+    eval index -> 1 [s]
       eval literal 1 -> 1
     eval index -> 1 [s]
 start: exhibited state machine monitor of #1

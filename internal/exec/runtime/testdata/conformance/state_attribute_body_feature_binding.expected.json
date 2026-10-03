@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": ["active", "done"],
+  "outputs": {
+    "source": {"type": "Integer", "value": 5},
+    "observed": {"type": "Integer", "value": 10},
+    "active.live": {"type": "Integer", "value": 10}
+  }
+}

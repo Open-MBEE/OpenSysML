@@ -128,7 +128,7 @@ one:
 }
 ```
 
-- `outcomes`: at least two complete results. Each entry carries the `outputs` of
+- `outcomes`: one or more complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
   case, with the meaning those keys have above, plus an optional `probability`:
   the exact model-draw probability when every matched explored outcome has an

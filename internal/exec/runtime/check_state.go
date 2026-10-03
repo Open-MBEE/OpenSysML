@@ -325,6 +325,32 @@ func (s *stateSpeller) joinsArrived(e *StateExecutor) {
 		}
 		s.out.WriteString("}")
 	}
+	fmt.Fprintf(&s.out, " data{%s}", s.bodyValues(e.stateData, e.stateCells))
+	for _, state := range sortedStates(e.stateAttrs) {
+		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.bodyValues(e.stateAttrs[state], e.stateAttrCells[state]))
+	}
+	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	if e.eventQueue != nil {
+		events := slices.Clone(e.eventQueue.events)
+		sort.SliceStable(events, func(i, j int) bool { return events.Less(i, j) })
+		for _, event := range events {
+			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
+		}
+	}
+	for _, trans := range sortedTransitions(e.timerScheduled) {
+		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
+	}
+	for _, trans := range sortedTransitions(e.changeFired) {
+		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
+	}
+	for _, act := range e.doActions {
+		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
+		if act.run != nil {
+			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
+		}
+		s.out.WriteString("}")
+	}
+	s.out.WriteByte('\n')
 }
 
 // stateName spells a state by its path in the machine, nothing for none.
@@ -500,9 +526,13 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 		fmt.Fprintf(&b, " %s", group)
 	}
 	fmt.Fprintf(&b, " live=%d", perf.live)
-	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
-	for _, local := range perf.locals {
-		fmt.Fprintf(&b, " local{%s}", s.values(local))
+	fmt.Fprintf(&b, " data{%s}", s.bodyValues(perf.data, perf.cells))
+	for i, local := range perf.locals {
+		var cells *bodyCells
+		if i < len(perf.localCells) {
+			cells = perf.localCells[i]
+		}
+		fmt.Fprintf(&b, " local{%s}", s.bodyValues(local, cells))
 	}
 	s.deliveries(&b, perf)
 	for _, node := range sortedNodes(perf.subactions) {
@@ -694,6 +724,51 @@ func (s *stateSpeller) values(m map[string]Value) string {
 	parts := make([]string, len(names))
 	for i, name := range names {
 		parts[i] = name + " = " + s.value(m[name])
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (s *stateSpeller) bodyValues(values map[string]Value, cells *bodyCells) string {
+	if cells == nil {
+		return s.values(values)
+	}
+	names := make(map[string]bool, len(values)+len(cells.cells))
+	for name := range values {
+		names[name] = true
+	}
+	for name, cell := range cells.cells {
+		if cell.binding != nil {
+			names[name] = true
+		}
+	}
+	ordered := make([]string, 0, len(names))
+	for name := range names {
+		ordered = append(ordered, name)
+	}
+	sort.Strings(ordered)
+	parts := make([]string, 0, len(ordered))
+	for _, name := range ordered {
+		cell := cells.cells[name]
+		value, held := values[name]
+		if cell != nil && cell.binding != nil {
+			state := "tracking"
+			switch {
+			case cell.fv.Written:
+				state = "written"
+			case cell.binding.frozen:
+				state = "frozen"
+			}
+			if !cell.fv.Materialized {
+				held = false
+			}
+			text := UnsetText
+			if held {
+				text = s.value(value)
+			}
+			parts = append(parts, fmt.Sprintf("%s = %s [%s]", name, text, state))
+		} else if held {
+			parts = append(parts, name+" = "+s.value(value))
+		}
 	}
 	return strings.Join(parts, ", ")
 }

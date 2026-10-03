@@ -1,6 +1,7 @@
 materialize: Controller #1
 start: exhibited state machine modes of #1
 materialize: Modes #2
+eval literal 0 -> 0
 enter: armed (entry action)
 stmt action body
   stmt assign attempts

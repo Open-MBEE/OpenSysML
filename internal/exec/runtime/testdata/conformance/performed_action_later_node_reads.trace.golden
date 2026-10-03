@@ -1,6 +1,7 @@
 materialize: Adder #1
 start: performed action sum of #1
 materialize: Accumulate #2
+eval literal 0 -> 0
 run: performed action sum of #1
 stmt assign total
   eval literal 5 -> 5

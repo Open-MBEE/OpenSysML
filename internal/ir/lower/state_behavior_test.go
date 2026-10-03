@@ -3,6 +3,8 @@ package lower
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The inline body of an entry, do or exit behavior stating successions or
@@ -167,5 +169,19 @@ func TestStateBehaviorBodyWithAmbiguousStartKeepsNoInitial(t *testing.T) {
 		if block.Graph.Initial != nil {
 			t.Errorf("%s: initial node = %v, want none", name, block.Graph.Initial)
 		}
+	}
+}
+
+func TestStateBehaviorActionExecutionIsStateData(t *testing.T) {
+	body := lowerActionExecution(&ast.ActionExecutionNode{
+		Name:       "calculated",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}, nil)
+	if len(body) != 1 {
+		t.Fatalf("action execution = %d statements, want a declaration", len(body))
+	}
+	decl, ok := body[0].(Declare)
+	if !ok || !decl.BodyData || decl.Name != "calculated" {
+		t.Errorf("action execution = %#v, want calculated declared as state data", body[0])
 	}
 }

@@ -953,7 +953,10 @@ func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, 
 	if root == thisName {
 		return nil, false, nil
 	}
-	value, bound := ec.Lookup(root)
+	value, bound, err := ec.Lookup(root)
+	if err != nil {
+		return nil, false, err
+	}
 	if !bound {
 		return nil, false, nil
 	}

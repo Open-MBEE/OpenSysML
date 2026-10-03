@@ -226,7 +226,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	slices.Sort(parked)
 	var begun []*actionFrame
 	for _, id := range parked {
-		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil)
+		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -322,7 +322,7 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	if perf == e.root {
 		e.removeToken(e.tokenIndex(id))
 		e.state = StateCompleted
-		e.ctx.endPerformanceLife(e.occurrence)
+		e.endRootPerformance()
 		return nil
 	}
 	return e.leaveTerminated(e.tokenIndex(id), perf)

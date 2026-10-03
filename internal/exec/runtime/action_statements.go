@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -153,7 +152,11 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	}
 	// The performed action reads the values in scope where it is performed and its
 	// outputs come back to them, so a perform in a loop body sees that iteration.
-	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self)
+	values, err := env.values(h.exec.ctx)
+	if err != nil {
+		return fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, values, h.exec.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -163,7 +166,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if env.assign(name, outputs[name]) {
+		if env.assign(h.exec.ctx, name, outputs[name]) {
 			continue
 		}
 		if written, err := h.exec.returnEnclosing(h.perf, name, outputs[name], h.exec.owner.assignAround); written || err != nil {
@@ -172,7 +175,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 			}
 			continue
 		}
-		env.data.set(name, outputs[name])
+		env.data.setBody(h.exec.ctx, name, outputs[name])
 	}
 	return nil
 }
@@ -212,7 +215,10 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		}
 	}
 	if f.perf == nil {
-		if f.perf, err = e.beginPerformance(parent, graph, node, slices.Clone(engine.env.frames)); err != nil {
+		locals, localCells := engine.env.localFrames()
+		if f.perf, err = e.beginPerformance(
+			parent, graph, node, locals, localCells,
+		); err != nil {
 			return flowNext, err
 		}
 	}
@@ -306,13 +312,15 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		if scope == nil {
 			scope = parent.scope
 		}
+		locals, localCells := engine.env.localFrames()
 		f.perf = &actionFrame{
 			node:        block.Node,
 			graph:       block.Graph,
 			flow:        block.Graph,
 			scope:       scope,
 			parent:      parent,
-			locals:      slices.Clone(engine.env.frames),
+			locals:      locals,
+			localCells:  localCells,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),
@@ -332,7 +340,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		for _, attr := range block.Graph.Attributes {
 			f.perf.features[attr.Name] = attr.Direction
 			features = append(features, lower.Feature{
-				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult,
+				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult, Binding: attr.Binding,
 				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
 			})
 		}

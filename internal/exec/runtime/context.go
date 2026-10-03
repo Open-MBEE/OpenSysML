@@ -1754,7 +1754,11 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	return exec.StateData(), exec.GetStateVisits(), nil
+	data, err := exec.StateDataWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, exec.GetStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1768,6 +1772,9 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil

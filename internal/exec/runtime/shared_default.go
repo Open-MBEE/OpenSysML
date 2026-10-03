@@ -189,7 +189,7 @@ func (ctx *Context) sharesDefault(inst *Instance, fv *FeatureValue) bool {
 // sharedShape is the shape fv's derived default on inst is shared under, nil when
 // sharesDefault does not hold.
 func (ctx *Context) sharedShape(inst *Instance, fv *FeatureValue) *shapeNode {
-	if !ctx.sharing() || !fv.Feature.Scalar() || fv.Written || fv.BindingDerived ||
+	if fv.Feature == nil || !ctx.sharing() || !fv.Feature.Scalar() || fv.Written || fv.BindingDerived ||
 		ctx.behaviorRunDepth != 0 || ctx.defaultYieldsToSubsetters(inst, fv.Feature) {
 		return nil
 	}
@@ -265,6 +265,10 @@ func (ctx *Context) observeRead(inst *Instance, fv *FeatureValue) {
 		if !t.clean || t.fv == fv {
 			continue
 		}
+		if inst == nil || fv.Feature == nil {
+			t.clean = false
+			continue
+		}
 		if !ctx.declaredWithin(inst, t.inst) {
 			t.clean = false
 			continue
@@ -309,6 +313,9 @@ func (ctx *Context) sharedRecordOf(inst *Instance, fv *FeatureValue) (*sharedDef
 // materialize under it: held, at every step, by a declared composite value of an
 // unclassified object.
 func (ctx *Context) declaredWithin(inst, root *Instance) bool {
+	if inst == nil || root == nil {
+		return inst == root
+	}
 	for inst != root {
 		if len(inst.classifiers) != 0 {
 			return false
@@ -328,6 +335,9 @@ func (ctx *Context) declaredWithin(inst, root *Instance) bool {
 // singlyWithin reports whether inst is root itself or held under it by single-valued
 // features at every step, so a path of feature names from root names inst alone.
 func (ctx *Context) singlyWithin(inst, root *Instance) bool {
+	if inst == nil || root == nil {
+		return inst == root
+	}
 	for inst != root {
 		owner, feature := inst.Owner()
 		if owner == nil {
