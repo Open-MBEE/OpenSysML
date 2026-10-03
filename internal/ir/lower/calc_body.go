@@ -35,7 +35,7 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 
 	var stmts, results []Statement
 	for _, member := range body {
-		stmt, ok := calcStep(member, scope)
+		stmt, ok := calcStep(member, scope, resolver)
 		if !ok {
 			continue
 		}
@@ -50,7 +50,7 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 
 // calcStep lowers one member of a calculation body and reports whether it
 // states a step or a result; a result is a Return.
-func calcStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
+func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (Statement, bool) {
 	switch m := member.(type) {
 	case *ast.Usage:
 		if m.Direction == ast.DirIn || m.Direction == ast.DirInOut {
@@ -69,7 +69,7 @@ func calcStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope), true
+		return lowerStatement(member, scope, resolver), true
 	}
 }
 

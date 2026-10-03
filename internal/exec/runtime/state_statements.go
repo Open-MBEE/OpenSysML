@@ -71,7 +71,7 @@ func (h *stateStmtHost) runBehavior() error {
 	if !h.exec.ctx.scheduling().oneMove() {
 		return h.run()
 	}
-	run := &bodyRun{work: h, steps: true}
+	run := &bodyRun{work: h, steps: true, holdsClock: true}
 	for {
 		pause, paused := run.resume(h.exec.ctx)
 		if !paused {

@@ -70,6 +70,8 @@ type bodyRun struct {
 	// steps has the run pause after each token move of the flows and actions it
 	// drives where a step is one move, its machine going on between the moves.
 	steps bool
+	// holdsClock means a clock wait is the hold's refusal, not a body pause.
+	holdsClock bool
 }
 
 // bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
@@ -551,6 +553,9 @@ func (ctx *Context) yieldedHere() bool {
 // pauseForClock pauses the body on the stack while wait, a wait on the clock,
 // goes on; nil where none is on the stack.
 func (ctx *Context) pauseForClock(wait bodyWait) error {
+	if ctx.body != nil && ctx.body.holdsClock {
+		return nil
+	}
 	return ctx.pauseBody(bodyPause{onWait: true, wait: wait})
 }
 

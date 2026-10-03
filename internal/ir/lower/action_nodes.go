@@ -125,7 +125,7 @@ func collectActionNodesWithAncestors(
 			// it, ordered by the successions that bind it and started with the
 			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
-			graph.Bodies[n] = []Statement{lowerStatement(n, scope)}
+			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver)}
 		}
 	}
 
@@ -212,7 +212,7 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
-		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope)}
+		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver)}
 	}
 	return decl
 }

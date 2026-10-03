@@ -110,7 +110,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 			actual := unwrapMembership(member)
 			memberScope := effectiveMemberScope(members, actual, scope)
 			graph.recordDeclaredIn(actual, memberScope)
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope))
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
 		}
 		if _, _, starts := startedBehavior(node, scope); starts {
 			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
@@ -326,9 +326,9 @@ func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scop
 		actual := unwrapMembership(member)
 		memberScope := effectiveMemberScope(members, actual, scope)
 		graph.recordDeclaredIn(actual, memberScope)
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
 	}
-	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
+	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver))
 }
 
 // TerminateUsage returns the terminate a terminate action usage stands for, the last of

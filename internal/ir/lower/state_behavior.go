@@ -105,7 +105,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Name = node.Name
 		behavior.Body = lowerActionExecution(node, scope)
 	default:
-		behavior.Body = []Statement{lowerStatement(action, scope)}
+		behavior.Body = []Statement{lowerStatement(action, scope, resolver)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
@@ -126,7 +126,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 // one stating none runs its statements in declaration order.
 func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if !statesOwnFlow(node.Members) {
-		return lowerBlock(node, node.Members, scope)
+		return lowerBlock(node, node.Members, scope, resolver)
 	}
 	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
