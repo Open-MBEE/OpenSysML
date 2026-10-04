@@ -1,6 +1,6 @@
 // The OpenSysML stack, as the landing page draws it. The in-browser engine
-// parses this file, instantiates `stack` for the diagram's boxes and wires,
-// and runs `ModelJourney` for the animation along them.
+// parses this file, instantiates and renders `stack` through RenderView, and
+// runs `ModelJourney` for the animation along its wires.
 package OpenSysMLStack {
     private import ScalarValues::*;
 

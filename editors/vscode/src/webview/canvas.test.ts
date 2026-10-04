@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 
 import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { layoutCanvas, MARGIN } from "./layout";
+import { layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -235,4 +236,53 @@ test("drawCanvas carries each palette colour on the shape as its own custom prop
   assert.deepEqual(groups.map((group) => [group.dataset.opensysmlId, group.dataset.kind]), [["def", "part def"], ["use", "part"], ["lifeline", "part"], ["plain", "part"], ["d", "fork"]]);
   assert.equal(shape("def").classList.contains("container"), true);
   assert.equal(shape("d").classList.contains("filled"), true);
+});
+
+test("drawCanvas draws the port group, square, label, title, and includes them in its extents", () => {
+  const ported = {
+    ...result,
+    nodes: [node("api", "service", {
+      x: 20,
+      y: 30,
+      width: 100,
+      height: 60,
+      ports: [{ id: "service.api", name: "api", type: "Api", direction: "out" }],
+    })],
+    edges: [],
+  };
+  const layout = layoutCanvas(ported);
+  const entry = layout.nodes.get("api")!;
+  const placed = entry.ports[0];
+  const svg = drawCanvas(layout);
+  const group = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.api"]')!;
+  assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text"]);
+  assert.equal(group.querySelector("title")?.textContent, "api : Api");
+  const square = portBox(entry.box, placed);
+  const center = portCenter(entry.box, placed);
+  const rect = group.querySelector("rect.port-shape")!;
+  assert.deepEqual(["x", "y", "width", "height"].map((name) => rect.getAttribute(name)), [
+    String(square.x),
+    String(square.y),
+    String(PORT_SIZE),
+    String(PORT_SIZE),
+  ]);
+  assert.equal(center.y, entry.box.y + entry.box.height);
+  const placement = portLabelPlacement(entry.box, placed);
+  const label = group.querySelector("text.port-label")!;
+  assert.deepEqual([label.textContent, label.getAttribute("x"), label.getAttribute("y"), label.getAttribute("text-anchor")], [
+    "api",
+    String(placement.x),
+    String(placement.y),
+    placement.anchor,
+  ]);
+  assert.ok(layout.width >= placement.bounds.x + placement.bounds.width + MARGIN);
+  assert.ok(layout.height >= placement.bounds.y + placement.bounds.height + MARGIN);
+});
+
+test("drawCanvas preserves the portless SVG output", () => {
+  const svg = drawCanvas(layoutCanvas(result));
+  assert.equal(
+    createHash("sha256").update(svg.outerHTML).digest("hex"),
+    "d4b9abd501b78255222fc4e1b47c07f31811e07fa978a8933f4a9e1af6a02885",
+  );
 });
