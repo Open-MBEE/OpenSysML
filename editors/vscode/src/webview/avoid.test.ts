@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import { avoidRoutes, CLEARANCE, loadAvoid } from "./avoid";
-import type { Box } from "./geometry";
+import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidPort, type AvoidShape } from "./avoid";
+import { portFace, PORT_SIZE, type Box, type Side } from "./geometry";
 import type { RenderPoint } from "../protocol";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
@@ -24,13 +24,13 @@ function seededRandom(seed: number): Random {
   };
 }
 
-function separated(a: Box, b: Box): boolean {
+function separated(a: Box, b: Box, clearance = CLEARANCE): boolean {
   const dx = Math.max(0, a.x - (b.x + b.width), b.x - (a.x + a.width));
   const dy = Math.max(0, a.y - (b.y + b.height), b.y - (a.y + a.height));
-  return Math.hypot(dx, dy) >= 2 * CLEARANCE;
+  return Math.hypot(dx, dy) >= 2 * clearance;
 }
 
-function placeBoxes(boxes: Box[], count: number, integer: (min: number, max: number) => number): Box[] {
+function placeBoxes(boxes: Box[], count: number, integer: (min: number, max: number) => number, clearance = CLEARANCE): Box[] {
   for (let i = boxes.length; i < count; i++) {
     let placed = false;
     for (let attempt = 0; attempt < 20_000 && !placed; attempt++) {
@@ -42,7 +42,7 @@ function placeBoxes(boxes: Box[], count: number, integer: (min: number, max: num
         width,
         height,
       };
-      if (boxes.every((box) => separated(box, candidate))) {
+      if (boxes.every((box) => separated(box, candidate, clearance))) {
         boxes.push(candidate);
         placed = true;
       }
@@ -61,12 +61,12 @@ function randomPair(boxCount: number, integer: (min: number, max: number) => num
   return { source, target };
 }
 
-function randomScenes(samples: number): Array<{ boxes: Box[]; pair: Pair }> {
+function randomScenes(samples: number, clearance = CLEARANCE): Array<{ boxes: Box[]; pair: Pair }> {
   const random = seededRandom(SCENE_SEED);
   const integer = (min: number, max: number) => min + Math.floor(random() * (max - min + 1));
   const scenes: Array<{ boxes: Box[]; pair: Pair }> = [];
   for (let i = 0; i < samples; i++) {
-    const boxes = placeBoxes([], integer(2, 8), integer);
+    const boxes = placeBoxes([], integer(2, 8), integer, clearance);
     scenes.push({ boxes, pair: randomPair(boxes.length, integer) });
   }
   return scenes;
@@ -128,8 +128,38 @@ function overlapLength(a0: RenderPoint, a1: RenderPoint, b0: RenderPoint, b1: Re
   return 0;
 }
 
+function boxBorders(box: Box): Array<[RenderPoint, RenderPoint]> {
+  return [
+    [{ x: box.x, y: box.y }, { x: box.x + box.width, y: box.y }],
+    [{ x: box.x + box.width, y: box.y }, { x: box.x + box.width, y: box.y + box.height }],
+    [{ x: box.x + box.width, y: box.y + box.height }, { x: box.x, y: box.y + box.height }],
+    [{ x: box.x, y: box.y + box.height }, { x: box.x, y: box.y }],
+  ];
+}
+
+function assertPortApproach(outside: RenderPoint, face: RenderPoint, port: AvoidPort, context: string): void {
+  switch (port.side) {
+    case "north":
+      assert.equal(outside.x, face.x, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.y < face.y, `route does not approach north port from outside: ${context}`);
+      break;
+    case "east":
+      assert.equal(outside.y, face.y, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.x > face.x, `route does not approach east port from outside: ${context}`);
+      break;
+    case "south":
+      assert.equal(outside.x, face.x, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.y > face.y, `route does not approach south port from outside: ${context}`);
+      break;
+    case "west":
+      assert.equal(outside.y, face.y, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.x < face.x, `route does not approach west port from outside: ${context}`);
+      break;
+  }
+}
+
 function routeScene(boxes: Box[], pairs: Pair[]): Array<RenderPoint[] | undefined> {
-  const shapes = new Map<string, Box>(boxes.map((box, index) => [`node-${index}`, box]));
+  const shapes = new Map<string, AvoidShape>(boxes.map((box, index) => [`node-${index}`, { box }]));
   const routes = avoidRoutes(
     shapes,
     pairs.map(({ source, target }, index) => ({ index, from: `node-${source}`, to: `node-${target}` })),
@@ -220,4 +250,182 @@ test("avoidRoutes routes all thirteen connectors at one shape past the exclusive
   boxes.push({ x: 560, y: 280, width: 80, height: 40 });
   const pairs = Array.from({ length: 13 }, (_, source) => ({ source, target: 13 }));
   assertRoutes(boxes, pairs, routeScene(boxes, pairs));
+});
+
+test("avoidRoutes sends same-side edges to their distinct port faces", async () => {
+  await loadAvoid(WASM);
+  const boxes: Box[] = [
+    { x: 0, y: 30, width: 80, height: 40 },
+    { x: 320, y: 0, width: 120, height: 120 },
+  ];
+  const ports: AvoidPort[] = [
+    { id: "in-low", side: "west", offset: 0.25 },
+    { id: "in-high", side: "west", offset: 0.75 },
+  ];
+  const shapes = new Map<string, AvoidShape>([
+    ["source", { box: boxes[0] }],
+    ["target", { box: boxes[1], ports }],
+  ]);
+  const routes = avoidRoutes(shapes, [
+    { index: 0, from: "source", to: "target", toPort: ports[0].id },
+    { index: 1, from: "source", to: "target", toPort: ports[1].id },
+  ]);
+  assert.ok(routes);
+  const faces = ports.map((port) => portFace(boxes[1], port));
+  const first = routes.get(0)!;
+  const second = routes.get(1)!;
+  assert.deepEqual(first.at(-1), faces[0]);
+  assert.deepEqual(second.at(-1), faces[1]);
+  assert.notDeepEqual(faces[0], faces[1]);
+  for (const route of [first, second]) {
+    const before = route.at(-2)!;
+    const face = route.at(-1)!;
+    assert.equal(before.y, face.y);
+    assert.ok(before.x < face.x);
+  }
+});
+
+test("avoidRoutes keeps the generic pin on the node box when another side has a port", async () => {
+  await loadAvoid(WASM);
+  const source = { x: 0, y: 0, width: 100, height: 60 };
+  const target = { x: 320, y: 0, width: 100, height: 60 };
+  const routes = avoidRoutes(new Map<string, AvoidShape>([
+    ["source", { box: source, ports: [{ id: "unused", side: "east", offset: 0.5 }] }],
+    ["target", { box: target }],
+  ]), [{ index: 0, from: "source", to: "target" }]);
+  assert.ok(routes);
+  const route = routes.get(0);
+  assert.ok(route);
+  assertRoutes([source, target], [{ source: 0, target: 1 }], [route]);
+  assert.equal(route[0].x, source.x + source.width);
+});
+
+test("avoidRoutes keeps an unported route when a distant ported connection is added", async () => {
+  await loadAvoid(WASM);
+  const source = { x: 0, y: 40, width: 80, height: 40 };
+  const target = { x: 320, y: 40, width: 80, height: 40 };
+  const obstacle = { x: 160, y: 20, width: 60, height: 80 };
+  const baseShapes = new Map<string, AvoidShape>([
+    ["source", { box: source }],
+    ["target", { box: target }],
+    ["obstacle", { box: obstacle }],
+  ]);
+  const unported = { index: 0, from: "source", to: "target" };
+  const baseline = avoidRoutes(baseShapes, [unported]);
+  assert.ok(baseline);
+  const baselineRoute = baseline.get(0);
+  assert.ok(baselineRoute);
+  assertRoutes([source, target, obstacle], [{ source: 0, target: 1 }], [baselineRoute]);
+
+  const remotePort = { id: "remote.out", side: "east", offset: 0.5 } as const;
+  const mixedShapes = new Map<string, AvoidShape>(baseShapes);
+  mixedShapes.set("remote-source", { box: { x: 1000, y: 0, width: 80, height: 40 }, ports: [remotePort] });
+  mixedShapes.set("remote-target", { box: { x: 1300, y: 0, width: 80, height: 40 } });
+  const withRemoteConnection = avoidRoutes(mixedShapes, [
+    unported,
+    { index: 1, from: "remote-source", to: "remote-target", fromPort: remotePort.id },
+  ]);
+  assert.ok(withRemoteConnection);
+  assert.deepEqual(withRemoteConnection.get(0), baselineRoute);
+  assert.ok(withRemoteConnection.get(1));
+});
+
+test("avoidRoutes keeps distinct lanes for unported edges in a ported batch", async () => {
+  await loadAvoid(WASM);
+  const sourceA = { x: 0, y: 25, width: 80, height: 40 };
+  const sourceB = { x: 0, y: 100, width: 80, height: 40 };
+  const target = { x: 320, y: 0, width: 120, height: 160 };
+  const remoteSource = { x: 1000, y: 0, width: 80, height: 40 };
+  const remoteTarget = { x: 1300, y: 0, width: 80, height: 40 };
+  const remotePort = { id: "remote.out", side: "east", offset: 0.5 } as const;
+  const routes = avoidRoutes(new Map<string, AvoidShape>([
+    ["source-a", { box: sourceA }],
+    ["source-b", { box: sourceB }],
+    ["target", { box: target }],
+    ["remote-source", { box: remoteSource, ports: [remotePort] }],
+    ["remote-target", { box: remoteTarget }],
+  ]), [
+    { index: 0, from: "source-a", to: "target" },
+    { index: 1, from: "source-b", to: "target" },
+    { index: 2, from: "remote-source", to: "remote-target", fromPort: remotePort.id },
+  ]);
+  assert.ok(routes);
+  const unported = [routes.get(0), routes.get(1)];
+  assertRoutes(
+    [sourceA, sourceB, target],
+    [{ source: 0, target: 2 }, { source: 1, target: 2 }],
+    unported,
+  );
+  assert.equal(unported[0]!.at(-1)!.x, target.x);
+  assert.equal(unported[1]!.at(-1)!.x, target.x);
+});
+
+test("avoidRoutes keeps randomized port endpoints on their faces with perpendicular final segments", async () => {
+  await loadAvoid(WASM);
+  const sides: Side[] = ["north", "east", "south", "west"];
+  let sample = 0;
+  for (const { boxes, pair } of randomScenes(samples, CLEARANCE + PORT_SIZE / 2)) {
+    const pairs = [pair, ...randomPairs(boxes.length, 2, extraPairSeed(sample))];
+    const random = seededRandom(sharedBoxSeed(sample));
+    const portsByNode = boxes.map(() => [] as AvoidPort[]);
+    const portPairs = pairs.map(({ source, target }, index) => {
+      const sourcePort: AvoidPort = {
+        id: `edge-${index}-source`,
+        side: sides[Math.floor(random() * sides.length)],
+        offset: 0.1 + random() * 0.8,
+      };
+      const targetPort: AvoidPort = {
+        id: `edge-${index}-target`,
+        side: sides[Math.floor(random() * sides.length)],
+        offset: 0.1 + random() * 0.8,
+      };
+      portsByNode[source].push(sourcePort);
+      portsByNode[target].push(targetPort);
+      return { source, target, sourcePort, targetPort };
+    });
+    const shapes = new Map<string, AvoidShape>(
+      boxes.map((box, index) => [`node-${index}`, { box, ports: portsByNode[index] }]),
+    );
+    const routes = avoidRoutes(
+      shapes,
+      portPairs.map(({ source, target, sourcePort, targetPort }, index) => ({
+        index,
+        from: `node-${source}`,
+        to: `node-${target}`,
+        fromPort: sourcePort.id,
+        toPort: targetPort.id,
+      })),
+    );
+    assert.ok(routes, `no route map in scene ${sample}`);
+    for (let index = 0; index < portPairs.length; index++) {
+      const { source, target, sourcePort, targetPort } = portPairs[index];
+      const route: RenderPoint[] | undefined = routes.get(index);
+      assert.ok(route && route.length >= 2, `edge ${index} was not routed in scene ${sample}`);
+      const startFace = portFace(boxes[source], sourcePort);
+      const endFace = portFace(boxes[target], targetPort);
+      const context: string = JSON.stringify({ sample, index, source, target, sourcePort, targetPort, sourceBox: boxes[source], targetBox: boxes[target], route });
+      assert.deepEqual(route[0], startFace, `wrong source face: ${context}`);
+      assert.deepEqual(route.at(-1), endFace, `wrong target face: ${context}`);
+      assertPortApproach(route[1], startFace, sourcePort, `source of edge ${index} in scene ${sample}: ${context}`);
+      assertPortApproach(route.at(-2)!, endFace, targetPort, `target of edge ${index} in scene ${sample}: ${context}`);
+      for (let point = 1; point < route.length; point++) {
+        const before = route[point - 1];
+        const after = route[point];
+        assert.ok(before.x === after.x || before.y === after.y, `diagonal segment in scene ${sample}`);
+        for (const box of boxes) {
+          assert.ok(
+            !crossesInterior(before, after, box),
+            `route crosses box interior in scene ${sample}: ${JSON.stringify({ index, before, after, box, context })}`,
+          );
+          for (const [borderStart, borderEnd] of boxBorders(box)) {
+            assert.ok(
+              overlapLength(before, after, borderStart, borderEnd) <= 1,
+              `route runs along a box border in scene ${sample}: ${JSON.stringify({ index, before, after, box, context })}`,
+            );
+          }
+        }
+      }
+    }
+    sample++;
+  }
 });
