@@ -168,6 +168,8 @@ event feature (`accept :> shutDown`), keep their written text.
 SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
 verification cases. Import `OpenSysMLRenderings::*` and select a kind
 with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`.
+These declarations use the non-normative OpenSysML library rather than new SysML syntax: models
+using them are valid SysML v2 with a dependency on `OpenSysMLRenderings`.
 The same kinds are available without a declared view as `#case`, `#mixed`, `#case:<element>` and
 `#mixed:<element>`. Case diagrams default to left-to-right; mixed diagrams default to top-to-bottom.
 
