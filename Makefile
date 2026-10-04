@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -70,11 +70,10 @@ TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
-# sysml-engine, sysml-syntax and sysml-core serve the execution, syntactic and
-# validation RPCs over JSON so a client needs no protobuf. Natively they are
-# built only on request (`build-engine`, `build-core`, `build-syntax`) and stay
-# out of `build`, `install`, the release and the manual pages.
-WASM_COMMANDS := $(COMMANDS) sysml-engine sysml-syntax sysml-core
+# sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
+# without protobuf. Natively they are built only on request and stay out of
+# `build`, `install`, the release and the manual pages.
+WASM_COMMANDS := $(COMMANDS) sysml-engine sysml-syntax sysml-core sysml-wasm
 MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 
@@ -136,6 +135,12 @@ build-core: ## Build bin/sysml-core natively (opt-in; not released)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-core ./cmd/sysml-core
 	@echo "✓ Built $(BIN_DIR)/sysml-core ($(VERSION))"
 
+build-sysml-wasm: ## Build bin/sysml-wasm natively (opt-in; not released)
+	@echo "Building sysml-wasm..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-wasm ./cmd/sysml-wasm
+	@echo "✓ Built $(BIN_DIR)/sysml-wasm ($(VERSION))"
+
 build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
 	@echo "Building sysml-syntax..."
 	@mkdir -p $(BIN_DIR)
@@ -146,7 +151,7 @@ build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
 # host), GOOS=js under Node or a browser through the toolchain's wasm_exec.js. The
 # version stamps are the -X flags every other build passes; there is no Windows
 # resource to embed and no libc to link. `build` stays native: these are opt-in.
-build-wasm: build-wasm-wasip1 build-wasm-js ## Build all three commands for both WebAssembly targets
+build-wasm: build-wasm-wasip1 build-wasm-js ## Build all seven commands for both WebAssembly targets
 
 build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
 	@echo "Building WebAssembly (wasip1)..."
@@ -489,6 +494,7 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/griffe_sphinx_roles-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
@@ -512,10 +518,14 @@ docs-engine-assets: ## Build the in-browser engine assets into docs/assets
 	@mkdir -p docs/assets
 	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
 	gzip -9f docs/assets/sysml-engine.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	gzip -9f docs/assets/sysml-repl.wasm
+	@mkdir -p docs/assets/repl-examples
+	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
-	@echo "✓ Built docs/assets/sysml-engine.wasm.gz + wasm_exec.js"
+	@echo "✓ Built docs/assets/sysml-engine.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
-docs-serve: ## Serve the documentation site with live reload
+docs-serve: docs-install ## Serve the documentation site with live reload
 	$(PYTHON) -m mkdocs serve --strict
 
 help: ## Show this help message

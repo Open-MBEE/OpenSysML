@@ -2779,7 +2779,7 @@ artifact to regenerate rather than the copy of record.
 **User surfaces:** `sysml-grpc` — `ApplyEdits`; `opensysml` — `Model.edit()`,
 `Editor.set_value`, `Editor.rename`, `Editor.add_member`, `Editor.delete`, `Editor.move`,
 `Editor.apply` (`client/python/opensysml/edit.py`)
-**Reference:** [the client guide](../guide/09-clients.md#changing-a-model-and-writing-it-back)
+**Reference:** [the Python client guide](../clients/python/editing-and-saving.md#editing-source)
 
 The standard defines an API for *changing* a model (SysML v2 API & Services commits);
 this is not that API. It is a source-level edit of the notation a model was parsed

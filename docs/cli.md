@@ -1,5 +1,5 @@
 ---
-description: The sysml command line — validator, analysis runner, interactive REPL, behavior engine, RDF exporter and document generator. Try the engine live in your browser.
+description: The sysml command line — validator, analysis runner, interactive REPL, behavior engine, RDF exporter and document generator. Run the real REPL, with guided walkthroughs, in your browser.
 ---
 
 # The `sysml` command line
@@ -204,66 +204,110 @@ behavior engine, RDF exporter and document generator. The same runtime sits behi
     opacity: 1;
     border-color: #fff;
   }
-  .osml-live__editor {
-    position: relative;
-    border: 1px solid rgba(255, 255, 255, .18);
-    border-bottom: none;
-    border-radius: .35rem .35rem 0 0;
-    background: #10132e;
+  .osml-repl__tours {
+    margin: 0 0 .8rem;
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: .35rem;
     overflow: hidden;
   }
-  .osml-live__filename {
-    display: block;
-    padding: .3rem .7rem;
-    font-size: .58rem;
-    letter-spacing: .04em;
-    color: rgba(232, 234, 246, .55);
-    border-bottom: 1px solid rgba(255, 255, 255, .1);
+  .osml-repl__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem;
+    padding: .35rem .45rem;
+    background: var(--md-code-bg-color);
+    border-bottom: 1px solid var(--md-default-fg-color--lightest);
   }
-  .osml-live__editor textarea {
-    display: block;
-    width: 100%;
-    min-height: 11rem;
-    padding: .6rem .8rem;
+  .osml-repl__btn {
+    padding: .2rem .55rem;
+    border: 1px solid transparent;
+    border-radius: 1rem;
     background: transparent;
-    border: none;
-    outline: none;
-    resize: vertical;
-    color: #e8eaf6;
-    font-family: var(--md-code-font-family, monospace);
-    font-size: .6rem;
-    line-height: 1.6;
+    color: var(--md-default-fg-color--light);
+    font: inherit;
+    font-size: .62rem;
+    cursor: pointer;
   }
-  .osml-live .osml-terminal {
-    border-radius: 0 0 .35rem .35rem;
+  .osml-repl__btn:hover,
+  .osml-repl__btn:focus-visible { color: var(--md-accent-fg-color); }
+  .osml-repl__btn[aria-selected="true"] {
+    border-color: var(--md-primary-fg-color);
+    color: var(--md-default-fg-color);
+    font-weight: 700;
   }
-  .osml-live__row {
+  .osml-repl__btn:disabled { opacity: .4; cursor: default; }
+  .osml-repl__btn--go {
+    background: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+    font-weight: 700;
+  }
+  .osml-repl__btn--go:hover,
+  .osml-repl__btn--go:focus-visible {
+    background: var(--md-accent-fg-color);
+    color: var(--md-accent-bg-color);
+  }
+  .osml-repl__card { padding: .6rem .8rem .7rem; font-size: .7rem; }
+  .osml-repl__card p { margin: 0 0 .4rem; }
+  .osml-repl__tourhead { font-weight: 700; }
+  .osml-repl__tourstep {
+    margin-right: .3rem;
+    font-weight: 400;
+    color: var(--md-default-fg-color--light);
+  }
+  .osml-repl__tourtext { margin: 0 0 .5rem; }
+  .md-typeset .osml-repl__tourinput {
+    margin: 0 0 .5rem;
+    max-height: 9rem;
+    overflow: auto;
+  }
+  .md-typeset .osml-repl__tourinput > code { font-size: .62rem; }
+  .osml-repl__tournav { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .osml-repl .osml-terminal pre {
+    height: 24rem;
+    padding: .7rem .9rem;
+    scrollbar-width: thin;
+    cursor: text;
+  }
+  .osml-repl .osml-terminal pre::-webkit-scrollbar { display: initial; }
+  .osml-repl .osml-repl__echo { color: #fff; }
+  .osml-repl__row {
     display: flex;
     align-items: center;
     gap: .6rem;
-    padding: .45rem .7rem;
+    padding: .45rem .9rem;
     border-top: 1px solid rgba(255, 255, 255, .12);
     background: rgba(255, 255, 255, .05);
-  }
-  .osml-live__prompt {
-    display: flex;
-    align-items: center;
-    flex: 1;
+    font-family: var(--md-code-font-family, monospace);
     font-size: .62rem;
     color: #e8eaf6;
   }
-  .osml-live__prompt input {
+  .osml-repl.is-busy .osml-repl__row { opacity: .6; }
+  .osml-repl__row .osml-repl__btn--go { font-family: var(--md-text-font); }
+  .osml-repl__prompt { display: flex; align-items: flex-start; flex: 1; min-width: 0; line-height: 1.65; }
+  .osml-repl__prompt .osml-prompt { white-space: pre; }
+  .osml-repl__prompt textarea {
     flex: 1;
+    min-width: 0;
+    max-height: 14rem;
+    margin: 0;
+    padding: 0;
     background: transparent;
     border: none;
     outline: none;
+    resize: none;
+    overflow: hidden;
     color: #e8eaf6;
     font: inherit;
-    font-family: var(--md-code-font-family, monospace);
+    line-height: inherit;
+    white-space: pre-wrap;
   }
-  .osml-live__prompt input::placeholder {
-    color: rgba(232, 234, 246, .4);
+  .osml-repl__prompt textarea::placeholder { color: rgba(232, 234, 246, .4); }
+  .osml-repl__status {
+    margin: .4rem 0 0;
+    font-size: .62rem;
+    color: var(--md-default-fg-color--light);
   }
+  .osml-repl__status--err { color: var(--md-typeset-del-color, #c62828); }
   @media (prefers-reduced-motion: reduce) {
     .osml-pane { transition: none; }
   }
@@ -612,147 +656,58 @@ Vehicles::Car::wheels  PartUsage
 
 
 
-<h2>Run it in your browser</h2>
-<p>The same engine compiles to WebAssembly — this is a real <code>sysml</code>
-session running in the page, no server involved. Edit the model, <code>%parse</code> it,
-then evaluate, instantiate and execute against it.</p>
-<div class="osml-live">
-<div class="osml-live__editor">
-<span class="osml-live__filename">model.sysml</span>
-<textarea id="osml-live-src" spellcheck="false">package gatedemo {
-	private import ScalarValues::*;
-
-	part def Widget {
-		attribute mass : Real = 3.0;
-	}
-
-	attribute total : Real = 6.0;
-
-	action greet { }
-}
-</textarea>
+<h2 id="run-it-in-your-browser">Run it in your browser</h2>
+<p>This is the real <code>sysml</code> REPL, the same <code>cmd/sysml</code> you run in a
+terminal, built for WebAssembly with the production build tags and running entirely in this
+page. Nothing is sent to a server. Pick a walkthrough and press <b>Run this step</b> to type
+each command into the prompt, or type your own. Arrow keys bring back earlier lines, including
+those from your last visit, and Tab completes commands and names.</p>
+<div class="osml-repl" data-osml-repl
+     data-repl-wasm="../assets/sysml-repl.wasm.gz"
+     data-repl-wasm-exec="../assets/wasm_exec.js"
+     data-repl-tours="../assets/repl-walkthroughs.json"
+     data-repl-example-base="../assets/repl-examples/"
+     data-repl-examples="mass-rollup.sysml,delta-v-budget.sysml,reliability.sysml,mission-sequence.sysml,spacecraft-comms.sysml">
+<div class="osml-repl__tours" data-repl-tours>
+<div class="osml-repl__tabs" role="tablist" aria-label="Walkthroughs" data-tour-tabs></div>
+<div class="osml-repl__card" data-tour-card aria-live="polite">Loading the walkthroughs…</div>
 </div>
-<div class="osml-terminal osml-live">
-<div class="osml-terminal__bar"><span class="osml-terminal__title">sysml-engine — wasm, in this page</span>
+<div class="osml-terminal">
+<div class="osml-terminal__bar"><span class="osml-terminal__title">sysml — WebAssembly, in this page</span>
 <span class="osml-terminal__btn osml-terminal__btn--min"></span><span class="osml-terminal__btn osml-terminal__btn--max"></span><span class="osml-terminal__btn osml-terminal__btn--close"></span></div>
-<pre class="osml-live__out"><code><span class="osml-dim">$ sysml model.sysml — engine not loaded</span>
-<span class="osml-dim">  press "load engine" — downloads ~7 MB once, then runs entirely here</span>
-</code></pre>
-<div class="osml-live__row">
-<button class="osml-showcase__tab" id="osml-live-load" type="button">Load engine</button>
-<span class="osml-live__prompt"><span class="osml-prompt">sysml&gt;</span>&nbsp;<input id="osml-live-in" type="text" placeholder="%help for commands — or just an expression like gatedemo::total" disabled autocomplete="off" spellcheck="false"></span>
+<pre data-repl-out role="log" aria-label="REPL output"><span class="osml-dim">$ sysml        # the full REPL, about 12 MB, downloaded once when you start it
+</span></pre>
+<div class="osml-repl__row">
+<button type="button" class="osml-repl__btn osml-repl__btn--go" data-repl-start>Start the REPL</button>
+<label class="osml-repl__prompt"><span class="osml-prompt" data-repl-prompt>sysml&gt;&nbsp;</span><textarea data-repl-in rows="1" aria-label="REPL input" placeholder="start the REPL, or run a walkthrough step" disabled autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></label>
 </div>
 </div>
+<p class="osml-repl__status" data-repl-status aria-live="polite">Running a walkthrough step starts the REPL too.</p>
 </div>
 <script>
 (function () {
-  var out = document.querySelector('.osml-live__out');
-  var input = document.getElementById('osml-live-in');
-  var src = document.getElementById('osml-live-src');
-  var load = document.getElementById('osml-live-load');
-  var modelHash = null;
-  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
-  function println(html) {
-    var code = out.querySelector('code');
-    code.innerHTML = code.innerHTML.replace(/\n$/, '') + '\n' + html + '\n';
-    out.scrollTop = out.scrollHeight;
-  }
-  function call(method, params) {
-    var reply = JSON.parse(globalThis.sysmlEngine.call(method, JSON.stringify(params)));
-    if (reply.error) return { result: { error: reply.error.message || JSON.stringify(reply.error) } };
-    return reply;
-  }
-  function parse() {
-    var t0 = performance.now();
-    var parsed = call('ParseSources', { documents: [{ name: 'model.sysml', content: src.value }] });
-    if (parsed.result && parsed.result.error) { println('<span class="osml-err">✗ ' + esc(parsed.result.error) + '</span>'); return; }
-    modelHash = parsed.result && parsed.result.modelHash;
-    var diags = (parsed.result && parsed.result.diagnostics) || [];
-    println('<span class="osml-ok">✓ model.sysml</span> <span class="osml-dim">parsed in ' +
-      (performance.now() - t0).toFixed(0) + ' ms · ' + diags.length + ' diagnostics · hash ' +
-      esc(String(modelHash).slice(0, 12)) + '…</span>');
-    diags.slice(0, 8).forEach(function (d) {
-      println('  <span class="osml-err">' + esc(d.message || JSON.stringify(d)) + '</span>');
+  function mountAll() {
+    document.querySelectorAll("[data-osml-repl]:not([data-mounted])").forEach(function (el) {
+      el.dataset.mounted = "";
+      window.osmlRepl.mount(el);
     });
   }
-  var commands = {
-    '%help': function () {
-      println('  <span class="osml-dim">%parse — parse the model source · %eval &lt;expr&gt; or a bare expression · %instantiate &lt;symbol&gt; · %run &lt;action&gt; · %state &lt;state machine&gt; · %reset</span>');
-    },
-    '%parse': parse,
-    '%reset': function () { modelHash = null; println('<span class="osml-dim">model dropped</span>'); },
-    '%instantiate': function (sym) {
-      if (!need(sym)) return;
-      var r = call('Instantiate', { modelHash: modelHash, symbolId: sym });
-      var res = r.result || {};
-      if (res.error) { println('<span class="osml-err">✗ ' + esc(res.error) + '</span>'); return; }
-      var inst = res.instance || {};
-      var feats = Object.keys(inst.featureValues || {});
-      println('<span class="osml-ok">✓ instance ' + esc(inst.id == null ? '?' : inst.id) + '</span> of <span class="osml-hl">' + esc(inst.typeSymbolId || sym) + '</span>' +
-        (feats.length ? ' <span class="osml-dim">— ' + feats.length + ' feature values: ' + feats.slice(0, 6).map(esc).join(', ') + (feats.length > 6 ? ', …' : '') + '</span>' : ''));
-    },
-    '%run': function (sym) {
-      if (!need(sym)) return;
-      var r = call('ExecuteAction', { modelHash: modelHash, actionSymbolId: sym });
-      var res = r.result || {};
-      if (res.error) { println('<span class="osml-err">✗ ' + esc(res.error) + '</span>'); return; }
-      println('<span class="osml-ok">✓ ran</span> ' + esc(sym) +
-        ' <span class="osml-dim">— finalTime ' + (res.finalTime || 0) + ', ' + Object.keys(res.outputs || {}).length + ' outputs</span>');
-    },
-    '%state': function (sym) {
-      if (!need(sym)) return;
-      var r = call('ExecuteState', { modelHash: modelHash, stateMachineSymbolId: sym });
-      var res = r.result || {};
-      if (res.error) { println('<span class="osml-err">✗ ' + esc(res.error) + '</span>'); return; }
-      println('<span class="osml-ok">✓ visited</span> ' + esc((res.statesVisited || []).join(' → ') || '(none)') +
-        ' <span class="osml-dim">— finalTime ' + (res.finalTime || 0) + '</span>');
-    }
-  };
-  function need(x) {
-    if (!modelHash) { println('<span class="osml-err">✗ no model — %parse first</span>'); return false; }
-    if (!x) { println('<span class="osml-err">✗ needs a symbol, e.g. gatedemo::Widget</span>'); return false; }
-    return true;
-  }
-
-  load.addEventListener('click', function () {
-    load.disabled = true;
-    if (!globalThis.sysmlEngine) {
-      println('<span class="osml-dim">loading sysml-engine.wasm (~7 MB)…</span>');
-    }
-    window.osmlLoadEngine({ wasmExec: '/assets/wasm_exec.js', engine: '/assets/sysml-engine.wasm.gz' }).then(function () {
-      println('<span class="osml-ok">✓ engine loaded</span> — ' + esc(globalThis.sysmlEngine.version || 'unknown'));
-      parse();
-      input.disabled = false;
-      input.focus();
-    }).catch(function (e) {
-      println('<span class="osml-err">✗ engine failed to load: ' + esc(e.message || e) + '</span>');
-      load.disabled = false;
-    });
-  });
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter') return;
-    var line = input.value.trim();
-    if (!line) return;
-    input.value = '';
-    println('<span class="osml-prompt">sysml&gt;</span> ' + esc(line));
-    var sp = line.indexOf(' ');
-    var cmd = sp < 0 ? line : line.slice(0, sp);
-    var arg = sp < 0 ? '' : line.slice(sp + 1).trim();
-    var fn = commands[cmd];
-    if (fn) { fn(arg); return; }
-    if (cmd === '%eval') line = arg;
-    if (!modelHash) { println('<span class="osml-err">✗ no model — %parse first</span>'); return; }
-    var r = call('Evaluate', { modelHash: modelHash, expression: line });
-    var res = r.result || {};
-    if (res.error) {
-      println('<span class="osml-err">✗ ' + esc(res.error) + '</span>');
-    } else {
-      println('  <span class="osml-ok">=</span> ' + esc(JSON.stringify(res.result)).replace(/"result":/, ''));
-    }
-  });
+  if (window.osmlRepl) { mountAll(); return; }
+  var s = document.createElement("script");
+  s.src = "../assets/sysml-repl.js";
+  s.onload = mountAll;
+  document.head.appendChild(s);
 })();
 </script>
+
+<p>What the browser can't do: there is no disk, so <code>%load</code> and <code>%save</code>
+work on an in-memory filesystem that holds the showcase models under
+<code>examples/runtime-showcase/</code> and is lost when the session ends. A page can't start
+other programs either, so <code>%check</code>, <code>%solve</code>, <code>%configure</code>,
+<code>%optimize</code> and <code>%explain</code>, which run an external SMT solver, report that
+the solver is unavailable. The production build also leaves out code generation, Flexo
+synchronization, SysML v1 migration, FMI and PDF rendering. Everything else in the
+<a href="../reference/repl-commands/">REPL command reference</a> runs here as it does in a terminal.</p>
 
 
 ## What it does
