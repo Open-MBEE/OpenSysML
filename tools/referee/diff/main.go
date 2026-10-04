@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
@@ -46,12 +48,21 @@ type languageBatch struct {
 	Files []string
 }
 
-// defaultLibraries is the OpenSysML library directory the reference validators
-// are handed beside the standard library, so a model that imports one of this
-// project's libraries is compared on its own diagnostics rather than on the
-// reference's unresolved-reference cascade. It is the copy this implementation
-// compiles against, so both sides resolve the same library text.
-const defaultLibraries = "internal/workspace/libs/stdlib/OpenSysML Libraries"
+// bundledLibraryRoot is the standard-library tree this implementation embeds and
+// loads when libs.LibraryPathEnvVar does not name another; openSysMLLibraries
+// is the directory inside that tree holding this project's own libraries. The
+// reference validators are handed that directory beside the standard library,
+// so a model that imports one of this project's libraries is compared on its
+// own diagnostics rather than on the reference's unresolved-reference cascade.
+// The directory is derived from the root OpenSysML itself loads, never named
+// on the command line, so both sides always resolve the same library text.
+const (
+	bundledLibraryRoot = "internal/workspace/libs/stdlib"
+	openSysMLLibraries = "OpenSysML Libraries"
+)
+
+// defaultLibraries is the library directory handed over when no override is set.
+const defaultLibraries = bundledLibraryRoot + "/" + openSysMLLibraries
 
 var defaultRoots = []corpusRoot{
 	{Name: "training", Dir: "examples/sysml-v2-training", Pinned: true},
@@ -73,7 +84,6 @@ func Main(args []string, stderr io.Writer) int {
 	validator := flags.String("validator", "", "pilot SysML validator executable (default: <repo>/build/pilot-sysml-validator/validate-sysml-batch)")
 	kermlValidator := flags.String("kerml-validator", "", "KerML pilot validator executable (default: <repo>/build/pilot-kerml-validator/validate-kerml)")
 	syside := flags.String("syside", "", "optional Sensmetry SysIDE launcher for a third column (default: <repo>/build/syside/validate-syside if present)")
-	libraries := flags.String("libraries", "", "OpenSysML library directory the pilot validators resolve against beside the standard library (default: <repo>/"+defaultLibraries+")")
 	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/pilot-diff)")
 	timeout := flags.Duration("timeout", 0, "per-batch timeout for the pilot validator (0: no limit)")
 	update := flags.Bool("update", false, "record this run as "+committedBaseline)
@@ -90,7 +100,6 @@ func Main(args []string, stderr io.Writer) int {
 		validator:      *validator,
 		kermlValidator: *kermlValidator,
 		syside:         *syside,
-		libraries:      *libraries,
 		out:            *out,
 		timeout:        *timeout,
 		update:         *update,
@@ -121,7 +130,9 @@ type options struct {
 
 // resolve fills the paths left empty on the command line and reports the tools
 // that are missing: the pilot validator and the libraries are required, SysIDE
-// only when named.
+// only when named. The libraries are not an option: they are taken from the
+// standard-library root this implementation loads (libs.DefaultSource), so an
+// OPENSYSML_LIBRARY_PATH override moves both sides of the comparison at once.
 func (o *options) resolve() error {
 	var err error
 	if o.repo, err = repo.Choose(o.repo); err != nil {
@@ -130,7 +141,6 @@ func (o *options) resolve() error {
 	o.validator = repo.Resolve(o.repo, o.validator)
 	o.kermlValidator = repo.Resolve(o.repo, o.kermlValidator)
 	o.syside = repo.Resolve(o.repo, o.syside)
-	o.libraries = repo.Resolve(o.repo, o.libraries)
 	o.out = repo.Resolve(o.repo, o.out)
 	if o.validator == "" {
 		o.validator = filepath.Join(o.repo, "build", "pilot-sysml-validator", "validate-sysml-batch")
@@ -141,19 +151,11 @@ func (o *options) resolve() error {
 	if o.out == "" {
 		o.out = filepath.Join(o.repo, "build", "pilot-diff")
 	}
-	if o.libraries == "" {
-		o.libraries = filepath.Join(o.repo, filepath.FromSlash(defaultLibraries))
-	}
 	if _, err := os.Stat(o.validator); err != nil {
 		return fmt.Errorf("pilot validator not found at %s: run ./scripts/download-pilot-sysml-validator.sh", o.validator)
 	}
-	// Recorded in the baseline's provenance, so the libraries must be material
-	// this repository owns.
-	if rel := relativeTo(o.repo, o.libraries); rel == o.libraries {
-		return fmt.Errorf("libraries at %s lie outside the repository %s", o.libraries, o.repo)
-	}
-	if info, err := os.Stat(o.libraries); err != nil || !info.IsDir() {
-		return fmt.Errorf("library directory not found at %s", o.libraries)
+	if o.libraries, err = librariesHandedOver(o.repo); err != nil {
+		return err
 	}
 
 	// Named explicitly: fail loudly. Defaulted: the third column is optional,
@@ -170,6 +172,30 @@ func (o *options) resolve() error {
 		o.syside = ""
 	}
 	return nil
+}
+
+// librariesHandedOver returns the OpenSysML library directory the reference is
+// handed: the one inside the standard-library root OpenSysML loads, which is the
+// bundled tree unless libs.LibraryPathEnvVar names another. The directory is
+// recorded in the baseline's provenance, so it must be material this repository
+// owns; an override outside the tree is refused rather than measured silently.
+func librariesHandedOver(repoDir string) (string, error) {
+	root := filepath.Join(repoDir, filepath.FromSlash(bundledLibraryRoot))
+	if dir := envvar.Lookup(libs.LibraryPathEnvVar); dir != "" {
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			return "", fmt.Errorf("%s=%s: %w", libs.LibraryPathEnvVar, dir, err)
+		}
+		root = abs
+	}
+	libraries := filepath.Join(root, openSysMLLibraries)
+	if rel := relativeTo(repoDir, libraries); rel == libraries {
+		return "", fmt.Errorf("libraries at %s lie outside the repository %s (%s must name a library root inside it)", libraries, repoDir, libs.LibraryPathEnvVar)
+	}
+	if info, err := os.Stat(libraries); err != nil || !info.IsDir() {
+		return "", fmt.Errorf("library directory not found at %s", libraries)
+	}
+	return libraries, nil
 }
 
 func run(opts options) error {

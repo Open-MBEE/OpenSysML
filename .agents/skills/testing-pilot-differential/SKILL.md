@@ -239,15 +239,21 @@ all, so a newly-compared clean file shows up only as `filesFullyAgreeing +1`.
 
 Every batch passes `--extension-library "<repo>/internal/workspace/libs/stdlib/OpenSysML Libraries"`
 to the bridge (both `validate-sysml-batch` and `validate-kerml` take it, repeatably); the bridge
-loads the directory like `sysml.library` — resolved against, never validated. The harness flag is
-`-libraries DIR` (must lie inside the repository; it is recorded in the baseline's provenance as
-the `opensysml-libraries` input, 14 files), and `resolve` fails loudly when the directory is
-missing or outside the tree. Proving it is load-bearing:
+loads the directory like `sysml.library` — resolved against, never validated. There is no harness
+flag for it: `resolve` takes `OpenSysML Libraries` under the standard-library root OpenSysML itself
+loads (`internal/workspace/libs/stdlib`, or `OPENSYSML_LIBRARY_PATH` when set), so both sides of
+the comparison always see the same library text; the directory is recorded in the baseline's
+provenance as the `opensysml-libraries` input (14 files), and `resolve` fails loudly when it is
+missing or outside the tree (`TestResolveFollowsTheLibraryRootOpenSysMLLoads`,
+`TestResolveRefusesLibrariesOutsideTheRepository`). Proving it is load-bearing:
 
-- `-libraries` pointed at a directory holding one trivial `.sysml` → `examples` only-pilot jumps
-  from 62 back into the hundreds (`self-model/document.sysml` alone carries ~347
-  `unresolved-reference`/`kind-mismatch` rows without `DocumentQueries`), and the provenance test
-  then fails on `inputs[opensysml-libraries].digest`.
+- `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
+  `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the
+  headline moves on *both* sides: `34 agreed, 44 only ours, 82 only the pilot's` becomes
+  `717 agreed, 36 only ours, 941 only the pilot's`, the two validators now agreeing on the
+  unresolved `DocumentQueries`/`OOSEM`/`MOSA` references (`self-model/document.sysml` alone
+  carries ~347 `unresolved-reference`/`kind-mismatch` rows), the report's `libraries` field names
+  the override, and `-check` then fails on `inputs[opensysml-libraries].digest`.
 - by hand: `build/pilot-sysml-validator/validate-sysml-batch examples/oosem-demo/oosem-demo.sysml`
   prints ~294 rows; add `--extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries"`
   and it prints none. `--extension-library /nonexistent` → exit 2
