@@ -103,6 +103,7 @@ not_in_nav: |
   project/exact-rational-evaluation.md
   project/expansion-regions.md
   project/bitwise-complement.md
+  project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/spec-pilot-gap-register.md

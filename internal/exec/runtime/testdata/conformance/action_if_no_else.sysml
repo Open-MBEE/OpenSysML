@@ -7,12 +7,10 @@ package test {
 		attribute total : Integer = 0;
 		first start;
 
-		action choose {
-			if total > 0 {
-				assign total := total + 10;
-			}
-			assign total := total + 1;
+		action choose if total > 0 {
+			assign total := total + 10;
 		}
+		then assign total := total + 1;
 
 		done;
 

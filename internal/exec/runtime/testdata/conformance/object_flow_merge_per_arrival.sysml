@@ -12,7 +12,7 @@ package test {
 			in ref inputObject2 : Integer;
 			out ref outputObject1 : Integer = (inputObject1, inputObject2);
 		}
-		action inc { in x : Integer; out y : Integer; assign y := x + 1; assign n := y; }
+		action inc { in x : Integer; out y : Integer; assign y := x + 1; then assign n := y; }
 		first inc then check;
 		decide check;
 		if n < 3 then again;

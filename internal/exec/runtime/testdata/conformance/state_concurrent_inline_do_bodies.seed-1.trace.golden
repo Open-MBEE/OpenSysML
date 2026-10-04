@@ -3,6 +3,7 @@ enter: rwork
 transition: rstart -> rwork
 do: rwork
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign seq
         eval feature seq -> 0
         eval literal 10 -> 10
@@ -18,6 +19,7 @@ do: rwork
       eval feature seq -> 4
       eval literal 0 -> 0
     eval operator > -> true
+enter action node: branch body of state behavior <anonymous>
     stmt assign seq
           eval feature seq -> 4
           eval literal 10 -> 10
@@ -26,6 +28,7 @@ do: rwork
       eval operator + -> 45
 do: lwork
 stmt action body
+enter action node: state behavior <anonymous>
   stmt for i
       eval literal 1 -> 1
       eval literal 2 -> 2
@@ -45,6 +48,8 @@ do: rwork
         eval operator * -> 4510
         eval literal 6 -> 6
       eval operator + -> 4516
+leave action node: branch body of state behavior <anonymous>
+leave action node: state behavior <anonymous>
 do: lwork
     iteration 2
       stmt assign seq
@@ -63,6 +68,7 @@ do: lwork
       eval operator * -> 451620
       eval literal 3 -> 3
     eval operator + -> 451623
+leave action node: state behavior <anonymous>
 exit: lwork
 enter: ldone
 transition: lwork -> ldone

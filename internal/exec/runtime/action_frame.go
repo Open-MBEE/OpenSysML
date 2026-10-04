@@ -35,6 +35,27 @@ type performances struct {
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
+	// orders caches lower.BodyStatementOrder by the statement list's first element.
+	orders map[*lower.Statement]*lower.StatementOrder
+}
+
+// statementOrder is lower.BodyStatementOrder of stmts, statements of node in graph.
+func (e *performances) statementOrder(graph *lower.ActionGraph, node ast.Node, stmts []lower.Statement) *lower.StatementOrder {
+	key := &stmts[0]
+	order, known := e.orders[key]
+	if !known {
+		if graph != nil {
+			order = graph.StatementOrders[node]
+		}
+		if order == nil {
+			order = lower.BodyStatementOrder(graph, node, stmts)
+		}
+		if e.orders == nil {
+			e.orders = make(map[*lower.Statement]*lower.StatementOrder)
+		}
+		e.orders[key] = order
+	}
+	return order
 }
 
 // performanceOwner is the behavior whose nodes perform — an action executor or a state
@@ -1600,6 +1621,9 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 	}
 	if !resumed {
 		if callee, err = e.beginInvocation(perf, inv); err != nil {
+			return err
+		}
+		if err := e.ctx.startShotMove(callee); err != nil {
 			return err
 		}
 	}

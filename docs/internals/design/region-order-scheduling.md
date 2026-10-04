@@ -251,7 +251,7 @@ choice at t=0.0: next do top, dispatch AnotherSignal (unordered; ran do top firs
 `%step`, `%continue` and `%advance` count them as they count every choice
 (`2 choice points; %trace on to see them`), `%choices` lists them, and over gRPC and Connect each
 is the informational `choice-point` diagnostic placed at the state or transition drawn. The
-self-model's `choiceKindCount` counts nine kinds.
+self-model's `choiceKindCount` counts thirteen kinds.
 
 ### Witness lines and replay
 
