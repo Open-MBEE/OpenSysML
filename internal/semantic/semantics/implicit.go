@@ -419,6 +419,14 @@ func (m *Model) implicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// ImplicitBases returns the implicit base types and features for sym.
+func (m *Model) ImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil {
+		return nil
+	}
+	return m.implicitBases(sym)
+}
+
 // computeImplicitBases derives implicitBases' answer.
 func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	// A conjugated type takes its supertypes from what it conjugates rather than

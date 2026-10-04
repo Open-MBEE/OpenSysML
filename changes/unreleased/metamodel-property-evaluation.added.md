@@ -1,0 +1,1 @@
+- **Add semantic derived-property evaluation for the SysML metamodel.** The evaluator reuses resolved model semantics and reports unsupported derivations instead of returning partial values.

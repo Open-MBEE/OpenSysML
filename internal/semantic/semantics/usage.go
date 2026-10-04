@@ -67,8 +67,16 @@ func usageIsReferential(usage *ast.Usage) bool {
 	return !usageIsComposite(usage)
 }
 
-// UsageIsComposite derives SysML Usage::isComposite (SysML v2 §7.6.2) for the usage sym declares:
-// the objects it holds are portions of the object holding it. A symbol declaring no usage is not.
+// UsageIsReferential reports whether a usage is a reference rather than composition.
+func UsageIsReferential(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usageIsReferential(usage)
+}
+
+// UsageIsComposite reports whether sym declares a composite usage.
 func UsageIsComposite(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false

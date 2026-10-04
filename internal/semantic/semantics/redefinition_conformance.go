@@ -162,6 +162,14 @@ func (m *Model) directionThrough(owner, feature *symbols.Symbol) ast.FeatureDire
 	return dir
 }
 
+// EffectiveDirection returns a feature's direction in the context of its owner.
+func (m *Model) EffectiveDirection(owner, feature *symbols.Symbol) ast.FeatureDirection {
+	if m == nil || feature == nil {
+		return ast.DirNone
+	}
+	return m.directionThrough(owner, feature)
+}
+
 // owningTypeOf returns the type declaring sym, or nil at the top level.
 func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || sym.OwnerScope == nil {

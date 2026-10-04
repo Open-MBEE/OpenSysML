@@ -56,6 +56,7 @@ var packageLayer = map[string]string{
 	"internal/semantic/suggest":   "semantic",
 	"internal/semantic/resolve":   "semantic",
 	"internal/semantic/semantics": "semantic",
+	"internal/semantic/metamodel": "semantic",
 	"internal/semantic/identity":  "semantic",
 
 	"internal/ir/lower":     "ir",
