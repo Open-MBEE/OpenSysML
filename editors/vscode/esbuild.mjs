@@ -4,9 +4,11 @@ import { copyFile, mkdir } from "node:fs/promises";
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
 
-// The webview fetches libavoid's WASM at runtime rather than bundling it.
+// The webview fetches libavoid's WASM at runtime rather than bundling it; its
+// licence text ships beside it.
 await mkdir("dist", { recursive: true });
 await copyFile("node_modules/libavoid-js/dist/libavoid.wasm", "dist/libavoid.wasm");
+await copyFile("node_modules/libavoid-js/LICENSE", "dist/libavoid-js.LICENSE.txt");
 
 // Two bundles: the extension runs in Node, the diagram webview runs in a browser
 // and draws its SVG itself, so nothing is loaded from the network.
