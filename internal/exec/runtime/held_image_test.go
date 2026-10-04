@@ -79,15 +79,42 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 	return dst
 }
 
-func TestHeldImageImportAdvancesTheMessageSerial(t *testing.T) {
+func TestHeldImageImportRemapsMessageSerialsBeforeAccept(t *testing.T) {
 	_, ctx, bulb := lampBulb(t)
-	ctx.messages = append(ctx.messages, Message{Object: bulb.ID, SignalType: "Ping", Serial: 41})
-	dst := imageInto(t, ctx, bulb)
-	dst.PostMessage(Message{SignalType: "Pong"})
+	ctx.PostMessage(Message{Object: bulb.ID, SignalType: "Ping"})
+	ctx.messages = append(ctx.messages, Message{Object: bulb.ID, SignalType: "Ping"})
+	img, err := ctx.Image(bulb)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+
+	trace := NewTraceRecorder()
+	dst := NewContext(ctx.Model(), 10000)
+	dst.SetTrace(trace)
+	dst.PostMessage(Message{SignalType: "Ping"})
+	if records := trace.Records(); len(records) != 1 || records[0].Kind != TraceSend || records[0].Message != 1 {
+		t.Fatalf("destination trace = %+v, want a send of serial 1", records)
+	}
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
 
 	messages := dst.PendingMessages()
-	if len(messages) != 2 || messages[0].Serial != 41 || messages[1].Serial != 42 {
-		t.Fatalf("messages = %+v, want imported serial 41 followed by 42", messages)
+	if len(messages) != 3 || messages[0].Serial != 1 || messages[1].Serial != 2 || messages[2].Serial != 0 {
+		t.Fatalf("messages = %+v, want destination serial 1, imported serial 2, and imported serial 0", messages)
+	}
+	accepted, ok := dst.TakeMessage(func(msg Message) bool { return msg.Serial == 2 })
+	if !ok {
+		t.Fatal("could not take the imported message")
+	}
+	trace.RecordAccept(TraceOrigin{}, accepted.Serial, accepted.SignalType, nil)
+	records := trace.Records()
+	if len(records) != 2 || records[0].Message != 1 || records[1].Kind != TraceAccept || records[1].Message != 2 {
+		t.Fatalf("trace records = %+v, want send serial 1 and accept serial 2", records)
+	}
+	dst.PostMessage(Message{SignalType: "Pong"})
+	if got := dst.PendingMessages()[len(dst.PendingMessages())-1].Serial; got != 3 {
+		t.Errorf("next message serial = %d, want 3", got)
 	}
 }
 
