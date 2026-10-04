@@ -1,1 +1,0 @@
-- **Keep partial state-run traces on failures.** A failed traced `ExecuteState` retains its partial trace and discarded-record count on the client's existing execution error.
