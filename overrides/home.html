@@ -1207,6 +1207,17 @@
   heroResize.observe(hero);
   ac.signal.addEventListener("abort", function () { heroResize.disconnect(); });
 
+  // Instant navigation swaps the page out without unloading it; Material's document$ marks each swap.
+  function watchNavigation() {
+    if (!window.document$ || ac.signal.aborted) return;
+    var sub = window.document$.subscribe(function () {
+      if (!root.isConnected) ac.abort();
+    });
+    ac.signal.addEventListener("abort", function () { sub.unsubscribe(); });
+  }
+  if (window.document$) watchNavigation();
+  else document.addEventListener("DOMContentLoaded", watchNavigation, { once: true, signal: ac.signal });
+
   function bindNode(k) {
     var n = nodes[k];
     n.g.addEventListener("pointerdown", function (e) {
