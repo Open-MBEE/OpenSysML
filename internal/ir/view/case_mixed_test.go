@@ -535,6 +535,25 @@ func TestCaseRenderingIncludesInheritedVisibleRoles(t *testing.T) {
 	if len(drivers) != 1 {
 		t.Errorf("Trip2 has %d driver nodes, want one: %+v", len(drivers), drivers)
 	}
+
+	plain, err := renderer.Render(lookup(t, index, "RoleInheritance::x"))
+	if err != nil {
+		t.Fatalf("Render(x): %v", err)
+	}
+	var plainRoleNodes []*Node
+	var collectPlainRoles func([]*Node)
+	collectPlainRoles = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Kind == "objective" || node.Kind == "subject" {
+				plainRoleNodes = append(plainRoleNodes, node)
+			}
+			collectPlainRoles(node.Children)
+		}
+	}
+	collectPlainRoles(plain.Roots)
+	if len(plainRoleNodes) != 0 {
+		t.Errorf("role-free X has subject or objective nodes: %+v", plainRoleNodes)
+	}
 }
 
 func TestMixedKeepsDeferredMembersUnderStructuralOwnerInSourceOrder(t *testing.T) {

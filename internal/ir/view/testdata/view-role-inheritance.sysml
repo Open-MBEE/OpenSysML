@@ -16,6 +16,7 @@ package RoleInheritance {
     use case def Trip2 :> Base {
         actor :>> driver;
     }
+    use case def X;
 
     view trip {
         expose Trip;
@@ -24,6 +25,11 @@ package RoleInheritance {
 
     view trip2 {
         expose Trip2;
+        render asCaseDiagram;
+    }
+
+    view x {
+        expose X;
         render asCaseDiagram;
     }
 }

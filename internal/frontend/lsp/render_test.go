@@ -256,15 +256,9 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 				if node.Origin == nil {
 					continue
 				}
-				if node.Origin.URI == docURI {
-					located++
-					continue
-				}
-				inheritedUseCaseRole := (tc.kind == view.KindCase || tc.kind == view.KindMixed) &&
-					(node.Name == "subj" || node.Name == "obj") &&
-					node.Origin.URI == "sysml-stdlib:///Systems%20Library/UseCases.sysml"
-				if !inheritedUseCaseRole {
-					t.Errorf("node %q (%q) is located in %q, want %q", node.ID, node.Name, node.Origin.URI, docURI)
+				located++
+				if node.Origin.URI != docURI {
+					t.Errorf("node %q is located in %q, want %q", node.ID, node.Origin.URI, docURI)
 				}
 			}
 			if located == 0 {

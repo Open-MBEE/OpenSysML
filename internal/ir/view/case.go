@@ -148,15 +148,29 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 		}
 	}
 	for _, role := range actorsInherited {
+		if w.libraryInheritedRole(role) {
+			continue
+		}
 		drawRole(role, rolePresentation{kind: "actor", edgeKind: EdgeAssociation})
 	}
 	for _, role := range subjectsInherited {
+		if w.libraryInheritedRole(role) {
+			continue
+		}
 		drawRole(role, rolePresentation{kind: "subject", edgeKind: EdgeAssociation, label: "«subject»"})
 	}
 	for _, role := range objectivesInherited {
+		if w.libraryInheritedRole(role) {
+			continue
+		}
 		drawRole(role, rolePresentation{kind: "objective", edgeKind: EdgeAnchor})
 	}
 	return node
+}
+
+// libraryInheritedRole reports whether sym is declared in bundled library content.
+func (w *caseWalk) libraryInheritedRole(sym *symbols.Symbol) bool {
+	return w.r.resolver != nil && w.r.resolver.Index().IsLibraryDocument(sym.DocName)
 }
 
 // resolveIncludedCases adds include edges after their targets have been placed.
