@@ -1,0 +1,1 @@
+- **Treat Ecore upper bounds above one as multi-valued.** The ontology table and generated Python metaclasses now preserve bounded multi-valued properties.

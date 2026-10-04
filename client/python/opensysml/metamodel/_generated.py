@@ -1540,8 +1540,8 @@ class MultiplicityRange(Multiplicity):
         "lowerBound": "lower_bound",
         "upperBound": "upper_bound",
     })
-    bound: Opt[Expression] = Opt("bound", "Expression", derived=True)
-    "``MultiplicityRange::bound`` (single, derived)."
+    bound: Many[Expression] = Many("bound", "Expression", ordered=True, derived=True)
+    "``MultiplicityRange::bound`` (many, ordered, derived)."
     lower_bound: Opt[Expression] = Opt("lowerBound", "Expression", derived=True)
     "``MultiplicityRange::lowerBound`` (single, derived)."
     lowerBound = lower_bound
@@ -1815,8 +1815,8 @@ class Flow(Connector, Step):
         "sourceOutputFeature": "source_output_feature",
         "targetInputFeature": "target_input_feature",
     })
-    flow_end: Opt[FlowEnd] = Opt("flowEnd", "FlowEnd", derived=True)
-    "``Flow::flowEnd`` (single, derived)."
+    flow_end: Many[FlowEnd] = Many("flowEnd", "FlowEnd", ordered=True, derived=True)
+    "``Flow::flowEnd`` (many, ordered, derived)."
     flowEnd = flow_end
     interaction: Many[Interaction] = Many("interaction", "Interaction", ordered=True, derived=True)
     "``Flow::interaction`` (many, ordered, derived). Redefines ``Connector::association``, ``Step::behavior``."

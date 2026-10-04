@@ -5,6 +5,7 @@ import pytest
 
 from opensysml.metamodel import (
     Feature,
+    MultiplicityRange,
     Namespace,
     NotSupplied,
     PartDefinition,
@@ -42,6 +43,13 @@ def test_reads_toolkit_full_json_fixture():
     assert len(vehicle.feature) == 7
     assert all(isinstance(feature, Feature) for feature in vehicle.feature)
     assert all(feature.json_id in graph for feature in vehicle.feature)
+
+    bounded_range = next(
+        item
+        for item in graph.all(MultiplicityRange)
+        if any(raw.get("@id") == item.json_id and "bound" in raw for raw in document)
+    )
+    assert isinstance(bounded_range.bound, tuple)
 
     usage = next(part for part in parts if part.declared_name == "v")
     assert usage.type == (vehicle,)

@@ -137,6 +137,27 @@ func TestRunWritesTheTable(t *testing.T) {
 	}
 }
 
+func TestRunTreatsUpperBoundsAboveOneAsMany(t *testing.T) {
+	ecore := strings.Replace(
+		sampleEcore,
+		`name="weight" eType=`,
+		`name="weight" upperBound="2" eType=`,
+		1,
+	)
+	dir := newMetamodel(t, ecore)
+	out := filepath.Join(t.TempDir(), "table.go")
+	if err := run(dir, out, false, testPin); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	generated, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(generated), `Many: true, Ordered: true`) {
+		t.Fatalf("upperBound 2 was not generated as many:\n%s", generated)
+	}
+}
+
 func TestCheckFailsOnlyOnDrift(t *testing.T) {
 	dir := newMetamodel(t, sampleEcore)
 	out := filepath.Join(t.TempDir(), "table.go")
@@ -199,6 +220,8 @@ func TestRunRejectsAMetamodelTheTableCannotHold(t *testing.T) {
 			"cannot form a <Metaclass>_<name> IRI"},
 		{"unknown primitive", wrap(element(feature("EAttribute", "n", `eType="types.ecore#//Char"`, ""))),
 			"no primitive the table maps"},
+		{"unparsable upper bound", wrap(element(feature("EAttribute", "n",
+			`upperBound="many" eType="types.ecore#//Integer"`, ""))), `upperBound "many" is not an integer`},
 		{"unknown enum range", wrap(element(feature("EAttribute", "n", `eType="#//Missing"`, ""))),
 			"which the table cannot range over"},
 		{"empty enumeration", wrap(`<eClassifiers xsi:type="ecore:EEnum" name="VisibilityKind"/>`),

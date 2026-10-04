@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
@@ -346,11 +347,19 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	if f.Name == "" || strings.Contains(f.Name, "_") {
 		return property{}, fmt.Errorf("feature name %q cannot form a <Metaclass>_<name> IRI", f.Name)
 	}
+	upperBound := 1
+	if f.UpperBound != "" {
+		parsed, err := strconv.Atoi(f.UpperBound)
+		if err != nil {
+			return property{}, fmt.Errorf("upperBound %q is not an integer", f.UpperBound)
+		}
+		upperBound = parsed
+	}
 	p := property{
 		name:          f.Name,
 		definingClass: defining,
 		iri:           sysmlNS + defining + "_" + f.Name,
-		many:          f.UpperBound == "-1",
+		many:          upperBound != 1,
 		derived:       f.Derived,
 	}
 	p.ordered = p.many && f.Ordered != "false"

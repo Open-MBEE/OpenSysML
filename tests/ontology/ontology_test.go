@@ -34,6 +34,18 @@ func TestTableShape(t *testing.T) {
 	if len(enumerations) != 7 {
 		t.Errorf("table holds %d enumerations; want 7", len(enumerations))
 	}
+	for _, property := range []struct {
+		class string
+		name  string
+	}{
+		{class: "MultiplicityRange", name: "bound"},
+		{class: "Flow", name: "flowEnd"},
+	} {
+		declared, ok := ontology.PropertyOf(property.class, property.name)
+		if !ok || !declared.Many {
+			t.Errorf("%s::%s should be Many", property.class, property.name)
+		}
+	}
 	if got := len(ontology.AmbiguousNames()); got != 58 {
 		t.Errorf("got %d unqualified names declared by more than one metaclass, want 58", got)
 	}
