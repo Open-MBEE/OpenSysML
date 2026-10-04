@@ -135,3 +135,24 @@ func TestImportFlagMisuse(t *testing.T) {
 		})
 	}
 }
+
+// TestImportMapPerFile reads each -import with the -import-map after it, so
+// a mapped JSON file and a plain CSV file import in one run.
+func TestImportMapPerFile(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := write(t, filepath.Join(dir, "m.sysml"), importModel)
+	csv := write(t, filepath.Join(dir, "a.csv"), "element,count\nV::vehicle,7\n")
+	js := write(t, filepath.Join(dir, "b.json"), `{"results": [{"id": "vehicle::engine", "m": 190}]}`)
+	mapping := write(t, filepath.Join(dir, "b.map.json"), `{"records": "/results", "element": {"path": "/id", "prefix": "V::"},
+		"features": {"mass": {"path": "/m", "unit": "kg"}}}`)
+	got := runFiles(t, binary, []string{model}, "-import", csv, "-import", js, "-import-map", mapping, "-import-dry-run")
+	if got.status != 0 || !strings.Contains(got.stdout, "V::vehicle::count = 7") ||
+		!strings.Contains(got.stdout, "V::vehicle::engine::mass = 190 [kg]") {
+		t.Errorf("status %d, stdout:\n%s\nstderr:\n%s", got.status, got.stdout, got.stderr)
+	}
+	got = runFiles(t, binary, []string{model}, "-import", js, "-import-map", mapping, "-import-map", mapping, "-import-dry-run")
+	if got.status != 2 || !strings.Contains(got.stderr, "-import-map is already given for this -import") {
+		t.Errorf("status %d, stderr:\n%s", got.status, got.stderr)
+	}
+}
