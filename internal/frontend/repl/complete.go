@@ -58,17 +58,29 @@ func (s *Session) Complete(line string, pos int) Completion {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
 	}
-	if command == "%render-run" && argumentIndex(head) == 1 {
+	if command == "%render-run" {
 		word := lastField(head)
-		kinds := make([]string, 0, len(runtrace.Kinds()))
-		for _, kind := range runtrace.Kinds() {
-			kinds = append(kinds, string(kind))
+		switch index := argumentIndex(head); index {
+		case 1:
+			kinds := make([]string, 0, len(runtrace.Kinds()))
+			for _, kind := range runtrace.Kinds() {
+				kinds = append(kinds, string(kind))
+			}
+			return completion(word, matchingPrefix(kinds, word))
+		case 2:
+			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
+		case 3:
+			args := typedArgs(head)
+			options := []string{"link="}
+			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
+				options = []string{"text", "mermaid", "plantuml", "dot"}
+			}
+			return completion(word, matchingPrefix(options, word))
+		default:
+			if index > 3 {
+				return completion(word, nil)
+			}
 		}
-		return completion(word, matchingPrefix(kinds, word))
-	}
-	if command == "%render-run" && argumentIndex(head) == 2 {
-		word := lastField(head)
-		return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)

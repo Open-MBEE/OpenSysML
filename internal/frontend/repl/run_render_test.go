@@ -109,5 +109,14 @@ func TestRenderRunCompletesKindAndForm(t *testing.T) {
 	if got := s.Complete("%render-run timeline l", len("%render-run timeline l")); !slices.Equal(got.Candidates, []string{"link="}) {
 		t.Errorf("completing run link offered %v", got.Candidates)
 	}
+	if got := s.Complete("%render-run timeline plantuml l", len("%render-run timeline plantuml l")); !slices.Equal(got.Candidates, []string{"link="}) {
+		t.Errorf("completing run link after form offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render-run sequence link=x m", len("%render-run sequence link=x m")); !slices.Equal(got.Candidates, []string{"mermaid"}) {
+		t.Errorf("completing run form after link offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render-run timeline plantuml link=x ", len("%render-run timeline plantuml link=x ")); len(got.Candidates) != 0 {
+		t.Errorf("completion after run-render link argument offered %v, want no candidates", got.Candidates)
+	}
 	wants(t, strings.Join(helpText(), "\n"), "%render-run <timeline|sequence> [form] [link=<template>]")
 }
