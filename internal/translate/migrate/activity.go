@@ -1585,6 +1585,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 	a.declarePinsWithValues(n, ins, outs, callee, nil)
 }
 
+// declarePinsWithValues is declarePins binding each pin in values to its expression.
 func (a *activity) declarePinsWithValues(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string) {
 	typed := callee != nil
 	var params, inParams, outParams []*sysmlv1.Element
@@ -2563,8 +2564,8 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			case len(a.sources[t]) > 0:
 				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
 			default:
-				if target := writeName(a.names[t]); target != "" {
-					line += " to " + target
+				if pin := writeName(a.names[t]); pin != "" {
+					line += " to " + pin
 				} else {
 					note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
 				}
