@@ -61,9 +61,10 @@ interface Gesture {
   pointer: number;
   start: RenderPoint;
   from: RenderPoint;
-  held: CanvasLayout;
+  at: RenderPoint;
   moved: boolean;
   longPressed: boolean;
+  frame?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -596,18 +597,15 @@ function mount(root: HTMLElement): Mounted {
     return { x: p.x, y: p.y };
   }
 
-  function moveTo(id: string, at: RenderPoint, held?: CanvasLayout): void {
+  function moveTo(id: string, at: RenderPoint): void {
     const part = partOf(id);
     const entry = layout.nodes.get(id);
     if (!part || !entry) {
       return;
     }
     placed.set(part.feature, clamped(entry, at));
-    const next = layoutCanvas(result, held ? { ...overrides(), held } : overrides(), auto);
-    if (!held) {
-      layout = next;
-    }
-    draw(next);
+    layout = layoutCanvas(result, overrides(), auto);
+    draw(layout);
   }
 
   function openProject(id: string): void {
@@ -628,11 +626,14 @@ function mount(root: HTMLElement): Mounted {
       return;
     }
     clearTimeout(ended.timer);
+    if (ended.frame !== undefined) {
+      cancelAnimationFrame(ended.frame);
+      ended.frame = undefined;
+    }
     gesture = undefined;
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
-      layout = layoutCanvas(result, overrides(), auto);
-      draw(layout);
+      moveTo(ended.id, ended.at);
     } else if (!cancelled && !ended.longPressed) {
       openProject(ended.id);
     }
@@ -650,7 +651,7 @@ function mount(root: HTMLElement): Mounted {
       pointer: event.pointerId,
       start: point(event),
       from: { x: entry.box.x, y: entry.box.y },
-      held: layout,
+      at: { x: entry.box.x, y: entry.box.y },
       moved: false,
       longPressed: false,
     };
@@ -667,21 +668,30 @@ function mount(root: HTMLElement): Mounted {
     event.preventDefault();
   });
   on(window, "pointermove", (event) => {
-    if (!gesture || event.pointerId !== gesture.pointer) {
+    const active = gesture;
+    if (!active || event.pointerId !== active.pointer) {
       return;
     }
     const p = point(event);
-    const dx = p.x - gesture.start.x;
-    const dy = p.y - gesture.start.y;
-    if (!gesture.moved && Math.hypot(dx, dy) * view.scale < DRAG_SLOP) {
+    const dx = p.x - active.start.x;
+    const dy = p.y - active.start.y;
+    if (!active.moved && Math.hypot(dx, dy) * view.scale < DRAG_SLOP) {
       return;
     }
-    if (!gesture.moved) {
-      gesture.moved = true;
-      clearTimeout(gesture.timer);
+    if (!active.moved) {
+      active.moved = true;
+      clearTimeout(active.timer);
       hero.classList.add("osml-hero--dragging");
     }
-    moveTo(gesture.id, { x: gesture.from.x + dx, y: gesture.from.y + dy }, gesture.held);
+    active.at = { x: active.from.x + dx, y: active.from.y + dy };
+    if (active.frame === undefined) {
+      active.frame = requestAnimationFrame(() => {
+        active.frame = undefined;
+        if (!signal.aborted && gesture === active) {
+          moveTo(active.id, active.at);
+        }
+      });
+    }
   });
   on(window, "pointerup", (event) => {
     if (gesture && event.pointerId === gesture.pointer) {
@@ -944,11 +954,19 @@ function mount(root: HTMLElement): Mounted {
     if (signal.aborted) {
       return;
     }
+    const active = gesture;
+    gesture = undefined;
+    if (active) {
+      clearTimeout(active.timer);
+      if (active.frame !== undefined) {
+        cancelAnimationFrame(active.frame);
+        active.frame = undefined;
+      }
+    }
     ac.abort();
     resize.disconnect();
     navigation?.unsubscribe();
     clearTimeout(editTimer);
-    clearTimeout(gesture?.timer);
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
     if (window.__osmlDiagram === mounted) {
