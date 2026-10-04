@@ -212,7 +212,7 @@ function Get-Asset([string]$Asset, [switch]$Optional) {
     } catch {
         if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Force }
         if ($Optional) { return $false }
-        Fail "could not download $url ($($_.Exception.Message)); is $ReleaseName a published release with a $Platform build? See $BaseUrl"
+        Fail "could not download $url ($($_.Exception.Message)); is $ReleaseName a published release with a $Platform build? Bundles and SHA256SUMS.txt exist from v0.0.4. See $BaseUrl"
     }
 }
 

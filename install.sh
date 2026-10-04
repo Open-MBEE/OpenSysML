@@ -320,7 +320,7 @@ trap 'rm -rf "$work"' EXIT INT TERM
 
 fetch() { # <asset>: into the work directory
 	download "$(asset_url "$1")" "$work/$1" ||
-		fail "could not download $(asset_url "$1"); is $release_name a published release with a $platform build? See $base_url"
+		fail "could not download $(asset_url "$1"); is $release_name a published release with a $platform build? Bundles and SHA256SUMS.txt exist from v0.0.4. See $base_url"
 }
 
 info "Downloading..."
