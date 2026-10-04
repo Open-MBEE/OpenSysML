@@ -1031,8 +1031,18 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
       - name: Install documentation toolchain
         run: make docs-install
+
+      - name: Build the landing-page diagram
+        run: make docs-landing-assets
 
       - name: Check documentation links
         run: python3 scripts/check-doc-links.py
