@@ -1,0 +1,1 @@
+- **Interconnection diagrams show ports on their nodes and connect edges to them.** Port sides are chosen automatically, and unconnected ports are spaced along the bottom of their node.

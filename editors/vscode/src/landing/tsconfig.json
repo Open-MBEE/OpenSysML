@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "../../out/landing"
+  },
+  "exclude": [],
+  "include": ["../protocol.ts", "../style.ts", "../webview", "."]
+}

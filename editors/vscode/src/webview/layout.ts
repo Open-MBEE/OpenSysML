@@ -9,15 +9,26 @@ import {
   type NodePlacement,
   type RenderEdge,
   type RenderNode,
+  type RenderPort,
   type RenderPoint,
   type RenderResult,
 } from "../protocol";
 import type { AutoLayout } from "./autolayout";
-import { GAP, snap, type Box } from "./geometry";
-import { avoidRoutes } from "./avoid";
+import {
+  GAP,
+  portBox,
+  portCenter,
+  portFace,
+  PORT_SIZE,
+  snap,
+  type Box,
+  type PortPosition,
+  type Side,
+} from "./geometry";
+import { avoidRoutes, CLEARANCE, compactRoute, MIN_JOG, type AvoidShape } from "./avoid";
 
-export { GAP, snap } from "./geometry";
-export type { Box } from "./geometry";
+export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
+export type { Box, PortPosition, Side } from "./geometry";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape = "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
@@ -32,6 +43,7 @@ export interface PlacedNode {
   pinned: boolean;
   /** The node is drawn without its children. */
   collapsed: boolean;
+  ports: PlacedPort[];
   /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
   hidden: boolean;
   children: PlacedNode[];
@@ -56,6 +68,17 @@ export interface PlacedEdge {
   rerouted: boolean;
 }
 
+export interface PlacedPort extends PortPosition {
+  port: RenderPort;
+}
+
+export interface PortLabelPlacement {
+  x: number;
+  y: number;
+  anchor: "start" | "end";
+  bounds: Box;
+}
+
 export interface CanvasLayout {
   roots: PlacedNode[];
   nodes: Map<string, PlacedNode>;
@@ -77,6 +100,8 @@ export interface Overrides {
   nodes?: Map<string, LayoutGeometry>;
   /** By edge index; an entry of no points shows the edge straight. */
   routes?: Map<number, RenderPoint[] | undefined>;
+  /** Rerouted edges stay inside this box. */
+  bounds?: Box;
   /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
   held?: CanvasLayout;
 }
@@ -128,6 +153,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
       collapsed: false,
       hidden: false,
       children: [],
+      ports: [],
     };
     placed.set(node.id, entry);
   }
@@ -141,7 +167,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     }
   }
   if (result.kind === "sequence") {
-    return layoutSequence(result, roots, placed);
+    const layout = layoutSequence(result, roots, placed);
+    placePorts(result.edges ?? [], placed, auto);
+    return includePortExtent(layout);
   }
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
@@ -158,6 +186,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     return laid !== undefined ? { stated: { ...laid, collapsed }, pinned: false } : { pinned: false };
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
+  placePorts(result.edges ?? [], placed, auto);
 
   // Every drawn box counts, since a placed child may lie beyond a sized owner,
   // and a placed node may lie left of or above the origin.
@@ -172,8 +201,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     if (entry.hidden) {
       continue;
     }
-    reach(entry.box.x, entry.box.y);
-    reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
+    const nodeBounds = nodeExtent(entry);
+    reach(nodeBounds.x, nodeBounds.y);
+    reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
@@ -359,6 +389,576 @@ export function labelLines(node: RenderNode): string[] {
   return lines;
 }
 
+/** glyphSize uses the same average-glyph metrics as a node label, without box padding. */
+export function glyphSize(text: string): { width: number; height: number } {
+  return { width: Math.ceil([...text].length * GLYPH_WIDTH), height: LINE_HEIGHT };
+}
+
+/** portLabelPlacement puts a port name outside its box and clear of its edge path. */
+export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlacement {
+  const center = portCenter(box, port);
+  const square = portBox(box, port);
+  const size = glyphSize(port.port.name);
+  let x: number;
+  let y: number;
+  let anchor: "start" | "end" = "start";
+  switch (port.side) {
+    case "north":
+      x = square.x + PORT_SIZE + 2;
+      y = box.y - 2;
+      break;
+    case "east":
+      x = square.x + PORT_SIZE + 2;
+      y = center.y - PORT_SIZE / 2 - 1;
+      break;
+    case "south":
+      x = square.x + PORT_SIZE + 2;
+      y = box.y + box.height + PORT_SIZE / 2 + FONT_SIZE;
+      break;
+    case "west":
+      x = square.x - 2;
+      y = center.y - PORT_SIZE / 2 - 1;
+      anchor = "end";
+      break;
+  }
+  return {
+    x,
+    y,
+    anchor,
+    bounds: { x: anchor === "end" ? x - size.width : x, y: y - size.height, ...size },
+  };
+}
+
+/** nodeExtent covers a node, its ports and labels, plus any outward port-pin leg requested. */
+export function nodeExtent(
+  node: PlacedNode,
+  portExitLeg: number | ((port: PlacedPort) => number) = 0,
+): Box {
+  let left = node.box.x;
+  let top = node.box.y;
+  let right = node.box.x + node.box.width;
+  let bottom = node.box.y + node.box.height;
+  const reach = (x: number, y: number): void => {
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  };
+  for (const port of node.ports) {
+    const square = portBox(node.box, port);
+    const label = portLabelPlacement(node.box, port).bounds;
+    reach(square.x, square.y);
+    reach(square.x + square.width, square.y + square.height);
+    reach(label.x, label.y);
+    reach(label.x + label.width, label.y + label.height);
+    const exitLeg = typeof portExitLeg === "function" ? portExitLeg(port) : portExitLeg;
+    if (exitLeg > 0) {
+      const face = portFace(node.box, port);
+      switch (port.side) {
+        case "north":
+          reach(face.x, face.y - exitLeg);
+          break;
+        case "east":
+          reach(face.x + exitLeg, face.y);
+          break;
+        case "south":
+          reach(face.x, face.y + exitLeg);
+          break;
+        case "west":
+          reach(face.x - exitLeg, face.y);
+          break;
+      }
+    }
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** clampNodeToBounds keeps a node's full visible and routing extent inside a box. */
+export function clampNodeToBounds(
+  node: PlacedNode,
+  at: RenderPoint,
+  bounds: Box,
+  portExitLeg: number | ((port: PlacedPort) => number) = 0,
+): RenderPoint {
+  const extent = nodeExtent(node, portExitLeg);
+  const left = extent.x - node.box.x;
+  const top = extent.y - node.box.y;
+  const right = extent.x + extent.width - node.box.x;
+  const bottom = extent.y + extent.height - node.box.y;
+  const minX = bounds.x - left;
+  const minY = bounds.y - top;
+  return {
+    x: Math.min(Math.max(at.x, minX), Math.max(minX, bounds.x + bounds.width - right)),
+    y: Math.min(Math.max(at.y, minY), Math.max(minY, bounds.y + bounds.height - bottom)),
+  };
+}
+
+/** Finds the nearest free, in-bounds position for a node. */
+export function freePlacement(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  bounds: Box,
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
+  direction?: { x: number; y: number },
+): RenderPoint | undefined {
+  const exitLeg = (entry: PlacedNode, port: PlacedPort): number =>
+    typeof portExitLeg === "number" ? portExitLeg : portExitLeg(entry, port);
+  const clamp = (point: RenderPoint): RenderPoint =>
+    clampNodeToBounds(node, point, bounds, (port) => exitLeg(node, port));
+  const extentAt = (entry: PlacedNode, point: RenderPoint): Box =>
+    nodeExtent({ ...entry, box: { ...entry.box, x: point.x, y: point.y } }, (port) => exitLeg(entry, port));
+  const expandedAt = (point: RenderPoint): Box => inflate(extentAt(node, point), CLEARANCE);
+  const otherExtents = others
+    .filter((other) => other.node.id !== node.node.id && !other.hidden)
+    .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
+  const isFree = (point: RenderPoint): boolean => {
+    const extent = expandedAt(point);
+    return otherExtents.every((other) => !intersectsBoxes(extent, other));
+  };
+  const clampedAt = clamp(at);
+  if (isFree(clampedAt)) {
+    return clampedAt;
+  }
+
+  const movingAtOrigin = expandedAt({ x: node.box.x, y: node.box.y });
+  const leftOffset = movingAtOrigin.x - node.box.x;
+  const rightOffset = movingAtOrigin.x + movingAtOrigin.width - node.box.x;
+  const topOffset = movingAtOrigin.y - node.box.y;
+  const bottomOffset = movingAtOrigin.y + movingAtOrigin.height - node.box.y;
+  const baseExtent = extentAt(node, node.box);
+  const minX = bounds.x - (baseExtent.x - node.box.x);
+  const minY = bounds.y - (baseExtent.y - node.box.y);
+  const maxX = Math.max(minX, bounds.x + bounds.width - (baseExtent.x + baseExtent.width - node.box.x));
+  const maxY = Math.max(minY, bounds.y + bounds.height - (baseExtent.y + baseExtent.height - node.box.y));
+  const xs = new Set([at.x, minX, maxX]);
+  const ys = new Set([at.y, minY, maxY]);
+  for (const extent of otherExtents) {
+    xs.add(extent.x - rightOffset);
+    xs.add(extent.x + extent.width - leftOffset);
+    ys.add(extent.y - bottomOffset);
+    ys.add(extent.y + extent.height - topOffset);
+  }
+
+  const candidates = new Map<string, RenderPoint>();
+  for (const x of xs) {
+    if (x < minX || x > maxX) {
+      continue;
+    }
+    for (const y of ys) {
+      if (y >= minY && y <= maxY) {
+        candidates.set(`${x},${y}`, { x, y });
+      }
+    }
+  }
+
+  const ordered = [...candidates.values()].sort(
+    (first, second) => Math.hypot(first.x - at.x, first.y - at.y) - Math.hypot(second.x - at.x, second.y - at.y),
+  );
+  for (const candidate of ordered) {
+    if (direction && !movesInDirection(candidate, at, direction)) {
+      continue;
+    }
+    if (isFree(candidate)) {
+      return candidate;
+    }
+  }
+  return direction ? undefined : clampedAt;
+}
+
+/** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free. */
+export function alignedPlacement(
+  node: PlacedNode,
+  at: RenderPoint,
+  layout: CanvasLayout,
+  bounds: Box,
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
+): RenderPoint {
+  const nodeId = node.node.id;
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== nodeId && !entry.hidden);
+  const pairs: Array<{
+    port: PlacedPort;
+    other: PlacedPort;
+    otherNode: PlacedNode;
+    axis: "x" | "y";
+  }> = [];
+  for (const placed of layout.edges) {
+    if (placed.hidden) {
+      continue;
+    }
+    const edge = placed.edge;
+    const fromIsNode = edge.from === nodeId;
+    const toIsNode = edge.to === nodeId;
+    if (fromIsNode === toIsNode) {
+      continue;
+    }
+    const otherNode = layout.nodes.get(fromIsNode ? edge.to : edge.from);
+    if (!otherNode || otherNode.hidden) {
+      continue;
+    }
+    const ownPortId = fromIsNode ? edge.fromPort : edge.toPort;
+    const otherPortId = fromIsNode ? edge.toPort : edge.fromPort;
+    if (ownPortId === undefined || otherPortId === undefined) {
+      continue;
+    }
+    const port = node.ports.find((candidate) => candidate.port.id === ownPortId);
+    const other = otherNode.ports.find((candidate) => candidate.port.id === otherPortId);
+    if (!port || !other) {
+      continue;
+    }
+    const ownFace = portFace({ ...node.box, x: at.x, y: at.y }, port);
+    const otherFace = portFace(otherNode.box, other);
+    const axis =
+      (port.side === "east" && other.side === "west" && otherFace.x > ownFace.x) ||
+      (port.side === "west" && other.side === "east" && otherFace.x < ownFace.x)
+        ? "y"
+        : (port.side === "south" && other.side === "north" && otherFace.y > ownFace.y) ||
+            (port.side === "north" && other.side === "south" && otherFace.y < ownFace.y)
+          ? "x"
+          : undefined;
+    if (axis) {
+      pairs.push({ port, other, otherNode, axis });
+    }
+  }
+
+  const offsetAt = (
+    pair: (typeof pairs)[number],
+    position: RenderPoint,
+  ): number => {
+    const ownCenter = portCenter({ ...node.box, x: position.x, y: position.y }, pair.port);
+    const otherCenter = portCenter(pair.otherNode.box, pair.other);
+    return pair.axis === "x" ? otherCenter.x - ownCenter.x : otherCenter.y - ownCenter.y;
+  };
+  const xShifts = new Set([0]);
+  const yShifts = new Set([0]);
+  for (const pair of pairs) {
+    const offset = offsetAt(pair, at);
+    if (Math.abs(offset) > 1e-6 && Math.abs(offset) < MIN_JOG) {
+      (pair.axis === "x" ? xShifts : yShifts).add(offset);
+    }
+  }
+
+  const jogCount = (position: RenderPoint): number =>
+    pairs.reduce((count, pair) => {
+      const offset = Math.abs(offsetAt(pair, position));
+      return count + (offset > 1e-6 && offset < MIN_JOG ? 1 : 0);
+    }, 0);
+  let best: RenderPoint | undefined;
+  let bestJogs = Number.POSITIVE_INFINITY;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const xShift of xShifts) {
+    for (const yShift of yShifts) {
+      const candidate = { x: at.x + xShift, y: at.y + yShift };
+      const placed = freePlacement(node, candidate, others, bounds, portExitLeg);
+      if (
+        !placed ||
+        Math.abs(placed.x - candidate.x) > 1e-6 ||
+        Math.abs(placed.y - candidate.y) > 1e-6
+      ) {
+        continue;
+      }
+      const jogs = jogCount(candidate);
+      const distance = Math.hypot(xShift, yShift);
+      if (jogs < bestJogs || (jogs === bestJogs && distance < bestDistance)) {
+        best = candidate;
+        bestJogs = jogs;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best ?? at;
+}
+
+function orthogonalRoute(points: RenderPoint[]): boolean {
+  return points.every((point, index) => {
+    if (index === 0) {
+      return true;
+    }
+    const previous = points[index - 1];
+    return Math.abs(point.x - previous.x) <= 1e-6 || Math.abs(point.y - previous.y) <= 1e-6;
+  });
+}
+
+function routeDirection(start: RenderPoint, end: RenderPoint): RenderPoint {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+}
+
+function followsDirection(start: RenderPoint, end: RenderPoint, direction: RenderPoint): boolean {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  return (
+    length > 1e-6 &&
+    Math.abs(dx / length - direction.x) <= 1e-6 &&
+    Math.abs(dy / length - direction.y) <= 1e-6
+  );
+}
+
+function manhattanRoute(start: RenderPoint, startDirection: RenderPoint, end: RenderPoint, endDirection: RenderPoint): RenderPoint[] {
+  const a = {
+    x: start.x + startDirection.x * CLEARANCE,
+    y: start.y + startDirection.y * CLEARANCE,
+  };
+  const b = {
+    x: end.x + endDirection.x * CLEARANCE,
+    y: end.y + endDirection.y * CLEARANCE,
+  };
+  let middle: RenderPoint[];
+  if (startDirection.y === 0 && endDirection.y === 0) {
+    const dx = b.x - a.x;
+    if (dx === 0 || Math.sign(dx) === startDirection.x) {
+      const middleX = (a.x + b.x) / 2;
+      middle = [a, { x: middleX, y: a.y }, { x: middleX, y: b.y }, b];
+    } else {
+      const middleY = (a.y + b.y) / 2;
+      middle = [a, { x: a.x, y: middleY }, { x: b.x, y: middleY }, b];
+    }
+  } else if (startDirection.x === 0 && endDirection.x === 0) {
+    const dy = b.y - a.y;
+    if (dy === 0 || Math.sign(dy) === startDirection.y) {
+      const middleY = (a.y + b.y) / 2;
+      middle = [a, { x: a.x, y: middleY }, { x: b.x, y: middleY }, b];
+    } else {
+      const middleX = (a.x + b.x) / 2;
+      middle = [a, { x: middleX, y: a.y }, { x: middleX, y: b.y }, b];
+    }
+  } else if (startDirection.y === 0) {
+    middle = [a, { x: b.x, y: a.y }, b];
+  } else {
+    middle = [a, { x: a.x, y: b.y }, b];
+  }
+  return compactRoute([{ ...start }, ...middle, { ...end }]);
+}
+
+/** Moves an orthogonal route's ends to new points, keeping every segment orthogonal. */
+export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: RenderPoint): RenderPoint[] {
+  const points = compactRoute(route.map((point) => ({ ...point })));
+  if (!orthogonalRoute(points) || points.length < 2) {
+    return route;
+  }
+  const startDirection = routeDirection(points[0], points[1]);
+  const endDirection = routeDirection(points.at(-1)!, points.at(-2)!);
+  const finish = (result: RenderPoint[]): RenderPoint[] => {
+    const compacted = compactRoute(result);
+    if (
+      compacted.length >= 2 &&
+      followsDirection(compacted[0], compacted[1], startDirection) &&
+      followsDirection(compacted.at(-1)!, compacted.at(-2)!, endDirection)
+    ) {
+      return compacted;
+    }
+    return manhattanRoute(start, startDirection, end, endDirection);
+  };
+
+  if (points.length === 2) {
+    const [first, last] = points;
+    if (Math.abs(last.y - first.y) <= 1e-6) {
+      if (Math.abs(start.y - end.y) <= 1e-6) {
+        return finish([{ ...start }, { ...end }]);
+      }
+      const middleX = (start.x + end.x) / 2;
+      return finish([
+        { ...start },
+        { x: middleX, y: start.y },
+        { x: middleX, y: end.y },
+        { ...end },
+      ]);
+    }
+    if (Math.abs(start.x - end.x) <= 1e-6) {
+      return finish([{ ...start }, { ...end }]);
+    }
+    const middleY = (start.y + end.y) / 2;
+    return finish([
+      { ...start },
+      { x: start.x, y: middleY },
+      { x: end.x, y: middleY },
+      { ...end },
+    ]);
+  }
+
+  const startDx = start.x - points[0].x;
+  const startDy = start.y - points[0].y;
+  if (Math.abs(points[1].y - points[0].y) <= 1e-6) {
+    points[1].y += startDy;
+    if (points.length >= 4) {
+      points[1].x += startDx;
+      points[2].x += startDx;
+    }
+  } else {
+    points[1].x += startDx;
+    if (points.length >= 4) {
+      points[1].y += startDy;
+      points[2].y += startDy;
+    }
+  }
+  points[0] = { ...start };
+
+  const last = points.length - 1;
+  const endDx = end.x - points[last].x;
+  const endDy = end.y - points[last].y;
+  if (Math.abs(points[last].y - points[last - 1].y) <= 1e-6) {
+    points[last - 1].y += endDy;
+    if (points.length >= 4) {
+      points[last - 1].x += endDx;
+      points[last - 2].x += endDx;
+    }
+  } else {
+    points[last - 1].x += endDx;
+    if (points.length >= 4) {
+      points[last - 1].y += endDy;
+      points[last - 2].y += endDy;
+    }
+  }
+  points[last] = { ...end };
+  return finish(points);
+}
+
+/** Keeps each edge's previous orthogonal route, reattached to its current ends, where the new route is not orthogonal. */
+export function keepOrthogonalRoutes(next: CanvasLayout, previous: CanvasLayout): CanvasLayout {
+  let edges: PlacedEdge[] | undefined;
+  for (let index = 0; index < next.edges.length; index++) {
+    const edge = next.edges[index];
+    const old = previous.edges[index];
+    if (
+      edge.hidden ||
+      orthogonalRoute(edge.points) ||
+      !old ||
+      old.hidden ||
+      !orthogonalRoute(old.points) ||
+      edge.edge.from !== old.edge.from ||
+      edge.edge.to !== old.edge.to ||
+      edge.edge.fromPort !== old.edge.fromPort ||
+      edge.edge.toPort !== old.edge.toPort
+    ) {
+      continue;
+    }
+
+    const source = next.nodes.get(edge.edge.from);
+    const target = next.nodes.get(edge.edge.to);
+    const sourcePort = source?.ports.find((port) => port.port.id === edge.edge.fromPort);
+    const targetPort = target?.ports.find((port) => port.port.id === edge.edge.toPort);
+    const start = source && sourcePort ? portFace(source.box, sourcePort) : edge.points[0];
+    const end = target && targetPort ? portFace(target.box, targetPort) : edge.points.at(-1);
+    if (!start || !end) {
+      continue;
+    }
+    const points = reattachRoute(old.points, start, end);
+    edges ??= [...next.edges];
+    edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+  }
+  return edges ? { ...next, edges } : next;
+}
+
+function movesInDirection(candidate: RenderPoint, at: RenderPoint, direction: RenderPoint): boolean {
+  if (direction.x !== 0 && direction.y === 0) {
+    return (candidate.x - at.x) * direction.x > 0 && candidate.y === at.y;
+  }
+  if (direction.y !== 0 && direction.x === 0) {
+    return (candidate.y - at.y) * direction.y > 0 && candidate.x === at.x;
+  }
+  return false;
+}
+
+function inflate(box: Box, distance: number): Box {
+  return {
+    x: box.x - distance,
+    y: box.y - distance,
+    width: box.width + 2 * distance,
+    height: box.height + 2 * distance,
+  };
+}
+
+function intersectsBoxes(first: Box, second: Box): boolean {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
+}
+
+function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?: AutoLayout): void {
+  for (const entry of placed.values()) {
+    if (entry.hidden) {
+      continue;
+    }
+    const defaults = new Map<Side, PlacedPort[]>();
+    entry.ports = (entry.node.ports ?? []).map((port) => {
+      const laid = auto?.ports.get(port.id);
+      if (laid) {
+        return { port, side: laid.side, offset: laid.offset };
+      }
+      const side = defaultPortSide(entry, port, edges, placed);
+      const positioned = { port, side, offset: 0 };
+      const group = defaults.get(side) ?? [];
+      group.push(positioned);
+      defaults.set(side, group);
+      return positioned;
+    });
+    for (const group of defaults.values()) {
+      group.forEach((port, index) => {
+        port.offset = (index + 1) / (group.length + 1);
+      });
+    }
+  }
+}
+
+function defaultPortSide(entry: PlacedNode, port: RenderPort, edges: RenderEdge[], placed: Map<string, PlacedNode>): Side {
+  const edge = edges.find((candidate) =>
+    (candidate.from === entry.node.id && candidate.fromPort === port.id) ||
+    (candidate.to === entry.node.id && candidate.toPort === port.id),
+  );
+  if (!edge) {
+    return "south";
+  }
+  const other = placed.get(edge.from === entry.node.id ? edge.to : edge.from);
+  if (!other || other.hidden) {
+    return "south";
+  }
+  const here = center(entry.box);
+  const there = center(other.box);
+  const dx = there.x - here.x;
+  const dy = there.y - here.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? "east" : "west";
+  }
+  return dy >= 0 ? "south" : "north";
+}
+
+function includePortExtent(layout: CanvasLayout): CanvasLayout {
+  let left = layout.origin.x;
+  let top = layout.origin.y;
+  let right = layout.origin.x + layout.width;
+  let bottom = layout.origin.y + layout.height;
+  let hasPorts = false;
+  for (const entry of layout.nodes.values()) {
+    if (entry.hidden || entry.ports.length === 0) {
+      continue;
+    }
+    hasPorts = true;
+    const extent = nodeExtent(entry);
+    left = Math.min(left, extent.x);
+    top = Math.min(top, extent.y);
+    right = Math.max(right, extent.x + extent.width);
+    bottom = Math.max(bottom, extent.y + extent.height);
+  }
+  if (!hasPorts) {
+    return layout;
+  }
+  const origin = {
+    x: left < layout.origin.x ? left - MARGIN : layout.origin.x,
+    y: top < layout.origin.y ? top - MARGIN : layout.origin.y,
+  };
+  return {
+    ...layout,
+    origin,
+    width: Math.max(right + MARGIN, layout.origin.x + layout.width) - origin.x,
+    height: Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
+  };
+}
+
 // labelHead is a label's first line: the kind of an unnamed node, else the name
 // with its type when it has one.
 function labelHead(node: RenderNode): string {
@@ -462,7 +1062,11 @@ function routeEdge(
   }
   const start = anchor(from, inner[0] ?? center(to));
   const end = anchor(to, inner.at(-1) ?? center(from));
-  const points = [start, ...inner, end];
+  const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
+  const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
+  const startPoint = fromPort ? portFace(from, fromPort) : start;
+  const endPoint = toPort ? portFace(to, toPort) : end;
+  const points = [startPoint, ...inner, endPoint];
   return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true, rerouted: false };
 }
 
@@ -599,20 +1203,27 @@ function rerouteAroundBoxes(
       }
       return false;
     };
-    const shapes = new Map<string, Box>();
-    for (const [id, box] of [...leaves, ...containers]) {
+    const shapes = new Map<string, AvoidShape>();
+    for (const [id] of [...leaves, ...containers]) {
       if (!covered(placed.get(id)!) && (!containers.has(id) || !exempt.has(id))) {
-        shapes.set(id, box);
+        shapes.set(id, avoidShape(placed.get(id)!));
       }
     }
     for (const index of group) {
       const edge = edges[index].edge;
-      shapes.set(edge.from, placed.get(edge.from)!.box);
-      shapes.set(edge.to, placed.get(edge.to)!.box);
+      shapes.set(edge.from, avoidShape(placed.get(edge.from)!));
+      shapes.set(edge.to, avoidShape(placed.get(edge.to)!));
     }
     const routes = avoidRoutes(
       shapes,
-      group.map((index) => ({ index, from: edges[index].edge.from, to: edges[index].edge.to })),
+      group.map((index) => ({
+        index,
+        from: edges[index].edge.from,
+        to: edges[index].edge.to,
+        fromPort: edges[index].edge.fromPort,
+        toPort: edges[index].edge.toPort,
+      })),
+      overrides.bounds,
     );
     if (!routes) {
       continue;
@@ -626,6 +1237,13 @@ function rerouteAroundBoxes(
       edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
     }
   }
+}
+
+function avoidShape(entry: PlacedNode): AvoidShape {
+  return {
+    box: entry.box,
+    ports: entry.ports.map(({ port, side, offset }) => ({ id: port.id, side, offset })),
+  };
 }
 
 function center(box: Box): RenderPoint {

@@ -43,6 +43,7 @@ case_() {
 }
 
 case_ docs-only docs docs/guide/index.md
+case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
 case_ java-module java,mdk client/java/opensysml-client/pom.xml
