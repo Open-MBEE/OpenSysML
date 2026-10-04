@@ -96,7 +96,7 @@ type cachedModel struct {
 	typed     *semantics.Model
 }
 
-// typed builds the checker-typed model and resolver the runtime and renderer
+// typedModel builds the checker-typed model and resolver the runtime and renderer
 // share.
 func (m *cachedModel) typedModel() (*resolve.Resolver, *semantics.Model) {
 	if m.typed == nil {
