@@ -7,10 +7,11 @@ stmt if
   eval operator == -> true
   stmt node forked
 enter action node: forked
+enter action node: quit
     stmt assign inner
       eval literal 2 -> 2
     stmt terminate
-terminate action node node: dropped token 3@waiter, token 4@quit
+terminate action node node: dropped token 3@waiter, token 4@terminate node
 step 2: token 1@tail
 stmt assign after
   eval literal 5 -> 5

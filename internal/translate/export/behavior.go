@@ -90,6 +90,10 @@ const (
 // libraryDone is the library feature a `done;` member names.
 var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
 
+var libraryStateStart = ast.QualifiedNameOf("States", "StateAction", "start")
+
+var libraryTransitionLinkSource = ast.QualifiedNameOf("Actions", "TransitionAction", "transitionLinkSource")
+
 // libraryReference is the subject of a standard library element named from
 // the global scope, or its name when no library is loaded.
 func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
@@ -1167,6 +1171,11 @@ func (d *decoder) membershipKeyword(el *element) string {
 	}
 	switch el.metaclass {
 	case mSuccession:
+		if source, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pSourceFeature); ok {
+			if start, err := d.referencedElement(source.Value); err == nil && start.qname == qualifiedText(libraryStateStart) {
+				return "first"
+			}
+		}
 		return ""
 	case mAlias:
 		return "alias"
@@ -1510,6 +1519,16 @@ func (d *decoder) successionChild(src *keptSources, child *element) (bool, error
 		from := src.sourceBefore(1)
 		if positionalTarget {
 			from = src.sourceBeforeMember(target)
+			targetKept := false
+			for _, member := range src.kept {
+				if member == target {
+					targetKept = true
+					break
+				}
+			}
+			if !targetKept {
+				from = src.sourceBefore(0)
+			}
 		}
 		if err := d.attachable(child, from); err != nil {
 			return false, err
@@ -1628,7 +1647,11 @@ func (d *decoder) sequencesFrom(el, from *element) bool {
 		return false
 	}
 	if term, positional := d.graph.Object(rdf.IRI(el.iri), rdf.OpenSysML+xSourceMember); positional {
-		return term.Value == from.iri
+		if term.Value == from.iri {
+			return true
+		}
+		answers, ok := d.answersTo(from)
+		return ok && term.Equal(answers)
 	}
 	source, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
 	if !ok {
@@ -1898,7 +1921,11 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		return "", "", err
 	}
 	words = append(words, triggerWords...)
-	if guard, ok := d.stringOf(el, rdf.OpenSysML+xGuard); ok {
+	guard, err := d.transitionGuard(el)
+	if err != nil {
+		return "", "", err
+	}
+	if guard != "" {
 		words = append(words, "if", guard)
 	}
 	effect, body, hasEffect, hasBody, err := d.transitionMembers(el)
@@ -1918,6 +1945,68 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		return "", "", err
 	}
 	return strings.Join(words, " "), bodyText, nil
+}
+
+func (d *decoder) transitionGuard(el *element) (string, error) {
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
+	}
+	subject := rdf.IRI(el.iri)
+	var guards []rdf.Term
+	for _, membership := range d.graph.Objects(subject, rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) != mTransitionFeatureMembership {
+			continue
+		}
+		kind, _ := d.graph.Lexical(membership, rdf.SysML+pKind)
+		if kind != "guard" {
+			continue
+		}
+		member := firstIRI(d.graph, membership, pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedRelatedElement)
+		if member.Value == "" {
+			return "", refuse("its TransitionFeatureMembership of kind `guard` names no expression")
+		}
+		guards = append(guards, member)
+	}
+	if len(guards) > 1 {
+		return "", refuse(fmt.Sprintf("it owns %d guard features, and the transition notation writes one `if` clause", len(guards)))
+	}
+	stated := d.graph.Objects(subject, rdf.SysML+"guardExpression")
+	if len(stated) > 1 {
+		return "", refuse("it states more than one sysml:guardExpression, and the transition notation writes one `if` clause")
+	}
+	if len(guards) > 0 && len(stated) > 0 && guards[0] != stated[0] {
+		return "", refuse("its guard membership and sysml:guardExpression name different expressions")
+	}
+	var guard rdf.Term
+	if len(guards) > 0 {
+		guard = guards[0]
+	} else if len(stated) > 0 {
+		guard = stated[0]
+	}
+	if guard.Value == "" {
+		text, _ := d.stringOf(el, rdf.OpenSysML+xGuard)
+		return text, nil
+	}
+	var text string
+	var err error
+	if guard.IsLiteral() {
+		if guard.Datatype != rdf.OpenSysML+dtExpression {
+			return "", refuse("its guard is a literal that is not a SysML expression")
+		}
+		text = guard.Value
+	} else {
+		text, err = d.expressionNodeText(guard, el)
+		if err != nil {
+			return "", err
+		}
+	}
+	if text == "" {
+		return "", refuse("its guard expression has no notation")
+	}
+	if written, ok := d.stringOf(el, rdf.OpenSysML+xGuard); ok && written != text {
+		return "", refuse("its sysx:guard text disagrees with the guard expression")
+	}
+	return text, nil
 }
 
 // effectText writes a transition's `do` effect members.
@@ -2369,9 +2458,8 @@ func (d *decoder) triggerReceiver(el, accepter, payload *element) (string, error
 	return d.expressionNodeText(receiver, el)
 }
 
-// transitionMembers partitions a transition's members into effect and body:
-// members are linked as effect or body; unlinked members are from a mapping
-// that owned the effect alone, with sysx:hasBody its braces.
+// transitionMembers partitions linked effects and body members. Unlinked legacy
+// members are effects only when they are not parameters.
 func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEffect, hasBody bool, err error) {
 	inEffect := d.linked(el, xEffectMember)
 	inBody := d.linked(el, xBodyMember)
@@ -2396,6 +2484,13 @@ func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEf
 		}
 	}
 	legacy := len(children) > 0 && len(inEffect) == 0 && len(inBody) == 0
+	for _, child := range children {
+		if m, owned := d.owningMembership[child.iri]; owned &&
+			d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+			legacy = false
+			break
+		}
+	}
 	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect) || (!collapsed && len(inEffect) > 0)
 	hasBody = d.boolOf(el, rdf.OpenSysML+xHasBody)
 	// A braced effect is one anonymous action; a graph that wrote it as the

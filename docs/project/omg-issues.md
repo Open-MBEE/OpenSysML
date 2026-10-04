@@ -782,6 +782,7 @@ and not from a disagreement alone.
 | `org.omg.sysml.xtext` — `SysMLValidator.isDuration`/`isTime`, behind `validateTriggerInvocationActionAfterArgument` and `…AtArgument` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | with `d : DurationValue` and `t : TimeInstantValue`, `accept after d * d` and `accept at t * t` validate clean although the product has dimension T², while `accept after 10 [m] / 2 [m/s]`, whose quotient has dimension T, is refused | established from the pinned `SysMLValidator` class: an operator argument is a duration or an instant when its operator is one of `-`, `+`, `*`, `%`, `^`, `**` (`isQuantityOperator`) and every operand is itself one — `/` is not in the list and no dimension is computed; reproduced with the pinned batch validator, transcript below | **not filed** — question drafted below, awaiting maintainer authorisation |
 | `org.omg.sysml.interactive` — the expression evaluator over `OccurrenceFunctions` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | `OccurrenceFunctions::'==='(w1, w1)` evaluates to `false` while `w1 === w1` and `BaseFunctions::'==='(w1, w1)` evaluate to `true`; `isDuring(1)` and `isDuring("x")` evaluate to `true`; `create`, `destroy`, `addNew` and `addNewAt` answer their `occ` argument for any argument, an out-of-range `addNewAt` index included | established by evaluating the calls through the pinned pilot's own headless evaluator (`build/pilot-evaluator/eval-sysml --cases`, transcript below): the evaluator folds each declared body over the *declarations* (`x.portionOfLife == y.portionOfLife` over features no value has, `notEmpty(during)` over the function's own feature) rather than over occurrences, so its answers contradict its own operator | **not filed** — question drafted below, awaiting maintainer authorisation |
 | `org.omg.sysml.xtext` — the accessible-feature check on succession ends | `2026-08` (`jupyter-sysml-kernel` 0.62.0) | a package-owned succession whose ends name members of one type by qualified name (`first r::move then r::grip;` with `part r : Robot`) reports `Must be an accessible feature (use dot notation for nesting)` at each end, while `connect r::move to r::grip;` with the same ends validates clean | established by running the pinned `validate-sysml-batch` on the two models below. KerML §8.3.4.5.3 `deriveConnectorDefaultFeaturingType` and the implied TypeFeaturing of §8.4.4.6.1 (Table 11 note 2) feature both by `Robot`, so both are well formed. OpenSysML follows the specification ([spec-pilot-gap-register.md](spec-pilot-gap-register.md#21-a-succession-whose-ends-are-qualified-names)) | **not filed** — question drafted below, awaiting maintainer authorisation |
+| `org.omg.sysml.logic` — `Membership_isDistinguishableFrom_InvocationDelegate`, behind `KerMLValidator`'s `validateNamespaceDistinguishability` check | `2026-08` (`jupyter-sysml-kernel` 0.62.0) | two owned members with one name and unrelated metaclasses (`part def A; attribute def A;`, `class A; datatype A;`) each draw `Duplicate of other owned member name` | established from the pinned source: the delegate compares names only, under `// TODO: Add member element metaclass check`, where KerML §8.3.2.4.3 `Membership::isDistinguishableFrom` also makes two members distinguishable when neither member element's metaclass conforms to the other's. For OpenSysML, see [spec-pilot-gap-register.md §13](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions) | **not filed** — drafted below, awaiting maintainer authorisation |
 
 ### `Type::ownedDisjoining` does not contain a `Disjoining` whose `owningType` is that `Type` (pilot `2026-05`)
 
@@ -1711,6 +1712,58 @@ dot-chain succession `first r.move then r.grip;`.
 
 ---
 
+### Members of unrelated kinds with one name are reported as indistinguishable (pilot `2026-08`)
+
+**Not filed — awaiting maintainer authorisation.** Nothing has been posted upstream. For
+OpenSysML, see [spec-pilot-gap-register.md §13](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions).
+
+````markdown
+### `Membership::isDistinguishableFrom` ignores its metaclass clause, so members of unrelated kinds draw duplicate-name warnings
+
+**Version:** `2026-08` (`jupyter-sysml-kernel` 0.62.0, `validate-sysml-batch` and `validate-kerml`
+over the shipped standard library).
+
+#### Minimal reproduction
+
+```sysml
+package P { part def A; attribute def A; }
+```
+
+and in KerML `package P { class A; datatype A; }`.
+
+#### Expected
+
+No diagnostics. KerML 1.0 §8.3.2.4.3 `Membership::isDistinguishableFrom` is true when "neither of
+the metaclasses of the memberElement of this Membership and the memberElement of the other
+Membership conform to the other", with body
+`not (memberElement.oclKindOf(other.memberElement.oclType()) or other.memberElement.oclKindOf(memberElement.oclType())) or …`.
+`PartDefinition` and `AttributeDefinition` do not conform to each other, nor do `Class` and
+`DataType`, so each pair is distinguishable and `validateNamespaceDistinguishability` holds.
+
+#### Actual
+
+```
+distinguish.sysml:1:22: warning: Duplicate of other owned member name
+distinguish.sysml:1:39: warning: Duplicate of other owned member name
+```
+
+```
+distinguish.kerml:1:19: warning: Duplicate of other owned member name
+distinguish.kerml:1:31: warning: Duplicate of other owned member name
+```
+
+`Membership_isDistinguishableFrom_InvocationDelegate.dynamicInvoke` opens with
+`// TODO: Add member element metaclass check` and compares `memberName` and `memberShortName`
+only.
+````
+
+The `// TODO: Add validateOperatorExpressionCastConformance` in
+`KerMLValidator.checkOperatorExpression` has no entry here: the check follows the comment and
+reports `Cast argument should have conforming types`, so the comment is stale and no behaviour is
+wrong ([spec-pilot-gap-register.md](spec-pilot-gap-register.md#26-validation-constraints-marked-todo-in-the-pilot-source)).
+
+---
+
 ## Defects in the PSSM test suite
 
 This section records defects in the **OMG PSSM test suite** (`PSSM_TestSuite.xmi`, the UML
@@ -2195,3 +2248,59 @@ view) — all without any specification change, demonstrating that only the
 
 Not yet submitted; the text above is the draft a maintainer would file through the
 [OMG issue reporting form](https://issues.omg.org/issues/create-new-issue).
+
+## Proposed specification issue: a KerML metaclass cannot type a SysML metadata usage (KERML-90 follow-up)
+
+**Not filed — awaiting maintainer authorisation.** Against **KerML 1.0** (formal/2026-03-01)
+§8.3.4.12.3 and **SysML 2.0** (formal/2026-03-02) §8.3.27.3. The pinned pilot's
+`KerMLValidator.checkMetadataFeature` carries "TODO: Submit new issue to revise this to actually
+fix the problem KERML-90 was trying to address". The analysis is
+[spec-pilot-gap-register.md](spec-pilot-gap-register.md#22-a-kerml-metaclass-as-the-type-of-a-sysml-metadata-usage-kerml-90).
+
+````markdown
+**Title:** The resolution of KERML-90 does not let a KerML metaclass type a SysML metadata usage
+
+**Nature:** revision. **Severity:** minor.
+
+KERML-90 (closed in KerML 1.0b2) changed `MetadataFeature::metaclass` from a redefinition of
+`type` to a subset of it, so that a SysML metadata usage typed by a KerML metaclass would be
+valid. It is not. In
+
+```sysml
+package P { part def A { metadata m : KerML::Classifier; } }
+```
+
+`checkMetadataUsageSpecialization` (SysML §8.3.27.3) requires `m` to specialize
+`Metadata::metadataItems`, which is typed by the abstract metadata definition
+`Metadata::MetadataItem`. `KerML::Classifier` does not specialize `MetadataItem`, so `m` has two
+types, both Metaclasses, and `validateMetadataFeatureMetaclass` (KerML §8.3.4.12.3,
+`type->selectByKind(Metaclass).size() = 1`) fails. The pilot (`2026-08`) reports
+`Must have exactly one metaclass` and `Must have a concrete type`, the second because the
+implied `MetadataItem` is abstract. In KerML the same declaration is valid: the implied type
+`Metaobjects::Metaobject` is specialized by every metaclass, so only one type remains.
+
+**Proposal:** decide whether a KerML metaclass that does not specialize `MetadataItem` may type
+a SysML metadata usage. If it may, count only the declared types in
+`validateMetadataFeatureMetaclass` and `validateMetadataFeatureMetaclassNotAbstract` (or do not
+apply `checkMetadataUsageSpecialization` when the declared metaclass does not specialize
+`MetadataItem`). If it may not, state it in SysML, for example by typing
+`MetadataUsage::metadataDefinition` by `MetadataDefinition` rather than `Metaclass`.
+````
+
+## Specification issues already filed that the pilot's source cites
+
+Two of the issues the pinned pilot's source cites are open, so no new draft is needed. Each has
+a register item, and the additions below would be comments on the existing issue. **Not filed —
+awaiting maintainer authorisation.**
+
+- [SYSML21-306](https://issues.omg.org/issues/SYSML21-306): the OCL of
+  `checkDecisionNodeOutgoingSuccessionSpecialization` names
+  `ControlPerformances::MergePerformance::outgoingHBLink`. The prose of SysML §8.4.13.4 repeats the
+  mix-up ("requires that any incoming Succession to a MergeNode specialize the Feature
+  DecisionPerformance::outgoingHBLink") and should be corrected with it.
+  [Register item](spec-pilot-gap-register.md#23-decision-node-outgoing-and-merge-node-incoming-successions-are-not-given-their-implied-subsetting-sysml21-306).
+- [SYSML21-185](https://issues.omg.org/issues/SYSML21-185): the default `[1..1]` of SysML §7.6.3
+  has no normative statement. Its third condition withholds the default for any explicit owned
+  subsetting, while the pilot withholds it only for a subsetting of a feature that has an owning
+  type; the formal rule should settle which.
+  [Register item](spec-pilot-gap-register.md#24-default-multiplicity-of-a-usage-sysml21-185).

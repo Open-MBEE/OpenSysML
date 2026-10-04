@@ -117,12 +117,13 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
 	droppedMemberIndexes := map[string]bool{}
 	var indexes []rootIndex
-	for _, subject := range graph.Subjects() {
+	subjects := graph.Subjects()
+	for _, subject := range subjects {
 		if !transparentRootSubject(graph, subject) {
 			continue
 		}
 		dropped[subject.Value] = true
-		restated, dropIndexes := rootMemberIndexes(graph, rootNamespaceMembers(graph, subject))
+		restated, dropIndexes := rootMemberIndexes(graph, rootNamespaceMembers(graph, subject), subjects)
 		indexes = append(indexes, restated...)
 		if dropIndexes {
 			for _, index := range restated {
@@ -138,22 +139,15 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	if len(dropped) == 0 {
 		return graph
 	}
-	out := rdf.NewGraph()
-	for prefix, iri := range graph.Prefixes {
-		out.Prefixes[prefix] = iri
-	}
-	for _, triple := range graph.Triples() {
-		if dropped[triple.Subject.Value] ||
-			dropped[triple.Object.Value] && triple.Object.IsIRI() ||
-			droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex {
-			continue
-		}
-		out.AddTriple(triple)
-	}
+	graph.RewriteTriples(func(triple *rdf.Triple) bool {
+		return !dropped[triple.Subject.Value] &&
+			!(dropped[triple.Object.Value] && triple.Object.IsIRI()) &&
+			!(droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex)
+	})
 	for _, index := range indexes {
-		out.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
+		graph.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
 	}
-	return out
+	return graph
 }
 
 type rootIndex struct {
@@ -165,7 +159,7 @@ type rootIndex struct {
 // wrapper's order is dropped, and whether the indexes the members state are
 // replaced: none when the members all state one, or state none and appear in
 // the wrapper's order already.
-func rootMemberIndexes(graph *rdf.Graph, members []rdf.Term) ([]rootIndex, bool) {
+func rootMemberIndexes(graph *rdf.Graph, members, subjects []rdf.Term) ([]rootIndex, bool) {
 	indexed := 0
 	listed := make(map[string]bool, len(members))
 	for _, member := range members {
@@ -179,7 +173,7 @@ func rootMemberIndexes(graph *rdf.Graph, members []rdf.Term) ([]rootIndex, bool)
 		return nil, false
 	case indexed > 0:
 		return rootIndexesOf(members), true
-	case inSubjectOrder(graph, members, listed):
+	case inSubjectOrder(subjects, members, listed):
 		return nil, false
 	}
 	return rootIndexesOf(members), false
@@ -195,9 +189,9 @@ func rootIndexesOf(members []rdf.Term) []rootIndex {
 
 // inSubjectOrder reports whether the graph lists the members as subjects in
 // the given order.
-func inSubjectOrder(graph *rdf.Graph, members []rdf.Term, listed map[string]bool) bool {
+func inSubjectOrder(subjects, members []rdf.Term, listed map[string]bool) bool {
 	var subjectOrder []rdf.Term
-	for _, candidate := range graph.Subjects() {
+	for _, candidate := range subjects {
 		if listed[candidate.Value] {
 			subjectOrder = append(subjectOrder, candidate)
 		}
@@ -266,12 +260,12 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 	return roots
 }
 
-// LibraryReference reports whether subject names a standard library element
-// (or its owning membership) the graph references rather than declares: marked
-// sysml:isLibraryElement, with no owner in the graph.
+// LibraryReference reports whether subject names a library element the graph
+// references rather than declares: it has no owner or owned relationships.
 func LibraryReference(graph *rdf.Graph, subject rdf.Term) bool {
 	return graph.BoolValue(subject, rdf.SysML+pIsLibraryElement) && !hasOwner(graph, subject) &&
-		!graph.HasProperty(subject, rdf.SysML+pMembershipOwningNamespace)
+		!graph.HasProperty(subject, rdf.SysML+pMembershipOwningNamespace) &&
+		!graph.HasProperty(subject, rdf.SysML+pOwnedRelationship)
 }
 
 func hasOwner(graph *rdf.Graph, subject rdf.Term) bool {

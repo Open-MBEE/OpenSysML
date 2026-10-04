@@ -17,7 +17,7 @@ package test {
 			state go {
 				entry action set {
 					assign raw := "x";
-					assign cell.mark := raw;
+					then assign cell.mark := raw;
 				}
 			}
 		}

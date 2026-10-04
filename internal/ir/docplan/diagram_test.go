@@ -267,7 +267,7 @@ func TestCompileDiagramRejectsPaletteOnATable(t *testing.T) {
 	if planning.Kind != ErrorUnsupportedPalette || planning.Expected != "table" || planning.Actual != "viridis" {
 		t.Fatalf("error = %+v", planning)
 	}
-	want := `document Observatory::Report diagram Observatory::Report::imaging states palette "viridis", but a table rendering has no DOT, Mermaid or PlantUML form to fill`
+	want := `document Observatory::Report diagram Observatory::Report::imaging states palette "viridis", but a table rendering has no DOT, Mermaid, PlantUML or D2 form to fill`
 	if planning.Error() != want {
 		t.Fatalf("error = %q, want %q", planning.Error(), want)
 	}

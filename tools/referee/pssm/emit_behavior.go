@@ -194,7 +194,7 @@ func (e *emitter) boundEntry(bh *Behavior, ind, where, base string) (string, err
 	var b strings.Builder
 	b.WriteString(" {\n")
 	writeStmts(&b, ind+"    ", params)
-	writeStmts(&b, ind+"    ", stmts)
+	writeSequence(&b, ind+"    ", stmts)
 	fmt.Fprintf(&b, "%s}", ind)
 	return b.String(), nil
 }
@@ -386,7 +386,7 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 	b.WriteString("        first start;\n")
 	if len(stmts) > 0 {
 		b.WriteString("        then action body {\n")
-		writeStmts(&b, "            ", stmts)
+		writeSequence(&b, "            ", stmts)
 		b.WriteString("        }\n")
 	}
 	b.WriteString("        then done;\n    }\n")

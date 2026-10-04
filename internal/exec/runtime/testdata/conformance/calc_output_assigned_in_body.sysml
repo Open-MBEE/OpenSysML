@@ -32,10 +32,10 @@ package test {
 		attribute i : Integer = 1;
 		while i <= n {
 			assign s := s + i;
-			assign i := i + 1;
+			then assign i := i + 1;
 		}
-		assign total := s;
-		if s > 10 {
+		then assign total := s;
+		then if s > 10 {
 			assign size := "big";
 		} else {
 			assign size := "small";
@@ -49,9 +49,9 @@ package test {
 		out total : Integer;
 		attribute i : Integer = 1;
 		assign total := 0;
-		while i <= n {
+		then while i <= n {
 			assign total := total + i;
-			assign i := i + 1;
+			then assign i := i + 1;
 		}
 	}
 
@@ -60,7 +60,7 @@ package test {
 		inout p : Integer;
 		out q : Integer;
 		assign p := p + 1;
-		assign q := p * 10;
+		then assign q := p * 10;
 	}
 
 	// A body that returns a value of its own leaves an output it assigned alone: the
