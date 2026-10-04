@@ -4,9 +4,12 @@ OpenSysML is Go, and Go compiles it for two WebAssembly targets. This page says 
 for, how to build and run them, what works in them, and what a WebAssembly host cannot do —
 with the message each limitation answers with, so a refusal is never mistaken for a defect.
 
-No WebAssembly artifact ships in a release: releases are native binaries for Linux, macOS and
-Windows. The WebAssembly builds are built from source, for a host that runs modules rather than
-executables.
+Stable releases ship `sysml-wasm.wasm` with its matching `wasm_exec.js`, list
+both in the signed `SHA256SUMS.txt`, and cover them with SLSA provenance.
+Nightly snapshots list the same assets in their cosign-signed checksum
+manifest; like every nightly asset, they have no SLSA provenance. The npm
+package `@openmbee/opensysml-wasm` carries both assets. Other WebAssembly builds
+remain available from source for hosts that run modules rather than executables.
 
 ## Building
 
@@ -34,7 +37,8 @@ beside it.
 `make build-engine`, `make build-core`, `make build-syntax` and `make build-sysml-wasm`
 build the JSON commands natively into `bin/`, where each serves its JSON-RPC over standard
 input and output as its WASI build does. They are opt-in as well: `make build` and
-`make install` leave them out, and no release ships them.
+`make install` leave them out of the native executables; the combined JavaScript
+WebAssembly module is published separately.
 
 `make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
 (`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
@@ -210,6 +214,11 @@ Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes wi
 `-9`, and 3,843,951 bytes with Brotli.
 
 ## The combined module
+
+The Node and browser client adapter is documented in
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
+Stable and nightly releases include the module and matching runtime; the npm
+package is `@openmbee/opensysml-wasm`.
 
 `sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
 `sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
