@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { after, test } from "node:test";
@@ -19,10 +21,13 @@ import {
   connectWasmHost,
   createWasmTransport,
   instantiateInline,
+  loadGoConstructor,
   serveWasmPort,
+  WorkerWasmHost,
   type GoConstructor,
   type WasmHost,
   type WasmPortLike,
+  type WasmWorkerEndpoint,
   type WasmWorkerRequest,
   type WasmWorkerResponse,
 } from "../src/core/wasm.js";
@@ -169,6 +174,136 @@ test("worker ports initialize, answer calls, and return initialization errors", 
   broken.client.postMessage({ type: "init", wasm: emptyWasm });
   const initError = await waitFor(brokenMessages, (message) => message.type === "failed");
   assert.deepEqual(initError, { type: "failed", message: "invalid module" });
+});
+
+test("Go constructors are cached per runtime script and restore the previous global", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const pathA = join(directory, "go-a.mjs");
+  const pathB = join(directory, "go-b.mjs");
+  writeFileSync(pathA, "globalThis.Go = class GoA {};\n");
+  writeFileSync(pathB, "globalThis.Go = class GoB {};\n");
+  runtime.Go = FakeGo;
+
+  try {
+    const goA = await loadGoConstructor(pathToFileURL(pathA).href);
+    const goB = await loadGoConstructor(pathToFileURL(pathB).href);
+    const goAAgain = await loadGoConstructor(pathToFileURL(pathA).href);
+
+    assert.equal(goA.name, "GoA");
+    assert.equal(goB.name, "GoB");
+    assert.strictEqual(goAAgain, goA);
+    assert.strictEqual(runtime.Go, FakeGo);
+  } finally {
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Go constructor load failures are not cached", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const path = join(directory, "go-retry.mjs");
+  const specifier = `${pathToFileURL(path).href}?missing`;
+  writeFileSync(path, "export {};\n");
+  delete runtime.Go;
+
+  try {
+    const firstFailure = loadGoConstructor(specifier);
+    await assert.rejects(firstFailure, /Go is unavailable/);
+    const retry = loadGoConstructor(specifier);
+    assert.notStrictEqual(retry, firstFailure);
+    await assert.rejects(retry, /Go is unavailable/);
+
+    writeFileSync(path, "globalThis.Go = class GoRetry {};\n");
+    const GoRetry = await loadGoConstructor(`${pathToFileURL(path).href}?retry`);
+    assert.equal(GoRetry.name, "GoRetry");
+  } finally {
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("worker calls remove aborted pending entries and ignore late answers", async () => {
+  const posted: WasmWorkerRequest[] = [];
+  let onMessage: ((message: WasmWorkerResponse) => void) | undefined;
+  const endpoint: WasmWorkerEndpoint = {
+    post(message) {
+      posted.push(message);
+      if (message.type === "init") {
+        onMessage?.({ type: "ready", version: "fake-worker" });
+      }
+    },
+    onMessage(listener) {
+      onMessage = listener;
+    },
+    onFailure() {},
+    terminate() {},
+  };
+  const host = new WorkerWasmHost(endpoint);
+  await host.start({ type: "init", wasm: emptyWasm }, []);
+
+  const controllers = Array.from({ length: 100 }, () => new AbortController());
+  const calls = controllers.map((controller) =>
+    host.call("NeverAnswers", "{}", controller.signal),
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const requests = posted.filter(
+    (message): message is Extract<WasmWorkerRequest, { type: "call" }> =>
+      message.type === "call",
+  );
+  assert.equal(requests.length, 100);
+
+  for (const controller of controllers) {
+    controller.abort(new ConnectError("cancelled", Code.Canceled));
+  }
+  const results = await Promise.allSettled(calls);
+  assert.ok(
+    results.every(
+      (result) =>
+        result.status === "rejected" &&
+        result.reason instanceof ConnectError &&
+        result.reason.code === Code.Canceled,
+    ),
+  );
+  const pending = (host as unknown as { pending: Map<number, unknown> }).pending;
+  assert.equal(pending.size, 0);
+
+  const alreadyAborted = new AbortController();
+  alreadyAborted.abort(new ConnectError("cancelled", Code.Canceled));
+  const postedBeforeAbortedCall = posted.length;
+  await assert.rejects(host.call("AlreadyAborted", "{}", alreadyAborted.signal), {
+    code: Code.Canceled,
+  });
+  assert.equal(posted.length, postedBeforeAbortedCall);
+
+  const firstRequest = requests[0];
+  assert.ok(firstRequest);
+  onMessage?.({ type: "answer", id: firstRequest.id, envelope: "late answer" });
+  assert.equal(pending.size, 0);
+
+  const normalCall = host.call("AfterCancel", "{}");
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const normalRequest = posted.find(
+    (message): message is Extract<WasmWorkerRequest, { type: "call" }> =>
+      message.type === "call" && message.method === "AfterCancel",
+  );
+  assert.ok(normalRequest);
+  onMessage?.({ type: "answer", id: normalRequest.id, envelope: "normal answer" });
+  assert.equal(await normalCall, "normal answer");
+  assert.equal(pending.size, 0);
+
+  await host.close();
 });
 
 test("browser WASM workers connect through the shared request protocol", async () => {

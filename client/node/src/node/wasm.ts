@@ -32,7 +32,7 @@ export async function connectWasm(options: WasmConnectOptions): Promise<Connecti
   let host: WasmHost;
   if (options.thread === "inline") {
     const module = await loadNodeWasm(options.wasm);
-    const Go = await loadGoConstructor(wasmExec, true);
+    const Go = await loadGoConstructor(wasmExec);
     host = await instantiateInline(module, Go);
   } else {
     host = await startWorker(options.wasm, wasmExec);

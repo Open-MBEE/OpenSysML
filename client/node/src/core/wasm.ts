@@ -22,7 +22,7 @@ import { encodingOf, interceptors, timeoutOf } from "./transport.js";
 /** A host surface implemented by an inline Go runtime or a worker. */
 export interface WasmHost {
   readonly version: string;
-  call(method: string, params: string): Promise<string>;
+  call(method: string, params: string, signal?: AbortSignal): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -34,6 +34,9 @@ export interface GoRuntime {
 
 /** A constructor exported globally by wasm_exec.js. */
 export type GoConstructor = new () => GoRuntime;
+
+const goConstructors = new Map<string, Promise<GoConstructor>>();
+let goConstructorLoads = Promise.resolve();
 
 export type WorkerWasmSource = string | ArrayBuffer | Uint8Array | WebAssembly.Module;
 
@@ -192,7 +195,7 @@ export function createWasmTransport(host: WasmHost, options: TransportOptions): 
           throw abortError(request.signal);
         }
         const params = JSON.stringify(toJson(method.input, request.message));
-        const answer = host.call(method.name, params);
+        const answer = host.call(method.name, params, request.signal);
         const envelope = await withAbort(answer, request.signal);
         const body = readEnvelope(envelope);
         return {
@@ -268,10 +271,7 @@ export async function connectWasmHost(
 export class WorkerWasmHost implements WasmHost {
   version = "";
 
-  private readonly pending = new Map<
-    number,
-    { resolve: (envelope: string) => void; reject: (error: unknown) => void }
-  >();
+  private readonly pending = new Map<number, PendingWorkerCall>();
   private readonly ready: Promise<void>;
   private resolveReady!: () => void;
   private rejectReady!: (error: unknown) => void;
@@ -301,21 +301,43 @@ export class WorkerWasmHost implements WasmHost {
     return this;
   }
 
-  async call(method: string, params: string): Promise<string> {
+  async call(method: string, params: string, signal?: AbortSignal): Promise<string> {
+    if (signal?.aborted) {
+      throw abortError(signal);
+    }
     this.throwIfFailed();
     if (this.closed) {
       throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
     }
-    await this.ready;
+    if (signal === undefined) {
+      await this.ready;
+    } else {
+      await withAbort(this.ready, signal);
+    }
+    if (signal?.aborted) {
+      throw abortError(signal);
+    }
     this.throwIfFailed();
+    this.throwIfClosed();
     const id = this.nextId++;
     return new Promise<string>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      if (signal === undefined) {
+        this.pending.set(id, { resolve, reject });
+      } else {
+        const onAbort = (): void => {
+          this.removePending(id)?.reject(abortError(signal));
+        };
+        this.pending.set(id, { resolve, reject, signal, onAbort });
+        signal.addEventListener("abort", onAbort, { once: true });
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+      }
       try {
         this.endpoint.post({ type: "call", id, method, params }, []);
       } catch (error) {
-        this.pending.delete(id);
-        reject(ConnectError.from(error, Code.Unavailable));
+        this.removePending(id)?.reject(ConnectError.from(error, Code.Unavailable));
       }
     });
   }
@@ -331,10 +353,9 @@ export class WorkerWasmHost implements WasmHost {
       // A worker that has already failed has no message loop to close.
     }
     const closed = new ConnectError("the sysml-wasm worker was closed", Code.Unavailable);
-    for (const pending of this.pending.values()) {
-      pending.reject(closed);
+    for (const id of this.pending.keys()) {
+      this.removePending(id)?.reject(closed);
     }
-    this.pending.clear();
     await this.endpoint.terminate();
   }
 
@@ -348,9 +369,8 @@ export class WorkerWasmHost implements WasmHost {
       this.fail(new Error(message.message));
       return;
     }
-    const pending = this.pending.get(message.id);
+    const pending = this.removePending(message.id);
     if (pending !== undefined) {
-      this.pending.delete(message.id);
       pending.resolve(message.envelope);
     }
   }
@@ -361,10 +381,20 @@ export class WorkerWasmHost implements WasmHost {
     }
     this.failure = ConnectError.from(reason, Code.Unavailable);
     this.rejectReady(this.failure);
-    for (const pending of this.pending.values()) {
-      pending.reject(this.failure);
+    for (const id of this.pending.keys()) {
+      this.removePending(id)?.reject(this.failure);
     }
-    this.pending.clear();
+  }
+
+  private removePending(id: number): PendingWorkerCall | undefined {
+    const pending = this.pending.get(id);
+    if (pending !== undefined) {
+      this.pending.delete(id);
+      if (pending.signal !== undefined && pending.onAbort !== undefined) {
+        pending.signal.removeEventListener("abort", pending.onAbort);
+      }
+    }
+    return pending;
   }
 
   private throwIfFailed(): void {
@@ -373,6 +403,19 @@ export class WorkerWasmHost implements WasmHost {
       throw failure;
     }
   }
+
+  private throwIfClosed(): void {
+    if (this.closed) {
+      throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
+    }
+  }
+}
+
+interface PendingWorkerCall {
+  resolve: (envelope: string) => void;
+  reject: (error: unknown) => void;
+  signal?: AbortSignal;
+  onAbort?: () => void;
 }
 
 /**
@@ -443,13 +486,41 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
   port.start?.();
 }
 
-/** Loads the Go constructor installed by wasm_exec.js, importing it when needed. */
-export async function loadGoConstructor(
-  wasmExec?: string,
-  forceImport = false,
-): Promise<GoConstructor> {
+/** Loads and caches the Go constructor installed by wasm_exec.js. */
+export function loadGoConstructor(wasmExec?: string): Promise<GoConstructor> {
   const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
-  if (wasmExec !== undefined && (forceImport || runtime.Go === undefined)) {
+  if (wasmExec === undefined) {
+    if (runtime.Go === undefined) {
+      return Promise.reject(
+        new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js"),
+      );
+    }
+    return Promise.resolve(runtime.Go);
+  }
+  const cached = goConstructors.get(wasmExec);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const loading = goConstructorLoads.then(() => loadGoConstructorFromScript(wasmExec));
+  goConstructors.set(wasmExec, loading);
+  goConstructorLoads = loading.then(
+    () => undefined,
+    () => undefined,
+  );
+  void loading.catch(() => {
+    if (goConstructors.get(wasmExec) === loading) {
+      goConstructors.delete(wasmExec);
+    }
+  });
+  return loading;
+}
+
+async function loadGoConstructorFromScript(wasmExec: string): Promise<GoConstructor> {
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const previous = runtime.Go;
+  delete runtime.Go;
+  let loaded: GoConstructor | undefined;
+  try {
     try {
       await import(wasmExec);
     } catch (cause) {
@@ -461,11 +532,22 @@ export async function loadGoConstructor(
       }
       importScripts(wasmExec);
     }
+    loaded = globalGoConstructor();
+    if (loaded === undefined) {
+      throw new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js");
+    }
+    return loaded;
+  } finally {
+    if (previous !== undefined) {
+      runtime.Go = previous;
+    } else if (loaded === undefined) {
+      delete runtime.Go;
+    }
   }
-  if (runtime.Go === undefined) {
-    throw new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js");
-  }
-  return runtime.Go;
+}
+
+function globalGoConstructor(): GoConstructor | undefined {
+  return (globalThis as typeof globalThis & { Go?: GoConstructor }).Go;
 }
 
 function readEnvelope(envelope: string): unknown {
