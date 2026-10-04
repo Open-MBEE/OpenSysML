@@ -41,7 +41,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports)}
+		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -108,6 +108,7 @@ type plantumlWriter struct {
 	fills   familyFills // the palette fills, by keyword family
 	labels  labeller    // the node labels, headed relative to the roots' namespace
 	ports   portView    // the ports drawn of each node, and how they are named
+	links   Links
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -242,7 +243,7 @@ func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 		w.writeRectangleNode(root, 0)
 	}
 	for _, edge := range r.Edges {
-		w.writeArrow("", portOr(edge.FromPort, edge.From), portOr(edge.ToPort, edge.To), plantumlArrow(edge.Kind), edge.Label)
+		w.writeArrowEdge(edge, portOr(edge.FromPort, edge.From), portOr(edge.ToPort, edge.To), false)
 	}
 }
 
@@ -323,7 +324,7 @@ func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string
 	}
 	for _, child := range node.Children {
 		for _, edge := range starts[child.ID] {
-			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(edge.Kind), edge.Label)
+			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(edge.Kind), edge.Label, Origin{}, false)
 		}
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
@@ -346,22 +347,42 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(label), node.ID, w.decoration(node))
 	}
 	for _, edge := range r.Edges {
-		w.writeArrow("", edge.From, edge.To, "->", edge.Label)
+		w.writeArrowEdge(edge, edge.From, edge.To, true)
 	}
 }
 
 // writeEdge writes one edge as its kind's arrow, with its label when it carries one.
 func (w *plantumlWriter) writeEdge(edge Edge) {
-	w.writeArrow("", edge.From, edge.To, plantumlArrow(edge.Kind), edge.Label)
+	w.writeArrowEdge(edge, edge.From, edge.To, false)
 }
 
 // writeArrow writes one arrow statement between two aliases.
-func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string) {
+func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origin Origin, sequence bool) {
+	link := ""
+	if url, ok := w.links.URL(origin); ok {
+		link = " [[" + url + "]]"
+	}
 	if label == "" {
-		fmt.Fprintf(&w.b, "%s%s %s %s\n", indent, from, arrow, to)
+		if link != "" && !sequence {
+			fmt.Fprintf(&w.b, "%s%s %s %s :%s\n", indent, from, arrow, to, link)
+			return
+		}
+		fmt.Fprintf(&w.b, "%s%s %s %s%s\n", indent, from, arrow, to, link)
 		return
 	}
-	fmt.Fprintf(&w.b, "%s%s %s %s : %s\n", indent, from, arrow, to, plantumlText(label))
+	if sequence && link != "" {
+		fmt.Fprintf(&w.b, "%s%s %s %s :%s %s\n", indent, from, arrow, to, link, plantumlText(label))
+		return
+	}
+	fmt.Fprintf(&w.b, "%s%s %s %s : %s%s\n", indent, from, arrow, to, plantumlText(label), link)
+}
+
+func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
+	arrow := plantumlArrow(edge.Kind)
+	if sequence {
+		arrow = "->"
+	}
+	w.writeArrow("", from, to, arrow, edge.Label, edge.Origin, sequence)
 }
 
 // plantumlStyleColor is a Style's colours as PlantUML's inline colour,
@@ -400,6 +421,11 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if pseudostate := plantumlPseudostates[node.Kind]; pseudostate != "" {
 		// PlantUML draws a pseudostate only when its stereotype stands alone.
 		fmt.Fprintf(&out, " <<%s>>", pseudostate)
+		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked {
+			if url, ok := w.links.URL(node.Origin); ok {
+				fmt.Fprintf(&out, " [[%s]]", url)
+			}
+		}
 		return out.String()
 	}
 	if node.Kind != "" {
@@ -407,6 +433,9 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	}
 	if shape := plantumlShapeStereotype(node); shape != "" && shape != node.Kind {
 		fmt.Fprintf(&out, " <<%s>>", shape)
+	}
+	if url, ok := w.links.URL(node.Origin); ok {
+		fmt.Fprintf(&out, " [[%s]]", url)
 	}
 	switch {
 	case w.fills.filled(node):
@@ -431,6 +460,11 @@ var plantumlPseudostates = map[string]string{
 	"initial": "start", "final": "end", "fork": "fork", "join": "join",
 	"decision": "choice", "choice": "choice", "merge": "choice", "junction": "choice",
 	"shallow history": "history", "deep history": "history*",
+}
+
+// PlantUML does not retain links on these pseudostate stereotypes in SVG.
+var plantumlUnlinkedPseudostates = map[string]struct{}{
+	"start": {}, "fork": {}, "join": {}, "end": {}, "choice": {}, "history": {}, "history*": {},
 }
 
 // plantumlShapeStereotype is the stereotype the style block shapes a node by:
