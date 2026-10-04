@@ -251,8 +251,8 @@ missing or outside the tree (`TestResolveFollowsTheLibraryRootOpenSysMLLoads`,
 
 - `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
   `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the
-  headline moves on *both* sides: `45 agreed, 44 only ours, 91 only the pilot's` becomes
-  `728 agreed, 36 only ours, 950 only the pilot's`, the two validators now agreeing on the
+  headline moves on *both* sides: `45 agreed, 44 only ours, 85 only the pilot's` becomes
+  `728 agreed, 36 only ours, 944 only the pilot's`, the two validators now agreeing on the
   unresolved `DocumentQueries`/`OOSEM`/`MOSA` references (`self-model/document.sysml` alone
   carries ~347 `unresolved-reference`/`kind-mismatch` rows), the report's `libraries` field names
   the override, and `-check` then fails on `inputs[opensysml-libraries].digest`.
