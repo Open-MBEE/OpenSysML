@@ -772,6 +772,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 	if reference.Overlay() == view.OverlayVerdicts {
 		renderer.SetVerdicts(runtime.RequirementVerdicts(e.context.Verifier(), e.workspaceScopes()))
 	}
+	sites := renderer.Sites(view.FileLocator(e.context.Model, e.context.LineIndex))
 	var rendering *view.Rendering
 	var err error
 	if declared, ok := reference.View(); ok {
@@ -800,6 +801,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		name:      node.Name(),
 		caption:   node.Caption(),
 		rendering: rendering,
+		sites:     sites,
 		direction: reference.Direction(),
 		palette:   reference.Palette(),
 		ports:     reference.Ports(),

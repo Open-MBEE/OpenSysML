@@ -245,6 +245,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all` and document diagrams; without one of those render targets it is refused |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-overlay <overlay>` | | What `--render` or `--render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
@@ -508,6 +509,10 @@ sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced s
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
 sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
 
+# Link diagram elements to the declarations' source locations
+sysml /absolute/path/model.sysml -render Views::vehicleView -render-form dot \
+  -render-link 'vscode://file/{file}:{line}:{col}' -o view.dot
+
 # A table as comma- or tab-separated values, for a spreadsheet or a script
 sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv
 sysml model.sysml -render Views::partsTable -render-form tsv | cut -f1,3
@@ -704,6 +709,24 @@ sequence participants take their family fill; Mermaid accepts a sequence palette
 cannot fill individual participants. Text and Markdown ignore palettes. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
+
+`-render-link <template>` gives linkable diagram nodes and edges URLs to their source. A template
+may contain `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`. Substituted values are UTF-8
+percent-encoded; URL delimiters written literally in the template remain literal. `{file}` is the
+path as loaded, not a path resolved against the rendering's output directory: use absolute input
+paths when a link must work outside the process's working directory. Synthetic origins, missed
+source locations and bundled library declarations are left unlinked. DOT writes `URL` and
+`tooltip` attributes; PlantUML writes `[[url]]` on nodes and edges (not ports or initial
+pseudostate arrows); Mermaid writes `click` statements for non-composite flowchart and simple state
+nodes and `link` statements for sequence participants, but not edges, subgraphs or composite
+states. The pinned Mermaid CLI 11.16.0 defaults to `securityLevel: strict`, which strips links
+with non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under
+both `strict` and `loose`: `https://example.com/c%5D%22%23#L3` becomes
+`https://example.com/c]%22#`, losing its fragment. `{"securityLevel":"loose"}` preserves those
+schemes, but not the URL rewriting or fragment loss. In document
+output, source links are supported for diagram elements; HTML does not create element-anchored
+sections. The option requires `-render`, `-render-all`,
+`-render-document` or `-render-documents`.
 
 `-render-style <style>` names the look the DOT and Mermaid forms draw in. `pilot`, the default, is the Pilot
 visualizer's Standard B&W above; `cameo` is the look of Cameo Systems Modeler, for a diagram

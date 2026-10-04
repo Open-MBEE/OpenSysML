@@ -1,0 +1,70 @@
+@startuml
+' GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+' not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::MassRequirement**\nid R1, “The total mass of the vehicle shall not exceed the stated...”" as n0 <<requirement def>> [[https://example.test/src/general.sysml#L33]]
+class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::StoppingRequirement**\nid R2, “The vehicle shall stop within the stated distance.”" as n1 <<requirement def>> [[https://example.test/src/general.sysml#L39]]
+class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::EmergencyStopRequirement**\nid R3" as n2 <<requirement def>> [[https://example.test/src/general.sysml#L42]]
+class "<size:10>//«requirement»//</size>\n**VehicleRequirements::vehicleMass : MassRequirement**\nid R1.1" as n3 <<requirement>> <<usage>> [[https://example.test/src/general.sysml#L44]]
+class "<size:10>//«requirement»//</size>\n**VehicleRequirements::chassisMass : MassRequirement**\nid R1.2" as n4 <<requirement>> <<usage>> [[https://example.test/src/general.sysml#L47]]
+class "<size:10>//«requirement»//</size>\n**VehicleRequirements::emergencyStop : EmergencyStopRequirement**\nid R3.1" as n5 <<requirement>> <<usage>> [[https://example.test/src/general.sysml#L48]]
+class "<size:10>//«part def»//</size>\n**VehicleStructure::LightChassis**" as n6 <<part def>> [[https://example.test/src/general.sysml#L10]]
+class "<size:10>//«part»//</size>\n**VehicleStructure::vehicle : Vehicle**" as n7 <<part>> <<usage>> [[https://example.test/src/general.sysml#L14]]
+class "<size:10>//«part»//</size>\n**VehicleStructure::heavyVehicle : Vehicle**" as n8 <<part>> <<usage>> [[https://example.test/src/general.sysml#L17]]
+class "<size:10>//«action»//</size>\n**VehicleStructure::brake : Brake**" as n9 <<action>> <<usage>> [[https://example.test/src/general.sysml#L20]]
+class "<size:10>//«verification def»//</size>\n**VehicleVerification::MassTest**" as n10 <<verification def>> [[https://example.test/src/general.sysml#L67]]
+class "<size:10>//«verification def»//</size>\n**VehicleVerification::StopTest**" as n11 <<verification def>> [[https://example.test/src/general.sysml#L80]]
+n2 --|> n1 : [[https://example.test/src/general.sysml#L42]]
+n3 ..|> n0 : [[https://example.test/src/general.sysml#L44]]
+n4 ..|> n0 : [[https://example.test/src/general.sysml#L47]]
+n5 ..|> n2 : [[https://example.test/src/general.sysml#L48]]
+n4 ..> n3 : derive [[https://example.test/src/general.sysml#L50]]
+n6 ..> n4 : refine [[https://example.test/src/general.sysml#L54]]
+n7 ..> n3 : satisfy [[https://example.test/src/general.sysml#L56]]
+n8 ..> n3 : satisfy [[https://example.test/src/general.sysml#L57]]
+n7 ..> n5 : satisfy [[https://example.test/src/general.sysml#L58]]
+n5 ..> n9 : allocate [[https://example.test/src/general.sysml#L59]]
+n10 ..> n3 : verify [[https://example.test/src/general.sysml#L70]]
+n11 ..> n5 : verify [[https://example.test/src/general.sysml#L83]]
+@enduml

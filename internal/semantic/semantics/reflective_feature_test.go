@@ -18,18 +18,6 @@ func assertReflectiveFeatureFlags(t *testing.T, m *Model, sym *symbols.Symbol) {
 	t.Helper()
 	for _, feature := range reflectiveUsageFeatureFlags {
 		_, ok := m.ReflectiveFeatureValue(sym, feature)
-		if sym.Recorded() && !m.isKerMLDoc(sym) &&
-			m.metaclassConforms(sym, sysmlMetaclassPrefix+"Usage") {
-			unsupported := feature == "isVariable" ||
-				(feature == "isConstant" && sym.Facts.Modifiers.Has(symbols.ModEnd) &&
-					!sym.Facts.Modifiers.Has(symbols.ModConstant))
-			if unsupported {
-				if ok {
-					t.Errorf("%s.%s is supported for a recorded SysML usage without mayTimeVary facts", symbols.FQNOf(sym), feature)
-				}
-				continue
-			}
-		}
 		if !ok {
 			t.Errorf("%s.%s is underived", symbols.FQNOf(sym), feature)
 		}
@@ -118,15 +106,19 @@ func TestReflectiveFeatureFlagsForWrapperDeclarations(t *testing.T) {
 }
 
 func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
-	src := symbols.NewIndex()
+	src := stdlibIndex(t)
 	addTestDoc(t, src, "lib.sysml", `part def Owner {
 		part child;
 		ref part borrowed;
 		constant attribute frozen;
 	}
 	connection def C { end part endpoint; }
+	attribute def A { end part x; }
 	action def Flow { fork f; }`)
 	addTestDoc(t, src, "lib.kerml", `package K { class C { const feature f; } }`)
+	srcRes := resolve.New(src)
+	srcModel := NewModel(srcRes)
+	srcRes.SetModel(srcModel)
 	factsFor := func(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts := symbols.LibraryFacts{
 			Node:    symbols.NodeKindOf(sym.Decl),
@@ -163,6 +155,9 @@ func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
 				facts.Modifiers |= symbols.ModNonunique
 			}
 		}
+		if srcModel.UsageMayTimeVary(sym) {
+			facts.Modifiers |= symbols.ModMayTimeVary
+		}
 		return facts
 	}
 	record, err := symbols.RecordScope(src.DocumentRoot("lib.sysml"),
@@ -194,6 +189,7 @@ func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
 	borrowed := nestedSym(t, root, "Owner::borrowed")
 	frozen := nestedSym(t, root, "Owner::frozen")
 	endpoint := nestedSym(t, root, "C::endpoint")
+	x := nestedSym(t, root, "A::x")
 	fork := nestedSym(t, root, "Flow::f")
 	kermlConst := nestedSym(t, idx.DocumentRoot("lib.kerml"), "K::C::f")
 	if !child.Recorded() || !borrowed.Recorded() || !frozen.Recorded() || !fork.Recorded() {
@@ -203,9 +199,25 @@ func TestReflectiveFeatureFlagsOnRecordedUsagesAndControlNodes(t *testing.T) {
 	assertReflectiveFeatureFlags(t, m, borrowed)
 	assertReflectiveFeatureFlags(t, m, frozen)
 	assertReflectiveFeatureFlags(t, m, endpoint)
+	assertReflectiveFeatureFlags(t, m, x)
 	assertReflectiveFeatureFlags(t, m, fork)
-	if got, ok := m.ReflectiveFeatureValue(endpoint, "isEnd"); !ok || !got.Bool {
-		t.Errorf("recorded endpoint.isEnd = %v (present %t), want true", got, ok)
+	for name, want := range map[string]bool{"isEnd": true, "isVariable": true, "isConstant": true} {
+		got, ok := m.ReflectiveFeatureValue(endpoint, name)
+		if !ok || got.Bool != want {
+			t.Errorf("recorded endpoint.%s = %v (present %t), want %t", name, got, ok, want)
+		}
+	}
+	for name, want := range map[string]bool{"isVariable": true, "isConstant": false} {
+		got, ok := m.ReflectiveFeatureValue(child, name)
+		if !ok || got.Bool != want {
+			t.Errorf("recorded child.%s = %v (present %t), want %t", name, got, ok, want)
+		}
+	}
+	for name, want := range map[string]bool{"isVariable": false, "isConstant": false} {
+		got, ok := m.ReflectiveFeatureValue(x, name)
+		if !ok || got.Bool != want {
+			t.Errorf("recorded x.%s = %v (present %t), want %t", name, got, ok, want)
+		}
 	}
 	if got, ok := m.ReflectiveFeatureValue(kermlConst, "isVariable"); !ok || !got.Bool {
 		t.Errorf("recorded KerML const isVariable = %v (present %t), want true", got, ok)

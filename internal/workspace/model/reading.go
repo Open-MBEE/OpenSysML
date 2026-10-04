@@ -50,6 +50,23 @@ func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
 
+// LineIndex is the held document's line index, nil when the workspace does not hold it.
+func (r *Reading) LineIndex(name string) *source.LineIndex {
+	if doc := r.Document(name); doc != nil {
+		return doc.Lines()
+	}
+	return nil
+}
+
+// LineIndexes snapshots the line indexes of the held documents.
+func (r *Reading) LineIndexes() map[string]*source.LineIndex {
+	indexes := make(map[string]*source.LineIndex, len(r.w.docs))
+	for name, doc := range r.w.docs {
+		indexes[name] = doc.Lines()
+	}
+	return indexes
+}
+
 // Declared is the element fqn names in doc: by qualified name in the index, else
 // by qualified or simple name among the document's own declarations.
 func (r *Reading) Declared(doc, fqn string) *symbols.Symbol {
@@ -114,6 +131,12 @@ func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error
 // verdicts answered by verdicts.
 func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
 	return r.w.renderViewLocked(doc, fqn, overlay, verdicts)
+}
+
+// LinkSites is RenderViewLinked's source sites for a rendering made by this
+// reading, frozen into its snapshot.
+func (r *Reading) LinkSites(rendering *view.Rendering, snapshot *Snapshot) {
+	r.w.linkSitesLocked(rendering, snapshot)
 }
 
 // Detach is Workspace.Detach over the documents as read.

@@ -67,6 +67,7 @@ from opensysml.errors import (
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
+from opensysml.metamodel import read_json
 
 __all__ = [
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
@@ -106,7 +107,7 @@ __all__ = [
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "parse_sources", "connect", "convert", "migrate",
+    "load", "loads", "parse_sources", "connect", "convert", "migrate", "read_json",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",

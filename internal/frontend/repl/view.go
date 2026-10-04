@@ -129,7 +129,55 @@ func (s *Session) renderLines(name string, form view.Form, opts view.Options, ov
 		return nil, err
 	}
 	opts.Width = s.renderWidth
+	if opts.Links.Template != "" {
+		renderer, err := s.viewRenderer()
+		if err != nil {
+			return nil, err
+		}
+		opts.Links.Sites = renderer.Sites(s.sessionLocator())
+	}
 	return artifactLines(rendering, form, opts)
+}
+
+// ViewSites answers source locations in the current session for a rendering.
+func (s *Session) ViewSites() (view.Sites, error) {
+	defer s.enter()()
+	renderer, err := s.viewRenderer()
+	if err != nil {
+		return nil, err
+	}
+	return renderer.Sites(s.sessionLocator()), nil
+}
+
+func (s *Session) sessionLocator() view.Locator {
+	indexes := map[int]*source.LineIndex{}
+	return func(origin view.Origin) (string, source.Pos, bool) {
+		if !origin.Located() {
+			return "", source.Pos{}, false
+		}
+		file := s.sessionSourceFile(origin.Doc, origin.Span)
+		if file == "" {
+			return "", source.Pos{}, false
+		}
+		if origin.Doc == docName {
+			sn, start := s.snippetAt(origin.Span.Offset)
+			if sn.origin == "" {
+				return "", source.Pos{}, false
+			}
+			lines := indexes[start]
+			if lines == nil {
+				lines = source.NewLineIndex([]byte(sn.src))
+				indexes[start] = lines
+			}
+			return file, lines.PosAt(origin.Span.Offset - start), true
+		}
+		for _, doc := range s.sessionDocs() {
+			if doc.Name == origin.Doc {
+				return file, doc.Lines().PosAt(origin.Span.Offset), true
+			}
+		}
+		return "", source.Pos{}, false
+	}
 }
 
 // artifactLines writes a rendering in form, one line per line, and under a

@@ -1,0 +1,55 @@
+@startuml
+' GeneralViews::packageView — package rendering (view def GeneralView, filter @Package)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«package»//</size>\n**VehicleStructure**" as n0 <<package>> [[https://example.test/src/general.sysml#L1]]
+class "<size:10>//«package»//</size>\n**Powertrain**" as n1 <<package>> [[https://example.test/src/general.sysml#L22]]
+class "<size:10>//«package»//</size>\n**VehicleRequirements**" as n2 <<package>> [[https://example.test/src/general.sysml#L27]]
+class "<size:10>//«package»//</size>\n**VehicleVerification**" as n3 <<package>> [[https://example.test/src/general.sysml#L62]]
+class "<size:10>//«package»//</size>\n**GeneralViews**" as n4 <<package>> [[https://example.test/src/general.sysml#L91]]
+n0 +-- n1 : [[https://example.test/src/general.sysml#L22]]
+n2 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L27]]
+n3 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L62]]
+n3 ..> n1 : private import ::* [[https://example.test/src/general.sysml#L62]]
+n3 ..> n2 : private import ::* [[https://example.test/src/general.sysml#L62]]
+@enduml

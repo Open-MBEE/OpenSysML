@@ -179,10 +179,15 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 
 // render is one opensysml/render request, decoded.
 func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderResult {
+	return renderWithLinkTemplate(t, s, docURI, viewName, "")
+}
+
+func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *renderResult {
 	t.Helper()
 	raw, err := call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         viewName,
+		LinkTemplate: template,
 	})
 	if err != nil {
 		t.Fatalf("render %q: %v", viewName, err)
@@ -192,6 +197,31 @@ func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderRes
 		t.Fatalf("decode render result: %v", err)
 	}
 	return &out
+}
+
+func TestRenderWritesSourceLinks(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	params, err := json.Marshal(renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		LinkTemplate: template,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(params, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["linkTemplate"] != template {
+		t.Errorf("wire linkTemplate = %v, want %q", wire["linkTemplate"], template)
+	}
+	out := renderWithLinkTemplate(t, s, docURI, "KitViews::widgetTree", template)
+	if !strings.Contains(out.Artifact, `click n0 href "https://example.test/src/`) ||
+		!strings.Contains(out.Artifact, "#L") {
+		t.Errorf("render artifact lacks source links:\n%s", out.Artifact)
+	}
 }
 
 // Every rendering kind this package produces is served over the protocol, with
@@ -1287,6 +1317,22 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 	want := map[string]string{"VehicleRequirements::vehicleMass": "fail", "VehicleRequirements::emergencyStop": "inconclusive"}
 	if !reflect.DeepEqual(verdicts, want) {
 		t.Errorf("verdicts = %v, want %v", verdicts, want)
+	}
+	raw, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "GeneralViews::requirementView",
+		Overlay:      "verdicts",
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var linked renderResult
+	if err := json.Unmarshal(raw, &linked); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(linked.Artifact, "https://example.test/src/") || !strings.Contains(linked.Artifact, "fail") {
+		t.Errorf("a linked verdict rendering has no source link or verdict:\n%s", linked.Artifact)
 	}
 	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::definitionView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "draws no verdicts overlay") {
 		t.Errorf("verdicts over a definition rendering = %v", err)

@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -214,7 +214,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states, optionally linking elements to their source with a link template"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -487,9 +487,8 @@ func (s *Session) doTrace(args []string) []string {
 	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
 }
 
-// metaRender reads the %render arguments — the name, an optional form, an
-// optional port display and, for a form that fills nodes, an optional palette
-// and drawing style — and renders the view they name.
+// metaRender reads the %render name, form and optional rendering settings,
+// including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	if len(args) < 1 || len(args) > 6 {
 		return []string{renderUsage}, false, nil
@@ -503,12 +502,24 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 	}
 	var opts view.Options
 	var overlay view.Overlay
+	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
 				return []string{renderUsage}, false, nil
 			}
 			overlay = o
+			continue
+		}
+		if strings.HasPrefix(word, "link=") {
+			if linkSet {
+				return []string{renderUsage}, false, nil
+			}
+			opts.Links.Template = strings.TrimPrefix(word, "link=")
+			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
+				return []string{err.Error() + "; " + renderUsage}, false, nil
+			}
+			linkSet = true
 			continue
 		}
 		if style, ok := view.ParseDrawingStyle(word); ok {

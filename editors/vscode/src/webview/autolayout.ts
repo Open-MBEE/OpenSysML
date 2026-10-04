@@ -241,7 +241,7 @@ function reconcile(
     geometry.y = top;
     geometry.width = right - left;
     geometry.height = bottom - top;
-    // The box moved, so routes anchored on its old border are dropped; they are drawn straight.
+    // The box moved, so routes anchored on its old border are dropped; layoutCanvas re-routes them around the boxes.
     for (const [index] of routes) {
       const edge = result.edges![index];
       if (edge.from === node.id || edge.to === node.id) {
