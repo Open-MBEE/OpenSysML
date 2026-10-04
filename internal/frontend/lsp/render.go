@@ -155,6 +155,7 @@ type renderNode struct {
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *renderStyle    `json:"style,omitempty"`
+	Ports           []renderPort    `json:"ports,omitempty"`
 	FQN             string          `json:"fqn,omitempty"`
 	DeclaredHere    bool            `json:"declaredHere,omitempty"`
 	Notation        string          `json:"notation,omitempty"`
@@ -176,6 +177,13 @@ type renderOwner struct {
 	Feature bool   `json:"feature"`
 }
 
+type renderPort struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type,omitempty"`
+	Direction string `json:"direction,omitempty"`
+}
+
 // renderEdge is one edge of a rendering, located at the connector, transition,
 // succession or flow it was written as, with the waypoints a Route gives it.
 // FQN and Declaration identify that declaration to a setRoute as a node's do.
@@ -185,6 +193,8 @@ type renderEdge struct {
 	To          string          `json:"to"`
 	Label       string          `json:"label"`
 	Kind        string          `json:"kind"`
+	FromPort    string          `json:"fromPort,omitempty"`
+	ToPort      string          `json:"toPort,omitempty"`
 	Style       *renderStyle    `json:"style,omitempty"`
 	FQN         string          `json:"fqn,omitempty"`
 	Declaration *protocol.Range `json:"declaration,omitempty"`
@@ -386,7 +396,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.Data()
+	data := rendering.DataFor(ports)
 	out := &renderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -439,6 +449,11 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
 		}
+		for _, port := range node.Ports {
+			n.Ports = append(n.Ports, renderPort{
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+			})
+		}
 		if node.Style != nil {
 			if node.Style.Fill != "" {
 				n.Fill = node.Style.Fill
@@ -484,11 +499,8 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := renderEdge{
-			From:  edge.From,
-			To:    edge.To,
-			Label: edge.Label,
-			Kind:  edge.Kind.String(),
-			Style: wireStyle(edge.Style),
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)

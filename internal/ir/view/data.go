@@ -83,6 +83,17 @@ type RowData struct {
 
 // Data is the rendering in machine-consumable form.
 func (r *Rendering) Data() Data {
+	return r.data(nil)
+}
+
+// DataFor is the rendering in machine-consumable form with each node's ports
+// filtered for the requested display.
+func (r *Rendering) DataFor(display Ports) Data {
+	ports := r.portView(display)
+	return r.data(&ports)
+}
+
+func (r *Rendering) data(ports *portView) Data {
 	out := Data{
 		View:    r.View,
 		Kind:    r.Kind,
@@ -93,7 +104,7 @@ func (r *Rendering) Data() Data {
 		Notices: r.Notices,
 	}
 	for _, root := range r.Roots {
-		out.Nodes = appendNodeData(out.Nodes, root, "")
+		out.Nodes = appendNodeData(out.Nodes, root, "", ports)
 	}
 	for _, edge := range r.Edges {
 		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
@@ -110,17 +121,21 @@ func (r *Rendering) Data() Data {
 }
 
 // appendNodeData flattens a node and what is nested in it, parents first.
-func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
+func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) []NodeData {
 	if node == nil {
 		return out
 	}
+	nodePorts := node.Ports
+	if ports != nil {
+		nodePorts = ports.of(node)
+	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Text: node.Text, StandIn: node.StandIn, Ports: node.Ports, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
+		Text: node.Text, StandIn: node.StandIn, Ports: nodePorts, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
 		Verdict: node.Verdict,
 	})
 	for _, child := range node.Children {
-		out = appendNodeData(out, child, node.ID)
+		out = appendNodeData(out, child, node.ID, ports)
 	}
 	return out
 }

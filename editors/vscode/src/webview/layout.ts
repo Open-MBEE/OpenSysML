@@ -9,15 +9,26 @@ import {
   type NodePlacement,
   type RenderEdge,
   type RenderNode,
+  type RenderPort,
   type RenderPoint,
   type RenderResult,
 } from "../protocol";
 import type { AutoLayout } from "./autolayout";
-import { GAP, snap, type Box } from "./geometry";
-import { avoidRoutes } from "./avoid";
+import {
+  GAP,
+  portBox,
+  portCenter,
+  portFace,
+  PORT_SIZE,
+  snap,
+  type Box,
+  type PortPosition,
+  type Side,
+} from "./geometry";
+import { avoidRoutes, type AvoidShape } from "./avoid";
 
-export { GAP, snap } from "./geometry";
-export type { Box } from "./geometry";
+export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
+export type { Box, PortPosition, Side } from "./geometry";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape = "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
@@ -32,6 +43,7 @@ export interface PlacedNode {
   pinned: boolean;
   /** The node is drawn without its children. */
   collapsed: boolean;
+  ports: PlacedPort[];
   /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
   hidden: boolean;
   children: PlacedNode[];
@@ -54,6 +66,17 @@ export interface PlacedEdge {
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
+}
+
+export interface PlacedPort extends PortPosition {
+  port: RenderPort;
+}
+
+export interface PortLabelPlacement {
+  x: number;
+  y: number;
+  anchor: "start" | "end";
+  bounds: Box;
 }
 
 export interface CanvasLayout {
@@ -128,6 +151,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
       collapsed: false,
       hidden: false,
       children: [],
+      ports: [],
     };
     placed.set(node.id, entry);
   }
@@ -141,7 +165,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     }
   }
   if (result.kind === "sequence") {
-    return layoutSequence(result, roots, placed);
+    const layout = layoutSequence(result, roots, placed);
+    placePorts(result.edges ?? [], placed, auto);
+    return includePortExtent(layout);
   }
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
@@ -158,6 +184,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     return laid !== undefined ? { stated: { ...laid, collapsed }, pinned: false } : { pinned: false };
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
+  placePorts(result.edges ?? [], placed, auto);
 
   // Every drawn box counts, since a placed child may lie beyond a sized owner,
   // and a placed node may lie left of or above the origin.
@@ -174,6 +201,14 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     }
     reach(entry.box.x, entry.box.y);
     reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
+    for (const port of entry.ports) {
+      const square = portBox(entry.box, port);
+      reach(square.x, square.y);
+      reach(square.x + square.width, square.y + square.height);
+      const label = portLabelPlacement(entry.box, port).bounds;
+      reach(label.x, label.y);
+      reach(label.x + label.width, label.y + label.height);
+    }
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
@@ -359,6 +394,129 @@ export function labelLines(node: RenderNode): string[] {
   return lines;
 }
 
+/** glyphSize uses the same average-glyph metrics as a node label, without box padding. */
+export function glyphSize(text: string): { width: number; height: number } {
+  return { width: Math.ceil([...text].length * GLYPH_WIDTH), height: LINE_HEIGHT };
+}
+
+/** portLabelPlacement puts a port name outside its box and clear of its edge path. */
+export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlacement {
+  const center = portCenter(box, port);
+  const square = portBox(box, port);
+  const size = glyphSize(port.port.name);
+  let x: number;
+  let y: number;
+  let anchor: "start" | "end" = "start";
+  switch (port.side) {
+    case "north":
+      x = square.x + PORT_SIZE + 2;
+      y = box.y - 2;
+      break;
+    case "east":
+      x = square.x + PORT_SIZE + 2;
+      y = center.y - PORT_SIZE / 2 - 1;
+      break;
+    case "south":
+      x = square.x + PORT_SIZE + 2;
+      y = box.y + box.height + PORT_SIZE / 2 + FONT_SIZE;
+      break;
+    case "west":
+      x = square.x - 2;
+      y = center.y - PORT_SIZE / 2 - 1;
+      anchor = "end";
+      break;
+  }
+  return {
+    x,
+    y,
+    anchor,
+    bounds: { x: anchor === "end" ? x - size.width : x, y: y - size.height, ...size },
+  };
+}
+
+function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?: AutoLayout): void {
+  for (const entry of placed.values()) {
+    if (entry.hidden) {
+      continue;
+    }
+    const defaults = new Map<Side, PlacedPort[]>();
+    entry.ports = (entry.node.ports ?? []).map((port) => {
+      const laid = auto?.ports.get(port.id);
+      if (laid) {
+        return { port, side: laid.side, offset: laid.offset };
+      }
+      const side = defaultPortSide(entry, port, edges, placed);
+      const positioned = { port, side, offset: 0 };
+      const group = defaults.get(side) ?? [];
+      group.push(positioned);
+      defaults.set(side, group);
+      return positioned;
+    });
+    for (const group of defaults.values()) {
+      group.forEach((port, index) => {
+        port.offset = (index + 1) / (group.length + 1);
+      });
+    }
+  }
+}
+
+function defaultPortSide(entry: PlacedNode, port: RenderPort, edges: RenderEdge[], placed: Map<string, PlacedNode>): Side {
+  const edge = edges.find((candidate) =>
+    (candidate.from === entry.node.id && candidate.fromPort === port.id) ||
+    (candidate.to === entry.node.id && candidate.toPort === port.id),
+  );
+  if (!edge) {
+    return "south";
+  }
+  const other = placed.get(edge.from === entry.node.id ? edge.to : edge.from);
+  if (!other || other.hidden) {
+    return "south";
+  }
+  const here = center(entry.box);
+  const there = center(other.box);
+  const dx = there.x - here.x;
+  const dy = there.y - here.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? "east" : "west";
+  }
+  return dy >= 0 ? "south" : "north";
+}
+
+function includePortExtent(layout: CanvasLayout): CanvasLayout {
+  let left = layout.origin.x;
+  let top = layout.origin.y;
+  let right = layout.origin.x + layout.width;
+  let bottom = layout.origin.y + layout.height;
+  let hasPorts = false;
+  for (const entry of layout.nodes.values()) {
+    if (entry.hidden) {
+      continue;
+    }
+    for (const port of entry.ports) {
+      hasPorts = true;
+      const square = portBox(entry.box, port);
+      const label = portLabelPlacement(entry.box, port).bounds;
+      left = Math.min(left, square.x, label.x);
+      top = Math.min(top, square.y, label.y);
+      right = Math.max(right, square.x + square.width, label.x + label.width);
+      bottom = Math.max(bottom, square.y + square.height, label.y + label.height);
+    }
+  }
+  if (!hasPorts) {
+    return layout;
+  }
+  const origin = {
+    x: left < layout.origin.x ? left - MARGIN : layout.origin.x,
+    y: top < layout.origin.y ? top - MARGIN : layout.origin.y,
+  };
+  return {
+    ...layout,
+    origin,
+    width: Math.max(right + MARGIN, layout.origin.x + layout.width) - origin.x,
+    height: Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
+  };
+}
+
 // labelHead is a label's first line: the kind of an unnamed node, else the name
 // with its type when it has one.
 function labelHead(node: RenderNode): string {
@@ -462,7 +620,11 @@ function routeEdge(
   }
   const start = anchor(from, inner[0] ?? center(to));
   const end = anchor(to, inner.at(-1) ?? center(from));
-  const points = [start, ...inner, end];
+  const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
+  const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
+  const startPoint = fromPort ? portFace(from, fromPort) : start;
+  const endPoint = toPort ? portFace(to, toPort) : end;
+  const points = [startPoint, ...inner, endPoint];
   return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true, rerouted: false };
 }
 
@@ -599,20 +761,26 @@ function rerouteAroundBoxes(
       }
       return false;
     };
-    const shapes = new Map<string, Box>();
-    for (const [id, box] of [...leaves, ...containers]) {
+    const shapes = new Map<string, AvoidShape>();
+    for (const [id] of [...leaves, ...containers]) {
       if (!covered(placed.get(id)!) && (!containers.has(id) || !exempt.has(id))) {
-        shapes.set(id, box);
+        shapes.set(id, avoidShape(placed.get(id)!));
       }
     }
     for (const index of group) {
       const edge = edges[index].edge;
-      shapes.set(edge.from, placed.get(edge.from)!.box);
-      shapes.set(edge.to, placed.get(edge.to)!.box);
+      shapes.set(edge.from, avoidShape(placed.get(edge.from)!));
+      shapes.set(edge.to, avoidShape(placed.get(edge.to)!));
     }
     const routes = avoidRoutes(
       shapes,
-      group.map((index) => ({ index, from: edges[index].edge.from, to: edges[index].edge.to })),
+      group.map((index) => ({
+        index,
+        from: edges[index].edge.from,
+        to: edges[index].edge.to,
+        fromPort: edges[index].edge.fromPort,
+        toPort: edges[index].edge.toPort,
+      })),
     );
     if (!routes) {
       continue;
@@ -626,6 +794,13 @@ function rerouteAroundBoxes(
       edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
     }
   }
+}
+
+function avoidShape(entry: PlacedNode): AvoidShape {
+  return {
+    box: entry.box,
+    ports: entry.ports.map(({ port, side, offset }) => ({ id: port.id, side, offset })),
+  };
 }
 
 function center(box: Box): RenderPoint {
