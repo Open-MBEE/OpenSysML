@@ -113,6 +113,28 @@ function assertPointNear(actual: RenderPoint, expected: RenderPoint, context: st
   );
 }
 
+function pointDirection(start: RenderPoint, end: RenderPoint): RenderPoint {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+}
+
+function assertRouteDirections(
+  points: RenderPoint[],
+  start: RenderPoint,
+  end: RenderPoint,
+  startDirection: RenderPoint,
+  endDirection: RenderPoint,
+): void {
+  assert.ok(orthogonal(points));
+  assertPointNear(points[0], start, "route start");
+  assertPointNear(points.at(-1)!, end, "route end");
+  assert.ok(Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) > 1e-6);
+  assert.ok(Math.hypot(points.at(-1)!.x - points.at(-2)!.x, points.at(-1)!.y - points.at(-2)!.y) > 1e-6);
+  assert.deepEqual(pointDirection(points[0], points[1]), startDirection);
+  assert.deepEqual(pointDirection(points.at(-1)!, points.at(-2)!), endDirection);
+}
+
 function portNode(id: string, x: number, y: number, width = 160, height = 70): RenderNode {
   return node(id, id, { x, y, width, height, ports: [{ id: `${id}.api`, name: "api" }] });
 }
@@ -1607,6 +1629,61 @@ test("reattachRoute keeps both moved ends orthogonal", () => {
 test("reattachRoute leaves a non-orthogonal input unchanged", () => {
   const route = [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }];
   assert.equal(reattachRoute(route, { x: 0, y: 10 }, { x: 20, y: 10 }), route);
+});
+
+test("reattachRoute keeps a three-point horizontal exit pointing out after the start passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 120, y: 100 }, { x: 120, y: 200 }];
+  const start = { x: 150, y: 100 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: 0, y: -1 });
+});
+
+test("reattachRoute keeps a three-point vertical exit pointing out after the start passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 100, y: 120 }, { x: 200, y: 120 }];
+  const start = { x: 100, y: 150 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 0, y: 1 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute keeps a three-point end pointing into its port after the end passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 100, y: 200 }, { x: 120, y: 200 }];
+  const start = route[0];
+  const end = { x: 80, y: 200 };
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 0, y: 1 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute preserves outward directions when a four-point Z start passes its middle bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 120, y: 100 }, { x: 120, y: 150 }, { x: 180, y: 150 }];
+  const start = { x: 130, y: 100 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute goes around vertically when a straight route's start passes its end", () => {
+  const start = { x: 250, y: 120 };
+  const end = { x: 200, y: 100 };
+  const reattached = reattachRoute([{ x: 100, y: 100 }, { x: 200, y: 100 }], start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: -1, y: 0 });
+  const a = { x: start.x + CLEARANCE, y: start.y };
+  const b = { x: end.x - CLEARANCE, y: end.y };
+  const middleY = (a.y + b.y) / 2;
+  assert.deepEqual(reattached, [
+    start,
+    a,
+    { x: a.x, y: middleY },
+    { x: b.x, y: middleY },
+    b,
+    end,
+  ]);
 });
 
 test("keepOrthogonalRoutes replaces only diagonals with matching visible orthogonal routes", () => {

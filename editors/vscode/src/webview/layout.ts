@@ -679,21 +679,87 @@ function orthogonalRoute(points: RenderPoint[]): boolean {
   });
 }
 
+function routeDirection(start: RenderPoint, end: RenderPoint): RenderPoint {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+}
+
+function followsDirection(start: RenderPoint, end: RenderPoint, direction: RenderPoint): boolean {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  return (
+    length > 1e-6 &&
+    Math.abs(dx / length - direction.x) <= 1e-6 &&
+    Math.abs(dy / length - direction.y) <= 1e-6
+  );
+}
+
+function manhattanRoute(start: RenderPoint, startDirection: RenderPoint, end: RenderPoint, endDirection: RenderPoint): RenderPoint[] {
+  const a = {
+    x: start.x + startDirection.x * CLEARANCE,
+    y: start.y + startDirection.y * CLEARANCE,
+  };
+  const b = {
+    x: end.x + endDirection.x * CLEARANCE,
+    y: end.y + endDirection.y * CLEARANCE,
+  };
+  let middle: RenderPoint[];
+  if (startDirection.y === 0 && endDirection.y === 0) {
+    const dx = b.x - a.x;
+    if (dx === 0 || Math.sign(dx) === startDirection.x) {
+      const middleX = (a.x + b.x) / 2;
+      middle = [a, { x: middleX, y: a.y }, { x: middleX, y: b.y }, b];
+    } else {
+      const middleY = (a.y + b.y) / 2;
+      middle = [a, { x: a.x, y: middleY }, { x: b.x, y: middleY }, b];
+    }
+  } else if (startDirection.x === 0 && endDirection.x === 0) {
+    const dy = b.y - a.y;
+    if (dy === 0 || Math.sign(dy) === startDirection.y) {
+      const middleY = (a.y + b.y) / 2;
+      middle = [a, { x: a.x, y: middleY }, { x: b.x, y: middleY }, b];
+    } else {
+      const middleX = (a.x + b.x) / 2;
+      middle = [a, { x: middleX, y: a.y }, { x: middleX, y: b.y }, b];
+    }
+  } else if (startDirection.y === 0) {
+    middle = [a, { x: b.x, y: a.y }, b];
+  } else {
+    middle = [a, { x: a.x, y: b.y }, b];
+  }
+  return compactRoute([{ ...start }, ...middle, { ...end }]);
+}
+
 /** Moves an orthogonal route's ends to new points, keeping every segment orthogonal. */
 export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: RenderPoint): RenderPoint[] {
   const points = compactRoute(route.map((point) => ({ ...point })));
   if (!orthogonalRoute(points) || points.length < 2) {
     return route;
   }
+  const startDirection = routeDirection(points[0], points[1]);
+  const endDirection = routeDirection(points.at(-1)!, points.at(-2)!);
+  const finish = (result: RenderPoint[]): RenderPoint[] => {
+    const compacted = compactRoute(result);
+    if (
+      compacted.length >= 2 &&
+      followsDirection(compacted[0], compacted[1], startDirection) &&
+      followsDirection(compacted.at(-1)!, compacted.at(-2)!, endDirection)
+    ) {
+      return compacted;
+    }
+    return manhattanRoute(start, startDirection, end, endDirection);
+  };
 
   if (points.length === 2) {
     const [first, last] = points;
     if (Math.abs(last.y - first.y) <= 1e-6) {
       if (Math.abs(start.y - end.y) <= 1e-6) {
-        return compactRoute([{ ...start }, { ...end }]);
+        return finish([{ ...start }, { ...end }]);
       }
       const middleX = (start.x + end.x) / 2;
-      return compactRoute([
+      return finish([
         { ...start },
         { x: middleX, y: start.y },
         { x: middleX, y: end.y },
@@ -701,10 +767,10 @@ export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: Ren
       ]);
     }
     if (Math.abs(start.x - end.x) <= 1e-6) {
-      return compactRoute([{ ...start }, { ...end }]);
+      return finish([{ ...start }, { ...end }]);
     }
     const middleY = (start.y + end.y) / 2;
-    return compactRoute([
+    return finish([
       { ...start },
       { x: start.x, y: middleY },
       { x: end.x, y: middleY },
@@ -746,7 +812,7 @@ export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: Ren
     }
   }
   points[last] = { ...end };
-  return compactRoute(points);
+  return finish(points);
 }
 
 /** Keeps each edge's previous orthogonal route, reattached to its current ends, where the new route is not orthogonal. */
