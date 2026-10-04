@@ -1,0 +1,1 @@
+- **Render the landing-page diagram from the engine-backed model.** The site build bundles the shared diagram code and its routing assets.
