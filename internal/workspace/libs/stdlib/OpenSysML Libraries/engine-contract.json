@@ -1,0 +1,1052 @@
+{
+  "contract": 1,
+  "description": "Qualified names in libraries/ that Open-MBEE/OpenSysML binds to. Removing, renaming or changing an entry is a breaking change.",
+  "entries": [
+    {
+      "name": "AnalysisRecords::AnalysisRun",
+      "kind": "element",
+      "consumers": [
+        "internal/exec/analysis/record/record.go",
+        "internal/frontend/repl/record.go"
+      ]
+    },
+    {
+      "name": "AnalysisRecords::EvaluationRecord",
+      "kind": "element",
+      "consumers": [
+        "internal/exec/analysis/record/record.go"
+      ]
+    },
+    {
+      "name": "AnalysisRecords::RecordedRun",
+      "kind": "metadata",
+      "attributes": [
+        "runAt",
+        "tool",
+        "command",
+        "kind",
+        "tools"
+      ],
+      "consumers": [
+        "internal/exec/analysis/record/record.go"
+      ]
+    },
+    {
+      "name": "AnalysisRecords::VerdictRecord",
+      "kind": "element",
+      "consumers": [
+        "internal/exec/analysis/record/record.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "DiagramLayout::Canvas",
+      "kind": "metadata",
+      "attributes": [
+        "unit",
+        "width",
+        "height"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/view/geometry.go",
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Canvas::height",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Layout",
+      "kind": "metadata",
+      "attributes": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "collapsed"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/view/geometry.go",
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Layout::height",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Note",
+      "kind": "metadata",
+      "attributes": [
+        "text",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/view/geometry.go",
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Note::height",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Picture",
+      "kind": "metadata",
+      "attributes": [
+        "location",
+        "x",
+        "y",
+        "width",
+        "height",
+        "alt",
+        "above"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/view/geometry.go",
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Picture::width",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Route",
+      "kind": "metadata",
+      "attributes": [
+        "points"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Route::points",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Style",
+      "kind": "metadata",
+      "attributes": [
+        "fill",
+        "line",
+        "text",
+        "font",
+        "fontSize",
+        "bold",
+        "italic"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/view/geometry.go",
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Style::text",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "DocumentQueries::Ancestors",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Column",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/columns.go",
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::ColumnRun",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::ColumnSpec",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/columns.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Definitions",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Descendants",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Diagram",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Distinct",
+      "kind": "document",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/queryplan/navigation.go",
+        "internal/translate/migrate/ocllower.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Document",
+      "kind": "document",
+      "consumers": [
+        "internal/frontend/grpc/docquery.go",
+        "internal/frontend/repl/docrender.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Event",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go",
+        "internal/doc/queryexec/events.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Events",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Except",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Formula",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Image",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go",
+        "internal/doc/docrender/artwork.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::InState",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Link",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::LinkColumn",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::List",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Named",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Objects",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::OrderBy",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::OwnedElements",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Paragraph",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Project",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Query",
+      "kind": "document",
+      "consumers": [
+        "internal/frontend/grpc/docquery.go",
+        "internal/frontend/repl/docquery.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Ref",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::RelatedColumn",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/columns.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::RelatedElements",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Run",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Section",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Span",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::SpanColumn",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/docplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::State",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go",
+        "internal/doc/queryexec/states.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::States",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Table",
+      "kind": "document",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/docplan/compiler.go",
+        "internal/translate/migrate/tables.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Tree",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Union",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Verdict",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go",
+        "internal/doc/queryexec/verdicts.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::Verdicts",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereFeature",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereMetadata",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereName",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereRelated",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereText",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "DocumentQueries::WhereType",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
+      "name": "IdentityMetadata::ElementId",
+      "kind": "metadata",
+      "attributes": [
+        "id"
+      ],
+      "consumers": [
+        "internal/semantic/identity/identity.go",
+        "internal/translate/export/rdf_in.go"
+      ]
+    },
+    {
+      "name": "IdentityMetadata::ProjectRef",
+      "kind": "metadata",
+      "attributes": [
+        "projectId",
+        "branch",
+        "org"
+      ],
+      "consumers": [
+        "internal/semantic/identity/identity.go",
+        "internal/translate/export/rdf_in.go"
+      ]
+    },
+    {
+      "name": "MOSA::ConformantMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::ConformedStandardMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::DataRights",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::InterfaceControl",
+      "kind": "metadata",
+      "attributes": [
+        "authority"
+      ],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::InterfaceRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::MajorSystemComponent",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::MajorSystemPlatform",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::ModularSystem",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::ModularSystemInterface",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::Proprietary",
+      "kind": "metadata",
+      "attributes": [
+        "rationale"
+      ],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::Standard",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MOSA::StandardConformanceMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/mosa.go"
+      ]
+    },
+    {
+      "name": "MigrationMetadata",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "MigrationMetadata::DeferredEvent",
+      "kind": "metadata",
+      "attributes": [
+        "signal"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/ir/lower/state_metadata.go",
+        "internal/check/passes/lint_deferred_keeper.go"
+      ]
+    },
+    {
+      "name": "MigrationMetadata::DeferredKeeper",
+      "kind": "metadata",
+      "attributes": [],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/exec/runtime/action_choice.go",
+        "internal/ir/lower/action_graph.go"
+      ]
+    },
+    {
+      "name": "MigrationMetadata::LibraryNameAvoided",
+      "kind": "metadata",
+      "attributes": [
+        "sourceName"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/migrate.go"
+      ]
+    },
+    {
+      "name": "MigrationMetadata::StandIn",
+      "kind": "metadata",
+      "attributes": [],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/synthesized_name.go",
+        "internal/translate/migrate/names.go"
+      ]
+    },
+    {
+      "name": "MigrationMetadata::SynthesizedName",
+      "kind": "metadata",
+      "attributes": [],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/synthesized_name.go",
+        "internal/translate/migrate/names.go"
+      ]
+    },
+    {
+      "name": "OOSEM::ComponentRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::DataComponent",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::Enterprise",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::EnterpriseUseCase",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::LogicalComponent",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::MissionRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::Node",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::PhysicalComponent",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::StakeholderNeed",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::SystemContext",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::SystemRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OOSEM::SystemUseCase",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/oosem_method.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "OpenSysMLMathFunctions::atan2",
+      "kind": "function",
+      "parameters": [
+        "y",
+        "x"
+      ],
+      "consumers": [
+        "internal/exec/runtime/library_functions.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions::ceiling",
+      "kind": "function",
+      "parameters": [
+        "x"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/exec/runtime/library_functions.go",
+        "internal/translate/migrate/opaque.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions::exp",
+      "kind": "function",
+      "parameters": [
+        "x"
+      ],
+      "consumers": [
+        "internal/exec/runtime/library_functions.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions::ln",
+      "kind": "function",
+      "parameters": [
+        "x"
+      ],
+      "consumers": [
+        "internal/exec/runtime/library_functions.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions::log",
+      "kind": "function",
+      "parameters": [
+        "x",
+        "base"
+      ],
+      "consumers": [
+        "internal/exec/runtime/library_functions.go"
+      ]
+    },
+    {
+      "name": "OpenSysMLMathFunctions::quotient",
+      "kind": "function",
+      "parameters": [
+        "x",
+        "y"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/exec/runtime/library_functions.go",
+        "internal/translate/migrate/opaque.go"
+      ]
+    },
+    {
+      "name": "RandomFunctions",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "RandomFunctions::normal",
+      "kind": "function",
+      "parameters": [
+        "mean",
+        "sd"
+      ],
+      "consumers": [
+        "internal/exec/runtime/random_functions.go"
+      ]
+    },
+    {
+      "name": "RandomFunctions::triangular",
+      "kind": "function",
+      "parameters": [
+        "lo",
+        "mode",
+        "hi"
+      ],
+      "consumers": [
+        "internal/exec/runtime/random_functions.go"
+      ]
+    },
+    {
+      "name": "RandomFunctions::uniform",
+      "kind": "function",
+      "parameters": [
+        "lo",
+        "hi"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/exec/runtime/random_functions.go",
+        "internal/translate/migrate/activity.go"
+      ]
+    },
+    {
+      "name": "RandomFunctions::uniformInteger",
+      "kind": "function",
+      "parameters": [
+        "lo",
+        "hi"
+      ],
+      "consumers": [
+        "internal/exec/runtime/random_functions.go"
+      ]
+    },
+    {
+      "name": "Simulation::Configuration",
+      "kind": "metadata",
+      "attributes": [
+        "runs",
+        "draws",
+        "timeVariable",
+        "startTime",
+        "stepSize",
+        "timeUnit",
+        "parallelForks"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/simconfig.go"
+      ]
+    },
+    {
+      "name": "Simulation::DrawPolicy",
+      "kind": "element",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/simconfig.go"
+      ]
+    },
+    {
+      "name": "Simulation::MonteCarlo",
+      "kind": "metadata",
+      "attributes": [
+        "observed",
+        "runs",
+        "mean",
+        "deviation",
+        "outOfSpec"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/exec/runtime/montecarlo_case.go",
+        "internal/exec/simresults/simresults.go"
+      ]
+    },
+    {
+      "name": "StateMachines",
+      "kind": "package",
+      "consumers": []
+    },
+    {
+      "name": "StateMachines::ChoiceMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/ir/lower/state_metadata.go"
+      ]
+    },
+    {
+      "name": "StateMachines::DeepHistoryMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/ir/lower/state_metadata.go"
+      ]
+    },
+    {
+      "name": "StateMachines::JunctionMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/ir/lower/state_metadata.go"
+      ]
+    },
+    {
+      "name": "StateMachines::ShallowHistoryMetadata",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/ir/lower/state_metadata.go"
+      ]
+    },
+    {
+      "name": "StateMachines::choice",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/nonstandard_notation.go",
+        "internal/translate/migrate/states.go"
+      ]
+    },
+    {
+      "name": "StateMachines::deepHistory",
+      "kind": "element",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/states.go"
+      ]
+    },
+    {
+      "name": "StateMachines::junction",
+      "kind": "element",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/states.go"
+      ]
+    },
+    {
+      "name": "StateMachines::shallowHistory",
+      "kind": "element",
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/translate/migrate/states.go"
+      ]
+    },
+    {
+      "name": "StateSpaceIntegration::Euler",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/lower/state_space.go"
+      ]
+    },
+    {
+      "name": "StateSpaceIntegration::FixedStepDynamics",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/lower/state_space.go"
+      ]
+    },
+    {
+      "name": "StateSpaceIntegration::RK4",
+      "kind": "element",
+      "consumers": [
+        "internal/ir/lower/state_space.go"
+      ]
+    },
+    {
+      "name": "Stochastic::Probability",
+      "kind": "metadata",
+      "attributes": [
+        "p"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/stochastic.go",
+        "internal/translate/migrate/activity.go"
+      ]
+    },
+    {
+      "name": "Stochastic::Probability::p",
+      "kind": "element",
+      "consumers": [
+        "internal/semantic/semantics/stochastic.go"
+      ]
+    },
+    {
+      "name": "SysMLValidation",
+      "kind": "package",
+      "consumers": []
+    }
+  ]
+}
