@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
@@ -157,4 +158,53 @@ func TestGuardedReadSelfResultFlowIsNotWrittenUnguarded(t *testing.T) {
 	wantNoLine(t, r.Notation, "flow me.result to 'use'.argument;")
 	wantNote(t, r, "_g1", migrate.Approximated, "the flow carries this under the guard [false]")
 	wantClean(t, "guarded_self_flow.sysml", r)
+}
+
+const mergedGuardedSelfFlow = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_acct" name="Acct" classifierBehavior="_run">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_produce" name="Produce">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_made" name="made" direction="out" type="_acct"/>
+        <node xmi:type="uml:ReadSelfAction" xmi:id="_prs" name="self read">
+          <result xmi:type="uml:OutputPin" xmi:id="_prsOut" name="result" type="_acct"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_madeNode" name="made" parameter="_made" type="_acct"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_pf" source="_prsOut" target="_madeNode"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:ReadSelfAction" xmi:id="_rs" name="me">
+          <result xmi:type="uml:OutputPin" xmi:id="_rsOut" name="result" type="_acct"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_mk" name="make" behavior="_produce">
+          <result xmi:type="uml:OutputPin" xmi:id="_mkOut" name="made" type="_acct"/>
+        </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_merge" name="either"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_op" name="use">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_opIn" name="argument" type="_acct"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_m1" source="_rsOut" target="_merge"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_m2" source="_mkOut" target="_merge"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_g1" source="_merge" target="_opIn">
+          <guard xmi:type="uml:LiteralBoolean" xmi:id="_g1Guard" value="false"/>
+        </edge>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A guarded flow carrying a self read and another value still reports the guard
+// the other value's flow is written without.
+func TestMergedGuardedReadSelfFlowReportsTheUnwrittenGuard(t *testing.T) {
+	r := migrateDocument(t, mergedGuardedSelfFlow,
+		`<sysml:Block xmi:id="_s9" base_Class="_acct"/>`)
+	wantNoLine(t, r.Notation, "flow me.result to 'use'.argument;")
+	wantLine(t, r.Notation, "flow make.made to 'use'.argument;")
+	var notes []string
+	for _, e := range entriesFor(r, "_g1") {
+		notes = append(notes, e.Note)
+	}
+	got := strings.Join(notes, "; ")
+	for _, want := range []string{"the flow carries this under the guard [false]", "the guard [false] on an object flow is not written"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("notes for _g1 = %q, want one noting %q", got, want)
+		}
+	}
+	wantClean(t, "merged_guarded_self_flow.sysml", r)
 }

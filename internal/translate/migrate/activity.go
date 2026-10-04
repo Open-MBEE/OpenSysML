@@ -1849,7 +1849,7 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 			a.objectFlowSource(e, s, tgt, to)
 		}
 	}
-	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) && !named {
+	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) && (!named || len(a.edgeSources[e]) > 0) {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
 }
