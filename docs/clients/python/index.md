@@ -107,4 +107,5 @@ or install `sysml-grpc` on `$PATH`.
 - [Errors](errors.md)
 - [The service](service.md)
 - [Typed classes](typed-classes.md)
+- [Metamodel classes and JSON](metamodel.md)
 - [Python API reference](../../reference/python-api.md)

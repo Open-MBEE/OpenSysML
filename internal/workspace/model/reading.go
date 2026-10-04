@@ -50,6 +50,23 @@ func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
 
+// LineIndex is the held document's line index, nil when the workspace does not hold it.
+func (r *Reading) LineIndex(name string) *source.LineIndex {
+	if doc := r.Document(name); doc != nil {
+		return doc.Lines()
+	}
+	return nil
+}
+
+// LineIndexes snapshots the line indexes of the held documents.
+func (r *Reading) LineIndexes() map[string]*source.LineIndex {
+	indexes := make(map[string]*source.LineIndex, len(r.w.docs))
+	for name, doc := range r.w.docs {
+		indexes[name] = doc.Lines()
+	}
+	return indexes
+}
+
 // Declared is the element fqn names in doc: by qualified name in the index, else
 // by qualified or simple name among the document's own declarations.
 func (r *Reading) Declared(doc, fqn string) *symbols.Symbol {

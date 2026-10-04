@@ -335,6 +335,47 @@ func TestRenderPalette(t *testing.T) {
 	}
 }
 
+func TestRenderLinkFlag(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	path := writeModel(t, dir, "linked.sysml", `package Demo {
+    part def Vehicle;
+    view overview { expose Demo::Vehicle; }
+}
+`)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	got := runFiles(t, binary, []string{path}, "-render", "Demo::overview", "-render-form", "mermaid", "-render-link", template)
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	want := `click n0 href "https://example.test/src/` + filepath.ToSlash(path) + `#L2:`
+	if !strings.Contains(got.stdout, want) {
+		t.Errorf("rendered artifact lacks the source link %q:\n%s", want, got.stdout)
+	}
+
+	allDir := filepath.Join(t.TempDir(), "all")
+	all := runFiles(t, binary, []string{path}, "-render-all", allDir, "-render-form", "mermaid", "-render-link", template)
+	if all.status != exitHolds {
+		t.Fatalf("-render-all status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	artifact, err := os.ReadFile(filepath.Join(allDir, "Demo.overview.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(artifact), want) {
+		t.Errorf("-render-all artifact lacks source links:\n%s", artifact)
+	}
+
+	invalid := runFiles(t, binary, []string{path}, "-render", "Demo::overview", "-render-link", "https://example.test/{unknown}")
+	if invalid.status != exitUnevaluable || !strings.Contains(invalid.stderr, "-render-link: unknown link template placeholder {unknown}") || invalid.stdout != "" {
+		t.Errorf("invalid link template = %d\n%s", invalid.status, invalid.output())
+	}
+	alone := runStreams(t, binary, renderModel, "-render-link", template)
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-link links rendered elements to their source") {
+		t.Errorf("link template without a render target = %d\n%s", alone.status, alone.output())
+	}
+}
+
 // TestRenderSeveralFiles checks that a view declared in one file renders the
 // elements its sibling files declare, loaded as one model, on stdout and into
 // -o in the form -render-form names.

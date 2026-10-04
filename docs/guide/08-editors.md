@@ -96,7 +96,13 @@ running orthogonally around the boxes (a rendering of more than 600 nodes falls 
 square grid). Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
-through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,
+through a `Route` waypoint. An edge at a node the model places, which ELK's route no longer
+fits, is routed at right angles around the other boxes — out of every container except the
+ones its ends lie inside — by the panel's bundled libavoid router once the node is dropped,
+and drawn straight until the router has loaded, while it is dragged, or when the router finds
+no route; that route is the panel's own — it may overlap an ELK-routed edge, which the router
+does not see — and written to the model only once one of its waypoints is dragged.
+The geometry is on every node and edge the server sends (`x`, `y`,
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the

@@ -89,12 +89,25 @@ type Snapshot struct {
 	// Rendered is the document the rendering was asked of.
 	Rendered *Document
 	docs     map[string]*Document
+	sites    map[view.Origin]view.Site
 }
 
 // Document is the named document as the snapshot holds it; nil for a name the
 // workspace held no document of, a bundled library file's included.
 func (s *Snapshot) Document(name string) *Document {
 	return s.docs[name]
+}
+
+// Sites returns the source locations for the rendering's origins.
+func (s *Snapshot) Sites() view.Sites {
+	if s == nil || s.sites == nil {
+		return nil
+	}
+	sites := s.sites
+	return func(origin view.Origin) (view.Site, bool) {
+		site, ok := sites[origin]
+		return site, ok
+	}
 }
 
 // RenderView renders a view of a document. fqn names a declared view or a
@@ -105,6 +118,48 @@ func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, err
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.renderViewLocked(doc, fqn)
+}
+
+// RenderViewLinked renders a view and resolves its source sites under the
+// workspace lock, so the returned snapshot can be used after the lock is released.
+func (w *Workspace) RenderViewLinked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	rendering, snapshot, err := w.renderViewLocked(doc, fqn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resolver, sem := w.semanticsLocked()
+	renderer := view.NewRenderer(sem, resolver, w.sourceText())
+	sites := renderer.Sites(view.FileLocator(sem, func(name string) *source.LineIndex {
+		if doc := snapshot.docs[name]; doc != nil {
+			return doc.Lines()
+		}
+		return nil
+	}))
+	frozen := make(map[view.Origin]view.Site)
+	add := func(origin view.Origin) {
+		if site, ok := sites(origin); ok {
+			frozen[origin] = site
+		}
+	}
+	var visit func([]*view.Node)
+	visit = func(nodes []*view.Node) {
+		for _, node := range nodes {
+			add(node.Origin)
+			for _, port := range node.Ports {
+				add(port.Origin)
+			}
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, edge := range rendering.Edges {
+		add(edge.Origin)
+	}
+	snapshot.sites = frozen
+	return rendering, snapshot, nil
 }
 
 // renderViewLocked is RenderView under the lock.
@@ -121,7 +176,8 @@ func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapsho
 	if err != nil {
 		return nil, nil, err
 	}
-	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
+	snapshot := &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}
+	return rendering, snapshot, nil
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.

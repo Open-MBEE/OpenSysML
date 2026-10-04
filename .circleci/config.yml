@@ -506,6 +506,29 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The metamodel table is generated from the pilot's SysML.ecore at the pin;
+      # a pin bump without regenerating it fails here.
+      - restore_cache:
+          keys:
+            - pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot metamodel
+          command: ./scripts/download-pilot-metamodel.sh
+
+      - save_cache:
+          key: pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-metamodel
+
+      - run:
+          name: Check the metamodel table matches the pinned SysML.ecore
+          command: make ontology-table-check
+
+      - run:
+          name: Check generated Python metaclasses are current
+          command: make python-metamodel-check
+
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
       - run:
@@ -993,7 +1016,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -1027,7 +1050,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 OPENSYSML_REQUIRE_TYPECHECKERS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
