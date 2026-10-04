@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
@@ -306,11 +307,15 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	if f.Name == "" || strings.Contains(f.Name, "_") {
 		return property{}, fmt.Errorf("feature name %q cannot form a <Metaclass>_<name> IRI", f.Name)
 	}
+	many, err := isMany(f.UpperBound)
+	if err != nil {
+		return property{}, err
+	}
 	p := property{
 		name:          f.Name,
 		definingClass: defining,
 		iri:           sysmlNS + defining + "_" + f.Name,
-		many:          f.UpperBound == "-1",
+		many:          many,
 		derived:       f.Derived,
 	}
 	p.ordered = p.many && f.Ordered != "false"
@@ -329,7 +334,6 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	default:
 		return property{}, fmt.Errorf("a %s typed %q, which the table cannot range over", f.Type, f.EType)
 	}
-	var err error
 	if f.Opposite != "" {
 		var opposite []string
 		if opposite, err = featureRefs(f.Opposite, features); err != nil {
@@ -355,6 +359,19 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 }
 
 // featureRefs turns "#//Class/feature ..." references into "Class::feature" names, each a declared feature.
+// isMany reports whether an ecore upperBound admits more than one value: any bound
+// above 1, or -1 (unbounded). An absent upperBound is ecore's default, 1.
+func isMany(upperBound string) (bool, error) {
+	if upperBound == "" {
+		return false, nil
+	}
+	n, err := strconv.Atoi(upperBound)
+	if err != nil || n == 0 || n < -1 {
+		return false, fmt.Errorf("upperBound %q is neither a positive integer nor -1 (unbounded)", upperBound)
+	}
+	return n != 1, nil
+}
+
 func featureRefs(refs string, features map[string]bool) ([]string, error) {
 	var out []string
 	for _, ref := range strings.Fields(refs) {

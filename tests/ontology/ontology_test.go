@@ -30,6 +30,12 @@ func TestTableShape(t *testing.T) {
 		t.Errorf("table holds %d classes, %d object and %d datatype properties; want 175, 351, 64",
 			len(classes), object, datatype)
 	}
+	for _, bounded := range [][2]string{{"MultiplicityRange", "bound"}, {"Flow", "flowEnd"}} {
+		// Both have ecore upperBound 2, so their API JSON shape is an array.
+		if declared, ok := ontology.PropertyOf(bounded[0], bounded[1]); !ok || !declared.Many {
+			t.Errorf("%s::%s should be Many", bounded[0], bounded[1])
+		}
+	}
 	if got := len(ontology.AmbiguousNames()); got != 58 {
 		t.Errorf("got %d unqualified names declared by more than one metaclass, want 58", got)
 	}
