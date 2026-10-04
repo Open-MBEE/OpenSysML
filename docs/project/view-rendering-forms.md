@@ -1038,8 +1038,9 @@ Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a b
 `stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
 them. A GeneralView graph's relationships each take a class of the same name: `specialization` a
 hollow triangle head, `typing` the same dashed, `composition` and `reference` a filled and a hollow
-diamond at the owner, `containment` a circle at the owner — those three written `<->`, D2 drawing
-a source arrowhead only on a two-headed connection — and import, satisfy, verify, derive, refine
+diamond at the owner, `containment` a circle at the owner — those three written owner `<-` owned,
+so the head at the owner is the only one, D2 drawing a source arrowhead only where the connection
+has one — and import, satisfy, verify, derive, refine
 and allocate one dashed `dependency` arrow, labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
 where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
 `${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds

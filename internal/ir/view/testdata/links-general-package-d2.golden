@@ -1,7 +1,7 @@
 # GeneralViews::packageView — package rendering (view def GeneralView, filter @Package)
 classes: {
   package: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; stroke-width: 2 } }
-  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«package»\nVehicleStructure" { class: package; link: "https://example.test/src/general.sysml#L1" }
@@ -9,7 +9,7 @@ n1: "«package»\nPowertrain" { class: package; link: "https://example.test/src/
 n2: "«package»\nVehicleRequirements" { class: package; link: "https://example.test/src/general.sysml#L27" }
 n3: "«package»\nVehicleVerification" { class: package; link: "https://example.test/src/general.sysml#L62" }
 n4: "«package»\nGeneralViews" { class: package; link: "https://example.test/src/general.sysml#L91" }
-n0 <-> n1: { class: containment; link: "https://example.test/src/general.sysml#L22" }
+n0 <- n1: { class: containment; link: "https://example.test/src/general.sysml#L22" }
 n2 -> n0: "private import ::*" { class: dependency; link: "https://example.test/src/general.sysml#L31" }
 n3 -> n0: "private import ::*" { class: dependency; link: "https://example.test/src/general.sysml#L63" }
 n3 -> n1: "private import ::*" { class: dependency; link: "https://example.test/src/general.sysml#L64" }

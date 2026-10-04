@@ -336,9 +336,9 @@ func TestD2GeneralGraphNotation(t *testing.T) {
 		{definitions, "\n  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; "},
 		{definitions, "\n  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; "},
 		{definitions, "\nn2 -> n1: { class: specialization }\n"},
-		{definitions, "\nn0 <-> n9: { class: composition }\n"},
+		{definitions, "\nn0 <- n9: { class: composition }\n"},
 		{packages, "\n  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; "},
-		{packages, " <-> "},
+		{packages, " <- "},
 		{packages, ": \"private import ::*\" { class: dependency }\n"},
 		{requirements, ": \"satisfy\" { class: dependency }\n"},
 		{requirements, ": \"verify\" { class: dependency }\n"},
@@ -644,7 +644,7 @@ var (
 	// an inline attribute block or an opening brace.
 	d2DeclarationLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `): ("(?:[^"\\]|\\.)*")( \{ .* \}| \{)$`)
 	// d2ArrowLine matches a connection between two paths with its attributes.
-	d2ArrowLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*) (<->|->|--) (` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*): (?:"(?:[^"\\]|\\.)*" )?\{ .* \}$`)
+	d2ArrowLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*) (<-|->|--) (` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*): (?:"(?:[^"\\]|\\.)*" )?\{ .* \}$`)
 	// d2EmptyLine matches the one node a blank rendering shows.
 	d2EmptyLine = regexp.MustCompile(`^\s*empty: "(?:[^"\\]|\\.)*"$`)
 	// d2ContainerFillLine matches the style line a filled container takes.

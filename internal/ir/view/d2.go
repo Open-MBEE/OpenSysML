@@ -194,9 +194,9 @@ var d2Classes = []struct{ name, body string }{
 	{"flow", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
 	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
 	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
-	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; target-arrowhead: { shape: arrow }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; target-arrowhead: { shape: arrow }; style: { " + d2Arrow + "; stroke-width: 1 }"},
-	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; target-arrowhead: { shape: arrow }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
 	{"dependency", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
 }
 
@@ -497,8 +497,8 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeSpecialization, EdgeTyping:
 		class = edge.Kind.String()
 	case EdgeComposition, EdgeReference, EdgeContainment:
-		// D2 draws a source arrowhead only on a two-headed connection.
-		arrow, class = "<->", edge.Kind.String()
+		// D2 draws a source arrowhead only where the connection has a head there.
+		arrow, class = "<-", edge.Kind.String()
 	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
 		class = "dependency"
 	}
