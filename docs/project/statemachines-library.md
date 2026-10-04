@@ -1,6 +1,6 @@
 # StateMachines library — design
 
-Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/StateMachines.sysml`
+Status: **implemented.** `internal/workspace/libs/stdlib/OpenSysML Libraries/StateMachines.sysml` — maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and vendored here pinned by `scripts/extension-libraries-pin.sh`
 is bundled with the other OpenSysML libraries, enters the same conformance and snapshot
 gates, and the notation it enables is exercised end to end by the `*_metadata.sysml`
 conformance fixtures and by `examples/pseudostates-demo.sysml`.
