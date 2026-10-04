@@ -9,6 +9,7 @@ import {
   alignedPlacement,
   clampNodeToBounds,
   freePlacement,
+  keepOrthogonalRoutes,
   layoutCanvas,
   type Box,
   type CanvasLayout,
@@ -644,7 +645,8 @@ function mount(root: HTMLElement): Mounted {
       return;
     }
     placed.set(part.feature, clamped(entry, at));
-    layout = layoutCanvas(result, overrides(), auto);
+    const previous = layout;
+    layout = keepOrthogonalRoutes(layoutCanvas(result, overrides(), auto), previous);
     draw(layout);
   }
 

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
-import type { AutoLayout } from "./autolayout";
+import type { EngineInstance } from "../landing/model";
+import { landingModel } from "../landing/model";
+import { presented } from "../landing/present";
+import { autoLayout, type AutoLayout } from "./autolayout";
 import {
   alignedPlacement,
   anchor,
@@ -11,6 +15,7 @@ import {
   type CanvasLayout,
   GAP,
   freePlacement,
+  keepOrthogonalRoutes,
   insertedWaypoint,
   labelLines,
   layoutCanvas,
@@ -29,6 +34,7 @@ import {
   portFace,
   portLabelPlacement,
   PORT_SIZE,
+  reattachRoute,
   removedWaypoint,
   shapeOf,
   steerable,
@@ -38,6 +44,12 @@ import {
 import { CLEARANCE, loadAvoid, MIN_JOG, portExitReach } from "./avoid";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
+
+interface LandingFixture {
+  hash: string;
+  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  instances: EngineInstance[];
+}
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -81,6 +93,23 @@ function layoutWithPorts(
     rendering(nodes, edges),
     { bounds },
     { nodes: new Map(), routes: new Map(), ports },
+  );
+}
+
+function orthogonal(points: RenderPoint[]): boolean {
+  return points.every((point, index) => {
+    if (index === 0) {
+      return true;
+    }
+    const previous = points[index - 1];
+    return Math.abs(point.x - previous.x) <= 1e-6 || Math.abs(point.y - previous.y) <= 1e-6;
+  });
+}
+
+function assertPointNear(actual: RenderPoint, expected: RenderPoint, context: string): void {
+  assert.ok(
+    Math.abs(actual.x - expected.x) <= 1e-6 && Math.abs(actual.y - expected.y) <= 1e-6,
+    `${context}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
   );
 }
 
@@ -1489,6 +1518,160 @@ test("freePlacement matches a one-unit brute-force search over 200 seeded scenes
   assert.ok(checked > 100, `only ${checked} scenes had a free spot`);
 });
 
+test("reattachRoute moves a start perpendicular without changing its exit leg", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 40 },
+    { x: 80, y: 40 },
+  ];
+  const start = { x: 0, y: 5 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+  assert.equal(Math.hypot(reattached[1].x - reattached[0].x, reattached[1].y - reattached[0].y), 20);
+});
+
+test("reattachRoute moves the first two bends along the start axis to preserve its exit leg", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 40 },
+    { x: 80, y: 40 },
+  ];
+  const start = { x: 5, y: 0 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+  assert.equal(Math.hypot(reattached[1].x - reattached[0].x, reattached[1].y - reattached[0].y), 20);
+});
+
+test("reattachRoute makes a straight route into an orthogonal Z when its ends are no longer level", () => {
+  const horizontal = reattachRoute(
+    [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    { x: 10, y: 20 },
+    { x: 100, y: 0 },
+  );
+  assert.ok(orthogonal(horizontal));
+  assertPointNear(horizontal[0], { x: 10, y: 20 }, "horizontal start");
+  assertPointNear(horizontal.at(-1)!, { x: 100, y: 0 }, "horizontal end");
+  assert.equal(horizontal.length, 4);
+
+  const vertical = reattachRoute(
+    [{ x: 10, y: 0 }, { x: 10, y: 100 }],
+    { x: 0, y: 10 },
+    { x: 30, y: 100 },
+  );
+  assert.ok(orthogonal(vertical));
+  assertPointNear(vertical[0], { x: 0, y: 10 }, "vertical start");
+  assertPointNear(vertical.at(-1)!, { x: 30, y: 100 }, "vertical end");
+  assert.equal(vertical.length, 4);
+});
+
+test("reattachRoute keeps an L orthogonal when its start moves perpendicular", () => {
+  const start = { x: 0, y: 10 };
+  const end = { x: 40, y: 60 };
+  const reattached = reattachRoute([{ x: 0, y: 0 }, { x: 40, y: 0 }, end], start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+});
+
+test("reattachRoute keeps both moved ends orthogonal", () => {
+  const start = { x: 0, y: 10 };
+  const end = { x: 70, y: 80 };
+  const reattached = reattachRoute(
+    [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 30 },
+      { x: 60, y: 30 },
+      { x: 60, y: 70 },
+    ],
+    start,
+    end,
+  );
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+});
+
+test("reattachRoute leaves a non-orthogonal input unchanged", () => {
+  const route = [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }];
+  assert.equal(reattachRoute(route, { x: 0, y: 10 }, { x: 20, y: 10 }), route);
+});
+
+test("keepOrthogonalRoutes replaces only diagonals with matching visible orthogonal routes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const nodes = [portNode("a", 80, 100), portNode("b", 500, 100), portNode("c", 500, 300)];
+  const nextEdges = [
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "c"),
+  ];
+  const previousEdges = [...nextEdges];
+  previousEdges[5] = connectedEdge("a", "b");
+  const ports = fixedPorts(["a.api", "east", 0.5], ["b.api", "west", 0.5], ["c.api", "west", 0.5]);
+  const previous = layoutWithPorts(nodes, previousEdges, ports, bounds);
+  const next = layoutWithPorts(nodes, nextEdges, ports, bounds);
+  const endpoints = (layout: CanvasLayout, index: number): [RenderPoint, RenderPoint] => {
+    const edge = layout.edges[index];
+    const source = layout.nodes.get(edge.edge.from)!;
+    const target = layout.nodes.get(edge.edge.to)!;
+    return [portFace(source.box, source.ports[0]), portFace(target.box, target.ports[0])];
+  };
+  const setPoints = (layout: CanvasLayout, index: number, points: RenderPoint[], hidden?: boolean): void => {
+    layout.edges[index] = {
+      ...layout.edges[index],
+      points,
+      route: points.slice(1, -1),
+      hidden: hidden ?? layout.edges[index].hidden,
+    };
+  };
+  const [aToBStart, aToBEnd] = endpoints(next, 0);
+  const [aToCStart, aToCEnd] = endpoints(next, 5);
+  const diagonal = (start: RenderPoint, end: RenderPoint): RenderPoint[] => [
+    start,
+    { x: (start.x + end.x) / 2, y: start.y + 20 },
+    end,
+  ];
+
+  setPoints(previous, 0, [aToBStart, aToBEnd]);
+  setPoints(next, 0, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 1, [aToBStart, aToBEnd]);
+  setPoints(next, 1, [aToBStart, { x: 300, y: aToBStart.y }, { x: 300, y: 180 }, { x: aToBEnd.x, y: 180 }, aToBEnd]);
+  setPoints(previous, 2, diagonal(aToBStart, aToBEnd));
+  setPoints(next, 2, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 3, [aToBStart, aToBEnd]);
+  setPoints(next, 3, diagonal(aToBStart, aToBEnd), true);
+  setPoints(previous, 4, [aToBStart, aToBEnd], true);
+  setPoints(next, 4, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 5, [aToBStart, aToBEnd]);
+  setPoints(next, 5, diagonal(aToCStart, aToCEnd));
+
+  const kept = keepOrthogonalRoutes(next, previous);
+  const replacement = kept.edges[0];
+  assert.ok(orthogonal(replacement.points));
+  assert.deepEqual(replacement.points, [aToBStart, aToBEnd]);
+  assert.deepEqual(replacement.route, []);
+  assert.deepEqual(replacement.label, { x: (aToBStart.x + aToBEnd.x) / 2, y: aToBStart.y });
+  assert.equal(replacement.rerouted, true);
+  for (const index of [1, 2, 3, 4, 5]) {
+    assert.equal(kept.edges[index], next.edges[index], `edge ${index} should stay unchanged`);
+  }
+});
+
 test("layoutCanvas passes bounds through to libavoid's route constraints", async () => {
   await loadAvoid(WASM);
   const bounds: Box = { x: 0, y: 0, width: 500, height: 260 };
@@ -1590,6 +1773,65 @@ test("layoutCanvas reroutes attached orthogonal wires after a dropped node is fr
     for (let index = 1; index < edge.points.length; index++) {
       assert.ok(edge.points[index - 1].x === edge.points[index].x || edge.points[index - 1].y === edge.points[index].y);
     }
+  }
+});
+
+test("landing drag keeps right-angled routes at the captured Pilot obstruction", async () => {
+  await loadAvoid(WASM);
+  const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
+  const model = landingModel(fixture.hash, fixture.render as RenderResult, fixture.instances);
+  const result = presented(model);
+  const auto = await autoLayout(result);
+  assert.ok(auto, "ELK should lay out the saved landing render");
+
+  const bounds: Box = {
+    x: -213.082559,
+    y: -413.648204,
+    width: 1098.165089,
+    height: 907.244513,
+  };
+  const positions: Record<string, RenderPoint> = {
+    n1: { x: 301.3853, y: 116.4220 },
+    n7: { x: 282.2569, y: 218.4220 },
+    n13: { x: 12.8074, y: 95.7248 },
+    n19: { x: 628.9174, y: 255.5811 },
+  };
+  const layoutAt = (pilotX: number): CanvasLayout => {
+    const nodes = new Map<string, LayoutGeometry>();
+    for (const entry of result.nodes) {
+      const geometry = auto.nodes.get(entry.id);
+      const position = positions[entry.id];
+      assert.ok(geometry && position, `ELK should place landing box ${entry.id}`);
+      nodes.set(entry.id, { ...geometry, x: entry.id === "n13" ? pilotX : position.x, y: position.y });
+    }
+    return layoutCanvas(result, { nodes, bounds }, auto);
+  };
+  const next = layoutAt(positions.n13.x);
+  const pilotEdge = next.edges.find(({ edge }) => edge.from === "n13" && edge.to === "n19");
+  assert.ok(pilotEdge);
+  assert.ok(
+    !orthogonal(pilotEdge.points),
+    "the captured Pilot position should reproduce its diagonal route",
+  );
+
+  const previous = layoutAt(positions.n13.x - 40);
+  for (const edge of previous.edges) {
+    assert.ok(
+      orthogonal(edge.points),
+      `the prior Pilot position should route ${edge.edge.from} → ${edge.edge.to} orthogonally`,
+    );
+  }
+
+  const kept = keepOrthogonalRoutes(next, previous);
+  for (const edge of kept.edges) {
+    assert.ok(orthogonal(edge.points), `kept route ${edge.edge.from} → ${edge.edge.to} should be orthogonal`);
+    const source = kept.nodes.get(edge.edge.from)!;
+    const target = kept.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort);
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort);
+    assert.ok(sourcePort && targetPort);
+    assertPointNear(edge.points[0], portFace(source.box, sourcePort), `${edge.edge.from} port face`);
+    assertPointNear(edge.points.at(-1)!, portFace(target.box, targetPort), `${edge.edge.to} port face`);
   }
 });
 

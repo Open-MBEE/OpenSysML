@@ -489,7 +489,8 @@ function lanesTooClose(a: RenderPoint, b: RenderPoint, c: RenderPoint, d: Render
   );
 }
 
-function compactRoute(route: RenderPoint[]): RenderPoint[] {
+/** Removes zero-length and same-direction collinear points from an orthogonal route. */
+export function compactRoute(route: RenderPoint[]): RenderPoint[] {
   const compacted: RenderPoint[] = [];
   for (const point of route) {
     if (compacted.at(-1)?.x === point.x && compacted.at(-1)?.y === point.y) {

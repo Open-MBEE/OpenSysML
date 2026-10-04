@@ -25,7 +25,7 @@ import {
   type PortPosition,
   type Side,
 } from "./geometry";
-import { avoidRoutes, CLEARANCE, MIN_JOG, type AvoidShape } from "./avoid";
+import { avoidRoutes, CLEARANCE, compactRoute, MIN_JOG, type AvoidShape } from "./avoid";
 
 export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
 export type { Box, PortPosition, Side } from "./geometry";
@@ -667,6 +667,122 @@ export function alignedPlacement(
     }
   }
   return best ?? at;
+}
+
+function orthogonalRoute(points: RenderPoint[]): boolean {
+  return points.every((point, index) => {
+    if (index === 0) {
+      return true;
+    }
+    const previous = points[index - 1];
+    return Math.abs(point.x - previous.x) <= 1e-6 || Math.abs(point.y - previous.y) <= 1e-6;
+  });
+}
+
+/** Moves an orthogonal route's ends to new points, keeping every segment orthogonal. */
+export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: RenderPoint): RenderPoint[] {
+  const points = compactRoute(route.map((point) => ({ ...point })));
+  if (!orthogonalRoute(points) || points.length < 2) {
+    return route;
+  }
+
+  if (points.length === 2) {
+    const [first, last] = points;
+    if (Math.abs(last.y - first.y) <= 1e-6) {
+      if (Math.abs(start.y - end.y) <= 1e-6) {
+        return compactRoute([{ ...start }, { ...end }]);
+      }
+      const middleX = (start.x + end.x) / 2;
+      return compactRoute([
+        { ...start },
+        { x: middleX, y: start.y },
+        { x: middleX, y: end.y },
+        { ...end },
+      ]);
+    }
+    if (Math.abs(start.x - end.x) <= 1e-6) {
+      return compactRoute([{ ...start }, { ...end }]);
+    }
+    const middleY = (start.y + end.y) / 2;
+    return compactRoute([
+      { ...start },
+      { x: start.x, y: middleY },
+      { x: end.x, y: middleY },
+      { ...end },
+    ]);
+  }
+
+  const startDx = start.x - points[0].x;
+  const startDy = start.y - points[0].y;
+  if (Math.abs(points[1].y - points[0].y) <= 1e-6) {
+    points[1].y += startDy;
+    if (points.length >= 4) {
+      points[1].x += startDx;
+      points[2].x += startDx;
+    }
+  } else {
+    points[1].x += startDx;
+    if (points.length >= 4) {
+      points[1].y += startDy;
+      points[2].y += startDy;
+    }
+  }
+  points[0] = { ...start };
+
+  const last = points.length - 1;
+  const endDx = end.x - points[last].x;
+  const endDy = end.y - points[last].y;
+  if (Math.abs(points[last].y - points[last - 1].y) <= 1e-6) {
+    points[last - 1].y += endDy;
+    if (points.length >= 4) {
+      points[last - 1].x += endDx;
+      points[last - 2].x += endDx;
+    }
+  } else {
+    points[last - 1].x += endDx;
+    if (points.length >= 4) {
+      points[last - 1].y += endDy;
+      points[last - 2].y += endDy;
+    }
+  }
+  points[last] = { ...end };
+  return compactRoute(points);
+}
+
+/** Keeps each edge's previous orthogonal route, reattached to its current ends, where the new route is not orthogonal. */
+export function keepOrthogonalRoutes(next: CanvasLayout, previous: CanvasLayout): CanvasLayout {
+  let edges: PlacedEdge[] | undefined;
+  for (let index = 0; index < next.edges.length; index++) {
+    const edge = next.edges[index];
+    const old = previous.edges[index];
+    if (
+      edge.hidden ||
+      orthogonalRoute(edge.points) ||
+      !old ||
+      old.hidden ||
+      !orthogonalRoute(old.points) ||
+      edge.edge.from !== old.edge.from ||
+      edge.edge.to !== old.edge.to ||
+      edge.edge.fromPort !== old.edge.fromPort ||
+      edge.edge.toPort !== old.edge.toPort
+    ) {
+      continue;
+    }
+
+    const source = next.nodes.get(edge.edge.from);
+    const target = next.nodes.get(edge.edge.to);
+    const sourcePort = source?.ports.find((port) => port.port.id === edge.edge.fromPort);
+    const targetPort = target?.ports.find((port) => port.port.id === edge.edge.toPort);
+    const start = source && sourcePort ? portFace(source.box, sourcePort) : edge.points[0];
+    const end = target && targetPort ? portFace(target.box, targetPort) : edge.points.at(-1);
+    if (!start || !end) {
+      continue;
+    }
+    const points = reattachRoute(old.points, start, end);
+    edges ??= [...next.edges];
+    edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+  }
+  return edges ? { ...next, edges } : next;
 }
 
 function movesInDirection(candidate: RenderPoint, at: RenderPoint, direction: RenderPoint): boolean {
