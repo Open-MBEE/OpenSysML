@@ -98,13 +98,13 @@ type cachedModel struct {
 
 // typedModel builds the checker-typed model and resolver the runtime and renderer
 // share.
-func (m *cachedModel) typedModel() (*resolve.Resolver, *semantics.Model) {
+func (m *cachedModel) typedModel() *semantics.Model {
 	if m.typed == nil {
 		m.resolver = resolve.New(m.Index)
 		m.typed = passes.NewTypedModel(m.resolver)
 		m.typed.SetSourceText(m.sourceText())
 	}
-	return m.resolver, m.typed
+	return m.typed
 }
 
 // semantics is the model-derived runtime part as a grpc CachedModel builds one:
@@ -114,8 +114,8 @@ func (m *cachedModel) semantics() *runtime.Model {
 	if m.model != nil {
 		return m.model
 	}
-	resolver, sem := m.typedModel()
-	m.model = runtime.NewModel(sem, resolver)
+	sem := m.typedModel()
+	m.model = runtime.NewModel(sem, m.resolver)
 	m.model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
@@ -318,8 +318,8 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
 
-	resolver, sem := cached.typedModel()
-	renderer := view.NewRenderer(sem, resolver, cached.sourceText())
+	sem := cached.typedModel()
+	renderer := view.NewRenderer(sem, cached.resolver, cached.sourceText())
 	var rendering *view.Rendering
 	var err error
 	if strings.HasPrefix(req.View, view.PseudoViewPrefix) {
