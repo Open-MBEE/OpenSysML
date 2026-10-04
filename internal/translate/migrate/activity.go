@@ -661,7 +661,7 @@ func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1
 		}
 		if a.starved[n] == nil {
 			targets = append(targets, n)
-			a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
+			a.m.add(n, Mapped, "", "no edge leads to the node, so it starts with the activity")
 		}
 		seen[n] = true
 	}
@@ -2343,11 +2343,11 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
 		decl := "out " + writeName(pname)
 		if typ != "" {
-			decl += " : " + typ + "[1]"
-		} else {
-			decl += "[1]"
+			decl += " : " + typ
 		}
-		a.m.w.line(decl + " = " + expr + ";")
+		mult, mnote := a.m.multiplicity(r)
+		tnote = joinNotes(tnote, mnote)
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + expr + ";")
 		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
 	})
 	a.m.add(n, verdictFor(note), name, note)

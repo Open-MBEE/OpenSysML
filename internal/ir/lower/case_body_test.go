@@ -114,6 +114,129 @@ func TestCaseBodyEndsWithItsResults(t *testing.T) {
 				return r : Integer = 0;
 			}
 		`)
-		wantKinds(t, body, "flow", "if", "return")
+		wantKinds(t, body, "declare", "flow", "if", "return")
 	})
+}
+
+func TestCaseBodyWithoutStatedFlowHasUnorderedSteps(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def Unordered {
+			attribute x : Integer := 1;
+			action s1 { assign x := x * 10; }
+			action s2 { assign x := x + 2; }
+			return : Integer;
+			x
+		}
+	`)
+	wantKinds(t, body, "declare", "flow", "return")
+	flow := body[1].(Block)
+	if !flow.Stated {
+		t.Fatal("unordered case flow is not executed through its action graph")
+	}
+	if !flow.Graph.UnstatedCaseFlow {
+		t.Fatal("unordered case flow does not retain its case graph metadata")
+	}
+	if got := len(flow.Graph.Nodes); got != 2 {
+		t.Fatalf("flow has %d nodes, want the two action usages", got)
+	}
+	if len(flow.Graph.Starts()) != 2 {
+		t.Fatalf("flow starts at %d nodes, want both unordered action usages", len(flow.Graph.Starts()))
+	}
+	for _, node := range flow.Graph.Nodes {
+		if edges := flow.Graph.Edges[node]; len(edges) != 0 {
+			t.Errorf("node %v has %d succession edge(s), want no declaration-order chaining", node, len(edges))
+		}
+	}
+}
+
+func TestCaseBodyUnorderedStatementRunsStayInTheActionGraph(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def Unordered {
+			attribute x : Integer := 1;
+			action s1 { assign x := x * 10; }
+			attribute y : Integer = x;
+			action s2 { assign x := x + 2; }
+			return : Integer;
+			x
+		}
+	`)
+	wantKinds(t, body, "declare", "flow", "return")
+	flow := body[1].(Block)
+	if len(flow.Graph.Nodes) != 3 {
+		t.Fatalf("flow has %d nodes, want two actions and one statement run", len(flow.Graph.Nodes))
+	}
+	var foundRun bool
+	for _, node := range flow.Graph.Nodes {
+		if flow.Graph.StatementRuns[node] {
+			foundRun = true
+			if len(flow.Graph.Bodies[node]) != 1 {
+				t.Fatalf("statement run has %d lowered statements, want one", len(flow.Graph.Bodies[node]))
+			}
+		}
+		if edges := flow.Graph.Edges[node]; len(edges) != 0 {
+			t.Errorf("node %v has %d succession edge(s), want no declaration-order chaining", node, len(edges))
+		}
+	}
+	if !foundRun {
+		t.Fatal("non-initial attribute binding was not lowered as a statement run")
+	}
+	if len(flow.Graph.Starts()) != 3 {
+		t.Fatalf("flow starts at %d nodes, want all three unordered steps", len(flow.Graph.Starts()))
+	}
+}
+
+func TestActionFlowDoesNotLiftPerformedActionNodes(t *testing.T) {
+	graph := actionGraphFor(t, `action test { perform action p : P; }`)
+	for _, node := range graph.Nodes {
+		if _, ok := node.(*ast.PerformActionNode); ok {
+			t.Fatal("action flow lifted a perform statement into a graph node")
+		}
+	}
+}
+
+func TestCaseBodyUnorderedFlowStartsPerformAndActionNodesTogether(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def Unordered {
+			perform action p : P;
+			action step : A;
+		}
+	`)
+	wantKinds(t, body, "flow")
+	flow := body[0].(Block)
+	if len(flow.Graph.Nodes) != 2 {
+		t.Fatalf("flow has %d nodes, want the performed action and action usage", len(flow.Graph.Nodes))
+	}
+	if starts := flow.Graph.Starts(); len(starts) != 2 {
+		t.Fatalf("flow starts at %d nodes, want both unordered steps", len(starts))
+	}
+}
+
+func TestCaseBodyTrailingAttributeBindingFollowsTheFlow(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def TrailingBinding {
+			attribute x : Integer := 1;
+			action step { assign x := 2; }
+			attribute observed : Integer = x;
+			return : Integer;
+			observed
+		}
+	`)
+	wantKinds(t, body, "declare", "flow", "declare", "return")
+}
+
+func TestCaseBodyRedefinedOutputBindingFollowsTheFlow(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def OutputBinding {
+			action first;
+			attribute :>> observed : Integer = 2;
+			action second;
+			return : Integer;
+			observed
+		}
+	`)
+	wantKinds(t, body, "flow", "declare", "return")
+	flow := body[0].(Block)
+	if len(flow.Graph.Nodes) != 2 {
+		t.Fatalf("flow has %d nodes, want the two action usages", len(flow.Graph.Nodes))
+	}
 }

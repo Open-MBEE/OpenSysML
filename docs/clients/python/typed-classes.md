@@ -5,6 +5,9 @@ checker cannot reject `inst.mas`. `opensysml.generate` emits a Python class
 for each SysML definition so applications can add static checking around the
 same runtime instances.
 
+For classes describing the SysML metamodel itself, read from a JSON export, see
+[Metamodel classes and JSON](metamodel.md).
+
 ```bash
 python -m opensysml.generate model.sysml -o model_types.py
 opensysml-generate model.sysml -o model_types.py

@@ -435,6 +435,8 @@ func (h *stateStmtHost) statementOrder(stmts []lower.Statement) *lower.Statement
 
 func (h *stateStmtHost) orderStep() int { return 0 }
 
+func (h *stateStmtHost) yieldsBetweenStatements() bool { return true }
+
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }

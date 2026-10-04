@@ -623,8 +623,9 @@ func ParseChoice(text string) (ChoiceTaken, error) {
 func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, mark, after string) (ChoiceTaken, error) {
 	c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
 	if mark == markWhere {
-		if step > 0 && !strings.HasPrefix(first, statementsWherePrefix) {
-			return fail("a step's order names the token first: step <n>: <took> first of …")
+		if step > 0 && !strings.HasPrefix(first, statementsWherePrefix) &&
+			!strings.HasPrefix(first, guardOrderWherePrefix) && !strings.HasPrefix(first, resultOrderWherePrefix) {
+			return fail("a step's order names the token, guard, or result first: step <n>: <where>: <took> first of …")
 		}
 		c.Kind, c.Where = ChoiceRegionOrder, first
 		switch {
@@ -639,6 +640,10 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 		case strings.HasPrefix(first, entryStepWherePrefix):
 			c.Kind = ChoiceEntryStep
 		case strings.HasPrefix(first, statementsWherePrefix):
+			c.Kind = ChoiceStatementOrder
+		case strings.HasPrefix(first, guardOrderWherePrefix):
+			c.Kind = ChoiceGuardOrder
+		case strings.HasPrefix(first, resultOrderWherePrefix):
 			c.Kind = ChoiceStatementOrder
 		case strings.HasPrefix(first, stepWherePrefix):
 			c.Kind = ChoiceStepOrder

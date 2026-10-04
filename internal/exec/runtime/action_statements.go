@@ -131,10 +131,14 @@ func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
 // statementOrder is how stmts may be ordered where the schedule picks it: a body's
 // statements are subactions no succession orders.
 func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
-	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() {
+	if len(stmts) < 2 {
 		return nil
 	}
-	return h.exec.statementOrder(h.graph, h.node, stmts)
+	order := h.exec.statementOrder(h.graph, h.node, stmts)
+	if h.exec.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+		return order
+	}
+	return nil
 }
 
 func (h *actionStmtHost) orderStep() int {
@@ -143,6 +147,8 @@ func (h *actionStmtHost) orderStep() int {
 	}
 	return h.exec.flow.stepCount + 1
 }
+
+func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())

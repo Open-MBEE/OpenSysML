@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::Ordered",
+  "schedule": "reverse",
+  "result": {"type": "Integer", "value": 12}
+}

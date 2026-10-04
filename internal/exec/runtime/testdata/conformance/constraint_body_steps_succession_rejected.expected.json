@@ -1,0 +1,5 @@
+{
+	"type": "constraint",
+	"evaluate": "test::Rig::flowed",
+	"error": "statement not executable: constraint body: `first` statement in a body is not executable"
+}

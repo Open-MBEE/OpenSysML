@@ -30,10 +30,11 @@ type documentInfo struct {
 
 // renderDocumentParams asks for the Markdown rendering of the document
 // definition Name names. DiagramForm is the source its graph-shaped diagrams
-// are written as, mermaid, dot or plantuml; empty is mermaid.
+// are written as, mermaid, dot, plantuml or d2; empty is mermaid.
 type renderDocumentParams struct {
-	Name        string `json:"name"`
-	DiagramForm string `json:"diagramForm,omitempty"`
+	Name         string `json:"name"`
+	DiagramForm  string `json:"diagramForm,omitempty"`
+	LinkTemplate string `json:"linkTemplate,omitempty"`
 }
 
 // renderDocumentResult is the rendered document.
@@ -58,7 +59,9 @@ func (s *Server) Documents() *documentsResult {
 // RenderDocument answers opensysml/renderDocument: the named document compiled,
 // evaluated and rendered as Markdown, or the typed error stopping it.
 func (s *Server) RenderDocument(params *renderDocumentParams) (*renderDocumentResult, error) {
-	opts := docrender.MarkdownOptions{DiagramForm: view.Form(params.DiagramForm), Drawer: docpdf.Graphviz{}}
+	opts := docrender.MarkdownOptions{
+		DiagramForm: view.Form(params.DiagramForm), Drawer: docpdf.Graphviz{}, LinkTemplate: params.LinkTemplate,
+	}
 	markdown, err := modeldoc.RenderDocumentMarkdown(s.ws, params.Name, opts)
 	if err != nil {
 		return nil, err

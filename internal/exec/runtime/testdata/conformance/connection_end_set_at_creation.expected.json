@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::Sys",
+  "libraries": true,
+  "slots": {
+    "link": {"type": "Instance"},
+    "al": {"type": "Instance"},
+    "l2": {"type": "Instance"}
+  },
+  "identical": [
+    ["link.source", "a"],
+    ["link.target", "b"],
+    ["al.source", "a"],
+    ["al.target", "b"],
+    ["l2.src", "a"],
+    ["l2.dst", "b"]
+  ]
+}

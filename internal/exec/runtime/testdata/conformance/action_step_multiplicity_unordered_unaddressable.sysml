@@ -1,5 +1,6 @@
 package test {
 	action def U {
-		action a[2**70] { }
+		attribute big = 2**70;
+		action a[big] { }
 	}
 }

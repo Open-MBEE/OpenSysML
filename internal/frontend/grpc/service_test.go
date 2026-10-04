@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
@@ -103,6 +105,76 @@ package Vehicle {
 
 	if resp.Error != "" {
 		t.Errorf("expected no error, got: %s", resp.Error)
+	}
+}
+
+func TestParseFileAPIJSONPathReturnsRootAndWarning(t *testing.T) {
+	path, err := filepath.Abs(filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := mustNewService(t, 10)
+
+	resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_FilePath{FilePath: path},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	if resp.Root == nil || len(resp.Root.ChildIds) == 0 {
+		t.Fatalf("ParseFile returned no root symbols: %+v", resp.Root)
+	}
+	var warning *pb.Diagnostic
+	for _, diagnostic := range resp.Diagnostics {
+		if diagnostic.Severity == "warning" && strings.Contains(diagnostic.Message, "library element") {
+			warning = diagnostic
+			break
+		}
+	}
+	if warning == nil {
+		t.Fatalf("ParseFile returned no library identity warning: %v", resp.Diagnostics)
+	}
+	if warning.Span == nil || warning.Span.File != path {
+		t.Fatalf("warning span = %+v, want JSON file %q", warning.Span, path)
+	}
+	if warning.Span.StartLine != 0 || warning.Span.StartCol != 0 ||
+		warning.Span.EndLine != 0 || warning.Span.EndCol != 0 {
+		t.Fatalf("warning unexpectedly has a source range: %+v", warning.Span)
+	}
+
+	diagnostics, err := srv.GetDiagnostics(context.Background(), &pb.DiagnosticsRequest{ModelHash: resp.ModelHash})
+	if err != nil {
+		t.Fatalf("GetDiagnostics failed: %v", err)
+	}
+	if len(diagnostics.Diagnostics) != len(resp.Diagnostics) {
+		t.Fatalf("cached diagnostics = %d, ParseFile diagnostics = %d",
+			len(diagnostics.Diagnostics), len(resp.Diagnostics))
+	}
+	cachedWarning := false
+	for _, diagnostic := range diagnostics.Diagnostics {
+		if diagnostic.Severity == warning.Severity && diagnostic.Message == warning.Message &&
+			diagnostic.Span != nil && diagnostic.Span.File == path {
+			cachedWarning = true
+			break
+		}
+	}
+	if !cachedWarning {
+		t.Fatalf("cached diagnostics omitted the API JSON warning: %v", diagnostics.Diagnostics)
+	}
+}
+
+func TestParseFileUnconvertibleAPIJSONIsInvalidArgument(t *testing.T) {
+	path, err := filepath.Abs(filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", "library_unmatched.toolkit.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := mustNewService(t, 10)
+
+	_, err = srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_FilePath{FilePath: path},
+	})
+	if err == nil || connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("ParseFile error = %v, want InvalidArgument", err)
 	}
 }
 

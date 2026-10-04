@@ -33,6 +33,22 @@ type bodyWork interface {
 	spell(*stateSpeller) string
 }
 
+func (ctx *Context) enclosingExecutorStep() int {
+	if ctx.body == nil {
+		return 0
+	}
+	switch work := ctx.body.work.(type) {
+	case *usageWork:
+		return work.exec.stepCount + 1
+	case *statementWork:
+		return work.exec.stepCount + 1
+	case *executionWork:
+		return work.exec.stepCount + 1
+	default:
+		return 0
+	}
+}
+
 // bodyFrame is where one level of a body's work paused; abandon ends what it
 // holds open, clone copies it as it stands, for a snapshot to restore it to, and
 // spell writes it into a state's canonical form.

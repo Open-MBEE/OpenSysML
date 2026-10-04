@@ -25,7 +25,7 @@ What the renderer emits:
 - Lists as `-` bullets or `1.` numbered items.
 - Diagrams as fenced ` ```mermaid ` blocks (` ```dot ` blocks of Graphviz DOT
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
-  `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
+  `-diagram-form plantuml`, ` ```d2 ` blocks with `-diagram-form d2`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
 - Images as a CommonMark image of the location under the caption, the
   location verbatim.
@@ -164,12 +164,13 @@ Mermaid's default size limits (50 000 characters, 500 edges) would refuse. The
 configuration never exceeds twenty times those defaults, so no page asks a
 browser for unbounded work: a chart past 1 000 000 characters or 10 000 edges
 is refused before it is written, naming the chart and its size, and is drawn
-with `-diagram-form dot` or `plantuml` instead. The page keeps the source, so it
+with `-diagram-form dot`, `plantuml` or `d2` instead. The page keeps the source, so it
 still reads where the script cannot load. A fragment has no page shell for the
 script, so a page embedding one loads Mermaid itself. Rendered with
-`-diagram-form dot` or `-diagram-form plantuml`, every graph-shaped diagram
+`-diagram-form dot`, `-diagram-form plantuml` or `-diagram-form d2`, every graph-shaped diagram
 embeds its Graphviz DOT source in
-`<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
+`<pre class="dot">`, its PlantUML source in `<pre class="plantuml">` or its D2 source in
+`<pre class="d2">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
 
 An `Image` block is a `<figure class="sysml-image">` whose `<img>` carries its
@@ -274,9 +275,11 @@ Graphviz — the `dot` named by `OPENSYSML_DOT`, else the one on `PATH`, writing
 SVG under the layout engine the block's `// layout:` header names, so a view
 the model positions is drawn where its `Layout` annotations put it — and with
 `-diagram-form plantuml` by the PlantUML jar named by `OPENSYSML_PLANTUML_JAR`,
-run by the `java` named by `OPENSYSML_JAVA` or found on `PATH`. Both are
+run by the `java` named by `OPENSYSML_JAVA` or found on `PATH`, and with
+`-diagram-form d2` by the `d2` executable named by `OPENSYSML_D2` or found on
+`PATH`. All three are
 optional where Mermaid CLI is required: without the tool, the PDF keeps the
-block's DOT or PlantUML source under a notice naming the variable to set, and
+block's DOT, PlantUML or D2 source under a notice naming the variable to set, and
 the render still succeeds. A tool that is present and fails stops the render
 with a typed `tool-failed` error carrying its output, as a failing `mmdc`
 does.
@@ -332,8 +335,8 @@ error naming it. Environment variables override discovery:
 configuration for Mermaid CLI), `OPENSYSML_KATEX` and `OPENSYSML_KATEX_CSS`
 (the KaTeX stylesheet, when it is not installed beside the `katex` command),
 `OPENSYSML_DOT` (Graphviz), `OPENSYSML_PLANTUML_JAR` and `OPENSYSML_JAVA`
-(PlantUML). The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
-a pinned WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz and PlantUML jar and
+(PlantUML) and `OPENSYSML_D2` (D2). The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
+a pinned WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, PlantUML jar and D2 and
 prints the exports to use them; the jar still needs a Java runtime of your
 own.
 

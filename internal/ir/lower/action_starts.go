@@ -60,6 +60,9 @@ func FlowStartError(graph *ActionGraph) error {
 // the owner's performance (startsConcurrently) nor of the flow it states. A sole
 // `perform` performs the behavior it names.
 func performedStep(graph *ActionGraph, node ast.Node) bool {
+	if graph.StatementRuns[node] {
+		return true
+	}
 	usage, ok := node.(*ast.Usage)
 	if !ok || len(graph.Edges[node]) > 0 || usage.IsPerformedAction() {
 		return true
@@ -74,7 +77,7 @@ func unorderedSubactions(graph *ActionGraph) []ast.Node {
 	targets := specializedSiblings(graph)
 	var starts []ast.Node
 	for _, node := range graph.Nodes {
-		if node == graph.Initial || preceded[node] || !startsConcurrently(node) {
+		if node == graph.Initial || preceded[node] || !graph.StatementRuns[node] && !startsConcurrently(node) {
 			continue
 		}
 		// A sibling subsetting or redefining the node performs it: its performance

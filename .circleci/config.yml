@@ -287,6 +287,12 @@ jobs:
             go vet ./...
             go vet -C tools ./...
 
+      # The third-party notices link the licence text this bundle copies into
+      # docs/assets/landing, which is generated rather than tracked.
+      - run:
+          name: Build the landing-page diagram
+          command: make docs-landing-assets
+
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
@@ -416,7 +422,10 @@ jobs:
       - install-fmpy
 
       # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
-      # 6.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # 8.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # The race detector's memory is per process and the corpus-wide exploration alone
+      # accounts for half of that peak, so the package runs as two processes: the
+      # exploration, then everything else (4 GB each).
       - run:
           name: Run Go race tests
           command: |
@@ -429,10 +438,14 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
-            go test -v -race -pgo=off -timeout 30m $pkgs
             if [ "$shard" = runtime ]; then
+              exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
+              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
+              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
+            else
+              go test -v -race -pgo=off -timeout 30m $pkgs
             fi
           no_output_timeout: 30m
           environment:
@@ -505,6 +518,29 @@ jobs:
       - go/save-cache
       - install-solvers
       - download-corpora
+
+      # The metamodel table is generated from the pilot's SysML.ecore at the pin;
+      # a pin bump without regenerating it fails here.
+      - restore_cache:
+          keys:
+            - pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot metamodel
+          command: ./scripts/download-pilot-metamodel.sh
+
+      - save_cache:
+          key: pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-metamodel
+
+      - run:
+          name: Check the metamodel table matches the pinned SysML.ecore
+          command: make ontology-table-check
+
+      - run:
+          name: Check generated Python metaclasses are current
+          command: make python-metamodel-check
 
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
@@ -993,7 +1029,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -1027,7 +1063,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 OPENSYSML_REQUIRE_TYPECHECKERS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.

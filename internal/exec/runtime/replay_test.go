@@ -23,6 +23,8 @@ func TestParseChoiceReadsEveryKind(t *testing.T) {
 	}{
 		{"step 3: 2@left first of 2@left, 3@right", ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Taken: 0, Among: []string{"2@left", "3@right"}, Took: "2@left"}},
 		{"step 3: 3@right first of 2@left, 3@right", ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Taken: 1, Among: []string{"2@left", "3@right"}, Took: "3@right"}},
+		{"step 1: result of calc test::Ord under the statement orders of its body: 30 first of 12, 30",
+			ChoiceTaken{Kind: ChoiceStatementOrder, Step: 1, Where: "result of calc test::Ord under the statement orders of its body", Alternatives: 2, Taken: 1, Among: []string{"12", "30"}, Took: "30"}},
 		{"step 5: decision select -> 2->alarm", ChoiceTaken{Kind: ChoiceDecisionBranch, Step: 5, Where: "decision select", Took: "2->alarm"}},
 		{"state idle on accept go -> 2->right", ChoiceTaken{Kind: ChoiceTransition, Where: "state idle on accept go", Took: "2->right"}},
 		{"on accept go: b1 first of a1, b1", ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept go", Alternatives: 2, Taken: 1, Among: []string{"a1", "b1"}, Took: "b1"}},

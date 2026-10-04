@@ -289,7 +289,7 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 		}
 	}
 	candidates := e.stepCandidates(&order, eligible, perf)
-	schedule := e.ctx.scheduling().scheduleStep(candidates)
+	schedule := e.scheduleSubflowStep(perf, candidates)
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -309,6 +309,18 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 		err = refused
 	}
 	return err
+}
+
+// An unordered case body keeps declaration order under the fixed schedules.
+func (e *ActionExecutor) scheduleSubflowStep(perf *actionFrame, candidates stepTokens) *tokenSchedule {
+	scheduler := e.ctx.scheduling()
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.oneMove() {
+		candidates.stepped = true
+	}
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.policy.kind == scheduleReverse {
+		return &tokenSchedule{order: candidates.ids}
+	}
+	return scheduler.scheduleStep(candidates)
 }
 
 // stepSubflowMove is the step of a flow run one token move at a time: its silent
@@ -338,7 +350,7 @@ func (e *ActionExecutor) stepSubflowMove(perf *actionFrame) (acted, performed bo
 func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
-	schedule := e.ctx.scheduling().scheduleStep(e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
+	schedule := e.scheduleSubflowStep(perf, e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {

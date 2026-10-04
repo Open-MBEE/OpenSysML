@@ -97,6 +97,11 @@ func (c ChoiceTaken) String() string {
 			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 		}
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
+	case ChoiceGuardOrder:
+		if c.Step > 0 {
+			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
+		}
+		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder, ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
@@ -203,6 +208,8 @@ func (x *Exploration) Status() string {
 		limit := x.Budget.Runs
 		if budget == "depth" {
 			limit = x.Budget.Depth
+		} else if budget == BoundStatementOrders {
+			limit = maxStatementOrderEvaluations
 		}
 		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 	}

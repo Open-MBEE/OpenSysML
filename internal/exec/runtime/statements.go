@@ -47,10 +47,14 @@ func (env *stmtEnv) leave() {
 	}
 }
 
-// declareUnvalued marks a name the innermost entered block declares without a value.
+// declareUnvalued marks a name the innermost entered block declares without a
+// value — or the body's own data when no block is entered, which marks it
+// declared for a write while a read answers as missing, like a feature stated
+// without a value.
 func (env *stmtEnv) declareUnvalued(name string) {
 	depth := len(env.frames)
 	if depth == 0 {
+		env.data.markUnvalued(name)
 		return
 	}
 	if env.unvalued[depth-1] == nil {
@@ -166,6 +170,9 @@ type stmtHost interface {
 	// orderStep is the step a statement order is chosen in, as the run's other
 	// choices of the step name it.
 	orderStep() int
+	// yieldsBetweenStatements reports whether this list participates in its
+	// enclosing action body's interleaving.
+	yieldsBetweenStatements() bool
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
 	// effect states an effect on the world outside the body, over engine's values.
@@ -207,6 +214,10 @@ type stmtEngine struct {
 	frameBuf []frame
 	// thisOccurrence is host.materializeOccurrence, bound once for every evalIn.
 	thisOccurrence func() (*Instance, error)
+	// features are the valued features a body's statements may name where the
+	// host supplies them — a constraint's parameters — nil where the body's
+	// frame answers every name already.
+	features map[string]scopedExpr
 }
 
 // newStmtEngineOver returns an engine running statements against data, which also
@@ -264,6 +275,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		thisOccurrence: e.thisOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
+		features:       e.features,
 		inBehaviorBody: true,
 		activation:     e.activation,
 	}
@@ -309,6 +321,7 @@ type stmtListFrame struct {
 	i        int
 	run      *runState
 	elements int64
+	order    *lower.StatementOrder
 	// done and blocked track an unordered list's statements (lower.StatementOrder);
 	// i is -1 between two of them. divided is whether another performance may run between.
 	done, blocked []bool
@@ -383,24 +396,39 @@ func (f *stmtListFrame) clone() bodyFrame {
 // pausing in one is re-entered at that statement, one yielding between two at
 // the next.
 func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
+	return e.runWithOrder(stmts, nil)
+}
+
+func (e *stmtEngine) runWithOrder(stmts []lower.Statement, explicitOrder *lower.StatementOrder) (stmtFlow, error) {
 	f, resumed, err := popFrame[*stmtListFrame](e.ctx)
 	if err != nil {
 		return flowNext, err
 	}
+	order := explicitOrder
+	if order == nil && resumed {
+		order = f.order
+	}
+	if order == nil {
+		order = e.host.statementOrder(stmts)
+	}
 	if !resumed {
 		f = &stmtListFrame{}
-		divided := e.ctx.body != nil && e.ctx.body.yields
-		if order := e.host.statementOrder(stmts); order != nil && order.Reorders(divided) {
+		divided := e.host.yieldsBetweenStatements() && e.ctx.body != nil && e.ctx.body.yields
+		if order != nil && order.Reorders(divided) {
 			f.i, f.done, f.blocked = -1, make([]bool, len(stmts)), make([]bool, len(stmts))
 			f.divided, f.switched = divided, -1
 		}
 	}
+	f.order = order
 	resumed = resumed && !e.ctx.yieldedHere()
 	if f.done != nil {
 		return e.runUnordered(stmts, f, resumed)
 	}
 	for ; f.i < len(stmts); f.i++ {
-		if err := e.ctx.yieldBody(); err != nil {
+		if order != nil && order.Skipped(f.i) {
+			continue
+		}
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		flow, err := e.statement(stmts[f.i], f, resumed)
@@ -408,7 +436,7 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 	return flowNext, nil
 }
@@ -418,8 +446,14 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 // started is set aside at an inner boundary where one it does not commute with may
 // run between its moves, so that one's moves may fall between them.
 func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, resumed bool) (flow stmtFlow, err error) {
-	order := e.host.statementOrder(stmts)
-	level := e.ctx.enterList(f, order)
+	order := f.order
+	if order == nil {
+		order = e.host.statementOrder(stmts)
+	}
+	var level *listLevel
+	if e.host.yieldsBetweenStatements() {
+		level = e.ctx.enterList(f, order)
+	}
 	defer e.ctx.leaveList(level)
 	defer func() {
 		if err != nil && !paused(err) {
@@ -428,22 +462,26 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 	}()
 	for {
 		if f.i < 0 {
-			next := f.candidates(order)
+			next := f.candidates(order, !e.ctx.scheduling().ordersStatements())
 			if len(next) == 0 {
 				return flowNext, nil
 			}
-			if err := e.ctx.yieldBody(); err != nil {
+			if err := e.yieldBody(); err != nil {
 				return flowNext, e.ctx.pausing(f, err)
 			}
 			f.i, f.switched = e.pickStatement(stmts, next), -1
-			resumed = e.ctx.resumeStrand(f)
+			if e.host.yieldsBetweenStatements() {
+				resumed = e.ctx.resumeStrand(f)
+			} else {
+				resumed = false
+			}
 			if level != nil {
 				level.moved = false
 			}
 		}
 		flow, err := e.statement(stmts[f.i], f, resumed)
 		resumed = false
-		if paused(err) && e.ctx.body.paused.strand == f {
+		if paused(err) && e.ctx.body != nil && e.ctx.body.paused.strand == f {
 			e.ctx.setAside(f)
 			continue
 		}
@@ -452,17 +490,19 @@ func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, res
 		}
 		order.Ran(f.i, f.done, f.blocked, f.divided)
 		f.i = -1
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 }
 
 // candidates lists, ascending, the statements the list may run or go on with next:
 // after one was set aside, it or those it does not commute with; else those
 // lower.StatementOrder lets start next, with every one set aside.
-func (f *stmtListFrame) candidates(order *lower.StatementOrder) []int {
+func (f *stmtListFrame) candidates(order *lower.StatementOrder, fixed bool) []int {
 	var next []int
 	if f.switched >= 0 {
 		next = append(order.Rivals(f.switched, f.done, f.divided), f.switched)
+	} else if fixed {
+		next = order.NextFixed(f.done, f.blocked, f.divided)
 	} else {
 		next = order.Next(f.done, f.blocked, f.divided)
 		for i, s := range f.strands {
@@ -525,6 +565,9 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 	if len(next) == 1 {
 		return next[0]
 	}
+	if !e.ctx.scheduling().ordersStatements() {
+		return next[0]
+	}
 	alts := make([]string, len(next))
 	for k, i := range next {
 		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
@@ -534,6 +577,13 @@ func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
 		Step:         e.host.orderStep(),
 		Where:        statementsWherePrefix + e.host.describe(),
 		Alternatives: alts,
+	}
+	if e.ctx.statementOrderSweep != nil {
+		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
+		if e.ctx.statementOrderGuardBodies != nil {
+			e.ctx.statementOrderGuardBodies[e.host.describe()] = true
+		}
+		return next[choice.Taken]
 	}
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	e.ctx.noteChoice(choice)
@@ -616,7 +666,6 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		}
 		return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
 	case lower.Declare:
-		value := Value{Kind: ValNull}
 		if s.Value != nil {
 			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
 			if err != nil {
@@ -625,9 +674,17 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
-			value = evaluated
+			e.env.declare(s.Name, evaluated)
+			return flowNext, nil
 		}
-		e.env.declare(s.Name, value)
+		// A constraint body's performance declares a valueless name as missing
+		// until a step binds it — a read answers as missing, a write binds it;
+		// every other body binds null for it, as it always has.
+		if _, constraint := e.host.(*constraintStmtHost); constraint {
+			e.env.declareUnvalued(s.Name)
+		} else {
+			e.env.declare(s.Name, Value{Kind: ValNull})
+		}
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -851,7 +908,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
 	for f.node != nil {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		// A node reached spends a step, so a flow that does not end fails the run.
@@ -865,7 +922,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -873,6 +930,19 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		f.node = successors[0].Target
 	}
 	return flowNext, nil
+}
+
+func (e *stmtEngine) yieldBody() error {
+	if !e.host.yieldsBetweenStatements() {
+		return nil
+	}
+	return e.ctx.yieldBody()
+}
+
+func (e *stmtEngine) bodyPerformed() {
+	if e.host.yieldsBetweenStatements() {
+		e.ctx.bodyPerformed()
+	}
 }
 
 // blockNode runs one node of a block's flow: the host performs an action usage in
@@ -998,7 +1068,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	defer leave()
 
 	for {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		if !resumed {
@@ -1011,7 +1081,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 		if err != nil || done || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 }
 
@@ -1077,7 +1147,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		f = &loopFrame{elements: elements}
 		if len(elements) == 0 {
-			e.ctx.bodyPerformed()
+			e.bodyPerformed()
 		}
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
@@ -1085,7 +1155,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 	defer leave()
 
 	for f.iteration < len(f.elements) || resumed {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		if !resumed {
@@ -1098,7 +1168,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 	return flowNext, nil
 }

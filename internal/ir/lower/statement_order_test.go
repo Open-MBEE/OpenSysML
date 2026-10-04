@@ -9,9 +9,9 @@ import (
 
 // orderOf builds a StatementOrder over n statements from dependent pairs and fixed positions.
 func orderOf(n int, dependent [][2]int, fixed ...int) *StatementOrder {
-	o := &StatementOrder{fixed: make([]bool, n), dependent: make([][]bool, n), shared: make([][]bool, n)}
+	o := &StatementOrder{fixed: make([]bool, n), dependent: make([][]bool, n), shared: make([][]bool, n), before: make([][]bool, n)}
 	for i := range n {
-		o.dependent[i], o.shared[i] = make([]bool, n), make([]bool, n)
+		o.dependent[i], o.shared[i], o.before[i] = make([]bool, n), make([]bool, n), make([]bool, n)
 	}
 	for _, p := range dependent {
 		o.dependent[p[0]][p[1]], o.dependent[p[1]][p[0]] = true, true
@@ -164,5 +164,102 @@ func TestStatementOrderReorders(t *testing.T) {
 	}
 	if orderOf(3, [][2]int{{0, 2}}, 1).Reorders(false) {
 		t.Error("a pair a fixed statement splits reorders")
+	}
+}
+
+func TestStatementOrderPrecedenceEnumeratesAllAdmittedOrders(t *testing.T) {
+	o := orderOf(3, [][2]int{{0, 1}, {0, 2}, {1, 2}})
+	o.before[0][1] = true
+	closePrecedence(o.before)
+
+	got := orders(o)
+	want := map[string]bool{"012": true, "021": true, "201": true}
+	if len(got) != len(want) {
+		t.Fatalf("reached %v, want three admitted orders", got)
+	}
+	for _, order := range got {
+		var key string
+		for _, s := range order {
+			key += fmt.Sprint(s)
+		}
+		if !want[key] {
+			t.Errorf("reached %v, which violates precedence or is duplicated", order)
+		}
+		delete(want, key)
+	}
+	if len(want) != 0 {
+		t.Errorf("did not reach %v", want)
+	}
+	if !o.Reorders(false) {
+		t.Error("unconstrained dependent pairs do not reorder")
+	}
+}
+
+func TestStatementOrderPrecedenceCanRemoveAllReordering(t *testing.T) {
+	o := orderOf(3, [][2]int{{0, 1}, {0, 2}, {1, 2}})
+	o.before[0][1], o.before[1][2] = true, true
+	closePrecedence(o.before)
+	if o.Reorders(false) {
+		t.Error("precedence-ordered dependent pairs reorder")
+	}
+	o.before[2][0] = true
+	closePrecedence(o.before)
+	if !o.Reorders(false) {
+		t.Error("a precedence edge against declaration order is not reported")
+	}
+}
+
+func TestStatementOrderPrecedenceStaysWithinRunBeforeFixedStatement(t *testing.T) {
+	o := orderOf(4, [][2]int{{0, 1}}, 2)
+	o.before[0][1], o.before[3][0] = true, true
+	closePrecedence(o.before)
+
+	got := orders(o)
+	if len(got) != 1 {
+		t.Fatalf("reached %v, want one fixed-barrier order", got)
+	}
+	want := []int{0, 1, 2, 3}
+	for i, statement := range got[0] {
+		if statement != want[i] {
+			t.Fatalf("reached %v, want fixed statement to remain at index 2", got[0])
+		}
+	}
+}
+
+func TestStatementOrderPrecedenceDoesNotAddCommutingAlternatives(t *testing.T) {
+	o := orderOf(3, [][2]int{{0, 1}})
+	o.before[0][1] = true
+	closePrecedence(o.before)
+
+	got := orders(o)
+	if len(got) != 1 {
+		t.Fatalf("reached %v, want one order modulo commuting statements", got)
+	}
+}
+
+func TestStatementOrderFixedPolicyUsesStableTopologicalOrder(t *testing.T) {
+	o := orderOf(3, [][2]int{{0, 1}, {0, 2}, {1, 2}})
+	o.before[2][0] = true
+	closePrecedence(o.before)
+	if !o.HasReversePrecedence() {
+		t.Fatal("reverse declaration precedence was not detected")
+	}
+
+	var got []int
+	done, blocked := make([]bool, o.Len()), make([]bool, o.Len())
+	for len(got) < o.Len() {
+		next := o.NextFixed(done, blocked, false)
+		if len(next) == 0 {
+			t.Fatalf("fixed topological order dead-ended after %v", got)
+		}
+		statement := next[0]
+		got = append(got, statement)
+		o.Ran(statement, done, blocked, false)
+	}
+	want := []int{1, 2, 0}
+	for i, statement := range want {
+		if got[i] != statement {
+			t.Fatalf("fixed order = %v, want stable topological order %v", got, want)
+		}
 	}
 }
