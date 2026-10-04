@@ -366,9 +366,11 @@ func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 			note := strings.ReplaceAll(w.plantumlLabel(node), `\n`, "\n")
 			fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
 			for _, line := range strings.Split(note, "\n") {
-				if line != "" {
-					fmt.Fprintf(&w.b, "%s  [[%s %s]]\n", indent, url, plantumlNoteLinkText(line))
+				if line == "" {
+					fmt.Fprintf(&w.b, "%s  \n", indent)
+					continue
 				}
+				fmt.Fprintf(&w.b, "%s  [[%s %s]]\n", indent, url, plantumlNoteLinkText(line))
 			}
 			fmt.Fprintf(&w.b, "%send note\n", indent)
 			return

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -481,6 +482,59 @@ func TestPlantUMLCaseObjectiveNoteLinkRendersAsSVG(t *testing.T) {
 	}
 	if bytes.Contains(svg, []byte("[[")) {
 		t.Errorf("PlantUML SVG contains literal Creole link syntax:\n%s", svg)
+	}
+}
+
+func TestPlantUMLLinkedObjectiveNotePreservesParagraphBreaks(t *testing.T) {
+	const model = `package ObjectiveParagraphExamples {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import OpenSysMLRenderings::*;
+
+	use case def Sample {
+		objective {
+			doc /* First step.
+
+			Second step. */
+		}
+	}
+
+	view diagram {
+		expose Sample;
+		render asCaseDiagram;
+	}
+}`
+	renderer, index := loadSources(t, []string{"paragraphs.sysml"}, [][]byte{[]byte(model)})
+	rendering, err := renderer.Render(lookup(t, index, "ObjectiveParagraphExamples::diagram"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: 1, Col: 1}, true
+		},
+	}
+	diagram, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const url = "https://example.test/src/paragraphs.sysml#L1"
+	want := fmt.Sprintf("[[%s First step.]]\n  \n  [[%s Second step.]]", url, url)
+	if !strings.Contains(diagram, want) {
+		t.Fatalf("PlantUML objective note lost its paragraph break:\n%s", diagram)
+	}
+	svg := renderLinkedSVG(t, FormPlantUML, diagram)
+	firstY, ok := svgAnchorTextY(svg, url, "First")
+	if !ok {
+		t.Fatalf("PlantUML SVG has no linked first paragraph:\n%s", svg)
+	}
+	secondY, ok := svgAnchorTextY(svg, url, "Second")
+	if !ok {
+		t.Fatalf("PlantUML SVG has no linked second paragraph:\n%s", svg)
+	}
+	if secondY-firstY < 25 {
+		t.Errorf("PlantUML SVG did not render a paragraph gap: first y=%g, second y=%g", firstY, secondY)
 	}
 }
 
@@ -1058,6 +1112,61 @@ func svgAnchorContainsText(svg []byte, href, text string) bool {
 					inTargetAnchor = false
 					content.Reset()
 				}
+			}
+		}
+	}
+}
+
+func svgAnchorTextY(svg []byte, href, text string) (float64, bool) {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	inText := false
+	var y float64
+	hasY := false
+	var content strings.Builder
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return 0, false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if !inTargetAnchor && element.Name.Local == "a" {
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "href" && attr.Value == href {
+						inTargetAnchor = true
+						break
+					}
+				}
+			} else if inTargetAnchor && element.Name.Local == "text" {
+				inText = true
+				hasY = false
+				content.Reset()
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "y" {
+						var err error
+						y, err = strconv.ParseFloat(attr.Value, 64)
+						if err != nil {
+							return 0, false
+						}
+						hasY = true
+						break
+					}
+				}
+			}
+		case xml.CharData:
+			if inText {
+				content.Write([]byte(element))
+			}
+		case xml.EndElement:
+			if inTargetAnchor && inText && element.Name.Local == "text" {
+				if strings.Contains(content.String(), text) {
+					return y, hasY
+				}
+				inText = false
+			}
+			if inTargetAnchor && element.Name.Local == "a" {
+				inTargetAnchor = false
 			}
 		}
 	}
