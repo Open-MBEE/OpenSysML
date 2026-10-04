@@ -183,6 +183,12 @@ func TestViewsDemoSelectsCaseAndMixedRenderings(t *testing.T) {
 		} else if kind != selection.kind {
 			t.Errorf("KindOf(%s) = %s, want %s", selection.view, kind, selection.kind)
 		}
+		rendering, err := r.Render(view)
+		if err != nil {
+			t.Errorf("Render(%s): %v", selection.view, err)
+			continue
+		}
+		assertRenderingEdgeEndpoints(t, rendering)
 	}
 }
 
@@ -572,6 +578,38 @@ func TestMixedKeepsDeferredMembersUnderStructuralOwnerInSourceOrder(t *testing.T
 	}
 }
 
+func TestMixedKeepsCaseRolesUnderStructuralOwner(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::caseOwnerView"))
+	if err != nil {
+		t.Fatalf("Render(caseOwnerView): %v", err)
+	}
+	vehicleSym := lookup(t, index, "MixedReview::CaseOwners::Vehicle")
+	driveSym := lookup(t, index, "MixedReview::CaseOwners::Vehicle::Drive")
+	driverSym := lookup(t, index, "MixedReview::CaseOwners::Vehicle::Drive::driver")
+	subjectSym := lookup(t, index, "MixedReview::CaseOwners::Vehicle::Drive::v")
+	nestedSym := lookup(t, index, "MixedReview::CaseOwners::Vehicle::Drive::nested")
+	vehicle := findNodeByOrigin(t, rendering.Roots, symbolOrigin(vehicleSym))
+	drive := findDirectChildByOrigin(t, vehicle, symbolOrigin(driveSym))
+	driver := findDirectChildByOrigin(t, vehicle, symbolOrigin(driverSym))
+	subject := findDirectChildByOrigin(t, vehicle, symbolOrigin(subjectSym))
+	nested := findDirectChildByOrigin(t, vehicle, symbolOrigin(nestedSym))
+	for _, edge := range []struct {
+		kind     EdgeKind
+		from, to *Node
+	}{
+		{EdgeAssociation, driver, drive},
+		{EdgeAssociation, drive, subject},
+		{EdgeComposition, drive, nested},
+	} {
+		if !hasRenderingEdge(rendering, edge.kind, edge.from.ID, edge.to.ID) {
+			t.Errorf("rendering has no %s edge from %q to %q: %+v",
+				edge.kind, edge.from.Name, edge.to.Name, rendering.Edges)
+		}
+	}
+	assertRenderingEdgeEndpoints(t, rendering)
+}
+
 func TestMixedKeepsIncludedTargetInItsPackage(t *testing.T) {
 	renderer, index := loadFixture(t, "mixed-review.sysml")
 	rendering, err := renderer.Render(lookup(t, index, "MixedReview::mixed"))
@@ -593,6 +631,24 @@ func TestMixedKeepsIncludedTargetInItsPackage(t *testing.T) {
 	}
 }
 
+func TestMixedResolvesTransitiveIncludes(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::transitiveIncludes"))
+	if err != nil {
+		t.Fatalf("Render(transitiveIncludes): %v", err)
+	}
+	a := findNodeByOrigin(t, rendering.Roots, symbolOrigin(lookup(t, index, "MixedReview::P::A")))
+	b := findNodeByOrigin(t, rendering.Roots, symbolOrigin(lookup(t, index, "MixedReview::P::B")))
+	c := findNodeByOrigin(t, rendering.Roots, symbolOrigin(lookup(t, index, "MixedReview::P::C")))
+	if !hasRenderingEdge(rendering, EdgeInclude, a.ID, b.ID) {
+		t.Errorf("rendering has no include edge A→B: %+v", rendering.Edges)
+	}
+	if !hasRenderingEdge(rendering, EdgeInclude, b.ID, c.ID) {
+		t.Errorf("rendering has no include edge B→C: %+v", rendering.Edges)
+	}
+	assertRenderingEdgeEndpoints(t, rendering)
+}
+
 func TestMixedDispatchesFallbackMembersToTheirBuilders(t *testing.T) {
 	renderer, index := loadFixture(t, "mixed-review.sysml")
 	rendering, err := renderer.Render(lookup(t, index, "MixedReview::behaviorView"))
@@ -606,6 +662,18 @@ func TestMixedDispatchesFallbackMembersToTheirBuilders(t *testing.T) {
 	if !hasRenderingEdge(rendering, EdgeSuccession, start.ID, step.ID) {
 		t.Errorf("rendering has no start-to-step succession edge: %+v", rendering.Edges)
 	}
+}
+
+func TestMixedBuildsStructuresQueuedByDeferredMembers(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::nestedStructuresView"))
+	if err != nil {
+		t.Fatalf("Render(nestedStructuresView): %v", err)
+	}
+	vehicle := findNodeByOrigin(t, rendering.Roots, symbolOrigin(lookup(t, index, "MixedReview::NestedStructures::Vehicle")))
+	requirement := findDirectChildByOrigin(t, vehicle, symbolOrigin(lookup(t, index, "MixedReview::NestedStructures::Vehicle::R")))
+	findDirectChildByOrigin(t, requirement, symbolOrigin(lookup(t, index, "MixedReview::NestedStructures::Vehicle::R::Inner")))
+	assertRenderingEdgeEndpoints(t, rendering)
 }
 
 func findNodeByOrigin(t *testing.T, roots []*Node, origin symbols.Origin) *Node {
@@ -629,6 +697,38 @@ func findNodeByOrigin(t *testing.T, roots []*Node, origin symbols.Origin) *Node 
 		t.Fatalf("no node with source origin %+v", origin)
 	}
 	return found
+}
+
+func findDirectChildByOrigin(t *testing.T, parent *Node, origin symbols.Origin) *Node {
+	t.Helper()
+	for _, child := range parent.Children {
+		if child.Origin == origin {
+			return child
+		}
+	}
+	t.Fatalf("no direct child of %q with source origin %+v", parent.Name, origin)
+	return nil
+}
+
+func assertRenderingEdgeEndpoints(t *testing.T, rendering *Rendering) {
+	t.Helper()
+	ids := map[string]bool{}
+	var visit func([]*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			ids[node.ID] = true
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, edge := range rendering.Edges {
+		if !ids[edge.From] {
+			t.Errorf("%s edge has no source node %q", edge.Kind, edge.From)
+		}
+		if !ids[edge.To] {
+			t.Errorf("%s edge has no target node %q", edge.Kind, edge.To)
+		}
+	}
 }
 
 func hasRenderingEdge(rendering *Rendering, kind EdgeKind, from, to string) bool {

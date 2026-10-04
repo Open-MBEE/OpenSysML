@@ -175,7 +175,8 @@ func (w *caseWalk) libraryInheritedRole(sym *symbols.Symbol) bool {
 
 // resolveIncludedCases adds include edges after their targets have been placed.
 func (w *caseWalk) resolveIncludedCases() {
-	for _, include := range w.includes {
+	for i := 0; i < len(w.includes); i++ {
+		include := w.includes[i]
 		target := w.drawn[include.target]
 		if target == nil {
 			w.render(include.target, true, nil)

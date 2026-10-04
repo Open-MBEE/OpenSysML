@@ -135,6 +135,9 @@ func TestGoldenRenderings(t *testing.T) {
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
 			}
+			if tc.kind == KindCase || tc.kind == KindMixed {
+				assertRenderingEdgeEndpoints(t, rendering)
+			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 			form := tc.kind.MachineForm()
 			machine, err := rendering.Write(form)

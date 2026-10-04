@@ -171,52 +171,59 @@ func (w *mixedWalk) renderStructures() {
 	if len(w.structures) == 0 {
 		return
 	}
-	exposed := make([]*symbols.Symbol, len(w.structures))
-	for i, entry := range w.structures {
-		exposed[i] = entry.sym
-	}
-	temp := &Rendering{drawn: w.out.drawn}
-	members := w.r.renderInterconnectionWithIDs(w.view, exposed, temp, w.ids, true)
-	var index func(*symbols.Symbol)
-	index = func(sym *symbols.Symbol) {
-		node := members[sym]
-		if node == nil || w.nodes[sym] != nil {
-			return
+	structureIndex, ownerIndex := 0, 0
+	for structureIndex < len(w.structures) {
+		batch := w.structures[structureIndex:]
+		structureIndex = len(w.structures)
+		exposed := make([]*symbols.Symbol, len(batch))
+		for i, entry := range batch {
+			exposed[i] = entry.sym
 		}
-		w.remember(sym, node)
-		w.seen[sym] = true
-		for _, member := range w.r.containedMembers(sym) {
-			index(member)
+		temp := &Rendering{drawn: w.out.drawn}
+		members := w.r.renderInterconnectionWithIDs(w.view, exposed, temp, w.ids, true)
+		var index func(*symbols.Symbol)
+		index = func(sym *symbols.Symbol) {
+			node := members[sym]
+			if node == nil || w.nodes[sym] != nil {
+				return
+			}
+			w.remember(sym, node)
+			w.seen[sym] = true
+			for _, member := range w.r.containedMembers(sym) {
+				index(member)
+			}
 		}
-	}
-	for _, entry := range w.structures {
-		index(entry.sym)
-	}
-	w.renderDeferredStructureMembers(members)
-	roots := map[*Node]bool{}
-	for _, root := range temp.Roots {
-		roots[root] = true
-	}
-	for _, entry := range w.structures {
-		node := members[entry.sym]
-		if !entry.placed || node == nil || !roots[node] {
-			continue
+		for _, entry := range batch {
+			index(entry.sym)
 		}
-		if entry.parent == nil {
-			w.out.Roots[entry.index] = node
-		} else {
-			entry.parent.Children[entry.index] = node
+		ownerEnd := len(w.structureOrder)
+		w.renderDeferredStructureMembers(members, w.structureOrder[ownerIndex:ownerEnd])
+		ownerIndex = ownerEnd
+		roots := map[*Node]bool{}
+		for _, root := range temp.Roots {
+			roots[root] = true
 		}
+		for _, entry := range batch {
+			node := members[entry.sym]
+			if !entry.placed || node == nil || !roots[node] {
+				continue
+			}
+			if entry.parent == nil {
+				w.out.Roots[entry.index] = node
+			} else {
+				entry.parent.Children[entry.index] = node
+			}
+		}
+		w.out.Edges = append(w.out.Edges, temp.Edges...)
+		w.out.Notes = append(w.out.Notes, temp.Notes...)
+		w.out.Notices = append(w.out.Notices, temp.Notices...)
 	}
 	w.removeStructuralSlots()
-	w.out.Edges = append(w.out.Edges, temp.Edges...)
-	w.out.Notes = append(w.out.Notes, temp.Notes...)
-	w.out.Notices = append(w.out.Notices, temp.Notices...)
 }
 
 // renderDeferredStructureMembers attaches members after their structural owners are indexed.
-func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node) {
-	for _, sym := range w.structureOrder {
+func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node, owners []*symbols.Symbol) {
+	for _, sym := range owners {
 		owner := members[sym]
 		if owner == nil {
 			continue
@@ -224,7 +231,9 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 		for _, member := range w.deferredMembers[sym] {
 			w.render(member, false, owner)
 		}
+		existingChildren := append([]*Node(nil), owner.Children...)
 		var children []*Node
+		directMembers := map[*Node]bool{}
 		for _, member := range w.r.containedMembers(sym) {
 			if w.r.drawsConnector(member) {
 				continue
@@ -233,8 +242,14 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 			if node == nil {
 				node = w.nodes[member]
 			}
-			if node != nil {
+			if node != nil && !directMembers[node] {
 				children = append(children, node)
+				directMembers[node] = true
+			}
+		}
+		for _, child := range existingChildren {
+			if !directMembers[child] {
+				children = append(children, child)
 			}
 		}
 		owner.Children = children
