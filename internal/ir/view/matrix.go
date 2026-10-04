@@ -57,8 +57,12 @@ func (r *Renderer) matrixShownKinds(view *symbols.Symbol) []string {
 			if !ok || op.Operator != ast.OpAt || op.TypeRef == nil || inSpans(op.Span(), negations) {
 				return true
 			}
-			selector, ok := r.resolver.ResolveQualified(condition.Scope, op.TypeRef)
-			if !ok || selector == nil {
+			var selector *symbols.Symbol
+			var selectorOK bool
+			r.resolver.InCondition(func() {
+				selector, selectorOK = r.resolver.ResolveQualified(condition.Scope, op.TypeRef)
+			})
+			if !selectorOK || selector == nil {
 				return true
 			}
 			for _, candidate := range matrixSelectors {

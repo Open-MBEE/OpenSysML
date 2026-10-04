@@ -59,6 +59,42 @@ func TestGridViewShortNameWithRelationshipFilterUsesMatrix(t *testing.T) {
 	}
 }
 
+func TestNonMatrixFilterResolutionDoesNotChangeExposure(t *testing.T) {
+	r, idx := loadSources(t, []string{"filter-condition-isolation.sysml"}, [][]byte{[]byte(`import StandardViewDefinitions::*;
+package P { part a; }
+view v : GridView {
+	filter @SysML::SuccessionAsUsage;
+	expose P::**;
+}`)})
+	rendering, err := r.Render(lookup(t, idx, "v"))
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if rendering.Kind != KindTable || !rendering.Empty() || len(rendering.Rows) != 0 {
+		t.Fatalf("rendering kind=%s, rows=%v, want an empty table", rendering.Kind, rendering.Rows)
+	}
+	const wantReason = "the view exposes nothing; the rendering is empty"
+	for _, form := range []Form{FormText, FormMarkdown, FormCSV, FormTSV} {
+		artifact, err := rendering.Write(form)
+		if err != nil {
+			t.Fatalf("Write(%s): %v", form, err)
+		}
+		if reason := rendering.EmptyReason(); reason != wantReason {
+			t.Errorf("EmptyReason() after Write(%s) = %q, want %q", form, reason, wantReason)
+		}
+		switch form {
+		case FormText, FormMarkdown:
+			if !strings.Contains(artifact, wantReason) {
+				t.Errorf("%s output omitted empty reason %q:\n%s", form, wantReason, artifact)
+			}
+		case FormCSV, FormTSV:
+			if strings.TrimSpace(artifact) == "" || strings.Contains(strings.TrimSpace(artifact), "\n") {
+				t.Errorf("%s output = %q, want only the table header", form, artifact)
+			}
+		}
+	}
+}
+
 func TestMatrixContributorsIncludeEveryExposedOwner(t *testing.T) {
 	r, idx := loadFixture(t, "matrix.sysml")
 	viewSym := lookup(t, idx, "MatrixViews::allRelations")
