@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
+import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   anchor,
@@ -20,6 +20,7 @@ import {
   nodeExtent,
   nodeUnder,
   overridesOf,
+  type PlacedNode,
   portBox,
   portCenter,
   portFace,
@@ -64,6 +65,56 @@ function placedNode(
   ports: RenderNode["ports"] = [],
 ) {
   return layoutCanvas(rendering([node(id, id, { x, y, width, height, ports })])).nodes.get(id)!;
+}
+
+function freeAt(node: PlacedNode, at: RenderPoint, others: PlacedNode[]): boolean {
+  const extent = nodeExtent({ ...node, box: { ...node.box, x: at.x, y: at.y } });
+  const expanded = {
+    x: extent.x - CLEARANCE,
+    y: extent.y - CLEARANCE,
+    width: extent.width + 2 * CLEARANCE,
+    height: extent.height + 2 * CLEARANCE,
+  };
+  return others.every((other) => {
+    const obstacle = nodeExtent(other);
+    return (
+      expanded.x >= obstacle.x + obstacle.width ||
+      expanded.x + expanded.width <= obstacle.x ||
+      expanded.y >= obstacle.y + obstacle.height ||
+      expanded.y + expanded.height <= obstacle.y
+    );
+  });
+}
+
+function nearestFreeByBruteForce(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  bounds: Box,
+): RenderPoint | undefined {
+  const min = clampNodeToBounds(
+    node,
+    { x: Number.NEGATIVE_INFINITY, y: Number.NEGATIVE_INFINITY },
+    bounds,
+  );
+  const max = clampNodeToBounds(
+    node,
+    { x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY },
+    bounds,
+  );
+  let nearest: RenderPoint | undefined;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (let x = min.x; x <= max.x; x++) {
+    for (let y = min.y; y <= max.y; y++) {
+      const candidate = { x, y };
+      const distance = Math.hypot(candidate.x - at.x, candidate.y - at.y);
+      if (distance < nearestDistance && freeAt(node, candidate, others)) {
+        nearest = candidate;
+        nearestDistance = distance;
+      }
+    }
+  }
+  return nearest;
 }
 
 test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
@@ -1019,6 +1070,79 @@ test("freePlacement leaves a directional step unchanged when that direction is b
   const bounds: Box = { x: 0, y: 0, width: 200, height: 100 };
 
   assert.equal(freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }), undefined);
+});
+
+test("freePlacement finds the nearest free position in the off-grid review scene", () => {
+  const bounds: Box = { x: 0, y: 0, width: 120, height: 120 };
+  const moving = placedNode("moving", 6, 70, 16, 16);
+  const others = [
+    placedNode("a", 67, 58, 48, 48),
+    placedNode("b", 1, 88, 16, 23),
+    placedNode("c", 19, 69, 33, 14),
+    placedNode("d", 79, 30, 15, 36),
+    placedNode("e", 15, 2, 17, 31),
+  ];
+  const at = { x: 6, y: 70 };
+  const result = freePlacement(moving, at, others, bounds, 0)!;
+  const bruteForce = nearestFreeByBruteForce(moving, at, others, bounds);
+
+  assert.ok(bruteForce);
+  assert.ok(freeAt(moving, result, others));
+  assert.ok(
+    Math.hypot(result.x - at.x, result.y - at.y) <=
+      Math.hypot(bruteForce.x - at.x, bruteForce.y - at.y) + 1e-9,
+  );
+});
+
+test("freePlacement matches a one-unit brute-force search over 200 seeded scenes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 120, height: 120 };
+  let seed = 0x91e10da5;
+  const integer = (min: number, max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return min + (seed % (max - min + 1));
+  };
+  let checked = 0;
+  for (let sample = 0; sample < 200; sample++) {
+    const width = integer(8, 32);
+    const height = integer(8, 32);
+    const moving = placedNode(
+      "moving",
+      integer(0, bounds.width - width),
+      integer(0, bounds.height - height),
+      width,
+      height,
+    );
+    const at = {
+      x: integer(0, bounds.width - width),
+      y: integer(0, bounds.height - height),
+    };
+    const others = Array.from({ length: integer(1, 5) }, (_, index) => {
+      const otherWidth = integer(12, 40);
+      const otherHeight = integer(12, 40);
+      return placedNode(
+        `other-${sample}-${index}`,
+        integer(0, bounds.width - otherWidth),
+        integer(0, bounds.height - otherHeight),
+        otherWidth,
+        otherHeight,
+      );
+    });
+    const bruteForce = nearestFreeByBruteForce(moving, at, others, bounds);
+    if (!bruteForce) {
+      continue;
+    }
+    checked++;
+    const result = freePlacement(moving, at, others, bounds, 0);
+
+    assert.ok(result, `no placement returned in seeded scene ${sample}`);
+    assert.ok(freeAt(moving, result, others), `placement is occupied in seeded scene ${sample}`);
+    assert.ok(
+      Math.hypot(result.x - at.x, result.y - at.y) <=
+        Math.hypot(bruteForce.x - at.x, bruteForce.y - at.y) + 1,
+      `placement is not nearest in seeded scene ${sample}`,
+    );
+  }
+  assert.ok(checked > 100, `only ${checked} scenes had a free spot`);
 });
 
 test("layoutCanvas passes bounds through to libavoid's route constraints", async () => {

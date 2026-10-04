@@ -511,59 +511,44 @@ export function freePlacement(
   const expandedAt = (point: RenderPoint): Box => inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
     .filter((other) => other.node.id !== node.node.id && !other.hidden)
-    .map((other) => ({ node: other, extent: extentAt(other, other.box) }));
+    .map((other) => extentAt(other, other.box));
   const isFree = (point: RenderPoint): boolean => {
     const extent = expandedAt(point);
-    return otherExtents.every(({ extent: other }) => !intersectsBoxes(extent, other));
+    return otherExtents.every((other) => !intersectsBoxes(extent, other));
   };
   const clampedAt = clamp(at);
   if (isFree(clampedAt)) {
     return clampedAt;
   }
 
-  const candidates = new Map<string, RenderPoint>();
-  const add = (point: RenderPoint): void => {
-    const candidate = clamp(point);
-    candidates.set(`${candidate.x},${candidate.y}`, candidate);
-  };
-  add(clampedAt);
   const movingAtOrigin = expandedAt({ x: node.box.x, y: node.box.y });
   const leftOffset = movingAtOrigin.x - node.box.x;
   const rightOffset = movingAtOrigin.x + movingAtOrigin.width - node.box.x;
   const topOffset = movingAtOrigin.y - node.box.y;
   const bottomOffset = movingAtOrigin.y + movingAtOrigin.height - node.box.y;
-  const movingExtent = expandedAt(clampedAt);
-  for (const { extent } of otherExtents) {
-    if (!intersectsBoxes(movingExtent, extent)) {
-      continue;
-    }
-    add({ x: extent.x - rightOffset, y: clampedAt.y });
-    add({ x: extent.x + extent.width - leftOffset, y: clampedAt.y });
-    add({ x: clampedAt.x, y: extent.y - bottomOffset });
-    add({ x: clampedAt.x, y: extent.y + extent.height - topOffset });
-  }
-
   const baseExtent = extentAt(node, node.box);
   const minX = bounds.x - (baseExtent.x - node.box.x);
   const minY = bounds.y - (baseExtent.y - node.box.y);
   const maxX = Math.max(minX, bounds.x + bounds.width - (baseExtent.x + baseExtent.width - node.box.x));
   const maxY = Math.max(minY, bounds.y + bounds.height - (baseExtent.y + baseExtent.height - node.box.y));
-  const maxRadius = Math.max(
-    Math.abs(clampedAt.x - minX),
-    Math.abs(clampedAt.x - maxX),
-    Math.abs(clampedAt.y - minY),
-    Math.abs(clampedAt.y - maxY),
-  );
-  const rings = Math.ceil(maxRadius / 16);
-  for (let ring = 1; ring <= rings; ring++) {
-    const radius = ring * 16;
-    for (let offset = -radius; offset <= radius; offset += 16) {
-      add({ x: clampedAt.x + offset, y: clampedAt.y - radius });
-      add({ x: clampedAt.x + offset, y: clampedAt.y + radius });
+  const xs = new Set([at.x, minX, maxX]);
+  const ys = new Set([at.y, minY, maxY]);
+  for (const extent of otherExtents) {
+    xs.add(extent.x - rightOffset);
+    xs.add(extent.x + extent.width - leftOffset);
+    ys.add(extent.y - bottomOffset);
+    ys.add(extent.y + extent.height - topOffset);
+  }
+
+  const candidates = new Map<string, RenderPoint>();
+  for (const x of xs) {
+    if (x < minX || x > maxX) {
+      continue;
     }
-    for (let offset = -radius + 16; offset < radius; offset += 16) {
-      add({ x: clampedAt.x - radius, y: clampedAt.y + offset });
-      add({ x: clampedAt.x + radius, y: clampedAt.y + offset });
+    for (const y of ys) {
+      if (y >= minY && y <= maxY) {
+        candidates.set(`${x},${y}`, { x, y });
+      }
     }
   }
 
