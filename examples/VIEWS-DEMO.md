@@ -29,9 +29,9 @@ view LanderViews::overview
         Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender: require condition evaluated to false: lander.mass <= maxMass
 ```
 
-The view frames a mass concern and satisfies the viewpoint framing it, so
-conformance is checked against each exposed lander: `descender` is within the
-budget, `heavyDescender` is over it and named as the violation.
+The view satisfies a viewpoint that frames a mass concern, so that concern is
+checked against each exposed lander: `descender` is within the budget,
+`heavyDescender` is over it and named as the violation.
 
 ## `%render` — the five kinds
 

@@ -119,12 +119,8 @@ type ViewConformance struct {
 	Verdict    Verdict
 }
 
-// ViewConformance evaluates whether view conforms to the viewpoints its body
-// satisfies: every concern a viewpoint frames must hold of what the view
-// exposes. The view restates no framing — FramedConcernMember is a requirement,
-// concern and viewpoint body member, never a view body one (SysML v2 §8.3.20,
-// §8.3.26). A nil evaluator answers the structural question alone; a non-view
-// is ErrNotAView, a view satisfying nothing no error.
+// ViewConformance checks every concern framed by a viewpoint the view satisfies against
+// what the view exposes; a nil evaluator answers the structural question alone.
 func (m *Model) ViewConformance(view *symbols.Symbol, eval ConcernEvaluator) (*ViewConformance, error) {
 	if view == nil || !IsView(view) {
 		return nil, ErrNotAView

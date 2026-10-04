@@ -404,10 +404,8 @@ func (w *notationWalker) expose(n *ast.Import) {
 		"only a view usage body admits Expose; a view def body states what it renders and filters")
 }
 
-// framedConcern reports a `frame` in a view body: FramedConcernMember is a
-// requirement, concern and viewpoint body member (SysML.xtext RequirementBody,
-// SysML v2 §8.3.20, §8.3.26), and a view is held to the concerns the viewpoints
-// it satisfies frame without restating them.
+// framedConcern reports a `frame` in a view body: FramedConcernMember belongs to
+// requirement, concern and viewpoint bodies only (SysML v2 §8.3.20, §8.3.26).
 func (w *notationWalker) framedConcern(n *ast.Usage) {
 	if !w.inViewBody || n.Kind != ast.UsageFramedConcern {
 		return
