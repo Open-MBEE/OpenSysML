@@ -1244,10 +1244,11 @@ spelled as the executed `finalContext` spells them.
 Set `trace: true` to include the run's documented `accept`, `send`, `transition`, `entry`,
 `exit`, `do`, `choice` and `guard` records in `trace`, in execution order. Each record carries
 its clock instant as `time`, along with fields relevant to its kind; `text` is the line the
-trace prints. A captured transition record from the `Trace::Machine` conformance example is:
+trace prints. This transition record was captured from a traced `ExecuteState` call for
+`Test::Machine` in `conformance/fixtures/behavior.sysml`:
 
 ```json
-{"kind":"transition","time":{"realValue":0},"machine":"Trace::Machine","from":"idle","to":"done","event":"accept Go","text":"transition: idle -> done (event: accept Go)"}
+{"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
 ```
 
 The `state_trace` capability is checked before sending the option; a service that withholds it

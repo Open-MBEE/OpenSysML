@@ -952,10 +952,10 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
-			Error:       fmt.Sprintf("state machine execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   F64(runtimeCtx.Clock().Now()),
-			Trace:       trace,
+			Error:        fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    F64(runtimeCtx.Clock().Now()),
+			Trace:        trace,
 			TraceDropped: dropped,
 		})
 	}

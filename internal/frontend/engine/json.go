@@ -450,7 +450,7 @@ type JExecuteStateResponse struct {
 	StatesVisited []string           `json:"statesVisited,omitempty"`
 	FinalContext  map[string]*JValue `json:"finalContext,omitempty"`
 	Error         string             `json:"error,omitempty"`
-	Diagnostics   []*JDiagnostic    `json:"diagnostics,omitempty"`
+	Diagnostics   []*JDiagnostic     `json:"diagnostics,omitempty"`
 	FinalTime     F64                `json:"finalTime,omitempty"`
 	Trace         []JTraceEvent      `json:"trace,omitempty"`
 	TraceDropped  int                `json:"traceDropped,omitempty"`

@@ -225,9 +225,9 @@ func TestLandingStackModel(t *testing.T) {
 	t.Logf("RenderView landing edges: %+v; API port ids: %+v", diagram.Edges, portIDs)
 
 	var journey struct {
-		StatesVisited []string `json:"statesVisited"`
-		Trace          []engine.JTraceEvent `json:"trace"`
-		Error         string   `json:"error"`
+		StatesVisited []string             `json:"statesVisited"`
+		Trace         []engine.JTraceEvent `json:"trace"`
+		Error         string               `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -246,7 +246,7 @@ func TestLandingStackModel(t *testing.T) {
 
 	var tracedJourney struct {
 		Trace []engine.JTraceEvent `json:"trace"`
-		Error string              `json:"error"`
+		Error string               `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
