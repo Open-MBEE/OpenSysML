@@ -870,7 +870,7 @@ func (d *decoder) headEnd(el, parent *element) bool {
 	}
 	if el.metaclass == mFlowEnd {
 		switch parent.metaclass {
-		case "Flow", "FlowUsage", "SuccessionFlow", "SuccessionFlowUsage":
+		case mFlow, mFlowUsage, mSuccessionFlow, mSuccessionFlowUsage:
 			return true
 		}
 	}
@@ -906,27 +906,55 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, err
 		}
 		return agree(pSource, subject, "source")
-	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
+	case el.metaclass == mReferenceUsage &&
+		(owning == mParameterMembership || owning == mFeatureMembership):
 		direction, stated := d.stringOf(el, rdf.SysML+pDirection)
 		if (direction != "in" && stated) || d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) ||
 			d.graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) {
 			return false, nil
 		}
 		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
-			return true, nil
+			return owning == mParameterMembership, nil
 		}
 		if parent == nil || parent.metaclass != mTransition {
 			return false, nil
 		}
-		name, ok := d.stringOf(el, rdf.SysML+pName)
-		if !ok || name != "transitionLinkSource" || len(d.graph.Objects(subject, rdf.SysML+pOwnedAnnotation)) > 0 {
+		if len(d.graph.Objects(subject, rdf.SysML+pOwnedAnnotation)) > 0 {
 			return false, nil
 		}
+		hasRedefinition, matchesTransitionSource := false, false
 		for _, relation := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			relationMeta := d.metaclass(relation)
+			if relationMeta == mRedefinition {
+				if !d.graph.BoolValue(relation, rdf.SysML+pIsImplied) {
+					return false, nil
+				}
+				hasRedefinition = true
+				target := firstIRI(d.graph, relation, "redefinedFeature", pSubsettedFeature, pGeneral, pTarget)
+				if target.Value != "" {
+					feature, err := d.referencedElement(target.Value)
+					if err != nil {
+						return false, err
+					}
+					matchesTransitionSource = matchesTransitionSource ||
+						feature.qname == qualifiedText(libraryTransitionLinkSource)
+				}
+				continue
+			}
 			if !d.graph.BoolValue(relation, rdf.SysML+pIsImplied) &&
-				!impliedRelationshipMetaclasses[d.metaclass(relation)] {
+				!impliedRelationshipMetaclasses[relationMeta] {
 				return false, nil
 			}
+		}
+		if hasRedefinition {
+			return matchesTransitionSource, nil
+		}
+		if owning != mParameterMembership {
+			return false, nil
+		}
+		name, ok := d.stringOf(el, rdf.SysML+pName)
+		if !ok || name != "transitionLinkSource" {
+			return false, nil
 		}
 		return d.graph.HasProperty(rdf.IRI(parent.iri), rdf.SysML+pSource) ||
 			d.graph.HasProperty(rdf.IRI(parent.iri), rdf.SysML+pSourceFeature), nil
