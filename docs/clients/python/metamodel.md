@@ -24,7 +24,7 @@ for p in g.all(PartUsage):
 
 The classes follow the metamodel's inheritance, so `graph.all(Feature)` also
 returns every `PartUsage`. `graph[id]` looks an element up by `@id`, and
-`graph.roots()` returns the namespaces that nothing in the document owns. References are
+`graph.roots()` returns the namespaces the document records no owner for. References are
 resolved when read, and many-valued properties return tuples.
 
 ## Names
@@ -51,7 +51,8 @@ ancestor when you pass `supertypes={"MyType": "PartUsage", ...}`, otherwise as
 A property the JSON does not carry raises `NotSupplied` (its `.derived` says
 whether the property is computed). It never reads as `None` or `()` instead:
 only an explicit `null` or `[]` in the JSON means empty. A reference to an `@id`
-the document does not contain raises `UnresolvedReference` when read.
+the document does not contain raises `UnresolvedReference` when read. A reference
+to an element of the wrong metaclass raises `MalformedValue`.
 
 OpenSysML's `api-json` export carries the owned properties it writes plus some derived ones
 (`ownedFeature`, `owner`, `qualifiedName`, `ownedMember`, ...). It carries no `feature`,

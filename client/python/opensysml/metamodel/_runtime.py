@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from inspect import getattr_static
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Mapping, TypeVar, cast, overload
@@ -16,6 +17,13 @@ T = TypeVar("T")
 
 def _as_json_list(value: Any) -> list[Any]:
     return cast(list[Any], value)
+
+
+class _UnresolvedExpectedRange:
+    pass
+
+
+_UNRESOLVED_EXPECTED_RANGE = _UnresolvedExpectedRange()
 
 
 class MetamodelError(OpenSysMLError):
@@ -141,7 +149,16 @@ class _ElementBase:
 
 
 class _Property(Generic[T]):
-    __slots__ = ("key", "range", "ordered", "derived", "many", "owner", "_name")
+    __slots__ = (
+        "key",
+        "range",
+        "ordered",
+        "derived",
+        "many",
+        "owner",
+        "_name",
+        "_expected_range",
+    )
 
     def __init__(
         self,
@@ -159,6 +176,9 @@ class _Property(Generic[T]):
         self.many = many
         self.owner: type[_ElementBase] | None = None
         self._name: str | None = None
+        self._expected_range: (
+            type[_ElementBase] | None | _UnresolvedExpectedRange
+        ) = _UNRESOLVED_EXPECTED_RANGE
 
     def __set_name__(self, owner: type[_ElementBase], name: str) -> None:
         if self.owner is None:
@@ -213,12 +233,30 @@ class _Property(Generic[T]):
             if not isinstance(element_id, str):
                 raise self._malformed(instance, f"@id must be a string, got {element_id!r}")
             try:
-                return cast(T, instance.graph[element_id])
+                target = instance.graph[element_id]
             except KeyError:
                 raise UnresolvedReference(
                     element_id, None, self._property(instance), instance.json_id
                 ) from None
+            expected = self._expected_metaclass()
+            if expected is not None and not isinstance(target, expected):
+                raise self._malformed(
+                    instance,
+                    f"reference target @id {element_id!r} has json_type "
+                    f"{target.json_type!r}; expected {expected.METACLASS}; "
+                    "pass supertypes=... for unknown @types",
+                )
+            return cast(T, target)
         raise self._malformed(instance, f"expected a reference object, got {value!r}")
+
+    def _expected_metaclass(self) -> type[_ElementBase] | None:
+        expected = self._expected_range
+        if isinstance(expected, _UnresolvedExpectedRange):
+            from ._generated import REGISTRY
+
+            expected = cast(type[_ElementBase] | None, REGISTRY.get(self.range))
+            self._expected_range = expected
+        return expected
 
     def _primitive(self, value: Any, instance: _ElementBase) -> T:
         if self.range == "bool":
@@ -236,7 +274,17 @@ class _Property(Generic[T]):
         if self.range == "float":
             if type(value) not in (int, float):
                 raise self._malformed(instance, f"expected float, got {value!r}")
-            return cast(T, float(value))
+            try:
+                converted = float(value)
+            except OverflowError:
+                raise self._malformed(
+                    instance, f"expected a finite float, got {value!r}"
+                ) from None
+            if not math.isfinite(converted):
+                raise self._malformed(
+                    instance, f"expected a finite float, got {value!r}"
+                )
+            return cast(T, converted)
 
         from ._generated import ENUMERATIONS
 

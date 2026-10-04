@@ -1,0 +1,1 @@
+- **The metamodel JSON reader unwraps standalone DataVersion envelopes, excludes namespaces with owner metadata from roots, and rejects references to the wrong metaclass and non-finite real values.** This reports malformed exported values when read and lets callers resolve custom metaclasses explicitly with `supertypes=`.

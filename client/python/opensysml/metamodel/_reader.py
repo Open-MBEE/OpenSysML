@@ -31,7 +31,7 @@ def read_json(
         if isinstance(changes, list):
             items = _unwrap_items(cast(Sequence[Any], changes))
         else:
-            items = [dict(document)]
+            items = _unwrap_items([document])
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         items = _unwrap_items(_as_sequence(value))
     else:
@@ -160,7 +160,10 @@ class ElementGraph:
             element
             for element in self
             if isinstance(element, Namespace)
-            and self._data_by_id[element.json_id].get("owningRelationship") is None
+            and all(
+                self._data_by_id[element.json_id].get(key) is None
+                for key in ("owningRelationship", "owner", "owningNamespace")
+            )
             and element.json_id not in referenced
         )
         return self._roots

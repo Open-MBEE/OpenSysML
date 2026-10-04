@@ -89,6 +89,13 @@ def test_unwraps_data_version_and_commit_envelopes():
     assert read_json(commit)["second"].declared_name == "two"
 
 
+def test_unwraps_standalone_data_version_envelopes():
+    payload = element("p", declaredName="standalone")
+    envelope = {"identity": {"@id": "identity"}, "payload": payload}
+    assert read_json(envelope)["p"].declared_name == "standalone"
+    assert len(read_json({"identity": {"@id": "identity"}, "payload": None})) == 0
+
+
 def test_normalizes_known_types_and_preserves_written_type():
     for written in (
         "sysml:PartUsage",
@@ -147,6 +154,44 @@ def test_reference_resolution_is_lazy_and_cached():
     assert excinfo.value.ref == "Engine"
 
 
+def test_reference_ranges_require_the_declared_metaclass():
+    usage = element("usage", "PartUsage", partDefinition=[{"@id": "literal"}])
+    literal = element("literal", "LiteralInteger", value=1)
+    graph = read_json([usage, literal])
+    with pytest.raises(
+        MalformedValue,
+        match=r"@id 'literal'.*json_type 'LiteralInteger'.*expected PartDefinition",
+    ):
+        graph["usage"].part_definition
+
+    usage = element("usage", "PartUsage", partDefinition=[{"@id": "custom"}])
+    custom = element("custom", "vendor:SpecialPartDefinition")
+    fallback = read_json([usage, custom])
+    with pytest.raises(MalformedValue, match="supertypes="):
+        fallback["usage"].part_definition
+
+    specialized = read_json(
+        [usage, custom],
+        supertypes={"vendor:SpecialPartDefinition": "PartDefinition"},
+    )
+    assert isinstance(specialized["custom"], PartDefinition)
+    assert specialized["usage"].part_definition == (specialized["custom"],)
+
+
+def test_many_reference_ranges_are_checked_per_item():
+    definition = element(
+        "definition",
+        "PartDefinition",
+        ownedFeature=[{"@id": "feature"}, {"@id": "namespace"}],
+    )
+    feature = element("feature", "Feature")
+    namespace = element("namespace", "Namespace")
+    graph = read_json([definition, feature, namespace])
+
+    with pytest.raises(MalformedValue, match=r"@id 'namespace'.*expected Feature"):
+        graph["definition"].owned_feature
+
+
 def test_missing_and_null_properties_preserve_cardinality():
     usage = read_json(element())["e"]
     with pytest.raises(NotSupplied) as excinfo:
@@ -201,6 +246,19 @@ def test_enum_and_primitive_values_and_malformed_values():
 
 
 @pytest.mark.parametrize(
+    "value", [10**400, float("inf"), float("-inf"), float("nan")]
+)
+def test_rational_values_must_be_finite(value):
+    document = json.dumps(
+        element("r", "LiteralRational", value=value), allow_nan=True
+    ).encode()
+    rational = read_json(document)["r"]
+
+    with pytest.raises(MalformedValue, match="finite"):
+        rational.value
+
+
+@pytest.mark.parametrize(
     "document",
     [
         b"null",
@@ -236,6 +294,16 @@ def test_graph_collection_behavior_and_roots():
     assert graph.all(Namespace) == (graph["root"], graph["child"])
     assert graph.roots() == (graph["root"],)
     assert graph.roots() is graph.roots()
+
+
+@pytest.mark.parametrize("key", ["owner", "owningNamespace"])
+@pytest.mark.parametrize("owner_id", ["root", "outside"])
+def test_roots_excludes_namespaces_with_owner_metadata(key, owner_id):
+    root = element("root", "Namespace")
+    nested = element("nested", "Namespace", **{key: {"@id": owner_id}})
+    graph = read_json([root, nested])
+
+    assert graph.roots() == (graph["root"],)
 
 
 def test_elements_compare_by_graph_identity_and_id():
