@@ -18,15 +18,27 @@
         "@id": "Named"
       }
     ],
+    "importedMembership": [],
+    "ownedImport": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
-    "ownedElement": [],
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Named"
+      }
+    ],
     "owner": null,
     "owningMembership": null,
     "owningNamespace": null,
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -53,17 +65,49 @@
     "membershipOwningNamespace": {
       "@id": "Named_ns"
     },
+    "ownedMemberElementId": "Named",
+    "ownedMemberName": "Named",
+    "ownedMemberShortName": null,
+    "memberElementId": "Named",
+    "memberName": "Named",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Named_ns"
+      },
+      {
+        "@id": "Named"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Named_ns"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Named"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Named_ns"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -125,25 +169,6 @@
     "sysx:sourceText": "package Named {\n",
     "sysx:sourceTail": "}\n",
     "importedMembership": [],
-    "member": [
-      {
-        "@id": "Named__Vehicle"
-      },
-      {
-        "@id": "Named__Mass"
-      }
-    ],
-    "membership": [
-      {
-        "@id": "Named__Vehicle_om"
-      },
-      {
-        "@id": "Named__Car"
-      },
-      {
-        "@id": "Named__Mass_om"
-      }
-    ],
     "ownedImport": [],
     "aliasIds": [],
     "declaredShortName": null,
@@ -190,6 +215,7 @@
     "sysx:hasBody": false,
     "sysx:sourceText": "    part def \u003cv1\u003e Vehicle;\n",
     "isIndividual": false,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -200,10 +226,15 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -247,9 +278,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -275,17 +304,49 @@
     "membershipOwningNamespace": {
       "@id": "Named"
     },
+    "ownedMemberElementId": "Named__Vehicle",
+    "ownedMemberName": "Vehicle",
+    "ownedMemberShortName": "v1",
+    "memberElementId": "Named__Vehicle",
+    "memberName": "Vehicle",
+    "memberShortName": "v1",
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Named"
+      },
+      {
+        "@id": "Named__Vehicle"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Named"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Named__Vehicle"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Named"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -317,14 +378,11 @@
     },
     "sysx:hasBody": false,
     "sysx:sourceText": "    alias Car for Vehicle;\n",
-    "memberShortName": null,
+    "memberElementId": "Named__Vehicle",
+    "memberShortName": "v1",
     "visibility": "public",
     "isImplied": false,
-    "ownedRelatedElement": [
-      {
-        "@id": "Named__Vehicle"
-      }
-    ],
+    "ownedRelatedElement": [],
     "relatedElement": [
       {
         "@id": "Named"
@@ -333,23 +391,29 @@
         "@id": "Named__Vehicle"
       }
     ],
-    "source": {
-      "@id": "Named"
-    },
-    "target": {
-      "@id": "Named__Vehicle"
-    },
+    "source": [
+      {
+        "@id": "Named"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Named__Vehicle"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
     "documentation": [],
     "isImpliedIncluded": false,
     "isLibraryElement": false,
+    "name": null,
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
     "owningRelationship": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -378,6 +442,7 @@
     "declaredShortName": "m",
     "sysx:hasBody": false,
     "sysx:sourceText": "    attribute def \u003cm\u003e Mass;\n",
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -387,14 +452,6 @@
       },
       {
         "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
-      }
-    ],
-    "featureMembership": [
-      {
-        "@id": "b0f5e041-28a8-54d7-8b10-f98b41e2dda0"
-      },
-      {
-        "@id": "eb64dd16-9465-56e7-8a36-8987c6e36bf5"
       }
     ],
     "inheritedFeature": [
@@ -412,10 +469,15 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -459,17 +521,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "usage": [
-      {
-        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
-      },
-      {
-        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
-      }
-    ],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -495,17 +547,49 @@
     "membershipOwningNamespace": {
       "@id": "Named"
     },
+    "ownedMemberElementId": "Named__Mass",
+    "ownedMemberName": "Mass",
+    "ownedMemberShortName": "m",
+    "memberElementId": "Named__Mass",
+    "memberName": "Mass",
+    "memberShortName": "m",
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Named"
+      },
+      {
+        "@id": "Named__Mass"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Named"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Named__Mass"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Named"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   }
 ]

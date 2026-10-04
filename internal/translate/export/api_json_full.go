@@ -10,7 +10,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -41,28 +40,51 @@ func ParseAPIJSONForm(s string) (APIJSONForm, bool) {
 
 // ModelToAPIJSON converts model documents to compact or full API JSON.
 func ModelToAPIJSON(documents []ModelDocument, ids IDForm, form APIJSONForm) ([]byte, error) {
+	output, _, err := modelToAPIJSON(documents, ids, form)
+	return output, err
+}
+
+func modelToAPIJSON(documents []ModelDocument, ids IDForm, form APIJSONForm) ([]byte, []serializationFailure, error) {
 	if form != APIJSONCompact && form != APIJSONFull {
-		return nil, fmt.Errorf("unknown API JSON form %d", form)
+		return nil, nil, fmt.Errorf("unknown API JSON form %d", form)
 	}
 	graph, res, encoders, err := modelToRDF(documents, ids)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if form == APIJSONCompact {
-		return WriteAPIJSON(graph)
+		output, err := WriteAPIJSON(graph)
+		return output, nil, err
 	}
 	if len(encoders) == 0 {
-		return WriteAPIJSON(graph)
+		output, err := WriteAPIJSON(graph)
+		return output, nil, err
 	}
-	evaluator := metamodel.New(res, encoders[0].ids.model)
-	subjects := buildSemanticSubjects(graph, res, encoders, encoders[0].ids.model)
-	return writeFullAPIJSON(graph, evaluator, subjects)
+	subjects := buildSemanticSubjects(graph, res, encoders)
+	settled, err := prepareFullAPIJSONGraph(graph, subjects)
+	if err != nil {
+		return nil, nil, err
+	}
+	evaluator := metamodel.New(res, encoders[0].ids.model, metamodel.Options{
+		Structure: newGraphStructure(settled, subjects),
+	})
+	return writeFullAPIJSONSettled(settled, evaluator, subjects)
 }
 
 type semanticSubjectMap struct {
 	byIRI        map[string]metamodel.Element
-	byElement    map[metamodel.Element]rdf.Term
-	byMembership map[metamodel.Membership]rdf.Term
+	byElement    map[metamodel.ElementKey]rdf.Term
+	byMembership map[metamodel.MembershipKey]rdf.Term
+	resolver     *resolve.Resolver
+	catalog      *identity.Catalog
+	failures     []serializationFailure
+}
+
+type serializationFailure struct {
+	Property string
+	Reason   string
+	Source   string
+	Target   string
 }
 
 type apiJSONOntology struct {
@@ -156,8 +178,8 @@ func newAPIJSONOntology() apiJSONOntology {
 func newSemanticSubjectMap() *semanticSubjectMap {
 	return &semanticSubjectMap{
 		byIRI:        make(map[string]metamodel.Element),
-		byElement:    make(map[metamodel.Element]rdf.Term),
-		byMembership: make(map[metamodel.Membership]rdf.Term),
+		byElement:    make(map[metamodel.ElementKey]rdf.Term),
+		byMembership: make(map[metamodel.MembershipKey]rdf.Term),
 	}
 }
 
@@ -166,121 +188,54 @@ func (s *semanticSubjectMap) add(subject rdf.Term, element metamodel.Element) {
 		return
 	}
 	s.byIRI[subject.Value] = element
-	s.byElement[element] = subject
+	s.byElement[element.Key()] = subject
+	if element.IsMembership {
+		s.byMembership[element.Membership.Key()] = subject
+	}
 }
 
-func buildSemanticSubjects(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder, model *semantics.Model) *semanticSubjectMap {
+func (s *semanticSubjectMap) addMembership(subject rdf.Term, membership metamodel.Membership) {
+	if subject.Value == "" {
+		return
+	}
+	s.byMembership[membership.Key()] = subject
+	s.byElement[metamodel.MembershipElement(membership).Key()] = subject
+}
+
+func buildSemanticSubjects(graph *rdf.Graph, res *resolve.Resolver, encoders []*encoder) *semanticSubjectMap {
 	mapped := newSemanticSubjectMap()
-	for _, libraryElement := range identity.LibraryCatalog(res.Index()).Elements() {
+	mapped.resolver = res
+	mapped.catalog = identity.LibraryCatalog(res.Index())
+	for _, libraryElement := range mapped.catalog.Elements() {
 		element := metamodel.ElementOf(libraryElement.Symbol)
 		mapped.add(rdf.ElementIRIForID(libraryElement.ID), element)
 		membership := metamodel.MembershipElement(element.Membership)
 		if hasSemanticMembership(element.Membership) {
 			membershipTerm := rdf.ElementIRIForID(libraryElement.OwningMembershipID)
-			mapped.byMembership[element.Membership] = membershipTerm
-			mapped.byElement[membership] = membershipTerm
+			mapped.addMembership(membershipTerm, membership.Membership)
 		}
 	}
 	graphSubjects := make(map[string]bool)
 	for _, subject := range graph.Subjects() {
 		graphSubjects[subject.Value] = true
 	}
-	importOwners := make(map[*ast.Import]*symbols.Symbol)
 	for _, e := range encoders {
-		indexImportOwners(res.Index().DocumentRoot(e.file.Name()), importOwners, make(map[*symbols.Scope]bool))
-	}
-	for _, e := range encoders {
-		for node, fqn := range e.fqn {
-			subject := e.ids.subjectForNode(node, fqn)
-			sym := e.ids.declSym[node]
-			if sym == nil {
-				sym = symbolForNode(res, node, fqn)
-			}
-			element := metamodel.NodeOf(node)
-			if imp, ok := node.(*ast.Import); ok {
-				element = metamodel.Element{Node: imp, Container: importOwners[imp]}
-			} else if sym != nil {
-				element = metamodel.ElementOf(sym)
-			}
-			if graphSubjects[subject.Value] {
-				mapped.add(subject, element)
-			}
-			if sym != nil {
-				addSemanticMembership(mapped, e, node, subject, sym)
-			}
-		}
-		for _, ref := range e.libraryRefs {
-			sym := e.ids.declSym[ref.node]
-			if sym == nil {
-				sym = symbolForNode(res, ref.node, ref.fqn)
-			}
-			if sym == nil {
+		for iri, element := range e.origins {
+			if !graphSubjects[iri] {
 				continue
 			}
-			element := metamodel.ElementOf(sym)
-			mapped.add(ref.subject, element)
-			addSemanticMembership(mapped, e, ref.node, ref.subject, sym)
-			if ref.membership.Value != "" && hasSemanticMembership(element.Membership) {
-				membership := metamodel.MembershipElement(element.Membership)
-				mapped.byMembership[element.Membership] = ref.membership
-				mapped.byElement[membership] = ref.membership
-			}
-		}
-		if model != nil {
-			for _, sym := range e.ids.declSym {
-				for _, site := range model.AnnotationSitesOf(sym) {
-					if site.Node == nil {
-						continue
-					}
-					fqn, ok := e.fqn[site.Node]
-					if !ok {
-						continue
-					}
-					subject := e.ids.subjectForNode(site.Node, fqn)
-					if graphSubjects[subject.Value] {
-						mapped.add(subject, metamodel.Element{
-							Node: site.Node, Container: sym, Aspect: "annotation",
-						})
-					}
-				}
+			subject := rdf.IRI(iri)
+			mapped.add(subject, element)
+			if element.IsMembership {
+				mapped.addMembership(subject, element.Membership)
 			}
 		}
 	}
 	return mapped
 }
 
-func addSemanticMembership(mapped *semanticSubjectMap, e *encoder, node ast.Node, subject rdf.Term, sym *symbols.Symbol) {
-	element := metamodel.ElementOf(sym)
-	if !hasSemanticMembership(element.Membership) {
-		return
-	}
-	if sym.Kind == symbols.SymbolAlias {
-		mapped.byMembership[element.Membership] = subject
-		mapped.byElement[metamodel.MembershipElement(element.Membership)] = subject
-		return
-	}
-	membership := e.ids.owningMembershipOf(node, subject)
-	mapped.byMembership[element.Membership] = membership
-	mapped.byElement[metamodel.MembershipElement(element.Membership)] = membership
-}
-
 func hasSemanticMembership(membership metamodel.Membership) bool {
 	return membership.Symbol != nil || membership.Node != nil || membership.Member != nil
-}
-
-func symbolForNode(res *resolve.Resolver, node ast.Node, fqn string) *symbols.Symbol {
-	if res == nil || res.Index() == nil {
-		return nil
-	}
-	for _, sym := range res.Index().LookupQualified(fqn) {
-		if sym != nil && sym.Decl == node {
-			return sym
-		}
-	}
-	if sym := res.Index().Declaring(fqn); sym != nil && sym.Decl == node {
-		return sym
-	}
-	return nil
 }
 
 func indexImportOwners(scope *symbols.Scope, owners map[*ast.Import]*symbols.Symbol, seen map[*symbols.Scope]bool) {
@@ -296,7 +251,15 @@ func indexImportOwners(scope *symbols.Scope, owners map[*ast.Import]*symbols.Sym
 	}
 }
 
-func writeFullAPIJSON(graph *rdf.Graph, evaluator *metamodel.Evaluator, subjects *semanticSubjectMap) ([]byte, error) {
+func writeFullAPIJSON(graph *rdf.Graph, evaluator *metamodel.Evaluator, subjects *semanticSubjectMap) ([]byte, []serializationFailure, error) {
+	settled, err := prepareFullAPIJSONGraph(graph, subjects)
+	if err != nil {
+		return nil, nil, err
+	}
+	return writeFullAPIJSONSettled(settled, evaluator, subjects)
+}
+
+func prepareFullAPIJSONGraph(graph *rdf.Graph, subjects *semanticSubjectMap) (*rdf.Graph, error) {
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
 		return nil, err
@@ -305,15 +268,32 @@ func writeFullAPIJSON(graph *rdf.Graph, evaluator *metamodel.Evaluator, subjects
 	if err != nil {
 		return nil, err
 	}
-	elements := make([]apiJSONObject, 0, len(settled.Subjects()))
-	for _, subject := range settled.Subjects() {
-		element, err := apiJSONElement(settled, subject)
-		if err != nil {
-			return nil, err
+	addRootNamespaceOrigins(settled, subjects)
+	return settled, nil
+}
+
+func writeFullAPIJSONSettled(graph *rdf.Graph, evaluator *metamodel.Evaluator, subjects *semanticSubjectMap) ([]byte, []serializationFailure, error) {
+	graphSubjects := graph.Subjects()
+	var unmapped []string
+	for _, subject := range graphSubjects {
+		if hasSysMLType(graph.Objects(subject, rdf.RDFType)) {
+			if _, ok := subjects.byIRI[subject.Value]; !ok {
+				unmapped = append(unmapped, subject.Value)
+			}
 		}
-		element, err = appendFullProperties(settled, subject, element, evaluator, subjects)
+	}
+	if len(unmapped) > 0 {
+		return nil, nil, fmt.Errorf("SysML subjects have no semantic origin: %s", strings.Join(unmapped, ", "))
+	}
+	elements := make([]apiJSONObject, 0, len(graphSubjects))
+	for _, subject := range graphSubjects {
+		element, err := apiJSONElement(graph, subject)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		element, err = appendFullProperties(graph, subject, element, evaluator, subjects)
+		if err != nil {
+			return nil, nil, err
 		}
 		elements = append(elements, element)
 	}
@@ -325,50 +305,160 @@ func writeFullAPIJSON(graph *rdf.Graph, evaluator *metamodel.Evaluator, subjects
 			compact.WriteByte(',')
 		}
 		if err := w.object(element); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	compact.WriteByte(']')
 	var out bytes.Buffer
 	out.Grow(compact.Len() * 2)
 	if err := json.Indent(&out, compact.Bytes(), "", "  "); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out.WriteByte('\n')
-	return out.Bytes(), nil
+	return out.Bytes(), subjects.failures, nil
+}
+
+func addRootNamespaceOrigins(graph *rdf.Graph, subjects *semanticSubjectMap) {
+	for _, subject := range graph.Subjects() {
+		if !transparentRootSubject(graph, subject) {
+			continue
+		}
+		subjects.add(subject, metamodel.Element{Aspect: "api-root"})
+		for _, membership := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			if graph.Type(membership) == rdf.SysML+mOwningMembership {
+				handle := metamodel.Membership{Aspect: "api-root"}
+				subjects.add(membership, metamodel.MembershipElement(handle))
+			}
+		}
+	}
+}
+
+func hasSysMLType(types []rdf.Term) bool {
+	for _, typ := range types {
+		if strings.HasPrefix(typ.Value, rdf.SysML) {
+			return true
+		}
+	}
+	return false
 }
 
 func appendFullProperties(graph *rdf.Graph, subject rdf.Term, element apiJSONObject, evaluator *metamodel.Evaluator, subjects *semanticSubjectMap) (apiJSONObject, error) {
-	types := graph.Objects(subject, rdf.RDFType)
-	if len(types) != 1 || !strings.HasPrefix(types[0].Value, rdf.SysML) {
+	metaclass := graph.Type(subject)
+	if !strings.HasPrefix(metaclass, rdf.SysML) {
 		return element, nil
 	}
-	metaclass := strings.TrimPrefix(types[0].Value, rdf.SysML)
+	metaclass = strings.TrimPrefix(metaclass, rdf.SysML)
 	elementHandle := subjects.byIRI[subject.Value]
 	keyed := make(map[string]bool, len(element))
 	for _, member := range element {
 		keyed[member.key] = true
 	}
-	for _, property := range ontologyProperties(metaclass) {
+	properties := ontologyProperties(metaclass)
+	if len(properties) == 0 {
+		if libraryProperty, ok := ontology.PropertyOf("Element", "isLibraryElement"); ok {
+			properties = []ontology.Property{libraryProperty}
+		}
+	}
+	for _, property := range properties {
 		if keyed[property.Name] {
 			continue
 		}
-		effective := redefinedProperty(metaclass, property)
-		value, ok := evaluator.Property(elementHandle, effective.DefiningClass, effective.Name)
-		if ok {
-			encoded, serializable := semanticValueJSON(subject, value, effective, subjects)
-			if serializable {
-				element = append(element, apiJSONMember{key: property.Name, value: encoded})
-				continue
-			}
-		}
-		if effective.Derived {
+		if id, ok := membershipElementID(graph, subject, property); ok {
+			element = append(element, apiJSONMember{key: property.Name, value: id})
 			continue
 		}
+		effective := redefinedProperty(metaclass, property)
+		if effective.QualifiedName() != property.QualifiedName() && keyed[effective.Name] {
+			if value, ok := apiJSONMemberValue(element, effective.Name); ok {
+				if value, ok := redefinedAPIJSONValue(value, effective, property); ok {
+					element = append(element, apiJSONMember{key: property.Name, value: value})
+				}
+			}
+			continue
+		}
+		value, ok := evaluator.Property(elementHandle, effective.DefiningClass, effective.Name)
+		var failures []serializationFailure
+		element, failures = appendFullProperty(element, subject, property, effective, value, ok, subjects)
+		subjects.failures = append(subjects.failures, failures...)
+	}
+	if _, ok := apiJSONMemberValue(element, "isLibraryElement"); !ok {
 		element = append(element, apiJSONMember{
-			key: property.Name, value: ecoreFallback(effective),
+			key:   "isLibraryElement",
+			value: subjects.isLibraryHandle(elementHandle),
 		})
 	}
+	return element, nil
+}
+
+func apiJSONMemberValue(element apiJSONObject, key string) (any, bool) {
+	for _, member := range element {
+		if member.key == key {
+			return member.value, true
+		}
+	}
+	return nil, false
+}
+
+func redefinedAPIJSONValue(value any, source, target ontology.Property) (any, bool) {
+	if source.Many == target.Many {
+		return value, true
+	}
+	if target.Many {
+		if value == nil {
+			return []any{}, true
+		}
+		return []any{value}, true
+	}
+	values, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	switch len(values) {
+	case 0:
+		return nil, true
+	case 1:
+		return values[0], true
+	default:
+		return nil, false
+	}
+}
+
+func membershipElementID(graph *rdf.Graph, subject rdf.Term, property ontology.Property) (string, bool) {
+	var memberPredicate string
+	switch property.QualifiedName() {
+	case "Membership::memberElementId":
+		memberPredicate = pMemberElement
+	case "OwningMembership::ownedMemberElementId":
+		memberPredicate = pOwnedMemberElement
+	default:
+		return "", false
+	}
+	member, ok := graph.Object(subject, rdf.SysML+memberPredicate)
+	if !ok || member.Kind != rdf.TermIRI {
+		return "", false
+	}
+	id, ok := graph.Object(member, rdf.SysML+pElementID)
+	if !ok || id.Kind != rdf.TermLiteral {
+		return "", false
+	}
+	return id.Value, true
+}
+
+func appendFullProperty(element apiJSONObject, subject rdf.Term, property, effective ontology.Property, value metamodel.Value, computed bool, subjects *semanticSubjectMap) (apiJSONObject, []serializationFailure) {
+	if computed {
+		encoded, serializable, failures := semanticValueJSON(subject, value, property, subjects)
+		for i := range failures {
+			failures[i].Property = property.QualifiedName()
+		}
+		if serializable {
+			element = append(element, apiJSONMember{key: property.Name, value: encoded})
+		}
+		return element, failures
+	}
+	if effective.Derived {
+		return element, nil
+	}
+	element = append(element, apiJSONMember{key: property.Name, value: ecoreFallback(effective)})
 	return element, nil
 }
 
@@ -383,55 +473,246 @@ func redefinedProperty(metaclass string, property ontology.Property) ontology.Pr
 	return property
 }
 
-func semanticValueJSON(subject rdf.Term, value metamodel.Value, property ontology.Property, subjects *semanticSubjectMap) (any, bool) {
-	switch value.Kind {
-	case metamodel.NullValue:
-		return nil, true
-	case metamodel.StringValue:
-		return value.String, true
-	case metamodel.BooleanValue:
-		return value.Boolean, true
-	case metamodel.IntegerValue:
-		return json.Number(strconv.FormatInt(value.Integer, 10)), true
-	case metamodel.RealValue:
-		return json.Number(strconv.FormatFloat(value.Real, 'g', -1, 64)), true
-	case metamodel.EnumValue:
-		return value.Enum, true
-	case metamodel.ElementValue:
-		target, ok := subjects.byElement[value.Element]
-		if !ok {
-			return nil, false
-		}
-		return apiJSONReference{ID: rdf.ReferenceID(subject, target)}, true
-	case metamodel.MembershipValue:
-		target, ok := subjects.byMembership[value.Membership]
-		if !ok {
-			return nil, false
-		}
-		return apiJSONReference{ID: rdf.ReferenceID(subject, target)}, true
-	case metamodel.SequenceValue:
+func semanticValueJSON(subject rdf.Term, value metamodel.Value, property ontology.Property, subjects *semanticSubjectMap) (any, bool, []serializationFailure) {
+	if value.Kind == metamodel.SequenceValue {
+		itemProperty := property
+		itemProperty.Many = false
 		values := make([]any, 0, len(value.Values))
+		var failures []serializationFailure
+		complete := true
 		for _, item := range value.Values {
-			encoded, ok := semanticValueJSON(subject, item, property, subjects)
+			encoded, ok, itemFailures := semanticValueJSON(subject, item, itemProperty, subjects)
+			failures = append(failures, itemFailures...)
 			if !ok {
-				return nil, false
+				complete = false
+				continue
 			}
 			values = append(values, encoded)
 		}
+		if !complete || len(failures) > 0 {
+			return nil, false, failures
+		}
 		if property.Many {
-			return values, true
+			return values, true, nil
 		}
 		switch len(values) {
 		case 0:
-			return nil, true
+			return nil, true, nil
 		case 1:
-			return values[0], true
+			return values[0], true, nil
 		default:
-			return values, true
+			return nil, false, []serializationFailure{{
+				Reason: "multiple values for single-valued property",
+				Source: subject.Value,
+				Target: property.QualifiedName(),
+			}}
 		}
+	}
+	switch value.Kind {
+	case metamodel.NullValue:
+		if property.Many {
+			return []any{}, true, nil
+		}
+		return nil, true, nil
+	case metamodel.StringValue:
+		return semanticScalarJSON(value.String, property), true, nil
+	case metamodel.BooleanValue:
+		return semanticScalarJSON(value.Boolean, property), true, nil
+	case metamodel.IntegerValue:
+		return semanticScalarJSON(json.Number(strconv.FormatInt(value.Integer, 10)), property), true, nil
+	case metamodel.RealValue:
+		return semanticScalarJSON(json.Number(strconv.FormatFloat(value.Real, 'g', -1, 64)), property), true, nil
+	case metamodel.EnumValue:
+		return semanticScalarJSON(value.Enum, property), true, nil
+	case metamodel.ElementValue:
+		target, ok := subjects.byElement[value.Element.Key()]
+		if !ok {
+			target, ok = subjects.libraryElementTerm(value.Element)
+		}
+		if !ok {
+			return nil, false, []serializationFailure{{
+				Reason: subjects.missingElementReason(value.Element),
+				Source: subject.Value,
+				Target: subjects.elementLabel(value.Element),
+			}}
+		}
+		return semanticScalarJSON(apiJSONReference{ID: rdf.ReferenceID(subject, target)}, property), true, nil
+	case metamodel.MembershipValue:
+		target, ok := subjects.byMembership[value.Membership.Key()]
+		if !ok {
+			target, ok = subjects.libraryMembershipTerm(value.Membership)
+		}
+		if !ok {
+			return nil, false, []serializationFailure{{
+				Reason: subjects.missingMembershipReason(value.Membership),
+				Source: subject.Value,
+				Target: subjects.membershipLabel(value.Membership),
+			}}
+		}
+		return semanticScalarJSON(apiJSONReference{ID: rdf.ReferenceID(subject, target)}, property), true, nil
 	default:
+		return nil, false, nil
+	}
+}
+
+func semanticScalarJSON(value any, property ontology.Property) any {
+	if property.Many {
+		return []any{value}
+	}
+	return value
+}
+
+func (s *semanticSubjectMap) missingElementReason(element metamodel.Element) string {
+	if element.IsMembership {
+		return s.missingMembershipReason(element.Membership)
+	}
+	if s.isLibrary(element.Symbol) {
+		libraryElement, ok := s.libraryElement(element.Symbol)
+		if !ok || libraryElement.ID == "" {
+			return fmt.Sprintf("library symbol %q is absent from identity.LibraryCatalog", s.elementLabel(element))
+		}
+		return "handle-key mismatch"
+	}
+	if element.Symbol == nil && s.isLibrary(element.Container) {
+		return fmt.Sprintf("AST-only library node %T has no catalog identity", element.Node)
+	}
+	if element.Symbol != nil {
+		switch element.Symbol.Naming {
+		case symbols.NamedByRedefinition:
+			return fmt.Sprintf("redefining member %q has no graph subject", s.elementLabel(element))
+		case symbols.NamedByReference:
+			return fmt.Sprintf("reference-named member %q has no graph subject", s.elementLabel(element))
+		default:
+			return fmt.Sprintf("model symbol %q (%s) has no graph subject", s.elementLabel(element), element.Symbol.Kind)
+		}
+	}
+	if element.Node != nil {
+		return fmt.Sprintf("AST-only model node %T has no minted subject", element.Node)
+	}
+	if element.Container != nil {
+		return fmt.Sprintf("derived handle %q has no graph subject", element.Aspect)
+	}
+	return "handle-key mismatch"
+}
+
+func (s *semanticSubjectMap) missingMembershipReason(membership metamodel.Membership) string {
+	for _, symbol := range []*symbols.Symbol{membership.Symbol, membership.Member, membership.Owner} {
+		if !s.isLibrary(symbol) {
+			continue
+		}
+		element, ok := s.libraryElement(symbol)
+		if !ok {
+			return fmt.Sprintf("library symbol %q is absent from identity.LibraryCatalog", s.elementLabel(metamodel.ElementOf(symbol)))
+		}
+		if element.OwningMembershipID == "" {
+			return fmt.Sprintf("library member %q has no owning membership ID", s.elementLabel(metamodel.ElementOf(symbol)))
+		}
+		return "handle-key mismatch"
+	}
+	for _, symbol := range []*symbols.Symbol{membership.Symbol, membership.Member} {
+		if symbol == nil {
+			continue
+		}
+		switch symbol.Naming {
+		case symbols.NamedByRedefinition:
+			return fmt.Sprintf("redefining member %q has no membership subject", s.elementLabel(metamodel.ElementOf(symbol)))
+		case symbols.NamedByReference:
+			return fmt.Sprintf("reference-named member %q has no membership subject", s.elementLabel(metamodel.ElementOf(symbol)))
+		default:
+			return fmt.Sprintf("model member %q (%s) has no membership subject", s.elementLabel(metamodel.ElementOf(symbol)), symbol.Kind)
+		}
+	}
+	if membership.Node != nil {
+		return fmt.Sprintf("AST-only membership node %T has no minted subject", membership.Node)
+	}
+	if membership.Owner != nil {
+		return fmt.Sprintf("membership owned by %q has no graph subject", s.elementLabel(metamodel.ElementOf(membership.Owner)))
+	}
+	return "handle-key mismatch"
+}
+
+func (s *semanticSubjectMap) isLibrary(symbol *symbols.Symbol) bool {
+	if symbol == nil || s.resolver == nil || s.resolver.Index() == nil {
+		return false
+	}
+	index := s.resolver.Index()
+	return index.Library(symbol) || index.IsLibraryDocument(symbol.DocName)
+}
+
+func (s *semanticSubjectMap) isLibraryHandle(element metamodel.Element) bool {
+	if element.IsMembership {
+		for _, symbol := range []*symbols.Symbol{
+			element.Membership.Symbol, element.Membership.Member, element.Membership.Owner,
+		} {
+			if s.isLibrary(symbol) {
+				return true
+			}
+		}
+		return false
+	}
+	return s.isLibrary(element.Symbol) || s.isLibrary(element.Container)
+}
+
+func (s *semanticSubjectMap) libraryElement(symbol *symbols.Symbol) (*identity.LibraryElement, bool) {
+	if !s.isLibrary(symbol) {
 		return nil, false
 	}
+	if s.catalog == nil {
+		s.catalog = identity.LibraryCatalog(s.resolver.Index())
+	}
+	return s.catalog.ElementForSymbol(symbol)
+}
+
+func (s *semanticSubjectMap) libraryElementTerm(element metamodel.Element) (rdf.Term, bool) {
+	libraryElement, ok := s.libraryElement(element.Symbol)
+	if !ok || libraryElement.ID == "" {
+		return rdf.Term{}, false
+	}
+	return rdf.ElementIRIForID(libraryElement.ID), true
+}
+
+func (s *semanticSubjectMap) libraryMembershipTerm(membership metamodel.Membership) (rdf.Term, bool) {
+	symbol := membership.Member
+	if symbol == nil {
+		symbol = membership.Symbol
+	}
+	libraryElement, ok := s.libraryElement(symbol)
+	if !ok || libraryElement.OwningMembershipID == "" {
+		return rdf.Term{}, false
+	}
+	return rdf.ElementIRIForID(libraryElement.OwningMembershipID), true
+}
+
+func (s *semanticSubjectMap) elementLabel(element metamodel.Element) string {
+	if element.Symbol != nil && s.resolver != nil && s.resolver.Index() != nil {
+		return s.resolver.Index().GetFQN(element.Symbol)
+	}
+	if element.Node != nil {
+		if relationship, ok := element.Node.(*ast.Relationship); ok {
+			return fmt.Sprintf("*ast.Relationship(kind=%v,target=%T)", relationship.Kind, relationship.Target)
+		}
+		return fmt.Sprintf("%T", element.Node)
+	}
+	if element.Aspect != "" {
+		return element.Aspect
+	}
+	return "<unnamed element>"
+}
+
+func (s *semanticSubjectMap) membershipLabel(membership metamodel.Membership) string {
+	if membership.Member != nil {
+		return s.elementLabel(metamodel.ElementOf(membership.Member))
+	}
+	if membership.Symbol != nil {
+		return s.elementLabel(metamodel.ElementOf(membership.Symbol))
+	}
+	if membership.Node != nil {
+		return fmt.Sprintf("%T", membership.Node)
+	}
+	if membership.Aspect != "" {
+		return membership.Aspect
+	}
+	return "<unnamed membership>"
 }
 
 func ecoreFallback(property ontology.Property) any {

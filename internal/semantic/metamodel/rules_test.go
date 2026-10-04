@@ -59,3 +59,57 @@ func TestRuleBasisIsBrief(t *testing.T) {
 		}
 	}
 }
+
+func TestUsageOwningSubsetRulesUseOwningType(t *testing.T) {
+	want := map[string]string{
+		"Usage::owningDefinition": "owningType when it is a Definition",
+		"Usage::owningUsage":      "owningType when it is a Usage",
+	}
+	for _, rule := range Rules() {
+		key := rule.DefiningClass + "::" + rule.Property
+		basis, ok := want[key]
+		if !ok {
+			continue
+		}
+		if rule.Basis != basis || rule.Constraint != "" {
+			t.Errorf("%s rule = %#v; want basis %q", key, rule, basis)
+		}
+		delete(want, key)
+	}
+	for key := range want {
+		t.Errorf("missing Usage owning-type rule for %s", key)
+	}
+}
+
+func TestMembershipElementIDRulesAreWriterLevel(t *testing.T) {
+	want := map[string]string{
+		"Membership::memberElementId":            "writer emits elementId of memberElement",
+		"OwningMembership::ownedMemberElementId": "elementId of ownedMemberElement",
+	}
+	for _, rule := range Rules() {
+		key := rule.DefiningClass + "::" + rule.Property
+		basis, ok := want[key]
+		if !ok {
+			continue
+		}
+		if rule.Constraint != "" || rule.Basis != basis {
+			t.Errorf("%s rule = %#v, want writer-level basis %q", key, rule, basis)
+		}
+		delete(want, key)
+	}
+	for key := range want {
+		t.Errorf("missing writer-level rule for %s", key)
+	}
+}
+
+func TestOmittedPropertiesNameRequiredEngineFacts(t *testing.T) {
+	for _, omission := range Omitted() {
+		key := omission.DefiningClass + "::" + omission.Property
+		if !strings.Contains(omission.Reason, "Requires the "+key+" engine fact:") {
+			t.Errorf("omission for %s does not name its required engine fact: %q", key, omission.Reason)
+		}
+		if strings.Contains(strings.ToLower(omission.Reason), "not implemented") {
+			t.Errorf("omission for %s uses a generic implementation reason: %q", key, omission.Reason)
+		}
+	}
+}

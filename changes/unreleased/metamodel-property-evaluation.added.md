@@ -1,1 +1,1 @@
-- **Add semantic derived-property evaluation for the SysML metamodel.** The evaluator reuses resolved model semantics and reports unsupported derivations instead of returning partial values.
+- **Add derived-property evaluation for the SysML metamodel.** `internal/semantic/metamodel` computes a metamodel property of an element lazily from the resolved model, following the specification's derivation constraints, and reports a derivation it cannot complete as unsupported instead of returning a partial value.

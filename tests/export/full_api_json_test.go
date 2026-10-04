@@ -46,6 +46,64 @@ func TestFullAPIJSONGoldens(t *testing.T) {
 	}
 }
 
+func TestFullAPIJSONHasLibraryStatusForEverySubject(t *testing.T) {
+	inputs := make([]string, 0, 5)
+	for _, name := range []string{"names", "enums", "nested", "parts"} {
+		inputs = append(inputs, filepath.Join("testdata", "convert", name+".sysml"))
+	}
+	if annex := annexAModelPath(t); annex != "" {
+		inputs = append(inputs, annex)
+	}
+	for _, path := range inputs {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			source, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			full, err := convert.ConvertWith(path, source, convert.FormatSysML, convert.FormatAPIJSON, convert.Options{
+				APIJSON: export.APIJSONFull,
+			})
+			if err != nil {
+				t.Fatalf("full API JSON: %v", err)
+			}
+			var elements []map[string]json.RawMessage
+			if err := json.Unmarshal(full, &elements); err != nil {
+				t.Fatal(err)
+			}
+			var missing []string
+			for _, element := range elements {
+				if _, typed := element["@type"]; !typed {
+					continue
+				}
+				if _, present := element["isLibraryElement"]; present {
+					continue
+				}
+				var id string
+				_ = json.Unmarshal(element["@id"], &id)
+				var metaclass string
+				_ = json.Unmarshal(element["@type"], &metaclass)
+				missing = append(missing, metaclass+":"+id)
+			}
+			if len(missing) > 0 {
+				t.Errorf("SysML subjects without semantic handles: %v", missing)
+			}
+		})
+	}
+}
+
+func annexAModelPath(t *testing.T) string {
+	t.Helper()
+	if path := os.Getenv("OPENSYSML_ANNEX_A"); path != "" {
+		return path
+	}
+	path := filepath.Join("..", "..", "build", "pilot-corpora", "sysml-examples",
+		"Vehicle Example", "SysML v2 Spec Annex A SimpleVehicleModel.sysml")
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return ""
+}
+
 func TestFullAPIJSONKeepsCompactGraphValues(t *testing.T) {
 	const source = `package P {
 		part def Base { attribute size : Integer; }

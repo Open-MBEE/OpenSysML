@@ -12,6 +12,7 @@ type Membership struct {
 	Member  *symbols.Symbol
 	Owner   *symbols.Symbol
 	Feature bool
+	Aspect  string
 	kind    string
 }
 
@@ -23,6 +24,55 @@ type Element struct {
 	Membership   Membership
 	IsMembership bool
 	Aspect       string
+}
+
+// MembershipKey identifies a membership independently of its contextual handles.
+type MembershipKey struct {
+	symbol *symbols.Symbol
+	member *symbols.Symbol
+	node   ast.Node
+	aspect string
+	alias  bool
+}
+
+// ElementKey identifies an element independently of its container and embedded membership.
+type ElementKey struct {
+	symbol       *symbols.Symbol
+	node         ast.Node
+	aspect       string
+	membership   MembershipKey
+	isMembership bool
+}
+
+// Key returns the canonical identity of a membership.
+func (m Membership) Key() MembershipKey {
+	if m.Symbol != nil {
+		if m.Symbol.Decl != nil {
+			return MembershipKey{node: m.Symbol.Decl, alias: true}
+		}
+		return MembershipKey{symbol: m.Symbol, alias: true}
+	}
+	if m.Member != nil {
+		if m.Member.Decl != nil {
+			return MembershipKey{node: m.Member.Decl}
+		}
+		return MembershipKey{member: m.Member}
+	}
+	return MembershipKey{node: m.Node, aspect: m.Aspect}
+}
+
+// Key returns the canonical identity of an element.
+func (e Element) Key() ElementKey {
+	if e.IsMembership {
+		return ElementKey{membership: e.Membership.Key(), isMembership: true}
+	}
+	if e.Node != nil {
+		return ElementKey{node: e.Node, aspect: e.Aspect}
+	}
+	if e.Symbol != nil {
+		return ElementKey{symbol: e.Symbol, aspect: e.Aspect}
+	}
+	return ElementKey{aspect: e.Aspect}
 }
 
 // ValueKind identifies the semantic value stored in Value.
@@ -70,6 +120,23 @@ type Omission struct {
 	Reason        string
 }
 
+// Structure reports the abstract-syntax facts the exporter states for an element.
+type Structure interface {
+	Metaclass(Element) (string, bool)
+	Specializes(sub, super string) bool
+	OwnedRelationships(Element) ([]Element, bool)
+	OwningRelationship(Element) (Element, bool, bool)
+	OwnedRelatedElements(Element) ([]Element, bool)
+	OwningRelatedElement(Element) (Element, bool, bool)
+	RelatedElements(rel Element, property string) ([]Element, bool)
+	Attribute(el Element, property string) (Value, bool)
+}
+
+// Options supplies graph-stated structure used by the evaluator.
+type Options struct {
+	Structure Structure
+}
+
 // ElementOf creates a handle for a declared symbol.
 func ElementOf(sym *symbols.Symbol) Element {
 	if sym == nil {
@@ -84,7 +151,7 @@ func ElementOf(sym *symbols.Symbol) Element {
 		kind := membershipKind(sym)
 		membership = Membership{
 			Node: sym.Decl, Member: sym, Owner: owner,
-			Feature: sym.IsFeature(), kind: kind,
+			Feature: isFeatureMembership(sym, owner), kind: kind,
 		}
 	}
 	return Element{Symbol: sym, Node: sym.Decl, Membership: membership}
@@ -136,6 +203,16 @@ func membershipKind(sym *symbols.Symbol) string {
 		return "FeatureMembership"
 	}
 	return "OwningMembership"
+}
+
+func isFeatureMembership(sym, owner *symbols.Symbol) bool {
+	if sym == nil || !sym.IsFeature() || !isType(owner) {
+		return false
+	}
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVariant {
+		return false
+	}
+	return true
 }
 
 func hasOwningMembership(sym, owner *symbols.Symbol) bool {

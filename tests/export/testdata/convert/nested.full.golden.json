@@ -18,15 +18,27 @@
         "@id": "Outer"
       }
     ],
+    "importedMembership": [],
+    "ownedImport": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
-    "ownedElement": [],
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Outer"
+      }
+    ],
     "owner": null,
     "owningMembership": null,
     "owningNamespace": null,
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -53,17 +65,49 @@
     "membershipOwningNamespace": {
       "@id": "Outer_ns"
     },
+    "ownedMemberElementId": "Outer",
+    "ownedMemberName": "Outer",
+    "ownedMemberShortName": null,
+    "memberElementId": "Outer",
+    "memberName": "Outer",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Outer_ns"
+      },
+      {
+        "@id": "Outer"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Outer_ns"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Outer"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Outer_ns"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -246,17 +290,49 @@
     "membershipOwningNamespace": {
       "@id": "Outer"
     },
+    "ownedMemberElementId": "Outer__Inner",
+    "ownedMemberName": "Inner",
+    "ownedMemberShortName": null,
+    "memberElementId": "Outer__Inner",
+    "memberName": "Inner",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Outer"
+      },
+      {
+        "@id": "Outer__Inner"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Outer"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Outer__Inner"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Outer"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -285,6 +361,7 @@
     "sysx:hasBody": false,
     "sysx:sourceText": "        part def Widget;\n",
     "isIndividual": false,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -295,10 +372,15 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -343,9 +425,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -371,17 +451,49 @@
     "membershipOwningNamespace": {
       "@id": "Outer__Inner"
     },
+    "ownedMemberElementId": "Outer__Inner__Widget",
+    "ownedMemberName": "Widget",
+    "ownedMemberShortName": null,
+    "memberElementId": "Outer__Inner__Widget",
+    "memberName": "Widget",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Outer__Inner"
+      },
+      {
+        "@id": "Outer__Inner__Widget"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Outer__Inner"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Outer__Inner__Widget"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Outer__Inner"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -476,17 +588,49 @@
     "membershipOwningNamespace": {
       "@id": "Outer__Inner"
     },
+    "ownedMemberElementId": "Outer__Inner__Sub",
+    "ownedMemberName": "Sub",
+    "ownedMemberShortName": null,
+    "memberElementId": "Outer__Inner__Sub",
+    "memberName": "Sub",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Outer__Inner"
+      },
+      {
+        "@id": "Outer__Inner__Sub"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Outer__Inner"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Outer__Inner__Sub"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Outer__Inner"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -515,6 +659,7 @@
     "sysx:hasBody": false,
     "sysx:sourceText": "            part def Gear;\n",
     "isIndividual": false,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -525,10 +670,15 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -573,9 +723,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -601,17 +749,49 @@
     "membershipOwningNamespace": {
       "@id": "Outer__Inner__Sub"
     },
+    "ownedMemberElementId": "Outer__Inner__Sub__Gear",
+    "ownedMemberName": "Gear",
+    "ownedMemberShortName": null,
+    "memberElementId": "Outer__Inner__Sub__Gear",
+    "memberName": "Gear",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Outer__Inner__Sub"
+      },
+      {
+        "@id": "Outer__Inner__Sub__Gear"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Outer__Inner__Sub"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Outer__Inner__Sub__Gear"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Outer__Inner__Sub"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   }
 ]

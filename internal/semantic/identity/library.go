@@ -85,6 +85,7 @@ type LibraryElement struct {
 type Catalog struct {
 	elements    map[string]*LibraryElement
 	memberships map[string]*LibraryElement
+	symbols     map[*symbols.Symbol]*LibraryElement
 	names       map[string]*LibraryElement
 	roots       map[string]*LibraryElement
 	kinds       map[string]source.Kind
@@ -100,6 +101,12 @@ func (c *Catalog) Element(id string) (*LibraryElement, bool) {
 // ElementNamed is the library element whose qualified name is fqn.
 func (c *Catalog) ElementNamed(fqn string) (*LibraryElement, bool) {
 	el, ok := c.names[fqn]
+	return el, ok
+}
+
+// ElementForSymbol is the catalogued library element declared by sym.
+func (c *Catalog) ElementForSymbol(sym *symbols.Symbol) (*LibraryElement, bool) {
+	el, ok := c.symbols[sym]
 	return el, ok
 }
 
@@ -234,6 +241,7 @@ func newCatalog() *Catalog {
 	return &Catalog{
 		elements:    map[string]*LibraryElement{},
 		memberships: map[string]*LibraryElement{},
+		symbols:     map[*symbols.Symbol]*LibraryElement{},
 		names:       map[string]*LibraryElement{},
 		roots:       map[string]*LibraryElement{},
 		kinds:       map[string]source.Kind{},
@@ -272,6 +280,7 @@ func buildCatalog(idx libraryView) *Catalog {
 		}
 		c.elements[el.ID] = el
 		c.memberships[el.OwningMembershipID] = el
+		c.symbols[sym] = el
 		c.names[el.FQN] = el
 		c.order = append(c.order, el)
 	}

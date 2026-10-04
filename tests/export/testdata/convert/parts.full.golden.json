@@ -18,15 +18,27 @@
         "@id": "Vehicles"
       }
     ],
+    "importedMembership": [],
+    "ownedImport": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
-    "ownedElement": [],
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Vehicles"
+      }
+    ],
     "owner": null,
     "owningMembership": null,
     "owningNamespace": null,
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -53,17 +65,49 @@
     "membershipOwningNamespace": {
       "@id": "Vehicles_ns"
     },
+    "ownedMemberElementId": "Vehicles",
+    "ownedMemberName": "Vehicles",
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles",
+    "memberName": "Vehicles",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles_ns"
+      },
+      {
+        "@id": "Vehicles"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles_ns"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles_ns"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -221,6 +265,7 @@
     "sysx:sourceText": "    part def Vehicle {\n",
     "sysx:sourceTail": "    }\n",
     "isIndividual": false,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -231,8 +276,13 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -304,9 +354,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -332,17 +380,49 @@
     "membershipOwningNamespace": {
       "@id": "Vehicles"
     },
+    "ownedMemberElementId": "Vehicles__Vehicle",
+    "ownedMemberName": "Vehicle",
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Vehicle",
+    "memberName": "Vehicle",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles"
+      },
+      {
+        "@id": "Vehicles__Vehicle"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Vehicle"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -390,9 +470,20 @@
       }
     ],
     "sysx:sourceText": "        attribute mass : ISQ::MassValue;\n",
+    "attributeDefinition": [
+      {
+        "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
+      }
+    ],
+    "definition": [
+      {
+        "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
+      }
+    ],
     "directedUsage": [],
     "isReference": true,
     "isVariation": false,
+    "mayTimeVary": true,
     "nestedAction": [],
     "nestedAllocation": [],
     "nestedAnalysisCase": [],
@@ -424,27 +515,34 @@
       "@id": "Vehicles__Vehicle"
     },
     "owningUsage": null,
-    "variant": [],
-    "variantMembership": [],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
+    "endOwningType": null,
     "featureTarget": null,
     "featuringType": [
       {
         "@id": "Vehicles__Vehicle"
       }
     ],
-    "isComposite": true,
+    "isComposite": false,
     "isConstant": false,
     "isDerived": false,
     "isEnd": false,
     "isOrdered": false,
     "isPortion": false,
     "isUnique": true,
+    "isVariable": true,
+    "ownedCrossSubsetting": null,
+    "ownedFeatureChaining": [],
+    "ownedFeatureInverting": [],
     "ownedRedefinition": [],
     "ownedReferenceSubsetting": null,
     "ownedSubsetting": [],
+    "ownedTypeFeaturing": [],
+    "owningFeatureMembership": {
+      "@id": "Vehicles__Vehicle__mass_om"
+    },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
@@ -458,9 +556,14 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -507,17 +610,49 @@
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
+    "ownedMemberElementId": "Vehicles__Vehicle__mass",
+    "ownedMemberName": "mass",
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Vehicle__mass",
+    "memberName": "mass",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles__Vehicle"
+      },
+      {
+        "@id": "Vehicles__Vehicle__mass"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles__Vehicle"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Vehicle__mass"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -579,11 +714,35 @@
       }
     ],
     "sysx:sourceText": "        part engine : Engine[1];\n",
+    "partDefinition": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
+    "itemDefinition": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
+    "individualDefinition": {
+      "@id": "Vehicles__Engine"
+    },
     "isIndividual": false,
+    "occurrenceDefinition": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
     "portionKind": null,
+    "definition": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
     "directedUsage": [],
     "isReference": false,
     "isVariation": false,
+    "mayTimeVary": true,
     "nestedAction": [],
     "nestedAllocation": [],
     "nestedAnalysisCase": [],
@@ -615,27 +774,34 @@
       "@id": "Vehicles__Vehicle"
     },
     "owningUsage": null,
-    "variant": [],
-    "variantMembership": [],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
+    "endOwningType": null,
     "featureTarget": null,
     "featuringType": [
       {
         "@id": "Vehicles__Vehicle"
       }
     ],
-    "isComposite": true,
+    "isComposite": false,
     "isConstant": false,
     "isDerived": false,
     "isEnd": false,
     "isOrdered": false,
     "isPortion": false,
     "isUnique": true,
+    "isVariable": true,
+    "ownedCrossSubsetting": null,
+    "ownedFeatureChaining": [],
+    "ownedFeatureInverting": [],
     "ownedRedefinition": [],
     "ownedReferenceSubsetting": null,
     "ownedSubsetting": [],
+    "ownedTypeFeaturing": [],
+    "owningFeatureMembership": {
+      "@id": "Vehicles__Vehicle__engine_om"
+    },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
@@ -648,13 +814,22 @@
     "isConjugated": false,
     "isSufficient": false,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
-    "ownedMember": [],
+    "ownedMember": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -662,7 +837,11 @@
     "isLibraryElement": false,
     "name": "engine",
     "ownedAnnotation": [],
-    "ownedElement": [],
+    "ownedElement": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
     "shortName": null,
     "textualRepresentation": []
   },
@@ -696,17 +875,49 @@
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
+    "ownedMemberElementId": "Vehicles__Vehicle__engine",
+    "ownedMemberName": "engine",
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Vehicle__engine",
+    "memberName": "engine",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles__Vehicle"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles__Vehicle"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -735,7 +946,13 @@
         "@id": "Vehicles__Vehicle__engine_pupperBound_om"
       }
     ],
+    "lowerBound": null,
+    "chainingFeature": [],
+    "crossFeature": null,
     "direction": null,
+    "endOwningType": null,
+    "featureTarget": null,
+    "featuringType": [],
     "isComposite": false,
     "isConstant": false,
     "isDerived": false,
@@ -744,14 +961,57 @@
     "isPortion": false,
     "isUnique": true,
     "isVariable": false,
+    "ownedCrossSubsetting": null,
+    "ownedFeatureChaining": [],
+    "ownedFeatureInverting": [],
+    "ownedRedefinition": [],
+    "ownedReferenceSubsetting": null,
+    "ownedSubsetting": [],
+    "ownedTypeFeaturing": [],
+    "ownedTyping": [],
+    "owningFeatureMembership": null,
+    "owningType": null,
+    "differencingType": [],
+    "intersectingType": [],
     "isAbstract": false,
+    "isConjugated": false,
     "isSufficient": false,
+    "multiplicity": null,
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
+    "ownedSpecialization": [],
+    "ownedUnioning": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pupperBound"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
-    "ownedElement": [],
-    "owningNamespace": null,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pupperBound"
+      }
+    ],
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -778,17 +1038,49 @@
     "membershipOwningNamespace": {
       "@id": "Vehicles__Vehicle__engine"
     },
+    "ownedMemberElementId": "Vehicles__Vehicle__engine_pmultiplicity",
+    "ownedMemberName": null,
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Vehicle__engine_pmultiplicity",
+    "memberName": null,
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -806,7 +1098,12 @@
     "owningMembership": {
       "@id": "Vehicles__Vehicle__engine_pupperBound_om"
     },
+    "chainingFeature": [],
+    "crossFeature": null,
     "direction": null,
+    "endOwningType": null,
+    "featureTarget": null,
+    "featuringType": [],
     "isComposite": false,
     "isConstant": false,
     "isDerived": false,
@@ -815,15 +1112,51 @@
     "isPortion": false,
     "isUnique": true,
     "isVariable": false,
+    "ownedCrossSubsetting": null,
+    "ownedFeatureChaining": [],
+    "ownedFeatureInverting": [],
+    "ownedRedefinition": [],
+    "ownedReferenceSubsetting": null,
+    "ownedSubsetting": [],
+    "ownedTypeFeaturing": [],
+    "ownedTyping": [],
+    "owningFeatureMembership": null,
+    "owningType": null,
+    "differencingType": [],
+    "intersectingType": [],
     "isAbstract": false,
+    "isConjugated": false,
     "isSufficient": false,
+    "multiplicity": null,
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
+    "ownedSpecialization": [],
+    "ownedUnioning": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "ownedMember": [],
+    "ownedMembership": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+    },
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -850,17 +1183,49 @@
     "membershipOwningNamespace": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity"
     },
+    "ownedMemberElementId": "Vehicles__Vehicle__engine_pupperBound",
+    "ownedMemberName": null,
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Vehicle__engine_pupperBound",
+    "memberName": null,
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine_pupperBound"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pupperBound"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -889,6 +1254,7 @@
     "sysx:hasBody": false,
     "sysx:sourceText": "    part def Engine;\n",
     "isIndividual": false,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -899,10 +1265,15 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
     "ownedFeature": [],
     "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
     "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
@@ -947,9 +1318,7 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   },
   {
     "@type": "OwningMembership",
@@ -975,17 +1344,49 @@
     "membershipOwningNamespace": {
       "@id": "Vehicles"
     },
+    "ownedMemberElementId": "Vehicles__Engine",
+    "ownedMemberName": "Engine",
+    "ownedMemberShortName": null,
+    "memberElementId": "Vehicles__Engine",
+    "memberName": "Engine",
+    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
+    "relatedElement": [
+      {
+        "@id": "Vehicles"
+      },
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
+    "source": [
+      {
+        "@id": "Vehicles"
+      }
+    ],
+    "target": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -1031,17 +1432,28 @@
         "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
       }
     ],
+    "owningType": {
+      "@id": "Vehicles__Vehicle__mass"
+    },
     "isImplied": false,
     "ownedRelatedElement": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__mass"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -1087,17 +1499,28 @@
         "@id": "Vehicles__Engine"
       }
     ],
+    "owningType": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
     "isImplied": false,
     "ownedRelatedElement": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": null,
+    "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
     "owningMembership": null,
-    "owningNamespace": null,
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
     "owningRelationship": null,
+    "qualifiedName": null,
+    "shortName": null,
     "textualRepresentation": []
   },
   {
@@ -1107,6 +1530,7 @@
     "qualifiedName": "ISQBase::MassValue",
     "declaredName": "MassValue",
     "isLibraryElement": true,
+    "ownedSubclassification": [],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -1117,41 +1541,31 @@
     "isSufficient": false,
     "multiplicity": null,
     "output": [],
+    "ownedConjugator": null,
+    "ownedDifferencing": [],
+    "ownedDisjoining": [],
     "ownedEndFeature": [],
-    "ownedFeature": [
-      {
-        "@id": "7f0bc384-8729-5f74-94e4-6c5d2bc964a7"
-      },
-      {
-        "@id": "a925509d-6cce-5f3d-9ea8-a302f5951d1d"
-      }
-    ],
-    "ownedFeatureMembership": [
-      {
-        "@id": "befb3e03-2658-5ee6-9b86-c602fb13d96d"
-      },
-      {
-        "@id": "841189ff-8364-5738-914a-cd397d3e143d"
-      }
-    ],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedIntersecting": [],
+    "ownedSpecialization": [],
+    "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
+    "ownedMember": [],
+    "ownedMembership": [],
     "aliasIds": [],
     "declaredShortName": null,
+    "documentation": [],
     "isImpliedIncluded": false,
     "name": "MassValue",
     "ownedAnnotation": [],
+    "ownedElement": [],
     "ownedRelationship": [],
-    "owner": {
-      "@id": "c42ede81-a2db-50ca-9727-40dc60310326"
-    },
-    "owningMembership": {
-      "@id": "9a304301-2c85-5a21-8c03-2b345fc1c3d9"
-    },
-    "owningNamespace": {
-      "@id": "c42ede81-a2db-50ca-9727-40dc60310326"
-    },
+    "owner": null,
+    "owningMembership": null,
+    "owningNamespace": null,
     "owningRelationship": null,
     "shortName": null,
     "textualRepresentation": [],
@@ -1160,14 +1574,7 @@
     "ownedAction": [],
     "ownedAllocation": [],
     "ownedAnalysisCase": [],
-    "ownedAttribute": [
-      {
-        "@id": "7f0bc384-8729-5f74-94e4-6c5d2bc964a7"
-      },
-      {
-        "@id": "a925509d-6cce-5f3d-9ea8-a302f5951d1d"
-      }
-    ],
+    "ownedAttribute": [],
     "ownedCalculation": [],
     "ownedCase": [],
     "ownedConcern": [],
@@ -1186,19 +1593,10 @@
     "ownedRequirement": [],
     "ownedState": [],
     "ownedTransition": [],
-    "ownedUsage": [
-      {
-        "@id": "7f0bc384-8729-5f74-94e4-6c5d2bc964a7"
-      },
-      {
-        "@id": "a925509d-6cce-5f3d-9ea8-a302f5951d1d"
-      }
-    ],
+    "ownedUsage": [],
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": [],
-    "variant": [],
-    "variantMembership": []
+    "ownedViewpoint": []
   }
 ]
