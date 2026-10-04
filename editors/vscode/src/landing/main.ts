@@ -3,9 +3,16 @@
 // the same canvas code as the VS Code diagram panel.
 import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
-import { loadAvoid } from "../webview/avoid";
+import { CLEARANCE, loadAvoid } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
-import { layoutCanvas, type Box, type CanvasLayout, type Overrides } from "../webview/layout";
+import {
+  clampNodeToBounds,
+  layoutCanvas,
+  type Box,
+  type CanvasLayout,
+  type Overrides,
+  type PlacedNode,
+} from "../webview/layout";
 import {
   JOURNEY_EVENTS,
   journey,
@@ -189,12 +196,8 @@ function mount(root: HTMLElement): Mounted {
     };
   }
 
-  function clamped(box: Box, at: RenderPoint): RenderPoint {
-    const b = bounds();
-    return {
-      x: Math.min(Math.max(at.x, b.x), Math.max(b.x, b.x + b.width - box.width)),
-      y: Math.min(Math.max(at.y, b.y), Math.max(b.y, b.y + b.height - box.height)),
-    };
+  function clamped(node: PlacedNode, at: RenderPoint): RenderPoint {
+    return clampNodeToBounds(node, at, bounds(), CLEARANCE);
   }
 
   // keepInHero moves any box the hero no longer holds back inside it.
@@ -205,7 +208,7 @@ function mount(root: HTMLElement): Mounted {
       if (!entry) {
         continue;
       }
-      const at = clamped(entry.box, entry.box);
+      const at = clamped(entry, entry.box);
       if (at.x !== entry.box.x || at.y !== entry.box.y) {
         placed.set(part.feature, at);
         changed = true;
@@ -549,7 +552,7 @@ function mount(root: HTMLElement): Mounted {
     if (!part || !entry) {
       return;
     }
-    placed.set(part.feature, clamped(entry.box, at));
+    placed.set(part.feature, clamped(entry, at));
     const next = layoutCanvas(result, held ? { ...overrides(), held } : overrides(), auto);
     if (!held) {
       layout = next;

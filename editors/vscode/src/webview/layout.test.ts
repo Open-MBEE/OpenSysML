@@ -6,6 +6,7 @@ import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   anchor,
+  clampNodeToBounds,
   GAP,
   insertedWaypoint,
   labelLines,
@@ -15,11 +16,13 @@ import {
   movable,
   movedNode,
   movedWaypoint,
+  nodeExtent,
   nodeUnder,
   overridesOf,
   portBox,
   portCenter,
   portFace,
+  portLabelPlacement,
   PORT_SIZE,
   removedWaypoint,
   shapeOf,
@@ -858,6 +861,42 @@ test("layoutCanvas places edge ports on the sides facing the opposite endpoint",
   const square = portBox(a.box, a.ports[0]);
   assert.equal(square.width, PORT_SIZE);
   assert.equal(square.height, PORT_SIZE);
+});
+
+test("clampNodeToBounds keeps port squares, labels, and pin exit legs inside its bounds", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.i", name: "i" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60, ports: [{ id: "b.i", name: "i" }] }),
+    ],
+    [{ from: "a", to: "b", fromPort: "a.i", toPort: "b.i", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const entry = layout.nodes.get("a")!;
+  const port = entry.ports[0];
+  assert.equal(port.side, "east");
+  const bounds = { x: 10, y: 20, width: 200, height: 120 };
+  const extent = nodeExtent(entry, CLEARANCE);
+  const square = portBox(entry.box, port);
+  const label = portLabelPlacement(entry.box, port).bounds;
+  const face = portFace(entry.box, port);
+  const exit = { x: face.x + CLEARANCE, y: face.y };
+  assert.ok(extent.x <= square.x && extent.y <= square.y);
+  assert.ok(extent.x + extent.width >= square.x + square.width);
+  assert.ok(extent.y + extent.height >= square.y + square.height);
+  assert.ok(extent.x <= label.x && extent.y <= label.y);
+  assert.ok(extent.x + extent.width >= label.x + label.width);
+  assert.ok(extent.y + extent.height >= label.y + label.height);
+  assert.ok(extent.x + extent.width >= exit.x);
+  assert.ok(exit.y >= extent.y && exit.y <= extent.y + extent.height);
+
+  const at = clampNodeToBounds(entry, { x: 1000, y: 1000 }, bounds, CLEARANCE);
+  const dx = at.x - entry.box.x;
+  const dy = at.y - entry.box.y;
+  const movedExtent = { ...extent, x: extent.x + dx, y: extent.y + dy };
+  assert.ok(movedExtent.x >= bounds.x);
+  assert.ok(movedExtent.y >= bounds.y);
+  assert.ok(movedExtent.x + movedExtent.width <= bounds.x + bounds.width);
+  assert.ok(movedExtent.y + movedExtent.height <= bounds.y + bounds.height);
 });
 
 test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {

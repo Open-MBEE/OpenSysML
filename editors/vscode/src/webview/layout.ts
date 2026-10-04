@@ -199,16 +199,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     if (entry.hidden) {
       continue;
     }
-    reach(entry.box.x, entry.box.y);
-    reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
-    for (const port of entry.ports) {
-      const square = portBox(entry.box, port);
-      reach(square.x, square.y);
-      reach(square.x + square.width, square.y + square.height);
-      const label = portLabelPlacement(entry.box, port).bounds;
-      reach(label.x, label.y);
-      reach(label.x + label.width, label.y + label.height);
-    }
+    const nodeBounds = nodeExtent(entry);
+    reach(nodeBounds.x, nodeBounds.y);
+    reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
   const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
   rerouteAroundBoxes(edges, placed, roots, overrides, auto);
@@ -434,6 +427,66 @@ export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlaceme
   };
 }
 
+/** nodeExtent covers a node, its ports and labels, plus any outward port-pin leg requested. */
+export function nodeExtent(node: PlacedNode, portExitLeg = 0): Box {
+  let left = node.box.x;
+  let top = node.box.y;
+  let right = node.box.x + node.box.width;
+  let bottom = node.box.y + node.box.height;
+  const reach = (x: number, y: number): void => {
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  };
+  for (const port of node.ports) {
+    const square = portBox(node.box, port);
+    const label = portLabelPlacement(node.box, port).bounds;
+    reach(square.x, square.y);
+    reach(square.x + square.width, square.y + square.height);
+    reach(label.x, label.y);
+    reach(label.x + label.width, label.y + label.height);
+    if (portExitLeg > 0) {
+      const face = portFace(node.box, port);
+      switch (port.side) {
+        case "north":
+          reach(face.x, face.y - portExitLeg);
+          break;
+        case "east":
+          reach(face.x + portExitLeg, face.y);
+          break;
+        case "south":
+          reach(face.x, face.y + portExitLeg);
+          break;
+        case "west":
+          reach(face.x - portExitLeg, face.y);
+          break;
+      }
+    }
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** clampNodeToBounds keeps a node's full visible and routing extent inside a box. */
+export function clampNodeToBounds(
+  node: PlacedNode,
+  at: RenderPoint,
+  bounds: Box,
+  portExitLeg = 0,
+): RenderPoint {
+  const extent = nodeExtent(node, portExitLeg);
+  const left = extent.x - node.box.x;
+  const top = extent.y - node.box.y;
+  const right = extent.x + extent.width - node.box.x;
+  const bottom = extent.y + extent.height - node.box.y;
+  const minX = bounds.x - left;
+  const minY = bounds.y - top;
+  return {
+    x: Math.min(Math.max(at.x, minX), Math.max(minX, bounds.x + bounds.width - right)),
+    y: Math.min(Math.max(at.y, minY), Math.max(minY, bounds.y + bounds.height - bottom)),
+  };
+}
+
 function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?: AutoLayout): void {
   for (const entry of placed.values()) {
     if (entry.hidden) {
@@ -489,18 +542,15 @@ function includePortExtent(layout: CanvasLayout): CanvasLayout {
   let bottom = layout.origin.y + layout.height;
   let hasPorts = false;
   for (const entry of layout.nodes.values()) {
-    if (entry.hidden) {
+    if (entry.hidden || entry.ports.length === 0) {
       continue;
     }
-    for (const port of entry.ports) {
-      hasPorts = true;
-      const square = portBox(entry.box, port);
-      const label = portLabelPlacement(entry.box, port).bounds;
-      left = Math.min(left, square.x, label.x);
-      top = Math.min(top, square.y, label.y);
-      right = Math.max(right, square.x + square.width, label.x + label.width);
-      bottom = Math.max(bottom, square.y + square.height, label.y + label.height);
-    }
+    hasPorts = true;
+    const extent = nodeExtent(entry);
+    left = Math.min(left, extent.x);
+    top = Math.min(top, extent.y);
+    right = Math.max(right, extent.x + extent.width);
+    bottom = Math.max(bottom, extent.y + extent.height);
   }
   if (!hasPorts) {
     return layout;
