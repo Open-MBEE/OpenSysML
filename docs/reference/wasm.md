@@ -211,6 +211,9 @@ Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes wi
 
 ## The combined module
 
+The Node and browser client adapter is documented in
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
+
 `sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
 `sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`

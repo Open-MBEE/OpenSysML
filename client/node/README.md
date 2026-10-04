@@ -171,6 +171,61 @@ Two limits to plan for rather than discover:
 `fetch` transport, and asserts the allowed origin is answered on the preflight
 while another origin is not.
 
+## WebAssembly, without a service
+
+`connectWasm()` uses the same `Connection`, `Model`, values and errors over the
+combined `sysml-wasm` module. It serves `ParseFile`, `ParseSources`,
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`,
+`ExecuteState` and `GetServerInfo`. Those are the module's complete RPC surface;
+other capability-gated operations fail with `MissingCapabilityError`, and a
+direct unsupported RPC fails with `UNIMPLEMENTED`.
+The adapter uses JSON encoding; requesting protobuf encoding is refused.
+
+In Node, `connectWasm()` runs a worker thread by default:
+
+```ts
+import { connectWasm } from "@openmbee/opensysml";
+
+await using connection = await connectWasm({
+  wasm: "./sysml-wasm.wasm",
+  wasmExec: "/path/to/the/matching/wasm_exec.js",
+});
+const model = await connection.loads("package Demo { part def Car; }");
+```
+
+The WASM module and `wasm_exec.js` must come from compatible Go toolchains.
+The worker remains referenced while the connection is open, so `close()` or
+`await using` ends it. `thread: "inline"` runs Go on the calling thread instead;
+it is useful when a worker is unavailable, but blocks that thread during a call.
+Closing an inline connection disables its client surface; Go has no exit hook to
+stop the running module.
+A worker-mode deadline rejects the waiting call without interrupting Go, so
+later worker calls queue behind work that outlived its deadline. Inline calls
+run synchronously and cannot be interrupted while they block the JavaScript
+thread.
+
+In a browser, omit `worker` to run inline, or provide a module worker serving the
+package's `browser/wasm-worker` entry point:
+
+```ts
+import { connectWasm } from "@openmbee/opensysml/browser";
+
+const worker = new Worker("/assets/opensysml-wasm-worker.js", { type: "module" });
+await using connection = await connectWasm({
+  wasm: new URL("./sysml-wasm.wasm", import.meta.url),
+  wasmExec: new URL("./wasm_exec.js", import.meta.url),
+  worker,
+});
+```
+
+If the page loads `wasm_exec.js` itself, omit `wasmExec` to use the installed Go
+constructor.
+
+The browser worker module can be bundled from
+`@openmbee/opensysml/browser/wasm-worker`. The combined module measures about
+7.8 MB gzipped and 5.5 MB with Brotli. A package containing the matching WASM
+and Go runtime artifacts will be published separately in a future release.
+
 ## Protobuf, not JSON
 
 Bodies are protobuf by default. JSON is available (`connect({ encoding: "json" })`)

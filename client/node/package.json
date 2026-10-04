@@ -29,7 +29,8 @@
     "./browser": {
       "types": "./dist/browser/index.d.ts",
       "default": "./dist/browser/index.js"
-    }
+    },
+    "./browser/wasm-worker": "./dist/browser/wasm-worker.js"
   },
   "bin": {
     "opensysml-generate": "dist/node/generate-cli.js"
