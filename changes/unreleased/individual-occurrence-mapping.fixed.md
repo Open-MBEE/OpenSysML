@@ -1,0 +1,1 @@
+- **Map individual definitions and usages to occurrence metaclasses.** Preserve the `individual` keyword and `isIndividual` flag without inventing individual metaclasses or emitting an empty multiplicity member.

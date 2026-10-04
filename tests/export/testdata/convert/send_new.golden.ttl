@@ -350,7 +350,8 @@ expr:SendNew__Downlink___402_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Telemetry(frames = 3)" ;
     sysml:elementId "SendNew__Downlink___402_ppayload" ;
-    sysml:function elmt:SendNew__Telemetry ;
+    sysml:instantiatedType elmt:SendNew__Telemetry ;
+    sysx:isConstructor "true"^^xsd:boolean ;
     sysml:ownedRelationship expr:SendNew__Downlink___402_ppayload_pfunction, expr:SendNew__Downlink___402_ppayload_pin0_om, expr:SendNew__Downlink___402_ppayload_pout_om ;
     sysml:argument expr:SendNew__Downlink___402_ppayload_pn0 ;
     sysml:ownedMembership expr:SendNew__Downlink___402_ppayload_pin0_om, expr:SendNew__Downlink___402_ppayload_pout_om ;
@@ -532,7 +533,8 @@ expr:SendNew__Downlink___403_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Command(7)" ;
     sysml:elementId "SendNew__Downlink___403_ppayload" ;
-    sysml:function elmt:SendNew__Command ;
+    sysml:instantiatedType elmt:SendNew__Command ;
+    sysx:isConstructor "true"^^xsd:boolean ;
     sysml:ownedRelationship expr:SendNew__Downlink___403_ppayload_pfunction, expr:SendNew__Downlink___403_ppayload_pin0_om, expr:SendNew__Downlink___403_ppayload_pout_om ;
     sysml:argument expr:SendNew__Downlink___403_ppayload_pa0 ;
     sysml:ownedMembership expr:SendNew__Downlink___403_ppayload_pin0_om, expr:SendNew__Downlink___403_ppayload_pout_om ;

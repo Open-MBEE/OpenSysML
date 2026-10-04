@@ -56,8 +56,6 @@ literal-for-object-property FeatureChaining target                           # R
 # 3. Metaclass names this tool writes into the SysML namespace that the metamodel
 # does not declare at all.
 unknown-class ClassUsage -                       # a KerML `class` written as a usage; the metamodel declares Class, a classifier, and no ClassUsage
-unknown-class IndividualDefinition -             # `individual def`, standardly an OccurrenceDefinition with isIndividual; the metamodel declares no IndividualDefinition
-unknown-class IndividualUsage -                  # `individual` usage, standardly an OccurrenceUsage with isIndividual; the metamodel declares no IndividualUsage
 
 # 4. Metaclasses of this tool's own extension namespace, for constructs it has no
 # standard metaclass for. Deliberately outside the standard vocabulary, so the
@@ -71,7 +69,7 @@ unknown-class urn:opensysml:sysml:Pseudostate -              # a state machine p
 # with no metamodel property, so they belong in this tool's own namespace until
 # the elements are materialized (D3.3).
 unknown-property PartDefinition specializes                  # specialization is a Specialization element, not a property
-unknown-property IndividualDefinition specializes            # specialization is a Specialization element, not a property
+unknown-property OccurrenceDefinition specializes            # specialization is also materialized as a Subclassification; the notation property remains for declaration-head round trips
 unknown-property ClassUsage specializes                      # specialization is a Specialization element, not a property
 unknown-property PartUsage subsets                           # subsetting is a Subsetting element, not a property
 unknown-property ReferenceUsage subsets                      # subsetting is a Subsetting element, not a property

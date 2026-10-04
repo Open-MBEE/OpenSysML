@@ -1,0 +1,1 @@
+- **Write a constructor's constructed type as `instantiatedType`.** Keep constructor callees in their membership and constructor marker instead of also stating them as an expression function.

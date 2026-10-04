@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -357,7 +358,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 		if err := e.encodeDocument(documents[i].Root); err != nil {
 			return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 		}
-		for _, minted := range e.minted {
+		for _, minted := range e.mintedSubjects {
 			if prior, taken := declaredIn[minted.iri]; taken {
 				return nil, nil, nil, &UnsupportedError{
 					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
@@ -365,7 +366,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 				}
 			}
 		}
-		for _, minted := range e.minted {
+		for _, minted := range e.mintedSubjects {
 			declaredIn[minted.iri] = minted
 		}
 		for prefix, ns := range e.graph.Prefixes {
@@ -463,26 +464,38 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		return nil, err
 	}
 	e := &encoder{
-		file:               file,
-		graph:              rdf.NewGraph(),
-		res:                res,
-		declared:           map[string]bool{},
-		metadataBodies:     map[string]bool{},
-		performed:          map[ast.Node]bool{},
-		effects:            map[ast.Node]bool{},
-		triggerParams:      map[ast.Node]string{},
-		payloads:           map[*ast.Usage]*ast.Usage{},
-		payloadFeatures:    map[*ast.Usage]bool{},
-		fqn:                map[ast.Node]string{},
-		links:              map[*ast.QualifiedName]*symbols.Symbol{},
-		preceding:          map[ast.Node]ast.Node{},
-		introduced:         map[ast.Node]ast.Node{},
-		ids:                ids,
-		subjects:           map[string]string{},
-		regions:            map[rdf.Term]region{},
-		verifiedReferences: map[rdf.Term]bool{},
-		bodies:             map[rdf.Term]region{},
-		offsets:            map[string]int{},
+		file:                file,
+		graph:               rdf.NewGraph(),
+		res:                 res,
+		declared:            map[string]bool{},
+		metadataBodies:      map[string]bool{},
+		performed:           map[ast.Node]bool{},
+		effects:             map[ast.Node]bool{},
+		triggerParams:       map[ast.Node]string{},
+		payloads:            map[*ast.Usage]*ast.Usage{},
+		payloadFeatures:     map[*ast.Usage]bool{},
+		fqn:                 map[ast.Node]string{},
+		links:               map[*ast.QualifiedName]*symbols.Symbol{},
+		preceding:           map[ast.Node]ast.Node{},
+		introduced:          map[ast.Node]ast.Node{},
+		ids:                 ids,
+		subjects:            map[string]string{},
+		origins:             map[string]metamodel.Element{},
+		relationshipOrigins: map[relationshipOriginKey][]metamodel.Element{},
+		importOwners:        map[*ast.Import]*symbols.Symbol{},
+		annotationOwners:    map[ast.Node]*symbols.Symbol{},
+		regions:             map[rdf.Term]region{},
+		verifiedReferences:  map[rdf.Term]bool{},
+		bodies:              map[rdf.Term]region{},
+		offsets:             map[string]int{},
+	}
+	indexImportOwners(res.Index().DocumentRoot(file.Name()), e.importOwners, make(map[*symbols.Scope]bool))
+	for _, sym := range ids.declSym {
+		for _, site := range model.AnnotationSitesOf(sym) {
+			if site.Node != nil {
+				e.annotationOwners[site.Node] = sym
+			}
+		}
 	}
 	for _, ref := range resolve.References(root, res.Index().DocumentRoot(file.Name())) {
 		if sym, ok := res.ProbeReference(ref); ok && sym != nil {
@@ -501,7 +514,7 @@ type encoder struct {
 	libraryRefs map[string]libraryRef
 	// minted lists the subjects minted for this document's declarations, which a
 	// model of several documents checks no other document declares too.
-	minted []mintedSubject
+	mintedSubjects []mintedSubject
 	// model, when the document is converted as one of a model's documents,
 	// holds the encoder of every document, for the elements the others declare.
 	model *modelEncoders
@@ -548,6 +561,12 @@ type encoder struct {
 	// subjects maps each minted IRI — element or membership — to what it
 	// stands for, so two ids landing on one IRI are refused rather than merged.
 	subjects map[string]string
+	// origins maps each minted subject IRI to its semantic source handle.
+	origins map[string]metamodel.Element
+	// relationshipOrigins ties a collapsed graph end back to its source relationship.
+	relationshipOrigins map[relationshipOriginKey][]metamodel.Element
+	importOwners        map[*ast.Import]*symbols.Symbol
+	annotationOwners    map[ast.Node]*symbols.Symbol
 	// idErr holds a collision found where no error can propagate directly.
 	idErr error
 	// regions holds each element's lines, bodies the lines its members tile.
@@ -604,10 +623,10 @@ func (e *encoder) importTarget(subject rdf.Term, head func(rdf.Term), n *ast.Imp
 // which imports X and owns a private ElementFilterMembership whose condition is
 // c. The collapsed sysx:filter on the import still names the condition.
 func (e *encoder) filterPackage(subject rdf.Term, within string, n *ast.Import) error {
-	pkg := e.ids.minted(rdf.RelationshipIRI(subject, filterPackageSuffix), subject, filterPackageSuffix)
-	inner := e.ids.minted(rdf.RelationshipIRI(pkg, filterImportSuffix), pkg, filterImportSuffix)
-	membership := e.ids.minted(rdf.RelationshipIRI(pkg, filterMembershipSuffix), pkg, filterMembershipSuffix)
-	condition := e.ids.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
+	pkg := e.minted(rdf.RelationshipIRI(subject, filterPackageSuffix), subject, filterPackageSuffix)
+	inner := e.minted(rdf.RelationshipIRI(pkg, filterImportSuffix), pkg, filterImportSuffix)
+	membership := e.minted(rdf.RelationshipIRI(pkg, filterMembershipSuffix), pkg, filterMembershipSuffix)
+	condition := e.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
 	outerClass := e.metaclassOf(subject)
 
 	e.typed(pkg, mPackage)
@@ -747,13 +766,19 @@ func (e *encoder) libraryNames() {
 
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
-func (e *encoder) claimLibrary(node ast.Node, fqn string) {
+func (e *encoder) claimLibrary(sym *symbols.Symbol, node ast.Node, fqn string) {
 	subject := e.ids.subjectForNode(node, fqn)
 	claims := []struct{ iri, standsFor string }{{subject.Value, fqn}}
+	element := metamodel.ElementOf(sym)
+	e.recordOrigin(subject, element)
 	if e.ids.normativeMembership(node) {
+		membership := e.ids.owningMembershipOf(node, subject)
 		claims = append(claims, struct{ iri, standsFor string }{
-			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
+			membership.Value, fqn + "'s owning membership",
 		})
+		if hasSemanticMembership(element.Membership) {
+			e.recordOrigin(membership, metamodel.MembershipElement(element.Membership))
+		}
 	}
 	if e.libraryRefs == nil {
 		e.libraryRefs = map[string]libraryRef{}
@@ -1096,7 +1121,8 @@ func (e *encoder) mint(node ast.Node, fqn string) (rdf.Term, error) {
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
 		}
 	}
-	e.minted = append(e.minted, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
+	e.mintedSubjects = append(e.mintedSubjects, mintedSubject{iri: subject.Value, fqn: fqn, at: e.where(node)})
+	e.recordOrigin(subject, e.originForNode(node))
 	return subject, nil
 }
 
@@ -1293,7 +1319,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
-		if err := e.declaredKeyword(subject, n, n.Keyword, definitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		keyword := definitionKeyword(n.Kind)
+		if n.Kind == ast.DefIndividual {
+			keyword = definitionKeyword(ast.DefOccurrence)
+		}
+		if err := e.declaredKeyword(subject, n, n.Keyword, keyword, n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
@@ -1421,7 +1451,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// from its owner; writing that kind's keyword back would declare more.
 			e.graph.Add(subject, e.sysx(xImplicitKind), rdf.Bool(true))
 		default:
-			if err := e.declaredKeyword(subject, n, n.Keyword, usageKeyword(n.Kind), n.Ident.Name, referencesFeature(n)); err != nil {
+			keyword := usageKeyword(n.Kind)
+			if n.Kind == ast.UsageIndividual {
+				keyword = usageKeyword(ast.UsageOccurrence)
+			}
+			if err := e.declaredKeyword(subject, n, n.Keyword, keyword, n.Ident.Name, referencesFeature(n)); err != nil {
 				return err
 			}
 		}
@@ -1722,7 +1756,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		if n.TypeRef != nil {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(n.TypeRef))
+			target := e.reference(n.TypeRef)
+			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), target)
+			e.recordSemanticRelationshipOrigin(subject, relationshipProperty[ast.RelTyping], target,
+				metamodel.Element{Node: n.TypeRef, Container: originSymbol(e.origins[subject.Value]), Aspect: "synthetic:typing"})
 		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
 			return err
@@ -1860,7 +1897,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// the dependency owns, not a member of it (SysML-textual-bnf Dependency,
 	// PrefixMetadataAnnotation).
 	if metadata && ownerClass == mDependency {
-		annotation := e.ids.minted(rdf.RelationshipIRI(member, AnnotationSuffix), member, AnnotationSuffix)
+		annotation := e.minted(rdf.RelationshipIRI(member, AnnotationSuffix), member, AnnotationSuffix)
 		return e.prefixAnnotation(annotation, member, owner, memberFQN)
 	}
 	membership := e.ids.owningMembershipOf(node, member)
@@ -1941,6 +1978,11 @@ func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN
 	e.graph.Add(owner, e.sysml(pOwnedAnnotation), annotation)
 	e.graph.Add(member, e.sysml(pOwner), owner)
 	e.graph.Add(member, e.sysml(pOwningRelationship), annotation)
+	memberOrigin := e.origins[member.Value]
+	e.recordOrigin(annotation, metamodel.Element{
+		Node: memberOrigin.Node, Container: originSymbol(e.origins[owner.Value]),
+		Aspect: "annotation",
+	})
 	return annotation
 }
 
@@ -1959,6 +2001,7 @@ func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metacla
 	if namespace {
 		e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), owner)
 	}
+	e.recordMembershipOrigin(membership, member, owner, metaclass)
 }
 
 // variantMember reports whether node is a variant of its owner: a usage declared
@@ -2200,8 +2243,8 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 // end's are, and a chained target is written the way a connector end's is.
 func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error {
 	slot := fmt.Sprintf("end%d", index)
-	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	feature := e.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	membership := e.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.typed(feature, mEventOccurrenceUsage)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
@@ -2255,8 +2298,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	if end.target == nil && end.targetTerm.Value == "" && !end.empty {
 		return nil
 	}
-	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	feature := e.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
+	membership := e.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	metaclass := crossFeatureMetaclass(false)
 	if end.port {
@@ -2346,8 +2389,8 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
 	default:
 		e.chainFeature(feature, prefix)
 	}
-	flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+	flowFeature := e.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+	membership := e.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
 	e.typed(flowFeature, mReferenceUsage)
 	e.graph.Add(flowFeature, e.sysml(pElementID), rdf.String(rdf.LocalName(flowFeature.Value)))
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
@@ -2391,7 +2434,7 @@ func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 // referenceSubsetting writes the standard relationship that connects an end
 // feature to the feature or expression it references.
 func (e *encoder) referenceSubsetting(feature, target rdf.Term) rdf.Term {
-	subsetting := e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs")
+	subsetting := e.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs")
 	e.typed(subsetting, mReferenceSubsetting)
 	e.graph.Add(subsetting, e.sysml(pElementID), rdf.String(rdf.LocalName(subsetting.Value)))
 	for _, property := range []string{pReferencingFeature, pSubsettingFeature, pSpecific, pSource, pOwningFeature, pOwningType} {
@@ -2413,7 +2456,7 @@ func (e *encoder) referenceSubsetting(feature, target rdf.Term) rdf.Term {
 // (OwnedReferenceSubsetting's OwnedFeatureChain): it is related to the end
 // through the ReferenceSubsetting, whose ownedRelatedElement it is.
 func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
-	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
+	chain := e.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	e.featureChainings(chain, segments)
@@ -2753,15 +2796,16 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 			}
 			// A name is a reference; a feature chain is the chain Feature the
 			// materialized relationship owns, other expressions written text.
+			var target rdf.Term
 			if k, chained := chains[rel]; chained {
-				e.graph.Add(subject, e.sysml(property), e.headChain(subject, rel.Target, k))
-				continue
+				target = e.headChain(subject, rel.Target, k)
+			} else if name, ok := rel.Target.(*ast.QualifiedName); ok {
+				target = e.reference(name)
+			} else {
+				target = rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression)
 			}
-			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.graph.Add(subject, e.sysml(property), e.reference(name))
-				continue
-			}
-			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
+			e.graph.Add(subject, e.sysml(property), target)
+			e.recordRelationshipOrigin(subject, property, target, rel)
 		}
 	}
 }
@@ -2803,7 +2847,10 @@ func (e *encoder) headChain(subject rdf.Term, target ast.Node, k int) rdf.Term {
 		}
 	}
 	slot := fmt.Sprintf("chain%d", k)
-	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	chain := e.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	e.recordOrigin(chain, metamodel.Element{
+		Node: target, Container: originSymbol(e.origins[subject.Value]), Aspect: slot,
+	})
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	e.featureChainings(chain, links)
@@ -2831,8 +2878,8 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 		return nil
 	}
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-	rangeNode := e.ids.mintedNode(rdf.ExpressionIRI(subject, "multiplicity"), subject, "multiplicity")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(rangeNode), rangeNode, rdf.OwningMembershipSuffix)
+	rangeNode := e.mintedNode(rdf.ExpressionIRI(subject, "multiplicity"), subject, "multiplicity")
+	membership := e.minted(rdf.OwningMembershipIRIOf(rangeNode), rangeNode, rdf.OwningMembershipSuffix)
 	for _, c := range []struct{ iri, standsFor string }{
 		{rangeNode.Value, "the multiplicity range of " + rdf.LocalName(subject.Value)},
 		{membership.Value, "the owning membership of the multiplicity range"},
@@ -2886,8 +2933,8 @@ func (e *encoder) multiplicityBound(subject, rangeNode rdf.Term, owner, property
 	if node == nil {
 		return nil
 	}
-	bound := e.ids.mintedNode(rdf.ExpressionIRI(subject, property), subject, property)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(bound), bound, rdf.OwningMembershipSuffix)
+	bound := e.mintedNode(rdf.ExpressionIRI(subject, property), subject, property)
+	membership := e.minted(rdf.OwningMembershipIRIOf(bound), bound, rdf.OwningMembershipSuffix)
 	e.graph.Add(subject, e.sysml(property), bound)
 	e.graph.Add(rangeNode, e.sysml(property), bound)
 	if err := e.expressionNode(bound, owner, node); err != nil {
@@ -3003,7 +3050,7 @@ func (e *encoder) linked(sym *symbols.Symbol, ok bool) (ast.Node, string, bool) 
 		if fqn, declared = e.ids.libraryElement(sym); !declared {
 			return nil, "", false
 		}
-		e.claimLibrary(sym.Decl, fqn)
+		e.claimLibrary(sym, sym.Decl, fqn)
 		return sym.Decl, fqn, true
 	}
 	if name, _ := declaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {

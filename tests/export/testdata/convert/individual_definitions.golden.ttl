@@ -227,7 +227,7 @@ elmt:IndividualDefinitions__Spacecraft_om
     sysml:membershipOwningNamespace elmt:IndividualDefinitions .
 
 elmt:IndividualDefinitions__Eagle
-    a sysml:IndividualDefinition ;
+    a sysml:OccurrenceDefinition ;
     sysml:qualifiedName "IndividualDefinitions::Eagle" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "2"^^xsd:integer ;
@@ -240,11 +240,13 @@ elmt:IndividualDefinitions__Eagle
     sysml:owningRelationship elmt:IndividualDefinitions__Eagle_om ;
     sysml:owningMembership elmt:IndividualDefinitions__Eagle_om ;
     sysml:declaredName "Eagle" ;
+    sysx:declaredKeyword "individual" ;
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:IndividualDefinitions__Spacecraft ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedSpecialization elmt:IndividualDefinitions__Eagle_sp0 ;
-    sysml:ownedRelationship elmt:IndividualDefinitions__Eagle_sp0 ;
+    sysml:ownedSubclassification elmt:IndividualDefinitions__Eagle_sc0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Eagle_sc0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Eagle_sc0 ;
     sysx:sourceText "\tindividual def Eagle :> Spacecraft;\n" .
 
 elmt:IndividualDefinitions__Eagle_om
@@ -559,13 +561,15 @@ elmt:IndividualDefinitions__Neil_20Armstrong_sc0
     sysml:relatedElement elmt:IndividualDefinitions__Neil_20Armstrong, elmt:IndividualDefinitions__Astronaut ;
     json:relatedElement "[{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"},{\"@id\":\"IndividualDefinitions__Astronaut\"}]" .
 
-elmt:IndividualDefinitions__Eagle_sp0
-    a sysml:Specialization ;
-    sysml:elementId "IndividualDefinitions__Eagle_sp0" ;
+elmt:IndividualDefinitions__Eagle_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "IndividualDefinitions__Eagle_sc0" ;
+    sysml:subclassifier elmt:IndividualDefinitions__Eagle ;
+    sysml:owningClassifier elmt:IndividualDefinitions__Eagle ;
     sysml:specific elmt:IndividualDefinitions__Eagle ;
-    sysml:owningType elmt:IndividualDefinitions__Eagle ;
     sysml:source elmt:IndividualDefinitions__Eagle ;
     sysml:owningRelatedElement elmt:IndividualDefinitions__Eagle ;
+    sysml:superclassifier elmt:IndividualDefinitions__Spacecraft ;
     sysml:general elmt:IndividualDefinitions__Spacecraft ;
     sysml:target elmt:IndividualDefinitions__Spacecraft ;
     sysml:owner elmt:IndividualDefinitions__Eagle ;

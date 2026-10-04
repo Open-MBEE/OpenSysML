@@ -530,8 +530,8 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 // target): the succession and its two end features; the caller links the
 // OwningMembership into the member order the grammar states.
 func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember, owner string) (rdf.Term, rdf.Term, error) {
-	succession := e.ids.minted(rdf.IRI(subject.Value+"_succession"), subject, "_succession")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	succession := e.minted(rdf.IRI(subject.Value+"_succession"), subject, "_succession")
+	membership := e.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
 	e.typed(succession, mSuccession)
 	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
 	e.graph.Add(subject, e.sysml("succession"), succession)
@@ -573,8 +573,8 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.QualifiedName) {
 	if qualifiedNameHasChain(source) {
 		// A chain is a node, as an end's chain is.
-		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "sourcechain"), subject, "sourcechain")
-		membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+		chain := e.mintedNode(rdf.ExpressionIRI(subject, "sourcechain"), subject, "sourcechain")
+		membership := e.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 		e.typed(chain, mFeature)
 		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
@@ -584,7 +584,7 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 		return
 	}
-	membership := e.ids.minted(rdf.ExpressionIRI(subject, "sourcemember"), subject, "sourcemember")
+	membership := e.minted(rdf.ExpressionIRI(subject, "sourcemember"), subject, "sourcemember")
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(mMembership))
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
@@ -601,8 +601,8 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 func (e *encoder) emptyParameterMember(subject rdf.Term, slot string) {
 	// Minted as an element, as the transition's succession is: an
 	// expression-part id would read back from the element form as a node.
-	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	feature := e.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
+	membership := e.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	e.typed(feature, mReferenceUsage)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	// A parameter with no direction of its own is an `in` parameter.

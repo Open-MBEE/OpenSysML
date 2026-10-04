@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
@@ -119,15 +120,20 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	} {
 		targets := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
 		for i, target := range targets {
+			origin, hasOrigin := e.takeRelationshipOrigin(subject, relationshipProperty[kind], target)
 			spec, ok := e.relationshipSpec(subject, kind, len(targets), i)
 			if !ok {
 				continue
 			}
+			var origins []metamodel.Element
+			if hasOrigin {
+				origins = append(origins, origin)
+			}
 			if kind == ast.RelTyping && e.graph.BoolValue(subject, rdf.OpenSysML+xConjugatedTyping) {
-				e.emitConjugatedPortTyping(subject, target, spec)
+				e.emitConjugatedPortTyping(subject, target, spec, origins...)
 				continue
 			}
-			e.emitRelationship(subject, target, spec)
+			e.emitRelationship(subject, target, spec, origins...)
 		}
 	}
 }
@@ -210,33 +216,39 @@ func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
 // emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
 // type is P's ConjugatedPortDefinition and whose portDefinition is P itself
 // (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
-func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) {
+func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship, origins ...metamodel.Element) {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
 	conjugated := rdf.String("~" + target.Value)
 	if target.IsIRI() {
-		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		conjugated = e.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
 	}
-	e.emitRelationship(subject, conjugated, spec)
-	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	e.emitRelationship(subject, conjugated, spec, origins...)
+	relation := e.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	if len(origins) > 0 {
+		e.recordOrigin(relation, origins[0])
+	}
 	e.graph.Add(relation, e.sysml(pPortDefinition), target)
 }
 
 // emitRelationship mints the relationship element between subject and target
 // and wires its ends, its identity and its owner's owned-* properties.
-func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship) {
+func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship, origins ...metamodel.Element) {
 	e.emitRelationshipAt(subject, target, spec,
-		e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix))
+		e.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix), origins...)
 }
 
 // emitRelationshipAt is emitRelationship with the relationship element's IRI
 // already minted: a chain's FeatureChaining is an expression node.
-func (e *encoder) emitRelationshipAt(subject, target rdf.Term, spec normativeRelationship, relation rdf.Term) {
+func (e *encoder) emitRelationshipAt(subject, target rdf.Term, spec normativeRelationship, relation rdf.Term, origins ...metamodel.Element) {
 	if prior, taken := e.claim(relation.Value, "the "+spec.metaclass+" of "+relation.Value); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
 			What: fmt.Sprintf("the %s <%s>", spec.metaclass, relation.Value),
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
 		}
+	}
+	if len(origins) > 0 {
+		e.recordOrigin(relation, origins[0])
 	}
 	e.typed(relation, spec.metaclass)
 	e.graph.Add(relation, e.sysml(pElementID), rdf.String(rdf.LocalName(relation.Value)))
@@ -290,7 +302,7 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 	for i, link := range links {
 		position := fmt.Sprintf("fc%d", i)
 		e.emitRelationshipAt(chain, link, spec,
-			e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+			e.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
 		e.graph.Add(chain, e.sysml(pChainingFeature), link)
 	}
 }
@@ -320,9 +332,9 @@ func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
 	var membership rdf.Term
 	if strings.HasPrefix(subject.Value, rdf.Expression) {
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-		membership = e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership = e.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
 	} else {
-		membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
+		membership = e.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
 		if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
 			e.idErr = &UnsupportedError{
 				What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
@@ -342,9 +354,9 @@ func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
 // `~P` the conjugated typing of a port usage names, which the metamodel owns
 // as a ConjugatedPortDefinition of P with a PortConjugation between them.
 func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.Definition) {
-	conjugated := e.ids.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
-	conjugation := e.ids.minted(rdf.RelationshipIRI(conjugated, "_pc"), conjugated, "_pc")
+	conjugated := e.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
+	membership := e.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
+	conjugation := e.minted(rdf.RelationshipIRI(conjugated, "_pc"), conjugated, "_pc")
 	for _, c := range []struct{ iri, standsFor string }{
 		{conjugated.Value, "the conjugated port definition of " + rdf.LocalName(subject.Value)},
 		{membership.Value, "the owning membership of the conjugated port definition"},
@@ -393,8 +405,8 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 // FeatureReferenceExpression of the subject — the shape `subject = <expr>`
 // has, since a satisfy's `by` is the subject it evaluates the requirement for.
 func (e *encoder) subjectParameter(subject rdf.Term, owner string, target ast.Node) error {
-	usage := e.ids.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix)
+	usage := e.minted(rdf.RelationshipIRI(subject, "_subject"), subject, "_subject")
+	membership := e.minted(rdf.OwningMembershipIRIOf(usage), usage, rdf.OwningMembershipSuffix)
 	for _, c := range []struct{ iri, standsFor string }{
 		{usage.Value, "the subject parameter of " + rdf.LocalName(subject.Value)},
 		{membership.Value, "the subject membership of " + rdf.LocalName(subject.Value)},

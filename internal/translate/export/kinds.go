@@ -17,7 +17,7 @@ var definitionMetaclass = map[ast.DefinitionKind]string{
 	ast.DefAttribute:        "AttributeDefinition",
 	ast.DefItem:             "ItemDefinition",
 	ast.DefOccurrence:       "OccurrenceDefinition",
-	ast.DefIndividual:       "IndividualDefinition",
+	ast.DefIndividual:       "OccurrenceDefinition",
 	ast.DefMetaclass:        "Metaclass",
 	ast.DefMetadata:         "MetadataDefinition",
 	ast.DefEnumeration:      "EnumerationDefinition",
@@ -54,7 +54,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageAttribute:     "AttributeUsage",
 	ast.UsageItem:          "ItemUsage",
 	ast.UsageOccurrence:    "OccurrenceUsage",
-	ast.UsageIndividual:    "IndividualUsage",
+	ast.UsageIndividual:    "OccurrenceUsage",
 	ast.UsageMetadata:      "MetadataUsage",
 	ast.UsageEnumeration:   "EnumerationUsage",
 	ast.UsageView:          "ViewUsage",
@@ -243,6 +243,7 @@ const legacyConnectorAsUsage = "ConnectorAsUsage"
 // the parser records for them, and legacy metaclasses to the kind they meant.
 var metaclassKeywordUsage = map[string]ast.UsageKind{
 	legacyConnectorAsUsage: ast.UsageConnector,
+	"IndividualUsage":      ast.UsageIndividual,
 	"DataType":             ast.UsageAttribute,
 	"Function":             ast.UsageCalc,
 	"ReferenceUsage":       ast.UsageAttribute,
@@ -403,9 +404,16 @@ var (
 
 func init() {
 	for kind, name := range definitionMetaclass {
+		if kind == ast.DefIndividual {
+			continue
+		}
 		metaclassDefinition[name] = kind
 	}
+	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
 	for kind, name := range usageMetaclass {
+		if kind == ast.UsageIndividual {
+			continue
+		}
 		metaclassUsage[name] = kind
 	}
 	for name, kind := range metaclassKeywordUsage {

@@ -69,6 +69,61 @@ func TestNamedFunctionInvocationsComeBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+func TestConstructorWritesConstructedTypeOnlyAsInstantiatedType(t *testing.T) {
+	turtle := string(invocationTurtle(t))
+	start := strings.Index(turtle, "expr:Calls__made_pvalue\n")
+	if start < 0 {
+		t.Fatalf("the graph has no constructor expression:\n%s", turtle)
+	}
+	end := strings.Index(turtle[start:], "\n\n")
+	if end < 0 {
+		t.Fatalf("the constructor expression has no subject terminator:\n%s", turtle[start:])
+	}
+	subject := turtle[start : start+end]
+	if !strings.Contains(subject, "a sysml:ConstructorExpression") ||
+		!strings.Contains(subject, "sysml:instantiatedType elmt:Calls__Sensor") {
+		t.Errorf("constructor does not state its constructed type:\n%s", subject)
+	}
+	if strings.Contains(subject, "sysml:function") {
+		t.Errorf("constructor duplicates its constructed type as a function:\n%s", subject)
+	}
+	if !strings.Contains(turtle, `sysx:isConstructor "true"^^xsd:boolean`) {
+		t.Error("the graph dropped the constructor marker carried by the callee membership")
+	}
+}
+
+func TestIndividualDefinitionsAndUsagesUseOccurrenceMetaclasses(t *testing.T) {
+	input := []byte(`package Individuals {
+    individual def Eagle;
+    individual eagle;
+}
+`)
+	turtle, err := convert.Convert("individuals.sysml", input, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("convert individuals: %v", err)
+	}
+	text := string(turtle)
+	for _, expected := range []string{
+		"a sysml:OccurrenceDefinition",
+		"a sysml:OccurrenceUsage",
+		`sysml:isIndividual "true"^^xsd:boolean`,
+		`sysx:declaredKeyword "individual"`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Errorf("individual graph is missing %q:\n%s", expected, text)
+		}
+	}
+	for _, forbidden := range []string{
+		"a sysml:IndividualDefinition",
+		"a sysml:IndividualUsage",
+		"EmptyMultiplicityMember",
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Errorf("individual graph contains forbidden %q:\n%s", forbidden, text)
+		}
+	}
+}
+
 // An invocation whose function the graph does not define is refused, never
 // written under a guessed name.
 func TestInvocationOfAnUndefinedFunctionIsRefused(t *testing.T) {

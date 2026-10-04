@@ -693,7 +693,8 @@ expr:ActionNodes__Drive___4013_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4013_ppayload" ;
-    sysml:function elmt:ActionNodes__Command ;
+    sysml:instantiatedType elmt:ActionNodes__Command ;
+    sysx:isConstructor "true"^^xsd:boolean ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4013_ppayload_pfunction, expr:ActionNodes__Drive___4013_ppayload_pout_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4013_ppayload_pout_om ;
     sysml:ownedFeatureMembership expr:ActionNodes__Drive___4013_ppayload_pout_om ;
@@ -826,7 +827,8 @@ expr:ActionNodes__Drive___4014_ppayload
     a sysml:ConstructorExpression ;
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4014_ppayload" ;
-    sysml:function elmt:ActionNodes__Command ;
+    sysml:instantiatedType elmt:ActionNodes__Command ;
+    sysx:isConstructor "true"^^xsd:boolean ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4014_ppayload_pfunction, expr:ActionNodes__Drive___4014_ppayload_pout_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4014_ppayload_pout_om ;
     sysml:ownedFeatureMembership expr:ActionNodes__Drive___4014_ppayload_pout_om ;
