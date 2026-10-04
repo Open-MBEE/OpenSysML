@@ -1,0 +1,1 @@
+- **Render filtered `GridView`s as relationship matrices.** Matrix views show satisfy, verify, allocation, connection, derivation, refinement and dependency relationships in text, Markdown, CSV and TSV, including unnamed exposed members; ordinary tables and other renderings keep their existing output.

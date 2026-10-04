@@ -214,7 +214,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports]]", desc: "render a view as the rendering it states — as text, a Mermaid diagram, a Markdown table or relationship matrix, or Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},

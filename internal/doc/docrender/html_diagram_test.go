@@ -170,6 +170,26 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 	}
 }
 
+func TestHTMLDiagramMatrixKindIsATable(t *testing.T) {
+	got := renderedFigureForm(t, "Relationships", &view.Rendering{
+		Kind:    view.KindMatrix,
+		Columns: []string{"Source / Target", "Observatory::target"},
+		Rows:    [][]string{{"Observatory::source", "satisfy"}},
+	}, "", view.FormDot)
+	for _, want := range []string{
+		`<table class="sysml-table" data-content="matrix">`,
+		`<th scope="col" data-column="Source / Target">Source / Target</th>`,
+		`<td class="sysml-cell" data-column="Observatory::target">satisfy</td>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("matrix figure lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "<pre") {
+		t.Errorf("matrix was written as a graph:\n%s", got)
+	}
+}
+
 // TestHTMLDiagramErrors checks the typed errors for a diagram with no
 // rendering and for a kind no renderer can draw.
 func TestHTMLDiagramErrors(t *testing.T) {

@@ -279,12 +279,11 @@ package OpenSysMLSurfaces {
         attribute supported : Boolean default = true;
     }
 
-    // Every kind in StandardViewDefinitions is recognized, so a view stating
-    // one that is not produced is told so rather than rendered as another.
+    // Every rendering kind the implementation recognizes is modelled here.
     part def ViewEngine :> CodeUnit {
         attribute :>> goPackage = "internal/ir/view";
-        attribute recognizedKinds : Integer = 8;
-        attribute supportedKinds : Integer = 6;
+        attribute recognizedKinds : Integer = 9;
+        attribute supportedKinds : Integer = 7;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
         part interconnection : RenderingKind { attribute :>> kind = "interconnection"; }
         part stateDiagram : RenderingKind { attribute :>> kind = "state"; }
@@ -294,6 +293,7 @@ package OpenSysMLSurfaces {
             attribute :>> supported = false;
         }
         part table : RenderingKind { attribute :>> kind = "table"; }
+        part matrix : RenderingKind { attribute :>> kind = "matrix"; }
         part sequence : RenderingKind { attribute :>> kind = "sequence"; }
         part geometry : RenderingKind {
             attribute :>> kind = "geometry";
@@ -688,13 +688,13 @@ package OpenSysMLSurfaces {
     }
 
     requirement def ViewsSayWhatTheyCannotRender {
-        doc /* Every standard rendering kind is recognized, and the ones not
-             * produced say so instead of being drawn as something else. */
+        doc /* Every rendering kind is recognized, and the ones not produced
+             * say so instead of being drawn as something else. */
         subject views : ViewEngine;
         require constraint {
-            views.recognizedKinds == 8 and views.supportedKinds == 6
+            views.recognizedKinds == 9 and views.supportedKinds == 7
                 and not views.textual.supported and not views.geometry.supported
-                and views.sequence.supported
+                and views.sequence.supported and views.matrix.supported
         }
     }
 

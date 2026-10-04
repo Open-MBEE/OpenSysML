@@ -68,6 +68,13 @@ package KitViews {
 		expose Kit::Widget;
 	}
 
+	view def WidgetRelationshipMatrix :> GridView {
+		filter @SysML::ConnectionUsage;
+	}
+	view widgetMatrix : WidgetRelationshipMatrix {
+		expose Kit::Widget::**;
+	}
+
 	view widgetSequence : SequenceView {
 		expose Kit::Widget;
 	}
@@ -205,6 +212,7 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 		{"KitViews::widgetStates", view.KindState, view.FormMermaid},
 		{"KitViews::widgetActions", view.KindAction, view.FormMermaid},
 		{"KitViews::widgetTable", view.KindTable, view.FormMarkdown},
+		{"KitViews::widgetMatrix", view.KindMatrix, view.FormMarkdown},
 		{"KitViews::widgetSequence", view.KindSequence, view.FormMermaid},
 	}
 	for _, tc := range cases {
@@ -225,9 +233,9 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 			if out.Version != 1 {
 				t.Errorf("version = %d, want the version the document was opened at", out.Version)
 			}
-			if tc.kind == view.KindTable {
+			if tc.kind.Tabular() {
 				if len(out.Rows) == 0 {
-					t.Error("a table rendering carries no rows")
+					t.Errorf("a %s rendering carries no rows", tc.kind)
 				}
 				return
 			}
@@ -248,6 +256,25 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 				t.Errorf("no node of the %s rendering is located in the source", tc.kind)
 			}
 		})
+	}
+}
+
+func TestRenderMatrixPseudoView(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "#matrix:Kit::Widget",
+	})
+	if err != nil {
+		t.Fatalf("render matrix pseudo-view: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if out.Kind != string(view.KindMatrix) || out.Form != string(view.FormMarkdown) ||
+		!strings.Contains(out.Artifact, "| Source / Target |") {
+		t.Errorf("matrix pseudo-view = kind %q, form %q, artifact:\n%s", out.Kind, out.Form, out.Artifact)
 	}
 }
 
@@ -428,20 +455,25 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	if !slices.Contains(listing.PseudoViews, "#sequence") {
 		t.Errorf("pseudoViews = %v, want it to contain #sequence", listing.PseudoViews)
 	}
-	if len(listing.Views) != 7 {
-		t.Fatalf("listed %d views, want 7: %+v", len(listing.Views), listing.Views)
+	if !slices.Contains(listing.PseudoViews, "#matrix") {
+		t.Errorf("pseudoViews = %v, want it to contain #matrix", listing.PseudoViews)
+	}
+	if len(listing.Views) != 9 {
+		t.Fatalf("listed %d views, want 9: %+v", len(listing.Views), listing.Views)
 	}
 	kinds := map[string]viewInfo{}
 	for _, info := range listing.Views {
 		kinds[info.Name] = info
 	}
 	for name, kind := range map[string]view.Kind{
-		"KitViews::widgetTree":     view.KindTree,
-		"KitViews::widgetParts":    view.KindInterconnection,
-		"KitViews::widgetStates":   view.KindState,
-		"KitViews::widgetActions":  view.KindAction,
-		"KitViews::widgetTable":    view.KindTable,
-		"KitViews::widgetSequence": view.KindSequence,
+		"KitViews::WidgetRelationshipMatrix": view.KindMatrix,
+		"KitViews::widgetTree":               view.KindTree,
+		"KitViews::widgetParts":              view.KindInterconnection,
+		"KitViews::widgetStates":             view.KindState,
+		"KitViews::widgetActions":            view.KindAction,
+		"KitViews::widgetTable":              view.KindTable,
+		"KitViews::widgetMatrix":             view.KindMatrix,
+		"KitViews::widgetSequence":           view.KindSequence,
 	} {
 		info, ok := kinds[name]
 		if !ok {
@@ -491,7 +523,7 @@ func TestViewsLocateEachDeclaration(t *testing.T) {
 			t.Errorf("%s: selectionRange covers %q, want %q", info.Name, got, short)
 		}
 		decl := text(*info.Range)
-		if !strings.HasPrefix(decl, "view "+short) || !strings.HasSuffix(decl, "}") {
+		if !(strings.HasPrefix(decl, "view "+short) || strings.HasPrefix(decl, "view def "+short)) || !strings.HasSuffix(decl, "}") {
 			t.Errorf("%s: range covers %q, want the whole view declaration", info.Name, decl)
 		}
 	}
@@ -613,7 +645,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 			t.Errorf("%s: the DOT result carries no nodes", name)
 		}
 	}
-	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetSequence"} {
+	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetMatrix", "KitViews::widgetSequence"} {
 		_, err := call(t, s, MethodRender, &renderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,

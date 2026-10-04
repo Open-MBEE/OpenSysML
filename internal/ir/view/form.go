@@ -8,9 +8,9 @@ import (
 
 // Form is a written form of a rendering: the human-readable text every kind has,
 // the machine-readable form of the kind — a Mermaid diagram for the
-// graph-shaped kinds, a Markdown table for the tabular one — the Graphviz
+// graph-shaped kinds, a Markdown table for the tabular kinds — the Graphviz
 // DOT and PlantUML forms a graph-shaped kind can be asked for instead, and the
-// CSV and TSV forms a table can.
+// CSV and TSV forms a tabular kind can.
 type Form string
 
 const (
@@ -37,7 +37,7 @@ func Forms() []Form {
 }
 
 // DiagramForms are the forms a document render writes its graph-shaped
-// diagrams as; a table-kind view is written as a table whichever is chosen.
+// diagrams as; a tabular view is written as a table whichever is chosen.
 func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML} }
 
 // FormNames spells the forms as a list, for help and error text.
@@ -63,7 +63,7 @@ const (
 
 // MachineForm is the machine-readable form of renderings of this kind.
 func (k Kind) MachineForm() Form {
-	if k == KindTable {
+	if k.Tabular() {
 		return FormMarkdown
 	}
 	return FormMermaid
@@ -72,7 +72,7 @@ func (k Kind) MachineForm() Form {
 // SupportsForm reports whether renderings of the kind are written in form:
 // every kind has the text form and its machine form, the kinds drawn as a
 // graph of nodes and edges have the DOT and PlantUML forms as well, a
-// sequence has PlantUML's sequence grammar, and a table has CSV and TSV.
+// sequence has PlantUML's sequence grammar, and tabular kinds have CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
@@ -80,7 +80,7 @@ func (k Kind) SupportsForm(form Form) bool {
 	case FormMermaid, FormMarkdown:
 		return k.MachineForm() == form
 	case FormCSV, FormTSV:
-		return k == KindTable
+		return k.Tabular()
 	case FormDot:
 		switch k {
 		case KindTree, KindInterconnection, KindState, KindAction:

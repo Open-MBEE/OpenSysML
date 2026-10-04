@@ -80,6 +80,9 @@ func TestDOTFormSupport(t *testing.T) {
 	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
 		t.Errorf("table forms = %v", got)
 	}
+	if got := KindMatrix.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
+		t.Errorf("matrix forms = %v", got)
+	}
 	unsupported := []struct {
 		file, view string
 		kind       Kind

@@ -38,6 +38,7 @@ func stdlibIndex(t *testing.T) *symbols.Index {
 			return readErr
 		}
 		idx.AddDocument(path, parser.New(source.New(path, data)).ParseFile())
+		idx.MarkLibrary(path)
 		return nil
 	})
 	if err != nil {

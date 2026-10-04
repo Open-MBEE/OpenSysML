@@ -8,6 +8,7 @@ import (
 
 const diagramModel = `
 	private import Views::*;
+	private import StandardViewDefinitions::*;
 
 	part def Camera;
 	part def Recorder;
@@ -34,6 +35,18 @@ const diagramModel = `
 	view textualView {
 		expose imagingChain;
 		render asTextualNotation;
+	}
+
+	requirement def MatrixRequirement;
+	requirement matrixRequirement : MatrixRequirement;
+	part def MatrixSubject {
+		satisfy matrixRequirement;
+	}
+	view def RelationshipMatrix :> GridView {
+		filter @SysML::SatisfyRequirementUsage;
+	}
+	view relationshipMatrix : RelationshipMatrix {
+		expose MatrixSubject;
 	}
 `
 
@@ -81,6 +94,41 @@ func TestCompileDiagramWithDeclaredView(t *testing.T) {
 	}
 	if !reference.Origin().Located() || reference.Origin().Doc != fixtureDoc {
 		t.Fatalf("origin = %+v", reference.Origin())
+	}
+}
+
+func TestCompileDiagramWithMatrixView(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part relationships : Diagram {
+			ref redefines source = relationshipMatrix;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	declared, ok := reference.View()
+	if !ok || declared == nil {
+		t.Fatal("diagram reference names no matrix view")
+	}
+	if reference.Kind() != view.KindMatrix {
+		t.Fatalf("kind = %q, want matrix", reference.Kind())
+	}
+}
+
+func TestCompileDiagramWithMatrixPseudoView(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part relationships : Diagram {
+			attribute redefines kind = "matrix";
+			ref redefines source = MatrixSubject;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	target, ok := reference.Target()
+	if !ok || target == nil {
+		t.Fatal("matrix pseudo-view has no target")
+	}
+	if reference.Kind() != view.KindMatrix {
+		t.Fatalf("kind = %q, want matrix", reference.Kind())
 	}
 }
 

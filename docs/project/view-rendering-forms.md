@@ -13,7 +13,7 @@ PlantUML compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
+`interconnection`, `state`, `action`, `sequence`, `table`, `matrix`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
 (connection, binding, transition, succession, flow), a table's columns and rows, the origin of every node
@@ -41,18 +41,57 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | Form | Writer | Kinds | Role |
 | --- | --- | --- | --- |
 | `text` | `text.go` | every kind | What a person reads at a terminal |
-| `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
-| `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
+| `markdown` | `markdown.go` | `table`, `matrix` | The machine-readable form of a table or relationship matrix |
+| `csv`, `tsv` | `delimited.go` | `table`, `matrix` | A table or relationship matrix as comma- or tab-separated values, for spreadsheets and scripts |
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 
-`Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
+`Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table or matrix,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
 a form at all. Asking for a form the kind is not written in is one typed `WrongFormError`, naming
-the kind, the form asked and the form the kind uses, on every surface: the CLI stops with status 2
-(`-render-all` skips the view and says so), the REPL prints the usage, the LSP refuses the request,
-and a document's `Diagram` block is refused at planning time.
+the kind, the form asked and the form the kind uses, on the CLI (`-render-all` skips the view and
+says so), in the REPL and in an LSP render request. A document `Diagram` block renders table and
+matrix kinds as tables in every diagram form; other incompatible forms are refused at planning
+time.
+
+## Relationship matrices
+
+`matrix` is a tabular rendering for a standard `GridView`. It is selected only when a positive,
+resolved `@T` selector in the view's own or inherited filters, or in the filters of its own or
+inherited exposes, names a relationship kind below. A selector nested under logical `not` does
+not activate it. SysML metaclass selectors match by identity; the two metadata selectors match
+their specializations as well. An explicit `render asElementTable;` remains an ordinary table,
+and an unknown or unrelated selector leaves the view's existing table behavior unchanged.
+
+| Selector | Relationship kinds |
+| --- | --- |
+| `SysML::SatisfyRequirementUsage` | `satisfy` |
+| `SysML::VerificationCaseUsage`, `SysML::VerificationCaseDefinition` | `verify` |
+| `SysML::AllocationUsage` | `allocate` |
+| `SysML::ConnectionUsage` | `connect`, `allocate`, `derive` |
+| `SysML::InterfaceUsage` | `connect` |
+| `SysML::Dependency` | `dependency`, `refine` |
+| `ModelingMetadata::Refinement` | `refine` |
+| `RequirementDerivation::DerivationMetadata` | `derive` |
+
+The matrix's rows are relationship sources and its columns are targets. It admits unnamed members
+through the matrix-only `ExposedMembers` path, then walks named and unnamed owned members to the
+tree depth limit, without descending into nested views. Ordinary tables and other renderings keep
+their existing named-member exposure and do not gain unnamed rows. A source and target occupy
+their first-seen
+positions; repeated edges between a pair collapse into one cell, whose comma-separated keywords
+are ordered `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`, `dependency`. Labels
+use the table's qualified element names, and each row retains its source origin.
+
+An exposed top-level member whose subtree contributes no displayed edge is named in a notice, in
+exposure order; the notice names the selected relationship kinds in the fixed cell-keyword order.
+An empty matrix distinguishes a view that exposed nothing from one whose exposed members have no
+relationships. `#matrix` renders all loaded content as a matrix, and
+`#matrix:<target>` renders one declared element directly; neither changes exposure for ordinary
+tables or any other rendering kind. Like a table, a matrix is written in `text`, `markdown`, `csv`
+and `tsv`. Mermaid, DOT and PlantUML have no table grammar, so requesting one of those forms is a
+typed wrong-form error naming `matrix`.
 
 ## Node labels
 

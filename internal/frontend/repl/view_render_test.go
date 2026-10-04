@@ -234,6 +234,48 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+func TestRenderGridViewRelationshipMatrixAndPseudoView(t *testing.T) {
+	s := NewSession()
+	res := s.Submit(`package Matrix {
+    private import StandardViewDefinitions::*;
+    requirement def Requirement;
+    requirement r : Requirement;
+    part def Vehicle;
+    part vehicle : Vehicle {
+        satisfy r;
+    }
+    view def RelationshipMatrix :> GridView {
+        filter @SysML::SatisfyRequirementUsage;
+    }
+    view relationshipMatrix : RelationshipMatrix {
+        expose vehicle::**;
+    }
+}`)
+	for _, d := range res.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("model did not load: %v", res.Diagnostics)
+		}
+	}
+	for _, name := range []string{"Matrix::relationshipMatrix", "#matrix:Matrix::vehicle"} {
+		out, _, err := s.RunMeta("%render " + name + " markdown")
+		if err != nil {
+			t.Fatalf("%%render %s: %v", name, err)
+		}
+		text := strings.Join(out, "\n")
+		for _, want := range []string{"matrix rendering", "| Source / Target | Matrix::r |", "| Matrix::vehicle | satisfy |"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%%render %s is missing %q:\n%s", name, want, text)
+			}
+		}
+	}
+	for _, form := range []string{"mermaid", "dot", "plantuml"} {
+		out := run(t, s, "%render Matrix::relationshipMatrix "+form)
+		if !strings.Contains(out, "matrix rendering is not written as "+form) {
+			t.Errorf("matrix as %s = %s", form, out)
+		}
+	}
+}
+
 // A delimited form carries no notice, so %render lists a table's after its records.
 func TestRenderOfADelimitedTableListsItsNotices(t *testing.T) {
 	rendering := &view.Rendering{

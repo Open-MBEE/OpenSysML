@@ -243,14 +243,14 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`; a matrix's machine form is `markdown`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table or matrix view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -468,13 +468,25 @@ sysml -e "result" file1.sysml file2.sysml
 loaded as one model, as `-render-all` and `-render-document` load theirs, so the view may expose
 elements a sibling file declares. The rendering kind comes from the view's `render` member, or is a
 containment tree if the view does not state one. This build can produce a tree, an interconnection
-diagram, a state machine, an action flow, a sequence diagram and a table. A geometry view is
-recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
+diagram, a state machine, an action flow, a sequence diagram, a table and a `GridView` relationship
+matrix. A geometry view is recognized but not drawn. A standard `GridView` with a positive,
+resolved relationship selector in its own or inherited filter or expose filter renders as a matrix;
+selectors under `not` do not activate it, and an explicit `render asElementTable;` stays a table.
+The matrix includes unnamed exposed members and their nested named or unnamed relationships; an
+ordinary table's exposure is unchanged. Pseudo-views let you render without declaring a view: `#tree` renders
 every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
-`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
+`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>`, `#table:<name>`
+and `#matrix:<name>`
 render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
+`#matrix` renders all loaded content.
 Only the kinds this build produces are offered; newly supported kinds become pseudo-views
 automatically.
+
+A matrix's rows are relationship sources, its columns are targets, and each cell lists its
+relationship keywords in the order `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`,
+`dependency`. It supports text, Markdown, CSV and TSV. Mermaid, DOT and PlantUML are refused as
+non-tabular forms. Members exposed without a displayed relationship are named in a notice; an
+exposed-but-unrelated matrix is distinguished from one with nothing exposed.
 
 An interconnection draws the exposed parts, the ports on their borders, and the connectors between
 them. A part's ports are those its definition declares as well as any it declares itself — `part
@@ -551,9 +563,9 @@ written under their name tagged the same way (`Views.Report~<hash>.dot` and
 `Views.report~<hash>.dot`), so neither overwrites the other; a view meeting no other keeps its
 plain name. Only views written in the requested form take part, and a plain name that meets a
 tagged one is tagged in turn, so no two files written in one run meet. With no
-`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
+`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and table or matrix kinds use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
-`.puml`, PlantUML's conventional extension, and a forced `csv` or `tsv` form writes the tables as
+`.puml`, PlantUML's conventional extension, and a forced `csv` or `tsv` form writes tables and matrices as
 `.csv` or `.tsv` and skips every other view.
 
 ```bash
@@ -570,8 +582,8 @@ views, or an analysis error, stops the run with status 2. `-render-all` cannot b
 The rendering is **tool-defined output**: SysML v2 §10.2 specifies the notation a view is written
 in, not how a tool draws it. Mermaid is the machine-readable form for the graph-shaped kinds because
 it renders as-is in Markdown, documentation sites and editors without a separate rendering tool, and
-has dedicated state diagram and sequence diagram grammars. A table is written as a Markdown table,
-since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
+has dedicated state diagram and sequence diagram grammars. A table or matrix is written as a Markdown table,
+since Mermaid has no grammar for tables, so `-render-form mermaid` on a table or matrix produces Markdown
 rather than a diagram of rows.
 
 The forms a kind can be written in:
@@ -579,10 +591,10 @@ The forms a kind can be written in:
 | Form | Kinds | What it is |
 | --- | --- | --- |
 | `text` | every kind | ASCII a person reads; the default at a terminal |
-| `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
-| `markdown` | `table` | A pipe table, the machine-readable form of a table |
-| `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
-| `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
+| `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table or matrix falls back to Markdown |
+| `markdown` | `table`, `matrix` | A pipe table, the machine-readable form of a table or relationship matrix |
+| `csv` | `table`, `matrix` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
+| `tsv` | `table`, `matrix` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
 | `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
 | `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
 
