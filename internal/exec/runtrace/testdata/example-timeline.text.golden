@@ -2,14 +2,11 @@ run - timeline rendering (the trace of a run to t = 6)
 
 RunTimeline::mission.controller.modes
   0 .. 1  waiting | charged
-  1 .. 2  acknowledged | charged (time, accept Ack)
-  via sending
+  1 .. 2  acknowledged | charged (time, accept Ack)  via sending
   2 .. 3  waiting | charged (time)
-  3 .. 4  acknowledged | charged (time, accept Ack)
-  via sending
+  3 .. 4  acknowledged | charged (time, accept Ack)  via sending
   4 .. 5  waiting | charged (time)
-  5 .. 6  acknowledged | charged (time, accept Ack)
-  via sending
+  5 .. 6  acknowledged | charged (time, accept Ack)  via sending
   6 .. 6  waiting | charged (time)  (held at the end)
   transitions:
     t=1 waiting -> sending (time)

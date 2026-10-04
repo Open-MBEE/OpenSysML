@@ -30,13 +30,13 @@ func writeRunTimelineText(b *strings.Builder, r *Rendering) {
 			if len(span.Triggers) > 0 {
 				fmt.Fprintf(b, " (%s)", strings.Join(span.Triggers, ", "))
 			}
+			if len(span.Through) > 0 {
+				fmt.Fprintf(b, "  via %s", strings.Join(span.Through, ", "))
+			}
 			if span.Open {
 				b.WriteString("  (held at the end)")
 			}
 			b.WriteString("\n")
-			if len(span.Through) > 0 {
-				fmt.Fprintf(b, "  via %s\n", strings.Join(span.Through, ", "))
-			}
 		}
 		if len(lane.Transitions) > 0 {
 			b.WriteString("  transitions:\n")

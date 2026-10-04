@@ -55,8 +55,7 @@ func TestRunTimelineTextWritesLanesSpansTransitionsAndMarks(t *testing.T) {
 		"run - timeline rendering (the trace of a run to t = 4)",
 		"T::rover.Machine",
 		"0 .. 1.5  closed",
-		"1.5 .. 4  open | parked (accept Open)  (held at the end)",
-		"  via a, b",
+		"1.5 .. 4  open | parked (accept Open)  via a, b  (held at the end)",
 		"transitions:",
 		"t=1.5 closed -> open (accept Open)",
 		"noted:",
@@ -203,5 +202,50 @@ func TestRunSequenceHeadersDoNotChangeItsWriters(t *testing.T) {
 	if err != nil || !strings.Contains(puml, "' run — sequence rendering (the trace of a run to t = 2)") ||
 		!strings.Contains(puml, "n0 -> n1 : t=1 Ping") {
 		t.Errorf("run sequence PlantUML = %q, %v", puml, err)
+	}
+}
+
+func TestRunSequenceParticipantLabelsPreserveSessionPaths(t *testing.T) {
+	rendering := &Rendering{
+		Kind: KindSequence,
+		Run:  true,
+		Roots: []*Node{
+			{ID: "n0", Kind: "object", Name: "RunTimeline::mission.controller", Type: "Controller"},
+			{ID: "n1", Kind: "object", Name: "RunTimeline::mission.instrument", Type: "Instrument"},
+		},
+	}
+	mermaid := rendering.Mermaid()
+	for _, want := range []string{
+		"participant n0 as RunTimeline::mission.controller : Controller",
+		"participant n1 as RunTimeline::mission.instrument : Instrument",
+	} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("run Mermaid is missing %q:\n%s", want, mermaid)
+		}
+	}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`participant "RunTimeline::mission.controller : Controller" as n0`,
+		`participant "RunTimeline::mission.instrument : Instrument" as n1`,
+	} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("run PlantUML is missing %q:\n%s", want, puml)
+		}
+	}
+
+	model := *rendering
+	model.Run = false
+	if got, want := model.Mermaid(), "  participant n0 as «object»<br>'mission.controller' : Controller"; !strings.Contains(got, want) {
+		t.Errorf("model Mermaid participant changed: want %q in\n%s", want, got)
+	}
+	modelPUML, err := model.PlantUML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `**'mission.controller' : Controller**`; !strings.Contains(modelPUML, want) {
+		t.Errorf("model PlantUML participant changed: want %q in\n%s", want, modelPUML)
 	}
 }

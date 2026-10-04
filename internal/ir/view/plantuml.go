@@ -339,7 +339,11 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+		label := w.plantumlLabel(node)
+		if r.Run {
+			label = plantumlText(runParticipantLabel(node))
+		}
+		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(label), node.ID, w.decoration(node))
 	}
 	for _, edge := range r.Edges {
 		w.writeArrow("", edge.From, edge.To, "->", edge.Label)

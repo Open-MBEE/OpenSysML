@@ -1569,7 +1569,11 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
+		label := labels.mermaid(node)
+		if r.Run {
+			label = mermaidText(runParticipantLabel(node))
+		}
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, label)
 	}
 	r.writeSequenceNotes(b)
 	writtenNotes := map[int]bool{}

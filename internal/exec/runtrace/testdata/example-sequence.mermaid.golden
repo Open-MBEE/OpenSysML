@@ -32,8 +32,8 @@ config:
 ---
 %% run — sequence rendering (the trace of a run to t = 6)
 sequenceDiagram
-  participant n0 as «object»<br>'mission.controller' : Controller
-  participant n1 as «object»<br>'mission.instrument' : Instrument
+  participant n0 as RunTimeline::mission.controller : Controller
+  participant n1 as RunTimeline::mission.instrument : Instrument
   n0->>n1: t=1 Ping (seq = 1)
   n1->>n0: t=1 Ack (seq = 1)
   n0->>n1: t=3 Ping (seq = 1)
