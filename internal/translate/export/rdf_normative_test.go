@@ -842,3 +842,42 @@ func TestFlowEndsRoundTripFromFeatureChains(t *testing.T) {
 		t.Fatalf("the decoded flow does not parse: %v\n%s", p.Diagnostics, notation)
 	}
 }
+
+func TestFlowEndNamesAreRefusedInFlowHeads(t *testing.T) {
+	const model = `package P {
+    part def Vessel {
+        part x;
+        part y;
+    }
+    part def Host {
+        part a : Vessel;
+        part b : Vessel;
+        flow from a.x to b.y;
+    }
+}`
+	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+		t.Run(property, func(t *testing.T) {
+			graph := normativeGraph(t, model)
+			var end rdf.Term
+			for _, triple := range graph.Triples() {
+				if triple.Predicate == rdf.IRI(rdf.RDFType) && triple.Object == rdf.SysMLTerm(mFlowEnd) {
+					end = triple.Subject
+					break
+				}
+			}
+			if end.Value == "" {
+				t.Fatal("flow has no FlowEnd")
+			}
+			graph.Add(end, rdf.SysMLTerm(property), rdf.String("outlet"))
+
+			_, err := ToSysML(graph)
+			var unsupported *UnsupportedError
+			if !errors.As(err, &unsupported) {
+				t.Fatalf("ToSysML error = %v, want UnsupportedError", err)
+			}
+			if !strings.Contains(err.Error(), end.Value) {
+				t.Fatalf("error %q does not name flow end %s", err, end.Value)
+			}
+		})
+	}
+}
