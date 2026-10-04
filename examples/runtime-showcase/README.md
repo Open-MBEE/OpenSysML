@@ -50,9 +50,9 @@ instance.
 ```
 ✓ package MassRollup
 ✓ MassRollup::saturnV.totalMass
-  = 2941728.0 [kg]
+  = 2941728 [kg]
 ✓ MassRollup::saturnV.stage1.totalMass
-  = 2332000.0 [kg]
+  = 2332000 [kg]
 ```
 
 The 2 332 000 kg is 130 000 kg of stage structure, 2 160 000 kg of propellant
