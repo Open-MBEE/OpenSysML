@@ -26,8 +26,7 @@ view LanderViews::overview
   viewpoint conformance
     satisfy massPerspective: violated
       concern mass: violated
-        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender:
-        require condition evaluated to false: lander.mass <= maxMass
+        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender: require condition evaluated to false: lander.mass <= maxMass
 ```
 
 The view frames a mass concern and satisfies the viewpoint framing it, so
