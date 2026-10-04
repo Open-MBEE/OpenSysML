@@ -1,0 +1,72 @@
+@startuml
+' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+' not represented: 3 pin(s) not drawn (provide.fuel, provide.torque, monitor.reading); PlantUML's state grammar has no pin, so the edges name them
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide empty description
+state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> [[https://example.test/src/action.sysml#L11]] {
+  state "**initial**" as n1 <<start>>
+  state "<size:10>//«action»//</size>\n**provide : Provide**" as n2 <<action>> <<usage>> [[https://example.test/src/action.sysml#L16]]
+  state "<size:10>//«action»//</size>\n**monitor**\nown flow" as n3 <<action>> <<usage>> [[https://example.test/src/action.sysml#L20]] {
+    state "**initial**" as n4 <<start>>
+    state "<size:10>//«action»//</size>\n**record**" as n5 <<action>> <<usage>> [[https://example.test/src/action.sysml#L23]]
+  }
+  state "<size:10>//«action»//</size>\n**tally**" as n6 <<action>> <<usage>> [[https://example.test/src/action.sysml#L29]]
+  state "<size:10>//«fork»//</size>\n**split**" as n7 <<fork>>
+  state "<size:10>//«join»//</size>\n**sync**" as n8 <<join>>
+  state "**final**" as n9 <<end>>
+  state "<size:10>//«action»//</size>\n**park**" as n10 <<action>> <<usage>> [[https://example.test/src/action.sysml#L36]]
+  state "<size:10>//«decision»//</size>\n**check**" as n11 <<choice>>
+}
+n4 --> n5 : [[https://example.test/src/action.sysml#L24]]
+n1 --> n7 : [[https://example.test/src/action.sysml#L38]]
+n2 --> n8 : [[https://example.test/src/action.sysml#L41]]
+n2 -[dashed]-> n3 : torque to reading [[https://example.test/src/action.sysml#L52]]
+n3 --> n8 : [[https://example.test/src/action.sysml#L42]]
+n6 --> n8 : [[https://example.test/src/action.sysml#L44]]
+n7 --> n2 : [[https://example.test/src/action.sysml#L39]]
+n7 --> n3 : [[https://example.test/src/action.sysml#L40]]
+n7 --> n6 : [[https://example.test/src/action.sysml#L43]]
+n8 --> n11 : [[https://example.test/src/action.sysml#L47]]
+n10 --> n9 : [[https://example.test/src/action.sysml#L50]]
+n11 --> n9 : [speed <U+003E> 0] [[https://example.test/src/action.sysml#L48]]
+n11 --> n10 : [[https://example.test/src/action.sysml#L49]]
+@enduml

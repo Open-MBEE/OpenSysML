@@ -2,6 +2,8 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -540,6 +542,27 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if !strings.Contains(res.Markdown, "| name | mass |") || strings.Contains(res.Markdown, "```") {
 			t.Errorf("a table is not a table under %s:\n%s", form, res.Markdown)
 		}
+	}
+}
+
+func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
+	ws, s, _ := openDocumentModel(t)
+	name := uri.File("/tmp/imaging.sysml").Filename()
+	ws.Open(name, []byte(diagramDocumentModel), 1)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	raw, err := call(t, s, MethodRenderDocument, &renderDocumentParams{
+		Name: "Imaging::ChainReport", DiagramForm: "plantuml", LinkTemplate: template,
+	})
+	if err != nil {
+		t.Fatalf("render linked document: %v", err)
+	}
+	var out renderDocumentResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Markdown, "https://example.test/src/"+filepath.ToSlash(name)+"#L") ||
+		!strings.Contains(out.Markdown, "[[") {
+		t.Errorf("document diagram lacks source links:\n%s", out.Markdown)
 	}
 }
 

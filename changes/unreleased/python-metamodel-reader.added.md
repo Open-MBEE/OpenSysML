@@ -1,0 +1,1 @@
+- **Add generated SysML metaclasses and a standalone JSON element reader to the Python client.** Read API and toolkit exports as a lazy typed graph without loading JSON into the engine.
