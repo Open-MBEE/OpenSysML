@@ -39,6 +39,88 @@ func TestRuntimeRobustnessAtomicBodyOrder(t *testing.T) {
 	t.Run("guard_preserves_error_as_an_outcome", testAtomicBodyOrderGuardErrorOutcome)
 	t.Run("false_guard_witness_replays", testAtomicBodyOrderFalseGuardReplay)
 	t.Run("recursive_invocation_preserves_typed_budget_error", testAtomicBodyOrderRecursiveBudget)
+	t.Run("ordinary_guard_preview_error_is_left_to_firing", testAtomicBodyOrderOrdinaryGuardPreviewError)
+	t.Run("order_dependent_guard_preview_still_fails_dispatch", testAtomicBodyOrderOrderDependentGuardPreview)
+}
+
+func testAtomicBodyOrderOrdinaryGuardPreviewError(t *testing.T) {
+	exec, err := runAtomicBodyOrderStateDispatch(t, "declared", "4 / divisor > 0", "")
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("dispatch error = %v, want ErrDivisionByZero from firing b's guard", err)
+	}
+	if errors.Is(err, ErrOrderDependentPreview) {
+		t.Fatalf("dispatch error = %v, want the ordinary firing error rather than a preview refusal", err)
+	}
+	if !strings.Contains(err.Error(), "fire transition out of b1") {
+		t.Fatalf("dispatch error = %v, want b's guard error from its firing", err)
+	}
+	if !containsState(exec.GetStateVisits(), "a2") || containsState(exec.GetStateVisits(), "b2") {
+		t.Fatalf("state visits = %v, want a to fire and b to remain in b1", exec.GetStateVisits())
+	}
+	if got := intValue(t, exec.StateData(), "divisor"); got != 0 {
+		t.Errorf("divisor = %d, want a's effect to set it to zero", got)
+	}
+	if got := intValue(t, exec.StateData(), "bFired"); got != 0 {
+		t.Errorf("bFired = %d, want b's transition effect not to run after its firing guard fails", got)
+	}
+}
+
+func testAtomicBodyOrderOrderDependentGuardPreview(t *testing.T) {
+	constraint := `constraint def Ok {
+		attribute y : Integer := 1;
+		assign y := y * 10;
+		assign y := y + 2;
+		y == 12
+	}`
+	exec, err := runAtomicBodyOrderStateDispatch(t, "seed:1", "Ok()", constraint)
+	if !errors.Is(err, ErrOrderDependentPreview) {
+		t.Fatalf("dispatch error = %v, want ErrOrderDependentPreview", err)
+	}
+	if !containsState(exec.GetStateVisits(), "a2") {
+		t.Fatalf("dispatch error = %v, state visits = %v, want a to fire before b's preview refusal", err, exec.GetStateVisits())
+	}
+	if got := intValue(t, exec.StateData(), "divisor"); got != 0 {
+		t.Errorf("divisor = %d, want a's effect to run before b's preview refusal", got)
+	}
+}
+
+func runAtomicBodyOrderStateDispatch(t *testing.T, schedule, guard, constraint string) (*StateExecutor, error) {
+	t.Helper()
+	source := `package test {
+		private import ScalarValues::*;
+		item def Go;
+		` + constraint + `
+		state Machine {
+			attribute divisor : Integer = 1;
+			attribute bFired : Integer = 0;
+			entry action { send new Go() to Machine; } then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go do assign divisor := 0 then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept Go if ` + guard + ` do assign bFired := 1 then b2;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, source))
+	machine := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if machine == nil {
+		t.Fatal("state machine Machine not found")
+	}
+	mustSchedule(t, ctx, mustPolicy(t, schedule))
+	exec, err := ctx.CreateStateExecutor(machine)
+	if err != nil {
+		t.Fatalf("create state machine: %v", err)
+	}
+	return exec, exec.RunToCompletion()
 }
 
 func testAtomicBodyOrderRunBudget(t *testing.T) {

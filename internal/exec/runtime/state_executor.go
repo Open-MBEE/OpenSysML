@@ -1212,6 +1212,7 @@ func (e *StateExecutor) dispatchInOrder(
 	var previewErr error
 	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
 	// A guard that cannot be read is left to the firing, which reports the error.
+	// An order-dependent verdict instead fails the dispatch as not covered.
 	void := func(candidate dispatchCandidate) bool {
 		if gone(candidate) {
 			return true
@@ -1220,8 +1221,11 @@ func (e *StateExecutor) dispatchInOrder(
 		var err error
 		e.preview(func() { pass, err = armed(candidate) })
 		if err != nil {
-			previewErr = err
-			return true
+			if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+				previewErr = err
+				return true
+			}
+			return false
 		}
 		return !pass
 	}
