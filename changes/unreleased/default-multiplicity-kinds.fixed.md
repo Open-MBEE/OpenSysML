@@ -1,0 +1,1 @@
+- **Apply the default `[1..1]` multiplicity by usage metaclass, and withhold it on reference subsetting.** Enumeration, view, rendering, actor and stakeholder usages without a declared multiplicity now hold exactly one value, including at runtime; `::>` and `references` to a type-owned feature withhold the default.
