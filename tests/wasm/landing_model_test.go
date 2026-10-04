@@ -225,7 +225,7 @@ func TestLandingStackModel(t *testing.T) {
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
 		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
-		"events":               []string{"commit", "pull", "push", "check"},
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
 	}, &journey)
 	if journey.Error != "" {
 		t.Fatalf("ExecuteState: %s", journey.Error)
