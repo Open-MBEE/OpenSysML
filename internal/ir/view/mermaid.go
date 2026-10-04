@@ -107,9 +107,11 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 		notices = append(notices, fmt.Sprintf("%d fork/join name(s) (%s); Mermaid's fork bar draws no label",
 			len(names), strings.Join(names, ", ")))
 	}
-	if r.Kind == KindAction {
+	if r.Kind == KindAction || r.Kind == KindMixed {
 		used := r.usedPorts(r.portView(options.Ports))
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool {
+			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID]
+		}); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}
@@ -568,10 +570,17 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 	return extra
 }
 
-// flowchartCluster reports whether a node holds flowchart nodes, or is an
-// interconnection or mixed part with displayed ports.
+// flowchartCluster reports whether a node holds flowchart nodes, or a part with displayed ports.
 func flowchartCluster(node *Node, ports portView) bool {
-	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
+	if len(node.Children) > 0 {
+		return true
+	}
+	for _, port := range ports.of(node) {
+		if ports.interconnectionPort(port) {
+			return true
+		}
+	}
+	return false
 }
 
 // writeFlowchart writes the tree, interconnection, action and mixed renderings
@@ -1127,10 +1136,9 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 	fmt.Fprintf(w.b, "%send\n", indent)
 }
 
-// flowchartPinID is the node a port is drawn as: the port itself on an
-// interconnection or mixed view, else a pin numbered by its position on the node.
+// flowchartPinID is the node a part port or action pin is drawn as.
 func flowchartPinID(node *Node, port Port, ports portView) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		for j, candidate := range node.Ports {
 			if candidate.ID == port.ID {
 				return fmt.Sprintf("%s_p%d", node.ID, j)
@@ -1278,7 +1286,9 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		var walk func(*Node)
 		walk = func(node *Node) {
 			for _, port := range ports.of(node) {
-				mark(node.ID, port.ID)
+				if r.Kind == KindInterconnection || ports.interconnectionPort(port) {
+					mark(node.ID, port.ID)
+				}
 			}
 			for _, child := range node.Children {
 				walk(child)
@@ -1287,7 +1297,9 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		for _, root := range r.Roots {
 			walk(root)
 		}
-		return used
+		if r.Kind == KindInterconnection {
+			return used
+		}
 	}
 	for _, edge := range r.Edges {
 		for _, endpoint := range []struct{ owner, port string }{
@@ -1315,7 +1327,7 @@ func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string 
 		for i, port := range node.Ports {
 			if used[node.ID][port.ID] {
 				end := port.ID
-				if r.Kind == KindAction {
+				if r.Kind == KindAction || r.Kind == KindMixed && port.Direction != PortUndirected {
 					end = fmt.Sprintf("%s_p%d", node.ID, i)
 				}
 				ends[port.ID] = end
@@ -1449,7 +1461,7 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 // mermaidPinLabel is a pin node's label: the port's stereotype over `name : Type`
 // under the full display, the name alone under the minimal.
 func mermaidPinLabel(ports portView, port Port) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		return mermaidText(port.Name)
 	}
 	label := mermaidText(ports.pinLabel(port))

@@ -195,6 +195,153 @@ func TestPortedAndPinlessEdgesMixUnderTheMinimalDisplay(t *testing.T) {
 	}
 }
 
+func TestMinimalMixedPortViewKeepsActionPins(t *testing.T) {
+	rendering := &Rendering{Kind: KindMixed, Roots: []*Node{{
+		ID: "n0", Ports: []Port{
+			{ID: "n0.0", Name: "connected", Direction: PortUndirected},
+			{ID: "n0.1", Name: "unconnected", Direction: PortUndirected},
+			{ID: "n0.2", Name: "request", Direction: PortIn},
+		},
+	}}, Edges: []Edge{{FromPort: "n0.0"}}}
+
+	got := rendering.portView(PortsMinimal).of(rendering.Roots[0])
+	if len(got) != 2 || got[0].Name != "connected" || got[1].Name != "request" {
+		t.Errorf("minimal mixed ports = %+v, want the connected part port and action pin", got)
+	}
+}
+
+func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
+	rendering := render(t, "mixed-action-ports.sysml", "MixedActionPorts::mixedView")
+	nodeNamed := func(data Data, name string) (NodeData, bool) {
+		for _, node := range data.Nodes {
+			if node.Name == name || strings.HasSuffix(node.Name, "::"+name) {
+				return node, true
+			}
+		}
+		return NodeData{}, false
+	}
+	minimalData := rendering.DataFor(PortsMinimal)
+	fullData := rendering.DataFor(PortsFull)
+	for name, want := range map[string]string{"source": "output", "sink": "input", "Check": "request"} {
+		minimalNode, ok := nodeNamed(minimalData, name)
+		if !ok {
+			t.Fatalf("minimal data has no %s node", name)
+		}
+		fullNode, ok := nodeNamed(fullData, name)
+		if !ok {
+			t.Fatalf("full data has no %s node", name)
+		}
+		if got := minimalNode.Ports; len(got) != 1 || got[0].Name != want {
+			t.Errorf("minimal %s ports = %+v, want %s", name, got, want)
+		}
+		if got := fullNode.Ports; len(got) != 1 || got[0].Name != want {
+			t.Errorf("full %s ports = %+v, want %s", name, got, want)
+		}
+	}
+	source, sourceOK := nodeNamed(minimalData, "source")
+	sink, sinkOK := nodeNamed(minimalData, "sink")
+	if !sourceOK || !sinkOK || len(source.Ports) != 1 || len(sink.Ports) != 1 {
+		t.Fatalf("minimal data lacks the connected part ports: source=%+v sink=%+v", source, sink)
+	}
+	connected := false
+	for _, edge := range minimalData.Edges {
+		if edge.FromPort == source.Ports[0].ID && edge.ToPort == sink.Ports[0].ID {
+			connected = true
+			break
+		}
+	}
+	if !connected {
+		t.Errorf("minimal edge endpoints do not resolve to the connected part ports: %+v", minimalData.Edges)
+	}
+	monitorMinimal, ok := nodeNamed(minimalData, "monitor")
+	if !ok {
+		t.Fatal("minimal data has no monitor node")
+	}
+	monitorFull, ok := nodeNamed(fullData, "monitor")
+	if !ok {
+		t.Fatal("full data has no monitor node")
+	}
+	if got := monitorMinimal.Ports; len(got) != 0 {
+		t.Errorf("minimal monitor ports = %+v, want its unconnected structural port filtered", got)
+	}
+	if got := monitorFull.Ports; len(got) != 1 || got[0].Name != "unused" {
+		t.Errorf("full monitor ports = %+v, want unused", got)
+	}
+
+	minimalOptions := Options{Ports: PortsMinimal}
+	fullOptions := Options{Ports: PortsFull}
+	dotMinimal, err := rendering.DOTWith(minimalOptions)
+	if err != nil {
+		t.Fatalf("minimal DOT: %v", err)
+	}
+	dotFull, err := rendering.DOTWith(fullOptions)
+	if err != nil {
+		t.Fatalf("full DOT: %v", err)
+	}
+	plantUMLMinimal, err := rendering.PlantUMLWith(minimalOptions)
+	if err != nil {
+		t.Fatalf("minimal PlantUML: %v", err)
+	}
+	plantUMLFull, err := rendering.PlantUMLWith(fullOptions)
+	if err != nil {
+		t.Fatalf("full PlantUML: %v", err)
+	}
+	textMinimal := rendering.textWith(Options{Width: WidthUnbounded, Ports: PortsMinimal})
+	textFull := rendering.textWith(Options{Width: WidthUnbounded, Ports: PortsFull})
+	mermaidMinimal := rendering.MermaidWith(minimalOptions)
+	mermaidFull := rendering.MermaidWith(fullOptions)
+
+	for form, output := range map[string]string{
+		"minimal DOT": dotMinimal, "minimal PlantUML": plantUMLMinimal, "minimal text": textMinimal,
+		"full DOT": dotFull, "full PlantUML": plantUMLFull, "full text": textFull,
+	} {
+		if !strings.Contains(output, "request") {
+			t.Errorf("%s does not show Check.request:\n%s", form, output)
+		}
+	}
+	for form, output := range map[string]string{"full DOT": dotFull, "full PlantUML": plantUMLFull, "full text": textFull} {
+		if !strings.Contains(output, "unused") {
+			t.Errorf("%s does not show the full structural port:\n%s", form, output)
+		}
+	}
+	if strings.Contains(dotMinimal, "unused") || strings.Contains(plantUMLMinimal, "unused") || strings.Contains(textMinimal, "unused") {
+		t.Errorf("minimal structural ports include the unconnected monitor port:\nDOT:\n%s\nPlantUML:\n%s\nText:\n%s",
+			dotMinimal, plantUMLMinimal, textMinimal)
+	}
+	check, _ := nodeNamed(minimalData, "Check")
+	if len(check.Ports) == 0 {
+		t.Fatal("minimal Check has no action parameter pin")
+	}
+	request := check.Ports[0]
+	start := strings.Index(plantUMLMinimal, " as "+check.ID)
+	if start < 0 {
+		t.Fatalf("minimal PlantUML has no Check container:\n%s", plantUMLMinimal)
+	}
+	open := strings.Index(plantUMLMinimal[start:], "{")
+	close := strings.Index(plantUMLMinimal[start+open+1:], "}")
+	if open < 0 || close < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+close], "port \"request\" as "+request.ID) {
+		t.Errorf("minimal PlantUML does not write request inside Check's container:\n%s", plantUMLMinimal)
+	}
+	if !strings.Contains(textMinimal, "in request") {
+		t.Errorf("minimal text does not use the action pin direction:\n%s", textMinimal)
+	}
+
+	for label, output := range map[string]string{"minimal": mermaidMinimal, "full": mermaidFull} {
+		if strings.Contains(output, check.ID+"_p0[") || strings.Contains(output, `["request"]`) {
+			t.Errorf("%s Mermaid draws Check's unconnected action pin, unlike an action rendering:\n%s", label, output)
+		}
+		if !strings.Contains(output, "Check.request") || !strings.Contains(output, "pin(s) not drawn") {
+			t.Errorf("%s Mermaid does not report Check.request as an undrawn action pin:\n%s", label, output)
+		}
+	}
+	if strings.Contains(mermaidMinimal, "unused") {
+		t.Errorf("minimal Mermaid draws an unconnected structural port:\n%s", mermaidMinimal)
+	}
+	if !strings.Contains(mermaidFull, "unused") {
+		t.Errorf("full Mermaid does not draw the structural monitor port:\n%s", mermaidFull)
+	}
+}
+
 // A kind without a port display draws every pin whatever the display asks: an
 // action's pins are the flows' ends, named in full.
 func TestAnActionDrawsEveryPinWhateverTheDisplay(t *testing.T) {

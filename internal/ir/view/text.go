@@ -195,10 +195,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 }
 
-// pinLine is a port's line under its node: `port <label>` in an interconnection or mixed view,
-// the pin's direction and name in an action (`in bread`), as declared.
+// pinLine is a part port's `port <label>` or an action pin's direction and name.
 func pinLine(port Port, ports portView) string {
-	if ports.interconnection {
+	if ports.interconnectionPort(port) {
 		return "port " + ports.pinLabel(port)
 	}
 	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
