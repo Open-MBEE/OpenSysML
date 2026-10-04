@@ -5,6 +5,7 @@ import { test } from "node:test";
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
+  alignedPlacement,
   anchor,
   clampNodeToBounds,
   type CanvasLayout,
@@ -32,8 +33,9 @@ import {
   shapeOf,
   steerable,
   type Box,
+  type Side,
 } from "./layout";
-import { CLEARANCE, loadAvoid, portExitReach } from "./avoid";
+import { CLEARANCE, loadAvoid, MIN_JOG, portExitReach } from "./avoid";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 
@@ -67,6 +69,43 @@ function placedNode(
   ports: RenderNode["ports"] = [],
 ) {
   return layoutCanvas(rendering([node(id, id, { x, y, width, height, ports })])).nodes.get(id)!;
+}
+
+function layoutWithPorts(
+  nodes: RenderNode[],
+  edges: RenderEdge[],
+  ports: AutoLayout["ports"],
+  bounds: Box,
+): CanvasLayout {
+  return layoutCanvas(
+    rendering(nodes, edges),
+    { bounds },
+    { nodes: new Map(), routes: new Map(), ports },
+  );
+}
+
+function portNode(id: string, x: number, y: number, width = 160, height = 70): RenderNode {
+  return node(id, id, { x, y, width, height, ports: [{ id: `${id}.api`, name: "api" }] });
+}
+
+function connectedEdge(from: string, to: string): RenderEdge {
+  return {
+    from,
+    to,
+    fromPort: `${from}.api`,
+    toPort: `${to}.api`,
+    label: "",
+    kind: "connection",
+    fqn: `M::${from}_${to}`,
+  };
+}
+
+function fixedPorts(...entries: Array<[string, Side, number]>): AutoLayout["ports"] {
+  const ports: AutoLayout["ports"] = new Map();
+  for (const [id, side, offset] of entries) {
+    ports.set(id, { side, offset });
+  }
+  return ports;
 }
 
 function freeAt(
@@ -1129,6 +1168,210 @@ test("freePlacement leaves a directional step unchanged when that direction is b
   const bounds: Box = { x: 0, y: 0, width: 200, height: 100 };
 
   assert.equal(freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }), undefined);
+});
+
+test("alignedPlacement lines up a short east-to-west offset in either direction", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  for (const offset of [5, -5]) {
+    const movingNode = portNode("moving", 80, 100);
+    const targetNode = portNode("target", 500, 100 + offset);
+    const layout = layoutWithPorts(
+      [movingNode, targetNode],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+    const moving = layout.nodes.get("moving")!;
+    const target = layout.nodes.get("target")!;
+    const at = { x: moving.box.x, y: moving.box.y };
+    const placed = alignedPlacement(moving, at, layout, bounds, 0);
+    const ownCenter = portCenter({ ...moving.box, ...placed }, moving.ports[0]);
+    const targetCenter = portCenter(target.box, target.ports[0]);
+
+    assert.equal(placed.x, at.x);
+    assert.equal(placed.y, at.y + offset);
+    assert.equal(ownCenter.y, targetCenter.y);
+  }
+});
+
+test("alignedPlacement leaves zero and exactly MIN_JOG offsets unchanged", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  for (const offset of [0, MIN_JOG]) {
+    const layout = layoutWithPorts(
+      [portNode("moving", 80, 100), portNode("target", 500, 100 + offset)],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+    const moving = layout.nodes.get("moving")!;
+    const at = { x: moving.box.x, y: moving.box.y };
+
+    assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+  }
+});
+
+test("alignedPlacement rejects an alignment blocked inside the clearance buffers", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const movingNode = portNode("moving", 80, 100);
+  const targetNode = portNode("target", 500, 105);
+  const edges = [connectedEdge("moving", "target")];
+  const ports = fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]);
+  const initial = layoutWithPorts([movingNode, targetNode], edges, ports, bounds);
+  const movingExtent = nodeExtent(initial.nodes.get("moving")!);
+  const blocker = node("blocker", "blocker", {
+    x: movingNode.x,
+    y: movingExtent.y + movingExtent.height + 2 * CLEARANCE,
+    width: movingNode.width,
+    height: 40,
+  });
+  const layout = layoutWithPorts([movingNode, targetNode, blocker], edges, ports, bounds);
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== "moving");
+
+  assert.deepEqual(freePlacement(moving, at, others, bounds, 0), at);
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement rejects an alignment that would cross the bounds", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 260 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 190), portNode("target", 500, 195)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== "moving");
+
+  assert.deepEqual(freePlacement(moving, at, others, bounds, 0), at);
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement minimizes remaining jogs before choosing the smaller shift", () => {
+  const bounds: Box = { x: 0, y: 0, width: 1000, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("plus", 450, 104), portNode("minus", 700, 94)],
+    [connectedEdge("moving", "plus"), connectedEdge("moving", "minus")],
+    fixedPorts(
+      ["moving.api", "east", 0.5],
+      ["plus.api", "west", 0.5],
+      ["minus.api", "west", 0.5],
+    ),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), { x: at.x, y: at.y + 4 });
+});
+
+test("alignedPlacement lines up north-to-south ports on x", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("target", 85, 300)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "north", 0.5], ["target.api", "south", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const placed = alignedPlacement(moving, at, layout, bounds, 0);
+
+  assert.deepEqual(placed, { x: at.x + 5, y: at.y });
+  assert.equal(portCenter({ ...moving.box, ...placed }, moving.ports[0]).x, portCenter(
+    layout.nodes.get("target")!.box,
+    layout.nodes.get("target")!.ports[0],
+  ).x);
+});
+
+test("alignedPlacement ignores mixed-side port pairs", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("target", 500, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "north", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const makeLayout = (): CanvasLayout =>
+    layoutWithPorts(
+      [portNode("moving", 80, 100), portNode("target", 500, 105)],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+  const hiddenEdgeLayout = makeLayout();
+  hiddenEdgeLayout.edges[0].hidden = true;
+  const hiddenEdgeMoving = hiddenEdgeLayout.nodes.get("moving")!;
+  const hiddenEdgeAt = { x: hiddenEdgeMoving.box.x, y: hiddenEdgeMoving.box.y };
+  assert.deepEqual(
+    alignedPlacement(hiddenEdgeMoving, hiddenEdgeAt, hiddenEdgeLayout, bounds, 0),
+    hiddenEdgeAt,
+  );
+
+  const hiddenNodeLayout = makeLayout();
+  hiddenNodeLayout.nodes.get("target")!.hidden = true;
+  const hiddenNodeMoving = hiddenNodeLayout.nodes.get("moving")!;
+  const hiddenNodeAt = { x: hiddenNodeMoving.box.x, y: hiddenNodeMoving.box.y };
+  assert.deepEqual(
+    alignedPlacement(hiddenNodeMoving, hiddenNodeAt, hiddenNodeLayout, bounds, 0),
+    hiddenNodeAt,
+  );
+});
+
+test("alignedPlacement preserves jog-length libavoid routes across seeded short offsets", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 800, height: 450 };
+  const edges = [connectedEdge("moving", "target")];
+  const ports = fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]);
+  let seed = 0x91b4c7d3;
+  const randomInt = (max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % (max + 1);
+  };
+  for (let sample = 0; sample < 200; sample++) {
+    const offset = (randomInt(1) === 0 ? -1 : 1) * (1 + randomInt(MIN_JOG - 2));
+    const targetY = 60 + randomInt(260);
+    const nodes = [portNode("moving", 80, targetY - offset), portNode("target", 500, targetY)];
+    const initial = layoutWithPorts(nodes, edges, ports, bounds);
+    const moving = initial.nodes.get("moving")!;
+    const others = [...initial.nodes.values()].filter((entry) => entry.node.id !== "moving");
+    const at = freePlacement(moving, moving.box, others, bounds, portExitReach(1))!;
+    const placed = alignedPlacement(moving, at, initial, bounds, portExitReach(1));
+    const layout = layoutCanvas(
+      rendering(nodes, edges),
+      { nodes: new Map([["moving", { ...moving.box, ...placed }]]), bounds },
+      { nodes: new Map(), routes: new Map(), ports },
+    );
+    const edge = layout.edges[0];
+    const source = layout.nodes.get("moving")!;
+    const target = layout.nodes.get("target")!;
+
+    assert.equal(
+      portCenter(source.box, source.ports[0]).y,
+      portCenter(target.box, target.ports[0]).y,
+      `seeded scene ${sample}: ${JSON.stringify({ offset, targetY, at, placed, source: source.box, target: target.box })}`,
+    );
+    assert.equal(edge.rerouted, true);
+    for (let index = 1; index < edge.points.length; index++) {
+      assert.ok(
+        Math.hypot(
+          edge.points[index].x - edge.points[index - 1].x,
+          edge.points[index].y - edge.points[index - 1].y,
+        ) >= MIN_JOG,
+        `seeded scene ${sample} had a short route segment: ${JSON.stringify(edge.points)}`,
+      );
+    }
+  }
 });
 
 test("freePlacement finds the nearest free position in the off-grid review scene", () => {

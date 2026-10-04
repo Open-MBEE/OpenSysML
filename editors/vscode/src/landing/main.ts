@@ -6,6 +6,7 @@ import { autoLayout, type AutoLayout } from "../webview/autolayout";
 import { CLEARANCE, loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
 import {
+  alignedPlacement,
   clampNodeToBounds,
   freePlacement,
   layoutCanvas,
@@ -674,8 +675,8 @@ function mount(root: HTMLElement): Mounted {
     if (ended.moved) {
       const entry = layout.nodes.get(ended.id);
       const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), placementBounds(), exitReach);
-      if (at) {
-        moveTo(ended.id, at);
+      if (entry && at) {
+        moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach));
       }
     } else if (!cancelled && !ended.longPressed) {
       openProject(ended.id);

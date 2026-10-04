@@ -25,7 +25,7 @@ import {
   type PortPosition,
   type Side,
 } from "./geometry";
-import { avoidRoutes, CLEARANCE, type AvoidShape } from "./avoid";
+import { avoidRoutes, CLEARANCE, MIN_JOG, type AvoidShape } from "./avoid";
 
 export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
 export type { Box, PortPosition, Side } from "./geometry";
@@ -564,6 +564,107 @@ export function freePlacement(
     }
   }
   return direction ? undefined : clampedAt;
+}
+
+/** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free. */
+export function alignedPlacement(
+  node: PlacedNode,
+  at: RenderPoint,
+  layout: CanvasLayout,
+  bounds: Box,
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
+): RenderPoint {
+  const nodeId = node.node.id;
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== nodeId && !entry.hidden);
+  const pairs: Array<{
+    port: PlacedPort;
+    other: PlacedPort;
+    otherNode: PlacedNode;
+    axis: "x" | "y";
+  }> = [];
+  const horizontal = (side: Side): boolean => side === "east" || side === "west";
+  const vertical = (side: Side): boolean => side === "north" || side === "south";
+
+  for (const placed of layout.edges) {
+    if (placed.hidden) {
+      continue;
+    }
+    const edge = placed.edge;
+    const fromIsNode = edge.from === nodeId;
+    const toIsNode = edge.to === nodeId;
+    if (fromIsNode === toIsNode) {
+      continue;
+    }
+    const otherNode = layout.nodes.get(fromIsNode ? edge.to : edge.from);
+    if (!otherNode || otherNode.hidden) {
+      continue;
+    }
+    const ownPortId = fromIsNode ? edge.fromPort : edge.toPort;
+    const otherPortId = fromIsNode ? edge.toPort : edge.fromPort;
+    if (ownPortId === undefined || otherPortId === undefined) {
+      continue;
+    }
+    const port = node.ports.find((candidate) => candidate.port.id === ownPortId);
+    const other = otherNode.ports.find((candidate) => candidate.port.id === otherPortId);
+    if (!port || !other) {
+      continue;
+    }
+    const axis = horizontal(port.side) && horizontal(other.side)
+      ? "y"
+      : vertical(port.side) && vertical(other.side)
+        ? "x"
+        : undefined;
+    if (axis) {
+      pairs.push({ port, other, otherNode, axis });
+    }
+  }
+
+  const offsetAt = (
+    pair: (typeof pairs)[number],
+    position: RenderPoint,
+  ): number => {
+    const ownCenter = portCenter({ ...node.box, x: position.x, y: position.y }, pair.port);
+    const otherCenter = portCenter(pair.otherNode.box, pair.other);
+    return pair.axis === "x" ? otherCenter.x - ownCenter.x : otherCenter.y - ownCenter.y;
+  };
+  const xShifts = new Set([0]);
+  const yShifts = new Set([0]);
+  for (const pair of pairs) {
+    const offset = offsetAt(pair, at);
+    if (Math.abs(offset) > 1e-6 && Math.abs(offset) < MIN_JOG) {
+      (pair.axis === "x" ? xShifts : yShifts).add(offset);
+    }
+  }
+
+  const jogCount = (position: RenderPoint): number =>
+    pairs.reduce((count, pair) => {
+      const offset = Math.abs(offsetAt(pair, position));
+      return count + (offset > 1e-6 && offset < MIN_JOG ? 1 : 0);
+    }, 0);
+  let best: RenderPoint | undefined;
+  let bestJogs = Number.POSITIVE_INFINITY;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const xShift of xShifts) {
+    for (const yShift of yShifts) {
+      const candidate = { x: at.x + xShift, y: at.y + yShift };
+      const placed = freePlacement(node, candidate, others, bounds, portExitLeg);
+      if (
+        !placed ||
+        Math.abs(placed.x - candidate.x) > 1e-6 ||
+        Math.abs(placed.y - candidate.y) > 1e-6
+      ) {
+        continue;
+      }
+      const jogs = jogCount(candidate);
+      const distance = Math.hypot(xShift, yShift);
+      if (jogs < bestJogs || (jogs === bestJogs && distance < bestDistance)) {
+        best = candidate;
+        bestJogs = jogs;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best ?? at;
 }
 
 function movesInDirection(candidate: RenderPoint, at: RenderPoint, direction: RenderPoint): boolean {
