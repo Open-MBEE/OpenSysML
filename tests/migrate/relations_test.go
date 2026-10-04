@@ -92,7 +92,7 @@ const flowApplications = `
 func TestItemFlowFollowsSourceAndTargetNotEndOrder(t *testing.T) {
 	r := migrateDocument(t, flowModel, flowApplications)
 	wantLine(t, r.Notation, "connect sink to source;")
-	wantLine(t, r.Notation, "flow source.fuelOut to sink.fuelIn;")
+	wantLine(t, r.Notation, "flow of Fuel from source.fuelOut to sink.fuelIn;")
 	if strings.Contains(string(r.Notation), "flow sink.") {
 		t.Errorf("a flow runs from the sink:\n%s", r.Notation)
 	}
@@ -106,7 +106,7 @@ func TestItemFlowFollowsSourceAndTargetNotEndOrder(t *testing.T) {
 
 func TestMultiItemFlowReportsOnce(t *testing.T) {
 	r := migrateDocument(t, flowModel, flowApplications)
-	if n := strings.Count(string(r.Notation), "flow source.fuelOut to sink.fuelIn;"); n != 2 {
+	if n := strings.Count(string(r.Notation), "flow of Fuel from source.fuelOut to sink.fuelIn;"); n != 2 {
 		t.Errorf("fuel flow written %d times, want 2 (one per item flow)", n)
 	}
 	es := entriesFor(r, "_if2")

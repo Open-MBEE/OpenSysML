@@ -216,7 +216,18 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if cat, _ := m.classify(op.Parent); cat == catPortDef {
 		kw = "ref " + actionKw
 	}
-	m.w.line(kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	direction := ""
+	if directed := stereo(op, "DirectedFeature"); directed != nil {
+		switch directed.Tag("featureDirection") {
+		case "provided":
+			direction = "out "
+		case "required":
+			direction = "in "
+		case "providedRequired":
+			direction = "inout "
+		}
+	}
+	m.w.line(direction + kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 

@@ -102,5 +102,5 @@ Slot	Vehicle Design::myCar::<Slot>	_slot_mass	-> 'Vehicle Design'::myCar::mass
 Slot	Vehicle Design::myCar::<Slot>	_slot_color	-> 'Vehicle Design'::myCar::color
 
 ## skipped (2)
-ProfileApplication	<ProfileApplication>	_pa_sysml	(profile applications and element imports are not written)
+ProfileApplication	<ProfileApplication>	_pa_sysml	(profile applications and package merges are not written)
 Package	SysML	_lib_sysml	(profile or library content)
