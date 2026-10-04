@@ -14,8 +14,8 @@ import (
 type graphStructure struct {
 	graph                     *rdf.Graph
 	subjects                  *semanticSubjectMap
-	annotationsByAnnotator    map[rdf.Term][]rdf.Term
-	annotatorByAnnotation     map[rdf.Term]rdf.Term
+	annotationsByAnnotated    map[rdf.Term][]rdf.Term
+	owningAnnotatingByElement map[rdf.Term][]rdf.Term
 	ownedRelationshipsByOwner map[rdf.Term]ownedRelationshipIndexEntry
 }
 
@@ -28,8 +28,8 @@ func newGraphStructure(graph *rdf.Graph, subjects *semanticSubjectMap) *graphStr
 	structure := &graphStructure{
 		graph:                     graph,
 		subjects:                  subjects,
-		annotationsByAnnotator:    make(map[rdf.Term][]rdf.Term),
-		annotatorByAnnotation:     make(map[rdf.Term]rdf.Term),
+		annotationsByAnnotated:    make(map[rdf.Term][]rdf.Term),
+		owningAnnotatingByElement: make(map[rdf.Term][]rdf.Term),
 		ownedRelationshipsByOwner: make(map[rdf.Term]ownedRelationshipIndexEntry),
 	}
 	if graph == nil {
@@ -42,15 +42,23 @@ func newGraphStructure(graph *rdf.Graph, subjects *semanticSubjectMap) *graphStr
 			!ontology.IsAncestorOrSelf(strings.TrimPrefix(metaclass, rdf.SysML), "Annotation") {
 			continue
 		}
-		annotator, ok := graph.Object(relation, rdf.SysML+pAnnotatingElement)
+		for _, related := range graph.Objects(relation, rdf.SysML+pOwnedRelatedElement) {
+			relatedMetaclass := graph.Type(related)
+			if strings.HasPrefix(relatedMetaclass, rdf.SysML) &&
+				ontology.IsAncestorOrSelf(strings.TrimPrefix(relatedMetaclass, rdf.SysML), "AnnotatingElement") {
+				structure.owningAnnotatingByElement[related] = append(
+					structure.owningAnnotatingByElement[related], relation,
+				)
+			}
+		}
+		annotated, ok := graph.Object(relation, rdf.SysML+pAnnotatedElement)
 		if ok {
-			structure.annotationsByAnnotator[annotator] = append(
-				structure.annotationsByAnnotator[annotator], relation,
+			structure.annotationsByAnnotated[annotated] = append(
+				structure.annotationsByAnnotated[annotated], relation,
 			)
-			structure.annotatorByAnnotation[relation] = annotator
 		}
 	}
-	for annotator, relations := range structure.annotationsByAnnotator {
+	for annotated, relations := range structure.annotationsByAnnotated {
 		sort.SliceStable(relations, func(i, j int) bool {
 			left, leftOK := structure.element(relations[i])
 			right, rightOK := structure.element(relations[j])
@@ -62,11 +70,15 @@ func newGraphStructure(graph *rdf.Graph, subjects *semanticSubjectMap) *graphStr
 			}
 			return left.Node.Span().Offset < right.Node.Span().Offset
 		})
-		structure.annotationsByAnnotator[annotator] = relations
+		structure.annotationsByAnnotated[annotated] = relations
 	}
 	for _, owner := range graphSubjects {
 		metaclass := graph.Type(owner)
 		if !strings.HasPrefix(metaclass, rdf.SysML) {
+			continue
+		}
+		if structure.libraryStub(owner) {
+			structure.ownedRelationshipsByOwner[owner] = ownedRelationshipIndexEntry{}
 			continue
 		}
 		property, known := ontology.PropertyOf(strings.TrimPrefix(metaclass, rdf.SysML), pOwnedRelationship)
@@ -75,7 +87,6 @@ func newGraphStructure(graph *rdf.Graph, subjects *semanticSubjectMap) *graphStr
 			continue
 		}
 		terms := graph.Objects(owner, rdf.SysML+pOwnedRelationship)
-		terms = append(terms, structure.annotationsByAnnotator[owner]...)
 		relationships := make([]metamodel.Element, 0, len(terms))
 		seen := make(map[metamodel.ElementKey]bool, len(terms))
 		known = true
@@ -90,17 +101,16 @@ func newGraphStructure(graph *rdf.Graph, subjects *semanticSubjectMap) *graphStr
 				relationships = append(relationships, relationship)
 			}
 		}
-		if known {
-			sort.SliceStable(relationships, func(i, j int) bool {
-				left, right := relationships[i].Node, relationships[j].Node
-				if left == nil {
-					return false
-				}
-				if right == nil {
-					return true
-				}
-				return left.Span().Offset < right.Span().Offset
-			})
+		for _, term := range structure.annotationsByAnnotated[owner] {
+			relationship, ok := structure.element(term)
+			if !ok {
+				known = false
+				break
+			}
+			if !seen[relationship.Key()] {
+				seen[relationship.Key()] = true
+				relationships = append(relationships, relationship)
+			}
 		}
 		structure.ownedRelationshipsByOwner[owner] = ownedRelationshipIndexEntry{
 			relationships: relationships,
@@ -131,6 +141,9 @@ func (s *graphStructure) OwnedRelationships(element metamodel.Element) ([]metamo
 	if !ok {
 		return nil, false
 	}
+	if s.libraryStubElement(element) || s.libraryStub(subject) {
+		return nil, false
+	}
 	owned, ok := s.ownedRelationshipsByOwner[subject]
 	if !ok || !owned.known {
 		return nil, false
@@ -147,13 +160,39 @@ func (s *graphStructure) OwnedRelatedElements(element metamodel.Element) ([]meta
 }
 
 func (s *graphStructure) OwningRelatedElement(element metamodel.Element) (metamodel.Element, bool, bool) {
-	if subject, ok := s.subject(element); ok {
-		if annotator, ok := s.annotatorByAnnotation[subject]; ok {
-			value, ok := s.element(annotator)
-			return value, ok, ok
+	subject, ok := s.subject(element)
+	if !ok || s.libraryStubElement(element) || s.libraryStub(subject) {
+		return metamodel.Element{}, false, false
+	}
+	if strings.TrimPrefix(s.graph.Type(subject), rdf.SysML) == "Annotation" {
+		if owners := s.graph.Objects(subject, rdf.SysML+pOwningRelatedElement); len(owners) == 1 {
+			owner, ok := s.element(owners[0])
+			return owner, ok, ok
+		} else if len(owners) > 1 {
+			return metamodel.Element{}, false, false
 		}
+		return s.relatedOne(element, pAnnotatedElement)
 	}
 	return s.relatedOne(element, pOwningRelatedElement)
+}
+
+func (s *graphStructure) OwningAnnotatingRelationship(element metamodel.Element) (metamodel.Element, bool, bool) {
+	subject, ok := s.subject(element)
+	if !ok || s.libraryStubElement(element) || s.libraryStub(subject) {
+		return metamodel.Element{}, false, false
+	}
+	relationships := s.owningAnnotatingByElement[subject]
+	if len(relationships) == 0 {
+		return metamodel.Element{}, false, true
+	}
+	if len(relationships) != 1 {
+		return metamodel.Element{}, false, false
+	}
+	relationship, ok := s.element(relationships[0])
+	if !ok {
+		return metamodel.Element{}, false, false
+	}
+	return relationship, true, true
 }
 
 func (s *graphStructure) RelatedElements(element metamodel.Element, property string) ([]metamodel.Element, bool) {
@@ -162,6 +201,10 @@ func (s *graphStructure) RelatedElements(element metamodel.Element, property str
 	}
 	subject, ok := s.subject(element)
 	if !ok {
+		return nil, false
+	}
+	if (s.libraryStubElement(element) || s.libraryStub(subject)) &&
+		(strings.HasPrefix(property, "owned") || strings.HasPrefix(property, "owning")) {
 		return nil, false
 	}
 	metaclass := s.graph.Type(subject)
@@ -242,6 +285,11 @@ func (s *graphStructure) subject(element metamodel.Element) (rdf.Term, bool) {
 	return s.subjects.libraryElementTerm(element)
 }
 
+func (s *graphStructure) ElementIdentity(element metamodel.Element) (string, bool) {
+	subject, ok := s.subject(element)
+	return subject.Value, ok && subject.IsIRI()
+}
+
 func (s *graphStructure) related(element metamodel.Element, property string) ([]metamodel.Element, bool) {
 	return s.relatedByPredicate(element, rdf.SysML+property)
 }
@@ -249,6 +297,9 @@ func (s *graphStructure) related(element metamodel.Element, property string) ([]
 func (s *graphStructure) relatedByPredicate(element metamodel.Element, predicate string) ([]metamodel.Element, bool) {
 	subject, ok := s.subject(element)
 	if !ok {
+		return nil, false
+	}
+	if s.libraryStubElement(element) || s.libraryStub(subject) {
 		return nil, false
 	}
 	objects := s.graph.Objects(subject, predicate)
@@ -278,6 +329,9 @@ func (s *graphStructure) relatedOne(element metamodel.Element, property string) 
 	if !ok {
 		return metamodel.Element{}, false, false
 	}
+	if s.libraryStubElement(element) || s.libraryStub(subject) {
+		return metamodel.Element{}, false, false
+	}
 	objects := s.graph.Objects(subject, rdf.SysML+property)
 	if len(objects) == 0 {
 		return metamodel.Element{}, false, true
@@ -287,6 +341,16 @@ func (s *graphStructure) relatedOne(element metamodel.Element, property string) 
 	}
 	value, ok := s.element(objects[0])
 	return value, ok, ok
+}
+
+func (s *graphStructure) libraryStub(subject rdf.Term) bool {
+	objects := s.graph.Objects(subject, rdf.SysML+"isLibraryElement")
+	return len(objects) == 1 && objects[0].Kind == rdf.TermLiteral &&
+		(objects[0].Value == "true" || objects[0].Value == "1")
+}
+
+func (s *graphStructure) libraryStubElement(element metamodel.Element) bool {
+	return s.subjects != nil && s.subjects.isLibraryHandle(element)
 }
 
 func (s *graphStructure) element(term rdf.Term) (metamodel.Element, bool) {

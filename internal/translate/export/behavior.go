@@ -116,21 +116,25 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	case *ast.ForkNode:
 		head(rdf.SysMLTerm(mFork))
 		e.name(subject, n.Name)
+		e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(true))
 		return true, nil
 
 	case *ast.JoinNode:
 		head(rdf.SysMLTerm(mJoin))
 		e.name(subject, n.Name)
+		e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(true))
 		return true, nil
 
 	case *ast.MergeNode:
 		head(rdf.SysMLTerm(mMerge))
 		e.name(subject, n.Name)
+		e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(true))
 		return true, nil
 
 	case *ast.DecisionNode:
 		head(rdf.SysMLTerm(mDecision))
 		e.name(subject, n.Name)
+		e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(true))
 		return true, nil
 
 	case *ast.ActionExecutionNode:

@@ -1981,7 +1981,7 @@ func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN
 	memberOrigin := e.origins[member.Value]
 	e.recordOrigin(annotation, metamodel.Element{
 		Node: memberOrigin.Node, Container: originSymbol(e.origins[owner.Value]),
-		Aspect: "annotation",
+		Aspect: "prefix-annotation",
 	})
 	return annotation
 }

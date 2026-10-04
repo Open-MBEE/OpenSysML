@@ -367,6 +367,7 @@ elmt:ActionNodes__Drive__split
     sysml:owningRelationship elmt:ActionNodes__Drive__split_om ;
     sysml:owningMembership elmt:ActionNodes__Drive__split_om ;
     sysml:declaredName "split" ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:sourceText "        fork split;\n" .
 
 elmt:ActionNodes__Drive__split_om
@@ -395,6 +396,7 @@ elmt:ActionNodes__Drive__sync
     sysml:owningRelationship elmt:ActionNodes__Drive__sync_om ;
     sysml:owningMembership elmt:ActionNodes__Drive__sync_om ;
     sysml:declaredName "sync" ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:sourceText "        join sync;\n" .
 
 elmt:ActionNodes__Drive__sync_om
@@ -423,6 +425,7 @@ elmt:ActionNodes__Drive__gather
     sysml:owningRelationship elmt:ActionNodes__Drive__gather_om ;
     sysml:owningMembership elmt:ActionNodes__Drive__gather_om ;
     sysml:declaredName "gather" ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:sourceText "        merge gather;\n" .
 
 elmt:ActionNodes__Drive__gather_om
@@ -451,6 +454,7 @@ elmt:ActionNodes__Drive__pick
     sysml:owningRelationship elmt:ActionNodes__Drive__pick_om ;
     sysml:owningMembership elmt:ActionNodes__Drive__pick_om ;
     sysml:declaredName "pick" ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysx:sourceText "        decide pick;\n" .
 
 elmt:ActionNodes__Drive__pick_om

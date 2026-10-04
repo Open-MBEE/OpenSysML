@@ -528,9 +528,12 @@ func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, ind
 // sysml:operand so the arrow spelling survives.
 func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
 	if function != nil {
-		if e.metaclassOf(subject) == mConstructor {
+		target := e.links[function]
+		if e.metaclassOf(subject) == mConstructor || target != nil && target.IsFeature() {
 			e.graph.Add(subject, e.sysml(pInstantiatedType), e.calleeReference(function))
-			e.graph.Add(subject, e.sysx(xIsConstructor), rdf.Bool(true))
+			if e.metaclassOf(subject) == mConstructor {
+				e.graph.Add(subject, e.sysx(xIsConstructor), rdf.Bool(true))
+			}
 		} else {
 			e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		}

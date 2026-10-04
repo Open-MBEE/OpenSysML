@@ -8,18 +8,18 @@
         "@id": "Vehicles_om"
       }
     ],
-    "ownedMembership": [
-      {
-        "@id": "Vehicles_om"
-      }
-    ],
+    "importedMembership": [],
+    "ownedImport": [],
     "ownedMember": [
       {
         "@id": "Vehicles"
       }
     ],
-    "importedMembership": [],
-    "ownedImport": [],
+    "ownedMembership": [
+      {
+        "@id": "Vehicles_om"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -45,13 +45,7 @@
     "@type": "OwningMembership",
     "@id": "Vehicles_om",
     "elementId": "Vehicles_om",
-    "owner": {
-      "@id": "Vehicles_ns"
-    },
     "memberElement": {
-      "@id": "Vehicles"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles"
     },
     "ownedRelatedElement": [
@@ -62,15 +56,13 @@
     "owningRelatedElement": {
       "@id": "Vehicles_ns"
     },
+    "ownedMemberName": "Vehicles",
+    "ownedMemberShortName": null,
+    "memberName": "Vehicles",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Vehicles_ns"
     },
-    "ownedMemberElementId": "Vehicles",
-    "ownedMemberName": "Vehicles",
-    "ownedMemberShortName": null,
-    "memberElementId": "Vehicles",
-    "memberName": "Vehicles",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -86,11 +78,6 @@
         "@id": "Vehicles_ns"
       }
     ],
-    "target": [
-      {
-        "@id": "Vehicles"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -101,10 +88,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles_ns"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -113,19 +99,9 @@
   {
     "@type": "Package",
     "@id": "Vehicles",
-    "owner": {
-      "@id": "Vehicles_ns"
-    },
-    "owningNamespace": {
-      "@id": "Vehicles_ns"
-    },
     "owningRelationship": {
       "@id": "Vehicles_om"
     },
-    "owningMembership": {
-      "@id": "Vehicles_om"
-    },
-    "qualifiedName": "Vehicles",
     "sysx:sourceLine": 1,
     "sysx:sourceColumn": 1,
     "sysx:sourceEndLine": 7,
@@ -136,22 +112,6 @@
     "sysx:sourceDocument": "testdata/convert/parts.sysml",
     "declaredName": "Vehicles",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Vehicles__Vehicle"
-      },
-      {
-        "@id": "Vehicles__Engine"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Vehicles__Vehicle_om"
-      },
-      {
-        "@id": "Vehicles__Engine_om"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Vehicles__Vehicle_om"
@@ -180,6 +140,22 @@
       }
     ],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Vehicles__Vehicle"
+      },
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Vehicles__Vehicle_om"
+      },
+      {
+        "@id": "Vehicles__Engine_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -195,66 +171,34 @@
         "@id": "Vehicles__Engine"
       }
     ],
+    "owner": {
+      "@id": "Vehicles_ns"
+    },
+    "owningMembership": {
+      "@id": "Vehicles_om"
+    },
+    "owningNamespace": {
+      "@id": "Vehicles_ns"
+    },
+    "qualifiedName": "Vehicles",
     "shortName": null,
     "textualRepresentation": []
   },
   {
     "@type": "PartDefinition",
     "@id": "Vehicles__Vehicle",
-    "qualifiedName": "Vehicles::Vehicle",
     "sysx:sourceLine": 2,
     "sysx:sourceColumn": 5,
     "sysx:sourceEndLine": 5,
     "sysx:sourceEndColumn": 6,
     "elementId": "Vehicles__Vehicle",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Vehicles"
-    },
-    "owner": {
-      "@id": "Vehicles"
-    },
     "owningRelationship": {
-      "@id": "Vehicles__Vehicle_om"
-    },
-    "owningMembership": {
       "@id": "Vehicles__Vehicle_om"
     },
     "declaredName": "Vehicle",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Vehicles__Vehicle__mass"
-      },
-      {
-        "@id": "Vehicles__Vehicle__engine"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Vehicles__Vehicle__mass_om"
-      },
-      {
-        "@id": "Vehicles__Vehicle__engine_om"
-      }
-    ],
     "ownedRelationship": [
-      {
-        "@id": "Vehicles__Vehicle__mass_om"
-      },
-      {
-        "@id": "Vehicles__Vehicle__engine_om"
-      }
-    ],
-    "ownedFeature": [
-      {
-        "@id": "Vehicles__Vehicle__mass"
-      },
-      {
-        "@id": "Vehicles__Vehicle__engine"
-      }
-    ],
-    "ownedFeatureMembership": [
       {
         "@id": "Vehicles__Vehicle__mass_om"
       },
@@ -280,12 +224,44 @@
     "ownedDifferencing": [],
     "ownedDisjoining": [],
     "ownedEndFeature": [],
+    "ownedFeature": [
+      {
+        "@id": "Vehicles__Vehicle__mass"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      }
+    ],
+    "ownedFeatureMembership": [
+      {
+        "@id": "Vehicles__Vehicle__mass_om"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine_om"
+      }
+    ],
     "ownedIntersecting": [],
     "ownedSpecialization": [],
     "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Vehicles__Vehicle__mass"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Vehicles__Vehicle__mass_om"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -301,6 +277,16 @@
         "@id": "Vehicles__Vehicle__engine"
       }
     ],
+    "owner": {
+      "@id": "Vehicles"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Vehicle_om"
+    },
+    "owningNamespace": {
+      "@id": "Vehicles"
+    },
+    "qualifiedName": "Vehicles::Vehicle",
     "shortName": null,
     "textualRepresentation": [],
     "directedUsage": [],
@@ -354,19 +340,69 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": []
+    "ownedViewpoint": [],
+    "usage": [
+      {
+        "@id": "Vehicles__Vehicle__mass"
+      },
+      {
+        "@id": "Vehicles__Vehicle__engine"
+      },
+      {
+        "@id": "73fde21b-008c-55ab-91a7-a20beafa76a1"
+      },
+      {
+        "@id": "ed80d442-d498-5236-96ae-71a8a52531d2"
+      },
+      {
+        "@id": "dd677401-a352-5fe3-846a-dad08d3eab06"
+      },
+      {
+        "@id": "f369e0d6-4bba-5d84-8d3c-abda5e337f89"
+      },
+      {
+        "@id": "0856ed9f-5115-58b3-a51f-ba54aca3dce5"
+      },
+      {
+        "@id": "bfd5fb0e-e87b-51ea-a438-6a93d18b05a1"
+      },
+      {
+        "@id": "4e03b9fa-285a-54dd-8378-40c5e90d0e00"
+      },
+      {
+        "@id": "8917eb36-28b8-5dfe-8880-663f5bc02c10"
+      },
+      {
+        "@id": "f22b1a27-60ea-5c53-9741-b40f5e5b2798"
+      },
+      {
+        "@id": "4c5ab59a-f19f-561e-b7be-b5c43c8f8e48"
+      },
+      {
+        "@id": "1857138d-05fc-5cd2-bcb1-10546541a5ae"
+      },
+      {
+        "@id": "cc4c79d3-fa74-57bd-af0c-bb7db1a78f06"
+      },
+      {
+        "@id": "115ed418-9939-5597-8350-60412dc2b5cc"
+      },
+      {
+        "@id": "f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85"
+      },
+      {
+        "@id": "a44baa93-a4d0-535d-b879-44a30575f348"
+      },
+      {
+        "@id": "e9ae3b91-2c54-544b-bbd3-8b7512a92238"
+      }
+    ]
   },
   {
     "@type": "OwningMembership",
     "@id": "Vehicles__Vehicle_om",
     "elementId": "Vehicles__Vehicle_om",
-    "owner": {
-      "@id": "Vehicles"
-    },
     "memberElement": {
-      "@id": "Vehicles__Vehicle"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Vehicle"
     },
     "ownedRelatedElement": [
@@ -377,15 +413,13 @@
     "owningRelatedElement": {
       "@id": "Vehicles"
     },
+    "ownedMemberName": "Vehicle",
+    "ownedMemberShortName": null,
+    "memberName": "Vehicle",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Vehicles"
     },
-    "ownedMemberElementId": "Vehicles__Vehicle",
-    "ownedMemberName": "Vehicle",
-    "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Vehicle",
-    "memberName": "Vehicle",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -401,11 +435,6 @@
         "@id": "Vehicles"
       }
     ],
-    "target": [
-      {
-        "@id": "Vehicles__Vehicle"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -416,10 +445,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -428,42 +456,17 @@
   {
     "@type": "AttributeUsage",
     "@id": "Vehicles__Vehicle__mass",
-    "qualifiedName": "Vehicles::Vehicle::mass",
     "sysx:sourceLine": 3,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 3,
     "sysx:sourceEndColumn": 41,
     "elementId": "Vehicles__Vehicle__mass",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
-    "owner": {
-      "@id": "Vehicles__Vehicle"
-    },
     "owningRelationship": {
       "@id": "Vehicles__Vehicle__mass_om"
     },
-    "owningMembership": {
-      "@id": "Vehicles__Vehicle__mass_om"
-    },
     "declaredName": "mass",
-    "type": [
-      {
-        "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
-      }
-    ],
     "sysx:hasBody": false,
-    "ownedTyping": [
-      {
-        "@id": "Vehicles__Vehicle__mass_ft0"
-      }
-    ],
-    "ownedSpecialization": [
-      {
-        "@id": "Vehicles__Vehicle__mass_ft0"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Vehicles__Vehicle__mass_ft0"
@@ -515,16 +518,42 @@
       "@id": "Vehicles__Vehicle"
     },
     "owningUsage": null,
+    "usage": [
+      {
+        "@id": "7f0bc384-8729-5f74-94e4-6c5d2bc964a7"
+      },
+      {
+        "@id": "a925509d-6cce-5f3d-9ea8-a302f5951d1d"
+      },
+      {
+        "@id": "b4f1f459-8280-5d2b-9585-b716c6b57470"
+      },
+      {
+        "@id": "334779bf-6357-5adf-a7c5-ffb32c2ffd17"
+      },
+      {
+        "@id": "95ac9845-00f2-53b6-b339-c82048105bf7"
+      },
+      {
+        "@id": "c036069b-19b9-5134-bd97-2a275b951ba4"
+      },
+      {
+        "@id": "6a1a13e9-fd45-5751-88e8-1dc59993db5b"
+      },
+      {
+        "@id": "c21232ea-5621-5120-9959-b783f2d6cb46"
+      },
+      {
+        "@id": "164dee2f-521c-5356-866c-2788e699b1f3"
+      }
+    ],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
-    "featuringType": [
-      {
-        "@id": "Vehicles__Vehicle"
-      }
-    ],
+    "featureTarget": {
+      "@id": "Vehicles__Vehicle__mass"
+    },
     "isComposite": false,
     "isConstant": false,
     "isDerived": false,
@@ -540,12 +569,22 @@
     "ownedReferenceSubsetting": null,
     "ownedSubsetting": [],
     "ownedTypeFeaturing": [],
+    "ownedTyping": [
+      {
+        "@id": "Vehicles__Vehicle__mass_ft0"
+      }
+    ],
     "owningFeatureMembership": {
       "@id": "Vehicles__Vehicle__mass_om"
     },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
+    "type": [
+      {
+        "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
+      }
+    ],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -563,6 +602,11 @@
     "ownedFeature": [],
     "ownedFeatureMembership": [],
     "ownedIntersecting": [],
+    "ownedSpecialization": [
+      {
+        "@id": "Vehicles__Vehicle__mass_ft0"
+      }
+    ],
     "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
@@ -577,6 +621,16 @@
     "name": "mass",
     "ownedAnnotation": [],
     "ownedElement": [],
+    "owner": {
+      "@id": "Vehicles__Vehicle"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Vehicle__mass_om"
+    },
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
+    "qualifiedName": "Vehicles::Vehicle::mass",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -584,13 +638,7 @@
     "@type": "FeatureMembership",
     "@id": "Vehicles__Vehicle__mass_om",
     "elementId": "Vehicles__Vehicle__mass_om",
-    "owner": {
-      "@id": "Vehicles__Vehicle"
-    },
     "memberElement": {
-      "@id": "Vehicles__Vehicle__mass"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Vehicle__mass"
     },
     "ownedRelatedElement": [
@@ -601,21 +649,19 @@
     "owningRelatedElement": {
       "@id": "Vehicles__Vehicle"
     },
-    "membershipOwningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
     "ownedMemberFeature": {
       "@id": "Vehicles__Vehicle__mass"
     },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
-    "ownedMemberElementId": "Vehicles__Vehicle__mass",
     "ownedMemberName": "mass",
     "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Vehicle__mass",
     "memberName": "mass",
     "memberShortName": null,
+    "membershipOwningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -646,10 +692,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -658,34 +703,16 @@
   {
     "@type": "PartUsage",
     "@id": "Vehicles__Vehicle__engine",
-    "qualifiedName": "Vehicles::Vehicle::engine",
     "sysx:sourceLine": 4,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 4,
     "sysx:sourceEndColumn": 33,
     "elementId": "Vehicles__Vehicle__engine",
     "sysx:memberIndex": 1,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
-    "owner": {
-      "@id": "Vehicles__Vehicle"
-    },
     "owningRelationship": {
       "@id": "Vehicles__Vehicle__engine_om"
     },
-    "owningMembership": {
-      "@id": "Vehicles__Vehicle__engine_om"
-    },
     "declaredName": "engine",
-    "type": [
-      {
-        "@id": "Vehicles__Engine"
-      }
-    ],
-    "multiplicity": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-    },
     "ownedRelationship": [
       {
         "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
@@ -694,25 +721,10 @@
         "@id": "Vehicles__Vehicle__engine_ft0"
       }
     ],
-    "ownedMembership": [
-      {
-        "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
-      }
-    ],
     "upperBound": {
       "@id": "Vehicles__Vehicle__engine_pupperBound"
     },
     "sysx:hasBody": false,
-    "ownedTyping": [
-      {
-        "@id": "Vehicles__Vehicle__engine_ft0"
-      }
-    ],
-    "ownedSpecialization": [
-      {
-        "@id": "Vehicles__Vehicle__engine_ft0"
-      }
-    ],
     "sysx:sourceText": "        part engine : Engine[1];\n",
     "partDefinition": [
       {
@@ -724,9 +736,7 @@
         "@id": "Vehicles__Engine"
       }
     ],
-    "individualDefinition": {
-      "@id": "Vehicles__Engine"
-    },
+    "individualDefinition": null,
     "isIndividual": false,
     "occurrenceDefinition": [
       {
@@ -774,17 +784,64 @@
       "@id": "Vehicles__Vehicle"
     },
     "owningUsage": null,
+    "usage": [
+      {
+        "@id": "73fde21b-008c-55ab-91a7-a20beafa76a1"
+      },
+      {
+        "@id": "ed80d442-d498-5236-96ae-71a8a52531d2"
+      },
+      {
+        "@id": "dd677401-a352-5fe3-846a-dad08d3eab06"
+      },
+      {
+        "@id": "f369e0d6-4bba-5d84-8d3c-abda5e337f89"
+      },
+      {
+        "@id": "0856ed9f-5115-58b3-a51f-ba54aca3dce5"
+      },
+      {
+        "@id": "bfd5fb0e-e87b-51ea-a438-6a93d18b05a1"
+      },
+      {
+        "@id": "4e03b9fa-285a-54dd-8378-40c5e90d0e00"
+      },
+      {
+        "@id": "8917eb36-28b8-5dfe-8880-663f5bc02c10"
+      },
+      {
+        "@id": "f22b1a27-60ea-5c53-9741-b40f5e5b2798"
+      },
+      {
+        "@id": "4c5ab59a-f19f-561e-b7be-b5c43c8f8e48"
+      },
+      {
+        "@id": "1857138d-05fc-5cd2-bcb1-10546541a5ae"
+      },
+      {
+        "@id": "cc4c79d3-fa74-57bd-af0c-bb7db1a78f06"
+      },
+      {
+        "@id": "115ed418-9939-5597-8350-60412dc2b5cc"
+      },
+      {
+        "@id": "f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85"
+      },
+      {
+        "@id": "a44baa93-a4d0-535d-b879-44a30575f348"
+      },
+      {
+        "@id": "e9ae3b91-2c54-544b-bbd3-8b7512a92238"
+      }
+    ],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
-    "featuringType": [
-      {
-        "@id": "Vehicles__Vehicle"
-      }
-    ],
-    "isComposite": false,
+    "featureTarget": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
+    "isComposite": true,
     "isConstant": false,
     "isDerived": false,
     "isEnd": false,
@@ -799,12 +856,22 @@
     "ownedReferenceSubsetting": null,
     "ownedSubsetting": [],
     "ownedTypeFeaturing": [],
+    "ownedTyping": [
+      {
+        "@id": "Vehicles__Vehicle__engine_ft0"
+      }
+    ],
     "owningFeatureMembership": {
       "@id": "Vehicles__Vehicle__engine_om"
     },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
+    "type": [
+      {
+        "@id": "Vehicles__Engine"
+      }
+    ],
     "differencingType": [],
     "directedFeature": [],
     "endFeature": [],
@@ -813,6 +880,7 @@
     "isAbstract": false,
     "isConjugated": false,
     "isSufficient": false,
+    "multiplicity": null,
     "output": [],
     "ownedConjugator": null,
     "ownedDifferencing": [],
@@ -821,6 +889,11 @@
     "ownedFeature": [],
     "ownedFeatureMembership": [],
     "ownedIntersecting": [],
+    "ownedSpecialization": [
+      {
+        "@id": "Vehicles__Vehicle__engine_ft0"
+      }
+    ],
     "ownedUnioning": [],
     "unioningType": [],
     "importedMembership": [],
@@ -828,6 +901,11 @@
     "ownedMember": [
       {
         "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
       }
     ],
     "aliasIds": [],
@@ -842,6 +920,16 @@
         "@id": "Vehicles__Vehicle__engine_pmultiplicity"
       }
     ],
+    "owner": {
+      "@id": "Vehicles__Vehicle"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Vehicle__engine_om"
+    },
+    "owningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
+    "qualifiedName": "Vehicles::Vehicle::engine",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -849,13 +937,7 @@
     "@type": "FeatureMembership",
     "@id": "Vehicles__Vehicle__engine_om",
     "elementId": "Vehicles__Vehicle__engine_om",
-    "owner": {
-      "@id": "Vehicles__Vehicle"
-    },
     "memberElement": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Vehicle__engine"
     },
     "ownedRelatedElement": [
@@ -866,21 +948,19 @@
     "owningRelatedElement": {
       "@id": "Vehicles__Vehicle"
     },
-    "membershipOwningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
     "ownedMemberFeature": {
       "@id": "Vehicles__Vehicle__engine"
     },
     "owningType": {
       "@id": "Vehicles__Vehicle"
     },
-    "ownedMemberElementId": "Vehicles__Vehicle__engine",
     "ownedMemberName": "engine",
     "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Vehicle__engine",
     "memberName": "engine",
     "memberShortName": null,
+    "membershipOwningNamespace": {
+      "@id": "Vehicles__Vehicle"
+    },
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -911,10 +991,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -924,24 +1003,10 @@
     "@type": "MultiplicityRange",
     "@id": "Vehicles__Vehicle__engine_pmultiplicity",
     "elementId": "Vehicles__Vehicle__engine_pmultiplicity",
-    "owner": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
     "owningRelationship": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
     },
-    "owningMembership": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
-    },
-    "upperBound": {
-      "@id": "Vehicles__Vehicle__engine_pupperBound"
-    },
     "ownedRelationship": [
-      {
-        "@id": "Vehicles__Vehicle__engine_pupperBound_om"
-      }
-    ],
-    "ownedMembership": [
       {
         "@id": "Vehicles__Vehicle__engine_pupperBound_om"
       }
@@ -951,7 +1016,9 @@
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
+    "featureTarget": {
+      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+    },
     "featuringType": [],
     "isComposite": false,
     "isConstant": false,
@@ -971,6 +1038,7 @@
     "ownedTyping": [],
     "owningFeatureMembership": null,
     "owningType": null,
+    "type": [],
     "differencingType": [],
     "intersectingType": [],
     "isAbstract": false,
@@ -994,37 +1062,39 @@
         "@id": "Vehicles__Vehicle__engine_pupperBound"
       }
     ],
+    "ownedMembership": [
+      {
+        "@id": "Vehicles__Vehicle__engine_pupperBound_om"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
     "documentation": [],
     "isImpliedIncluded": false,
     "isLibraryElement": false,
-    "name": null,
     "ownedAnnotation": [],
     "ownedElement": [
       {
         "@id": "Vehicles__Vehicle__engine_pupperBound"
       }
     ],
+    "owner": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Vehicle__engine_pmultiplicity_om"
+    },
     "owningNamespace": {
       "@id": "Vehicles__Vehicle__engine"
     },
-    "qualifiedName": null,
-    "shortName": null,
     "textualRepresentation": []
   },
   {
     "@type": "OwningMembership",
     "@id": "Vehicles__Vehicle__engine_pmultiplicity_om",
     "elementId": "Vehicles__Vehicle__engine_pmultiplicity_om",
-    "owner": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
     "memberElement": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity"
     },
     "ownedRelatedElement": [
@@ -1035,15 +1105,13 @@
     "owningRelatedElement": {
       "@id": "Vehicles__Vehicle__engine"
     },
+    "ownedMemberName": null,
+    "ownedMemberShortName": null,
+    "memberName": null,
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Vehicles__Vehicle__engine"
     },
-    "ownedMemberElementId": "Vehicles__Vehicle__engine_pmultiplicity",
-    "ownedMemberName": null,
-    "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Vehicle__engine_pmultiplicity",
-    "memberName": null,
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -1059,11 +1127,6 @@
         "@id": "Vehicles__Vehicle__engine"
       }
     ],
-    "target": [
-      {
-        "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1074,10 +1137,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -1089,20 +1151,19 @@
     "sysx:sourceText": "1",
     "elementId": "Vehicles__Vehicle__engine_pupperBound",
     "value": 1,
-    "owner": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-    },
     "owningRelationship": {
       "@id": "Vehicles__Vehicle__engine_pupperBound_om"
     },
-    "owningMembership": {
-      "@id": "Vehicles__Vehicle__engine_pupperBound_om"
-    },
+    "function": null,
+    "behavior": [],
+    "parameter": [],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
+    "featureTarget": {
+      "@id": "Vehicles__Vehicle__engine_pupperBound"
+    },
     "featuringType": [],
     "isComposite": false,
     "isConstant": false,
@@ -1122,6 +1183,7 @@
     "ownedTyping": [],
     "owningFeatureMembership": null,
     "owningType": null,
+    "type": [],
     "differencingType": [],
     "intersectingType": [],
     "isAbstract": false,
@@ -1148,28 +1210,25 @@
     "documentation": [],
     "isImpliedIncluded": false,
     "isLibraryElement": false,
-    "name": null,
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Vehicle__engine_pupperBound_om"
+    },
     "owningNamespace": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity"
     },
-    "qualifiedName": null,
-    "shortName": null,
     "textualRepresentation": []
   },
   {
     "@type": "OwningMembership",
     "@id": "Vehicles__Vehicle__engine_pupperBound_om",
     "elementId": "Vehicles__Vehicle__engine_pupperBound_om",
-    "owner": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-    },
     "memberElement": {
-      "@id": "Vehicles__Vehicle__engine_pupperBound"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Vehicle__engine_pupperBound"
     },
     "ownedRelatedElement": [
@@ -1180,15 +1239,13 @@
     "owningRelatedElement": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity"
     },
+    "ownedMemberName": null,
+    "ownedMemberShortName": null,
+    "memberName": null,
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Vehicles__Vehicle__engine_pmultiplicity"
     },
-    "ownedMemberElementId": "Vehicles__Vehicle__engine_pupperBound",
-    "ownedMemberName": null,
-    "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Vehicle__engine_pupperBound",
-    "memberName": null,
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -1204,11 +1261,6 @@
         "@id": "Vehicles__Vehicle__engine_pmultiplicity"
       }
     ],
-    "target": [
-      {
-        "@id": "Vehicles__Vehicle__engine_pupperBound"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1219,10 +1271,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle__engine_pmultiplicity"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -1231,23 +1282,13 @@
   {
     "@type": "PartDefinition",
     "@id": "Vehicles__Engine",
-    "qualifiedName": "Vehicles::Engine",
     "sysx:sourceLine": 6,
     "sysx:sourceColumn": 5,
     "sysx:sourceEndLine": 6,
     "sysx:sourceEndColumn": 21,
     "elementId": "Vehicles__Engine",
     "sysx:memberIndex": 1,
-    "owningNamespace": {
-      "@id": "Vehicles"
-    },
-    "owner": {
-      "@id": "Vehicles"
-    },
     "owningRelationship": {
-      "@id": "Vehicles__Engine_om"
-    },
-    "owningMembership": {
       "@id": "Vehicles__Engine_om"
     },
     "declaredName": "Engine",
@@ -1288,6 +1329,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Vehicles"
+    },
+    "owningMembership": {
+      "@id": "Vehicles__Engine_om"
+    },
+    "owningNamespace": {
+      "@id": "Vehicles"
+    },
+    "qualifiedName": "Vehicles::Engine",
     "shortName": null,
     "textualRepresentation": [],
     "directedUsage": [],
@@ -1318,19 +1369,63 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": []
+    "ownedViewpoint": [],
+    "usage": [
+      {
+        "@id": "73fde21b-008c-55ab-91a7-a20beafa76a1"
+      },
+      {
+        "@id": "ed80d442-d498-5236-96ae-71a8a52531d2"
+      },
+      {
+        "@id": "dd677401-a352-5fe3-846a-dad08d3eab06"
+      },
+      {
+        "@id": "f369e0d6-4bba-5d84-8d3c-abda5e337f89"
+      },
+      {
+        "@id": "0856ed9f-5115-58b3-a51f-ba54aca3dce5"
+      },
+      {
+        "@id": "bfd5fb0e-e87b-51ea-a438-6a93d18b05a1"
+      },
+      {
+        "@id": "4e03b9fa-285a-54dd-8378-40c5e90d0e00"
+      },
+      {
+        "@id": "8917eb36-28b8-5dfe-8880-663f5bc02c10"
+      },
+      {
+        "@id": "f22b1a27-60ea-5c53-9741-b40f5e5b2798"
+      },
+      {
+        "@id": "4c5ab59a-f19f-561e-b7be-b5c43c8f8e48"
+      },
+      {
+        "@id": "1857138d-05fc-5cd2-bcb1-10546541a5ae"
+      },
+      {
+        "@id": "cc4c79d3-fa74-57bd-af0c-bb7db1a78f06"
+      },
+      {
+        "@id": "115ed418-9939-5597-8350-60412dc2b5cc"
+      },
+      {
+        "@id": "f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85"
+      },
+      {
+        "@id": "a44baa93-a4d0-535d-b879-44a30575f348"
+      },
+      {
+        "@id": "e9ae3b91-2c54-544b-bbd3-8b7512a92238"
+      }
+    ]
   },
   {
     "@type": "OwningMembership",
     "@id": "Vehicles__Engine_om",
     "elementId": "Vehicles__Engine_om",
-    "owner": {
-      "@id": "Vehicles"
-    },
     "memberElement": {
-      "@id": "Vehicles__Engine"
-    },
-    "ownedMemberElement": {
       "@id": "Vehicles__Engine"
     },
     "ownedRelatedElement": [
@@ -1341,15 +1436,13 @@
     "owningRelatedElement": {
       "@id": "Vehicles"
     },
+    "ownedMemberName": "Engine",
+    "ownedMemberShortName": null,
+    "memberName": "Engine",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Vehicles"
     },
-    "ownedMemberElementId": "Vehicles__Engine",
-    "ownedMemberName": "Engine",
-    "ownedMemberShortName": null,
-    "memberElementId": "Vehicles__Engine",
-    "memberName": "Engine",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -1365,11 +1458,6 @@
         "@id": "Vehicles"
       }
     ],
-    "target": [
-      {
-        "@id": "Vehicles__Engine"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1380,10 +1468,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -1396,9 +1483,6 @@
     "typedFeature": {
       "@id": "Vehicles__Vehicle__mass"
     },
-    "owningFeature": {
-      "@id": "Vehicles__Vehicle__mass"
-    },
     "specific": {
       "@id": "Vehicles__Vehicle__mass"
     },
@@ -1421,9 +1505,14 @@
         "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
       }
     ],
-    "owner": {
+    "owningFeature": {
       "@id": "Vehicles__Vehicle__mass"
     },
+    "owningType": {
+      "@id": "Vehicles__Vehicle__mass"
+    },
+    "isImplied": false,
+    "ownedRelatedElement": [],
     "relatedElement": [
       {
         "@id": "Vehicles__Vehicle__mass"
@@ -1432,11 +1521,6 @@
         "@id": "9cd0e404-efee-50e5-a59b-681065bd188c"
       }
     ],
-    "owningType": {
-      "@id": "Vehicles__Vehicle__mass"
-    },
-    "isImplied": false,
-    "ownedRelatedElement": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1447,10 +1531,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle__mass"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -1463,9 +1546,6 @@
     "typedFeature": {
       "@id": "Vehicles__Vehicle__engine"
     },
-    "owningFeature": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
     "specific": {
       "@id": "Vehicles__Vehicle__engine"
     },
@@ -1488,9 +1568,14 @@
         "@id": "Vehicles__Engine"
       }
     ],
-    "owner": {
+    "owningFeature": {
       "@id": "Vehicles__Vehicle__engine"
     },
+    "owningType": {
+      "@id": "Vehicles__Vehicle__engine"
+    },
+    "isImplied": false,
+    "ownedRelatedElement": [],
     "relatedElement": [
       {
         "@id": "Vehicles__Vehicle__engine"
@@ -1499,11 +1584,6 @@
         "@id": "Vehicles__Engine"
       }
     ],
-    "owningType": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
-    "isImplied": false,
-    "ownedRelatedElement": [],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1514,10 +1594,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Vehicles__Vehicle__engine"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -1527,76 +1606,16 @@
     "@type": "AttributeDefinition",
     "@id": "9cd0e404-efee-50e5-a59b-681065bd188c",
     "elementId": "9cd0e404-efee-50e5-a59b-681065bd188c",
-    "qualifiedName": "ISQBase::MassValue",
     "declaredName": "MassValue",
-    "isLibraryElement": true,
-    "ownedSubclassification": [],
-    "differencingType": [],
-    "directedFeature": [],
-    "endFeature": [],
-    "input": [],
-    "intersectingType": [],
     "isAbstract": false,
-    "isConjugated": false,
     "isSufficient": false,
-    "multiplicity": null,
-    "output": [],
-    "ownedConjugator": null,
-    "ownedDifferencing": [],
-    "ownedDisjoining": [],
-    "ownedEndFeature": [],
-    "ownedFeature": [],
-    "ownedFeatureMembership": [],
-    "ownedIntersecting": [],
-    "ownedSpecialization": [],
-    "ownedUnioning": [],
-    "unioningType": [],
-    "importedMembership": [],
-    "ownedImport": [],
-    "ownedMember": [],
-    "ownedMembership": [],
     "aliasIds": [],
     "declaredShortName": null,
-    "documentation": [],
     "isImpliedIncluded": false,
+    "isLibraryElement": true,
     "name": "MassValue",
-    "ownedAnnotation": [],
-    "ownedElement": [],
-    "ownedRelationship": [],
-    "owner": null,
-    "owningMembership": null,
-    "owningNamespace": null,
-    "owningRelationship": null,
+    "qualifiedName": "ISQBase::MassValue",
     "shortName": null,
-    "textualRepresentation": [],
-    "directedUsage": [],
-    "isVariation": false,
-    "ownedAction": [],
-    "ownedAllocation": [],
-    "ownedAnalysisCase": [],
-    "ownedAttribute": [],
-    "ownedCalculation": [],
-    "ownedCase": [],
-    "ownedConcern": [],
-    "ownedConnection": [],
-    "ownedConstraint": [],
-    "ownedEnumeration": [],
-    "ownedFlow": [],
-    "ownedInterface": [],
-    "ownedItem": [],
-    "ownedMetadata": [],
-    "ownedOccurrence": [],
-    "ownedPart": [],
-    "ownedPort": [],
-    "ownedReference": [],
-    "ownedRendering": [],
-    "ownedRequirement": [],
-    "ownedState": [],
-    "ownedTransition": [],
-    "ownedUsage": [],
-    "ownedUseCase": [],
-    "ownedVerificationCase": [],
-    "ownedView": [],
-    "ownedViewpoint": []
+    "isVariation": false
   }
 ]

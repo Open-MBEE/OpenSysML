@@ -360,25 +360,45 @@ func appendFullProperties(graph *rdf.Graph, subject rdf.Term, element apiJSONObj
 		}
 	}
 	for _, property := range properties {
-		if keyed[property.Name] {
-			continue
-		}
-		if id, ok := membershipElementID(graph, subject, property); ok {
-			element = append(element, apiJSONMember{key: property.Name, value: id})
+		if subjects.isLibraryHandle(elementHandle) && libraryStubStructureProperty(property.Name) {
+			element = removeAPIJSONMember(element, property.Name)
 			continue
 		}
 		effective := redefinedProperty(metaclass, property)
-		if effective.QualifiedName() != property.QualifiedName() && keyed[effective.Name] {
-			if value, ok := apiJSONMemberValue(element, effective.Name); ok {
-				if value, ok := redefinedAPIJSONValue(value, effective, property); ok {
-					element = append(element, apiJSONMember{key: property.Name, value: value})
-				}
+		if keyed[property.Name] {
+			if !property.Derived {
+				continue
 			}
-			continue
+			element = removeAPIJSONMember(element, property.Name)
+			keyed[property.Name] = false
 		}
-		value, ok := evaluator.Property(elementHandle, effective.DefiningClass, effective.Name)
+		if !effective.Derived {
+			if id, ok := membershipElementID(graph, subject, property); ok {
+				element = append(element, apiJSONMember{key: property.Name, value: id})
+				keyed[property.Name] = true
+				continue
+			}
+			if effective.QualifiedName() != property.QualifiedName() && keyed[effective.Name] {
+				if value, ok := apiJSONMemberValue(element, effective.Name); ok {
+					if value, ok := redefinedAPIJSONValue(value, effective, property); ok {
+						element = append(element, apiJSONMember{key: property.Name, value: value})
+						keyed[property.Name] = true
+					}
+				}
+				continue
+			}
+		}
+		derivation := effective
+		if property.Derived {
+			derivation = property
+		}
+		value, ok := evaluator.Property(elementHandle, derivation.DefiningClass, derivation.Name)
 		var failures []serializationFailure
+		before := len(element)
 		element, failures = appendFullProperty(element, subject, property, effective, value, ok, subjects)
+		if len(element) > before && element[len(element)-1].key == property.Name {
+			keyed[property.Name] = true
+		}
 		subjects.failures = append(subjects.failures, failures...)
 	}
 	if _, ok := apiJSONMemberValue(element, "isLibraryElement"); !ok {
@@ -388,6 +408,21 @@ func appendFullProperties(graph *rdf.Graph, subject rdf.Term, element apiJSONObj
 		})
 	}
 	return element, nil
+}
+
+func libraryStubStructureProperty(name string) bool {
+	return name == "owner" || strings.HasPrefix(name, "owned") ||
+		strings.Contains(name, "owning")
+}
+
+func removeAPIJSONMember(element apiJSONObject, key string) apiJSONObject {
+	filtered := element[:0]
+	for _, member := range element {
+		if member.key != key {
+			filtered = append(filtered, member)
+		}
+	}
+	return filtered
 }
 
 func apiJSONMemberValue(element apiJSONObject, key string) (any, bool) {

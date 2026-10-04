@@ -3709,7 +3709,7 @@ elmt:Results__Predicate___403
     sysml:owner elmt:Results__Predicate ;
     sysml:owningRelationship elmt:Results__Predicate___403_om ;
     sysml:owningMembership elmt:Results__Predicate___403_om ;
-    sysml:function elmt:Results__Predicate__keep ;
+    sysml:instantiatedType elmt:Results__Predicate__keep ;
     sysml:ownedRelationship expr:Results__Predicate___403_pfunction, expr:Results__Predicate___403_pin0_om, expr:Results__Predicate___403_pout_om ;
     sysml:argument expr:Results__Predicate___403_pa0 ;
     sysml:ownedMembership expr:Results__Predicate___403_pin0_om, expr:Results__Predicate___403_pout_om ;

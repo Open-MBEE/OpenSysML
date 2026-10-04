@@ -8,18 +8,18 @@
         "@id": "Outer_om"
       }
     ],
-    "ownedMembership": [
-      {
-        "@id": "Outer_om"
-      }
-    ],
+    "importedMembership": [],
+    "ownedImport": [],
     "ownedMember": [
       {
         "@id": "Outer"
       }
     ],
-    "importedMembership": [],
-    "ownedImport": [],
+    "ownedMembership": [
+      {
+        "@id": "Outer_om"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -45,13 +45,7 @@
     "@type": "OwningMembership",
     "@id": "Outer_om",
     "elementId": "Outer_om",
-    "owner": {
-      "@id": "Outer_ns"
-    },
     "memberElement": {
-      "@id": "Outer"
-    },
-    "ownedMemberElement": {
       "@id": "Outer"
     },
     "ownedRelatedElement": [
@@ -62,15 +56,13 @@
     "owningRelatedElement": {
       "@id": "Outer_ns"
     },
+    "ownedMemberName": "Outer",
+    "ownedMemberShortName": null,
+    "memberName": "Outer",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Outer_ns"
     },
-    "ownedMemberElementId": "Outer",
-    "ownedMemberName": "Outer",
-    "ownedMemberShortName": null,
-    "memberElementId": "Outer",
-    "memberName": "Outer",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -86,11 +78,6 @@
         "@id": "Outer_ns"
       }
     ],
-    "target": [
-      {
-        "@id": "Outer"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -101,10 +88,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Outer_ns"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -113,19 +99,9 @@
   {
     "@type": "Package",
     "@id": "Outer",
-    "owner": {
-      "@id": "Outer_ns"
-    },
-    "owningNamespace": {
-      "@id": "Outer_ns"
-    },
     "owningRelationship": {
       "@id": "Outer_om"
     },
-    "owningMembership": {
-      "@id": "Outer_om"
-    },
-    "qualifiedName": "Outer",
     "sysx:sourceLine": 1,
     "sysx:sourceColumn": 1,
     "sysx:sourceEndLine": 8,
@@ -136,16 +112,6 @@
     "sysx:sourceDocument": "testdata/convert/nested.sysml",
     "declaredName": "Outer",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Outer__Inner"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Outer__Inner_om"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Outer__Inner_om"
@@ -165,6 +131,16 @@
       }
     ],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Outer__Inner"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Outer__Inner_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -177,49 +153,33 @@
         "@id": "Outer__Inner"
       }
     ],
+    "owner": {
+      "@id": "Outer_ns"
+    },
+    "owningMembership": {
+      "@id": "Outer_om"
+    },
+    "owningNamespace": {
+      "@id": "Outer_ns"
+    },
+    "qualifiedName": "Outer",
     "shortName": null,
     "textualRepresentation": []
   },
   {
     "@type": "Package",
     "@id": "Outer__Inner",
-    "qualifiedName": "Outer::Inner",
     "sysx:sourceLine": 2,
     "sysx:sourceColumn": 5,
     "sysx:sourceEndLine": 7,
     "sysx:sourceEndColumn": 6,
     "elementId": "Outer__Inner",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Outer"
-    },
-    "owner": {
-      "@id": "Outer"
-    },
     "owningRelationship": {
-      "@id": "Outer__Inner_om"
-    },
-    "owningMembership": {
       "@id": "Outer__Inner_om"
     },
     "declaredName": "Inner",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Outer__Inner__Widget"
-      },
-      {
-        "@id": "Outer__Inner__Sub"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Outer__Inner__Widget_om"
-      },
-      {
-        "@id": "Outer__Inner__Sub_om"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Outer__Inner__Widget_om"
@@ -248,6 +208,22 @@
       }
     ],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Outer__Inner__Widget"
+      },
+      {
+        "@id": "Outer__Inner__Sub"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Outer__Inner__Widget_om"
+      },
+      {
+        "@id": "Outer__Inner__Sub_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -263,6 +239,16 @@
         "@id": "Outer__Inner__Sub"
       }
     ],
+    "owner": {
+      "@id": "Outer"
+    },
+    "owningMembership": {
+      "@id": "Outer__Inner_om"
+    },
+    "owningNamespace": {
+      "@id": "Outer"
+    },
+    "qualifiedName": "Outer::Inner",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -270,13 +256,7 @@
     "@type": "OwningMembership",
     "@id": "Outer__Inner_om",
     "elementId": "Outer__Inner_om",
-    "owner": {
-      "@id": "Outer"
-    },
     "memberElement": {
-      "@id": "Outer__Inner"
-    },
-    "ownedMemberElement": {
       "@id": "Outer__Inner"
     },
     "ownedRelatedElement": [
@@ -287,15 +267,13 @@
     "owningRelatedElement": {
       "@id": "Outer"
     },
+    "ownedMemberName": "Inner",
+    "ownedMemberShortName": null,
+    "memberName": "Inner",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Outer"
     },
-    "ownedMemberElementId": "Outer__Inner",
-    "ownedMemberName": "Inner",
-    "ownedMemberShortName": null,
-    "memberElementId": "Outer__Inner",
-    "memberName": "Inner",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -311,11 +289,6 @@
         "@id": "Outer"
       }
     ],
-    "target": [
-      {
-        "@id": "Outer__Inner"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -326,10 +299,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Outer"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -338,23 +310,13 @@
   {
     "@type": "PartDefinition",
     "@id": "Outer__Inner__Widget",
-    "qualifiedName": "Outer::Inner::Widget",
     "sysx:sourceLine": 3,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 3,
     "sysx:sourceEndColumn": 25,
     "elementId": "Outer__Inner__Widget",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Outer__Inner"
-    },
-    "owner": {
-      "@id": "Outer__Inner"
-    },
     "owningRelationship": {
-      "@id": "Outer__Inner__Widget_om"
-    },
-    "owningMembership": {
       "@id": "Outer__Inner__Widget_om"
     },
     "declaredName": "Widget",
@@ -395,6 +357,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Outer__Inner"
+    },
+    "owningMembership": {
+      "@id": "Outer__Inner__Widget_om"
+    },
+    "owningNamespace": {
+      "@id": "Outer__Inner"
+    },
+    "qualifiedName": "Outer::Inner::Widget",
     "shortName": null,
     "textualRepresentation": [],
     "directedUsage": [],
@@ -425,19 +397,63 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": []
+    "ownedViewpoint": [],
+    "usage": [
+      {
+        "@id": "73fde21b-008c-55ab-91a7-a20beafa76a1"
+      },
+      {
+        "@id": "ed80d442-d498-5236-96ae-71a8a52531d2"
+      },
+      {
+        "@id": "dd677401-a352-5fe3-846a-dad08d3eab06"
+      },
+      {
+        "@id": "f369e0d6-4bba-5d84-8d3c-abda5e337f89"
+      },
+      {
+        "@id": "0856ed9f-5115-58b3-a51f-ba54aca3dce5"
+      },
+      {
+        "@id": "bfd5fb0e-e87b-51ea-a438-6a93d18b05a1"
+      },
+      {
+        "@id": "4e03b9fa-285a-54dd-8378-40c5e90d0e00"
+      },
+      {
+        "@id": "8917eb36-28b8-5dfe-8880-663f5bc02c10"
+      },
+      {
+        "@id": "f22b1a27-60ea-5c53-9741-b40f5e5b2798"
+      },
+      {
+        "@id": "4c5ab59a-f19f-561e-b7be-b5c43c8f8e48"
+      },
+      {
+        "@id": "1857138d-05fc-5cd2-bcb1-10546541a5ae"
+      },
+      {
+        "@id": "cc4c79d3-fa74-57bd-af0c-bb7db1a78f06"
+      },
+      {
+        "@id": "115ed418-9939-5597-8350-60412dc2b5cc"
+      },
+      {
+        "@id": "f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85"
+      },
+      {
+        "@id": "a44baa93-a4d0-535d-b879-44a30575f348"
+      },
+      {
+        "@id": "e9ae3b91-2c54-544b-bbd3-8b7512a92238"
+      }
+    ]
   },
   {
     "@type": "OwningMembership",
     "@id": "Outer__Inner__Widget_om",
     "elementId": "Outer__Inner__Widget_om",
-    "owner": {
-      "@id": "Outer__Inner"
-    },
     "memberElement": {
-      "@id": "Outer__Inner__Widget"
-    },
-    "ownedMemberElement": {
       "@id": "Outer__Inner__Widget"
     },
     "ownedRelatedElement": [
@@ -448,15 +464,13 @@
     "owningRelatedElement": {
       "@id": "Outer__Inner"
     },
+    "ownedMemberName": "Widget",
+    "ownedMemberShortName": null,
+    "memberName": "Widget",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Outer__Inner"
     },
-    "ownedMemberElementId": "Outer__Inner__Widget",
-    "ownedMemberName": "Widget",
-    "ownedMemberShortName": null,
-    "memberElementId": "Outer__Inner__Widget",
-    "memberName": "Widget",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -472,11 +486,6 @@
         "@id": "Outer__Inner"
       }
     ],
-    "target": [
-      {
-        "@id": "Outer__Inner__Widget"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -487,10 +496,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Outer__Inner"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -499,37 +507,17 @@
   {
     "@type": "Namespace",
     "@id": "Outer__Inner__Sub",
-    "qualifiedName": "Outer::Inner::Sub",
     "sysx:sourceLine": 4,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 6,
     "sysx:sourceEndColumn": 10,
     "elementId": "Outer__Inner__Sub",
     "sysx:memberIndex": 1,
-    "owningNamespace": {
-      "@id": "Outer__Inner"
-    },
-    "owner": {
-      "@id": "Outer__Inner"
-    },
     "owningRelationship": {
-      "@id": "Outer__Inner__Sub_om"
-    },
-    "owningMembership": {
       "@id": "Outer__Inner__Sub_om"
     },
     "declaredName": "Sub",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Outer__Inner__Sub__Gear"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Outer__Inner__Sub__Gear_om"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Outer__Inner__Sub__Gear_om"
@@ -549,6 +537,16 @@
       }
     ],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Outer__Inner__Sub__Gear"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Outer__Inner__Sub__Gear_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -561,6 +559,16 @@
         "@id": "Outer__Inner__Sub__Gear"
       }
     ],
+    "owner": {
+      "@id": "Outer__Inner"
+    },
+    "owningMembership": {
+      "@id": "Outer__Inner__Sub_om"
+    },
+    "owningNamespace": {
+      "@id": "Outer__Inner"
+    },
+    "qualifiedName": "Outer::Inner::Sub",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -568,13 +576,7 @@
     "@type": "OwningMembership",
     "@id": "Outer__Inner__Sub_om",
     "elementId": "Outer__Inner__Sub_om",
-    "owner": {
-      "@id": "Outer__Inner"
-    },
     "memberElement": {
-      "@id": "Outer__Inner__Sub"
-    },
-    "ownedMemberElement": {
       "@id": "Outer__Inner__Sub"
     },
     "ownedRelatedElement": [
@@ -585,15 +587,13 @@
     "owningRelatedElement": {
       "@id": "Outer__Inner"
     },
+    "ownedMemberName": "Sub",
+    "ownedMemberShortName": null,
+    "memberName": "Sub",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Outer__Inner"
     },
-    "ownedMemberElementId": "Outer__Inner__Sub",
-    "ownedMemberName": "Sub",
-    "ownedMemberShortName": null,
-    "memberElementId": "Outer__Inner__Sub",
-    "memberName": "Sub",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -609,11 +609,6 @@
         "@id": "Outer__Inner"
       }
     ],
-    "target": [
-      {
-        "@id": "Outer__Inner__Sub"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -624,10 +619,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Outer__Inner"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -636,23 +630,13 @@
   {
     "@type": "PartDefinition",
     "@id": "Outer__Inner__Sub__Gear",
-    "qualifiedName": "Outer::Inner::Sub::Gear",
     "sysx:sourceLine": 5,
     "sysx:sourceColumn": 13,
     "sysx:sourceEndLine": 5,
     "sysx:sourceEndColumn": 27,
     "elementId": "Outer__Inner__Sub__Gear",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Outer__Inner__Sub"
-    },
-    "owner": {
-      "@id": "Outer__Inner__Sub"
-    },
     "owningRelationship": {
-      "@id": "Outer__Inner__Sub__Gear_om"
-    },
-    "owningMembership": {
       "@id": "Outer__Inner__Sub__Gear_om"
     },
     "declaredName": "Gear",
@@ -693,6 +677,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Outer__Inner__Sub"
+    },
+    "owningMembership": {
+      "@id": "Outer__Inner__Sub__Gear_om"
+    },
+    "owningNamespace": {
+      "@id": "Outer__Inner__Sub"
+    },
+    "qualifiedName": "Outer::Inner::Sub::Gear",
     "shortName": null,
     "textualRepresentation": [],
     "directedUsage": [],
@@ -723,19 +717,63 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": []
+    "ownedViewpoint": [],
+    "usage": [
+      {
+        "@id": "73fde21b-008c-55ab-91a7-a20beafa76a1"
+      },
+      {
+        "@id": "ed80d442-d498-5236-96ae-71a8a52531d2"
+      },
+      {
+        "@id": "dd677401-a352-5fe3-846a-dad08d3eab06"
+      },
+      {
+        "@id": "f369e0d6-4bba-5d84-8d3c-abda5e337f89"
+      },
+      {
+        "@id": "0856ed9f-5115-58b3-a51f-ba54aca3dce5"
+      },
+      {
+        "@id": "bfd5fb0e-e87b-51ea-a438-6a93d18b05a1"
+      },
+      {
+        "@id": "4e03b9fa-285a-54dd-8378-40c5e90d0e00"
+      },
+      {
+        "@id": "8917eb36-28b8-5dfe-8880-663f5bc02c10"
+      },
+      {
+        "@id": "f22b1a27-60ea-5c53-9741-b40f5e5b2798"
+      },
+      {
+        "@id": "4c5ab59a-f19f-561e-b7be-b5c43c8f8e48"
+      },
+      {
+        "@id": "1857138d-05fc-5cd2-bcb1-10546541a5ae"
+      },
+      {
+        "@id": "cc4c79d3-fa74-57bd-af0c-bb7db1a78f06"
+      },
+      {
+        "@id": "115ed418-9939-5597-8350-60412dc2b5cc"
+      },
+      {
+        "@id": "f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85"
+      },
+      {
+        "@id": "a44baa93-a4d0-535d-b879-44a30575f348"
+      },
+      {
+        "@id": "e9ae3b91-2c54-544b-bbd3-8b7512a92238"
+      }
+    ]
   },
   {
     "@type": "OwningMembership",
     "@id": "Outer__Inner__Sub__Gear_om",
     "elementId": "Outer__Inner__Sub__Gear_om",
-    "owner": {
-      "@id": "Outer__Inner__Sub"
-    },
     "memberElement": {
-      "@id": "Outer__Inner__Sub__Gear"
-    },
-    "ownedMemberElement": {
       "@id": "Outer__Inner__Sub__Gear"
     },
     "ownedRelatedElement": [
@@ -746,15 +784,13 @@
     "owningRelatedElement": {
       "@id": "Outer__Inner__Sub"
     },
+    "ownedMemberName": "Gear",
+    "ownedMemberShortName": null,
+    "memberName": "Gear",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Outer__Inner__Sub"
     },
-    "ownedMemberElementId": "Outer__Inner__Sub__Gear",
-    "ownedMemberName": "Gear",
-    "ownedMemberShortName": null,
-    "memberElementId": "Outer__Inner__Sub__Gear",
-    "memberName": "Gear",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -770,11 +806,6 @@
         "@id": "Outer__Inner__Sub"
       }
     ],
-    "target": [
-      {
-        "@id": "Outer__Inner__Sub__Gear"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -785,10 +816,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Outer__Inner__Sub"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,

@@ -8,18 +8,18 @@
         "@id": "Colors_om"
       }
     ],
-    "ownedMembership": [
-      {
-        "@id": "Colors_om"
-      }
-    ],
+    "importedMembership": [],
+    "ownedImport": [],
     "ownedMember": [
       {
         "@id": "Colors"
       }
     ],
-    "importedMembership": [],
-    "ownedImport": [],
+    "ownedMembership": [
+      {
+        "@id": "Colors_om"
+      }
+    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -45,13 +45,7 @@
     "@type": "OwningMembership",
     "@id": "Colors_om",
     "elementId": "Colors_om",
-    "owner": {
-      "@id": "Colors_ns"
-    },
     "memberElement": {
-      "@id": "Colors"
-    },
-    "ownedMemberElement": {
       "@id": "Colors"
     },
     "ownedRelatedElement": [
@@ -62,15 +56,13 @@
     "owningRelatedElement": {
       "@id": "Colors_ns"
     },
+    "ownedMemberName": "Colors",
+    "ownedMemberShortName": null,
+    "memberName": "Colors",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Colors_ns"
     },
-    "ownedMemberElementId": "Colors",
-    "ownedMemberName": "Colors",
-    "ownedMemberShortName": null,
-    "memberElementId": "Colors",
-    "memberName": "Colors",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -86,11 +78,6 @@
         "@id": "Colors_ns"
       }
     ],
-    "target": [
-      {
-        "@id": "Colors"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -101,10 +88,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Colors_ns"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -113,19 +99,9 @@
   {
     "@type": "Package",
     "@id": "Colors",
-    "owner": {
-      "@id": "Colors_ns"
-    },
-    "owningNamespace": {
-      "@id": "Colors_ns"
-    },
     "owningRelationship": {
       "@id": "Colors_om"
     },
-    "owningMembership": {
-      "@id": "Colors_om"
-    },
-    "qualifiedName": "Colors",
     "sysx:sourceLine": 1,
     "sysx:sourceColumn": 1,
     "sysx:sourceEndLine": 7,
@@ -136,16 +112,6 @@
     "sysx:sourceDocument": "testdata/convert/enums.sysml",
     "declaredName": "Colors",
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Colors__Color"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Colors__Color_om"
-      }
-    ],
     "ownedRelationship": [
       {
         "@id": "Colors__Color_om"
@@ -165,6 +131,16 @@
       }
     ],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Colors__Color_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -177,79 +153,35 @@
         "@id": "Colors__Color"
       }
     ],
+    "owner": {
+      "@id": "Colors_ns"
+    },
+    "owningMembership": {
+      "@id": "Colors_om"
+    },
+    "owningNamespace": {
+      "@id": "Colors_ns"
+    },
+    "qualifiedName": "Colors",
     "shortName": null,
     "textualRepresentation": []
   },
   {
     "@type": "EnumerationDefinition",
     "@id": "Colors__Color",
-    "qualifiedName": "Colors::Color",
     "sysx:sourceLine": 2,
     "sysx:sourceColumn": 5,
     "sysx:sourceEndLine": 6,
     "sysx:sourceEndColumn": 6,
     "elementId": "Colors__Color",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Colors"
-    },
-    "owner": {
-      "@id": "Colors"
-    },
     "owningRelationship": {
-      "@id": "Colors__Color_om"
-    },
-    "owningMembership": {
       "@id": "Colors__Color_om"
     },
     "declaredName": "Color",
     "isVariation": true,
     "sysx:hasBody": true,
-    "ownedMember": [
-      {
-        "@id": "Colors__Color__red"
-      },
-      {
-        "@id": "Colors__Color__green"
-      },
-      {
-        "@id": "Colors__Color__blue"
-      }
-    ],
-    "ownedMembership": [
-      {
-        "@id": "Colors__Color__red_om"
-      },
-      {
-        "@id": "Colors__Color__green_om"
-      },
-      {
-        "@id": "Colors__Color__blue_om"
-      }
-    ],
     "ownedRelationship": [
-      {
-        "@id": "Colors__Color__red_om"
-      },
-      {
-        "@id": "Colors__Color__green_om"
-      },
-      {
-        "@id": "Colors__Color__blue_om"
-      }
-    ],
-    "variant": [
-      {
-        "@id": "Colors__Color__red"
-      },
-      {
-        "@id": "Colors__Color__green"
-      },
-      {
-        "@id": "Colors__Color__blue"
-      }
-    ],
-    "variantMembership": [
       {
         "@id": "Colors__Color__red_om"
       },
@@ -301,6 +233,28 @@
     "unioningType": [],
     "importedMembership": [],
     "ownedImport": [],
+    "ownedMember": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      }
+    ],
     "aliasIds": [],
     "declaredShortName": null,
     "documentation": [],
@@ -319,6 +273,16 @@
         "@id": "Colors__Color__blue"
       }
     ],
+    "owner": {
+      "@id": "Colors"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color_om"
+    },
+    "owningNamespace": {
+      "@id": "Colors"
+    },
+    "qualifiedName": "Colors::Color",
     "shortName": null,
     "textualRepresentation": [],
     "directedUsage": [],
@@ -378,19 +342,14 @@
     "ownedUseCase": [],
     "ownedVerificationCase": [],
     "ownedView": [],
-    "ownedViewpoint": []
+    "ownedViewpoint": [],
+    "usage": []
   },
   {
     "@type": "OwningMembership",
     "@id": "Colors__Color_om",
     "elementId": "Colors__Color_om",
-    "owner": {
-      "@id": "Colors"
-    },
     "memberElement": {
-      "@id": "Colors__Color"
-    },
-    "ownedMemberElement": {
       "@id": "Colors__Color"
     },
     "ownedRelatedElement": [
@@ -401,15 +360,13 @@
     "owningRelatedElement": {
       "@id": "Colors"
     },
+    "ownedMemberName": "Color",
+    "ownedMemberShortName": null,
+    "memberName": "Color",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Colors"
     },
-    "ownedMemberElementId": "Colors__Color",
-    "ownedMemberName": "Color",
-    "ownedMemberShortName": null,
-    "memberElementId": "Colors__Color",
-    "memberName": "Color",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -425,11 +382,6 @@
         "@id": "Colors"
       }
     ],
-    "target": [
-      {
-        "@id": "Colors__Color"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -440,10 +392,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Colors"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -452,23 +403,13 @@
   {
     "@type": "EnumerationUsage",
     "@id": "Colors__Color__red",
-    "qualifiedName": "Colors::Color::red",
     "sysx:sourceLine": 3,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 3,
     "sysx:sourceEndColumn": 18,
     "elementId": "Colors__Color__red",
     "sysx:memberIndex": 0,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "owningRelationship": {
-      "@id": "Colors__Color__red_om"
-    },
-    "owningMembership": {
       "@id": "Colors__Color__red_om"
     },
     "declaredName": "red",
@@ -521,11 +462,24 @@
     "nestedViewpoint": [],
     "owningDefinition": null,
     "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
+    "featureTarget": {
+      "@id": "Colors__Color__red"
+    },
     "featuringType": [],
     "isComposite": false,
     "isConstant": false,
@@ -617,6 +571,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__red_om"
+    },
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "qualifiedName": "Colors::Color::red",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -624,13 +588,7 @@
     "@type": "VariantMembership",
     "@id": "Colors__Color__red_om",
     "elementId": "Colors__Color__red_om",
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "memberElement": {
-      "@id": "Colors__Color__red"
-    },
-    "ownedMemberElement": {
       "@id": "Colors__Color__red"
     },
     "ownedRelatedElement": [
@@ -641,18 +599,13 @@
     "owningRelatedElement": {
       "@id": "Colors__Color"
     },
+    "ownedMemberName": "red",
+    "ownedMemberShortName": null,
+    "memberName": "red",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Colors__Color"
     },
-    "ownedVariantUsage": {
-      "@id": "Colors__Color__red"
-    },
-    "ownedMemberElementId": "Colors__Color__red",
-    "ownedMemberName": "red",
-    "ownedMemberShortName": null,
-    "memberElementId": "Colors__Color__red",
-    "memberName": "red",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -668,11 +621,6 @@
         "@id": "Colors__Color"
       }
     ],
-    "target": [
-      {
-        "@id": "Colors__Color__red"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -683,10 +631,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -695,23 +642,13 @@
   {
     "@type": "EnumerationUsage",
     "@id": "Colors__Color__green",
-    "qualifiedName": "Colors::Color::green",
     "sysx:sourceLine": 4,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 4,
     "sysx:sourceEndColumn": 20,
     "elementId": "Colors__Color__green",
     "sysx:memberIndex": 1,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "owningRelationship": {
-      "@id": "Colors__Color__green_om"
-    },
-    "owningMembership": {
       "@id": "Colors__Color__green_om"
     },
     "declaredName": "green",
@@ -764,11 +701,24 @@
     "nestedViewpoint": [],
     "owningDefinition": null,
     "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
+    "featureTarget": {
+      "@id": "Colors__Color__green"
+    },
     "featuringType": [],
     "isComposite": false,
     "isConstant": false,
@@ -860,6 +810,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__green_om"
+    },
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "qualifiedName": "Colors::Color::green",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -867,13 +827,7 @@
     "@type": "VariantMembership",
     "@id": "Colors__Color__green_om",
     "elementId": "Colors__Color__green_om",
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "memberElement": {
-      "@id": "Colors__Color__green"
-    },
-    "ownedMemberElement": {
       "@id": "Colors__Color__green"
     },
     "ownedRelatedElement": [
@@ -884,18 +838,13 @@
     "owningRelatedElement": {
       "@id": "Colors__Color"
     },
+    "ownedMemberName": "green",
+    "ownedMemberShortName": null,
+    "memberName": "green",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Colors__Color"
     },
-    "ownedVariantUsage": {
-      "@id": "Colors__Color__green"
-    },
-    "ownedMemberElementId": "Colors__Color__green",
-    "ownedMemberName": "green",
-    "ownedMemberShortName": null,
-    "memberElementId": "Colors__Color__green",
-    "memberName": "green",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -911,11 +860,6 @@
         "@id": "Colors__Color"
       }
     ],
-    "target": [
-      {
-        "@id": "Colors__Color__green"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -926,10 +870,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,
@@ -938,23 +881,13 @@
   {
     "@type": "EnumerationUsage",
     "@id": "Colors__Color__blue",
-    "qualifiedName": "Colors::Color::blue",
     "sysx:sourceLine": 5,
     "sysx:sourceColumn": 9,
     "sysx:sourceEndLine": 5,
     "sysx:sourceEndColumn": 19,
     "elementId": "Colors__Color__blue",
     "sysx:memberIndex": 2,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "owningRelationship": {
-      "@id": "Colors__Color__blue_om"
-    },
-    "owningMembership": {
       "@id": "Colors__Color__blue_om"
     },
     "declaredName": "blue",
@@ -1007,11 +940,24 @@
     "nestedViewpoint": [],
     "owningDefinition": null,
     "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
     "chainingFeature": [],
     "crossFeature": null,
     "direction": null,
     "endOwningType": null,
-    "featureTarget": null,
+    "featureTarget": {
+      "@id": "Colors__Color__blue"
+    },
     "featuringType": [],
     "isComposite": false,
     "isConstant": false,
@@ -1103,6 +1049,16 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__blue_om"
+    },
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "qualifiedName": "Colors::Color::blue",
     "shortName": null,
     "textualRepresentation": []
   },
@@ -1110,13 +1066,7 @@
     "@type": "VariantMembership",
     "@id": "Colors__Color__blue_om",
     "elementId": "Colors__Color__blue_om",
-    "owner": {
-      "@id": "Colors__Color"
-    },
     "memberElement": {
-      "@id": "Colors__Color__blue"
-    },
-    "ownedMemberElement": {
       "@id": "Colors__Color__blue"
     },
     "ownedRelatedElement": [
@@ -1127,18 +1077,13 @@
     "owningRelatedElement": {
       "@id": "Colors__Color"
     },
+    "ownedMemberName": "blue",
+    "ownedMemberShortName": null,
+    "memberName": "blue",
+    "memberShortName": null,
     "membershipOwningNamespace": {
       "@id": "Colors__Color"
     },
-    "ownedVariantUsage": {
-      "@id": "Colors__Color__blue"
-    },
-    "ownedMemberElementId": "Colors__Color__blue",
-    "ownedMemberName": "blue",
-    "ownedMemberShortName": null,
-    "memberElementId": "Colors__Color__blue",
-    "memberName": "blue",
-    "memberShortName": null,
     "visibility": "public",
     "isImplied": false,
     "relatedElement": [
@@ -1154,11 +1099,6 @@
         "@id": "Colors__Color"
       }
     ],
-    "target": [
-      {
-        "@id": "Colors__Color__blue"
-      }
-    ],
     "aliasIds": [],
     "declaredName": null,
     "declaredShortName": null,
@@ -1169,10 +1109,9 @@
     "ownedAnnotation": [],
     "ownedElement": [],
     "ownedRelationship": [],
+    "owner": null,
     "owningMembership": null,
-    "owningNamespace": {
-      "@id": "Colors__Color"
-    },
+    "owningNamespace": null,
     "owningRelationship": null,
     "qualifiedName": null,
     "shortName": null,

@@ -1,0 +1,1 @@
+- **Full API JSON now derives names, ownership, variability and reference properties from the semantic model.** Library stubs retain their canonical identity without claiming unknown containment.
