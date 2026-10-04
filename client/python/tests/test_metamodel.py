@@ -1,4 +1,5 @@
 import inspect
+from types import MappingProxyType
 
 import pytest
 
@@ -56,6 +57,10 @@ def test_every_descriptor_is_declared_once():
 
 
 def test_runtime_members_do_not_collide_with_json_keys():
+    assert isinstance(_ElementBase.JSON_KEYS, MappingProxyType)
+    with pytest.raises(TypeError):
+        _ElementBase.JSON_KEYS["unexpected"] = "unexpected"
+
     public = {
         name
         for name in set(dir(_ElementBase)) - set(dir(object))

@@ -98,13 +98,6 @@ markers = [
 python_version = "3.10"
 files = ["opensysml"]
 warn_unused_ignores = true
-follow_imports = "silent"
-
-[tool.pyright]
-pythonVersion = "3.10"
-typeCheckingMode = "strict"
-reportUnnecessaryTypeIgnoreComment = true
-enableTypeIgnoreComments = false
 
 # fmpy ships no stubs: the runner is the only importer, and its calls are what
 # the fmi/1 protocol shapes, so the missing import is ignored rather than the
@@ -112,7 +105,3 @@ enableTypeIgnoreComments = false
 [[tool.mypy.overrides]]
 module = ["fmpy", "fmpy.*"]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["opensysml.proto.*"]
-disable_error_code = ["type-arg", "no-untyped-def"]

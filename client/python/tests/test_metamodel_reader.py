@@ -159,6 +159,9 @@ def test_missing_and_null_properties_preserve_cardinality():
     with pytest.raises(NotSupplied) as excinfo:
         usage.feature
     assert excinfo.value.derived is True
+    with pytest.raises(NotSupplied) as excinfo:
+        usage.json_value("feature")
+    assert excinfo.value.derived is True
     with pytest.raises(NotSupplied):
         hasattr(usage, "feature")
 

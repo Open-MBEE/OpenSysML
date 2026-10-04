@@ -491,11 +491,14 @@ without connecting to a service:
 
 ```python
 from opensysml import read_json
-from opensysml.metamodel import PartUsage
+from opensysml.metamodel import NotSupplied, PartUsage
 
 graph = read_json("vehicle.json")
 for part in graph.all(PartUsage):
-    print(part.declared_name)
+    try:
+        print(part.declared_name)
+    except NotSupplied:
+        print("declaredName is absent from this export")
 ```
 
 This is distinct from `opensysml.generate`, which creates classes for definitions in a user's

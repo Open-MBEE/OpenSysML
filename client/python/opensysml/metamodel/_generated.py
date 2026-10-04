@@ -58,7 +58,7 @@ class VisibilityKind(str, Enum):
 
 
 class Element(_ElementBase):
-    "SysML ``Element`` (abstract)."
+    "Abstract metaclass ``Element``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Element"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -136,7 +136,7 @@ class Element(_ElementBase):
 
 
 class AnnotatingElement(Element):
-    "SysML ``AnnotatingElement``."
+    "Metaclass ``AnnotatingElement``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AnnotatingElement"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -160,7 +160,7 @@ class AnnotatingElement(Element):
 
 
 class Comment(AnnotatingElement):
-    "SysML ``Comment``."
+    "Metaclass ``Comment``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Comment"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -175,7 +175,7 @@ class Comment(AnnotatingElement):
 
 
 class Documentation(Comment):
-    "SysML ``Documentation``."
+    "Metaclass ``Documentation``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Documentation"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -188,7 +188,7 @@ class Documentation(Comment):
 
 
 class Namespace(Element):
-    "SysML ``Namespace``."
+    "Metaclass ``Namespace``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Namespace"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -219,7 +219,7 @@ class Namespace(Element):
 
 
 class Package(Namespace):
-    "SysML ``Package``."
+    "Metaclass ``Package``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Package"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -232,7 +232,7 @@ class Package(Namespace):
 
 
 class LibraryPackage(Package):
-    "SysML ``LibraryPackage``."
+    "Metaclass ``LibraryPackage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LibraryPackage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -245,7 +245,7 @@ class LibraryPackage(Package):
 
 
 class Relationship(Element):
-    "SysML ``Relationship`` (abstract)."
+    "Abstract metaclass ``Relationship``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Relationship"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -276,7 +276,7 @@ class Relationship(Element):
 
 
 class Annotation(Relationship):
-    "SysML ``Annotation``."
+    "Metaclass ``Annotation``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Annotation"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -305,7 +305,7 @@ class Annotation(Relationship):
 
 
 class Conjugation(Relationship):
-    "SysML ``Conjugation``."
+    "Metaclass ``Conjugation``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Conjugation"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -326,7 +326,7 @@ class Conjugation(Relationship):
 
 
 class Dependency(Relationship):
-    "SysML ``Dependency``."
+    "Metaclass ``Dependency``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Dependency"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -341,7 +341,7 @@ class Dependency(Relationship):
 
 
 class Differencing(Relationship):
-    "SysML ``Differencing``."
+    "Metaclass ``Differencing``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Differencing"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -358,7 +358,7 @@ class Differencing(Relationship):
 
 
 class Disjoining(Relationship):
-    "SysML ``Disjoining``."
+    "Metaclass ``Disjoining``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Disjoining"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -379,7 +379,7 @@ class Disjoining(Relationship):
 
 
 class FeatureChaining(Relationship):
-    "SysML ``FeatureChaining``."
+    "Metaclass ``FeatureChaining``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureChaining"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -396,7 +396,7 @@ class FeatureChaining(Relationship):
 
 
 class FeatureInverting(Relationship):
-    "SysML ``FeatureInverting``."
+    "Metaclass ``FeatureInverting``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureInverting"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -417,7 +417,7 @@ class FeatureInverting(Relationship):
 
 
 class Import(Relationship):
-    "SysML ``Import`` (abstract)."
+    "Abstract metaclass ``Import``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Import"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -445,7 +445,7 @@ class Import(Relationship):
 
 
 class Expose(Import):
-    "SysML ``Expose`` (abstract)."
+    "Abstract metaclass ``Expose``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Expose"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -454,7 +454,7 @@ class Expose(Import):
 
 
 class Intersecting(Relationship):
-    "SysML ``Intersecting``."
+    "Metaclass ``Intersecting``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Intersecting"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -471,7 +471,7 @@ class Intersecting(Relationship):
 
 
 class Membership(Relationship):
-    "SysML ``Membership``."
+    "Metaclass ``Membership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Membership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -503,7 +503,7 @@ class Membership(Relationship):
 
 
 class MembershipImport(Import):
-    "SysML ``MembershipImport``."
+    "Metaclass ``MembershipImport``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MembershipImport"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -516,7 +516,7 @@ class MembershipImport(Import):
 
 
 class MembershipExpose(Expose, MembershipImport):
-    "SysML ``MembershipExpose``."
+    "Metaclass ``MembershipExpose``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MembershipExpose"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -526,7 +526,7 @@ class MembershipExpose(Expose, MembershipImport):
 
 
 class NamespaceImport(Import):
-    "SysML ``NamespaceImport``."
+    "Metaclass ``NamespaceImport``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "NamespaceImport"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -539,7 +539,7 @@ class NamespaceImport(Import):
 
 
 class NamespaceExpose(Expose, NamespaceImport):
-    "SysML ``NamespaceExpose``."
+    "Metaclass ``NamespaceExpose``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "NamespaceExpose"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -549,7 +549,7 @@ class NamespaceExpose(Expose, NamespaceImport):
 
 
 class OwningMembership(Membership):
-    "SysML ``OwningMembership``."
+    "Metaclass ``OwningMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "OwningMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -574,7 +574,7 @@ class OwningMembership(Membership):
 
 
 class ElementFilterMembership(OwningMembership):
-    "SysML ``ElementFilterMembership``."
+    "Metaclass ``ElementFilterMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ElementFilterMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -586,7 +586,7 @@ class ElementFilterMembership(OwningMembership):
 
 
 class FeatureMembership(OwningMembership):
-    "SysML ``FeatureMembership``."
+    "Metaclass ``FeatureMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -603,7 +603,7 @@ class FeatureMembership(OwningMembership):
 
 
 class EndFeatureMembership(FeatureMembership):
-    "SysML ``EndFeatureMembership``."
+    "Metaclass ``EndFeatureMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "EndFeatureMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -612,7 +612,7 @@ class EndFeatureMembership(FeatureMembership):
 
 
 class FeatureValue(OwningMembership):
-    "SysML ``FeatureValue``."
+    "Metaclass ``FeatureValue``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureValue"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -636,7 +636,7 @@ class FeatureValue(OwningMembership):
 
 
 class ObjectiveMembership(FeatureMembership):
-    "SysML ``ObjectiveMembership``."
+    "Metaclass ``ObjectiveMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ObjectiveMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -649,7 +649,7 @@ class ObjectiveMembership(FeatureMembership):
 
 
 class ParameterMembership(FeatureMembership):
-    "SysML ``ParameterMembership``."
+    "Metaclass ``ParameterMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ParameterMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -662,7 +662,7 @@ class ParameterMembership(FeatureMembership):
 
 
 class ActorMembership(ParameterMembership):
-    "SysML ``ActorMembership``."
+    "Metaclass ``ActorMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ActorMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -675,7 +675,7 @@ class ActorMembership(ParameterMembership):
 
 
 class PortConjugation(Conjugation):
-    "SysML ``PortConjugation``."
+    "Metaclass ``PortConjugation``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PortConjugation"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -692,7 +692,7 @@ class PortConjugation(Conjugation):
 
 
 class RequirementConstraintMembership(FeatureMembership):
-    "SysML ``RequirementConstraintMembership``."
+    "Metaclass ``RequirementConstraintMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RequirementConstraintMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -712,7 +712,7 @@ class RequirementConstraintMembership(FeatureMembership):
 
 
 class FramedConcernMembership(RequirementConstraintMembership):
-    "SysML ``FramedConcernMembership``."
+    "Metaclass ``FramedConcernMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FramedConcernMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -729,7 +729,7 @@ class FramedConcernMembership(RequirementConstraintMembership):
 
 
 class RequirementVerificationMembership(RequirementConstraintMembership):
-    "SysML ``RequirementVerificationMembership``."
+    "Metaclass ``RequirementVerificationMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RequirementVerificationMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -746,7 +746,7 @@ class RequirementVerificationMembership(RequirementConstraintMembership):
 
 
 class ResultExpressionMembership(FeatureMembership):
-    "SysML ``ResultExpressionMembership``."
+    "Metaclass ``ResultExpressionMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ResultExpressionMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -759,7 +759,7 @@ class ResultExpressionMembership(FeatureMembership):
 
 
 class ReturnParameterMembership(ParameterMembership):
-    "SysML ``ReturnParameterMembership``."
+    "Metaclass ``ReturnParameterMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ReturnParameterMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -768,7 +768,7 @@ class ReturnParameterMembership(ParameterMembership):
 
 
 class Specialization(Relationship):
-    "SysML ``Specialization``."
+    "Metaclass ``Specialization``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Specialization"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -787,7 +787,7 @@ class Specialization(Relationship):
 
 
 class FeatureTyping(Specialization):
-    "SysML ``FeatureTyping``."
+    "Metaclass ``FeatureTyping``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureTyping"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -807,7 +807,7 @@ class FeatureTyping(Specialization):
 
 
 class ConjugatedPortTyping(FeatureTyping):
-    "SysML ``ConjugatedPortTyping``."
+    "Metaclass ``ConjugatedPortTyping``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConjugatedPortTyping"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -824,7 +824,7 @@ class ConjugatedPortTyping(FeatureTyping):
 
 
 class StakeholderMembership(ParameterMembership):
-    "SysML ``StakeholderMembership``."
+    "Metaclass ``StakeholderMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "StakeholderMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -837,7 +837,7 @@ class StakeholderMembership(ParameterMembership):
 
 
 class StateSubactionMembership(FeatureMembership):
-    "SysML ``StateSubactionMembership``."
+    "Metaclass ``StateSubactionMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "StateSubactionMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -852,7 +852,7 @@ class StateSubactionMembership(FeatureMembership):
 
 
 class Subclassification(Specialization):
-    "SysML ``Subclassification``."
+    "Metaclass ``Subclassification``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Subclassification"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -871,7 +871,7 @@ class Subclassification(Specialization):
 
 
 class SubjectMembership(ParameterMembership):
-    "SysML ``SubjectMembership``."
+    "Metaclass ``SubjectMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SubjectMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -884,7 +884,7 @@ class SubjectMembership(ParameterMembership):
 
 
 class Subsetting(Specialization):
-    "SysML ``Subsetting``."
+    "Metaclass ``Subsetting``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Subsetting"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -905,7 +905,7 @@ class Subsetting(Specialization):
 
 
 class CrossSubsetting(Subsetting):
-    "SysML ``CrossSubsetting``."
+    "Metaclass ``CrossSubsetting``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CrossSubsetting"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -922,7 +922,7 @@ class CrossSubsetting(Subsetting):
 
 
 class Redefinition(Subsetting):
-    "SysML ``Redefinition``."
+    "Metaclass ``Redefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Redefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -939,7 +939,7 @@ class Redefinition(Subsetting):
 
 
 class ReferenceSubsetting(Subsetting):
-    "SysML ``ReferenceSubsetting``."
+    "Metaclass ``ReferenceSubsetting``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ReferenceSubsetting"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -956,7 +956,7 @@ class ReferenceSubsetting(Subsetting):
 
 
 class TextualRepresentation(AnnotatingElement):
-    "SysML ``TextualRepresentation``."
+    "Metaclass ``TextualRepresentation``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TextualRepresentation"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -975,7 +975,7 @@ class TextualRepresentation(AnnotatingElement):
 
 
 class TransitionFeatureMembership(FeatureMembership):
-    "SysML ``TransitionFeatureMembership``."
+    "Metaclass ``TransitionFeatureMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TransitionFeatureMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -991,7 +991,7 @@ class TransitionFeatureMembership(FeatureMembership):
 
 
 class Type(Namespace):
-    "SysML ``Type``."
+    "Metaclass ``Type``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Type"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1092,7 +1092,7 @@ class Type(Namespace):
 
 
 class Classifier(Type):
-    "SysML ``Classifier``."
+    "Metaclass ``Classifier``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Classifier"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1105,7 +1105,7 @@ class Classifier(Type):
 
 
 class Association(Classifier, Relationship):
-    "SysML ``Association``."
+    "Metaclass ``Association``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Association"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1131,7 +1131,7 @@ class Association(Classifier, Relationship):
 
 
 class Class(Classifier):
-    "SysML ``Class``."
+    "Metaclass ``Class``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Class"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1140,7 +1140,7 @@ class Class(Classifier):
 
 
 class Behavior(Class):
-    "SysML ``Behavior``."
+    "Metaclass ``Behavior``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Behavior"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1155,7 +1155,7 @@ class Behavior(Class):
 
 
 class DataType(Classifier):
-    "SysML ``DataType``."
+    "Metaclass ``DataType``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "DataType"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1164,7 +1164,7 @@ class DataType(Classifier):
 
 
 class Definition(Classifier):
-    "SysML ``Definition``."
+    "Metaclass ``Definition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Definition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1299,7 +1299,7 @@ class Definition(Classifier):
 
 
 class AttributeDefinition(DataType, Definition):
-    "SysML ``AttributeDefinition``."
+    "Metaclass ``AttributeDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AttributeDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1309,7 +1309,7 @@ class AttributeDefinition(DataType, Definition):
 
 
 class EnumerationDefinition(AttributeDefinition):
-    "SysML ``EnumerationDefinition``."
+    "Metaclass ``EnumerationDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "EnumerationDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1322,7 +1322,7 @@ class EnumerationDefinition(AttributeDefinition):
 
 
 class Feature(Type):
-    "SysML ``Feature``."
+    "Metaclass ``Feature``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Feature"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1429,7 +1429,7 @@ class Feature(Type):
 
 
 class Connector(Feature, Relationship):
-    "SysML ``Connector``."
+    "Metaclass ``Connector``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Connector"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1462,7 +1462,7 @@ class Connector(Feature, Relationship):
 
 
 class BindingConnector(Connector):
-    "SysML ``BindingConnector``."
+    "Metaclass ``BindingConnector``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "BindingConnector"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1471,7 +1471,7 @@ class BindingConnector(Connector):
 
 
 class FlowEnd(Feature):
-    "SysML ``FlowEnd``."
+    "Metaclass ``FlowEnd``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FlowEnd"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1480,7 +1480,7 @@ class FlowEnd(Feature):
 
 
 class Function(Behavior):
-    "SysML ``Function``."
+    "Metaclass ``Function``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Function"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1499,7 +1499,7 @@ class Function(Behavior):
 
 
 class Interaction(Association, Behavior):
-    "SysML ``Interaction``."
+    "Metaclass ``Interaction``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Interaction"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1509,7 +1509,7 @@ class Interaction(Association, Behavior):
 
 
 class MetadataFeature(AnnotatingElement, Feature):
-    "SysML ``MetadataFeature``."
+    "Metaclass ``MetadataFeature``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MetadataFeature"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1522,7 +1522,7 @@ class MetadataFeature(AnnotatingElement, Feature):
 
 
 class Multiplicity(Feature):
-    "SysML ``Multiplicity``."
+    "Metaclass ``Multiplicity``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Multiplicity"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1531,7 +1531,7 @@ class Multiplicity(Feature):
 
 
 class MultiplicityRange(Multiplicity):
-    "SysML ``MultiplicityRange``."
+    "Metaclass ``MultiplicityRange``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MultiplicityRange"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1551,7 +1551,7 @@ class MultiplicityRange(Multiplicity):
 
 
 class OccurrenceDefinition(Class, Definition):
-    "SysML ``OccurrenceDefinition``."
+    "Metaclass ``OccurrenceDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "OccurrenceDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1565,7 +1565,7 @@ class OccurrenceDefinition(Class, Definition):
 
 
 class ActionDefinition(Behavior, OccurrenceDefinition):
-    "SysML ``ActionDefinition``."
+    "Metaclass ``ActionDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ActionDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1578,7 +1578,7 @@ class ActionDefinition(Behavior, OccurrenceDefinition):
 
 
 class CalculationDefinition(ActionDefinition, Function):
-    "SysML ``CalculationDefinition``."
+    "Metaclass ``CalculationDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CalculationDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1591,7 +1591,7 @@ class CalculationDefinition(ActionDefinition, Function):
 
 
 class CaseDefinition(CalculationDefinition):
-    "SysML ``CaseDefinition``."
+    "Metaclass ``CaseDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CaseDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1612,7 +1612,7 @@ class CaseDefinition(CalculationDefinition):
 
 
 class AnalysisCaseDefinition(CaseDefinition):
-    "SysML ``AnalysisCaseDefinition``."
+    "Metaclass ``AnalysisCaseDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AnalysisCaseDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1625,7 +1625,7 @@ class AnalysisCaseDefinition(CaseDefinition):
 
 
 class FlowDefinition(ActionDefinition, Interaction):
-    "SysML ``FlowDefinition``."
+    "Metaclass ``FlowDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FlowDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1639,7 +1639,7 @@ class FlowDefinition(ActionDefinition, Interaction):
 
 
 class PayloadFeature(Feature):
-    "SysML ``PayloadFeature``."
+    "Metaclass ``PayloadFeature``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PayloadFeature"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1648,7 +1648,7 @@ class PayloadFeature(Feature):
 
 
 class Predicate(Function):
-    "SysML ``Predicate``."
+    "Metaclass ``Predicate``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Predicate"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1657,7 +1657,7 @@ class Predicate(Function):
 
 
 class ConstraintDefinition(OccurrenceDefinition, Predicate):
-    "SysML ``ConstraintDefinition``."
+    "Metaclass ``ConstraintDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConstraintDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1667,7 +1667,7 @@ class ConstraintDefinition(OccurrenceDefinition, Predicate):
 
 
 class RequirementDefinition(ConstraintDefinition):
-    "SysML ``RequirementDefinition``."
+    "Metaclass ``RequirementDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RequirementDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1707,7 +1707,7 @@ class RequirementDefinition(ConstraintDefinition):
 
 
 class ConcernDefinition(RequirementDefinition):
-    "SysML ``ConcernDefinition``."
+    "Metaclass ``ConcernDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConcernDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1716,7 +1716,7 @@ class ConcernDefinition(RequirementDefinition):
 
 
 class StateDefinition(ActionDefinition):
-    "SysML ``StateDefinition``."
+    "Metaclass ``StateDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "StateDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1744,7 +1744,7 @@ class StateDefinition(ActionDefinition):
 
 
 class Step(Feature):
-    "SysML ``Step``."
+    "Metaclass ``Step``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Step"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1759,7 +1759,7 @@ class Step(Feature):
 
 
 class Expression(Step):
-    "SysML ``Expression``."
+    "Metaclass ``Expression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Expression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1778,7 +1778,7 @@ class Expression(Step):
 
 
 class BooleanExpression(Expression):
-    "SysML ``BooleanExpression``."
+    "Metaclass ``BooleanExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "BooleanExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1790,7 +1790,7 @@ class BooleanExpression(Expression):
 
 
 class FeatureReferenceExpression(Expression):
-    "SysML ``FeatureReferenceExpression``."
+    "Metaclass ``FeatureReferenceExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureReferenceExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1802,7 +1802,7 @@ class FeatureReferenceExpression(Expression):
 
 
 class Flow(Connector, Step):
-    "SysML ``Flow``."
+    "Metaclass ``Flow``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Flow"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1835,7 +1835,7 @@ class Flow(Connector, Step):
 
 
 class InstantiationExpression(Expression):
-    "SysML ``InstantiationExpression`` (abstract)."
+    "Abstract metaclass ``InstantiationExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "InstantiationExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1851,7 +1851,7 @@ class InstantiationExpression(Expression):
 
 
 class ConstructorExpression(InstantiationExpression):
-    "SysML ``ConstructorExpression``."
+    "Metaclass ``ConstructorExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConstructorExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1860,7 +1860,7 @@ class ConstructorExpression(InstantiationExpression):
 
 
 class Invariant(BooleanExpression):
-    "SysML ``Invariant``."
+    "Metaclass ``Invariant``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Invariant"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1873,7 +1873,7 @@ class Invariant(BooleanExpression):
 
 
 class InvocationExpression(InstantiationExpression):
-    "SysML ``InvocationExpression``."
+    "Metaclass ``InvocationExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "InvocationExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1885,7 +1885,7 @@ class InvocationExpression(InstantiationExpression):
 
 
 class LiteralExpression(Expression):
-    "SysML ``LiteralExpression``."
+    "Metaclass ``LiteralExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1894,7 +1894,7 @@ class LiteralExpression(Expression):
 
 
 class LiteralBoolean(LiteralExpression):
-    "SysML ``LiteralBoolean``."
+    "Metaclass ``LiteralBoolean``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralBoolean"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1906,7 +1906,7 @@ class LiteralBoolean(LiteralExpression):
 
 
 class LiteralInfinity(LiteralExpression):
-    "SysML ``LiteralInfinity``."
+    "Metaclass ``LiteralInfinity``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralInfinity"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1915,7 +1915,7 @@ class LiteralInfinity(LiteralExpression):
 
 
 class LiteralInteger(LiteralExpression):
-    "SysML ``LiteralInteger``."
+    "Metaclass ``LiteralInteger``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralInteger"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1927,7 +1927,7 @@ class LiteralInteger(LiteralExpression):
 
 
 class LiteralRational(LiteralExpression):
-    "SysML ``LiteralRational``."
+    "Metaclass ``LiteralRational``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralRational"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1939,7 +1939,7 @@ class LiteralRational(LiteralExpression):
 
 
 class LiteralString(LiteralExpression):
-    "SysML ``LiteralString``."
+    "Metaclass ``LiteralString``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LiteralString"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1951,7 +1951,7 @@ class LiteralString(LiteralExpression):
 
 
 class MetadataAccessExpression(Expression):
-    "SysML ``MetadataAccessExpression``."
+    "Metaclass ``MetadataAccessExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MetadataAccessExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1964,7 +1964,7 @@ class MetadataAccessExpression(Expression):
 
 
 class NullExpression(Expression):
-    "SysML ``NullExpression``."
+    "Metaclass ``NullExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "NullExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1973,7 +1973,7 @@ class NullExpression(Expression):
 
 
 class OperatorExpression(InvocationExpression):
-    "SysML ``OperatorExpression``."
+    "Metaclass ``OperatorExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "OperatorExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1985,7 +1985,7 @@ class OperatorExpression(InvocationExpression):
 
 
 class CollectExpression(OperatorExpression):
-    "SysML ``CollectExpression``."
+    "Metaclass ``CollectExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CollectExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -1994,7 +1994,7 @@ class CollectExpression(OperatorExpression):
 
 
 class FeatureChainExpression(OperatorExpression):
-    "SysML ``FeatureChainExpression``."
+    "Metaclass ``FeatureChainExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FeatureChainExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2007,7 +2007,7 @@ class FeatureChainExpression(OperatorExpression):
 
 
 class IndexExpression(OperatorExpression):
-    "SysML ``IndexExpression``."
+    "Metaclass ``IndexExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "IndexExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2016,7 +2016,7 @@ class IndexExpression(OperatorExpression):
 
 
 class SelectExpression(OperatorExpression):
-    "SysML ``SelectExpression``."
+    "Metaclass ``SelectExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SelectExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2025,7 +2025,7 @@ class SelectExpression(OperatorExpression):
 
 
 class Structure(Class):
-    "SysML ``Structure``."
+    "Metaclass ``Structure``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Structure"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2034,7 +2034,7 @@ class Structure(Class):
 
 
 class AssociationStructure(Association, Structure):
-    "SysML ``AssociationStructure``."
+    "Metaclass ``AssociationStructure``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AssociationStructure"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2044,7 +2044,7 @@ class AssociationStructure(Association, Structure):
 
 
 class ItemDefinition(OccurrenceDefinition, Structure):
-    "SysML ``ItemDefinition``."
+    "Metaclass ``ItemDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ItemDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2054,7 +2054,7 @@ class ItemDefinition(OccurrenceDefinition, Structure):
 
 
 class Metaclass(Structure):
-    "SysML ``Metaclass``."
+    "Metaclass ``Metaclass``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Metaclass"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2063,7 +2063,7 @@ class Metaclass(Structure):
 
 
 class MetadataDefinition(ItemDefinition, Metaclass):
-    "SysML ``MetadataDefinition``."
+    "Metaclass ``MetadataDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MetadataDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2073,7 +2073,7 @@ class MetadataDefinition(ItemDefinition, Metaclass):
 
 
 class PartDefinition(ItemDefinition):
-    "SysML ``PartDefinition``."
+    "Metaclass ``PartDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PartDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2082,7 +2082,7 @@ class PartDefinition(ItemDefinition):
 
 
 class ConnectionDefinition(AssociationStructure, PartDefinition):
-    "SysML ``ConnectionDefinition``."
+    "Metaclass ``ConnectionDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConnectionDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2096,7 +2096,7 @@ class ConnectionDefinition(AssociationStructure, PartDefinition):
 
 
 class AllocationDefinition(ConnectionDefinition):
-    "SysML ``AllocationDefinition``."
+    "Metaclass ``AllocationDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AllocationDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2108,7 +2108,7 @@ class AllocationDefinition(ConnectionDefinition):
 
 
 class InterfaceDefinition(ConnectionDefinition):
-    "SysML ``InterfaceDefinition``."
+    "Metaclass ``InterfaceDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "InterfaceDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2121,7 +2121,7 @@ class InterfaceDefinition(ConnectionDefinition):
 
 
 class PortDefinition(OccurrenceDefinition, Structure):
-    "SysML ``PortDefinition``."
+    "Metaclass ``PortDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PortDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2135,7 +2135,7 @@ class PortDefinition(OccurrenceDefinition, Structure):
 
 
 class ConjugatedPortDefinition(PortDefinition):
-    "SysML ``ConjugatedPortDefinition``."
+    "Metaclass ``ConjugatedPortDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConjugatedPortDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2152,7 +2152,7 @@ class ConjugatedPortDefinition(PortDefinition):
 
 
 class RenderingDefinition(PartDefinition):
-    "SysML ``RenderingDefinition``."
+    "Metaclass ``RenderingDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RenderingDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2164,7 +2164,7 @@ class RenderingDefinition(PartDefinition):
 
 
 class Succession(Connector):
-    "SysML ``Succession``."
+    "Metaclass ``Succession``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Succession"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2173,7 +2173,7 @@ class Succession(Connector):
 
 
 class SuccessionFlow(Flow, Succession):
-    "SysML ``SuccessionFlow``."
+    "Metaclass ``SuccessionFlow``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SuccessionFlow"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2183,7 +2183,7 @@ class SuccessionFlow(Flow, Succession):
 
 
 class TriggerInvocationExpression(InvocationExpression):
-    "SysML ``TriggerInvocationExpression``."
+    "Metaclass ``TriggerInvocationExpression``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TriggerInvocationExpression"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2195,7 +2195,7 @@ class TriggerInvocationExpression(InvocationExpression):
 
 
 class TypeFeaturing(Relationship):
-    "SysML ``TypeFeaturing``."
+    "Metaclass ``TypeFeaturing``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TypeFeaturing"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2216,7 +2216,7 @@ class TypeFeaturing(Relationship):
 
 
 class Unioning(Relationship):
-    "SysML ``Unioning``."
+    "Metaclass ``Unioning``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Unioning"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2233,7 +2233,7 @@ class Unioning(Relationship):
 
 
 class Usage(Feature):
-    "SysML ``Usage``."
+    "Metaclass ``Usage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "Usage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2387,7 +2387,7 @@ class Usage(Feature):
 
 
 class AttributeUsage(Usage):
-    "SysML ``AttributeUsage``."
+    "Metaclass ``AttributeUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AttributeUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2400,7 +2400,7 @@ class AttributeUsage(Usage):
 
 
 class ConnectorAsUsage(Connector, Usage):
-    "SysML ``ConnectorAsUsage`` (abstract)."
+    "Abstract metaclass ``ConnectorAsUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConnectorAsUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2410,7 +2410,7 @@ class ConnectorAsUsage(Connector, Usage):
 
 
 class BindingConnectorAsUsage(BindingConnector, ConnectorAsUsage):
-    "SysML ``BindingConnectorAsUsage``."
+    "Metaclass ``BindingConnectorAsUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "BindingConnectorAsUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2420,7 +2420,7 @@ class BindingConnectorAsUsage(BindingConnector, ConnectorAsUsage):
 
 
 class EnumerationUsage(AttributeUsage):
-    "SysML ``EnumerationUsage``."
+    "Metaclass ``EnumerationUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "EnumerationUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2433,7 +2433,7 @@ class EnumerationUsage(AttributeUsage):
 
 
 class OccurrenceUsage(Usage):
-    "SysML ``OccurrenceUsage``."
+    "Metaclass ``OccurrenceUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "OccurrenceUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2458,7 +2458,7 @@ class OccurrenceUsage(Usage):
 
 
 class ActionUsage(OccurrenceUsage, Step):
-    "SysML ``ActionUsage``."
+    "Metaclass ``ActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2472,7 +2472,7 @@ class ActionUsage(OccurrenceUsage, Step):
 
 
 class AcceptActionUsage(ActionUsage):
-    "SysML ``AcceptActionUsage``."
+    "Metaclass ``AcceptActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AcceptActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2493,7 +2493,7 @@ class AcceptActionUsage(ActionUsage):
 
 
 class AssignmentActionUsage(ActionUsage):
-    "SysML ``AssignmentActionUsage``."
+    "Metaclass ``AssignmentActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AssignmentActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2513,7 +2513,7 @@ class AssignmentActionUsage(ActionUsage):
 
 
 class CalculationUsage(ActionUsage, Expression):
-    "SysML ``CalculationUsage``."
+    "Metaclass ``CalculationUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CalculationUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2527,7 +2527,7 @@ class CalculationUsage(ActionUsage, Expression):
 
 
 class CaseUsage(CalculationUsage):
-    "SysML ``CaseUsage``."
+    "Metaclass ``CaseUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "CaseUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2552,7 +2552,7 @@ class CaseUsage(CalculationUsage):
 
 
 class AnalysisCaseUsage(CaseUsage):
-    "SysML ``AnalysisCaseUsage``."
+    "Metaclass ``AnalysisCaseUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AnalysisCaseUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2569,7 +2569,7 @@ class AnalysisCaseUsage(CaseUsage):
 
 
 class ConstraintUsage(BooleanExpression, OccurrenceUsage):
-    "SysML ``ConstraintUsage``."
+    "Metaclass ``ConstraintUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConstraintUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2583,7 +2583,7 @@ class ConstraintUsage(BooleanExpression, OccurrenceUsage):
 
 
 class AssertConstraintUsage(ConstraintUsage, Invariant):
-    "SysML ``AssertConstraintUsage``."
+    "Metaclass ``AssertConstraintUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AssertConstraintUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2597,7 +2597,7 @@ class AssertConstraintUsage(ConstraintUsage, Invariant):
 
 
 class ControlNode(ActionUsage):
-    "SysML ``ControlNode`` (abstract)."
+    "Abstract metaclass ``ControlNode``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ControlNode"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2606,7 +2606,7 @@ class ControlNode(ActionUsage):
 
 
 class DecisionNode(ControlNode):
-    "SysML ``DecisionNode``."
+    "Metaclass ``DecisionNode``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "DecisionNode"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2615,7 +2615,7 @@ class DecisionNode(ControlNode):
 
 
 class EventOccurrenceUsage(OccurrenceUsage):
-    "SysML ``EventOccurrenceUsage``."
+    "Metaclass ``EventOccurrenceUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "EventOccurrenceUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2628,7 +2628,7 @@ class EventOccurrenceUsage(OccurrenceUsage):
 
 
 class FlowUsage(ActionUsage, ConnectorAsUsage, Flow):
-    "SysML ``FlowUsage``."
+    "Metaclass ``FlowUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "FlowUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2643,7 +2643,7 @@ class FlowUsage(ActionUsage, ConnectorAsUsage, Flow):
 
 
 class ForkNode(ControlNode):
-    "SysML ``ForkNode``."
+    "Metaclass ``ForkNode``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ForkNode"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2652,7 +2652,7 @@ class ForkNode(ControlNode):
 
 
 class IfActionUsage(ActionUsage):
-    "SysML ``IfActionUsage``."
+    "Metaclass ``IfActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "IfActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2673,7 +2673,7 @@ class IfActionUsage(ActionUsage):
 
 
 class ItemUsage(OccurrenceUsage):
-    "SysML ``ItemUsage``."
+    "Metaclass ``ItemUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ItemUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2686,7 +2686,7 @@ class ItemUsage(OccurrenceUsage):
 
 
 class JoinNode(ControlNode):
-    "SysML ``JoinNode``."
+    "Metaclass ``JoinNode``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "JoinNode"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2695,7 +2695,7 @@ class JoinNode(ControlNode):
 
 
 class LoopActionUsage(ActionUsage):
-    "SysML ``LoopActionUsage`` (abstract)."
+    "Abstract metaclass ``LoopActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "LoopActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2708,7 +2708,7 @@ class LoopActionUsage(ActionUsage):
 
 
 class ForLoopActionUsage(LoopActionUsage):
-    "SysML ``ForLoopActionUsage``."
+    "Metaclass ``ForLoopActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ForLoopActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2725,7 +2725,7 @@ class ForLoopActionUsage(LoopActionUsage):
 
 
 class MergeNode(ControlNode):
-    "SysML ``MergeNode``."
+    "Metaclass ``MergeNode``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MergeNode"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2734,7 +2734,7 @@ class MergeNode(ControlNode):
 
 
 class MetadataUsage(ItemUsage, MetadataFeature):
-    "SysML ``MetadataUsage``."
+    "Metaclass ``MetadataUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "MetadataUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2748,7 +2748,7 @@ class MetadataUsage(ItemUsage, MetadataFeature):
 
 
 class PartUsage(ItemUsage):
-    "SysML ``PartUsage``."
+    "Metaclass ``PartUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PartUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2761,7 +2761,7 @@ class PartUsage(ItemUsage):
 
 
 class ConnectionUsage(ConnectorAsUsage, PartUsage):
-    "SysML ``ConnectionUsage``."
+    "Metaclass ``ConnectionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConnectionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2775,7 +2775,7 @@ class ConnectionUsage(ConnectorAsUsage, PartUsage):
 
 
 class AllocationUsage(ConnectionUsage):
-    "SysML ``AllocationUsage``."
+    "Metaclass ``AllocationUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "AllocationUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2788,7 +2788,7 @@ class AllocationUsage(ConnectionUsage):
 
 
 class InterfaceUsage(ConnectionUsage):
-    "SysML ``InterfaceUsage``."
+    "Metaclass ``InterfaceUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "InterfaceUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2801,7 +2801,7 @@ class InterfaceUsage(ConnectionUsage):
 
 
 class PerformActionUsage(ActionUsage, EventOccurrenceUsage):
-    "SysML ``PerformActionUsage``."
+    "Metaclass ``PerformActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PerformActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2815,7 +2815,7 @@ class PerformActionUsage(ActionUsage, EventOccurrenceUsage):
 
 
 class PortUsage(OccurrenceUsage):
-    "SysML ``PortUsage``."
+    "Metaclass ``PortUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "PortUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2828,7 +2828,7 @@ class PortUsage(OccurrenceUsage):
 
 
 class ReferenceUsage(Usage):
-    "SysML ``ReferenceUsage``."
+    "Metaclass ``ReferenceUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ReferenceUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2837,7 +2837,7 @@ class ReferenceUsage(Usage):
 
 
 class RenderingUsage(PartUsage):
-    "SysML ``RenderingUsage``."
+    "Metaclass ``RenderingUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RenderingUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2850,7 +2850,7 @@ class RenderingUsage(PartUsage):
 
 
 class RequirementUsage(ConstraintUsage):
-    "SysML ``RequirementUsage``."
+    "Metaclass ``RequirementUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "RequirementUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2894,7 +2894,7 @@ class RequirementUsage(ConstraintUsage):
 
 
 class ConcernUsage(RequirementUsage):
-    "SysML ``ConcernUsage``."
+    "Metaclass ``ConcernUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ConcernUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2907,7 +2907,7 @@ class ConcernUsage(RequirementUsage):
 
 
 class SatisfyRequirementUsage(AssertConstraintUsage, RequirementUsage):
-    "SysML ``SatisfyRequirementUsage``."
+    "Metaclass ``SatisfyRequirementUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SatisfyRequirementUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2925,7 +2925,7 @@ class SatisfyRequirementUsage(AssertConstraintUsage, RequirementUsage):
 
 
 class SendActionUsage(ActionUsage):
-    "SysML ``SendActionUsage``."
+    "Metaclass ``SendActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SendActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2946,7 +2946,7 @@ class SendActionUsage(ActionUsage):
 
 
 class StateUsage(ActionUsage):
-    "SysML ``StateUsage``."
+    "Metaclass ``StateUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "StateUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2975,7 +2975,7 @@ class StateUsage(ActionUsage):
 
 
 class ExhibitStateUsage(PerformActionUsage, StateUsage):
-    "SysML ``ExhibitStateUsage``."
+    "Metaclass ``ExhibitStateUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ExhibitStateUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2989,7 +2989,7 @@ class ExhibitStateUsage(PerformActionUsage, StateUsage):
 
 
 class SuccessionAsUsage(ConnectorAsUsage, Succession):
-    "SysML ``SuccessionAsUsage``."
+    "Metaclass ``SuccessionAsUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SuccessionAsUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -2999,7 +2999,7 @@ class SuccessionAsUsage(ConnectorAsUsage, Succession):
 
 
 class SuccessionFlowUsage(FlowUsage, SuccessionFlow):
-    "SysML ``SuccessionFlowUsage``."
+    "Metaclass ``SuccessionFlowUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "SuccessionFlowUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3009,7 +3009,7 @@ class SuccessionFlowUsage(FlowUsage, SuccessionFlow):
 
 
 class TerminateActionUsage(ActionUsage):
-    "SysML ``TerminateActionUsage``."
+    "Metaclass ``TerminateActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TerminateActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3022,7 +3022,7 @@ class TerminateActionUsage(ActionUsage):
 
 
 class TransitionUsage(ActionUsage):
-    "SysML ``TransitionUsage``."
+    "Metaclass ``TransitionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "TransitionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3052,7 +3052,7 @@ class TransitionUsage(ActionUsage):
 
 
 class UseCaseDefinition(CaseDefinition):
-    "SysML ``UseCaseDefinition``."
+    "Metaclass ``UseCaseDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "UseCaseDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3065,7 +3065,7 @@ class UseCaseDefinition(CaseDefinition):
 
 
 class UseCaseUsage(CaseUsage):
-    "SysML ``UseCaseUsage``."
+    "Metaclass ``UseCaseUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "UseCaseUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3082,7 +3082,7 @@ class UseCaseUsage(CaseUsage):
 
 
 class IncludeUseCaseUsage(PerformActionUsage, UseCaseUsage):
-    "SysML ``IncludeUseCaseUsage``."
+    "Metaclass ``IncludeUseCaseUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "IncludeUseCaseUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3096,7 +3096,7 @@ class IncludeUseCaseUsage(PerformActionUsage, UseCaseUsage):
 
 
 class VariantMembership(OwningMembership):
-    "SysML ``VariantMembership``."
+    "Metaclass ``VariantMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "VariantMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3109,7 +3109,7 @@ class VariantMembership(OwningMembership):
 
 
 class VerificationCaseDefinition(CaseDefinition):
-    "SysML ``VerificationCaseDefinition``."
+    "Metaclass ``VerificationCaseDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "VerificationCaseDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3122,7 +3122,7 @@ class VerificationCaseDefinition(CaseDefinition):
 
 
 class VerificationCaseUsage(CaseUsage):
-    "SysML ``VerificationCaseUsage``."
+    "Metaclass ``VerificationCaseUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "VerificationCaseUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3139,7 +3139,7 @@ class VerificationCaseUsage(CaseUsage):
 
 
 class ViewDefinition(PartDefinition):
-    "SysML ``ViewDefinition``."
+    "Metaclass ``ViewDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ViewDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3163,7 +3163,7 @@ class ViewDefinition(PartDefinition):
 
 
 class ViewRenderingMembership(FeatureMembership):
-    "SysML ``ViewRenderingMembership``."
+    "Metaclass ``ViewRenderingMembership``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ViewRenderingMembership"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3180,7 +3180,7 @@ class ViewRenderingMembership(FeatureMembership):
 
 
 class ViewUsage(PartUsage):
-    "SysML ``ViewUsage``."
+    "Metaclass ``ViewUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ViewUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3209,7 +3209,7 @@ class ViewUsage(PartUsage):
 
 
 class ViewpointDefinition(RequirementDefinition):
-    "SysML ``ViewpointDefinition``."
+    "Metaclass ``ViewpointDefinition``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ViewpointDefinition"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3222,7 +3222,7 @@ class ViewpointDefinition(RequirementDefinition):
 
 
 class ViewpointUsage(RequirementUsage):
-    "SysML ``ViewpointUsage``."
+    "Metaclass ``ViewpointUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "ViewpointUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({
@@ -3239,7 +3239,7 @@ class ViewpointUsage(RequirementUsage):
 
 
 class WhileLoopActionUsage(LoopActionUsage):
-    "SysML ``WhileLoopActionUsage``."
+    "Metaclass ``WhileLoopActionUsage``."
     __slots__ = ()
     METACLASS: ClassVar[str] = "WhileLoopActionUsage"
     JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({

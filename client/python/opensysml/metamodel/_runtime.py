@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from inspect import getattr_static
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Mapping, TypeVar, cast, overload
 
 from opensysml.errors import OpenSysMLError
@@ -73,7 +75,7 @@ class _ElementBase:
     __slots__ = ("_graph", "_id", "_data", "_type")
 
     METACLASS: ClassVar[str] = "Element"
-    JSON_KEYS: ClassVar[Mapping[str, str]] = {}
+    JSON_KEYS: ClassVar[Mapping[str, str]] = MappingProxyType({})
 
     def __init__(self, graph: ElementGraph, data: Mapping[str, Any]) -> None:
         self._graph = graph
@@ -101,8 +103,9 @@ class _ElementBase:
         try:
             return self._data[key]
         except KeyError:
-            descriptor = _descriptor_for_key(type(self), key)
-            derived = descriptor.derived if descriptor is not None else False
+            name = type(self).JSON_KEYS.get(key)
+            descriptor = getattr_static(type(self), name, None) if name is not None else None
+            derived = descriptor.derived if isinstance(descriptor, _Property) else False
             raise NotSupplied(
                 f"{self.metaclass_name}.{key}", key, self.json_id, derived
             ) from None
@@ -167,7 +170,12 @@ class _Property(Generic[T]):
     ) -> Any:
         if instance is None:
             return self
-        raw = instance.json_value(self.key)
+        try:
+            raw = instance.json_value(self.key)
+        except NotSupplied:
+            raise NotSupplied(
+                self._property(instance), self.key, instance.json_id, self.derived
+            ) from None
         if self.many:
             if raw is None:
                 return ()
@@ -210,8 +218,7 @@ class _Property(Generic[T]):
                 raise UnresolvedReference(
                     element_id, None, self._property(instance), instance.json_id
                 ) from None
-        self._malformed(instance, f"expected a reference object, got {value!r}")
-        raise AssertionError("unreachable")
+        raise self._malformed(instance, f"expected a reference object, got {value!r}")
 
     def _primitive(self, value: Any, instance: _ElementBase) -> T:
         if self.range == "bool":
@@ -297,17 +304,3 @@ class Many(_Property[T], Generic[T]):
         self, instance: _ElementBase | None, owner: type[Any] | None = None
     ) -> Many[T] | tuple[T, ...]:
         return cast(Many[T] | tuple[T, ...], super().__get__(instance, owner))
-
-
-def _descriptor_for_key(
-    metaclass: type[_ElementBase], key: str
-) -> _Property[Any] | None:
-    for cls in metaclass.__mro__:
-        for value in cast(dict[str, Any], vars(cls)).values():
-            if isinstance(value, _Property) and value.key == key:
-                return _as_property(value)
-    return None
-
-
-def _as_property(value: Any) -> _Property[Any]:
-    return cast(_Property[Any], value)

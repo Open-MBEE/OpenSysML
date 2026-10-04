@@ -128,9 +128,9 @@ SOURCE_COMMIT = %q
 		} else {
 			fmt.Fprintf(&b, "class %s(%s):\n", class.Name, strings.Join(class.Parents, ", "))
 		}
-		doc := "SysML ``" + class.Name + "``."
+		doc := "Metaclass ``" + class.Name + "``."
 		if class.Abstract {
-			doc = "SysML ``" + class.Name + "`` (abstract)."
+			doc = "Abstract metaclass ``" + class.Name + "``."
 		}
 		fmt.Fprintf(&b, "    %q\n    __slots__ = ()\n", doc)
 		fmt.Fprintf(&b, "    METACLASS: ClassVar[str] = %q\n", class.Name)

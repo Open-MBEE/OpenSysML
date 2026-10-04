@@ -149,11 +149,14 @@ These exceptions share `MetamodelError`, a subclass of `opensysml.errors.OpenSys
 | `MalformedDocument` | The input is not an element object/array, or has missing/duplicate IDs or types. |
 | `UnknownJSONKey` | A JSON key is not declared for the selected metaclass. |
 
-The OpenSysML `api-json` export carries owned properties and a few derived ones, such as
-`ownedFeature`, `owner`, and `qualifiedName`. An export may omit derived properties such as
-`feature`, `inheritedFeature`, and `definition`; a local service can also include a `type`
-relationship for an explicitly typed usage. Accessing an omitted property raises `NotSupplied`
-with `derived=True`. Toolkit `full-json` exports include those derived values.
+OpenSysML's `api-json` export carries the owned properties it writes plus some derived ones
+(`ownedFeature`, `owner`, `qualifiedName`, `ownedMember`, ...). It carries no `feature`,
+`inheritedFeature` or `definition`, and `type` only on some usages, so those reads raise
+`NotSupplied` with `derived=True` until the engine serves derived properties. The export also
+writes no `null` and no `[]`: an unset owned property, such as an unnamed element's
+`declaredName`, is absent and raises `NotSupplied` too. sysml-toolkit `full-json` carries derived
+properties as well. A reference to an element the document does not include, such as a
+standard-library element, raises `UnresolvedReference` when read.
 Providing engine-computed derived properties, implementing metamodel operations, and loading JSON
 into the OpenSysML engine are separate follow-up work.
 

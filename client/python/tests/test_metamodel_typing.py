@@ -10,6 +10,7 @@ import pytest
 
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TYPECHECK_SOURCE = Path(__file__).parent / "typecheck" / "metamodel_usage.py"
+TYPECHECK_DIR = TYPECHECK_SOURCE.parent
 
 
 def test_metamodel_types_with_mypy_and_pyright():
@@ -36,6 +37,8 @@ def test_metamodel_types_with_mypy_and_pyright():
             "-m",
             "mypy",
             "--strict",
+            "--config-file",
+            str(TYPECHECK_DIR / "mypy.ini"),
             str(TYPECHECK_SOURCE),
             str(package),
         ],
@@ -46,7 +49,7 @@ def test_metamodel_types_with_mypy_and_pyright():
     assert mypy.returncode == 0, mypy.stdout + mypy.stderr
 
     pyright = subprocess.run(
-        ["pyright", str(TYPECHECK_SOURCE), str(package)],
+        ["pyright", "-p", str(TYPECHECK_DIR)],
         cwd=PYTHON_ROOT,
         text=True,
         capture_output=True,
