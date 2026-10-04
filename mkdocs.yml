@@ -54,6 +54,7 @@ theme:
 
 extra_css:
   - stylesheets/footer.css
+  - stylesheets/header.css
   - stylesheets/ecosystem.css
 
 extra:
