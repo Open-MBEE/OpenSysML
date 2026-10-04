@@ -506,12 +506,22 @@ function mount(root: HTMLElement): Mounted {
     const visibleRight = Math.min(heroRect.right, window.innerWidth);
     const visibleBottom = Math.min(heroRect.bottom, window.innerHeight);
     const pad = 12;
-    const area = {
-      x: visibleLeft - heroRect.left + pad,
-      y: visibleTop - heroRect.top + pad,
-      width: Math.max(0, visibleRight - visibleLeft - 2 * pad),
-      height: Math.max(0, visibleBottom - visibleTop - 2 * pad),
-    };
+    const visibleWidth = visibleRight - visibleLeft;
+    const visibleHeight = visibleBottom - visibleTop;
+    const area =
+      visibleWidth > 2 * pad && visibleHeight > 2 * pad
+        ? {
+            x: visibleLeft - heroRect.left + pad,
+            y: visibleTop - heroRect.top + pad,
+            width: visibleWidth - 2 * pad,
+            height: visibleHeight - 2 * pad,
+          }
+        : {
+            x: pad,
+            y: pad,
+            width: Math.max(0, heroRect.width - 2 * pad),
+            height: Math.max(0, heroRect.height - 2 * pad),
+          };
     const at = shape.getBoundingClientRect();
     const box = new DOMRect(at.left - heroRect.left, at.top - heroRect.top, at.width, at.height);
     const gap = 14;
@@ -555,11 +565,12 @@ function mount(root: HTMLElement): Mounted {
       return { ...candidate, x, y, shift, rect: new DOMRect(x, y, width, height) };
     });
     const uncovered = placements.filter((placement) => overlap(placement.rect, box) === 0);
-    const choices = uncovered.length > 0 ? uncovered : placements.filter(({ side }) => side === "below");
+    const choices = uncovered.length > 0 ? uncovered : placements;
     let best: { x: number; y: number; cost: number } | undefined;
     for (const candidate of choices) {
-      // Avoid other boxes and large moves after first preferring spots that leave this one uncovered.
+      // Keep clear candidates when available; otherwise the selected box weighs four times as much.
       const cost =
+        overlap(candidate.rect, box) * 4 +
         others.reduce((sum, other) => sum + overlap(candidate.rect, other), 0) +
         candidate.shift;
       if (!best || cost < best.cost) {
