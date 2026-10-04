@@ -14,11 +14,21 @@ import {
   type RenderResult,
 } from "../protocol";
 import type { AutoLayout } from "./autolayout";
-import { GAP, PORT_SIZE, snap, type Box } from "./geometry";
+import {
+  GAP,
+  portBox,
+  portCenter,
+  portFace,
+  PORT_SIZE,
+  snap,
+  type Box,
+  type PortPosition,
+  type Side,
+} from "./geometry";
 import { avoidRoutes, type AvoidShape } from "./avoid";
 
-export { GAP, PORT_SIZE, snap } from "./geometry";
-export type { Box } from "./geometry";
+export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
+export type { Box, PortPosition, Side } from "./geometry";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape = "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
@@ -58,12 +68,8 @@ export interface PlacedEdge {
   rerouted: boolean;
 }
 
-export type Side = "north" | "east" | "south" | "west";
-
-export interface PlacedPort {
+export interface PlacedPort extends PortPosition {
   port: RenderPort;
-  side: Side;
-  offset: number;
 }
 
 export interface PortLabelPlacement {
@@ -391,41 +397,6 @@ export function labelLines(node: RenderNode): string[] {
 /** glyphSize uses the same average-glyph metrics as a node label, without box padding. */
 export function glyphSize(text: string): { width: number; height: number } {
   return { width: Math.ceil([...text].length * GLYPH_WIDTH), height: LINE_HEIGHT };
-}
-
-/** portCenter puts a port on the border of its current box. */
-export function portCenter(box: Box, port: Pick<PlacedPort, "side" | "offset">): RenderPoint {
-  if (port.side === "north" || port.side === "south") {
-    return {
-      x: box.x + box.width * port.offset,
-      y: port.side === "north" ? box.y : box.y + box.height,
-    };
-  }
-  return {
-    x: port.side === "west" ? box.x : box.x + box.width,
-    y: box.y + box.height * port.offset,
-  };
-}
-
-/** portFace moves the edge endpoint half a port square outward from its border. */
-export function portFace(box: Box, port: Pick<PlacedPort, "side" | "offset">): RenderPoint {
-  const center = portCenter(box, port);
-  switch (port.side) {
-    case "north":
-      return { x: center.x, y: center.y - PORT_SIZE / 2 };
-    case "east":
-      return { x: center.x + PORT_SIZE / 2, y: center.y };
-    case "south":
-      return { x: center.x, y: center.y + PORT_SIZE / 2 };
-    case "west":
-      return { x: center.x - PORT_SIZE / 2, y: center.y };
-  }
-}
-
-/** portBox centers the visible square on its node's border. */
-export function portBox(box: Box, port: Pick<PlacedPort, "side" | "offset">): Box {
-  const center = portCenter(box, port);
-  return { x: center.x - PORT_SIZE / 2, y: center.y - PORT_SIZE / 2, width: PORT_SIZE, height: PORT_SIZE };
 }
 
 /** portLabelPlacement puts a port name outside its box and clear of its edge path. */

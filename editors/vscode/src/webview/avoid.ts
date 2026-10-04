@@ -2,9 +2,8 @@
 // route it finds is the panel's own, never written to the model by drawing it.
 import { AvoidLib } from "libavoid-js";
 
-import { GAP, PORT_SIZE, snap, type Box } from "./geometry";
+import { GAP, portFace, PORT_SIZE, snap, type Box, type PortPosition } from "./geometry";
 import type { RenderPoint } from "../protocol";
-import type { Side } from "./layout";
 
 export const CLEARANCE = GAP / 2;
 export const EXCLUSIVE_PIN_LIMIT = 12;
@@ -44,10 +43,8 @@ export interface AvoidEdge {
   toPort?: string;
 }
 
-export interface AvoidPort {
+export interface AvoidPort extends PortPosition {
   id: string;
-  side: Side;
-  offset: number;
 }
 
 export interface AvoidShape {
@@ -65,17 +62,23 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
   if (!avoid) {
     return undefined;
   }
-  const api = avoid;
-  const router = new api.Router(api.OrthogonalRouting);
-  try {
-    router.setRoutingParameter(api.shapeBufferDistance, CLEARANCE);
+    const api = avoid;
+    const router = new api.Router(api.OrthogonalRouting);
+    try {
     router.setRoutingParameter(api.idealNudgingDistance, 8);
     router.setRoutingParameter(api.segmentPenalty, 50);
-    router.setRoutingOption(api.nudgeOrthogonalSegmentsConnectedToShapes, true);
     router.setRoutingOption(api.nudgeSharedPathsWithCommonEndPoint, true);
     router.setRoutingOption(api.performUnifyingNudgingPreprocessingStep, true);
 
     const usable = edges.filter((edge) => shapes.has(edge.from) && shapes.has(edge.to));
+    const hasPortEnds = usable.some((edge) =>
+      shapes.get(edge.from)?.ports?.some((port) => port.id === edge.fromPort) ||
+      shapes.get(edge.to)?.ports?.some((port) => port.id === edge.toPort),
+    );
+    // Port faces project half a glyph beyond the node border.
+    router.setRoutingParameter(api.shapeBufferDistance, CLEARANCE - (hasPortEnds ? PORT_SIZE / 2 : 0));
+    // Shape-connected nudging moves crowded port endpoints away from their faces.
+    router.setRoutingOption(api.nudgeOrthogonalSegmentsConnectedToShapes, !hasPortEnds);
     const counts = new Map([...shapes.keys()].map((id) => [id, 0]));
     for (const edge of usable) {
       counts.set(edge.from, counts.get(edge.from)! + 1);
@@ -118,12 +121,14 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
         const point = displayRoute.get_ps(i);
         points.push({ x: point.x, y: point.y });
       }
-      const route = cleanRoute(points);
+      const source = refs.get(edge.from)!;
+      const target = refs.get(edge.to)!;
+      const hasPort =
+        (edge.fromPort !== undefined && source.ports.has(edge.fromPort)) ||
+        (edge.toPort !== undefined && target.ports.has(edge.toPort));
+      const route = cleanRoute(points, hasPort);
       if (route) {
-        routes.set(
-          index,
-          routeWithPortFaces(route, shapes.get(edge.from), edge.fromPort, shapes.get(edge.to), edge.toPort),
-        );
+        routes.set(index, route);
       }
     }
     return routes;
@@ -167,120 +172,53 @@ function addShape(
     pin.setExclusive(exclusive);
   }
   const ports = new Map<string, number>();
-  const directions = api.ConnDirUp | api.ConnDirDown | api.ConnDirLeft | api.ConnDirRight;
   (shapeData.ports ?? []).forEach((port) => {
     const classId = allocatePortClass();
+    const face = portFace(box, port);
     let x: number;
     let y: number;
+    let direction: number;
     switch (port.side) {
       case "north":
-        x = port.offset;
+        x = (face.x - box.x) / box.width;
         y = 0;
+        direction = api.ConnDirUp;
         break;
       case "east":
         x = 1;
-        y = port.offset;
+        y = (face.y - box.y) / box.height;
+        direction = api.ConnDirRight;
         break;
       case "south":
-        x = port.offset;
+        x = (face.x - box.x) / box.width;
         y = 1;
+        direction = api.ConnDirDown;
         break;
       case "west":
         x = 0;
-        y = port.offset;
+        y = (face.y - box.y) / box.height;
+        direction = api.ConnDirLeft;
         break;
     }
-    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, 0, directions);
+    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, -PORT_SIZE / 2, direction);
     pin.setExclusive(false);
     ports.set(port.id, classId);
   });
   return { shape, ports };
 }
 
-function routeWithPortFaces(
-  route: RenderPoint[],
-  sourceShape: AvoidShape | undefined,
-  sourcePortId: string | undefined,
-  targetShape: AvoidShape | undefined,
-  targetPortId: string | undefined,
-): RenderPoint[] {
-  if (route.length < 2) {
-    return route;
-  }
-  let routed = route;
-  const sourcePort = sourceShape?.ports?.find((port) => port.id === sourcePortId);
-  if (sourceShape && sourcePort) {
-    const face = portFacePoint(sourceShape.box, sourcePort);
-    const reference = routed[1];
-    const lead = portLead(face, sourcePort.side, reference);
-    routed = [face, lead, ...bridgeFromPort(lead, reference, sourcePort.side), ...routed.slice(1)];
-  }
-  const targetPort = targetShape?.ports?.find((port) => port.id === targetPortId);
-  if (targetShape && targetPort) {
-    const face = portFacePoint(targetShape.box, targetPort);
-    const reference = routed.at(-2)!;
-    const lead = portLead(face, targetPort.side, reference);
-    routed = [...routed.slice(0, -1), ...bridgeToPort(reference, lead, targetPort.side), lead, face];
-  }
-  return routed;
-}
-
-function portFacePoint(box: Box, port: AvoidPort): RenderPoint {
-  switch (port.side) {
-    case "north":
-      return { x: box.x + box.width * port.offset, y: box.y - PORT_SIZE / 2 };
-    case "east":
-      return { x: box.x + box.width + PORT_SIZE / 2, y: box.y + box.height * port.offset };
-    case "south":
-      return { x: box.x + box.width * port.offset, y: box.y + box.height + PORT_SIZE / 2 };
-    case "west":
-      return { x: box.x - PORT_SIZE / 2, y: box.y + box.height * port.offset };
-  }
-}
-
-function portLead(face: RenderPoint, side: Side, reference: RenderPoint): RenderPoint {
-  switch (side) {
-    case "north":
-      return { x: face.x, y: Math.min(reference.y, face.y - 1) };
-    case "east":
-      return { x: Math.max(reference.x, face.x + 1), y: face.y };
-    case "south":
-      return { x: face.x, y: Math.max(reference.y, face.y + 1) };
-    case "west":
-      return { x: Math.min(reference.x, face.x - 1), y: face.y };
-  }
-}
-
-function bridgeFromPort(lead: RenderPoint, reference: RenderPoint, side: Side): RenderPoint[] {
-  const bend = side === "north" || side === "south"
-    ? { x: reference.x, y: lead.y }
-    : { x: lead.x, y: reference.y };
-  return samePoint(bend, lead) || samePoint(bend, reference) ? [] : [bend];
-}
-
-function bridgeToPort(reference: RenderPoint, lead: RenderPoint, side: Side): RenderPoint[] {
-  const bend = side === "north" || side === "south"
-    ? { x: lead.x, y: reference.y }
-    : { x: reference.x, y: lead.y };
-  return samePoint(bend, reference) || samePoint(bend, lead) ? [] : [bend];
-}
-
-function samePoint(left: RenderPoint, right: RenderPoint): boolean {
-  return left.x === right.x && left.y === right.y;
-}
-
-// cleanRoute snaps to whole pixels, then drops doubled points and mid-segment bends.
-function cleanRoute(points: RenderPoint[]): RenderPoint[] | undefined {
-  const snapped: RenderPoint[] = [];
+// cleanRoute keeps port-face coordinates exact and drops doubled points and mid-segment bends.
+function cleanRoute(points: RenderPoint[], preservePortFaces = false): RenderPoint[] | undefined {
+  const normalized: RenderPoint[] = [];
   for (const point of points) {
-    const next = { x: snap(point.x), y: snap(point.y) };
-    const last = snapped.at(-1);
+    const next = preservePortFaces ? { x: point.x, y: point.y } : { x: snap(point.x), y: snap(point.y) };
+    const last = normalized.at(-1);
     if (!last || last.x !== next.x || last.y !== next.y) {
-      snapped.push(next);
+      normalized.push(next);
     }
   }
   const clean: RenderPoint[] = [];
-  for (const point of snapped) {
+  for (const point of normalized) {
     while (clean.length >= 2 && collinear(clean.at(-2)!, clean.at(-1)!, point)) {
       clean.pop();
     }

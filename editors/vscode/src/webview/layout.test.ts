@@ -860,6 +860,58 @@ test("layoutCanvas places edge ports on the sides facing the opposite endpoint",
   assert.equal(square.height, PORT_SIZE);
 });
 
+test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(rendering(
+    [
+      node("sender", "sender", {
+        x: 0,
+        y: 200,
+        width: 100,
+        height: 60,
+        ports: [{ id: "sender.out1", name: "out1" }],
+      }),
+      node("receiver", "receiver", {
+        x: 320,
+        y: 0,
+        width: 100,
+        height: 60,
+        ports: [{ id: "receiver.in1", name: "in1" }],
+      }),
+    ],
+    [{
+      from: "sender",
+      to: "receiver",
+      fromPort: "sender.out1",
+      toPort: "receiver.in1",
+      label: "wire",
+      kind: "connection",
+      fqn: "M::sender_receiver",
+    }],
+  ));
+  const receiver = layout.nodes.get("receiver")!;
+  const edge = layout.edges[0];
+  const face = portFace(receiver.box, receiver.ports[0]);
+  assert.equal(receiver.ports[0].side, "west");
+  assert.deepEqual(edge.points.at(-1), face);
+  const beforeFace = edge.points.at(-2)!;
+  assert.equal(beforeFace.y, face.y);
+  assert.ok(beforeFace.x < face.x, `receiver port is not approached from the left: ${JSON.stringify(edge.points)}`);
+  for (let i = 1; i < edge.points.length; i++) {
+    for (const [borderStart, borderEnd] of [
+      [{ x: receiver.box.x, y: receiver.box.y }, { x: receiver.box.x + receiver.box.width, y: receiver.box.y }],
+      [{ x: receiver.box.x + receiver.box.width, y: receiver.box.y }, { x: receiver.box.x + receiver.box.width, y: receiver.box.y + receiver.box.height }],
+      [{ x: receiver.box.x + receiver.box.width, y: receiver.box.y + receiver.box.height }, { x: receiver.box.x, y: receiver.box.y + receiver.box.height }],
+      [{ x: receiver.box.x, y: receiver.box.y + receiver.box.height }, { x: receiver.box.x, y: receiver.box.y }],
+    ] as const) {
+      assert.ok(
+        overlapLength(edge.points[i - 1], edge.points[i], borderStart, borderEnd) <= 1,
+        `route runs along receiver border: ${JSON.stringify(edge.points)}`,
+      );
+    }
+  }
+});
+
 test("layoutCanvas spreads defaulted ports on a side in their source order", () => {
   const ports = ["first", "second", "third"].map((id) => ({ id, name: id }));
   const layout = layoutCanvas(rendering(

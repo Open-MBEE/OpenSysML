@@ -3,9 +3,8 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidPort, type AvoidShape } from "./avoid";
-import type { Box } from "./geometry";
+import { portFace, type Box, type Side } from "./geometry";
 import type { RenderPoint } from "../protocol";
-import { portFace, type Side } from "./layout";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 const SCENE_SEED = 0x6d2b79f5;
@@ -127,6 +126,36 @@ function overlapLength(a0: RenderPoint, a1: RenderPoint, b0: RenderPoint, b1: Re
     return Math.max(0, Math.min(Math.max(a0.y, a1.y), Math.max(b0.y, b1.y)) - Math.max(Math.min(a0.y, a1.y), Math.min(b0.y, b1.y)));
   }
   return 0;
+}
+
+function boxBorders(box: Box): Array<[RenderPoint, RenderPoint]> {
+  return [
+    [{ x: box.x, y: box.y }, { x: box.x + box.width, y: box.y }],
+    [{ x: box.x + box.width, y: box.y }, { x: box.x + box.width, y: box.y + box.height }],
+    [{ x: box.x + box.width, y: box.y + box.height }, { x: box.x, y: box.y + box.height }],
+    [{ x: box.x, y: box.y + box.height }, { x: box.x, y: box.y }],
+  ];
+}
+
+function assertPortApproach(outside: RenderPoint, face: RenderPoint, port: AvoidPort, context: string): void {
+  switch (port.side) {
+    case "north":
+      assert.equal(outside.x, face.x, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.y < face.y, `route does not approach north port from outside: ${context}`);
+      break;
+    case "east":
+      assert.equal(outside.y, face.y, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.x > face.x, `route does not approach east port from outside: ${context}`);
+      break;
+    case "south":
+      assert.equal(outside.x, face.x, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.y > face.y, `route does not approach south port from outside: ${context}`);
+      break;
+    case "west":
+      assert.equal(outside.y, face.y, `port approach is not perpendicular: ${context}`);
+      assert.ok(outside.x < face.x, `route does not approach west port from outside: ${context}`);
+      break;
+  }
 }
 
 function routeScene(boxes: Box[], pairs: Pair[]): Array<RenderPoint[] | undefined> {
@@ -252,7 +281,7 @@ test("avoidRoutes sends same-side edges to their distinct port faces", async () 
     const before = route.at(-2)!;
     const face = route.at(-1)!;
     assert.equal(before.y, face.y);
-    assert.notEqual(before.x, face.x);
+    assert.ok(before.x < face.x);
   }
 });
 
@@ -302,16 +331,24 @@ test("avoidRoutes keeps randomized port endpoints on their faces with perpendicu
       const context: string = JSON.stringify({ sample, index, source, target, sourcePort, targetPort, sourceBox: boxes[source], targetBox: boxes[target], route });
       assert.deepEqual(route[0], startFace, `wrong source face: ${context}`);
       assert.deepEqual(route.at(-1), endFace, `wrong target face: ${context}`);
-      const first: RenderPoint = route[1];
-      const last: RenderPoint = route.at(-2)!;
-      assert.equal(sourcePort.side === "north" || sourcePort.side === "south" ? first.x : first.y,
-        sourcePort.side === "north" || sourcePort.side === "south" ? startFace.x : startFace.y);
-      assert.equal(targetPort.side === "north" || targetPort.side === "south" ? last.x : last.y,
-        targetPort.side === "north" || targetPort.side === "south" ? endFace.x : endFace.y);
+      assertPortApproach(route[1], startFace, sourcePort, `source of edge ${index} in scene ${sample}: ${context}`);
+      assertPortApproach(route.at(-2)!, endFace, targetPort, `target of edge ${index} in scene ${sample}: ${context}`);
       for (let point = 1; point < route.length; point++) {
         const before = route[point - 1];
         const after = route[point];
         assert.ok(before.x === after.x || before.y === after.y, `diagonal segment in scene ${sample}`);
+        for (const box of boxes) {
+          assert.ok(
+            !crossesInterior(before, after, box),
+            `route crosses box interior in scene ${sample}: ${JSON.stringify({ index, before, after, box, context })}`,
+          );
+          for (const [borderStart, borderEnd] of boxBorders(box)) {
+            assert.ok(
+              overlapLength(before, after, borderStart, borderEnd) <= 1,
+              `route runs along a box border in scene ${sample}: ${JSON.stringify({ index, before, after, box, context })}`,
+            );
+          }
+        }
       }
     }
     sample++;
