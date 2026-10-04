@@ -21,6 +21,7 @@ func TestRequirementConditionForms(t *testing.T) {
 		{"usage body require", "package P { requirement r { attribute a = 1.0; attribute b = 2.0; require constraint { a <= b } } }"},
 		{"def body require reference", "package P { constraint def C; requirement def R { require P::C; } }"},
 		{"usage body require reference", "package P { constraint def C; requirement r { require P::C; } }"},
+		{"subject redefines with trailing multiplicity", "package P { requirement def R { subject s : T; } requirement def R2 :> R { subject :>> s [0..*]; } }"},
 		{"def body assume", "package P { requirement def R { attribute a = 1.0; assume constraint { a <= 2.0 } require constraint { a <= 3.0 } } }"},
 		{"def body assume constraint", "package P { requirement def R { attribute a = 1.0; assume constraint { a <= 2.0 } } }"},
 		{"concern def body require", "package P { concern def C { attribute a = 1.0; require constraint { a <= 2.0 } } }"},

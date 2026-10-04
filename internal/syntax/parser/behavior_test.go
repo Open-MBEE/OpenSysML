@@ -52,6 +52,24 @@ func TestParseAction_Simple(t *testing.T) {
 	}
 }
 
+func TestParseAction_DirectedEnumerationParameter(t *testing.T) {
+	nodes := parseActionTest(t, `{ in enum e : E; }`)
+	if len(nodes) != 1 {
+		t.Fatalf("expected one parameter, got %d", len(nodes))
+	}
+	member, ok := nodes[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("parameter = %T, want *ast.Membership", nodes[0])
+	}
+	usage, ok := member.Member.(*ast.Usage)
+	if !ok {
+		t.Fatalf("parameter member = %T, want *ast.Usage", member.Member)
+	}
+	if usage.Kind != ast.UsageEnumeration || usage.Direction != ast.DirIn || usage.Ident.Name != "e" {
+		t.Errorf("parameter = {kind %v, direction %v, name %q}, want enum input e", usage.Kind, usage.Direction, usage.Ident.Name)
+	}
+}
+
 func TestParseAction_ForkJoin(t *testing.T) {
 	input := `{
 		fork split;

@@ -371,6 +371,7 @@ var parameterKindKeywords = map[string]ast.UsageKind{
 	"port":       ast.UsagePort,
 	"part":       ast.UsagePart,
 	"attribute":  ast.UsageAttribute,
+	"enum":       ast.UsageEnumeration,
 	"occurrence": ast.UsageOccurrence,
 	"action":     ast.UsageAction,
 	"calc":       ast.UsageCalc,
@@ -2192,8 +2193,8 @@ func (p *Parser) parseKeywordedRequirementMember(start int) ast.Node {
 	return p.parseRequireMember(start, prefixes)
 }
 
-// parseSubjectMember parses a subject parameter: `subject [name] [: Type] [mult]
-// [specializations] [value] (; | body)`; the keyword and its prefix metadata are consumed.
+// parseSubjectMember parses a subject usage with optional typing, multiplicity,
+// specializations, value and body; the keyword and prefix metadata are consumed.
 func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) ast.Node {
 	// A bare `subject;` declares the subject parameter without naming or typing
 	// it, as the OMG viewpoint examples write it.
@@ -2223,6 +2224,9 @@ func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) a
 
 	// A subject may redefine the one it inherits: subject subj : View[1] :>> RequirementCheck::subj;
 	rels := p.parseRelationships(declFeature)
+	if mult == nil && p.at(lexer.LBracket) {
+		mult = p.parseMultiplicity()
+	}
 
 	// Value part: `= expr`, `:= expr` or `default [=] expr`.
 	valueOp, hasValue := p.acceptValueOperator()
