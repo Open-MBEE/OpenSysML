@@ -511,7 +511,8 @@ function avoidable(
 
 // rerouteAroundBoxes replaces the drawn-straight avoidable edges with routes around
 // the boxes: the held layout's kept where its ends have not moved during a gesture,
-// else one libavoid pass over every drawn box. The route is the panel's, never the model's.
+// else libavoid passes grouped by the containers each edge's ends lie inside. The
+// route is the panel's, never the model's.
 function rerouteAroundBoxes(
   edges: PlacedEdge[],
   placed: Map<string, PlacedNode>,
@@ -544,16 +545,18 @@ function rerouteAroundBoxes(
   if (indices.length === 0) {
     return;
   }
-  // Every drawn leaf is an obstacle, and so is a container an edge ends on.
-  const shapes = new Map<string, Box>();
+  // Every drawn leaf and populated container is an obstacle — except, per edge,
+  // the containers its ends lie inside, which it must cross to leave. Edges
+  // sharing their exempt containers route in one pass; passes see different
+  // obstacles, so two edges in different passes are not nudged apart.
+  const leaves = new Map<string, Box>();
+  const containers = new Map<string, Box>();
   const visit = (entry: PlacedNode): void => {
     if (entry.hidden) {
       return;
     }
     const shown = entry.children.filter((child) => !child.hidden);
-    if (shown.length === 0) {
-      shapes.set(entry.node.id, entry.box);
-    }
+    (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
     for (const child of shown) {
       visit(child);
     }
@@ -561,25 +564,58 @@ function rerouteAroundBoxes(
   for (const root of roots) {
     visit(root);
   }
+  const groups = new Map<string, number[]>();
   for (const index of indices) {
     const edge = edges[index].edge;
-    shapes.set(edge.from, placed.get(edge.from)!.box);
-    shapes.set(edge.to, placed.get(edge.to)!.box);
+    const exempt = new Set<string>();
+    for (const end of [edge.from, edge.to]) {
+      for (let entry = placed.get(end)?.parent; entry; entry = entry.parent) {
+        exempt.add(entry.node.id);
+      }
+    }
+    const key = [...exempt].sort().join(" ");
+    const group = groups.get(key) ?? [];
+    group.push(index);
+    groups.set(key, group);
   }
-  const routes = avoidRoutes(
-    shapes,
-    indices.map((index) => ({ index, from: edges[index].edge.from, to: edges[index].edge.to })),
-  );
-  if (!routes) {
-    return;
-  }
-  for (const index of indices) {
-    const points = routes.get(index);
-    if (!points) {
+  for (const [key, group] of groups) {
+    const exempt = new Set(key === "" ? [] : key.split(" "));
+    // A node inside a blocked container needs no shape of its own — the container
+    // covers it — and a shape inside another shape is no obstacle to libavoid at all.
+    const covered = (entry: PlacedNode): boolean => {
+      for (let parent = entry.parent; parent; parent = parent.parent) {
+        if (containers.has(parent.node.id) && !exempt.has(parent.node.id)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const shapes = new Map<string, Box>();
+    for (const [id, box] of [...leaves, ...containers]) {
+      if (!covered(placed.get(id)!) && (!containers.has(id) || !exempt.has(id))) {
+        shapes.set(id, box);
+      }
+    }
+    for (const index of group) {
+      const edge = edges[index].edge;
+      shapes.set(edge.from, placed.get(edge.from)!.box);
+      shapes.set(edge.to, placed.get(edge.to)!.box);
+    }
+    const routes = avoidRoutes(
+      shapes,
+      group.map((index) => ({ index, from: edges[index].edge.from, to: edges[index].edge.to })),
+    );
+    if (!routes) {
       continue;
     }
-    const edge = edges[index];
-    edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+    for (const index of group) {
+      const points = routes.get(index);
+      if (!points) {
+        continue;
+      }
+      const edge = edges[index];
+      edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+    }
   }
 }
 

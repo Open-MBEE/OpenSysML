@@ -485,8 +485,9 @@ between two of its nodes moves whole, waypoints and label included, as the `setR
 a release writes will move it; one crossing the subtree's border keeps its waypoints,
 which stay the model's, and is re-anchored on its lifted end (`liftedEdges` in
 `src/webview/layout.ts`). An edge the panel routed around the boxes (libavoid,
-in `src/webview/avoid.ts`) is drawn straight across the subtree's border until the
-release lays the canvas out and routes it again. The node under the pointer — the innermost,
+in `src/webview/avoid.ts`, out of every container except the ones its ends lie
+inside) is drawn straight across the subtree's border until the release lays the
+canvas out and routes it again. The node under the pointer — the innermost,
 latest-drawn box of that layout holding the point, with the dragged subtree passed
 over (`nodeUnder` in `src/webview/layout.ts`) — is judged by the same `moveDestinations` filter the
 **Move to…** menu is built from (`src/edits.ts`: the body admits the node's
