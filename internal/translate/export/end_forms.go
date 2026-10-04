@@ -1028,14 +1028,14 @@ func (d *decoder) flowEndSegments(end rdf.Term, in *element) ([]rdf.Term, error)
 	refuse := func(note string) ([]rdf.Term, error) {
 		return nil, &UnsupportedError{What: fmt.Sprintf("the flow end <%s> of <%s>", end.Value, in.iri), Note: note}
 	}
+	if d.graph.HasProperty(end, rdf.SysML+pDeclaredName) ||
+		d.graph.HasProperty(end, rdf.SysML+pDeclaredShortName) ||
+		len(d.graph.Objects(end, rdf.SysML+pOwnedAnnotation)) > 0 {
+		return refuse("it declares a name or annotations that the `from`/`to` form cannot carry")
+	}
 	toolkitFeatures := d.toolkitFlowFeatures(end)
 	toolkitShape := len(toolkitFeatures) > 0
 	if toolkitShape {
-		if d.graph.HasProperty(end, rdf.SysML+pDeclaredName) ||
-			d.graph.HasProperty(end, rdf.SysML+pDeclaredShortName) ||
-			len(d.graph.Objects(end, rdf.SysML+pOwnedAnnotation)) > 0 {
-			return refuse("it declares a name or annotations that the `from`/`to` form cannot carry")
-		}
 		if len(toolkitFeatures) != 1 {
 			return refuse(fmt.Sprintf("it owns %d toolkit FlowFeatures, and a flow end writes exactly one reference chain", len(toolkitFeatures)))
 		}
