@@ -221,27 +221,8 @@ The [client index](../clients.md) links to the Go overview and walkthrough. The
 
 The [Python client guide](../clients/python/index.md) is split by task, from models and diagnostics through
 verification, editing, queries and service setup. See also the [Python API reference](../reference/python-api.md).
-
-### Metamodel JSON reader
-
-For an existing JSON export, the metamodel reader builds the same typed element hierarchy
-without connecting to a service:
-
-```python
-from opensysml import read_json
-from opensysml.metamodel import NotSupplied, PartUsage
-
-graph = read_json("vehicle.json")
-for part in graph.all(PartUsage):
-    try:
-        print(part.declared_name)
-    except NotSupplied:
-        print("declaredName is absent from this export")
-```
-
-This is distinct from `opensysml.generate`, which creates classes for definitions in a user's
-model. See the [metamodel classes and JSON reader reference](../reference/python-api.md#metamodel-classes-and-the-json-reader)
-for naming, input formats, and missing-property errors.
+[Metamodel classes and JSON](../clients/python/metamodel.md) reads a JSON export into generated
+SysML metamodel classes without a service.
 
 ## From Node or a browser
 
