@@ -770,6 +770,9 @@ func TestWasmRuns(t *testing.T) {
 
 			// sysml-core's half: validation RPCs with symbol facts, stdio and JS host.
 			coreSubtests(t, target, r, bins)
+
+			// sysml-wasm combines the validation and execution JSON surfaces.
+			combinedSubtests(t, target, r, bins)
 		})
 	}
 }
