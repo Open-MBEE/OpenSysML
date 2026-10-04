@@ -1,0 +1,63 @@
+# Full-form API JSON import uses the element-form path shared with toolkit full JSON; movements must be adjudicated.
+accept	error full import *export.UnsupportedError the references the graph links
+action_nodes	error full import *export.UnsupportedError the reference <IRI>
+anonymous_assertions	error full import *export.UnsupportedError the element <IRI>
+anonymous_events	pass
+anonymous_portions	error full import *export.UnsupportedError the references the graph links
+body_scopes	structural argument,bodyParameter,declaredName,direction,elementId,featureWithValue,hasBody,memberElement,memberIndex,membershipOwningNamespace,operand,ownedFeature,ownedFeatureMembership,ownedMemberElement,ownedMemberFeature,ownedMemberParameter,ownedMembership,ownedRelatedElement,ownedRelationship,ownedResultExpression,owner,owningMembership,owningRelatedElement,owningRelationship,parameter,referent,result,resultExpression,type,value,visibility
+bounds	structural isComposite,isReference
+chain_and_bare_comment	pass
+chain_scopes	structural memberElement,targetFeature
+condition_references	error full import *export.UnsupportedError the element <IRI>
+conjugation	pass
+constraints	error full import *export.UnsupportedError the element <IRI>
+deps	pass
+docs	pass
+docs_before_members	pass
+end_binding_bodies	error full import *export.UnsupportedError the reference <IRI>
+end_prefix_metadata	error full import *export.UnsupportedError the connector end <IRI> of <IRI>
+endpoint_scopes	error full import *export.UnsupportedError the membership <IRI>
+enums	pass
+expression_body_members	error full import *export.UnsupportedError the element <IRI>
+expression_body_order	error full import *export.UnsupportedError the element <IRI>
+feature_chains	error full import *export.UnsupportedError the reference <IRI>
+feature_chains_repeated	error full import *export.UnsupportedError the connector end <IRI> of <IRI>
+feature_chains_unresolved	error full import *export.UnsupportedError the reference <IRI>
+imported_references	error full import *export.UnsupportedError the membership <IRI>
+imports	pass
+individual_definitions	structural featuringType
+irregular_layout	error full import *export.UnsupportedError the membership <IRI>
+kerml	pass
+kind_keyword_synonyms	error full import *export.UnsupportedError the reference <IRI>
+loop_scopes	error full import *export.UnsupportedError the reference to <name> from <name>
+loops_conditionals	error full import *export.UnsupportedError the reference to <name> from <name>
+metadata_bodies	error full import *export.UnsupportedError the references the graph links
+metadata_prefixes	error full import *export.UnsupportedError the prefix annotation <IRI>
+modifiers	structural visibility
+multiplicity_decl	pass
+names	pass
+nested	pass
+nested_namespace_import	structural visibility
+parts	pass
+payload_declaration_bodies	error full import *export.UnsupportedError the reference <IRI>
+qualified_usages	error full import *export.UnsupportedError the references the graph links
+quoted_names	error full import *export.UnsupportedError the element <IRI>
+quoted_succession_ends	error full import *export.UnsupportedError the subject <IRI>
+ref_subsets	structural isReference
+relations	pass
+relationship_clause_order	structural featuringType
+requirements	pass
+result_expressions	error full import *export.UnsupportedError the element <IRI>
+send_new	pass
+shadowed_references	error full import *export.UnsupportedError the connector end <IRI> of <IRI>
+shadowing_body	structural argument,bodyParameter,declaredName,direction,elementId,featureWithValue,hasBody,input,memberElement,memberIndex,membershipOwningNamespace,operand,operator,ownedFeature,ownedFeatureMembership,ownedMemberElement,ownedMemberFeature,ownedMemberParameter,ownedMembership,ownedRelatedElement,ownedRelationship,ownedResultExpression,owner,owningMembership,owningRelatedElement,owningRelationship,parameter,referent,result,resultExpression,type,value
+shadowing_parameters	error full import *export.UnsupportedError the reference <IRI>
+state_machine	error full import *export.UnsupportedError the subject <IRI>
+then_after_members	error full import *export.UnsupportedError the membership <IRI>
+values	pass
+views_flows_parameters	error full import *export.UnsupportedError the reference <IRI>
+anonymous_features	error full import *export.UnsupportedError the reference to <name> from <name>
+composite_multiplicity	structural isComposite
+connector_ends	error full import *export.UnsupportedError the reference <IRI>
+feature_prefixes	structural featuringType
+invariant_references	error full import *export.UnsupportedError the element <IRI>
