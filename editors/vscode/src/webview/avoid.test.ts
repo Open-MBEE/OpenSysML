@@ -383,6 +383,41 @@ test("avoidRoutes keeps three shared-port lanes inside the bounds after clamping
   }
 });
 
+test("avoidRoutes bounds an orthogonal port route that otherwise escapes below an obstacle", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 260 };
+  const source = { x: 50, y: 190, width: 80, height: 40 };
+  const target = { x: 370, y: 190, width: 80, height: 40 };
+  const obstacle = { x: 210, y: 80, width: 80, height: 172 };
+  const sourcePort: AvoidPort = { id: "source.out", side: "east", offset: 0.5 };
+  const targetPort: AvoidPort = { id: "target.in", side: "west", offset: 0.5 };
+  const shapes = new Map<string, AvoidShape>([
+    ["source", { box: source, ports: [sourcePort] }],
+    ["target", { box: target, ports: [targetPort] }],
+    ["obstacle", { box: obstacle }],
+  ]);
+  const edges = [{ index: 0, from: "source", to: "target", fromPort: sourcePort.id, toPort: targetPort.id }];
+  const unbounded = avoidRoutes(shapes, edges);
+  assert.ok(unbounded);
+  const unboundedRoute = unbounded.get(0);
+  assert.ok(unboundedRoute);
+  assert.ok(
+    unboundedRoute.some(({ x, y }) => x < bounds.x || y < bounds.y || x > bounds.x + bounds.width || y > bounds.y + bounds.height),
+    `expected an unbounded route to escape: ${JSON.stringify(unboundedRoute)}`,
+  );
+
+  const bounded = avoidRoutes(shapes, edges, bounds);
+  assert.ok(bounded);
+  const route = bounded.get(0);
+  assert.ok(route && route.length >= 2);
+  assert.deepEqual(route[0], portFace(source, sourcePort));
+  assert.deepEqual(route.at(-1), portFace(target, targetPort));
+  assert.ok(route.every(({ x, y }) => x >= bounds.x && y >= bounds.y && x <= bounds.x + bounds.width && y <= bounds.y + bounds.height));
+  for (let index = 1; index < route.length; index++) {
+    assert.ok(route[index - 1].x === route[index].x || route[index - 1].y === route[index].y);
+  }
+});
+
 test("avoidRoutes keeps the generic pin on the node box when another side has a port", async () => {
   await loadAvoid(WASM);
   const source = { x: 0, y: 0, width: 100, height: 60 };

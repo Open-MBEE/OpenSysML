@@ -131,8 +131,8 @@ function mount(root: HTMLElement): Mounted {
   let live = false;
   let goodSource: string | undefined;
   let auto: AutoLayout | undefined;
-  let layout = layoutCanvas(result);
   let view = { x: 0, y: 0, scale: 1 };
+  let layout = layoutCanvas(result, { bounds: bounds() });
   let generation = 0;
   let laidOut = false;
   // Where the visitor has put a box, by part name, so a placement survives an edit.
@@ -165,12 +165,12 @@ function mount(root: HTMLElement): Mounted {
         nodes.set(id, { x: at.x, y: at.y });
       }
     }
-    return { nodes };
+    return { nodes, bounds: bounds() };
   }
 
   // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE.
   function fit(): void {
-    const home = layoutCanvas(result, {}, auto);
+    const home = layoutCanvas(result, { bounds: bounds() }, auto);
     const heroRect = hero.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const scale = Math.min(MAX_SCALE, stageRect.width / home.width);

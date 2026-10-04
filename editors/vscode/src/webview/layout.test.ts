@@ -27,6 +27,7 @@ import {
   removedWaypoint,
   shapeOf,
   steerable,
+  type Box,
 } from "./layout";
 import { CLEARANCE, loadAvoid } from "./avoid";
 
@@ -938,6 +939,49 @@ test("clampNodeToBounds reserves a different exit reach for each port", () => {
   assert.ok(movedExtent.x + movedExtent.width <= bounds.x + bounds.width);
   assert.equal(portFace(moved.box, west).x - 40, bounds.x);
   assert.ok(portFace(moved.box, east).x + 60 <= bounds.x + bounds.width);
+});
+
+test("layoutCanvas passes bounds through to libavoid's route constraints", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 260 };
+  const result = rendering(
+    [
+      node("source", "source", {
+        x: 50,
+        y: 190,
+        width: 80,
+        height: 40,
+        ports: [{ id: "source.out", name: "out" }],
+      }),
+      node("target", "target", {
+        x: 370,
+        y: 190,
+        width: 80,
+        height: 40,
+        ports: [{ id: "target.in", name: "in" }],
+      }),
+      node("obstacle", "obstacle", { x: 210, y: 80, width: 80, height: 172 }),
+    ],
+    [{ from: "source", to: "target", fromPort: "source.out", toPort: "target.in", label: "", kind: "connection", fqn: "M::edge" }],
+  );
+  const unbounded = layoutCanvas(result);
+  assert.ok(unbounded.edges[0].points.some(
+    ({ x, y }) => x < bounds.x || y < bounds.y || x > bounds.x + bounds.width || y > bounds.y + bounds.height,
+  ));
+
+  const bounded = layoutCanvas(result, { bounds });
+  const route = bounded.edges[0].points;
+  const source = bounded.nodes.get("source")!;
+  const target = bounded.nodes.get("target")!;
+  assert.equal(bounded.edges[0].rerouted, true);
+  assert.deepEqual(route[0], portFace(source.box, source.ports[0]));
+  assert.deepEqual(route.at(-1), portFace(target.box, target.ports[0]));
+  assert.ok(route.every(
+    ({ x, y }) => x >= bounds.x && y >= bounds.y && x <= bounds.x + bounds.width && y <= bounds.y + bounds.height,
+  ));
+  for (let index = 1; index < route.length; index++) {
+    assert.ok(route[index - 1].x === route[index].x || route[index - 1].y === route[index].y);
+  }
 });
 
 test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {

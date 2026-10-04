@@ -63,12 +63,18 @@ interface ShapePins {
 }
 
 /** The route libavoid finds for each edge, by edge index; undefined when the router is not loaded or the pass fails. */
-export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[]): Map<number, RenderPoint[]> | undefined {
+export function avoidRoutes(
+  shapes: Map<string, AvoidShape>,
+  edges: AvoidEdge[],
+  /** Routes stay inside bounds. */
+  bounds?: Box,
+): Map<number, RenderPoint[]> | undefined {
   if (!avoid) {
     return undefined;
   }
   const api = avoid;
   const router = new api.Router(api.OrthogonalRouting);
+  const frameRefs: ShapeRef[] = [];
   try {
     router.setRoutingParameter(api.idealNudgingDistance, NUDGING);
     router.setRoutingParameter(api.segmentPenalty, 50);
@@ -95,6 +101,9 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
         id,
         addShape(api, router, shape, (counts.get(id) ?? 0) <= EXCLUSIVE_PIN_LIMIT, () => nextPortClass++),
       );
+    }
+    if (bounds) {
+      frameRefs.push(...addBoundsFrames(api, router, bounds));
     }
 
     const connectors: Array<{ index: number; connector: ConnRef; edge: AvoidEdge }> = [];
@@ -152,6 +161,52 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
   } finally {
     api.destroy(router);
   }
+}
+
+function addBoundsFrames(
+  api: Avoid,
+  router: InstanceType<Avoid["Router"]>,
+  bounds: Box,
+): ShapeRef[] {
+  const thickness = Math.max(bounds.width, bounds.height, CLEARANCE);
+  const horizontalWidth = bounds.width + 2 * thickness;
+  const verticalHeight = bounds.height + 2 * thickness;
+  const frames: Box[] = [
+    {
+      x: bounds.x - thickness,
+      y: bounds.y - CLEARANCE - thickness,
+      width: horizontalWidth,
+      height: thickness,
+    },
+    {
+      x: bounds.x - thickness,
+      y: bounds.y + bounds.height + CLEARANCE,
+      width: horizontalWidth,
+      height: thickness,
+    },
+    {
+      x: bounds.x - CLEARANCE - thickness,
+      y: bounds.y - thickness,
+      width: thickness,
+      height: verticalHeight,
+    },
+    {
+      x: bounds.x + bounds.width + CLEARANCE,
+      y: bounds.y - thickness,
+      width: thickness,
+      height: verticalHeight,
+    },
+  ];
+  return frames.map((box) => {
+    const center = new api.Point(box.x + box.width / 2, box.y + box.height / 2);
+    const rectangle = new api.Rectangle(center, box.width, box.height);
+    try {
+      return new api.ShapeRef(router, rectangle);
+    } finally {
+      api.destroy(rectangle);
+      api.destroy(center);
+    }
+  });
 }
 
 // addShape is a box as a routing obstacle, with twelve proportional pins spread

@@ -100,6 +100,8 @@ export interface Overrides {
   nodes?: Map<string, LayoutGeometry>;
   /** By edge index; an entry of no points shows the edge straight. */
   routes?: Map<number, RenderPoint[] | undefined>;
+  /** Rerouted edges stay inside this box. */
+  bounds?: Box;
   /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
   held?: CanvasLayout;
 }
@@ -835,6 +837,7 @@ function rerouteAroundBoxes(
         fromPort: edges[index].edge.fromPort,
         toPort: edges[index].edge.toPort,
       })),
+      overrides.bounds,
     );
     if (!routes) {
       continue;
