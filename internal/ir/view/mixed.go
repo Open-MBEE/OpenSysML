@@ -67,7 +67,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		node := w.packageNode(sym, exposed)
 		w.remember(sym, node)
 		w.append(node, parent)
-		for _, member := range w.r.containedMembers(sym) {
+		for _, member := range w.traversedMembers(sym) {
 			w.render(member, false, node)
 		}
 		return
@@ -81,12 +81,11 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		for _, member := range w.r.containedMembers(sym) {
 			if semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) || semantics.IsObjectiveUsage(member) {
 				w.seen[member] = true
-				continue
-			}
-			if isReferencedIncludedCase(member) {
+			} else if isReferencedIncludedCase(member) {
 				w.seen[member] = true
-				continue
 			}
+		}
+		for _, member := range w.traversedMembers(sym) {
 			w.render(member, false, parent)
 		}
 		return
@@ -114,9 +113,29 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	node := w.r.treeNodeShallow(w.view, sym, w.ids, map[*symbols.Symbol]bool{}, 0, exposed, w.out)
 	w.remember(sym, node)
 	w.append(node, parent)
-	for _, member := range w.r.containedMembers(sym) {
+	for _, member := range w.traversedMembers(sym) {
 		w.render(member, false, node)
 	}
+}
+
+// traversedMembers lists the members mixedWalk.render visits under sym.
+func (w *mixedWalk) traversedMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || stateLike(sym) || sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage {
+		return nil
+	}
+	members := w.r.containedMembers(sym)
+	if !caseFamily(sym) {
+		return members
+	}
+	traversed := make([]*symbols.Symbol, 0, len(members))
+	for _, member := range members {
+		if semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) ||
+			semantics.IsObjectiveUsage(member) || isReferencedIncludedCase(member) {
+			continue
+		}
+		traversed = append(traversed, member)
+	}
+	return traversed
 }
 
 // packageNode creates the shared package cluster for a mixed view.
@@ -204,7 +223,7 @@ func (w *mixedWalk) discoverDeferredStructureMembers() {
 				discover(member)
 			}
 		default:
-			for _, member := range w.r.containedMembers(sym) {
+			for _, member := range w.traversedMembers(sym) {
 				discover(member)
 			}
 		}

@@ -692,6 +692,32 @@ func TestMixedConnectsStructuresAcrossDeferredMembers(t *testing.T) {
 	assertRenderingEdgeEndpoints(t, rendering)
 }
 
+func TestMixedDoesNotDiscoverConnectorsInsideBehavior(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-behavior-connector.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "BehaviorConnector::connectorView"))
+	if err != nil {
+		t.Fatalf("Render(connectorView): %v", err)
+	}
+	a := symbolOrigin(lookup(t, index, "BehaviorConnector::Vehicle::inspect::a"))
+	b := symbolOrigin(lookup(t, index, "BehaviorConnector::Vehicle::inspect::b"))
+	var visit func([]*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Origin == a || node.Origin == b {
+				t.Errorf("behavior-contained part %q was rendered as a mixed structural node", node.Name)
+			}
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeConnection {
+			t.Errorf("mixed rendering emitted a connection edge from action-contained parts: %+v", edge)
+		}
+	}
+	assertRenderingEdgeEndpoints(t, rendering)
+}
+
 func findNodeByOrigin(t *testing.T, roots []*Node, origin symbols.Origin) *Node {
 	t.Helper()
 	var found *Node
