@@ -461,10 +461,10 @@ satisfies; `%render` draws it.
 ```
 view RobotViews::overview
   exposes
-    Robot::fielded (partUsage)
-    Robot::heavyMockup (partUsage)
+    Robot::fielded (part)
+    Robot::heavyMockup (part)
   nested views
-    RobotViews::overview::interfaceSubview (viewUsage)
+    RobotViews::overview::interfaceSubview (view)
   viewpoint conformance
     satisfy operationsPerspective: violated
       concern mass: violated

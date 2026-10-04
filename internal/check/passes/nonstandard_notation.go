@@ -99,6 +99,9 @@ type notationWalker struct {
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
+	// inViewBody records that the body being walked is a view definition's or
+	// view usage's, neither of which admits a FramedConcernMember.
+	inViewBody bool
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
@@ -180,6 +183,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			}
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
+			w.framedConcern(n)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
@@ -238,13 +242,14 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	action, viewDef := w.inActionBody, w.inViewDefBody
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
+	w.inViewBody = w.inViewDefBody || isViewUsage(declaration)
 	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody = action, viewDef
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
@@ -261,15 +266,20 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef := w.inActionBody, w.inViewDefBody
-	w.inActionBody, w.inViewDefBody = true, false
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
+	w.inActionBody, w.inViewDefBody, w.inViewBody = true, false, false
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody = action, viewDef
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
 }
 
 func isViewDefinition(node ast.Node) bool {
 	def, ok := node.(*ast.Definition)
 	return ok && def.Kind == ast.DefView
+}
+
+func isViewUsage(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageView
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -392,6 +402,18 @@ func (w *notationWalker) expose(n *ast.Import) {
 	}
 	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
 		"only a view usage body admits Expose; a view def body states what it renders and filters")
+}
+
+// framedConcern reports a `frame` in a view body: FramedConcernMember is a
+// requirement, concern and viewpoint body member (SysML.xtext RequirementBody,
+// SysML v2 §8.3.20, §8.3.26), and a view is held to the concerns the viewpoints
+// it satisfies frame without restating them.
+func (w *notationWalker) framedConcern(n *ast.Usage) {
+	if !w.inViewBody || n.Kind != ast.UsageFramedConcern {
+		return
+	}
+	w.extension(w.declarationKeywordSpan(n, "frame"), "`frame` in a view body",
+		"only a requirement, concern or viewpoint body frames a concern; a view is checked against the concerns the viewpoints it satisfies frame")
 }
 
 // transition reports a `transition` in an action body: only `succession … if …`

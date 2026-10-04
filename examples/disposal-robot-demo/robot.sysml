@@ -588,6 +588,5 @@ package RobotViews {
         view interfaceSubview :> interfaces;
 
         satisfy operationsPerspective;
-        frame concern mass : MassBudget;
     }
 }

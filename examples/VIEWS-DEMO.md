@@ -19,10 +19,10 @@ interchange form.
 ```
 view LanderViews::overview
   exposes
-    Lander::descender (partUsage)
-    Lander::heavyDescender (partUsage)
+    Lander::descender (part)
+    Lander::heavyDescender (part)
   nested views
-    LanderViews::overview::interfaceSubview (viewUsage)
+    LanderViews::overview::interfaceSubview (view)
   viewpoint conformance
     satisfy massPerspective: violated
       concern mass: violated

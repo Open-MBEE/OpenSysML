@@ -26,8 +26,8 @@ type Verdict int
 const (
 	// VerdictConforms is a question answered in the affirmative.
 	VerdictConforms Verdict = iota
-	// VerdictViolated is a question answered in the negative: a concern the view
-	// does not frame, or a condition that evaluated to false.
+	// VerdictViolated is a question answered in the negative: a condition that
+	// evaluated to false of an exposed element.
 	VerdictViolated
 	// VerdictUnevaluable is a question no answer could be reached for.
 	VerdictUnevaluable
@@ -78,10 +78,6 @@ type ConcernConformance struct {
 	Target  *symbols.Symbol
 	// Name is how the framed concern is written, for reporting.
 	Name string
-	// FramedBy is the view's framing of the same concern and FramedIn the view
-	// declaring it. Both are nil when the view does not frame the concern.
-	FramedBy *symbols.Symbol
-	FramedIn *symbols.Symbol
 	// Checks are the per-element verdicts, in exposed-element order.
 	Checks  []ConcernCheck
 	Verdict Verdict
@@ -124,9 +120,11 @@ type ViewConformance struct {
 }
 
 // ViewConformance evaluates whether view conforms to the viewpoints its body
-// satisfies: every concern a viewpoint frames must be framed by the view and
-// must hold of what the view exposes. A nil evaluator answers the structural
-// question alone; a non-view is ErrNotAView, a view satisfying nothing no error.
+// satisfies: every concern a viewpoint frames must hold of what the view
+// exposes. The view restates no framing — FramedConcernMember is a requirement,
+// concern and viewpoint body member, never a view body one (SysML v2 §8.3.20,
+// §8.3.26). A nil evaluator answers the structural question alone; a non-view
+// is ErrNotAView, a view satisfying nothing no error.
 func (m *Model) ViewConformance(view *symbols.Symbol, eval ConcernEvaluator) (*ViewConformance, error) {
 	if view == nil || !IsView(view) {
 		return nil, ErrNotAView
@@ -136,9 +134,8 @@ func (m *Model) ViewConformance(view *symbols.Symbol, eval ConcernEvaluator) (*V
 		return nil, err
 	}
 	out := &ViewConformance{View: view, Exposed: exposed, Verdict: VerdictConforms}
-	framings := m.viewFramings(view)
 	for _, sat := range m.SatisfyMembersOf(view) {
-		out.Viewpoints = append(out.Viewpoints, m.viewpointConformance(view, sat, framings, exposed, eval))
+		out.Viewpoints = append(out.Viewpoints, m.viewpointConformance(view, sat, exposed, eval))
 	}
 	for _, vp := range out.Viewpoints {
 		out.Verdict = worse(out.Verdict, vp.Verdict)
@@ -169,8 +166,8 @@ func (m *Model) SatisfyMembersOf(view *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// FramedConcernsOf returns the `frame` concern usages a viewpoint or view
-// declares followed by those it inherits, in declaration order and once each.
+// FramedConcernsOf returns the `frame` concern usages a viewpoint declares
+// followed by those it inherits, in declaration order and once each.
 func (m *Model) FramedConcernsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
@@ -261,61 +258,8 @@ func (m *Model) declaredConcernTarget(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// viewFraming is one framing a view makes, and the view that declared it.
-type viewFraming struct {
-	frame  *symbols.Symbol
-	target *symbols.Symbol
-	in     *symbols.Symbol
-}
-
-// viewFramings collects a view's own framings, then its supertypes', then those
-// of the views nested in it — a nested view frames for its container, since the
-// tree as a whole is what the container's conformance addresses (tool-defined).
-func (m *Model) viewFramings(view *symbols.Symbol) []viewFraming {
-	var out []viewFraming
-	seen := map[*symbols.Symbol]bool{}
-	var walk func(sym *symbols.Symbol, depth int)
-	walk = func(sym *symbols.Symbol, depth int) {
-		if sym == nil || seen[sym] || depth > 32 {
-			return
-		}
-		seen[sym] = true
-		out = append(out, m.framingsDeclaredBy(sym)...)
-		nested, err := m.NestedViews(sym)
-		if err != nil {
-			return
-		}
-		for _, child := range nested {
-			walk(child, depth+1)
-		}
-	}
-	walk(view, 0)
-	return out
-}
-
-// framingsDeclaredBy returns the framings of a view and of the views it
-// specializes, each attributed to the view that declares it.
-func (m *Model) framingsDeclaredBy(view *symbols.Symbol) []viewFraming {
-	var out []viewFraming
-	seen := map[*symbols.Symbol]bool{}
-	add := func(owner *symbols.Symbol) {
-		for _, fc := range usageMembersOfKind(owner, ast.UsageFramedConcern) {
-			if seen[fc] {
-				continue
-			}
-			seen[fc] = true
-			out = append(out, viewFraming{frame: fc, target: m.FramedConcernTarget(fc), in: owner})
-		}
-	}
-	add(view)
-	for _, super := range m.AllSupertypes(view) {
-		add(super)
-	}
-	return out
-}
-
 // viewpointConformance evaluates one satisfy member of a view.
-func (m *Model) viewpointConformance(view, sat *symbols.Symbol, framings []viewFraming, exposed []*symbols.Symbol, eval ConcernEvaluator) ViewpointConformance {
+func (m *Model) viewpointConformance(view, sat *symbols.Symbol, exposed []*symbols.Symbol, eval ConcernEvaluator) ViewpointConformance {
 	out := ViewpointConformance{Satisfy: sat, SatisfiedIn: sat.Owner()}
 	target, ref := m.SatisfyTarget(sat)
 	out.Ref = ref
@@ -334,7 +278,7 @@ func (m *Model) viewpointConformance(view, sat *symbols.Symbol, framings []viewF
 	out.Parties = append(out.Parties, m.partyBindings(view)...)
 	out.Verdict = VerdictConforms
 	for _, fc := range m.FramedConcernsOf(target) {
-		out.Concerns = append(out.Concerns, m.concernConformance(fc, framings, exposed, eval))
+		out.Concerns = append(out.Concerns, m.concernConformance(fc, exposed, eval))
 	}
 	// A viewpoint framing no concern asks nothing of the view, so conforming to
 	// it would be a verdict reached by checking nothing.
@@ -354,25 +298,13 @@ func (m *Model) viewpointConformance(view, sat *symbols.Symbol, framings []viewF
 	return out
 }
 
-// concernConformance answers whether the view frames one concern of the
-// viewpoint and, when an evaluator is supplied, whether it holds of what the
-// view exposes.
-func (m *Model) concernConformance(fc *symbols.Symbol, framings []viewFraming, exposed []*symbols.Symbol, eval ConcernEvaluator) ConcernConformance {
+// concernConformance answers whether one concern the viewpoint frames resolves
+// and, when an evaluator is supplied, whether it holds of what the view exposes.
+func (m *Model) concernConformance(fc *symbols.Symbol, exposed []*symbols.Symbol, eval ConcernEvaluator) ConcernConformance {
 	out := ConcernConformance{Concern: fc, Target: m.FramedConcernTarget(fc), Name: framedConcernName(fc)}
 	if ref := m.unresolvedConcernRef(fc); ref != "" {
 		out.Verdict = VerdictUnevaluable
 		out.Reason = fmt.Sprintf("the framing names %s, which does not resolve", ref)
-		return out
-	}
-	for _, f := range framings {
-		if m.framesTheSame(out, f) {
-			out.FramedBy, out.FramedIn = f.frame, f.in
-			break
-		}
-	}
-	if out.FramedBy == nil {
-		out.Verdict = VerdictViolated
-		out.Reason = "framed by the viewpoint but not by the view"
 		return out
 	}
 	if eval == nil {
@@ -384,7 +316,7 @@ func (m *Model) concernConformance(fc *symbols.Symbol, framings []viewFraming, e
 }
 
 // unresolvedConcernRef names what a framing references and could not resolve, so
-// the concern it frames is unknown rather than unframed by the view.
+// the concern it frames is unknown and nothing can be evaluated.
 func (m *Model) unresolvedConcernRef(fc *symbols.Symbol) string {
 	for _, rel := range RelationshipsOf(fc) {
 		if rel == nil || rel.Target == nil {
@@ -400,17 +332,6 @@ func (m *Model) unresolvedConcernRef(fc *symbols.Symbol) string {
 		}
 	}
 	return ""
-}
-
-// framesTheSame reports whether a view's framing frames the concern the
-// viewpoint's does: the same concern, or one specializing the other. Where
-// either side names no concern — an untyped `frame concern mass;` — the written
-// name decides, which is all the two framings share (tool-defined).
-func (m *Model) framesTheSame(c ConcernConformance, f viewFraming) bool {
-	if c.Target != nil && f.target != nil {
-		return c.Target == f.target || m.Conforms(f.target, c.Target) || m.Conforms(c.Target, f.target)
-	}
-	return c.Target == f.frame || (c.Name != "" && c.Name == framedConcernName(f.frame))
 }
 
 // evaluateConcern evaluates a framed concern against the exposed elements its
