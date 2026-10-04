@@ -29,7 +29,8 @@
     "./browser": {
       "types": "./dist/browser/index.d.ts",
       "default": "./dist/browser/index.js"
-    }
+    },
+    "./browser/wasm-worker": "./dist/browser/wasm-worker.js"
   },
   "bin": {
     "opensysml-generate": "dist/node/generate-cli.js"
@@ -67,6 +68,14 @@
     "@sigstore/protobuf-specs": "0.5.1",
     "@sigstore/tuf": "4.0.2",
     "@sigstore/verify": "3.1.1"
+  },
+  "peerDependencies": {
+    "@openmbee/opensysml-wasm": "0.9.1"
+  },
+  "peerDependenciesMeta": {
+    "@openmbee/opensysml-wasm": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.14.0",

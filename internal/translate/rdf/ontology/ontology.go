@@ -43,7 +43,8 @@ type Property struct {
 	// Range is the rdfs:range IRI: a metaclass or enumeration in the SysML
 	// namespace, or the XSD/OWL datatype of an ecore primitive.
 	Range string
-	// Many reports a non-single-valued upper multiplicity; the API JSON shape is an array.
+	// Many reports an upper multiplicity above 1 or unbounded (ecore upperBound
+	// -1): the API JSON shape is an array.
 	Many bool
 	// Ordered reports a Many property whose values are ordered (ecore
 	// ordered, which defaults to true); a single-valued property is never Ordered.

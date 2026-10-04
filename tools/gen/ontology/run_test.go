@@ -137,27 +137,37 @@ func TestRunWritesTheTable(t *testing.T) {
 	}
 }
 
-func TestRunTreatsUpperBoundsAboveOneAsMany(t *testing.T) {
-	ecore := strings.Replace(
-		sampleEcore,
-		`name="weight" eType=`,
-		`name="weight" upperBound="2" eType=`,
-		1,
-	)
-	dir := newMetamodel(t, ecore)
+// TestUpperBoundMultiplicity pins the rule: upper bound 1 (ecore's default) is
+// single-valued; any bound above 1, or -1 (unbounded), is multi-valued.
+func TestUpperBoundMultiplicity(t *testing.T) {
+	for upper, want := range map[string]bool{"": false, "1": false, "2": true, "5": true, "-1": true} {
+		got, err := isMany(upper)
+		if err != nil || got != want {
+			t.Errorf("isMany(%q) = %v, %v; want %v", upper, got, err, want)
+		}
+	}
+	for _, upper := range []string{"0", "-2", "many"} {
+		if _, err := isMany(upper); err == nil {
+			t.Errorf("isMany(%q) accepted an upper bound ecore cannot mean", upper)
+		}
+	}
+}
+
+func TestRunWritesABoundedManyProperty(t *testing.T) {
+	ecore := strings.Replace(sampleEcore, `name="weight" eType=`, `name="weight" upperBound="2" eType=`, 1)
 	out := filepath.Join(t.TempDir(), "table.go")
-	if err := run(dir, out, false, testPin); err != nil {
+	if err := run(newMetamodel(t, ecore), out, false, testPin); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	generated, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(generated), `Many: true, Ordered: true`) {
-		t.Fatalf("upperBound 2 was not generated as many:\n%s", generated)
+	want := `IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real", Many: true, Ordered: true}`
+	if !strings.Contains(string(generated), want) {
+		t.Fatalf("upperBound 2 was not generated as Many:\n%s", generated)
 	}
 }
-
 func TestCheckFailsOnlyOnDrift(t *testing.T) {
 	dir := newMetamodel(t, sampleEcore)
 	out := filepath.Join(t.TempDir(), "table.go")
@@ -220,8 +230,8 @@ func TestRunRejectsAMetamodelTheTableCannotHold(t *testing.T) {
 			"cannot form a <Metaclass>_<name> IRI"},
 		{"unknown primitive", wrap(element(feature("EAttribute", "n", `eType="types.ecore#//Char"`, ""))),
 			"no primitive the table maps"},
-		{"unparsable upper bound", wrap(element(feature("EAttribute", "n",
-			`upperBound="many" eType="types.ecore#//Integer"`, ""))), `upperBound "many" is not an integer`},
+		{"zero upper bound", wrap(element(feature("EAttribute", "n", `upperBound="0" eType="types.ecore#//String"`, ""))),
+			`upperBound "0" is neither a positive integer nor -1`},
 		{"unknown enum range", wrap(element(feature("EAttribute", "n", `eType="#//Missing"`, ""))),
 			"which the table cannot range over"},
 		{"empty enumeration", wrap(`<eClassifiers xsi:type="ecore:EEnum" name="VisibilityKind"/>`),

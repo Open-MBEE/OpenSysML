@@ -34,16 +34,10 @@ func TestTableShape(t *testing.T) {
 	if len(enumerations) != 7 {
 		t.Errorf("table holds %d enumerations; want 7", len(enumerations))
 	}
-	for _, property := range []struct {
-		class string
-		name  string
-	}{
-		{class: "MultiplicityRange", name: "bound"},
-		{class: "Flow", name: "flowEnd"},
-	} {
-		declared, ok := ontology.PropertyOf(property.class, property.name)
-		if !ok || !declared.Many {
-			t.Errorf("%s::%s should be Many", property.class, property.name)
+	for _, bounded := range [][2]string{{"MultiplicityRange", "bound"}, {"Flow", "flowEnd"}} {
+		// Both have ecore upperBound 2, so their API JSON shape is an array.
+		if declared, ok := ontology.PropertyOf(bounded[0], bounded[1]); !ok || !declared.Many {
+			t.Errorf("%s::%s should be Many", bounded[0], bounded[1])
 		}
 	}
 	if got := len(ontology.AmbiguousNames()); got != 58 {
