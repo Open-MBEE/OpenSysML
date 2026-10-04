@@ -568,9 +568,8 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 	return extra
 }
 
-// flowchartCluster reports whether node is written as a subgraph: one holding
-// nodes, or an interconnection's part with ports the display draws, since a
-// flowchart has no port element and a pin is a node inside its part.
+// flowchartCluster reports whether a node holds flowchart nodes, or is an
+// interconnection part with displayed ports.
 func flowchartCluster(node *Node, ports portView) bool {
 	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
 }
@@ -673,6 +672,27 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
 	w.writeClasses(flowchart.Notes, options)
+	r.writeFlowchartLinks(b, options, used)
+}
+
+func (r *Rendering) writeFlowchartLinks(b *strings.Builder, options Options, used map[string]map[string]bool) {
+	if !options.Links.Enabled() {
+		return
+	}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if r.Kind == KindTree || !r.flowchartSubgraph(node, used) {
+			if url, ok := options.Links.URL(node.Origin); ok {
+				fmt.Fprintf(b, "  click %s href \"%s\"\n", node.ID, url)
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
 }
 
 // writeFlowchartNoteEdges draws the dotted edge from each note group to the
@@ -1084,7 +1104,7 @@ func mermaidFontFamily(font string) bool {
 // writeFlowchartNode writes a subgraph for a node with children or used ports.
 func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, ctx flowchartContext) {
 	indent := strings.Repeat("  ", depth)
-	if !flowchartCluster(node, ctx.ports) && !r.hasUsedPorts(node, ctx.used) {
+	if !r.flowchartSubgraph(node, ctx.used) {
 		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, ctx.labels, ctx.options))
 		return
 	}
@@ -1470,6 +1490,27 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
 	}
 	r.writeMermaidStyles(b, fills, options, true)
+	r.writeStateLinks(b, options, chart)
+}
+
+func (r *Rendering) writeStateLinks(b *strings.Builder, options Options, chart *stateChart) {
+	if !options.Links.Enabled() {
+		return
+	}
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if len(node.Children) == 0 && node.Kind != startKind && !chart.convertedFinals[node.ID] {
+			if url, ok := options.Links.URL(node.Origin); ok {
+				fmt.Fprintf(b, "  click %s href \"%s\"\n", node.ID, url)
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
 }
 
 // indexStateChart gathers what writeStateDiagram writes the transitions from.
@@ -1552,7 +1593,6 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 // diagram: one participant per lifeline, declared before the messages, then the
 // messages in the order the rendering settled on.
 func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, options Options) {
-	_ = options
 	b.WriteString("sequenceDiagram\n")
 	if r.blank() {
 		// A sequence diagram carries no free text, so the reason is a
@@ -1562,6 +1602,9 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 	}
 	for _, node := range r.Roots {
 		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
+		if url, ok := options.Links.URL(node.Origin); ok {
+			fmt.Fprintf(b, "  link %s: Source @ %s\n", node.ID, url)
+		}
 	}
 	r.writeSequenceNotes(b)
 	writtenNotes := map[int]bool{}

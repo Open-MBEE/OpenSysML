@@ -380,7 +380,7 @@ elmt:Bounds__Fleet__loose
     sysml:owningMembership elmt:Bounds__Fleet__loose_om ;
     sysml:declaredName "loose" ;
     sysml:isOrdered "true"^^xsd:boolean ;
-    sysml:isNonunique "true"^^xsd:boolean ;
+    sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__loose_pmultiplicity ;
     sysml:ownedRelationship expr:Bounds__Fleet__loose_pmultiplicity_om, elmt:Bounds__Fleet__loose_ft0 ;

@@ -110,6 +110,8 @@ export interface ExportRequest {
   forms: readonly string[];
   /** The drawing style asked of the DOT form, when the panel's style names one the server draws. */
   style?: string;
+  /** Links diagram elements to the declaration in the source document. */
+  linkTemplate?: string;
 }
 
 /**
@@ -127,6 +129,9 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
     const params: RenderParams = { textDocument: { uri: request.uri }, view: request.view, form };
     if (request.style !== undefined) {
       params.style = request.style;
+    }
+    if (request.linkTemplate !== undefined) {
+      params.linkTemplate = request.linkTemplate;
     }
     result = await host.render(params);
   } catch (err) {

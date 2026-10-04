@@ -40,6 +40,16 @@ func TestReadDelimitedHeaders(t *testing.T) {
 	}
 }
 
+func TestReadTSVKeepsQuotes(t *testing.T) {
+	rows, err := Read("d", []byte("element\tlabel\nP::a\t5\" bore\n"), FormatTSV, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cells(rows); !reflect.DeepEqual(got, []string{`P::a::label=5" bore[]@d line 2, column label`}) {
+		t.Errorf("got %q", got)
+	}
+}
+
 func TestReadKeepsStringWhitespace(t *testing.T) {
 	rows, err := Read("d", []byte("element,label,n\nP::a,\"  Acme  \", 7 \n"), FormatCSV, nil)
 	if err != nil {
@@ -181,6 +191,11 @@ func TestLiteral(t *testing.T) {
 		{Cell{Text: "7.5"}, ClassInteger, "", "", "not an integer"},
 		{Cell{Text: "TRUE"}, ClassBoolean, "", "true", ""},
 		{Cell{Text: "yes"}, ClassBoolean, "", "", "not a boolean"},
+		{Cell{Text: "180", Kind: KindString, Unit: "kg"}, ClassReal, "", "180 [kg]", ""},
+		{Cell{Text: "7", Kind: KindString}, ClassInteger, "", "7", ""},
+		{Cell{Text: "false", Kind: KindString}, ClassBoolean, "", "false", ""},
+		{Cell{Text: "true", Kind: KindBoolean}, ClassInteger, "", "", "not an integer"},
+		{Cell{Text: "1", Kind: KindNumber}, ClassBoolean, "", "", "not a boolean"},
 		{Cell{Text: `say "hi"`}, ClassString, "", `"say \"hi\""`, ""},
 		{Cell{Text: "42", Kind: KindNumber}, ClassString, "", `"42"`, ""},
 		{Cell{Text: "42", Type: "string"}, ClassUnknown, "", `"42"`, ""},
