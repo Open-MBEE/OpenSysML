@@ -200,15 +200,15 @@ elmt:FlowsAndViews__FuelInterface
     sysml:ownedMember elmt:FlowsAndViews__FuelInterface__supplierPort, elmt:FlowsAndViews__FuelInterface__consumerPort, elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:ownedMembership elmt:FlowsAndViews__FuelInterface__supplierPort_om, elmt:FlowsAndViews__FuelInterface__consumerPort_om, elmt:FlowsAndViews__FuelInterface___402_om ;
     sysml:ownedRelationship elmt:FlowsAndViews__FuelInterface__supplierPort_om, elmt:FlowsAndViews__FuelInterface__consumerPort_om, elmt:FlowsAndViews__FuelInterface___402_om ;
-    sysml:ownedFeature elmt:FlowsAndViews__FuelInterface__supplierPort, elmt:FlowsAndViews__FuelInterface__consumerPort ;
-    sysml:ownedFeatureMembership elmt:FlowsAndViews__FuelInterface__supplierPort_om, elmt:FlowsAndViews__FuelInterface__consumerPort_om ;
+    sysml:ownedFeature elmt:FlowsAndViews__FuelInterface__supplierPort, elmt:FlowsAndViews__FuelInterface__consumerPort, elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:ownedFeatureMembership elmt:FlowsAndViews__FuelInterface__supplierPort_om, elmt:FlowsAndViews__FuelInterface__consumerPort_om, elmt:FlowsAndViews__FuelInterface___402_om ;
     sysx:sourceText "    interface def FuelInterface {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"},{\"@id\":\"FlowsAndViews__FuelInterface___402\"}]" ;
     json:ownedMembership "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort_om\"}]" .
+    json:ownedFeature "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort\"},{\"@id\":\"FlowsAndViews__FuelInterface___402\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"FlowsAndViews__FuelInterface__supplierPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface__consumerPort_om\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_om\"}]" .
 
 elmt:FlowsAndViews__FuelInterface_om
     a sysml:OwningMembership ;
@@ -318,14 +318,16 @@ elmt:FlowsAndViews__FuelInterface___402
     json:ownedEndFeature "[{\"@id\":\"FlowsAndViews__FuelInterface___402_pend0\"},{\"@id\":\"FlowsAndViews__FuelInterface___402_pend1\"}]" .
 
 elmt:FlowsAndViews__FuelInterface___402_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "FlowsAndViews__FuelInterface___402_om" ;
     sysml:owner elmt:FlowsAndViews__FuelInterface ;
     sysml:memberElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:ownedMemberElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:ownedRelatedElement elmt:FlowsAndViews__FuelInterface___402 ;
     sysml:owningRelatedElement elmt:FlowsAndViews__FuelInterface ;
-    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface .
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__FuelInterface ;
+    sysml:ownedMemberFeature elmt:FlowsAndViews__FuelInterface___402 ;
+    sysml:owningType elmt:FlowsAndViews__FuelInterface .
 
 expr:FlowsAndViews__FuelInterface___402_pend0
     a sysml:FlowEnd ;
@@ -475,7 +477,7 @@ elmt:FlowsAndViews__tanks
     sysml:owningRelationship elmt:FlowsAndViews__tanks_om ;
     sysml:owningMembership elmt:FlowsAndViews__tanks_om ;
     sysml:declaredName "tanks" ;
-    sysml:isNonunique "true"^^xsd:boolean ;
+    sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:multiplicity expr:FlowsAndViews__tanks_pmultiplicity ;
     sysml:ownedRelationship expr:FlowsAndViews__tanks_pmultiplicity_om, elmt:FlowsAndViews__tanks_ft0 ;
@@ -620,7 +622,7 @@ elmt:FlowsAndViews__vehicle__spares
     sysml:owningRelationship elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:owningMembership elmt:FlowsAndViews__vehicle__spares_om ;
     sysml:declaredName "spares" ;
-    sysml:isNonunique "true"^^xsd:boolean ;
+    sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:FlowsAndViews__Tank ;
     sysml:subsets elmt:FlowsAndViews__tanks ;
     sysml:multiplicity expr:FlowsAndViews__vehicle__spares_pmultiplicity ;

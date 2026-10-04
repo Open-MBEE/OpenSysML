@@ -58,6 +58,12 @@ func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Docum
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
 	model := passes.NewTypedModel(resolver)
+	model.SetSourceFile(func(doc string, _ source.Span) string {
+		if doc == sf.Name() {
+			return sourceName
+		}
+		return ""
+	})
 	model.SetSourceText(func(doc string, span source.Span) string {
 		if doc != sf.Name() {
 			return ""
@@ -72,7 +78,15 @@ func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Docum
 	if err != nil {
 		t.Fatalf("compile document %s: %v", name, err)
 	}
-	document, err := docir.Evaluate(plan, queryexec.Context{Index: index, Resolver: resolver, Model: model}, queryexec.Options{}, nil)
+	document, err := docir.Evaluate(plan, queryexec.Context{
+		Index: index, Resolver: resolver, Model: model,
+		LineIndex: func(doc string) *source.LineIndex {
+			if doc == sf.Name() {
+				return sf.Lines()
+			}
+			return nil
+		},
+	}, queryexec.Options{}, nil)
 	if err != nil {
 		t.Fatalf("evaluate document %s: %v", name, err)
 	}
@@ -191,6 +205,21 @@ func TestMarkdownTelescopeReportD2Golden(t *testing.T) {
 	}
 	if strings.Contains(got, "```mermaid") || strings.Contains(got, "```plantuml") {
 		t.Errorf("a diagram is another form when D2 is asked for:\n%s", got)
+	}
+}
+
+func TestMarkdownDiagramSourceLinks(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	document := fixtureDocument(t, path, "Observatory::MassReport")
+	got, err := Markdown(document, MarkdownOptions{
+		DiagramForm:  view.FormMermaid,
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `click n1 href "https://example.test/src/telescope_report.sysml#L`) {
+		t.Errorf("Markdown diagram does not link the source node:\n%s", got)
 	}
 }
 

@@ -150,6 +150,8 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 // PlantUML and D2 their Direction, Palette, Style and Unplaced, and the
 // interconnection forms their Ports display. A form ignores the rest.
 type Options struct {
+	// Links is the source link each node and edge is written with; zero writes none.
+	Links Links
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
 	// leaves each kind's default.
 	Direction Direction
@@ -181,6 +183,11 @@ func (r *Rendering) Write(form Form) (string, error) {
 // on every form that fills nodes, and a port display outside it an
 // *UnknownPortsError on every form.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
+	if options.Links.Template != "" {
+		if err := ParseLinkTemplate(options.Links.Template); err != nil {
+			return "", err
+		}
+	}
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}

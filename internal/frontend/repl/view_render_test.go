@@ -2,6 +2,7 @@ package repl
 
 import (
 	"errors"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -45,6 +46,29 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 	}
 }
 
+func TestRenderLinksUseLoadedSourcePositions(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "linked.sysml"), `package Linked {
+    part def Cog;
+    view overview { expose Linked::Cog; }
+}
+`)
+	s := NewSession()
+	if _, err := s.LoadFilesSummary([]string{path}); err != nil {
+		t.Fatal(err)
+	}
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	got := run(t, s, "%render Linked::overview mermaid link="+template)
+	want := `click n0 href "https://example.test/src/` + filepath.ToSlash(path) + `#L2:`
+	if !strings.Contains(got, want) {
+		t.Errorf("REPL rendering lacks source link %q:\n%s", want, got)
+	}
+	wants(t, run(t, s, "%render Linked::overview mermaid link=https://example.test/{unknown}"),
+		"unknown link template placeholder {unknown}")
+	wants(t, run(t, s, "%render Linked::overview mermaid link=https://example.test/{file} link=https://example.test/{line}"),
+		renderUsage)
+}
+
 // The DOT form is asked for by name, is the same rendering as a digraph, and is
 // offered by the usage and help text.
 func TestRenderWritesDotWhenAskedFor(t *testing.T) {
@@ -69,9 +93,9 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%render"), renderUsage)
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, renderUsage)
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML
@@ -136,10 +160,10 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
-		"usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+		renderUsage)
 	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
 	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot, plantuml and d2 forms only, not text")
-	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), renderUsage)
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}

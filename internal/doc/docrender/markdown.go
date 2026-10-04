@@ -39,6 +39,9 @@ type MarkdownOptions struct {
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
 
+	// LinkTemplate fills source links for diagram elements.
+	LinkTemplate string
+
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
 	// target's file here, or to DocumentFileName of its name when absent.
@@ -78,7 +81,7 @@ type MarkdownOptions struct {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o MarkdownOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -154,6 +157,7 @@ func figureOptions(node docir.Content, opts DiagramOptions) view.Options {
 	options := node.Options()
 	options.Unplaced = opts.Unplaced
 	options.Style = opts.Style
+	options.Links = view.Links{Template: opts.LinkTemplate, Sites: node.Sites()}
 	return options
 }
 

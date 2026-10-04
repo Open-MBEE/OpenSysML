@@ -127,6 +127,11 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
+
+The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
+and PlantUML SVG, but Mermaid CLI 11.16.0's default strict-mode renderer strips them because
+their scheme is not HTTP(S).
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -339,6 +344,10 @@ document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)
 rather than crashing or answering with partial output.
+
+An optional `linkTemplate` request field applies `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`
+to linkable diagram elements. Only on-disk workspace documents are linked; bundled libraries and
+non-file documents have no source link.
 
 ## `opensysml/stdlibContent` (request)
 
