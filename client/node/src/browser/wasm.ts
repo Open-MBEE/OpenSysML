@@ -1,12 +1,13 @@
-import { Code, ConnectError } from "@connectrpc/connect";
 import { Connection } from "../core/connection.js";
 import type { TransportOptions } from "../core/connection.js";
 import {
   connectWasmHost,
   instantiateInline,
   loadGoConstructor,
+  loadWasmSource,
+  WorkerWasmHost,
   type WasmHost,
-  type WasmWorkerRequest,
+  type WasmWorkerEndpoint,
   type WasmWorkerResponse,
   type WorkerWasmSource,
 } from "../core/wasm.js";
@@ -50,7 +51,7 @@ async function startWorker(
   wasm: BrowserWasmConnectOptions["wasm"],
   wasmExec: string | URL | undefined,
 ): Promise<WasmHost> {
-  const host = new BrowserWasmWorkerHost(worker);
+  const host = new WorkerWasmHost(browserWorkerEndpoint(worker));
   try {
     const { source, transfer } = await workerSource(wasm);
     return await host.start(
@@ -67,118 +68,28 @@ async function startWorker(
   }
 }
 
-class BrowserWasmWorkerHost implements WasmHost {
-  version = "";
-
-  private readonly pending = new Map<
-    number,
-    { resolve: (envelope: string) => void; reject: (error: unknown) => void }
-  >();
-  private readonly ready: Promise<void>;
-  private resolveReady!: () => void;
-  private rejectReady!: (error: unknown) => void;
-  private nextId = 1;
-  private failure: ConnectError | undefined;
-  private closed = false;
-
-  constructor(private readonly worker: Worker) {
-    this.ready = new Promise<void>((resolve, reject) => {
-      this.resolveReady = resolve;
-      this.rejectReady = reject;
-    });
-    worker.addEventListener("message", (event: MessageEvent<WasmWorkerResponse>) => {
-      this.receive(event.data);
-    });
-    worker.addEventListener("error", (event: ErrorEvent) => {
-      this.fail(new Error(event.message || "the sysml-wasm worker failed"));
-    });
-    worker.addEventListener("messageerror", () => {
-      this.fail(new Error("the sysml-wasm worker sent an unreadable message"));
-    });
-  }
-
-  async start(
-    request: Extract<WasmWorkerRequest, { type: "init" }>,
-    transfer: Transferable[],
-  ): Promise<this> {
-    this.worker.postMessage(request, transfer);
-    await this.ready;
-    return this;
-  }
-
-  async call(method: string, params: string): Promise<string> {
-    this.throwIfFailed();
-    if (this.closed) {
-      throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
-    }
-    await this.ready;
-    this.throwIfFailed();
-    const id = this.nextId++;
-    return new Promise<string>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      try {
-        this.worker.postMessage({ type: "call", id, method, params });
-      } catch (error) {
-        this.pending.delete(id);
-        reject(ConnectError.from(error, Code.Unavailable));
-      }
-    });
-  }
-
-  close(): Promise<void> {
-    if (this.closed) {
-      return Promise.resolve();
-    }
-    this.closed = true;
-    try {
-      this.worker.postMessage({ type: "close" });
-    } catch {
-      // A worker that has already failed has no message loop to close.
-    }
-    const closed = new ConnectError("the sysml-wasm worker was closed", Code.Unavailable);
-    for (const pending of this.pending.values()) {
-      pending.reject(closed);
-    }
-    this.pending.clear();
-    this.worker.terminate();
-    return Promise.resolve();
-  }
-
-  private receive(message: WasmWorkerResponse): void {
-    if (message.type === "ready") {
-      this.version = message.version;
-      this.resolveReady();
-      return;
-    }
-    if (message.type === "failed") {
-      this.fail(new Error(message.message));
-      return;
-    }
-    const pending = this.pending.get(message.id);
-    if (pending !== undefined) {
-      this.pending.delete(message.id);
-      pending.resolve(message.envelope);
-    }
-  }
-
-  private fail(reason: unknown): void {
-    if (this.failure !== undefined || this.closed) {
-      return;
-    }
-    this.failure = ConnectError.from(reason, Code.Unavailable);
-    this.rejectReady(this.failure);
-    for (const pending of this.pending.values()) {
-      pending.reject(this.failure);
-    }
-    this.pending.clear();
-  }
-
-  private throwIfFailed(): void {
-    const failure = this.failure;
-    if (failure !== undefined) {
-      throw failure;
-    }
-  }
+function browserWorkerEndpoint(worker: Worker): WasmWorkerEndpoint {
+  return {
+    post(message, transfer) {
+      worker.postMessage(message, [...transfer]);
+    },
+    onMessage(listener) {
+      worker.addEventListener("message", (event: MessageEvent<WasmWorkerResponse>) => {
+        listener(event.data);
+      });
+    },
+    onFailure(listener) {
+      worker.addEventListener("error", (event: ErrorEvent) => {
+        listener(new Error(event.message || "the sysml-wasm worker failed"));
+      });
+      worker.addEventListener("messageerror", () => {
+        listener(new Error("the sysml-wasm worker sent an unreadable message"));
+      });
+    },
+    terminate() {
+      worker.terminate();
+    },
+  };
 }
 
 async function workerSource(
@@ -216,22 +127,12 @@ async function browserWasmSource(
   ) {
     return wasm;
   }
-  const response =
-    wasm instanceof Response ? wasm : await fetch(wasm instanceof URL ? wasm : resourceUrl(wasm));
-  if (!response.ok) {
-    throw new Error(`could not fetch the WebAssembly module: ${response.status}`);
-  }
-  if (response.bodyUsed) {
+  if (wasm instanceof Response && wasm.bodyUsed) {
     throw new Error("the WebAssembly Response body has already been read");
   }
-  if (typeof WebAssembly.compileStreaming === "function") {
-    try {
-      return await WebAssembly.compileStreaming(response.clone());
-    } catch {
-      // Some servers omit the application/wasm content type required by streaming.
-    }
-  }
-  return response.arrayBuffer();
+  return loadWasmSource(
+    wasm instanceof Response ? wasm : wasm instanceof URL ? wasm : resourceUrl(wasm),
+  );
 }
 
 function resourceUrl(value: string | URL): string {

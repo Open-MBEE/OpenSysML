@@ -47,6 +47,14 @@ export type WasmWorkerResponse =
   | { type: "failed"; message: string }
   | { type: "answer"; id: number; envelope: string };
 
+/** The platform-specific message and lifecycle surface of a WASM worker. */
+export interface WasmWorkerEndpoint {
+  post(message: WasmWorkerRequest, transfer: readonly Transferable[]): void;
+  onMessage(listener: (message: WasmWorkerResponse) => void): void;
+  onFailure(listener: (reason: Error) => void): void;
+  terminate(): Promise<void> | void;
+}
+
 /** The message port surface shared by browser and Node workers. */
 export interface WasmPortLike {
   postMessage(message: WasmWorkerResponse): void;
@@ -256,6 +264,117 @@ export async function connectWasmHost(
   });
 }
 
+/** Adapts a platform worker endpoint to the shared WASM host protocol. */
+export class WorkerWasmHost implements WasmHost {
+  version = "";
+
+  private readonly pending = new Map<
+    number,
+    { resolve: (envelope: string) => void; reject: (error: unknown) => void }
+  >();
+  private readonly ready: Promise<void>;
+  private resolveReady!: () => void;
+  private rejectReady!: (error: unknown) => void;
+  private nextId = 1;
+  private failure: ConnectError | undefined;
+  private closed = false;
+
+  constructor(private readonly endpoint: WasmWorkerEndpoint) {
+    this.ready = new Promise<void>((resolve, reject) => {
+      this.resolveReady = resolve;
+      this.rejectReady = reject;
+    });
+    endpoint.onMessage((message) => {
+      this.receive(message);
+    });
+    endpoint.onFailure((reason) => {
+      this.fail(reason);
+    });
+  }
+
+  async start(
+    request: Extract<WasmWorkerRequest, { type: "init" }>,
+    transfer: readonly Transferable[],
+  ): Promise<this> {
+    this.endpoint.post(request, transfer);
+    await this.ready;
+    return this;
+  }
+
+  async call(method: string, params: string): Promise<string> {
+    this.throwIfFailed();
+    if (this.closed) {
+      throw new ConnectError("the sysml-wasm worker is closed", Code.Unavailable);
+    }
+    await this.ready;
+    this.throwIfFailed();
+    const id = this.nextId++;
+    return new Promise<string>((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      try {
+        this.endpoint.post({ type: "call", id, method, params }, []);
+      } catch (error) {
+        this.pending.delete(id);
+        reject(ConnectError.from(error, Code.Unavailable));
+      }
+    });
+  }
+
+  async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    try {
+      this.endpoint.post({ type: "close" }, []);
+    } catch {
+      // A worker that has already failed has no message loop to close.
+    }
+    const closed = new ConnectError("the sysml-wasm worker was closed", Code.Unavailable);
+    for (const pending of this.pending.values()) {
+      pending.reject(closed);
+    }
+    this.pending.clear();
+    await this.endpoint.terminate();
+  }
+
+  private receive(message: WasmWorkerResponse): void {
+    if (message.type === "ready") {
+      this.version = message.version;
+      this.resolveReady();
+      return;
+    }
+    if (message.type === "failed") {
+      this.fail(new Error(message.message));
+      return;
+    }
+    const pending = this.pending.get(message.id);
+    if (pending !== undefined) {
+      this.pending.delete(message.id);
+      pending.resolve(message.envelope);
+    }
+  }
+
+  private fail(reason: Error): void {
+    if (this.failure !== undefined || this.closed) {
+      return;
+    }
+    this.failure = ConnectError.from(reason, Code.Unavailable);
+    this.rejectReady(this.failure);
+    for (const pending of this.pending.values()) {
+      pending.reject(this.failure);
+    }
+    this.pending.clear();
+  }
+
+  private throwIfFailed(): void {
+    const failure = this.failure;
+    if (failure !== undefined) {
+      throw failure;
+    }
+  }
+}
+
 /**
  * Serves the shared init/call protocol on a Node or browser worker port.
  */
@@ -431,8 +550,8 @@ function errorEnvelope(error: unknown): string {
   });
 }
 
-async function loadWasmSource(
-  source: WorkerWasmSource,
+export async function loadWasmSource(
+  source: WorkerWasmSource | URL | Response,
 ): Promise<BufferSource | WebAssembly.Module> {
   if (
     source instanceof WebAssembly.Module ||
@@ -441,7 +560,7 @@ async function loadWasmSource(
   ) {
     return source;
   }
-  const response = await fetch(source);
+  const response = source instanceof Response ? source : await fetch(source);
   if (!response.ok) {
     throw new OpenSysMLError(`could not fetch the WebAssembly module: ${response.status}`);
   }
