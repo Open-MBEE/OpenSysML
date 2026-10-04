@@ -43,6 +43,12 @@ type Property struct {
 	// Range is the rdfs:range IRI: a metaclass or enumeration in the SysML
 	// namespace, or the XSD/OWL datatype of an ecore primitive.
 	Range string
+	// Lower is the ecore lowerBound; an absent bound is zero.
+	Lower int
+	// Default is the ecore defaultValueLiteral, when HasDefault is true.
+	Default string
+	// HasDefault distinguishes an absent default from an explicit empty value.
+	HasDefault bool
 	// Many reports an upper multiplicity above 1 or unbounded (ecore upperBound
 	// -1): the API JSON shape is an array.
 	Many bool

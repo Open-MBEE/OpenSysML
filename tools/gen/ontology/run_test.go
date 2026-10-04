@@ -23,16 +23,16 @@ const sampleEcore = `<?xml version="1.0" encoding="UTF-8"?>
 <ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="sysml" nsURI="https://www.omg.org/spec/SysML/20250201" nsPrefix="sysml">
   <eClassifiers xsi:type="ecore:EClass" name="PartUsage" eSuperTypes="#//Usage #//ItemUsage">
-    <eStructuralFeatures xsi:type="ecore:EReference" name="partDefinition" ordered="false" upperBound="-1"
+    <eStructuralFeatures xsi:type="ecore:EReference" name="partDefinition" ordered="false" lowerBound="1" upperBound="-1"
         eType="#//PartDefinition" volatile="true" transient="true" derived="true">
       <eAnnotations source="subsets" references="#//ItemUsage/itemDefinition"/>
     </eStructuralFeatures>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Element" abstract="true">
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
-    <eStructuralFeatures xsi:type="ecore:EAttribute" name="isLibraryElement" eType="ecore:EDataType types.ecore#//Boolean"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString" defaultValueLiteral=""/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="isLibraryElement" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EBoolean"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="visibility" eType="#//VisibilityKind"/>
-    <eStructuralFeatures xsi:type="ecore:EReference" name="ownedRelationship" upperBound="-1"
+    <eStructuralFeatures xsi:type="ecore:EReference" name="ownedRelationship" lowerBound="1" upperBound="-1"
         eType="#//Element" containment="true" eOpposite="#//Element/owningRelatedElement"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="owningRelatedElement" ordered="false"
         eType="#//Element" eOpposite="#//Element/ownedRelationship"/>
@@ -80,14 +80,14 @@ const SourceCommit = "0123456789abcdef0123456789abcdef01234567"
 
 // properties holds every eStructuralFeature the metamodel declares, ordered by IRI.
 var properties = []Property{
-	{Name: "isLibraryElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_isLibraryElement", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#boolean"},
-	{Name: "name", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_name", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#string"},
-	{Name: "ownedRelationship", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_ownedRelationship", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Many: true, Ordered: true, Opposite: "Element::owningRelatedElement"},
+	{Name: "isLibraryElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_isLibraryElement", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#boolean", Default: "false", HasDefault: true},
+	{Name: "name", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_name", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#string", Default: "", HasDefault: true},
+	{Name: "ownedRelationship", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_ownedRelationship", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Lower: 1, Many: true, Ordered: true, Opposite: "Element::owningRelatedElement"},
 	{Name: "owningRelatedElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_owningRelatedElement", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Opposite: "Element::ownedRelationship"},
 	{Name: "visibility", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_visibility", Kind: DatatypeProperty, Range: "https://www.omg.org/spec/SysML#VisibilityKind"},
 	{Name: "itemDefinition", DefiningClass: "ItemUsage", IRI: "https://www.omg.org/spec/SysML#ItemUsage_itemDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true},
 	{Name: "ownedPart", DefiningClass: "PartDefinition", IRI: "https://www.omg.org/spec/SysML#PartDefinition_ownedPart", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartUsage", Many: true, Ordered: true, Derived: true, Redefines: []string{"Element::ownedRelationship", "ItemUsage::itemDefinition"}},
-	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true, Subsets: []string{"ItemUsage::itemDefinition"}},
+	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Lower: 1, Many: true, Derived: true, Subsets: []string{"ItemUsage::itemDefinition"}},
 	{Name: "weight", DefiningClass: "Usage", IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real"},
 }
 
@@ -149,6 +149,20 @@ func TestUpperBoundMultiplicity(t *testing.T) {
 	for _, upper := range []string{"0", "-3", "many"} {
 		if _, err := isMany(upper); err == nil {
 			t.Errorf("isMany(%q) accepted an upper bound ecore cannot mean", upper)
+		}
+	}
+}
+
+func TestLowerBound(t *testing.T) {
+	for lower, want := range map[string]int{"": 0, "0": 0, "1": 1, "12": 12} {
+		got, err := parseLowerBound(lower)
+		if err != nil || got != want {
+			t.Errorf("parseLowerBound(%q) = %d, %v; want %d", lower, got, err, want)
+		}
+	}
+	for _, lower := range []string{"-1", "many"} {
+		if _, err := parseLowerBound(lower); err == nil {
+			t.Errorf("parseLowerBound(%q) accepted an invalid lower bound", lower)
 		}
 	}
 }

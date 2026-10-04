@@ -217,14 +217,16 @@ type eLiteral struct {
 }
 
 type eFeature struct {
-	Type        string        `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
-	Name        string        `xml:"name,attr"`
-	EType       string        `xml:"eType,attr"`
-	UpperBound  string        `xml:"upperBound,attr"`
-	Ordered     string        `xml:"ordered,attr"`
-	Derived     bool          `xml:"derived,attr"`
-	Opposite    string        `xml:"eOpposite,attr"`
-	Annotations []eAnnotation `xml:"eAnnotations"`
+	Type                string        `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	Name                string        `xml:"name,attr"`
+	EType               string        `xml:"eType,attr"`
+	LowerBound          string        `xml:"lowerBound,attr"`
+	UpperBound          string        `xml:"upperBound,attr"`
+	DefaultValueLiteral *string       `xml:"defaultValueLiteral,attr"`
+	Ordered             string        `xml:"ordered,attr"`
+	Derived             bool          `xml:"derived,attr"`
+	Opposite            string        `xml:"eOpposite,attr"`
+	Annotations         []eAnnotation `xml:"eAnnotations"`
 }
 
 type eAnnotation struct {
@@ -255,7 +257,9 @@ func parseEcore(path string) (ePackage, error) {
 // the package they live in does not compile until this has run.
 type property struct {
 	name, definingClass, iri, kind, rangeIRI, opposite string
-	many, ordered, derived                             bool
+	lower                                              int
+	defaultValue                                       string
+	many, ordered, derived, hasDefault                 bool
 	redefines, subsets                                 []string
 }
 
@@ -351,12 +355,27 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	if err != nil {
 		return property{}, err
 	}
+	lower, err := parseLowerBound(f.LowerBound)
+	if err != nil {
+		return property{}, err
+	}
 	p := property{
 		name:          f.Name,
 		definingClass: defining,
 		iri:           sysmlNS + defining + "_" + f.Name,
+		lower:         lower,
 		many:          many,
 		derived:       f.Derived,
+	}
+	if f.Type == "ecore:EAttribute" {
+		switch {
+		case f.DefaultValueLiteral != nil:
+			p.defaultValue = *f.DefaultValueLiteral
+			p.hasDefault = true
+		case strings.HasSuffix(f.EType, "#//EBoolean"):
+			p.defaultValue = "false"
+			p.hasDefault = true
+		}
 	}
 	p.ordered = p.many && f.Ordered != "false"
 	local, isLocal := strings.CutPrefix(f.EType, "#//")
@@ -412,6 +431,18 @@ func isMany(upperBound string) (bool, error) {
 }
 
 // featureRefs turns "#//Class/feature ..." references into "Class::feature" names, each a declared feature.
+
+func parseLowerBound(lowerBound string) (int, error) {
+	if lowerBound == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(lowerBound)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("lowerBound %q is not a non-negative integer", lowerBound)
+	}
+	return n, nil
+}
+
 func featureRefs(refs string, features map[string]bool) ([]string, error) {
 	var out []string
 	for _, ref := range strings.Fields(refs) {
@@ -430,6 +461,12 @@ func propertyLiterals(properties []property) string {
 	for _, p := range properties {
 		fmt.Fprintf(&b, "\t{Name: %q, DefiningClass: %q, IRI: %q, Kind: %s, Range: %q",
 			p.name, p.definingClass, p.iri, p.kind, p.rangeIRI)
+		if p.lower > 0 {
+			fmt.Fprintf(&b, ", Lower: %d", p.lower)
+		}
+		if p.hasDefault {
+			fmt.Fprintf(&b, ", Default: %q, HasDefault: true", p.defaultValue)
+		}
 		for _, flag := range []struct {
 			name string
 			set  bool
