@@ -25,6 +25,7 @@ described in the [install guide](../guide/01-install.md)) carries it.
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates
   `scripts/build-release-artifacts.sh` is skipped, since the workflow cannot build it.
+  Snapshots built from commits predating the WASM build do not include WebAssembly assets.
 - **Replaced, not accumulated.** There is one snapshot. Each night the previous release is
   deleted, the `nightly` tag moved, and a new release published with only that night's
   assets. A link to `releases/tag/nightly` is stable; a link to an asset of a particular night

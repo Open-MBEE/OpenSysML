@@ -206,8 +206,10 @@ jobs:
             printf '%s\n' " [this workflow run]($RUN_URL). Every binary reports \`$VERSION\`."
             echo
             printf '%s' "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
-            printf '%s' " PyPI, npm and the Windows installer follow the stable line only. The"
-            printf '%s' " \`sysml-wasm.wasm\` module and matching \`wasm_exec.js\` are available in its assets."
+            printf '%s' " PyPI, npm and the Windows installer follow the stable line only."
+            if [[ -f dist/wasm/sysml-wasm.wasm ]]; then
+              printf '%s' " The \`sysml-wasm.wasm\` module and matching \`wasm_exec.js\` are available in its assets."
+            fi
             printf '%s' " The"
             printf '%s' " [snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
             printf '%s' " to verify it and what to expect from it; the"
@@ -237,8 +239,6 @@ jobs:
           } > notes.md
           cat notes.md
 
-      # Recreated rather than edited, so no asset of a previous night survives.
-      # `gh release delete` leaves the tag behind; it is moved by hand.
       - name: Publish the prerelease at the moving tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -247,6 +247,28 @@ jobs:
           DATE: ${{ steps.version.outputs.date }}
         run: |
           sha=$(git rev-parse HEAD)
+          assets=(
+            dist/*.tar.gz
+            dist/*.zip
+            dist/opensysml-sysml.vsix
+            dist/SHA256SUMS.txt
+            dist/SHA256SUMS.txt.bundle
+            dist/grpc/sysml-grpc-*
+          )
+          if [[ -f dist/wasm/sysml-wasm.wasm ]]; then
+            assets+=(
+              dist/wasm/sysml-wasm.wasm
+              dist/wasm/wasm_exec.js
+              dist/wasm/sysml-wasm.wasm.sha256
+              dist/wasm/wasm_exec.js.sha256
+            )
+          fi
+          for asset in "${assets[@]}"; do
+            if [[ ! -f "$asset" ]]; then
+              printf '::error::Missing release asset: %s\n' "$asset"
+              exit 1
+            fi
+          done
           if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
             gh release delete "$TAG" --yes
           fi
@@ -258,8 +280,5 @@ jobs:
             --notes-file notes.md \
             --prerelease \
             --latest=false \
-            dist/*.tar.gz dist/*.zip dist/opensysml-sysml.vsix \
-            dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
-            dist/grpc/sysml-grpc-* \
-            dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js dist/wasm/*.sha256
+            "${assets[@]}"
           gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'
