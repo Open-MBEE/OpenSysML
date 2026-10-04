@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import { AUTO_LAYOUT_LIMIT, autoLayout, type AutoLayout } from "./autolayout";
-import { GAP, layoutCanvas, portFace, PORT_SIZE, type Box } from "./layout";
+import { GAP, layoutCanvas, portFace, type Box } from "./layout";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -198,8 +198,8 @@ test("autoLayout places edge ports on opposite sides and routes to their faces",
   const [start, end] = [canvas.edges[0].points[0], canvas.edges[0].points.at(-1)!];
   const startFace = portFace(a.box, aPort);
   const endFace = portFace(b.box, bPort);
-  assert.ok(Math.hypot(start.x - startFace.x, start.y - startFace.y) <= PORT_SIZE);
-  assert.ok(Math.hypot(end.x - endFace.x, end.y - endFace.y) <= PORT_SIZE);
+  assert.deepEqual(start, startFace);
+  assert.deepEqual(end, endFace);
 });
 
 test("autoLayout keeps an unconnected port on the south after laying out connected ports", async () => {

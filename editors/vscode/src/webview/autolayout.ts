@@ -119,6 +119,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
           id: port.id,
           width: PORT_SIZE,
           height: PORT_SIZE,
+          layoutOptions: { "elk.port.borderOffset": String(-PORT_SIZE / 2) },
           labels: [{ text: port.name, width: label.width, height: label.height }],
         };
       });
